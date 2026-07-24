@@ -145,17 +145,6 @@ export function EditToolbar({
         </button>
         <button
           type="button"
-          onClick={onInsertFile}
-          disabled={uploading}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-violet-600">
-            <ImageInsertIcon />
-          </ToolIcon>
-          {uploadLabel}
-        </button>
-        <button
-          type="button"
           onClick={onScan}
           disabled={busy}
           className={TOOL_SLOT}
@@ -164,6 +153,17 @@ export function EditToolbar({
             <ScanIcon />
           </ToolIcon>
           {scanLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onInsertFile}
+          disabled={uploading}
+          className={TOOL_SLOT}
+        >
+          <ToolIcon color="text-violet-600">
+            <ImageInsertIcon />
+          </ToolIcon>
+          {uploadLabel}
         </button>
         <button
           type="button"
