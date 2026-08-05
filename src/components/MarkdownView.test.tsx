@@ -346,3 +346,34 @@ test("blobKinds に無い blob: は今までどおり画像として描く", () 
   expect(html).toContain('src="blob:https://example.com/x"');
   expect(html).not.toContain("<audio");
 });
+
+// --- タスクリストのチェックボックス (docs/55-チェックボックス操作計画.md) ---
+
+const noopToggle = async () => {};
+
+const renderWithToggle = (markdown: string) =>
+  renderToStaticMarkup(
+    <MarkdownView
+      markdown={markdown}
+      onToggleTask={noopToggle}
+    />,
+  );
+
+test("onToggleTask を渡さないとチェックボックスは押せないまま", () => {
+  const html = render("- [ ] apple\n- [x] banana");
+  expect(html).toContain('type="checkbox"');
+  expect(html).toContain("disabled");
+});
+
+test("onToggleTask を渡すと押せるチェックボックスに差し替える", () => {
+  const html = renderWithToggle("- [ ] apple\n- [x] banana");
+  expect(html).toContain('type="checkbox"');
+  expect(html).not.toContain("disabled");
+  // 描画時点の状態がそのまま出る (2 つ目だけチェック済み)
+  expect(html.match(/checked/g)).toHaveLength(1);
+});
+
+test("コードフェンスの中の擬似タスクはチェックボックスにならない", () => {
+  const html = renderWithToggle("```text\n- [ ] apple\n```");
+  expect(html).not.toContain('type="checkbox"');
+});

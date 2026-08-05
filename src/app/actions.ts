@@ -21,6 +21,7 @@ import { buildSearchUrl } from '@/lib/searchUrl'
 import { SORT_COOKIE, SORT_COOKIE_MAX_AGE } from '@/lib/sortMode'
 import { currentUser, requireUser } from '@/lib/session'
 import { addTagsToMemo, removeTagsFromMemo } from '@/lib/tagEdit'
+import { toggleTaskLine } from '@/lib/taskCheckbox'
 import {
   isValidItemNo,
   MAX_TEXT_LENGTH,
@@ -72,6 +73,47 @@ export async function updateMemoAction(formData: FormData): Promise<void> {
   await upsertMemo(itemNo, memo)
   revalidatePath(`/item/${itemNo}`)
   redirect(savedHref(itemNo))
+}
+
+// 閲覧画面 (markdown タブ) でタスクリストのチェックを切り替える
+// (docs/55-チェックボックス操作計画.md §4)。
+//
+// フォームではなくクライアントから直接呼ぶので FormData ではなく引数で受ける。
+// 送るのは**望む状態** (checked) であって「裏返せ」ではない — 連打や二重送信で
+// 意図と逆に倒れないようにするため (setItemPublicAction と同じ約束)。
+//
+// 行番号は画面が描かれた時点のものなので、本文が変わっていれば古い。
+// toggleTaskLine がその行を「本当にタスク項目か」で検算し、違えば書き換えずに
+// 投げる (クライアントは楽観更新を巻き戻してエラーを出す)。
+export async function toggleMemoTaskAction(
+  itemNo: string,
+  line: number,
+  checked: boolean,
+): Promise<void> {
+  await requireUser()
+  if (!isValidItemNo(itemNo)) {
+    throw new Error('itemNo が不正です')
+  }
+  const item = await getItem(itemNo)
+  if (item === null) {
+    throw new Error('ノートが見つかりません')
+  }
+  const next = toggleTaskLine(item.memo, line, checked)
+  if (next === null) {
+    throw new Error('本文が変わっています。画面を更新してください')
+  }
+  // 既に望む状態なら書かない (updated_at を動かさない)
+  if (next !== item.memo) {
+    await upsertMemo(itemNo, next)
+  }
+  // これで Next.js が同じ応答の中でこのルートを描き直す (server-actions.md)。
+  // 画像回転と違い router.refresh() は要らない。
+  //
+  // 1 回押すごとに ItemView 全体の再描画 (renderCircuits 込み) を払うことは
+  // 承知のうえ。テキストタブと**まだ開いていない編集タブ**は本文をサーバ描画
+  // から受け取るので、ここを省くと押した結果が反映されない画面が残る。
+  // まとめ送りにしないのは、押した分だけ即保存されるほうが単語帳向きなため
+  revalidatePath(`/item/${itemNo}`)
 }
 
 // Ver1 の /edit/:itemNo POST 相当: mode / memo / url を更新 (未登録なら作成)

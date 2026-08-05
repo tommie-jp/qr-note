@@ -3,6 +3,7 @@ import type { Item } from "@/generated/prisma/client";
 import {
   restoreItemsAction,
   setItemPublicAction,
+  toggleMemoTaskAction,
   updateMemoAction,
 } from "@/app/actions";
 import { ItemTags } from "@/components/ItemTags";
@@ -110,6 +111,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
             circuits={circuits}
             allowRotate
             allowSecretEdit
+            onToggleTask={toggleMemoTaskAction.bind(null, itemNo)}
           />
         }
         textView={

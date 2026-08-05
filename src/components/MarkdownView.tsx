@@ -4,6 +4,8 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
+import type { Element } from "hast";
+import type { PluggableList } from "unified";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema, type Options } from "rehype-sanitize";
@@ -11,6 +13,8 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { remarkTagLinks } from "./remarkTagLinks";
+import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
+import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { CircuitDiagram } from "./CircuitDiagram";
 import { ZoomableImage } from "./ZoomableImage";
@@ -95,13 +99,25 @@ interface MarkdownViewProps {
   // 細工をする (`#x.mp3` を足す) のは行儀が悪いので、種別を明示的に渡す。
   // 非同期に用意した結果を呼び出し側から渡すのは circuits と同じ作法
   blobKinds?: ReadonlyMap<string, "image" | "audio" | "video">;
+  // タスクリスト (`- [ ]`) のチェックボックスを押したときの保存処理
+  // (docs/55-チェックボックス操作計画.md §5)。省略すると押せないまま
+  // (GFM 既定の disabled な表示)。
+  //
+  // allowRotate のような「許可の真偽値」ではなく処理そのものを受けるのは、
+  // このコンポーネントに「どのノートか」を持ち込まないため — ここは本文の
+  // 描き方だけを知っていればよい。渡すのはノート閲覧 (ItemView) だけで、
+  // 押すと保存が走るので公開ビュー・印刷・docs ページでは渡さない。
+  // **シークレット断片の中でも渡さない** (断片は独立に描かれるので行番号が
+  // メモ本文と一致しない)
+  onToggleTask?: ToggleTaskHandler;
 }
 
 // react-markdown はカスタムコンポーネントに hast の node を渡してくるため、
 // DOM 要素へ spread する前に取り除く
-type MarkdownComponentProps<T extends "pre" | "a" | "img"> = ComponentProps<T> & {
-  node?: unknown;
-};
+type MarkdownComponentProps<T extends "pre" | "a" | "img" | "input"> =
+  ComponentProps<T> & {
+    node?: unknown;
+  };
 
 // フェンスの言語と中身を取り出す。フェンスでなければ null
 function readFence(
@@ -246,6 +262,41 @@ function imgRenderer(
   };
 }
 
+// rehypeTaskLines が刻んだ行番号を hast ノードから読む (docs/55 §2)。
+// 刻まれていない = タスクリストのチェックボックスではない
+function taskLineOf(node: unknown): number | null {
+  const value = (node as Element | undefined)?.properties?.[TASK_LINE_PROPERTY];
+  return typeof value === "number" ? value : null;
+}
+
+// GFM のチェックボックスを押せるものに差し替える (docs/55-チェックボックス操作計画.md)。
+// サニタイズは input へ disabled を必ず付け直すため、スキーマを緩めても押せる
+// ようにはならない。**サニタイズの後に React が自前で組み立てる**この差し替えが
+// 正攻法 (img / a / pre と同じ手)。
+//
+// 出し分けはここ 1 か所に寄せる — onToggleTask を渡されない画面では GFM 既定の
+// disabled な input をそのまま描く。呼ぶ側で components ごと出し入れすると、
+// 出し分けの条件が 2 か所に増えて片方だけ直す事故が起きる (imgRenderer が
+// allowRotate を内側で見ているのと同じ作法)
+function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
+  return function TaskCheckboxInput({
+    node,
+    ...props
+  }: MarkdownComponentProps<"input">) {
+    const line = taskLineOf(node);
+    if (onToggleTask === undefined || props.type !== "checkbox" || line === null) {
+      return <input {...props} />;
+    }
+    return (
+      <TaskCheckbox
+        line={line}
+        initialChecked={props.checked === true}
+        onToggle={onToggleTask}
+      />
+    );
+  };
+}
+
 // 外部サイトへのリンクだけ別タブで開く。#タグ の検索リンクやメモへの
 // 内部リンク (/... で始まる) までタブを増やすと使いにくいため除く。
 // mailto: などもメーラーが起動して空タブが残るだけなので対象外
@@ -276,6 +327,7 @@ export function MarkdownView({
   allowRotate = false,
   allowSecretEdit = false,
   blobKinds = new Map(),
+  onToggleTask,
 }: MarkdownViewProps) {
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
   // 残るので、本文の見た目は「リンクでない #タグ」になる
@@ -286,19 +338,30 @@ export function MarkdownView({
     ...(linkTags ? [remarkTagLinks] : []),
   ];
 
+  // rehypeTaskLines は**サニタイズより後**に置く (前だと data-line が落ちる)。
+  // 押せない画面でも外さない — 出し分けを増やすと、片方だけ直したときに
+  // 「静かに押せないだけ」に戻ってしまう。刻むのは行番号だけで実害はない
+  const rehypePlugins: PluggableList = [
+    [rehypeSanitize, sanitizeSchema],
+    [rehypeKatex, { maxSize: KATEX_MAX_SIZE_EM }],
+    rehypeTaskLines,
+  ];
+
   return (
-    <div className={`prose prose-sm max-w-none break-words ${BOX_CLASS}`}>
+    // タスク項目の中黒は落とす。チェックボックスと二重の目印になって読みにくい
+    // (字下げは残して他の箇条書きと行頭を揃える)
+    <div
+      className={`prose prose-sm max-w-none break-words [&_li.task-list-item]:list-none ${BOX_CLASS}`}
+    >
       <Markdown
         remarkPlugins={remarkPlugins}
         urlTransform={urlTransform}
-        rehypePlugins={[
-          [rehypeSanitize, sanitizeSchema],
-          [rehypeKatex, { maxSize: KATEX_MAX_SIZE_EM }],
-        ]}
+        rehypePlugins={rehypePlugins}
         components={{
           pre: preOrDiagram(circuits),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
+          input: taskCheckboxRenderer(onToggleTask),
         }}
       >
         {markdown}

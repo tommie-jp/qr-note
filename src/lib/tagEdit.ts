@@ -12,6 +12,7 @@
 //     行が空になればその行ごと消す。
 //   - 文章中に混ざったタグ (例: "RITEX #1612 隣家前") は壊さないため対象外。
 
+import { joinLines, newlineOf, splitLines } from './memoLines'
 import { extractTags, normalizeTag, parseTagToken } from './tags'
 
 // 行が「タグだけの行」なら空白区切りのトークン列を、そうでなければ null を返す。
@@ -21,12 +22,6 @@ function tagOnlyTokens(line: string): string[] | null {
     return null
   }
   return tokens.every((t) => parseTagToken(t) !== null) ? tokens : null
-}
-
-// メモの改行コードを保つ (Ver1 由来の CRLF メモを LF 混在に壊さないため)。
-// \r\n を含むなら \r\n、それ以外は \n を採用し、行分割/結合で統一して使う。
-function newlineOf(memo: string): string {
-  return memo.includes('\r\n') ? '\r\n' : '\n'
 }
 
 // メモにタグを 1 つ追加する (tag は生入力でよい: 正規化して書き込む)。
@@ -44,14 +39,14 @@ export function addTagToMemo(memo: string, tag: string): string {
     return `#${name}`
   }
   const nl = newlineOf(memo)
-  const lines = memo.split(/\r?\n/)
+  const lines = splitLines(memo)
   const second = lines[1]
   if (second !== undefined && tagOnlyTokens(second) !== null) {
     lines[1] = `${second} #${name}`
   } else {
     lines.splice(1, 0, `#${name}`)
   }
-  const candidate = lines.join(nl)
+  const candidate = joinLines(lines, memo)
   if (extractTags(candidate).includes(name)) {
     return candidate
   }
@@ -61,9 +56,8 @@ export function addTagToMemo(memo: string, tag: string): string {
 // メモからタグを 1 つ削除する (タグだけの行から)。改行コードは保つ。
 export function removeTagFromMemo(memo: string, tag: string): string {
   const name = normalizeTag(tag)
-  const nl = newlineOf(memo)
   const out: string[] = []
-  for (const line of memo.split(/\r?\n/)) {
+  for (const line of splitLines(memo)) {
     const tokens = tagOnlyTokens(line)
     if (!tokens) {
       out.push(line)
@@ -77,7 +71,7 @@ export function removeTagFromMemo(memo: string, tag: string): string {
     }
     // kept が空になった行は丸ごと削除 (push しない)
   }
-  return out.join(nl)
+  return joinLines(out, memo)
 }
 
 // 複数タグをまとめて追加/削除する (1 つずつ畳み込む)。
