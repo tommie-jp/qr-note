@@ -7,6 +7,7 @@ import {
   isFrontFacing,
   NEAR_FOCUS_ZOOM,
   readCameraCapabilities,
+  zoomLevelsFor,
 } from "./cameraSelection";
 
 describe("findUltraWideDeviceId", () => {
@@ -241,6 +242,21 @@ describe("isFrontFacing", () => {
 
   test("何も取れなければ前面と断定しない", () => {
     expect(isFrontFacing({} as unknown as MediaStreamTrack)).toBe(false);
+  });
+});
+
+describe("zoomLevelsFor", () => {
+  test("最大が段階を全て上回れば全段階を返す", () => {
+    expect(zoomLevelsFor(8)).toEqual([1, 2, 4]);
+  });
+
+  test("最大で出せる段階だけに絞る", () => {
+    expect(zoomLevelsFor(3)).toEqual([1, 2]);
+  });
+
+  test("1 段階しか出せないならボタンを出さない (空配列)", () => {
+    expect(zoomLevelsFor(1)).toEqual([]);
+    expect(zoomLevelsFor(1.9)).toEqual([]);
   });
 });
 

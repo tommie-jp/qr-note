@@ -9,18 +9,11 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { formatElapsed } from "@/lib/progressLabels";
+import { cameraControlClass } from "./cameraControlButton";
 import type { VideoRecordingState } from "./useVideoRecording";
 
 export interface VideoRecordModalProps {
   video: VideoRecordingState;
-}
-
-// 下部バーの補助ボタン。黒背景に合わせた半透明。押下状態 (トーチ ON・現在の
-// ズーム段) は白反転で示す
-function controlClass(active: boolean): string {
-  return `min-h-11 rounded px-3 font-medium transition-colors disabled:opacity-40 ${
-    active ? "bg-white text-black" : "bg-white/20 text-white"
-  }`;
 }
 
 export function VideoRecordModal({ video }: VideoRecordModalProps) {
@@ -116,7 +109,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
             type="button"
             onClick={video.toggleFacing}
             disabled={recording}
-            className={controlClass(false)}
+            className={cameraControlClass(false)}
           >
             {video.facing === "environment" ? "内カメラ" : "外カメラ"}
           </button>
@@ -127,7 +120,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
               onClick={video.toggleNearFocus}
               aria-pressed={video.nearFocus}
               disabled={recording}
-              className={controlClass(video.nearFocus)}
+              className={cameraControlClass(video.nearFocus)}
             >
               {video.nearFocus ? "近接 ON" : "近接"}
             </button>
@@ -167,7 +160,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
               type="button"
               onClick={video.toggleTorch}
               aria-pressed={video.torchOn}
-              className={controlClass(video.torchOn)}
+              className={cameraControlClass(video.torchOn)}
             >
               {video.torchOn ? "ライト ON" : "ライト"}
             </button>
@@ -178,7 +171,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
               type="button"
               onClick={() => video.setZoom(level)}
               aria-pressed={video.zoom === level}
-              className={controlClass(video.zoom === level)}
+              className={cameraControlClass(video.zoom === level)}
             >
               {level}x
             </button>

@@ -12,7 +12,7 @@
 //      トーチ・ズームはトラックを開き直さないので録画中でも効く。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { NEAR_FOCUS_ZOOM } from "@/lib/video/cameraSelection";
+import { NEAR_FOCUS_ZOOM, zoomLevelsFor } from "@/lib/video/cameraSelection";
 import {
   type CameraFacing,
   MAX_RECORDING_MS,
@@ -32,16 +32,6 @@ const AUTO_STOP_NOTE =
   AUTO_STOP_MS === MAX_RECORDING_MS
     ? `録画時間の上限 (${Math.round(MAX_RECORDING_MS / 60_000)} 分) に達したため停止しました。`
     : "ファイルサイズの上限に近づいたため停止しました。";
-
-// ズームボタンの段階。対応端末の最大倍率で絞り込む (スライダーは作り込みすぎ)。
-const ZOOM_STEPS = [1, 2, 4];
-
-// 端末の最大ズームで出せる段階を返す。1 段階だけ (= ズーム非対応相当) なら
-// ボタンを出さない
-function zoomLevelsFor(maxZoom: number): number[] {
-  const levels = ZOOM_STEPS.filter((z) => z <= maxZoom);
-  return levels.length > 1 ? levels : [];
-}
 
 // idle: カメラ未使用 / preview: 開いたが未録画 / recording: 録画中
 export type VideoPhase = "idle" | "preview" | "recording";

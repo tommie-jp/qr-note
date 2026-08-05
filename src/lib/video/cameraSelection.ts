@@ -17,6 +17,17 @@ const ULTRA_WIDE_LABEL = /ultra.?wide|超広角/i;
 // 超広角は 0.5x 相当で画角が広すぎる。zoom 対応端末なら 1x 近くへクロップし直す。
 export const NEAR_FOCUS_ZOOM = 2;
 
+// ズームボタンの段階。スライダーは作り込みすぎなので代表的な倍率だけ出す。
+// 録画 (useVideoRecording) とスキャン (useScannerCamera) で共有する。
+export const ZOOM_STEPS = [1, 2, 4];
+
+// 端末の最大ズームで出せる段階を返す。1 段階だけ (= ズーム非対応相当) なら
+// 空配列を返し、呼び出し側はボタンを出さない。
+export function zoomLevelsFor(maxZoom: number): number[] {
+  const levels = ZOOM_STEPS.filter((z) => z <= maxZoom);
+  return levels.length > 1 ? levels : [];
+}
+
 // torch / zoom は標準の TS DOM 型に無い (実験的 API)。必要な形だけを最小に写す。
 interface ExtendedCapabilities {
   torch?: boolean;
