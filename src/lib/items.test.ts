@@ -102,6 +102,39 @@ describe.skipIf(!runDbTests)(
         mode: 'memo' as const,
         tags: ['zzftbjt'],
       },
+      // チェック状態の絞り込み用 (docs/56-チェック検索計画.md)。
+      // 派生列は upsertMemo が数えるので、ここでは seed に直接書く。
+      {
+        itemNo: 'zzftk1',
+        memo: 'zzftcheck\n- [ ] まだ',
+        url: '',
+        mode: 'memo' as const,
+        taskTodo: 1,
+        taskDone: 0,
+      },
+      {
+        itemNo: 'zzftk2',
+        memo: 'zzftcheck\n- [x] おわり',
+        url: '',
+        mode: 'memo' as const,
+        taskTodo: 0,
+        taskDone: 1,
+      },
+      {
+        itemNo: 'zzftk3',
+        memo: 'zzftcheck\n- [ ] まだ\n- [x] おわり',
+        url: '',
+        mode: 'memo' as const,
+        taskTodo: 1,
+        taskDone: 1,
+      },
+      // チェックのないノート (どちらにも出ない)
+      {
+        itemNo: 'zzftk4',
+        memo: 'zzftcheck チェックなし',
+        url: '',
+        mode: 'memo' as const,
+      },
     ]
 
     beforeAll(async () => {
@@ -257,6 +290,49 @@ describe.skipIf(!runDbTests)(
     test('empty query browses all items (WHERE 無し)', async () => {
       const r = await searchItems('', 1)
       expect(r.total).toBeGreaterThanOrEqual(seed.length)
+    })
+
+    // チェック状態の絞り込み (docs/56-チェック検索計画.md)。
+    // 実データを巻き込まないよう、必ず seed 専用トークンと AND で使う。
+    describe('is:todo / is:done', () => {
+      test('is:todo は未チェックが残っているノートだけ', async () => {
+        const r = await searchItems('zzftcheck is:todo', 1)
+        expect(itemNos(r)).toEqual(['zzftk1', 'zzftk3'])
+      })
+
+      test('is:done はチェック済みがあるノートだけ', async () => {
+        const r = await searchItems('zzftcheck is:done', 1)
+        expect(itemNos(r)).toEqual(['zzftk2', 'zzftk3'])
+      })
+
+      test('!is:todo は未チェックが残っていないノート (チェック無しも含む)', async () => {
+        const r = await searchItems('zzftcheck !is:todo', 1)
+        expect(itemNos(r)).toEqual(['zzftk2', 'zzftk4'])
+      })
+
+      test('全部覚えたノートは !is:todo is:done で引ける', async () => {
+        const r = await searchItems('zzftcheck !is:todo is:done', 1)
+        expect(itemNos(r)).toEqual(['zzftk2'])
+      })
+
+      test('引用すればリテラルの全文検索に戻る', async () => {
+        // seed 語で必ず絞る。裸の `"is:todo"` だと、本文に is:todo と書いた
+        // 実ノート (この機能のメモなど) ができた日に落ちる
+        const r = await searchItems('zzftcheck "is:todo"', 1)
+        expect(itemNos(r)).toEqual([])
+      })
+
+      test('保存するとチェック数が追随する (派生キャッシュ)', async () => {
+        await upsertMemo('zzftk5', 'zzftcheck2\n- [ ] まだ')
+        expect(itemNos(await searchItems('zzftcheck2 is:todo', 1))).toEqual([
+          'zzftk5',
+        ])
+        await upsertMemo('zzftk5', 'zzftcheck2\n- [x] おわり')
+        expect(itemNos(await searchItems('zzftcheck2 is:todo', 1))).toEqual([])
+        expect(itemNos(await searchItems('zzftcheck2 is:done', 1))).toEqual([
+          'zzftk5',
+        ])
+      })
     })
 
     // オンデマンド表示 (docs/33): page N は「N ページ目だけ」ではなく

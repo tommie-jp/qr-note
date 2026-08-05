@@ -14,6 +14,8 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     mode: "memo",
     tags: [],
     props: [],
+    taskTodo: 0,
+    taskDone: 0,
     createdAt: new Date("2024-01-01T00:00:00Z"),
     updatedAt: new Date("2024-01-01T00:00:00Z"),
     accessedAt: new Date("2024-01-01T00:00:00Z"),

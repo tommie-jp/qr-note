@@ -42,6 +42,28 @@ function isTaskLine(memo: string, line: number): boolean {
   return found
 }
 
+// 本文が持つタスク項目の数 (docs/56-チェック検索計画.md §2)。
+// items.task_todo / task_done の派生キャッシュの元になる。
+//
+// **判定はパーサ基準**なので、コードフェンスの中の `- [ ]` は数えない
+// (toggleTaskLine と同じ物差し。押せるもの = 数えるもので一貫させる)。
+// シークレット断片の中のチェックは本文上は暗号文なので数えられない — 断片内は
+// 閲覧でも押せない (docs/55 §5) ので、ここでも同じく対象外になる。
+export function countTasks(memo: string): { todo: number; done: number } {
+  const tree = MEMO_PARSER.parse(memo)
+  let todo = 0
+  let done = 0
+  visit(tree, 'listItem', (node) => {
+    // checked が null なら「ただの箇条書き」。true/false だけがタスク項目
+    if (node.checked === true) {
+      done++
+    } else if (node.checked === false) {
+      todo++
+    }
+  })
+  return { todo, done }
+}
+
 // line 行目のタスク項目を checked の状態にした本文を返す。
 // その行がタスク項目でなければ null (行番号が古い = 本文が変わった印)。
 // 既に望む状態なら、渡された本文と同じ文字列がそのまま返る (呼び手は保存を省ける)。

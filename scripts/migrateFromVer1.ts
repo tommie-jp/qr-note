@@ -1,6 +1,14 @@
 // Ver1 (MongoDB) の mongoexport 出力を PostgreSQL に移行する。
 // 冪等: 何度実行しても同じ結果になる (upsert + 元タイムスタンプ保持)。
 //
+// **memo 由来の派生列 (tags / props / task_todo / task_done) は埋めない。**
+// ここは upsertMemo を通さず memo を直接書くため。既存ノートを上書きしたときは
+// 古い値が残る (0 ではなく**ずれた値**になるので、検索が静かに誤答する)。
+// 実行したあとは必ず 3 つのバックフィルを流すこと:
+//   npx tsx scripts/backfillTags.ts
+//   npx tsx scripts/backfillProps.ts
+//   npx tsx scripts/backfillTaskCounts.ts
+//
 // 使い方: npx tsx scripts/migrateFromVer1.ts <item.json のパス>
 // 出力:   <item.json と同じディレクトリ>/migration-report.json
 import 'dotenv/config'

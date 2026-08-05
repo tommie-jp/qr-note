@@ -13,6 +13,7 @@ import {
 import { parseSearchExpr, type SearchExpr, type SearchTerm } from '@/lib/search'
 import { orderByClause } from '@/lib/sortOrder'
 import { extractTags } from '@/lib/tags'
+import { countTasks } from '@/lib/taskCheckbox'
 import {
   escapeLike,
   itemNoToNum,
@@ -200,9 +201,12 @@ export async function rewriteImageReference(
 // memo 由来の派生キャッシュ列。正本は memo なので保存のたびに丸ごと作り直す。
 // 書き込み経路 (upsertMemo / upsertItem) を 1 箇所に集約して、再計算漏れを防ぐ。
 function derivedFromMemo(memo: string) {
+  const tasks = countTasks(memo)
   return {
     tags: extractTags(memo),
     props: extractProps(memo),
+    taskTodo: tasks.todo,
+    taskDone: tasks.done,
   }
 }
 
@@ -235,12 +239,24 @@ export interface ItemSearchResult {
 //   正規化つき)、itemNo は前方一致 (ILIKE, 旧データの英字入り itemNo に備え大小無視)。
 // tag: items.tags 配列の完全一致 (@>, GIN インデックスが効く)。
 //   タグ名は search.ts が正規化済み (NFKC + 小文字化)。
+// 語種ごとに必ず case を書く (exprCondition と同じ網羅 switch)。
+// text へ落ちる既定にすると、種別を足したときに黙って全文検索へ流れる
 function termCondition(term: SearchTerm): Prisma.Sql {
-  if (term.kind === 'tag') {
-    return Prisma.sql`tags @> ARRAY[${term.value}]::text[]`
+  switch (term.kind) {
+    case 'tag':
+      return Prisma.sql`tags @> ARRAY[${term.value}]::text[]`
+    // チェック状態 (docs/56-チェック検索計画.md §5)。
+    // is:todo = 未チェックが 1 つ以上残っている、is:done = チェック済みがある。
+    // 否定は上位の NOT がそのまま効く (列は NOT NULL なので三値論理で化けない)
+    case 'task':
+      return term.value === 'todo'
+        ? Prisma.sql`task_todo > 0`
+        : Prisma.sql`task_done > 0`
+    case 'text': {
+      const likePrefix = `${escapeLike(term.value)}%`
+      return Prisma.sql`(memo &@ ${term.value} OR url &@ ${term.value} OR item_no ILIKE ${likePrefix})`
+    }
   }
-  const likePrefix = `${escapeLike(term.value)}%`
-  return Prisma.sql`(memo &@ ${term.value} OR url &@ ${term.value} OR item_no ILIKE ${likePrefix})`
 }
 
 // 検索式 (AST) を条件式へ再帰的にコンパイルする。
@@ -348,6 +364,8 @@ export async function searchItems(
            mode,
            tags,
            props,
+           task_todo  AS "taskTodo",
+           task_done  AS "taskDone",
            created_at AS "createdAt",
            updated_at AS "updatedAt",
            accessed_at AS "accessedAt",

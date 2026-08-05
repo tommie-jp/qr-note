@@ -9,7 +9,7 @@
 //   orExpr  := andExpr ( ("OR" | "|") andExpr )*
 //   andExpr := unary+                    ← 空白の並置 = 暗黙 AND
 //   unary   := ("!" | "！")* primary     ← NOT (重ねがけは打ち消し)
-//   primary := "(" expr ")" | 語 | #タグ | "引用リテラル"
+//   primary := "(" expr ")" | 語 | #タグ | is:todo | is:done | "引用リテラル"
 //
 //   - 優先順位は NOT > 空白 (AND) > OR。SQL・Lucene と同じ。
 //     例: `抵抗 1608 OR コンデンサ` → (抵抗 AND 1608) OR コンデンサ
@@ -18,9 +18,14 @@
 //   - 否定は Google 式の `-` ではなく `!`。`-40℃` `2SC1815-GR` のように
 //     ハイフン始まり/ハイフン入りの語が普通に出てくるドメインだから。
 //   - ダブルクォートで囲むと演算子解釈を抑止したリテラル語になる。
-//     例: `"or"` は OR 演算子ではなく語 "or"、`"A|B"` は語 "A|B"、`"!"` は語 "!"
+//     これは**特別な語すべてに効く逃げ道**で、演算子・`#タグ`・`is:` を問わない。
+//     例: `"or"` は OR 演算子ではなく語 "or"、`"A|B"` は語 "A|B"、`"!"` は語 "!"、
+//     `"#tag"` はタグ検索でない語 "#tag"、`"is:todo"` は語 "is:todo"
 //   - 引用されていない `#○○` はタグ検索 (items.tags の完全一致)。
-//     引用した `"#tag"` は従来どおりの全文検索リテラル。`#` 単独は無視。
+//     `#` 単独は無視。
+//   - 引用されていない `is:todo` / `is:done` はチェック状態の絞り込み
+//     (items.task_todo / task_done。docs/56-チェック検索計画.md)。
+//     `is:` に続く値がそれ以外 (`is:foo`) なら、ただの語として全文検索に落とす。
 //   - 壊れた入力は例外にせず「それらしく」解釈する (未閉じ引用と同じ思想)。
 //     閉じ忘れの `(` は自動クローズ、余った `)` と空括弧と裸の `!` は無視。
 //
@@ -29,11 +34,16 @@
 
 import { normalizeTag, parseTagToken } from '@/lib/tags'
 
+// チェック状態の絞り込み (docs/56-チェック検索計画.md §5)。
+// todo = 未チェックの項目が残っている、done = チェック済みの項目がある。
+export type TaskState = 'todo' | 'done'
+
 // 検索語 1 つ。text は全文検索 (memo/url) + itemNo 前方一致、
-// tag は items.tags の完全一致。
+// tag は items.tags の完全一致、task は items.task_todo / task_done の個数。
 export type SearchTerm =
   | { kind: 'text'; value: string }
   | { kind: 'tag'; value: string }
+  | { kind: 'task'; value: TaskState }
 
 // 検索式の抽象構文木。items.ts がこれを再帰的に WHERE 句へコンパイルする。
 // DNF (選言標準形) へ展開しないのは、括弧と NOT の組み合わせで項が
@@ -58,8 +68,25 @@ const NOT_CHARS = '!！'
 const LPAREN_CHARS = '(（'
 const RPAREN_CHARS = ')）'
 
+// チェック状態の絞り込み語の接頭辞 (`is:todo` / `is:done`)。
+// 全角 (`ＩＳ：`) も NFKC で畳まれてここに一致する
+const TASK_PREFIX = 'is:'
+
 function isSpace(ch: string): boolean {
   return /[\s　]/.test(ch)
+}
+
+// `is:todo` / `is:done` なら状態を、そうでなければ null を返す。
+// **知らない値 (`is:foo`) は null に落とす** — 例外にも 0 件にもせず、
+// ただの語として全文検索へ回す。壊れた入力は「それらしく」解釈する流儀
+// (未閉じ引用と同じ)。本文に is:foo と書いたノートが出るほうが説明できる
+function parseTaskToken(token: string): TaskState | null {
+  const normalized = normalizeTag(token)
+  if (!normalized.startsWith(TASK_PREFIX)) {
+    return null
+  }
+  const value = normalized.slice(TASK_PREFIX.length)
+  return value === 'todo' || value === 'done' ? value : null
 }
 
 type Token =
@@ -68,6 +95,37 @@ type Token =
   | { type: 'not' }
   | { type: 'lparen' }
   | { type: 'rparen' }
+
+// 溜めた文字 1 つ分をトークンにする。捨てる語なら null。
+//
+// 引用された語 (quoted) は**どの特別扱いにも入らない**のがこの関数の要点。
+// `"or"` / `"#tag"` / `"is:todo"` はすべてただの検索語になる — 特別な語を
+// 増やしても、引用という逃げ道は 1 か所の分岐で効き続ける。
+function tokenFor(buf: string, quoted: boolean): Token | null {
+  if (buf.length === 0) {
+    return null
+  }
+  if (quoted) {
+    return { type: 'term', term: { kind: 'text', value: buf } }
+  }
+  // 正規化 (NFKC + 小文字化) はタグ名と共通の規則。`ＯＲ` も OR 演算子になる。
+  if (normalizeTag(buf) === OR_KEYWORD) {
+    return { type: 'or' }
+  }
+  const taskState = parseTaskToken(buf)
+  if (taskState !== null) {
+    return { type: 'term', term: { kind: 'task', value: taskState } }
+  }
+  const tag = parseTagToken(buf)
+  if (tag !== null) {
+    return { type: 'term', term: { kind: 'tag', value: tag } }
+  }
+  // `#`/`＃` 単独 (タグ名が空) は無視する。文字どおり検索したいときは "#"。
+  if (buf === '#' || buf === '＃') {
+    return null
+  }
+  return { type: 'term', term: { kind: 'text', value: buf } }
+}
 
 // 1 パスの状態機械で入力をトークン列へ分解する。
 // 引用内は空白・`|`・`OR`・`!`・括弧をすべて文字として扱い、引用を含む語は
@@ -81,29 +139,13 @@ function tokenize(query: string): Token[] {
   let quotedHere = false // 現トークンが引用を含むか (演算子/タグ昇格の抑止用)
 
   const flush = () => {
-    if (!hasChars) return
-    // 正規化 (NFKC + 小文字化) はタグ名と共通の規則。`ＯＲ` も OR 演算子になる。
-    if (!quotedHere && normalizeTag(buf) === OR_KEYWORD) {
-      tokens.push({ type: 'or' })
-    } else if (buf.length > 0) {
-      if (!quotedHere) {
-        const tag = parseTagToken(buf)
-        if (tag !== null) {
-          tokens.push({ type: 'term', term: { kind: 'tag', value: tag } })
-          buf = ''
-          hasChars = false
-          quotedHere = false
-          return
-        }
-        // `#`/`＃` 単独 (タグ名が空) は無視する。文字どおり検索したいときは "#"。
-        if (buf === '#' || buf === '＃') {
-          buf = ''
-          hasChars = false
-          quotedHere = false
-          return
-        }
+    // 出口は 1 つだけ。トークンを積んだかに関わらず、必ずここで状態を戻す
+    // (種別ごとに早期 return を書くと、リセットの書き漏れが次の語へ漏れる)
+    if (hasChars) {
+      const token = tokenFor(buf, quotedHere)
+      if (token !== null) {
+        tokens.push(token)
       }
-      tokens.push({ type: 'term', term: { kind: 'text', value: buf } })
     }
     buf = ''
     hasChars = false

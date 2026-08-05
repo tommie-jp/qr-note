@@ -228,15 +228,30 @@ log "5/8 $REMOTE でイメージ取得 + タグ付け"
 SSH "$REMOTE" "docker pull '${REG_REMOTE}:v${VERSION}' \
   && docker tag '${REG_REMOTE}:v${VERSION}' '$IMAGE'"
 
-log "6/8 DB マイグレーション (SSH トンネル localhost:$TUNNEL_PORT 経由)"
+log "6/8 DB マイグレーション + 派生列の再計算 (SSH トンネル localhost:$TUNNEL_PORT 経由)"
 REMOTE_PW="$(SSH "$REMOTE" "grep '^POSTGRES_PASSWORD=' '$REMOTE_DIR/.env' | cut -d= -f2-")"
 [ -n "$REMOTE_PW" ] || die "$REMOTE の $REMOTE_DIR/.env から POSTGRES_PASSWORD を取得できない"
 ENCODED_PW="$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$REMOTE_PW")"
 
 # 既に張ってある master にマイグレーション用のポート転送を追加し、済んだら外す。
 SSH -O forward -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE"
-DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/qr" \
-  npx prisma migrate deploy
+REMOTE_DB_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/qr"
+DATABASE_URL="$REMOTE_DB_URL" npx prisma migrate deploy
+
+# タスク数の派生列を数え直す (docs/56-チェック検索計画.md §4)。
+#
+# **忘れると is:todo / is:done が静かに誤答する。** 列を足すマイグレーションは
+# 既存行を 0 のまま置くので、`is:todo` は 0 件になり、その裏返しの `!is:todo` は
+# **未チェックが残っているノートまで含めた全件**を返す。後者は「壊れている」
+# ようには見えないぶん質が悪い。
+#
+# 冪等で、値が既に合っている行は書かない (588 件で 1 秒未満) ので毎回流してよい。
+# むしろ毎回流すことで、派生列を更新しない経路 (Ver1 取り込み) で狂っても
+# 次のデプロイで自然に直る。リモートにはソースが無いのでローカルから叩く
+# (このトンネルは prisma migrate deploy が使うのと同じもの)。
+echo "--- タスク数の派生列を数え直す"
+DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTaskCounts.ts
+
 SSH -O cancel -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE" 2>/dev/null || true
 
 # compose.yaml の転送は再作成の**直前**に置く。ここで送っておけば、続く

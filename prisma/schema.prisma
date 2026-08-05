@@ -22,6 +22,16 @@ model Item {
   // memo のプロパティ行 (hFE=208 など) から抽出した派生キャッシュ。
   // [{ key, label, value }] の配列でタグ検索時の特性表に使う (src/lib/props.ts)。
   props     Json     @default("[]")
+  // memo のタスクリスト (`- [ ]` / `- [x]`) の個数の派生キャッシュ
+  // (docs/56-チェック検索計画.md)。検索の is:todo / is:done で使う。
+  // tags / props と同じく正本はメモ本文で、保存のたびに数え直す。
+  //
+  // 読むのは今のところ `> 0` だけ (is:todo / is:done)。それでも真偽値にせず
+  // 個数で持つのは、残数表示や残りの多い順の並べ替えを後から足せるようにする
+  // ため。int と bool で保存量は変わらない。
+  // 索引は張らない — 現状の規模では整数比較 1 つが増えるだけ。
+  taskTodo  Int      @default(0) @map("task_todo")
+  taskDone  Int      @default(0) @map("task_done")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   // 最後にこのノートを開いた日時 (docs/37-アクセス順計画.md)。

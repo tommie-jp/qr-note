@@ -366,3 +366,45 @@ describe('queryHasTagTerm', () => {
     expect(queryHasTagTerm('   ')).toBe(false)
   })
 })
+
+// --- チェック状態の絞り込み (docs/56-チェック検索計画.md §5) ---
+
+const task = (value: 'todo' | 'done'): SearchExpr => ({
+  op: 'term',
+  term: { kind: 'task', value },
+})
+
+describe('is:todo / is:done', () => {
+  test('is:todo / is:done は task 語になる', () => {
+    expect(parseSearchExpr('is:todo')).toEqual(task('todo'))
+    expect(parseSearchExpr('is:done')).toEqual(task('done'))
+  })
+
+  test('大小・全角は吸収する (タグ名と同じ正規化)', () => {
+    expect(parseSearchExpr('IS:TODO')).toEqual(task('todo'))
+    expect(parseSearchExpr('ｉｓ：ｔｏｄｏ')).toEqual(task('todo'))
+  })
+
+  test('既存の演算子と組み合わせられる', () => {
+    expect(parseSearchExpr('#英単語 is:todo')).toEqual(
+      and(tag('英単語'), task('todo')),
+    )
+    expect(parseSearchExpr('!is:todo')).toEqual(not(task('todo')))
+    expect(parseSearchExpr('is:todo OR is:done')).toEqual(
+      or(task('todo'), task('done')),
+    )
+  })
+
+  test('引用すればリテラルの全文検索になる', () => {
+    expect(parseSearchExpr('"is:todo"')).toEqual(t('is:todo'))
+  })
+
+  test('知らない値はただの語に落とす (0 件にせず説明可能な結果を返す)', () => {
+    expect(parseSearchExpr('is:foo')).toEqual(t('is:foo'))
+    expect(parseSearchExpr('is:')).toEqual(t('is:'))
+  })
+
+  test('語の途中の is: は演算子にしない', () => {
+    expect(parseSearchExpr('this:todo')).toEqual(t('this:todo'))
+  })
+})

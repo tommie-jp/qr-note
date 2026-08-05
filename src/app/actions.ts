@@ -114,6 +114,14 @@ export async function toggleMemoTaskAction(
   // から受け取るので、ここを省くと押した結果が反映されない画面が残る。
   // まとめ送りにしないのは、押した分だけ即保存されるほうが単語帳向きなため
   revalidatePath(`/item/${itemNo}`)
+  // 一覧も無効にする。チェックは検索条件そのもの (is:todo。docs/56) なので、
+  // 押した語が `#英単語 is:todo` の一覧に残っていては単語帳の回転が壊れる。
+  //
+  // **Next の「他のページも次に開いたとき更新される」挙動には頼らない** —
+  // revalidatePath.md が明示的に一時的な仕様だと書いており、将来
+  // 指定パスだけに絞られると、戻ったときに古い一覧が出る。
+  // 他のノート更新系アクション (trash/restore/bulkTag) と同じ書き方に揃える
+  revalidatePath('/')
 }
 
 // Ver1 の /edit/:itemNo POST 相当: mode / memo / url を更新 (未登録なら作成)

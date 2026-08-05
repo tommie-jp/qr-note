@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { toggleTaskLine } from './taskCheckbox'
+import { countTasks, toggleTaskLine } from './taskCheckbox'
 
 describe('toggleTaskLine', () => {
   test('チェックを付ける (- [ ] → - [x])', () => {
@@ -98,5 +98,64 @@ describe('toggleTaskLine', () => {
   test('本文が変わって別物になった行は null (行番号は当たっても中身が違う)', () => {
     const memo = ['# 見出し', 'ふつうの文章'].join('\n')
     expect(toggleTaskLine(memo, 2, true)).toBeNull()
+  })
+})
+
+describe('countTasks', () => {
+  test('未チェックとチェック済みを数える', () => {
+    const memo = ['- [ ] apple', '- [x] banana', '- [ ] cherry'].join('\n')
+    expect(countTasks(memo)).toEqual({ todo: 2, done: 1 })
+  })
+
+  test('大文字の [X] もチェック済みとして数える', () => {
+    expect(countTasks('- [X] apple')).toEqual({ todo: 0, done: 1 })
+  })
+
+  test('タスク項目が無ければ 0/0', () => {
+    expect(countTasks('ふつうの文章\n- ただの箇条書き')).toEqual({
+      todo: 0,
+      done: 0,
+    })
+    expect(countTasks('')).toEqual({ todo: 0, done: 0 })
+  })
+
+  test('コードフェンスの中の擬似タスクは数えない', () => {
+    const memo = ['```text', '- [ ] apple', '```', '', '- [ ] real'].join('\n')
+    expect(countTasks(memo)).toEqual({ todo: 1, done: 0 })
+  })
+
+  test('入れ子・引用・番号付きも数える', () => {
+    const memo = [
+      '- [ ] 親',
+      '  - [x] 子',
+      '',
+      '> - [ ] 引用',
+      '',
+      '1. [x] 番号付き',
+    ].join('\n')
+    expect(countTasks(memo)).toEqual({ todo: 2, done: 2 })
+  })
+
+  test('折りたたみ (:::details) を挟んでも数え違えない', () => {
+    // 単語帳の書き方 (docs/56-チェック検索計画.md)。remark-directive を
+    // 通していないパーサでも ::: 行はただの段落なので、数には影響しない
+    const memo = [
+      '- [ ] word1',
+      ':::details[word1]',
+      '日本語訳1',
+      ':::',
+      '- [x] word2',
+      ':::details[word2]',
+      '日本語訳2',
+      ':::',
+    ].join('\n')
+    expect(countTasks(memo)).toEqual({ todo: 1, done: 1 })
+  })
+
+  test('CRLF のメモでも数えられる', () => {
+    expect(countTasks('- [ ] apple\r\n- [x] banana')).toEqual({
+      todo: 1,
+      done: 1,
+    })
   })
 })
