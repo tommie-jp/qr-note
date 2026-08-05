@@ -88,6 +88,13 @@ interface MarkdownViewProps {
   // ノート閲覧 (ItemView) からのみ true — 保存を伴うので、未ログインの
   // 公開ビュー・印刷・docs ページでは出さない (既定 false)
   allowSecretEdit?: boolean;
+  // Blob URL がどの種別かの対応表 (docs/53-シークレット挿入拡張計画.md §5)。
+  //
+  // 音声・動画・PDF の描き分けは URL の拡張子で行っているが、シークレット断片の
+  // 中の媒体は**復号したバイト列の Blob URL** で、拡張子を持たない。URL に
+  // 細工をする (`#x.mp3` を足す) のは行儀が悪いので、種別を明示的に渡す。
+  // 非同期に用意した結果を呼び出し側から渡すのは circuits と同じ作法
+  blobKinds?: ReadonlyMap<string, "image" | "audio" | "video">;
 }
 
 // react-markdown はカスタムコンポーネントに hast の node を渡してくるため、
@@ -172,7 +179,11 @@ const TEXT_SRC_RE = new RegExp(
 // 生 HTML を無効にしたまま画像ごとに幅を指定できるようにするための独自記法。
 // 画像はクリックで拡大できるよう ZoomableImage で描画する。
 // allowRotate なら拡大表示に 90° 回転ボタンを出す (docs/49-画像回転計画.md)
-function imgRenderer(allowRotate: boolean, allowSecretEdit: boolean) {
+function imgRenderer(
+  allowRotate: boolean,
+  allowSecretEdit: boolean,
+  blobKinds: ReadonlyMap<string, "image" | "audio" | "video">,
+) {
   return function ImgWithWidth({
     node: _node,
     alt,
@@ -191,6 +202,15 @@ function imgRenderer(allowRotate: boolean, allowSecretEdit: boolean) {
           allowEdit={allowSecretEdit}
         />
       );
+    }
+    // 復号済みの媒体 (Blob URL)。拡張子が無いので対応表で振り分ける
+    const blobKind =
+      typeof props.src === "string" ? blobKinds.get(props.src) : undefined;
+    if (blobKind === "audio") {
+      return <AudioPlayer src={props.src as string} label={alt || "audio"} />;
+    }
+    if (blobKind === "video") {
+      return <VideoPlayer src={props.src as string} label={alt || "video"} />;
     }
     if (typeof props.src === "string" && AUDIO_SRC_RE.test(props.src)) {
       // 音声プレイヤー + 共有ボタン。<audio> は iOS の長押し共有が効かないので、
@@ -255,6 +275,7 @@ export function MarkdownView({
   linkTags = true,
   allowRotate = false,
   allowSecretEdit = false,
+  blobKinds = new Map(),
 }: MarkdownViewProps) {
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
   // 残るので、本文の見た目は「リンクでない #タグ」になる
@@ -276,7 +297,7 @@ export function MarkdownView({
         ]}
         components={{
           pre: preOrDiagram(circuits),
-          img: imgRenderer(allowRotate, allowSecretEdit),
+          img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
         }}
       >

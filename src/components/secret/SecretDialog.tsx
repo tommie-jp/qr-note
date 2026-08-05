@@ -8,19 +8,19 @@ import {
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
+import { insertBlockAtSelection } from "@/lib/insertAtSelection";
 import {
   loadSecret,
   newSecretName,
-  saveSecretImage,
   saveSecretText,
   secretText,
 } from "@/lib/secretContent";
-import { prepareSecretImage } from "@/lib/secretImage";
 import { isSecretImageMime } from "@/lib/secretPayload";
 import { SecretCancelledError } from "@/lib/secretPrf";
 import { isUnlocked, subscribeSecretLock } from "@/lib/secretSession";
 import { unlockWithPasskey } from "@/lib/secretUnlock";
-import { DEFAULT_SECRET_LABEL, secretLabel, secretUrl } from "@/lib/secrets";
+import { DEFAULT_SECRET_LABEL, secretLabel } from "@/lib/secrets";
+import { SecretTools, type SecretSelection } from "./SecretTools";
 
 export interface SecretDialogProps {
   // 編集する断片の名前。null なら新規
@@ -83,7 +83,7 @@ export function SecretDialog({
   // 開いてはいけない断片だった (画像を文字として編集しようとした)。
   // 保存を封じないと、空の本文で画素を上書きしてしまう
   const [blocked, setBlocked] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -153,31 +153,33 @@ export function SecretDialog({
     };
   }, [name, onClose]);
 
-  // 断片の中に画像を貼る。**別の断片として暗号化**し、本文には参照だけを書く
-  // (通常の画像アップロードは通らないので、サムネも埋め込みもできない)
-  const attachImage = useCallback(async (file: File) => {
-    setBusy(true);
-    setError(null);
-    try {
-      if (!isUnlocked()) {
-        await unlockWithPasskey();
-      }
-      const image = await prepareSecretImage(file);
-      const imageName = newSecretName();
-      await saveSecretImage(imageName, image.mime, image.bytes);
-      setText((current) => {
-        const separator = current === "" || current.endsWith("\n") ? "" : "\n";
-        return `${current}${separator}![画像](${secretUrl(imageName)})\n`;
+  // 道具が使う「いまどこを見ているか」。textarea の選択範囲をそのまま返す。
+  // 参照が無い (まだ描かれていない) ときは末尾を指しておく
+  const getSelection = useCallback((): SecretSelection => {
+    const area = textRef.current;
+    return {
+      text,
+      from: area?.selectionStart ?? text.length,
+      to: area?.selectionEnd ?? text.length,
+    };
+  }, [text]);
+
+  // 道具が作ったものを 1 ブロックとして差し込む。
+  // **カーソルは差し込んだ直後へ送る** — 続けて OCR を押したときに、いま
+  // 入れた画像が対象になる (編集画面の insertBlock と同じ手触り)
+  const insertBlock = useCallback((markdown: string) => {
+    const area = textRef.current;
+    setText((current) => {
+      const from = area?.selectionStart ?? current.length;
+      const to = area?.selectionEnd ?? current.length;
+      const next = insertBlockAtSelection(current, from, to, markdown);
+      // 描き直しの後でカーソルを動かす (value の反映より前に動かすと戻される)
+      queueMicrotask(() => {
+        area?.setSelectionRange(next.cursor, next.cursor);
+        area?.focus();
       });
-    } catch (cause) {
-      if (cause instanceof SecretCancelledError) {
-        return;
-      }
-      console.error("画像を暗号化できませんでした", cause);
-      setError(message(cause, "画像を暗号化できませんでした"));
-    } finally {
-      setBusy(false);
-    }
+      return next.text;
+    });
   }, []);
 
   const save = useCallback(async () => {
@@ -244,6 +246,7 @@ export function SecretDialog({
           <label className="flex flex-col gap-1 text-sm font-medium">
             中身 (markdown。暗号化して保存します)
             <textarea
+              ref={textRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={10}
@@ -268,29 +271,18 @@ export function SecretDialog({
             </p>
           )}
 
+          {/* 編集画面で挿せるものはすべてここから入れられる (docs/53)。
+              どれも保存前にこのブラウザで暗号化されるので、平文がサーバへ
+              出る経路は無い */}
+          <SecretTools
+            disabled={busy || loading || blocked}
+            getSelection={getSelection}
+            insertBlock={insertBlock}
+            onBusyChange={setBusy}
+            onError={setError}
+          />
+
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy || loading || blocked}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              画像を追加
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                // 同じファイルを続けて選べるように毎回空にする
-                e.target.value = "";
-                if (file) {
-                  void attachImage(file);
-                }
-              }}
-            />
             <span className="flex-1" />
             <button
               type="button"

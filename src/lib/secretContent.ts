@@ -5,7 +5,12 @@
 
 import { fetchSecretBlob, saveSecret } from './secretApi'
 import { openSecret, sealSecret } from './secretEnvelope'
-import { SECRET_TEXT_MIME, isSecretImageMime, isSecretMime } from './secretPayload'
+import {
+  SECRET_TEXT_MIME,
+  isSecretMime,
+  normalizeSecretMime,
+  secretMimeKind,
+} from './secretPayload'
 import { unlockedKey } from './secretSession'
 
 // 鍵がまだ無い状態で読み書きしようとした。画面は解錠を促す。
@@ -62,17 +67,25 @@ export async function saveSecretText(name: string, text: string): Promise<void> 
   await sealAndSave(name, SECRET_TEXT_MIME, new TextEncoder().encode(text))
 }
 
-// 断片の中に貼る画像を保存する。**画像パイプライン (images テーブル) は
-// 通らない** ので、サムネも埋め込みもサーバに残らない (docs/51 §5)。
-export async function saveSecretImage(
+// 断片の中に貼る媒体 (画像・音声・動画) を保存する。
+//
+// **通常の添付パイプライン (images テーブル) は通らない**ので、サムネも
+// 埋め込みもサーバに残らない (docs/51 §5)。mime は保存前に均す — MediaRecorder
+// が付けるパラメータ (`audio/webm;codecs=opus`) を落としてから封をしないと、
+// AAD に縛った mime と配信時の mime が食い違って復号できなくなる
+// (docs/53 §3)。
+export async function saveSecretMedia(
   name: string,
-  mime: string,
+  rawMime: string,
   bytes: Uint8Array,
-): Promise<void> {
-  if (!isSecretImageMime(mime)) {
-    throw new Error('この画像形式はシークレットにできません')
+): Promise<string> {
+  const mime = normalizeSecretMime(rawMime)
+  const kind = secretMimeKind(mime)
+  if (kind === null || kind === 'text') {
+    throw new Error('この形式はシークレットにできません')
   }
   await sealAndSave(name, mime, bytes)
+  return mime
 }
 
 // 復号済みの断片を文字列として読む (本文用)。

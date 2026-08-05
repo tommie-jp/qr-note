@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from './apiAuth'
 import {
   checkSecretPayload,
-  MAX_SECRET_BYTES,
+  MAX_SECRET_VIDEO_BYTES,
   SECRET_MIME_HEADER,
 } from './secretPayload'
 import { checkUploadRequest, MULTIPART_OVERHEAD_BYTES } from './uploads'
@@ -41,11 +41,14 @@ export async function readSecretBody(
   //
   // 上限に MULTIPART_OVERHEAD_BYTES を足すのは、あの関数が multipart 前提で
   // 「上限 = 本文 + 包み」と数え、超過メッセージからも同じ分を引くため。
-  // ここは生のバイト列なので包みは無く、足しておかないと「最大 9MB」という
-  // 実態と違う文言になる。**厳密な判定は下の checkSecretPayload** が実測で行う
+  // ここは生のバイト列なので包みは無く、足しておかないと実態と違う文言になる。
+  //
+  // ここで見るのは**全種別の最大** (動画枠)。種別ごとの上限は下の
+  // checkSecretPayload が実測で絞る (uploads.ts の maxUploadBytes と
+  // maxAttachmentBytes を分けているのと同じ二段構え)
   const rejection = checkUploadRequest(
     request,
-    MAX_SECRET_BYTES + MULTIPART_OVERHEAD_BYTES,
+    MAX_SECRET_VIDEO_BYTES + MULTIPART_OVERHEAD_BYTES,
   )
   if (rejection) {
     return secretFail(rejection.status, rejection.error)

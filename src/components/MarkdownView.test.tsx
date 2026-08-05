@@ -320,3 +320,29 @@ test("シークレットのラベルは施錠中でも本文に出る (中身は
   // 暗号文の URL を <img src> として描かない (割れた画像になるため)
   expect(html).not.toContain('src="/api/secrets/');
 });
+
+// シークレット断片の中の音声・動画は復号した Blob URL になり、拡張子を
+// 持たない。種別の対応表で描き分ける (docs/53-シークレット挿入拡張計画.md §5)
+test("blobKinds で音声・動画のプレイヤーに振り分ける", () => {
+  const audio = "blob:https://example.com/a";
+  const video = "blob:https://example.com/v";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={`![録音](${audio})\n\n![録画](${video})`}
+      blobKinds={
+        new Map<string, "image" | "audio" | "video">([
+          [audio, "audio"],
+          [video, "video"],
+        ])
+      }
+    />,
+  );
+  expect(html).toContain("<audio");
+  expect(html).toContain("<video");
+});
+
+test("blobKinds に無い blob: は今までどおり画像として描く", () => {
+  const html = render("![図](blob:https://example.com/x)");
+  expect(html).toContain('src="blob:https://example.com/x"');
+  expect(html).not.toContain("<audio");
+});

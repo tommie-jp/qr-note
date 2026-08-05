@@ -9,7 +9,7 @@ import {
   secretText,
   type SecretContent,
 } from "@/lib/secretContent";
-import { isSecretImageMime } from "@/lib/secretPayload";
+import { secretMimeKind, type SecretKind } from "@/lib/secretPayload";
 import { SecretCancelledError } from "@/lib/secretPrf";
 import {
   isUnlocked,
@@ -48,9 +48,10 @@ interface SecretBlockProps {
   allowEdit?: boolean;
 }
 
-// 断片の中に貼れる画像の枚数。復号 → Blob URL を一度に抱える上限で、
-// 際限なく並べられると解錠のたびにその枚数ぶんメモリを掴むため
-const MAX_NESTED_IMAGES = 20;
+// 断片の中に貼れる媒体の数。復号 → Blob URL を一度に抱える上限で、
+// 際限なく並べられると解錠のたびにその数ぶんメモリを掴むため
+// (動画は 1 本で数十 MB になりうる)
+const MAX_NESTED_MEDIA = 20;
 
 // コピーした中身をクリップボードから消すまでの時間 (パスワード管理ソフトの
 // 相場に合わせる)。貼り付けには十分で、置きっぱなしにはしない長さ
@@ -74,7 +75,15 @@ export function SecretBlock({
   const [content, setContent] = useState<SecretContent | null>(null);
   // 復号した markdown。断片内の画像参照は Blob URL に差し替え済み
   const [markdown, setMarkdown] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // 断片そのものが媒体 (画像・音声・動画) のときの Blob URL と種別
+  const [media, setMedia] = useState<{ url: string; kind: SecretKind } | null>(
+    null,
+  );
+  // 断片の markdown に埋まった媒体の種別 (Blob URL → 種別)。
+  // 拡張子を持たない Blob URL を MarkdownView が描き分けるために要る
+  const [blobKinds, setBlobKinds] = useState<
+    ReadonlyMap<string, "image" | "audio" | "video">
+  >(new Map());
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -93,7 +102,8 @@ export function SecretBlock({
     revokeBlobs();
     setContent(null);
     setMarkdown(null);
-    setImageUrl(null);
+    setMedia(null);
+    setBlobKinds(new Map());
     setError(null);
   }, [revokeBlobs]);
 
@@ -121,12 +131,18 @@ export function SecretBlock({
       const loaded = await loadSecret(name);
       setContent(loaded);
 
-      if (isSecretImageMime(loaded.mime)) {
-        setImageUrl(trackBlob(blobUrls, loaded.bytes, loaded.mime));
+      const kind = secretMimeKind(loaded.mime);
+      if (kind !== null && kind !== "text") {
+        setMedia({
+          url: trackBlob(blobUrls, loaded.bytes, loaded.mime),
+          kind,
+        });
         return;
       }
 
-      setMarkdown(await resolveNestedImages(secretText(loaded), blobUrls));
+      const resolved = await resolveNestedMedia(secretText(loaded), blobUrls);
+      setBlobKinds(resolved.kinds);
+      setMarkdown(resolved.markdown);
     } catch (cause) {
       if (cause instanceof SecretCancelledError) {
         return; // 自分でやめた操作は失敗として出さない (passkeyClient.ts と同じ)
@@ -222,18 +238,28 @@ export function SecretBlock({
         )}
       </span>
 
-      {imageUrl !== null && (
+      {media?.kind === "image" && (
         /* Blob URL なので next/image の最適化 (サーバ経由) は通せない。通したら
            復号した画素がサーバへ渡ることになり、この機能の目的そのものに反する */
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt={label} className="max-w-full rounded" />
+        <img src={media.url} alt={label} className="max-w-full rounded" />
+      )}
+
+      {/* 音声・動画は復号した全体を Blob で再生する。**シークできない** —
+          通常の添付のような Range 配信はサーバが復号できない以上できない
+          (docs/53 §2) */}
+      {media?.kind === "audio" && (
+        <audio controls src={media.url} className="w-full" />
+      )}
+      {media?.kind === "video" && (
+        <video controls playsInline src={media.url} className="max-w-full rounded" />
       )}
 
       {markdown !== null && (
         // 通常のメモと同じ描画パイプライン (同じサニタイズ) を通す。
         // タグはリンクにしない — 断片の中身から検索へ飛ばす導線は、平文の
         // 検索語をサーバへ送ることになるため (docs/51 §5)
-        <MarkdownView markdown={markdown} linkTags={false} />
+        <MarkdownView markdown={markdown} linkTags={false} blobKinds={blobKinds} />
       )}
 
       {error !== null && <span className="text-sm text-red-700">{error}</span>}
@@ -259,42 +285,51 @@ export function SecretBlock({
   );
 }
 
-// 断片内の画像参照 (`/api/secrets/<name>`) を、復号した Blob URL に差し替える。
+// 断片内の媒体参照 (`/api/secrets/<name>`) を、復号した Blob URL に差し替える。
 //
 // **サーバへ問い合わせるのは暗号文だけ**で、復号はこのブラウザで行う。
-// 開けなかった画像は参照を残したまま (割れた画像として見える) — 黙って
+// 開けなかったものは参照を残したまま (割れた画像として見える) — 黙って
 // 消すと「元から無かった」ように見えてしまう。
-async function resolveNestedImages(
+//
+// Blob URL は拡張子を持たないので、音声・動画を MarkdownView が描き分ける
+// ための対応表も一緒に作って返す (docs/53 §5)。
+async function resolveNestedMedia(
   markdown: string,
   blobUrls: React.RefObject<string[]>,
-): Promise<string> {
+): Promise<{
+  markdown: string;
+  kinds: ReadonlyMap<string, "image" | "audio" | "video">;
+}> {
   const all = allSecretNames(markdown);
-  const names = all.slice(0, MAX_NESTED_IMAGES);
+  const names = all.slice(0, MAX_NESTED_MEDIA);
   if (all.length > names.length) {
-    // 打ち切りを黙って行わない。21 枚目以降が出ない理由が誰にも分からなくなる
+    // 打ち切りを黙って行わない。上限を超えた分が出ない理由が誰にも分からなくなる
     console.warn(
-      `断片内の画像は ${MAX_NESTED_IMAGES} 枚までです (${all.length} 枚あるうち ${
+      `断片内の媒体は ${MAX_NESTED_MEDIA} 個までです (${all.length} 個あるうち ${
         all.length - names.length
-      } 枚を表示していません)`,
+      } 個を表示していません)`,
     );
   }
+
+  const kinds = new Map<string, "image" | "audio" | "video">();
   let resolved = markdown;
 
   for (const name of names) {
     try {
       const nested = await loadSecret(name);
-      if (!isSecretImageMime(nested.mime)) {
+      const kind = secretMimeKind(nested.mime);
+      if (kind === null || kind === "text") {
         continue;
       }
-      resolved = resolved
-        .split(secretUrl(name))
-        .join(trackBlob(blobUrls, nested.bytes, nested.mime));
+      const url = trackBlob(blobUrls, nested.bytes, nested.mime);
+      kinds.set(url, kind);
+      resolved = resolved.split(secretUrl(name)).join(url);
     } catch (cause) {
-      console.error(`断片内の画像を開けませんでした (${name})`, cause);
+      console.error(`断片内の媒体を開けませんでした (${name})`, cause);
     }
   }
 
-  return resolved;
+  return { markdown: resolved, kinds };
 }
 
 function trackBlob(
