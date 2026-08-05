@@ -91,7 +91,10 @@ export interface EditToolbarProps {
   ocrLabel: string;
   onOcr: () => void;
   // シークレット挿入 (docs/51-部分暗号化計画.md §8)。選択範囲があれば
-  // それを引き継いでダイアログを開く
+  // それを引き継いでダイアログを開く。
+  // ラベルはカーソル位置で変わる (「秘密」/「秘密を編集」。docs/52 §1) —
+  // 進捗ラベル (uploadLabel など) と同じく呼び出し側が文字列を作る
+  secretLabel: string;
   onSecret: () => void;
   // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
   busy: boolean;
@@ -116,6 +119,7 @@ export function EditToolbar({
   onDraw,
   ocrLabel,
   onOcr,
+  secretLabel,
   onSecret,
   busy,
 }: EditToolbarProps) {
@@ -234,7 +238,7 @@ export function EditToolbar({
           <ToolIcon color="text-amber-600">
             <LockIcon />
           </ToolIcon>
-          秘密
+          {secretLabel}
         </button>
       </div>
     </>

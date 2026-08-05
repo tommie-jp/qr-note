@@ -105,7 +105,12 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         key={itemNo}
         defaultMode={memo ? "markdown" : "edit"}
         markdownView={
-          <MarkdownView markdown={memo} circuits={circuits} allowRotate />
+          <MarkdownView
+            markdown={memo}
+            circuits={circuits}
+            allowRotate
+            allowSecretEdit
+          />
         }
         textView={
           <pre

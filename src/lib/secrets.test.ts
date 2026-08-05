@@ -7,6 +7,7 @@ import {
   secretLabel,
   secretNameFromUrl,
   secretNotation,
+  secretToolbarLabel,
   secretUrl,
 } from './secrets'
 
@@ -105,6 +106,21 @@ describe('secretAtCursor', () => {
 
   test('ignores plain images', () => {
     expect(secretAtCursor('![写真](/api/images/a.png)', 3)).toBe(null)
+  })
+})
+
+describe('secretToolbarLabel', () => {
+  const notation = secretNotation('住所', NAME)
+  const doc = `前 ${notation} 後`
+  const start = doc.indexOf(notation)
+
+  test('says 編集 while the cursor sits on a secret', () => {
+    expect(secretToolbarLabel(doc, start + 3)).toBe('秘密を編集')
+  })
+
+  test('says 秘密 elsewhere (新規挿入になる)', () => {
+    expect(secretToolbarLabel(doc, 0)).toBe('秘密')
+    expect(secretToolbarLabel('ただの本文', 2)).toBe('秘密')
   })
 })
 

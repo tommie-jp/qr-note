@@ -110,6 +110,15 @@ export function secretAtCursor(
   return null
 }
 
+// エディタのツールバーに出す文字 (docs/52-シークレット編集導線計画.md §1)。
+//
+// ボタンの動作は元から「カーソルが記法の上なら編集、そうでなければ新規」に
+// 分かれているが、見た目が同じだと**編集できること自体に気づけない**。
+// 文字を変えるだけで、押した先の分岐 (openSecret) は今までどおり。
+export function secretToolbarLabel(memo: string, cursor: number): string {
+  return secretAtCursor(memo, cursor) === null ? '秘密' : '秘密を編集'
+}
+
 // 名前から記法の範囲を引く。編集を保存した後にラベルを差し替えるために使う。
 // **位置ではなく名前で引き直す**のが要点 — ダイアログを開いている間に本文が
 // 動いていても正しい場所を置き換えられる (画像アップロードの replaceToken と

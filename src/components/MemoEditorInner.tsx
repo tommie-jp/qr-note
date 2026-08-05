@@ -41,6 +41,7 @@ import {
   findSecretNotation,
   secretAtCursor,
   secretNotation,
+  secretToolbarLabel,
 } from "@/lib/secrets";
 import { fenceLanguageCompletion } from "./fenceCompletion";
 import { fenceLanguageLinter } from "./fenceLinter";
@@ -357,6 +358,9 @@ export default function MemoEditorInner({
     text: string;
     label: string;
   } | null>(null);
+  // ツールバーに出す文字。カーソルが記法の上なら「秘密を編集」に変わる
+  // (docs/52 §1)。押した先の分岐は openSecret が持つので、これは見た目だけ
+  const [secretLabel, setSecretLabel] = useState("秘密");
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -712,6 +716,18 @@ export default function MemoEditorInner({
         ? prev
         : next,
     );
+
+    // シークレットのボタン文字 (docs/52-シークレット編集導線計画.md §1)。
+    // **本文かカーソルが動いたときだけ**数える。onUpdate は再描画や
+    // フォーカスでも呼ばれるので、そのたびに全文を走査する必要はない。
+    // 履歴と同じく、変わったときだけ setState して再レンダリングを止める
+    if (update.docChanged || update.selectionSet) {
+      const label = secretToolbarLabel(
+        update.state.doc.toString(),
+        update.state.selection.main.from,
+      );
+      setSecretLabel((prev) => (prev === label ? prev : label));
+    }
   }, []);
 
   const handleFilePick = (files: FileList | null) => {
@@ -979,6 +995,7 @@ export default function MemoEditorInner({
             onDraw={openDrawing}
             ocrLabel={ocrButtonLabel(ocrCount)}
             onOcr={() => void runOcrAtCursor()}
+            secretLabel={secretLabel}
             onSecret={openSecret}
             busy={busy}
           />,

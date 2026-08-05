@@ -31,10 +31,21 @@ const MarkdownView = dynamic(
   { ssr: false, loading: () => null },
 );
 
+// 入力ダイアログも開くまで読まない (編集画面と同じ流儀)。閲覧画面から
+// 編集できるようにするため、こちらからも同じ部品を使う (docs/52 §2)
+const SecretDialog = dynamic(
+  () => import("./SecretDialog").then((m) => m.SecretDialog),
+  { ssr: false, loading: () => null },
+);
+
 interface SecretBlockProps {
   name: string;
   // 本文に平文で残っているラベル。**中身ではない** (docs/51 §1 の割り切り)
   label: string;
+  // 展開表示に「編集」を出すか (docs/52-シークレット編集導線計画.md §2)。
+  // ノート閲覧 (ItemView) からのみ true。公開ビュー・印刷・docs ページには
+  // 出さない (allowRotate と同じ作法。docs/49 §2)
+  allowEdit?: boolean;
 }
 
 // 断片の中に貼れる画像の枚数。復号 → Blob URL を一度に抱える上限で、
@@ -52,7 +63,11 @@ const CLIPBOARD_CLEAR_MS = 60_000;
 //
 // 画像・音声・PDF と同じく MarkdownView の img から振り分けられて描かれる
 // (記法は `![ラベル](/api/secrets/<name>)`)。
-export function SecretBlock({ name, label }: SecretBlockProps) {
+export function SecretBlock({
+  name,
+  label,
+  allowEdit = false,
+}: SecretBlockProps) {
   const unlocked = useSecretUnlocked();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +76,7 @@ export function SecretBlock({ name, label }: SecretBlockProps) {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // 作った Blob URL は自分で片付ける。放っておくとタブを閉じるまで
   // 復号済みの画素がメモリに残り続ける
@@ -193,6 +209,17 @@ export function SecretBlock({ name, label }: SecretBlockProps) {
               : "コピー"}
           </button>
         )}
+        {/* 画像の断片には出さない (文字として開けない。docs/51 §9 のガードと
+            同じ理由)。ラベルの変更は本文の編集なので、ここではできない */}
+        {allowEdit && markdown !== null && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="min-h-9 rounded px-2 text-amber-800 underline"
+          >
+            編集
+          </button>
+        )}
       </span>
 
       {imageUrl !== null && (
@@ -210,6 +237,24 @@ export function SecretBlock({ name, label }: SecretBlockProps) {
       )}
 
       {error !== null && <span className="text-sm text-red-700">{error}</span>}
+
+      {/* 閲覧画面からの編集 (docs/52 §2)。中身の保存は同名上書きで本文に
+          触れないので、memo を持たないこの画面からでも成立する。
+          保存後は取り直す — サーバ側が変わった以上、手元の復号済みを
+          信じるより開き直すほうが確実 (Blob URL の張り替えも同じ経路に乗る) */}
+      {editing && (
+        <SecretDialog
+          name={name}
+          initialText=""
+          initialLabel={label}
+          hideLabel
+          onSaved={() => {
+            setEditing(false);
+            void reveal();
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </span>
   );
 }

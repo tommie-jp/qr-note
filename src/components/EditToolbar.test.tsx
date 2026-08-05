@@ -28,6 +28,7 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       onDraw={noop}
       ocrLabel="画像をOCR"
       onOcr={noop}
+      secretLabel="秘密"
       onSecret={noop}
       busy={false}
       {...overrides}
@@ -56,6 +57,12 @@ test("進捗ラベルはそのまま表示する (アップロード%・OCR件�
   const html = render({ uploadLabel: "アップロード中 50%", ocrLabel: "OCR中 (2)" });
   expect(html).toContain("アップロード中 50%");
   expect(html).toContain("OCR中 (2)");
+});
+
+// カーソルがシークレット記法の上にあるかで呼び出し側が文字を変える
+// (docs/52-シークレット編集導線計画.md §1)。ここは受け取って描くだけ
+test("シークレットのラベルもそのまま表示する (秘密 / 秘密を編集)", () => {
+  expect(render({ secretLabel: "秘密を編集" })).toContain("秘密を編集");
 });
 
 // undo/redo は履歴が無ければ disabled。属性だけ数える (class の disabled: と混同しない)

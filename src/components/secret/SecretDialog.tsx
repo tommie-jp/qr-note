@@ -28,6 +28,13 @@ export interface SecretDialogProps {
   // 新規のとき、本文の選択範囲を引き継いだ初期値 (docs/51 §12 の移行導線)
   initialText: string;
   initialLabel: string;
+  // ラベル欄を出さない (docs/52-シークレット編集導線計画.md §2)。
+  //
+  // 閲覧画面から開いたときに true。ラベルは**本文の平文**なので、変えるには
+  // memo を保存し直す必要があり、それは編集画面の仕事。中身の編集は同名
+  // 上書きで本文に触れないため、閲覧画面からでも成立する。
+  // onSaved には initialLabel がそのまま返る (呼ぶ側は本文に触らない)
+  hideLabel?: boolean;
   // 保存できたら呼ぶ。新規なら本文へ記法を挿す (name は新しい断片の名前)
   onSaved: (name: string, label: string) => void;
   onClose: () => void;
@@ -63,6 +70,7 @@ export function SecretDialog({
   name,
   initialText,
   initialLabel,
+  hideLabel = false,
   onSaved,
   onClose,
 }: SecretDialogProps) {
@@ -215,17 +223,23 @@ export function SecretDialog({
 
       <div className="flex-1 overflow-auto p-3">
         <div className="mx-auto flex max-w-2xl flex-col gap-3 rounded bg-white p-3">
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            ラベル (本文に平文で残ります)
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={DEFAULT_SECRET_LABEL}
-              {...NO_ASSIST}
-              className={MEMO_INPUT_CLASS}
-            />
-          </label>
+          {hideLabel ? (
+            /* 閲覧画面から開いたとき。ラベルは本文の平文なので、ここでは
+               変えられない (docs/52 §2)。何を編集しているかは示す */
+            <p className="text-sm font-medium text-gray-700">{initialLabel}</p>
+          ) : (
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              ラベル (本文に平文で残ります)
+              <input
+                type="text"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={DEFAULT_SECRET_LABEL}
+                {...NO_ASSIST}
+                className={MEMO_INPUT_CLASS}
+              />
+            </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm font-medium">
             中身 (markdown。暗号化して保存します)

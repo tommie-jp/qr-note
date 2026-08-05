@@ -83,6 +83,11 @@ interface MarkdownViewProps {
   // ノート閲覧 (ItemView) からのみ true。回転は保存を伴うので、未ログインの
   // 公開ビュー・docs ページでは出さない (既定 false)
   allowRotate?: boolean;
+  // シークレット断片の展開表示に「編集」を出すか
+  // (docs/52-シークレット編集導線計画.md §2)。allowRotate と同じ作法で
+  // ノート閲覧 (ItemView) からのみ true — 保存を伴うので、未ログインの
+  // 公開ビュー・印刷・docs ページでは出さない (既定 false)
+  allowSecretEdit?: boolean;
 }
 
 // react-markdown はカスタムコンポーネントに hast の node を渡してくるため、
@@ -167,7 +172,7 @@ const TEXT_SRC_RE = new RegExp(
 // 生 HTML を無効にしたまま画像ごとに幅を指定できるようにするための独自記法。
 // 画像はクリックで拡大できるよう ZoomableImage で描画する。
 // allowRotate なら拡大表示に 90° 回転ボタンを出す (docs/49-画像回転計画.md)
-function imgRenderer(allowRotate: boolean) {
+function imgRenderer(allowRotate: boolean, allowSecretEdit: boolean) {
   return function ImgWithWidth({
     node: _node,
     alt,
@@ -180,7 +185,11 @@ function imgRenderer(allowRotate: boolean) {
       typeof props.src === "string" ? secretNameFromUrl(props.src) : null;
     if (secretName !== null) {
       return (
-        <SecretBlock name={secretName} label={alt || DEFAULT_SECRET_LABEL} />
+        <SecretBlock
+          name={secretName}
+          label={alt || DEFAULT_SECRET_LABEL}
+          allowEdit={allowSecretEdit}
+        />
       );
     }
     if (typeof props.src === "string" && AUDIO_SRC_RE.test(props.src)) {
@@ -245,6 +254,7 @@ export function MarkdownView({
   circuits = new Map(),
   linkTags = true,
   allowRotate = false,
+  allowSecretEdit = false,
 }: MarkdownViewProps) {
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
   // 残るので、本文の見た目は「リンクでない #タグ」になる
@@ -266,7 +276,7 @@ export function MarkdownView({
         ]}
         components={{
           pre: preOrDiagram(circuits),
-          img: imgRenderer(allowRotate),
+          img: imgRenderer(allowRotate, allowSecretEdit),
           a: linkWithTarget,
         }}
       >

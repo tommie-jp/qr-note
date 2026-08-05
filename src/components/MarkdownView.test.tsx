@@ -304,3 +304,19 @@ test("blob: 以外の未知プロトコルは今までどおり潰す", () => {
   const html = render("![x](javascript:alert(1))");
   expect(html).not.toContain("javascript:");
 });
+
+// シークレット断片の「編集」は保存を伴うので、ノート閲覧 (ItemView) から
+// 渡されたときだけ出す (docs/52-シークレット編集導線計画.md §2)。
+// 公開ビュー・印刷・docs ページでは既定の false のまま出さない
+const SECRET_MD = "![住所](/api/secrets/0123abcd-4567-89ab-cdef-0123456789ab)";
+
+test("シークレットは既定では編集ボタンを出さない (公開ビュー・印刷)", () => {
+  expect(render(SECRET_MD)).not.toContain("編集");
+});
+
+test("シークレットのラベルは施錠中でも本文に出る (中身は出ない)", () => {
+  const html = render(SECRET_MD);
+  expect(html).toContain("住所");
+  // 暗号文の URL を <img src> として描かない (割れた画像になるため)
+  expect(html).not.toContain('src="/api/secrets/');
+});
