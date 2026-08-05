@@ -120,6 +120,16 @@ export async function requestPrf(
   // PRF に対応していない認証器・ブラウザはここで空になる。**黙って別の鍵を
   // でっち上げない** — 弱い鍵で暗号化してしまうより、断って復旧キーへ導く
   if (!first || first.byteLength === 0) {
+    // QR (hybrid) で別の端末に委譲した場合、**認証は通るのに PRF の出力だけが
+    // 返ってこない** (iPad → iPhone の実機で確認。docs/51 §6)。ただの
+    // 「非対応」と出すと、この端末のパスキーなら開けることが伝わらないので、
+    // 経路を見て文言を分ける。authenticatorAttachment は QR・セキュリティ
+    // キー経由だと 'cross-platform' になる
+    if (assertion.authenticatorAttachment === 'cross-platform') {
+      throw new PrfUnsupportedError(
+        'QR で別の端末に委譲したパスキーからは鍵を取り出せません。この端末に保存されたパスキーを選ぶか、復旧キーをお使いください',
+      )
+    }
     throw new PrfUnsupportedError()
   }
 
