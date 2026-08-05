@@ -37,6 +37,11 @@ import {
   uploadButtonLabel,
   type UploadProgress,
 } from "@/lib/progressLabels";
+import {
+  findSecretNotation,
+  secretAtCursor,
+  secretNotation,
+} from "@/lib/secrets";
 import { fenceLanguageCompletion } from "./fenceCompletion";
 import { fenceLanguageLinter } from "./fenceLinter";
 import {
@@ -63,6 +68,13 @@ const DrawModal = dynamic(() => import("./draw/DrawModal"), {
 // 検索画面 (BottomActionBar) と同じ部品を、挿入モード (onResult) で使う
 const ScannerModal = dynamic(
   () => import("./ScannerModal").then((m) => m.ScannerModal),
+  { ssr: false, loading: () => null },
+);
+
+// シークレットの入力ダイアログ (docs/51-部分暗号化計画.md §8)。
+// 開くまで読み込まない (暗号まわり一式を普段の編集に載せない)
+const SecretDialog = dynamic(
+  () => import("./secret/SecretDialog").then((m) => m.SecretDialog),
   { ssr: false, loading: () => null },
 );
 
@@ -338,6 +350,13 @@ export default function MemoEditorInner({
   const [scanning, setScanning] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
+  // シークレットの入力ダイアログ (docs/51-部分暗号化計画.md §8)。null なら閉じている。
+  // name が非 null なら既存の断片の編集、null なら新規 (text は選択範囲)
+  const [secret, setSecret] = useState<{
+    name: string | null;
+    text: string;
+    label: string;
+  } | null>(null);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -715,6 +734,57 @@ export default function MemoEditorInner({
     wrapperRef.current?.closest("form")?.requestSubmit();
   };
 
+  // シークレット (docs/51-部分暗号化計画.md §8, §12)。
+  //
+  // カーソルがシークレット記法の上なら**その断片を開く** (編集)。そうでなければ
+  // **選択範囲を引き継いで新規**にする — これが既存平文の移行導線そのもので、
+  // 選んだ範囲がそのまま暗号化され、記法に置き換わる。
+  //
+  // 平文がここから memo の state へ入ることはない。ダイアログは自分の中だけで
+  // 文字を持ち、封をしてから戻ってくる (記法だけが本文に入る)。
+  const openSecret = () => {
+    const view = editorRef.current?.view;
+    if (!view) {
+      return;
+    }
+    const { from, to } = view.state.selection.main;
+    const hit = secretAtCursor(view.state.doc.toString(), from);
+    setSecret(
+      hit
+        ? { name: hit.name, text: "", label: hit.label }
+        : { name: null, text: view.state.doc.sliceString(from, to), label: "" },
+    );
+  };
+
+  // 封が済んだ断片を本文へ反映する。
+  //
+  // 新規は選択範囲を記法で置き換え、編集は**名前で引き直した位置**の記法を
+  // 差し替える (ラベルを変えたときのため)。位置ではなく名前で引くので、
+  // ダイアログを開いている間に本文が動いていても正しい場所に当たる。
+  const applySecret = (name: string, label: string) => {
+    const editing = secret !== null && secret.name !== null;
+    setSecret(null);
+    const view = editorRef.current?.view;
+    if (!view) {
+      return;
+    }
+    const notation = secretNotation(label, name);
+
+    if (!editing) {
+      insertText(view, notation);
+      return;
+    }
+
+    const hit = findSecretNotation(view.state.doc.toString(), name);
+    if (hit) {
+      view.dispatch({ changes: { from: hit.from, to: hit.to, insert: notation } });
+    } else {
+      // 利用者が記法ごと消していた。中身は保存済みなので、参照を入れ直す
+      insertText(view, notation);
+    }
+    view.focus();
+  };
+
   // カーソル位置へ 1 ブロックとして差し込む。前が改行でなければ改行で始め、
   // 末尾にも改行を足して、周りの本文と行が混ざらないようにする
   const insertBlock = (view: EditorView, text: string) => {
@@ -860,6 +930,17 @@ export default function MemoEditorInner({
           onInsert={insertDrawing}
         />
       )}
+      {/* シークレットの入力。**本文の state を経由しない** — ここで書いた
+          平文は封をしてからでないと外へ出ない (docs/51 §8) */}
+      {secret && (
+        <SecretDialog
+          name={secret.name}
+          initialText={secret.text}
+          initialLabel={secret.label}
+          onSaved={applySecret}
+          onClose={() => setSecret(null)}
+        />
+      )}
       {/* 編集中スキャン: 読み取った生値を runScanInsert へ渡すだけ (検索しない) */}
       {scanning && (
         <ScannerModal
@@ -898,6 +979,7 @@ export default function MemoEditorInner({
             onDraw={openDrawing}
             ocrLabel={ocrButtonLabel(ocrCount)}
             onOcr={() => void runOcrAtCursor()}
+            onSecret={openSecret}
             busy={busy}
           />,
           hostEl,

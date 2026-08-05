@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { EditToolbar } from "./EditToolbar";
 
-// 静的描画で 8 ボタン (更新 + 7 ツール) が出ることを確かめる。ラベルは呼び出し側
+// 静的描画で 9 ボタン (更新 + 8 ツール) が出ることを確かめる。ラベルは呼び出し側
 // (MemoEditorInner) が progressLabels で作った文字列をそのまま受けるので、
 // ここでは代表値を渡す。押下時の挙動 (portal・requestSubmit・録音等) はブラウザで確認。
 const noop = () => {};
@@ -28,6 +28,7 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       onDraw={noop}
       ocrLabel="画像をOCR"
       onOcr={noop}
+      onSecret={noop}
       busy={false}
       {...overrides}
     />,
@@ -45,6 +46,7 @@ test("更新 と 8 つのツールをすべて描く", () => {
     "録画",
     "お絵かき",
     "画像をOCR",
+    "秘密",
   ]) {
     expect(html).toContain(label);
   }

@@ -18,7 +18,9 @@ import { PdfLink } from "./pdf/PdfLink";
 import { AudioPlayer } from "./audio/AudioPlayer";
 import { VideoPlayer } from "./video/VideoPlayer";
 import { TextLink } from "./text/TextLink";
+import { SecretBlock } from "./secret/SecretBlock";
 import { BOX_CLASS } from "./ui";
+import { DEFAULT_SECRET_LABEL, secretNameFromUrl } from "@/lib/secrets";
 import { AUDIO_EXTENSION_ALTERNATION } from "@/lib/audioFormats";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
 import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
@@ -35,6 +37,16 @@ const sanitizeSchema = {
   attributes: {
     ...defaultSchema.attributes,
     code: [["className", /^language-./, "math-inline", "math-display"]],
+  },
+  protocols: {
+    ...defaultSchema.protocols,
+    // blob: を許すのはシークレット断片のため (docs/51-部分暗号化計画.md §9)。
+    // 断片の中に貼った画像は、復号したバイト列から Blob URL を作って
+    // 差し替える — サーバは復号できないので、通常の /api/images では出せない。
+    //
+    // 緩めても増える攻撃面は無い: blob: URL は自分のオリジンの JS だけが
+    // 作れて、本文に手で書いた blob: は何も指さない (無効な URL になる)
+    src: [...(defaultSchema.protocols?.src ?? []), "blob"],
   },
 } satisfies Options;
 
@@ -148,6 +160,16 @@ function imgRenderer(allowRotate: boolean) {
     alt,
     ...props
   }: MarkdownComponentProps<"img">) {
+    // シークレット断片 (docs/51-部分暗号化計画.md §3)。**いちばん先に見る** —
+    // 中身は暗号文なので、下の <img> に落ちると必ず割れた画像になる。
+    // alt がラベル、URL が断片の名前で、どちらも平文のまま本文に残る
+    const secretName =
+      typeof props.src === "string" ? secretNameFromUrl(props.src) : null;
+    if (secretName !== null) {
+      return (
+        <SecretBlock name={secretName} label={alt || DEFAULT_SECRET_LABEL} />
+      );
+    }
     if (typeof props.src === "string" && AUDIO_SRC_RE.test(props.src)) {
       // 音声プレイヤー + 共有ボタン。<audio> は iOS の長押し共有が効かないので、
       // 自前で共有の口を持つ (AudioPlayer.tsx の冒頭に経緯)

@@ -17,6 +17,7 @@ import {
   ImportIcon,
   InfoIcon,
   KeyIcon,
+  LockIcon,
   LogIcon,
 } from "@/components/MenuIcons";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
@@ -28,6 +29,7 @@ import {
   PROD_THEME_COLOR,
 } from "@/lib/appEnv";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/authPaths";
+import { SECRET_SETTINGS_PATH } from "@/lib/secrets";
 import { currentUser } from "@/lib/session";
 import { qrBaseUrl, SITE_DESCRIPTION, SITE_NAME, siteTitle } from "@/lib/site";
 import "./globals.css";
@@ -179,6 +181,16 @@ export default async function RootLayout({
                       >
                         <KeyIcon />
                         パスキー
+                      </Link>
+                      {/* シークレット (部分暗号化) の鍵 (docs/51-部分暗号化計画.md §6)。
+                          解錠はノートを開いたときにも促されるが、初回設定と
+                          復旧キーの入口はここだけ */}
+                      <Link
+                        href={SECRET_SETTINGS_PATH}
+                        className={HEADER_MENU_ITEM_CLASS}
+                      >
+                        <LockIcon />
+                        シークレット
                       </Link>
                       {/* Evernote (.enex) の取り込み (docs/28-エクスポート計画.md §4)。
                           たまにしか使わないのでメニューの奥でよいが、導線が

@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import {
   DrawIcon,
   ImageInsertIcon,
+  LockIcon,
   MicIcon,
   OcrIcon,
   RedoIcon,
@@ -89,6 +90,9 @@ export interface EditToolbarProps {
   onDraw: () => void;
   ocrLabel: string;
   onOcr: () => void;
+  // シークレット挿入 (docs/51-部分暗号化計画.md §8)。選択範囲があれば
+  // それを引き継いでダイアログを開く
+  onSecret: () => void;
   // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
   busy: boolean;
 }
@@ -112,6 +116,7 @@ export function EditToolbar({
   onDraw,
   ocrLabel,
   onOcr,
+  onSecret,
   busy,
 }: EditToolbarProps) {
   return (
@@ -219,6 +224,17 @@ export function EditToolbar({
             <OcrIcon />
           </ToolIcon>
           {ocrLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onSecret}
+          disabled={busy}
+          className={TOOL_SLOT}
+        >
+          <ToolIcon color="text-amber-600">
+            <LockIcon />
+          </ToolIcon>
+          秘密
         </button>
       </div>
     </>

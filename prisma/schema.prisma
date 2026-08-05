@@ -106,8 +106,53 @@ model WebAuthnCredential {
   label      String
   createdAt  DateTime  @default(now()) @map("created_at")
   lastUsedAt DateTime? @map("last_used_at")
+  // シークレットのマスターキーを、このパスキーの PRF 由来の鍵 (KEK) で
+  // 包んだもの (docs/51-部分暗号化計画.md §6)。null = この端末ではまだ
+  // 暗号化を有効にしていない。
+  //
+  // **サーバにあるのは包んだ後だけ**。開けるのは認証器 (Face ID) を持つ
+  // 本人だけで、この列が丸ごと漏れても中身は取り出せない。パスキーを消せば
+  // この列も一緒に消える (鍵の後始末を別に書かなくてよい)。
+  secretKeyWrap Bytes? @map("secret_key_wrap")
 
   @@map("webauthn_credentials")
+}
+
+// シークレット断片 (docs/51-部分暗号化計画.md §4)。
+//
+// **中身はクライアントが暗号化したバイト列だけ**。サーバは鍵を持たないので
+// 復号できず、pg_dump が漏れても読めない。画像と同じく DB に置くことで、
+// バックアップ 1 本でメモと断片が揃う (整合が壊れない)。
+//
+// **images テーブルには入れない**のが要点。saveImage() を通すとサムネと
+// 埋め込みが自動生成され、平文由来の派生物がサーバに残ってしまう
+// (docs/51 §5)。表を分けてパイプラインごと分離する。
+model Secret {
+  // サーバが振った UUID。画像と違い拡張子を持たない (isValidSecretName)
+  name      String   @id
+  // 復号後の中身の種別。断片本文は text/markdown、断片内の画像は image/*。
+  // **暗号化しないメタデータ**で、管理者には「これは画像だ」までは見える
+  // (docs/51 §1 の割り切り)。表示側が復号後の描き分けに使う
+  mime      String
+  // 暗号エンベロープ (version || iv || AES-256-GCM。src/lib/secretEnvelope.ts)
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("secrets")
+}
+
+// 鍵束の検証値 (docs/51-部分暗号化計画.md §6)。行は 1 つだけ (id = 1)。
+//
+// マスターキーそのものは**どこにも保存しない**。ここにあるのは「その鍵で
+// 合っているか」を確かめるためだけの既知平文の暗号文で、復旧キーを打ち込んだ
+// ときの検算に使う (断片が 1 つも無くても確かめられるようにするため)。
+// 行の有無が「暗号化を設定済みか」の判定にもなる。
+model SecretKeyring {
+  id        Int      @id @default(1)
+  verifier  Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("secret_keyring")
 }
 
 // ログイン中の端末 (docs/29-パスキー計画.md §4)。
