@@ -119,7 +119,9 @@ export function allImageNames(memo: string): string[] {
 // 割って新サムネを取り直す。route はこの値を読まない (thumb=1 だけを見る) ので
 // 増やすだけでよい。v1: 長辺 320 inside → v2: 正方形 384 cover → v3: 384 inside
 // (縦横比維持に戻す。画像モードのタイルを contain 全体表示に変えたため。docs/32 §1)
-const THUMB_VERSION = 3
+// v4: GIF・アニメ WebP はサムネもアニメにする (一覧で動かす)。既存分は
+// backfillThumbs.ts --force で作り直すと版も変わり旧サムネのキャッシュも割れる
+const THUMB_VERSION = 4
 
 // 一覧のサムネ配信 URL。?thumb=1 は縮小版を返す
 // (src/app/api/images/[name]/route.ts)。v はキャッシュバスター (上記)。
