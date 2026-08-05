@@ -290,3 +290,17 @@ test("既定では #タグ を検索リンクにする", () => {
   const html = render("これは #抵抗 のメモ");
   expect(html).toContain("q=%23");
 });
+
+// シークレット断片内の画像は、復号したバイト列から作った blob: URL に
+// 差し替えて描く (docs/51-部分暗号化計画.md §9)。react-markdown の既定の
+// urlTransform は https 等しか通さず blob: を空文字に潰すため、明示的に
+// 通している — ここが落ちると画像の代わりに alt 文字だけが出る (実機で発生)
+test("blob: URL の画像を src を保ったまま描く (シークレット断片内の画像)", () => {
+  const html = render("![画像](blob:https://example.com/123-abc)");
+  expect(html).toContain('src="blob:https://example.com/123-abc"');
+});
+
+test("blob: 以外の未知プロトコルは今までどおり潰す", () => {
+  const html = render("![x](javascript:alert(1))");
+  expect(html).not.toContain("javascript:");
+});

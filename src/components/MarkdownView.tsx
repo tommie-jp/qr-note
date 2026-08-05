@@ -4,7 +4,7 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
-import Markdown from "react-markdown";
+import Markdown, { defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema, type Options } from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
@@ -53,6 +53,19 @@ const sanitizeSchema = {
 // \rule{99999em}{...} のような巨大サイズ指定でページを潰せないよう上限を設ける
 // (KaTeX の maxSize デフォルトは Infinity)
 const KATEX_MAX_SIZE_EM = 50;
+
+// URL の通し方。react-markdown は**サニタイズより前に**既定の urlTransform
+// (https?|ircs?|mailto|xmpp のみ許可) で URL を空文字に潰すため、
+// sanitizeSchema の protocols に blob を足すだけでは足りない — シークレット
+// 断片内の画像 (復号したバイト列の blob: URL。docs/51 §9) がここで消え、
+// alt 文字だけが表示される (実機で発生)。
+//
+// blob: を通しても攻撃面は増えない: blob: URL は自分のオリジンの JS だけが
+// 作れて、本文に手で書いた blob: は何も指さない (sanitizeSchema と同じ理由)。
+// それ以外の未知プロトコル (javascript: 等) は今までどおり既定に任せて潰す
+function urlTransform(url: string): string {
+  return url.startsWith("blob:") ? url : defaultUrlTransform(url);
+}
 
 interface MarkdownViewProps {
   markdown: string;
@@ -246,6 +259,7 @@ export function MarkdownView({
     <div className={`prose prose-sm max-w-none break-words ${BOX_CLASS}`}>
       <Markdown
         remarkPlugins={remarkPlugins}
+        urlTransform={urlTransform}
         rehypePlugins={[
           [rehypeSanitize, sanitizeSchema],
           [rehypeKatex, { maxSize: KATEX_MAX_SIZE_EM }],
