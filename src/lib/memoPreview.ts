@@ -12,7 +12,7 @@
 // 折り返して 2 行にも 3 行にもなるので、「3 行に収める」のは line-clamp の仕事。
 // ここは「3 行を埋めるのに十分なテキスト」を渡すことだけを受け持つ。
 
-import { FENCE_MARKER, stripLineMarkdown } from './memoSummary'
+import { isStructureLine, stripLineMarkdown } from './memoSummary'
 import { isPropLine } from './props'
 import { parseTagToken } from './tags'
 
@@ -49,7 +49,7 @@ export function memoPreview(memo: string): string {
   let titlePassed = false
 
   for (const line of memo.split(/\r?\n/)) {
-    if (FENCE_MARKER.test(line)) {
+    if (isStructureLine(line)) {
       continue
     }
 

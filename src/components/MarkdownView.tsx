@@ -13,6 +13,14 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { remarkTagLinks } from "./remarkTagLinks";
+import { remarkDetails, remarkDetailsSyntax } from "./remarkDetails";
+import {
+  alertTypeFromClassName,
+  ALERT_CLASS_PREFIX,
+  remarkAlerts,
+} from "./remarkAlerts";
+import { MarkdownAlert } from "./MarkdownAlert";
+import { CodeBlock } from "./CodeBlock";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -38,9 +46,32 @@ import "katex/dist/katex.min.css";
 // KaTeX が生成した HTML はそのまま残る (remark-math 公式レシピ)
 const sanitizeSchema = {
   ...defaultSchema,
+  // 脚注の id を二重に前置きしない (docs/54-markdown表示拡張計画.md §3)。
+  // remark-rehype が既に `user-content-fn-1` の形で付けており、サニタイズが
+  // その上からもう一度 `user-content-` を足すと id だけが
+  // `user-content-user-content-fn-1` になって、参照リンク (href は書き換え
+  // 対象外) と食い違う。脚注は出ているのに押しても飛ばない、という
+  // 気づきにくい壊れ方をする。
+  //
+  // 外しても乗っ取りの余地は増えない: 生 HTML は無効なので本文から任意の id は
+  // 書けず、id を作るのは remark-rehype (脚注) と KaTeX だけ
+  clobberPrefix: "",
   attributes: {
     ...defaultSchema.attributes,
     code: [["className", /^language-./, "math-inline", "math-display"]],
+    // アラートの目印 (docs/54 §2)。remarkAlerts が刻む `alert-<種類>` だけを
+    // 通す。値の作り手はプラグインで、利用者の入力はここに入らない。
+    //
+    // **rehypeTaskLines (サニタイズの後に刻む) と手が違うのは意図的。**
+    // あちらは既にある要素に行番号を「足す」だけなので後段でよいが、
+    // アラートは目印の文字を本文から**取り除く**必要があり、それは Markdown の
+    // 構文解釈そのもの — hast まで下りると段落の間の改行ノードを跨いで
+    // 探すことになる。mdast で解いて class 1 つで渡すほうが素直なので、
+    // その 1 つだけを許可リストに載せている
+    blockquote: [
+      ...(defaultSchema.attributes?.blockquote ?? []),
+      ["className", new RegExp(`^${ALERT_CLASS_PREFIX}`)],
+    ],
   },
   protocols: {
     ...defaultSchema.protocols,
@@ -114,30 +145,32 @@ interface MarkdownViewProps {
 
 // react-markdown はカスタムコンポーネントに hast の node を渡してくるため、
 // DOM 要素へ spread する前に取り除く
-type MarkdownComponentProps<T extends "pre" | "a" | "img" | "input"> =
-  ComponentProps<T> & {
-    node?: unknown;
-  };
+type MarkdownComponentProps<
+  T extends "pre" | "a" | "img" | "input" | "blockquote",
+> = ComponentProps<T> & {
+  node?: unknown;
+};
 
-// フェンスの言語と中身を取り出す。フェンスでなければ null
+// フェンスの言語と中身を取り出す。<pre> の中が <code> でなければ null。
+// **言語指定がなければ lang は null** (字下げのコードブロックもここに来る) —
+// コピーボタンは言語の有無によらず出したいので、言語なしを弾かない
 function readFence(
   children: ReactNode,
-): { lang: string; code: string } | null {
+): { lang: string | null; code: string } | null {
   const child = Children.toArray(children)[0];
   if (!isValidElement<{ className?: string; children?: ReactNode }>(child)) {
     return null;
   }
-  const lang = /\blanguage-([^\s]+)/.exec(child.props.className ?? "")?.[1];
-  if (!lang) {
-    return null;
-  }
+  const lang =
+    /\blanguage-([^\s]+)/.exec(child.props.className ?? "")?.[1] ?? null;
   const code = Children.toArray(child.props.children)
     .filter((c): c is string => typeof c === "string")
     .join("");
   return { lang, code: code.trim() };
 }
 
-// フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に差し替える
+// フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に差し替え、
+// それ以外はコピーボタン付きのコードブロックにする (docs/54 §1)
 function preOrDiagram(circuits: CircuitMap) {
   return function PreOrDiagram({
     node: _node,
@@ -145,19 +178,26 @@ function preOrDiagram(circuits: CircuitMap) {
     ...props
   }: MarkdownComponentProps<"pre">) {
     const fence = readFence(children);
+    if (fence === null) {
+      return <pre {...props}>{children}</pre>;
+    }
 
-    if (fence?.lang === MERMAID_LANG) {
+    if (fence.lang === MERMAID_LANG) {
       return <MermaidDiagram code={fence.code} />;
     }
 
     // 描画済みの結果が無いフェンス (circuits を渡していないページ) は
     // コードブロックのまま表示する
-    const circuit = fence?.lang === CIRCUIT_LANG ? circuits.get(fence.code) : undefined;
-    if (circuit) {
-      return <CircuitDiagram result={circuit} code={fence!.code} />;
+    if (fence.lang === CIRCUIT_LANG) {
+      const circuit = circuits.get(fence.code);
+      if (circuit) {
+        return <CircuitDiagram result={circuit} code={fence.code} />;
+      }
     }
 
-    return <pre {...props}>{children}</pre>;
+    // 図はコピーしても意味のある文字にならないので、ここまで来たものだけ。
+    // 中身は CodeBlock が描いた <pre> から読むので渡さない (二重に送らない)
+    return <CodeBlock {...props}>{children}</CodeBlock>;
   };
 }
 
@@ -297,6 +337,21 @@ function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
   };
 }
 
+// remarkAlerts が刻んだ class を読んでアラートの枠に差し替える (docs/54 §2)。
+// 目印の無い引用 (知らない種類の `[!FOO]` を含む) はただの引用のまま
+function blockquoteWithAlert({
+  node: _node,
+  children,
+  className,
+  ...props
+}: MarkdownComponentProps<"blockquote">) {
+  const type = alertTypeFromClassName(className);
+  if (type === null) {
+    return <blockquote {...props}>{children}</blockquote>;
+  }
+  return <MarkdownAlert type={type}>{children}</MarkdownAlert>;
+}
+
 // 外部サイトへのリンクだけ別タブで開く。#タグ の検索リンクやメモへの
 // 内部リンク (/... で始まる) までタブを増やすと使いにくいため除く。
 // mailto: などもメーラーが起動して空タブが残るだけなので対象外
@@ -318,6 +373,15 @@ function linkWithTarget({
   );
 }
 
+// prose の既定に対する手直し。
+// - タスク項目の中黒は落とす。チェックボックスと二重の目印になって読みにくい
+//   (字下げは残して他の箇条書きと行頭を揃える)
+// - 脚注の塊 (section.footnotes) の上に区切り線を引く。見出し「脚注」は
+//   remark-rehype が sr-only で置くので画面には出ず、線がないと本文の続きに
+//   見える (docs/54-markdown表示拡張計画.md §3)
+const PROSE_TWEAKS =
+  "[&_li.task-list-item]:list-none [&_.footnotes]:mt-6 [&_.footnotes]:border-t [&_.footnotes]:border-gray-300 [&_.footnotes]:pt-2";
+
 // memo を Markdown としてレンダリングする Server Component。
 // 生 HTML はデフォルトで無視されるが、保険として rehype-sanitize も通す
 export function MarkdownView({
@@ -330,11 +394,18 @@ export function MarkdownView({
   onToggleTask,
 }: MarkdownViewProps) {
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
-  // 残るので、本文の見た目は「リンクでない #タグ」になる
+  // 残るので、本文の見た目は「リンクでない #タグ」になる。
+  //
+  // remarkDetails は **remarkBreaks より前**に置く — 知らない directive を
+  // 原文の文字に戻すとき、戻した中の改行も他の本文と同じように改行として
+  // 描かせたいため (後ろに置くと 1 行に潰れて見える)
   const remarkPlugins = [
     remarkGfm,
+    remarkDetailsSyntax,
+    remarkDetails,
     remarkBreaks,
     remarkMath,
+    remarkAlerts,
     ...(linkTags ? [remarkTagLinks] : []),
   ];
 
@@ -348,20 +419,25 @@ export function MarkdownView({
   ];
 
   return (
-    // タスク項目の中黒は落とす。チェックボックスと二重の目印になって読みにくい
-    // (字下げは残して他の箇条書きと行頭を揃える)
     <div
-      className={`prose prose-sm max-w-none break-words [&_li.task-list-item]:list-none ${BOX_CLASS}`}
+      className={`prose prose-sm max-w-none break-words ${PROSE_TWEAKS} ${BOX_CLASS}`}
     >
       <Markdown
         remarkPlugins={remarkPlugins}
         urlTransform={urlTransform}
         rehypePlugins={rehypePlugins}
+        // 脚注まわりの文言 (docs/54 §3)。既定は英語の "Footnotes" で、
+        // 隠し見出しに付く sr-only class はサニタイズで落ちるため画面に出る
+        remarkRehypeOptions={{
+          footnoteLabel: "脚注",
+          footnoteBackLabel: "本文に戻る",
+        }}
         components={{
           pre: preOrDiagram(circuits),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
           input: taskCheckboxRenderer(onToggleTask),
+          blockquote: blockquoteWithAlert,
         }}
       >
         {markdown}

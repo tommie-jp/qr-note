@@ -51,6 +51,11 @@ export const COMPACT_ACTION_LINK_CLASS = `${ACTION_LINK_SKIN} ${COMPACT_SIZE} px
 // する。px-3 のままだと 1 文字に対して枠が横長になり、間延びして見える
 export const COMPACT_ICON_BUTTON_CLASS = `${SECONDARY_SKIN} min-h-9 w-9 text-lg`;
 
+// 本文の上に重ねる小さいボタン (コードブロックのコピー)。
+// 44px を割るのは、本文の一部を覆う道具だから — 大きくすると読みたい行を
+// 隠してしまう。狙って押す場所ではなく、押し損ねても実害がない
+export const OVERLAY_BUTTON_CLASS = `${SECONDARY_SKIN} px-2 py-1 text-xs`;
+
 // 検索窓。文字だけは text-base (16px) のまま下げない。iOS Safari は 16px 未満の
 // 入力欄にフォーカスすると画面を勝手に拡大し、戻せないため
 export const COMPACT_INPUT_CLASS = `${BOX_SKIN} min-h-9 py-1`;

@@ -377,3 +377,128 @@ test("コードフェンスの中の擬似タスクはチェックボックス�
   const html = renderWithToggle("```text\n- [ ] apple\n```");
   expect(html).not.toContain('type="checkbox"');
 });
+
+// --- コードブロックのコピーボタン (docs/54-markdown表示拡張計画.md §1) ---
+
+const COPY_LABEL = "コードをコピー";
+
+test("コードフェンスにコピーボタンを添える", () => {
+  const html = render("```bash\nls -la\n```");
+  expect(html).toContain(COPY_LABEL);
+  expect(html).toContain("<code");
+});
+
+test("言語指定のないフェンスにもコピーボタンを添える", () => {
+  expect(render("```\nls -la\n```")).toContain(COPY_LABEL);
+});
+
+test("字下げのコードブロックにもコピーボタンを添える", () => {
+  expect(render("    ls -la")).toContain(COPY_LABEL);
+});
+
+// 図はコピーしても意味のある文字にならない
+test("mermaid の図にはコピーボタンを出さない", () => {
+  expect(render("```mermaid\ngraph TD; A-->B;\n```")).not.toContain(COPY_LABEL);
+});
+
+test("描画済みの回路図にはコピーボタンを出さない", () => {
+  const code = "\\draw (0,0) to[R] (2,0);";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={"```circuitikz\n" + code + "\n```"}
+      circuits={new Map([[code, { svg: "<svg></svg>" }]])}
+    />,
+  );
+  expect(html).not.toContain(COPY_LABEL);
+});
+
+test("印刷にはコピーボタンを出さない", () => {
+  expect(render("```bash\nls\n```")).toContain("print:hidden");
+});
+
+// --- アラート (docs/54-markdown表示拡張計画.md §2) ---
+
+test("[!WARNING] を注意書きの枠にする", () => {
+  const html = render("> [!WARNING]\n> 火傷に注意");
+  expect(html).toContain("注意");
+  expect(html).toContain("火傷に注意");
+  expect(html).not.toContain("[!WARNING]");
+});
+
+test("知らない種類の [!FOO] はただの引用にする", () => {
+  const html = render("> [!FOO]\n> 本文");
+  expect(html).toContain("<blockquote>");
+  expect(html).toContain("[!FOO]");
+});
+
+test("アラートの中の #タグ もリンクになる", () => {
+  const html = render("> [!NOTE]\n> #抵抗 のこと");
+  expect(html).toContain("q=%23");
+});
+
+// --- 脚注 (docs/54-markdown表示拡張計画.md §3) ---
+
+const FOOTNOTE_MD = "本文[^1]\n\n[^1]: 補足の説明";
+
+// 参照リンクの飛び先と脚注の id が食い違うと、押しても何も起きない。
+// remark-rehype と rehype-sanitize が**二重に** user-content- を付けるのが
+// 原因で、静かに壊れる (見た目は脚注が出ているので気づけない)
+test("脚注の参照と飛び先の id が一致する", () => {
+  const html = render(FOOTNOTE_MD);
+  const href = /href="#([^"]*fn-1[^"]*)"/.exec(html)?.[1];
+  expect(href).toBeDefined();
+  expect(html).toContain(`id="${href}"`);
+});
+
+test("脚注の戻りリンクの飛び先も一致する", () => {
+  const html = render(FOOTNOTE_MD);
+  const href = /href="#([^"]*fnref-1[^"]*)"/.exec(html)?.[1];
+  expect(href).toBeDefined();
+  expect(html).toContain(`id="${href}"`);
+});
+
+test("id に user-content- を二重に付けない", () => {
+  expect(render(FOOTNOTE_MD)).not.toContain("user-content-user-content-");
+});
+
+test("脚注の見出しを日本語にする", () => {
+  const html = render(FOOTNOTE_MD);
+  expect(html).toContain("脚注");
+  expect(html).not.toContain("Footnotes");
+});
+
+test("脚注の本文を最後にまとめて出す", () => {
+  const html = render(FOOTNOTE_MD);
+  expect(html).toContain("補足の説明");
+  expect(html).toContain("<section");
+});
+
+// 区切り線は wrapper の [&_.footnotes] で引くので、この class が
+// サニタイズで落ちると線だけ静かに消える
+test("脚注の塊に footnotes クラスが残る (区切り線の目印)", () => {
+  expect(render(FOOTNOTE_MD)).toContain('class="footnotes"');
+});
+
+// --- 折りたたみ (docs/54-markdown表示拡張計画.md §4) ---
+
+test(":::details を折りたたみにする", () => {
+  const html = render(":::details[長いログ]\n本文\n:::");
+  expect(html).toContain("<details");
+  expect(html).toContain("<summary>長いログ</summary>");
+  expect(html).toContain("本文");
+});
+
+// サニタイズが details/summary を落とすと中身ごと消える
+test("折りたたみはサニタイズを通り抜ける", () => {
+  const html = render(":::details[x]\n畳んだ中身\n:::");
+  expect(html).toContain("畳んだ中身");
+});
+
+test("折りたたみの中の画像も描く", () => {
+  const html = render(":::details[図]\n![|200](/api/images/a.png)\n:::");
+  expect(html).toContain('width="200"');
+});
+
+test("知らない directive は書いたとおりの文字で残す", () => {
+  expect(render("型:int です")).toContain("型:int です");
+});

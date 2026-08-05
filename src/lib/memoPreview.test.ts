@@ -76,6 +76,24 @@ test('収まる本文には … を付けない', () => {
   expect(memoPreview('タイトル\n短い本文')).toBe('短い本文')
 })
 
+// 折りたたみ・アラートの目印は表示では枠に化けるので、プレビューには出さない。
+// ただしラベルは書き手が付けた見出しなので残す (docs/54-markdown表示拡張計画.md)
+test('折りたたみの囲いを落としてラベルは残す', () => {
+  expect(memoPreview('タイトル\n\n:::details[ログ]\n畳んだ中身\n:::')).toBe(
+    'ログ 畳んだ中身',
+  )
+})
+
+test('ラベルのない折りたたみは囲いだけ落とす', () => {
+  expect(memoPreview('タイトル\n\n:::details\n畳んだ中身\n:::')).toBe(
+    '畳んだ中身',
+  )
+})
+
+test('アラートの目印を落とす', () => {
+  expect(memoPreview('タイトル\n\n> [!NOTE]\n> 補足です')).toBe('補足です')
+})
+
 test('本文が無ければ空文字を返す', () => {
   expect(memoPreview('タイトルだけ')).toBe('')
   expect(memoPreview('')).toBe('')
