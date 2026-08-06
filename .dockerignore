@@ -1,6 +1,10 @@
 node_modules
 .next
 src/generated
+# ノートの git 履歴 (開発時の実データ。docs/57)。builder の COPY . . で
+# ビルドコンテキスト・中間レイヤーに取り込まないため
+data
+backup
 .env
 .env.*
 !.env.example

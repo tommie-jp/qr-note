@@ -461,21 +461,45 @@ export async function restoreItems(itemNos: string[]): Promise<number> {
 // 永久削除 (DB から消す)。**ゴミ箱にある行しか消さない**のがこの関数の要点で、
 // 二段階削除の保証はここにある (UI ではなくサーバ側で担保する)。
 // ここで初めて itemNo が解放され、新規ノートに再利用されうる。
-export async function purgeItems(itemNos: string[]): Promise<number> {
+//
+// 戻り値は件数ではなく**実際に消えた itemNo の列**。呼び出し側 (actions.ts) が
+// git の墓石コミットの対象を決めるのに使う — 渡された itemNos をそのまま
+// 使うと、ゴミ箱に無くて消えなかったノートの履歴まで墓石が立ってしまう
+// (docs/57-ノートgit履歴計画.md §4)。先に SELECT してから消す間に別タブが
+// 割り込む競合は理屈上あるが、deleteMany 側の deleted_at 条件が守りの正本で、
+// ずれても墓石が 1 回分ずれるだけ (シングルユーザーでは実質起きない)。
+export async function purgeItems(itemNos: string[]): Promise<string[]> {
   if (itemNos.length === 0) {
-    return 0
+    return []
   }
-  const { count } = await prisma.item.deleteMany({
+  const rows = await prisma.item.findMany({
     where: { itemNo: { in: itemNos }, deletedAt: { not: null } },
+    select: { itemNo: true },
   })
-  return count
+  if (rows.length === 0) {
+    return []
+  }
+  const targets = rows.map((row) => row.itemNo)
+  await prisma.item.deleteMany({
+    where: { itemNo: { in: targets }, deletedAt: { not: null } },
+  })
+  return targets
 }
 
-export async function emptyTrash(): Promise<number> {
-  const { count } = await prisma.item.deleteMany({
+// purgeItems と同じ約束で、消えた itemNo の列を返す (墓石コミットの対象)。
+export async function emptyTrash(): Promise<string[]> {
+  const rows = await prisma.item.findMany({
     where: { deletedAt: { not: null } },
+    select: { itemNo: true },
   })
-  return count
+  if (rows.length === 0) {
+    return []
+  }
+  const targets = rows.map((row) => row.itemNo)
+  await prisma.item.deleteMany({
+    where: { itemNo: { in: targets }, deletedAt: { not: null } },
+  })
+  return targets
 }
 
 export interface TrashedItem {

@@ -545,8 +545,11 @@ describe.skipIf(!runDbTests)(
         await seedNote('zzftpg1', { memo: 'zzftpurgetoken', deletedAt: new Date() })
         await seedNote('zzftpg2', { memo: 'zzftpurgetoken' })
 
-        await purgeItems(['zzftpg1', 'zzftpg2'])
+        const purged = await purgeItems(['zzftpg1', 'zzftpg2'])
 
+        // 戻り値は「実際に消えた itemNo」。git の墓石コミットが、消えていない
+        // ノートの履歴まで消さないための口 (docs/57-ノートgit履歴計画.md §4)
+        expect(purged).toEqual(['zzftpg1'])
         expect(await getItem('zzftpg1')).toBeNull()
         expect(await getItem('zzftpg2')).not.toBeNull()
       })

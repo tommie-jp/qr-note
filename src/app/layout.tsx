@@ -14,6 +14,7 @@ import { LoginButton } from "@/components/LoginButton";
 import { LogoutButton } from "@/components/LogoutButton";
 import {
   GithubIcon,
+  HistoryIcon,
   ImportIcon,
   InfoIcon,
   KeyIcon,
@@ -201,6 +202,16 @@ export default async function RootLayout({
                       >
                         <ImportIcon />
                         インポート
+                      </Link>
+                      {/* 既存ノートの git 履歴への取り込み (docs/57-ノートgit
+                          履歴計画.md §6)。ほぼ一度きりの操作だが、導線が
+                          ここしか無いので出しておく (インポートと同じ判断) */}
+                      <Link
+                        href="/settings/history"
+                        className={HEADER_MENU_ITEM_CLASS}
+                      >
+                        <HistoryIcon />
+                        履歴取り込み
                       </Link>
                     </>
                   )}

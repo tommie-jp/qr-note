@@ -31,6 +31,18 @@ FROM node:24-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# ノート履歴 (docs/57-ノートgit履歴計画.md) の git 本体と、リポジトリの置き場。
+# 置き場は named volume (compose.yaml の git-notes) のマウント先。volume は
+# 初回マウント時にイメージ側ディレクトリの所有権を引き継ぐため、ここで
+# node 所有にしておかないと USER node で書けない。
+# COPY より前に置くのはレイヤーキャッシュのため (ソースが変わっても apt を
+# 引き直さない)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /app/data/git-notes \
+ && chown -R node:node /app/data
+
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public

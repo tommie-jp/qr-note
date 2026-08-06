@@ -70,6 +70,11 @@ services:
     ports:
       # ローカル: tailscale serve 用 / vps2: nginx のプロキシ先 (loopback のみ)
       - "127.0.0.1:${APP_PORT:-3000}:3000"
+    volumes:
+      # ノートの git 履歴 (docs/57-ノートgit履歴計画.md §7)。DB の外に置く
+      # 唯一の永続データ — pg_dump に履歴は入らないので、バックアップは
+      # doDumpGit-from-vps2.sh (git bundle) が拾う
+      - git-notes:/app/data/git-notes
     depends_on:
       db:
         condition: service_healthy
@@ -100,5 +105,9 @@ volumes:
   # 画像は images テーブルに入れるため uploads volume は持たない
   # (pg_dump だけでメモと画像が揃う)
   db-data:
+  # ノートの git 履歴 (docs/57)。デプロイでこの volume 定義を反映するには
+  # compose.yaml の scp + `docker compose up -d` のやり直しが要る
+  # (doDeploy.sh はイメージだけを運ぶ)
+  git-notes:
   caddy-data:
   caddy-config:

@@ -87,6 +87,19 @@ export function ImportIcon() {
   );
 }
 
+// 履歴取り込み: コミットグラフ (幹と枝)。時計の絵にしないのは「時刻」では
+// なく「版の系譜」を指すため (docs/57-ノートgit履歴計画.md §6)
+export function HistoryIcon() {
+  return (
+    <StrokeIcon className="text-orange-600">
+      <circle {...TINT} cx="6" cy="6" r="2.5" />
+      <circle {...TINT} cx="6" cy="18" r="2.5" />
+      <circle {...TINT} cx="18" cy="6" r="2.5" />
+      <path d="M6 8.5v7M18 8.5a9.5 9.5 0 0 1-9.5 9.5" />
+    </StrokeIcon>
+  );
+}
+
 // パスキー: 鍵。指紋と迷ったが、20px では指紋の渦が潰れて丸い染みになる
 export function KeyIcon() {
   return (

@@ -55,6 +55,17 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           >
             編集
           </Link>
+          {/* git 履歴 (docs/57-ノートgit履歴計画.md)。デモでは機能ごと閉じる
+              のでリンクも出さない (PublicToggle と同じ判断) */}
+          {!isDemoMode() && (
+            <Link
+              href={`/item/${itemNo}/history`}
+              className={ACTION_LINK_CLASS}
+              transitionTypes={["nav-forward"]}
+            >
+              履歴
+            </Link>
+          )}
           {/* /print は loading.tsx を持たない force-dynamic なページなので、
               押してから画面が変わるまでの間はリンク側でスピナーを出す */}
           <PendingLink
