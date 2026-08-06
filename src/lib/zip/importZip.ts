@@ -16,16 +16,12 @@ import type { BaseImportReport } from '@/lib/importReport'
 import { applyImportedTimestamps, setItemPublic, upsertItem } from '@/lib/items'
 import { isValidImageName } from '@/lib/uploads'
 import { classifyEntry } from './layout'
+import { MAX_ZIP_NOTE_BYTES } from './limits'
 import { collectAttachmentNames, parseNoteFile, type PortableNote } from './noteFile'
-import { readZipEntries, type RawZipEntry } from './readZip'
+import { readZipStream, ZipReadError } from './readZip'
 
 // 本文は UTF-8 で書き出している (buildNoteFile)。使い回してよい
 const DECODER = new TextDecoder()
-
-interface ZipAttachment {
-  name: string
-  data: Uint8Array
-}
 
 export interface ZipImportOptions {
   // 同じ番号のノートが既にあるとき上書きするか (既定: 上書きしない)。
@@ -44,12 +40,13 @@ export interface ZipImportReport extends BaseImportReport {
   restoredAttachments: number
 }
 
-// ZIP 1 ファイルを取り込む。
+// ZIP 1 ファイルを取り込む。入力は**バイト列の並び** (アップロードの本文を
+// そのまま流す) で、ファイル全体をメモリに載せない。
 //
 // ZIP として読めない・大きすぎるファイルは**例外**を投げる (ファイル 1 枚
 // まるごとが対象外)。個々のノート・添付の失敗は例外にせずレポートへ載せる。
 export async function importZip(
-  zip: Uint8Array,
+  source: AsyncIterable<Uint8Array>,
   options: ZipImportOptions = {},
 ): Promise<ZipImportReport> {
   const report: ZipImportReport = {
@@ -60,81 +57,87 @@ export async function importZip(
     deferredImageIndex: 0,
   }
 
-  const { notes, attachments } = sortEntries(readZipEntries(zip), report)
+  // **添付は届いたそばから保存し、ノートは溜めて後で入れる。**
+  //
+  // 順序の要件は「添付 → ノート」(逆にすると、取り込んだ直後の一覧で画像が
+  // 割れて見える瞬間ができる) だが、書き出した ZIP はノートが先に並んでいる。
+  // かといって全部を読み終えてから処理すると 500MB がまるごと載る。
+  // **小さいほう (ノート本文) だけを待たせる**ことで、両方を立てる。
+  const notes: PendingNote[] = []
+  const provided = new Set<string>()
+  let noteBytes = 0
 
-  // **添付を先に入れる**。ノートより後にすると、取り込んだ直後の一覧で
-  // 画像が割れて見える瞬間ができる
-  const stored = await restoreAttachments(attachments, report)
-  await importNotes(notes, stored, report, options)
+  await readZipStream(source, async (entry) => {
+    const classified = classifyEntry(entry.path)
+    if (classified.kind === 'reject') {
+      report.skipped.push({ label: entry.path, reason: classified.reason })
+      return
+    }
+    if (classified.kind === 'attachment') {
+      await restoreOne(classified.name, entry.data, provided, report)
+      return
+    }
+    if (classified.kind === 'note') {
+      noteBytes += entry.data.byteLength
+      if (noteBytes > MAX_ZIP_NOTE_BYTES) {
+        // ここだけは ZIP ごと断る。先へ進めても抱える量が増える一方なので、
+        // 中途半端に取り込んで力尽きるより、入る形に分けてもらう
+        throw new ZipReadError(
+          `ノート本文の合計が大きすぎます (上限 ${megabytes(MAX_ZIP_NOTE_BYTES)}MB)。ノートを分けて書き出してから取り込んで下さい`,
+        )
+      }
+      // バイト列のまま抱えず、その場で文字列にする (元は呼び出し元が捨てる)
+      notes.push({ path: entry.path, text: DECODER.decode(entry.data) })
+    }
+  })
+
+  await importNotes(notes, provided, report, options)
 
   return report
 }
 
-interface SortedEntries {
-  notes: RawZipEntry[]
-  attachments: ZipAttachment[]
+interface PendingNote {
+  path: string
+  text: string
 }
 
-// ZIP の項目を振り分ける。想定外のパスは**黙って読み飛ばさず**理由を載せる
-function sortEntries(entries: RawZipEntry[], report: ZipImportReport): SortedEntries {
-  const notes: RawZipEntry[] = []
-  const attachments: ZipAttachment[] = []
-
-  for (const entry of entries) {
-    const classified = classifyEntry(entry.path)
-    if (classified.kind === 'note') {
-      notes.push(entry)
-    } else if (classified.kind === 'attachment') {
-      attachments.push({ name: classified.name, data: entry.data })
-    } else if (classified.kind === 'reject') {
-      report.skipped.push({ label: entry.path, reason: classified.reason })
-    }
-  }
-
-  return { notes, attachments }
-}
-
-// 添付を保存し、**この ZIP で用意できた名前**を返す (本文の参照検査に使う)
-async function restoreAttachments(
-  attachments: ZipAttachment[],
+// 添付 1 件を保存する。**1 件ずつ順に**呼ばれる (readZipStream が次の項目へ
+// 進む前にこれを待つ) ので、載るのは常に 1 件ぶんだけ。
+async function restoreOne(
+  name: string,
+  data: Uint8Array,
+  provided: Set<string>,
   report: ZipImportReport,
-): Promise<Set<string>> {
-  const provided = new Set<string>()
-
-  // **1 件ずつ順に**。1 件が最大 30MB あるので、まとめて走らせるとその数だけ
-  // メモリに載る (本番 VPS は RAM 2GB)
-  for (const { name, data } of attachments) {
-    try {
-      // fflate が返すのは入力バッファ全体への窓なので、DB へ渡す前に切り離す
-      const result = await restoreAttachment(name, ownedBytes(data))
-      if (!result.ok) {
-        report.skipped.push({ label: `添付 ${name}`, reason: result.reason })
-        continue
-      }
-      provided.add(name)
-      if (result.created) {
-        report.restoredAttachments += 1
-        // 画像検索の索引 (embedding) を持ちうるのは画像だけ。音声・PDF・
-        // テキスト・動画は元から対象外なので「後回しにした」数に数えない
-        if (isValidImageName(name)) {
-          report.deferredImageIndex += 1
-        }
-      }
-    } catch (error) {
-      // 1 件の失敗で ZIP 全体を落とさない。原因はサーバログに残す
-      console.error(`添付を戻せませんでした (${name}):`, error)
-      report.skipped.push({
-        label: `添付 ${name}`,
-        reason: '保存できませんでした',
-      })
+): Promise<void> {
+  try {
+    // fflate が返すのは入力バッファへの窓なので、DB へ渡す前に切り離す
+    const result = await restoreAttachment(name, ownedBytes(data))
+    if (!result.ok) {
+      report.skipped.push({ label: `添付 ${name}`, reason: result.reason })
+      return
     }
+    provided.add(name)
+    if (result.created) {
+      report.restoredAttachments += 1
+      // 画像検索の索引 (embedding) を持ちうるのは画像だけ。音声・PDF・
+      // テキスト・動画は元から対象外なので「後回しにした」数に数えない
+      if (isValidImageName(name)) {
+        report.deferredImageIndex += 1
+      }
+    }
+  } catch (error) {
+    // 1 件の失敗で ZIP 全体を落とさない。原因はサーバログに残す
+    console.error(`添付を戻せませんでした (${name}):`, error)
+    report.skipped.push({ label: `添付 ${name}`, reason: '保存できませんでした' })
   }
+}
 
-  return provided
+function megabytes(bytes: number): number {
+  return Math.round(bytes / 1024 / 1024)
 }
 
 async function importNotes(
-  notes: RawZipEntry[],
+  notes: PendingNote[],
   provided: Set<string>,
   report: ZipImportReport,
   options: ZipImportOptions,
@@ -144,7 +147,7 @@ async function importNotes(
   const referenced = new Set<string>()
 
   for (const entry of notes) {
-    const parsed = parseNoteFile(DECODER.decode(entry.data))
+    const parsed = parseNoteFile(entry.text)
     if (!parsed.ok) {
       report.skipped.push({ label: entry.path, reason: parsed.reason })
       continue

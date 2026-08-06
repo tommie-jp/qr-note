@@ -71,16 +71,18 @@ export function NotesImporter() {
     setReport(null);
     setBusy(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      if (overwrite) {
-        body.append("overwrite", "1");
-      }
-      const response = await fetch("/api/import", {
-        method: "POST",
-        body,
-        credentials: "same-origin",
-      });
+      // **ファイルをそのまま本文にする** (multipart で包まない)。ZIP は
+      // 500MB まで受けるので、包むとサーバ側が本文全体をメモリに載せることに
+      // なる (docs/28 §3)。ブラウザは File をディスクから流して送るため、
+      // こちら側でも中身を抱えずに済む。同時に送りたい設定はクエリへ
+      const response = await fetch(
+        `/api/import${overwrite ? "?overwrite=1" : ""}`,
+        {
+          method: "POST",
+          body: file,
+          credentials: "same-origin",
+        },
+      );
       const result: ImportResponse = await response.json();
       if (!response.ok || !result.success || result.data === null) {
         throw new Error(result.error ?? `取り込めませんでした (${response.status})`);

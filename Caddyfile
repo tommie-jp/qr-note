@@ -12,10 +12,19 @@
 # 昔の挙動に戻る。公開してよいパスの一覧も src/lib/publicPaths.ts が正本
 # (かつてここにあった @pwa_public の移設先)。
 {$SITE_ADDRESS:localhost} {
-	# 画像アップロード (10MB) + multipart オーバーヘッドを許容しつつ、
-	# 巨大ボディによるメモリ枯渇をエッジで遮断する
+	# 添付アップロード (動画 30MB) + multipart オーバーヘッドを許容しつつ、
+	# 巨大ボディによるメモリ枯渇をエッジで遮断する。
+	# 本番の nginx (client_max_body_size 35M) と揃える
 	request_body {
-		max_size 12MB
+		max_size 35MB
+	}
+
+	# ノートの取り込みだけ大きなボディを通す (docs/28-エクスポート計画.md §3)。
+	# **既定を上げずにここだけ開ける** — 500MB をどの口へでも投げ込めるように
+	# はしない。アプリ側の上限 (lib/zip/limits.ts の MAX_ZIP_BYTES) と揃えること
+	@import path /api/import
+	request_body @import {
+		max_size 512MB
 	}
 
 	reverse_proxy app:3000

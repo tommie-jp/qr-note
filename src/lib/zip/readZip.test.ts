@@ -1,19 +1,30 @@
 import { strToU8, zipSync } from 'fflate'
 import { expect, test } from 'vitest'
+import { chunkedBytes } from '@/lib/bytes'
 import {
   MAX_ZIP_ENTRIES,
   MAX_ZIP_FILE_BYTES,
   MAX_ZIP_TOTAL_BYTES,
 } from './limits'
-import { readZipEntries } from './readZip'
+import { type RawZipEntry, readZipStream } from './readZip'
 
-test('項目を名前とバイト列で取り出す', () => {
+// 取り込みは本文を流し読みする。テストからも同じ形 (バイト列の並び) で渡す
+async function readAll(zip: Uint8Array): Promise<RawZipEntry[]> {
+  const entries: RawZipEntry[] = []
+  await readZipStream(chunkedBytes(zip), async (entry) => {
+    // 呼び出し側が抱えるなら自分で写す (渡されたバイト列は次へ進むと捨てられる)
+    entries.push({ path: entry.path, data: entry.data.slice() })
+  })
+  return entries
+}
+
+test('項目を名前とバイト列で取り出す', async () => {
   const zip = zipSync({
     'notes/1042.md': strToU8('本文'),
     'images/a.jpg': new Uint8Array([1, 2, 3]),
   })
 
-  const entries = readZipEntries(zip)
+  const entries = await readAll(zip)
 
   expect(entries.map((entry) => entry.path).sort()).toEqual([
     'images/a.jpg',
@@ -24,54 +35,107 @@ test('項目を名前とバイト列で取り出す', () => {
 
 // fflate の Unzip は署名の無いデータを黙って読み飛ばす。先頭を見ずに通すと
 // 「別のファイルを選んだ」が「0 件取り込めました」になってしまう
-test('ZIP でないファイルは理由付きで投げる', () => {
-  expect(() => readZipEntries(strToU8('ただのテキスト'))).toThrow(
+test('ZIP でないファイルは理由付きで投げる', async () => {
+  await expect(readAll(strToU8('ただのテキスト'))).rejects.toThrow(
     /ZIP ファイルではありません/,
   )
 })
 
-test('途中で切れた ZIP は 0 件ではなく理由付きで投げる', () => {
+test('途中で切れた ZIP は 0 件ではなく理由付きで投げる', async () => {
   const zip = zipSync({ 'notes/1042.md': strToU8('本文') })
-  expect(() => readZipEntries(zip.slice(0, 8))).toThrow(/読み取れませんでした/)
+  await expect(readAll(zip.slice(0, 8))).rejects.toThrow(/読み取れませんでした/)
 })
 
-// ZIP 爆弾。入口が 10MB でも出口は無限になりうる。
+// ZIP 爆弾。入口が大きくなくても出口は無限になりうる。
 // zipSync が書くヘッダは展開後の大きさを名乗るので、**展開する前に**断てる
-test('展開後の大きさを名乗っている項目は展開前に断る', () => {
+test('展開後の大きさを名乗っている項目は展開前に断る', async () => {
   const bomb = zipSync({ 'images/a.jpg': new Uint8Array(MAX_ZIP_FILE_BYTES + 1) })
   expect(bomb.length).toBeLessThan(MAX_ZIP_FILE_BYTES)
 
-  expect(() => readZipEntries(bomb)).toThrow(/大きすぎ/)
+  await expect(readAll(bomb)).rejects.toThrow(/大きすぎ/)
 })
 
 // 名乗らない ZIP (このアプリの書き出しもデータ記述子を使うので名乗らない) は
 // 出てきたバイト数で数えて断つ
-test('合計が上限を超えたら投げる', () => {
+test('合計が上限を超えたら投げる', async () => {
   const chunk = new Uint8Array(MAX_ZIP_FILE_BYTES - 1)
   const files: Record<string, Uint8Array> = {}
   for (let index = 0; index * (MAX_ZIP_FILE_BYTES - 1) <= MAX_ZIP_TOTAL_BYTES; index += 1) {
     files[`images/${index}.jpg`] = chunk
   }
 
-  expect(() => readZipEntries(zipSync(files))).toThrow(/合計が大きすぎ/)
-})
+  await expect(readAll(zipSync(files))).rejects.toThrow(/合計が大きすぎ/)
+}, 60000)
 
-test('項目数が上限を超えたら投げる', () => {
+test('項目数が上限を超えたら投げる', async () => {
   const files: Record<string, Uint8Array> = {}
   for (let index = 0; index <= MAX_ZIP_ENTRIES; index += 1) {
     files[`notes/${index}.md`] = strToU8('x')
   }
 
-  expect(() => readZipEntries(zipSync(files))).toThrow(/多すぎ/)
-})
+  await expect(readAll(zipSync(files))).rejects.toThrow(/多すぎ/)
+}, 60000)
 
-test('空の ZIP は空の配列', () => {
-  expect(readZipEntries(zipSync({}))).toEqual([])
+// 上限より 1 つ手前までは通ること。fflate は項目ごとに再帰するので、入力を
+// 1 回で push していた頃はここが 3500 件で RangeError になっていた
+// (だから細切れに push している)
+test('上限ぎりぎりの項目数は通る', async () => {
+  const files: Record<string, Uint8Array> = {}
+  for (let index = 0; index < MAX_ZIP_ENTRIES; index += 1) {
+    files[`notes/${index}.md`] = strToU8('x')
+  }
+
+  const entries = await readAll(zipSync(files))
+
+  expect(entries).toHaveLength(MAX_ZIP_ENTRIES)
+}, 60000)
+
+test('空の ZIP は空の配列', async () => {
+  expect(await readAll(zipSync({}))).toEqual([])
 })
 
 // ディレクトリ項目は中身を持たない。振り分け (layout.ts) に渡す前に落とす
-test('ディレクトリ項目は返さない', () => {
+test('ディレクトリ項目は返さない', async () => {
   const zip = zipSync({ notes: { '1042.md': strToU8('本文') } })
-  const entries = readZipEntries(zip)
+  const entries = await readAll(zip)
   expect(entries.map((entry) => entry.path)).toEqual(['notes/1042.md'])
+})
+
+// 500MB を受けるための土台。全部読み終えてから配るのでは意味がない
+test('項目は入力を読み切る前に渡ってくる', async () => {
+  // **縮まないバイト列**にする。規則のあるデータだと ZIP 全体が 1 チャンクに
+  // 収まってしまい、「読み切る前に渡ってくる」ことを確かめられない
+  // getRandomValues は 1 回 64KB までしか埋められないので、刻んで埋める
+  const random = () => {
+    const bytes = new Uint8Array(200 * 1024)
+    for (let start = 0; start < bytes.length; start += 65536) {
+      crypto.getRandomValues(bytes.subarray(start, start + 65536))
+    }
+    return bytes
+  }
+  const zip = zipSync({
+    'images/1.jpg': random(),
+    'images/2.jpg': random(),
+    'images/3.jpg': random(),
+  })
+
+  let fedChunks = 0
+  let fedWhenFirstHandled: number | null = null
+  async function* counted(): AsyncGenerator<Uint8Array> {
+    for await (const chunk of chunkedBytes(zip)) {
+      fedChunks += 1
+      yield chunk
+    }
+  }
+
+  const seen: string[] = []
+  await readZipStream(counted(), async (entry) => {
+    seen.push(entry.path)
+    fedWhenFirstHandled ??= fedChunks
+  })
+
+  expect(seen).toHaveLength(3)
+  // 最初の項目を受け取った時点で、入力はまだ全部は流し込まれていない
+  expect(fedWhenFirstHandled).not.toBeNull()
+  expect(fedWhenFirstHandled).toBeLessThan(fedChunks)
 })

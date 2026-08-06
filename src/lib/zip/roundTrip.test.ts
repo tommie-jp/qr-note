@@ -1,4 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
+import { chunkedBytes } from '@/lib/bytes'
 
 // 書き出して取り込むと元に戻ること。**この機能の要件そのもの**なので、
 // 層ごとのテストとは別に端から端まで 1 本通す (往復できない書き出しは
@@ -62,6 +63,11 @@ async function exportToZip(itemNos: string[] | null): Promise<Uint8Array> {
   return merged
 }
 
+// 取り込みは本文を流し読みする。書き出した ZIP をそのまま流し込む
+async function importFrom(itemNos: string[] | null) {
+  return importZip(chunkedBytes(await exportToZip(itemNos)))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   findUniqueItem.mockResolvedValue(null)
@@ -87,7 +93,7 @@ test('本文・URL・モード・公開状態が往復して元に戻る', async
     },
   ])
 
-  await importZip(await exportToZip(['1042']))
+  await importFrom(['1042'])
 
   expect(upsertItem).toHaveBeenCalledWith('1042', {
     memo: 'hFE=208\n2SC1815 のストック #トランジスタ\n```\ncode "quoted"\n```',
@@ -110,7 +116,7 @@ test('本文の画像参照が往復して元の配信 URL に戻る', async () 
     },
   ])
 
-  await importZip(await exportToZip(['7']))
+  await importFrom(['7'])
 
   expect(upsertItem).toHaveBeenCalledWith('7', {
     memo: `写真\n![](/api/images/${UUID}.jpg)`,
@@ -132,7 +138,7 @@ test('添付のバイト列が元の名前のまま往復する', async () => {
     },
   ])
 
-  await importZip(await exportToZip(['7']))
+  await importFrom(['7'])
 
   expect(restoreAttachment).toHaveBeenCalledTimes(1)
   const [name, bytes] = restoreAttachment.mock.calls[0]
@@ -154,7 +160,7 @@ test('末尾が改行の本文も往復して元に戻る', async () => {
     },
   ])
 
-  await importZip(await exportToZip(['7']))
+  await importFrom(['7'])
 
   expect(upsertItem).toHaveBeenCalledWith('7', {
     memo: '本文\n',
@@ -188,7 +194,7 @@ test('複数ノートと共有の添付をまとめて往復できる', async ()
       },
     ])
 
-  const report = await importZip(await exportToZip(null))
+  const report = await importFrom(null)
 
   expect(report.imported.map((note) => note.itemNo)).toEqual(['1', '2'])
   // 同じ添付は 1 回だけ入る

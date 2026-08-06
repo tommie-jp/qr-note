@@ -17,6 +17,20 @@ export function ownedBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   return owned
 }
 
+// 手元にあるバイト列を、流し込む形の口 (AsyncIterable) に合わせて刻む。
+//
+// 「本文をストリームで受ける」前提の関数へ、既にメモリにあるバイト列を渡す
+// ための橋。**刻む大きさには意味がある**ことがある — ZIP の展開 (lib/zip/
+// readZip.ts) は 1 回の push が大きいと項目ごとの再帰でスタックを使い切る。
+export async function* chunkedBytes(
+  bytes: Uint8Array,
+  chunkBytes = 64 * 1024,
+): AsyncGenerator<Uint8Array> {
+  for (let start = 0; start < bytes.byteLength; start += chunkBytes) {
+    yield bytes.subarray(start, start + chunkBytes)
+  }
+}
+
 // 分かれて届いたバイト列を 1 本に繋ぐ。合計長を渡せば数え直さない。
 export function concatBytes(
   chunks: readonly Uint8Array[],

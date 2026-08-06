@@ -1,8 +1,18 @@
 // ZIP のバイト列を項目の並びに開く (docs/28-エクスポート計画.md §3)。
 //
-// **書き込み境界なので、開く前と開いている最中の両方で門を敷く**。ZIP は
-// 「入口が小さくても出口が無限になりうる」形式で、10MB のファイルから数 GB を
-// 取り出せる (ZIP 爆弾)。門は 2 段:
+// **流しながら読む**のがこの層の要点。入口は 500MB まで許すので、素直に
+// 「全部展開してから配列で返す」形にすると、入口のバイト列と展開後の中身の
+// 両方が同時に載る (本番 VPS は RAM 2GB / swap 常用。docs/09)。ここは項目が
+// 1 つ揃うたびに呼び出し側へ渡し、渡し終えたものは捨てる。
+//
+// **入力は必ず細切れに push する**。fflate の Unzip は項目ごとに再帰するため、
+// 大きなバイト列を 1 回で push すると項目数に比例してスタックが深くなり、実測で
+// 3500 件から `RangeError: Maximum call stack size exceeded` になる。64KB
+// ずつ流し込めば 30000 件でも通ることを確かめた (この 1 行が上限を決めている
+// ので、消さないこと)。
+//
+// 書き込み境界なので門も敷く。ZIP は「入口が小さくても出口が無限になりうる」
+// 形式で (ZIP 爆弾)、門は 2 段:
 //
 //   1. ヘッダが展開後の大きさを名乗っているなら、**展開する前に**それで断る
 //   2. 名乗っていないものは、出てきたバイト数を数えて上限で断つ
@@ -10,17 +20,13 @@
 // **1 段目が本命で、2 段目は取りこぼしを拾うだけ**である点は正直に書いておく。
 // fflate の UnzipInflate は 1 項目を 1 回の ondata でまとめて渡してくるため、
 // 2 段目が火を噴く時点でその 1 項目ぶんの確保は済んでいる (実測: 80MB の項目は
-// 80MB のチャンク 1 つで届く。入力を細切れに push しても変わらない)。つまり
+// 80MB のチャンク 1 つで届き、入力を細切れに push しても変わらない)。つまり
 // 2 段目が守るのは「積み上がり」であって「1 項目の山」ではない。
 //
-// それでも実害が小さいのは、この口がログイン必須の単独利用者向けで、入口が
-// 10MB に絞られていて、確保に失敗しても RangeError を 400 に写して応答を
+// それでも実害が小さいのは、この口がログイン必須の単独利用者向けで、1 項目の
+// 上限が 30MB と小さく、確保に失敗しても RangeError を 400 に写して応答を
 // 返せるため。**守れている範囲を過大に書かない**ことのほうが、後で読む人の
 // 判断を助ける。
-//
-// 展開そのものは同期 (UnzipInflate)。入口が 10MB に絞られているぶんイベント
-// ループを長く塞ぐことはなく、非同期版のように「途中で失敗したときにどこまで
-// 進んだか」を追う必要もない。
 
 import { concatBytes } from '@/lib/bytes'
 import { Unzip, UnzipInflate } from 'fflate'
@@ -34,6 +40,10 @@ export interface RawZipEntry {
   path: string
   data: Uint8Array
 }
+
+// fflate へ 1 回で渡す量。項目ごとの再帰を浅く保つための値で、
+// **大きくしてはいけない** (上のコメント参照)
+const PUSH_CHUNK_BYTES = 64 * 1024
 
 // 利用者にそのまま見せてよい失敗。fflate 由来の失敗 (素の文言が意味を成さない)
 // や、想定外の例外と区別するために型で持つ — 文言の書き出しで見分けようとすると、
@@ -62,19 +72,27 @@ export function isZipBytes(head: Uint8Array): boolean {
   return zipSignature(head) !== null
 }
 
-// ZIP を開いて全項目を返す。**ファイルごと断る事情**は ZipReadError で投げる
-// (ZIP として読めない・大きすぎる・多すぎる)。個々のノートの良し悪しは
-// ここでは見ない (importZip.ts がレポートに載せる)。
-export function readZipEntries(zip: Uint8Array): RawZipEntry[] {
-  const signature = zipSignature(zip)
-  if (signature === null) {
-    throw new ZipReadError(
-      'ZIP ファイルではありません (拡張子と中身が食い違っていないか確かめて下さい)',
-    )
-  }
+// 項目が 1 つ揃うたびに呼ばれる。**呼び出し側が待たせられる**ように非同期。
+// 戻ってきた時点でその項目のバイト列は捨ててよい (呼び出し側が抱えるなら、
+// 抱える量は呼び出し側が縛る)。
+export type ZipEntryHandler = (entry: RawZipEntry) => Promise<void>
 
-  const entries: RawZipEntry[] = []
+// ZIP を流し読みして、項目ごとに handler を呼ぶ。
+//
+// **ファイルごと断る事情**は ZipReadError で投げる (ZIP として読めない・
+// 大きすぎる・多すぎる)。個々のノートの良し悪しはここでは見ない
+// (importZip.ts がレポートに載せる)。
+export async function readZipStream(
+  source: AsyncIterable<Uint8Array>,
+  onEntry: ZipEntryHandler,
+): Promise<void> {
+  // 揃った項目の待ち行列。fflate の ondata は同期で飛ぶので await できない —
+  // いったんここへ積み、push と push の間で掃き出す。1 回の push (64KB) で
+  // 揃うのはせいぜい数件なので、積み上がることはない
+  const ready: RawZipEntry[] = []
+  let entryCount = 0
   let totalBytes = 0
+  let signature: 'local' | 'empty' | null = null
 
   const unzip = new Unzip()
   unzip.register(UnzipInflate)
@@ -83,7 +101,8 @@ export function readZipEntries(zip: Uint8Array): RawZipEntry[] {
     if (file.name.endsWith('/')) {
       return
     }
-    if (entries.length >= MAX_ZIP_ENTRIES) {
+    entryCount += 1
+    if (entryCount > MAX_ZIP_ENTRIES) {
       throw new ZipReadError(
         `ZIP に入っているファイルが多すぎます (上限 ${MAX_ZIP_ENTRIES} 個)。ノートを分けて書き出してから取り込んで下さい`,
       )
@@ -116,37 +135,71 @@ export function readZipEntries(zip: Uint8Array): RawZipEntry[] {
       }
       chunks.push(chunk)
       if (final) {
-        // UnzipInflate は同期なので、次の項目が始まる前にここへ来る。
-        // 並び順は ZIP の並びのまま
-        entries.push({ path, data: concatBytes(chunks, size) })
+        ready.push({ path, data: concatBytes(chunks, size) })
       }
     }
     file.start()
   }
 
+  const drain = async () => {
+    // shift ではなく先頭から取り出して都度捨てる。掃き出しの間に onfile が
+    // 増やすことはない (push の外なので fflate は動いていない)
+    while (ready.length > 0) {
+      await onEntry(ready.shift() as RawZipEntry)
+    }
+  }
+
+  for await (const chunk of source) {
+    if (chunk.length === 0) {
+      continue
+    }
+    if (signature === null) {
+      // 最初のひとかたまりで中身を見極める。ここを通さないと、別のファイルを
+      // 選んだときに「0 件取り込めました」で終わってしまう
+      signature = zipSignature(chunk)
+      if (signature === null) {
+        throw new ZipReadError(
+          'ZIP ファイルではありません (拡張子と中身が食い違っていないか確かめて下さい)',
+        )
+      }
+    }
+    for (let start = 0; start < chunk.length; start += PUSH_CHUNK_BYTES) {
+      pushSafely(unzip, chunk.subarray(start, start + PUSH_CHUNK_BYTES), false)
+    }
+    await drain()
+  }
+
+  if (signature === null) {
+    throw new ZipReadError('ファイルが空です')
+  }
+  // 締めだけ空で押す。中身は既に全部渡してあるので、ここは「終わり」の合図
+  pushSafely(unzip, new Uint8Array(0), true)
+  await drain()
+
+  if (entryCount === 0 && signature === 'local') {
+    // 先頭は ZIP なのに 1 件も出てこない = 途中で切れているか中身が壊れている。
+    // 「0 件取り込めました」と報告すると、利用者は原因を探せない。
+    // **項目 0 件の ZIP (署名が 'empty') は失敗にしない** — 空を取り込んで
+    // 「0 件でした」と言うのは正しい振る舞い
+    throw new ZipReadError(
+      'ZIP の中身を読み取れませんでした (途中で切れている可能性があります)',
+    )
+  }
+}
+
+// fflate の投げる素の失敗を、こちらの言葉に写して投げ直す。
+// **元の失敗はログに残す** — 握り潰すと「壊れている」と「こちらの実装が
+// 限界に当たった」を切り分けられなくなる
+function pushSafely(unzip: Unzip, chunk: Uint8Array, final: boolean): void {
   try {
-    // 入口は既に 10MB に絞られているので 1 回で押し込む。UnzipInflate は
-    // 同期なので、この呼び出しが返った時点で全項目が揃っている
-    unzip.push(zip, true)
+    unzip.push(chunk, final)
   } catch (error) {
     if (error instanceof ZipReadError) {
       throw error
     }
-    // fflate 由来の失敗 (壊れた deflate 列) と、想定外の例外 (項目数が多すぎる
-    // ZIP での RangeError など) がここへ来る。利用者には意味の取れる文言に
-    // 寄せるが、**元の失敗はログに残す** — 握り潰すと「壊れている」と
-    // 「こちらの実装が限界に当たった」を切り分けられなくなる
     console.error('ZIP の展開に失敗しました:', error)
     throw new ZipReadError('ZIP を展開できませんでした (壊れている可能性があります)')
   }
-
-  if (entries.length === 0 && signature === 'local') {
-    // 先頭は ZIP なのに 1 件も出てこない = 途中で切れているか中身が壊れている。
-    // 「0 件取り込めました」と報告すると、利用者は原因を探せない
-    throw new ZipReadError('ZIP の中身を読み取れませんでした (途中で切れている可能性があります)')
-  }
-
-  return entries
 }
 
 function zipSignature(zip: Uint8Array): 'local' | 'empty' | null {
