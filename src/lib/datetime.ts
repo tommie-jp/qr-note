@@ -15,3 +15,10 @@ const JST_FORMAT: Intl.DateTimeFormatOptions = {
 export function formatJstDateTime(date: Date): string {
   return date.toLocaleString("ja-JP", JST_FORMAT);
 }
+
+// 日付だけの JST 表記 (例: 2026-08-06)。エクスポートしたファイル名に使う
+// (docs/28-エクスポート計画.md §7)。ロケール "sv-SE" を選ぶのは、ゼロ埋めの
+// YYYY-MM-DD をそのまま返す数少ない既定書式だから (en-CA も同じ形)。
+export function formatJstDate(date: Date): string {
+  return date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}

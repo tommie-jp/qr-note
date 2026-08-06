@@ -2,7 +2,7 @@
 
 import type { Item } from "@/generated/prisma/client";
 import { selectedTagsUnion } from "@/lib/bulkTags";
-import { DANGER_BUTTON_CLASS } from "./ui";
+import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "./ui";
 
 interface BulkTagToolbarProps {
   items: Item[];
@@ -98,9 +98,28 @@ export function BulkTagToolbar({
         </div>
       )}
 
-      {/* ノート自体の削除。タグ操作と混ざらないよう線で区切って最下段に置く。
+      {/* ノート自体への操作。タグ操作と混ざらないよう線で区切って最下段に置く。
+          持ち出し (左) と削除 (右) を両端に離すのは、押し間違いの距離を稼ぐため。
           ゴミ箱行きは復元できるので confirm は出さない (永久削除は /trash 側) */}
-      <div className="flex justify-end border-t border-blue-200 pt-2">
+      <div className="flex items-center justify-between border-t border-blue-200 pt-2">
+        {/* 選択したノートを ZIP で書き出す (docs/28-エクスポート計画.md §7)。
+            親フォームはサーバーアクション宛だが、**文字列の formAction を持つ
+            送信ボタンはブラウザの素の送信に戻る** (React はこのとき
+            preventDefault しない)。画面遷移のまま Content-Disposition を
+            受けるので、JS がファイル全体をメモリに抱えずに済む。
+            チェックボックス (name="itemNo") がそのまま本体へ渡り、
+            scope はこのボタン自身の name/value で送られる */}
+        <button
+          type="submit"
+          formAction="/api/export"
+          formMethod="post"
+          name="scope"
+          value="selected"
+          disabled={disabled}
+          className={`${SECONDARY_BUTTON_CLASS} whitespace-nowrap`}
+        >
+          ⬇ エクスポート
+        </button>
         <button
           type="submit"
           formAction={trashAction}

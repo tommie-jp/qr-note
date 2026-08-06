@@ -78,3 +78,22 @@ test("タグのチップは「タグを削除」と明示する (ノートの削
   const html = render([makeItem({ itemNo: "1", tags: ["bjt"] })], new Set(["1"]));
   expect(html).toContain("タグを削除:");
 });
+
+// 選択エクスポート (docs/28-エクスポート計画.md §7)。親フォームはサーバー
+// アクション宛なので、送り先とメソッドをボタン側で上書きする。文字列の
+// formAction が付いた送信ボタンは React が preventDefault せず、ブラウザの
+// 素の送信 (= ダウンロード) に戻る
+test("選択中はエクスポートボタンを出す (POST /api/export)", () => {
+  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+  expect(html).toContain('formAction="/api/export"');
+  expect(html).toContain('formMethod="post"');
+  // 全件と選択を同じ口で受けるので、どちらかをボタン自身の値で伝える
+  const exportButton = /<button[^>]*formAction="\/api\/export"[^>]*>/.exec(html)?.[0];
+  expect(exportButton).toContain('name="scope"');
+  expect(exportButton).toContain('value="selected"');
+});
+
+test("未選択ならエクスポートも無効化する", () => {
+  const html = render([makeItem({ itemNo: "1" })], new Set());
+  expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*エクスポート/);
+});

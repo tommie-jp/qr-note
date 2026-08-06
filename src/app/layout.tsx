@@ -193,7 +193,10 @@ export default async function RootLayout({
                         <LockIcon />
                         シークレット
                       </Link>
-                      {/* Evernote (.enex) の取り込み (docs/28-エクスポート計画.md §4)。
+                      {/* ノートの持ち出しと取り込み (docs/28-エクスポート計画.md
+                          §7)。全件エクスポートと、ZIP / Evernote (.enex) の
+                          取り込みを 1 画面にまとめてある — 書き出す場所と戻す
+                          場所が同じなら、往復の説明も 1 か所で済む。
                           たまにしか使わないのでメニューの奥でよいが、導線が
                           ここしか無いので出しておく */}
                       <Link
@@ -201,7 +204,7 @@ export default async function RootLayout({
                         className={HEADER_MENU_ITEM_CLASS}
                       >
                         <ImportIcon />
-                        インポート
+                        インポート / エクスポート
                       </Link>
                       {/* 既存ノートの git 履歴への取り込み (docs/57-ノートgit
                           履歴計画.md §6)。ほぼ一度きりの操作だが、導線が
