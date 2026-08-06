@@ -29,9 +29,15 @@ export const MAX_ZIP_BYTES = 500 * 1024 * 1024
 // 上の MAX_ZIP_BYTES のコメントのとおり、流しながら捨てることで抑えている。
 export const MAX_ZIP_TOTAL_BYTES = 2 * MAX_ZIP_BYTES
 
-// 展開後の 1 ファイルの上限。動画の上限 (uploads.ts の MAX_VIDEO_BYTES) と
-// 同じにする — これより大きい添付はそもそも保存されていない
-export const MAX_ZIP_FILE_BYTES = 30 * 1024 * 1024
+// 展開後の 1 ファイルの上限。**DB に入りうる最大**である CLI 取り込みの
+// 添付上限 (lib/enex/limits.ts の MAX_CLI_ATTACHMENT_BYTES = 50MB) と揃える。
+//
+// かつてここは動画の Web アップロード上限 (30MB) だったが、それだと CLI から
+// 入った 30MB 超の添付が「書き出せるのに戻せない」— 実測でも 11〜12MB の
+// iPhone 写真 3 枚が旧値 (画像 10MB) に弾かれた。**書き出しに入りうるもの
+// すべてが戻ること**が往復の要件なので、上限は入口 (Web) ではなく器 (DB) に
+// 合わせる。
+export const MAX_ZIP_FILE_BYTES = 50 * 1024 * 1024
 
 // 取り込みの途中で抱えておくノート本文の合計。
 //

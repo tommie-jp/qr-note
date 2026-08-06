@@ -146,8 +146,18 @@ export const config = {
   // _next/static … ビルド成果物 (JS/CSS)。中身はどのみち誰でも読める
   // _next/image  … 画像最適化
   // favicon.ico  … ブラウザが資格情報なしで取りに行く
+  // api/import   … ノートの取り込み (docs/28-エクスポート計画.md §3)。
+  //                **proxy を通るルートは Next.js が本文をメモリへ丸ごと複製
+  //                する** (proxy と route の両方で読めるようにするため。上限は
+  //                experimental.proxyClientMaxBodySize、既定 10MB)。この口は
+  //                500MB を流し読みで受ける設計なので、複製されると 10MB で
+  //                千切れる (上限を上げると今度は 500MB がメモリに載り、
+  //                RAM 2GB の本番が落ちる)。proxy から外して素通しし、認証は
+  //                route handler 側の denyUnlessLoggedIn に任せる — もともと
+  //                ここは楽観的検査で、データに触る入口が正 (冒頭のコメント)。
+  //                実際に本番で「10MB で切られて ZIP が壊れて見える」を踏んだ
   //
   // 画面と API はここに残す = 既定で門番を通る。ログイン不要なものは
   // publicPaths.ts に明記する
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/import$).*)'],
 }

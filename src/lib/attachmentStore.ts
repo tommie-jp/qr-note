@@ -18,6 +18,7 @@ import {
   savePlainAttachment,
 } from './imageStore'
 import { moveMoovToFront } from './mp4Faststart'
+import { MAX_ZIP_FILE_BYTES } from './zip/limits'
 import { normalizeImage } from './normalizeImage'
 import { makeThumbnail } from './thumbnail'
 import { hasUtf16Bom, normalizeTextBytes } from './normalizeText'
@@ -265,20 +266,20 @@ export async function restoreAttachment(
 ): Promise<RestoreResult> {
   const ext = name.slice(name.lastIndexOf('.') + 1)
 
-  // 動画だけ上限が別 (30MB) なので、共通の 10MB 検査より先に片付ける
+  // 上限は種別で分けず「DB に入りうる最大」(MAX_ZIP_FILE_BYTES = CLI 取り込みの
+  // 添付上限と同値) の 1 本にする。Web アップロードの 10MB/30MB は HTTP の
+  // 都合であって器の上限ではなく、CLI から入った 12MB の写真を復元で弾くと
+  // 「書き出せるのに戻せない」ができてしまう (実測で踏んだ)
+  if (bytes.byteLength > MAX_ZIP_FILE_BYTES) {
+    return { ok: false, reason: tooLargeMessage(MAX_ZIP_FILE_BYTES) }
+  }
+
   if (isValidVideoName(name)) {
-    if (bytes.byteLength > MAX_VIDEO_BYTES) {
-      return { ok: false, reason: tooLargeMessage(MAX_VIDEO_BYTES) }
-    }
     const format = sniffVideoFormat(bytes)
     const info = format === null ? null : videoSaveInfo(format)
     return info === null || info.ext !== ext
       ? mismatch(ext)
       : store(name, bytes, info.mime)
-  }
-
-  if (bytes.byteLength > MAX_IMAGE_BYTES) {
-    return { ok: false, reason: tooLargeMessage(MAX_IMAGE_BYTES) }
   }
 
   if (isValidImageName(name)) {
