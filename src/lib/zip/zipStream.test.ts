@@ -86,6 +86,60 @@ test('元の並び順のまま入る', async () => {
   expect(Object.keys(unzipSync(zip))).toEqual(paths)
 })
 
+// **サイズをローカルヘッダに書いていること** (データ記述子方式にしない)。
+// 無圧縮の項目はこれが無いと終端が自己記述されず、読み手は本文から次の
+// シグネチャを走査するしかない。実データの PNG に PK\x03\x04 が埋まっていて
+// 実際に踏んだ退行 (詳細は zipStream.ts 冒頭)
+test('中身に ZIP のシグネチャが埋まった添付も流し読みで往復できる', async () => {
+  const { readZipStream } = await import('./readZip')
+  const { chunkedBytes } = await import('@/lib/bytes')
+
+  // PK\x03\x04 / PK\x07\x08 / PK\x01\x02 をすべて本文の途中に埋める
+  const poisoned = new Uint8Array(64 * 1024)
+  poisoned.set([0x50, 0x4b, 0x03, 0x04], 1000)
+  poisoned.set([0x50, 0x4b, 0x07, 0x08], 2000)
+  poisoned.set([0x50, 0x4b, 0x01, 0x02], 3000)
+
+  const zip = await collect(
+    createZipStream(
+      entriesOf([
+        { path: 'images/a.jpg', data: poisoned, compress: false },
+        { path: 'notes/1.md', data: strToU8('後続も読めること'), compress: true },
+      ]),
+    ),
+  )
+
+  const seen: string[] = []
+  await readZipStream(chunkedBytes(zip), async (entry) => {
+    seen.push(entry.path)
+    if (entry.path === 'images/a.jpg') {
+      expect(entry.data.byteLength).toBe(poisoned.byteLength)
+    }
+  })
+  expect(seen).toEqual(['images/a.jpg', 'notes/1.md'])
+})
+
+// サイズがヘッダに載る = 取り込み側の ZIP 爆弾 1 段目 (展開前の拒否) が
+// 自分の書き出しにも効く
+test('書き出した項目は展開後サイズを名乗る', async () => {
+  const { Unzip, UnzipInflate } = await import('fflate')
+  const zip = await collect(
+    createZipStream(
+      entriesOf([{ path: 'notes/1.md', data: strToU8('本文'.repeat(100)), compress: true }]),
+    ),
+  )
+  const sizes: Array<number | undefined> = []
+  const unzip = new Unzip()
+  unzip.register(UnzipInflate)
+  unzip.onfile = (file) => {
+    sizes.push(file.originalSize)
+    file.ondata = () => {}
+    file.start()
+  }
+  unzip.push(zip, true)
+  expect(sizes).toEqual([strToU8('本文'.repeat(100)).byteLength])
+})
+
 // 途中で DB が落ちたときなど。壊れた ZIP を「正常な応答」として配らない
 test('項目を取り出す途中の失敗はストリームの失敗になる', async () => {
   async function* broken(): AsyncGenerator<ZipEntry> {

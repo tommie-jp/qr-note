@@ -108,8 +108,9 @@ export async function readZipStream(
       )
     }
     // **1 段目**: 名乗っている大きさで、展開を始める前に断る。ここを通せば
-    // 巨大な確保そのものが起きない。名乗らない ZIP (このアプリの書き出しも
-    // データ記述子を使うので名乗らない) は undefined になり、2 段目に委ねる
+    // 巨大な確保そのものが起きない。このアプリの書き出しはヘッダにサイズを
+    // 書く (zipStream.ts) のでここで受かる。名乗らない他所の ZIP (データ
+    // 記述子方式) は undefined になり、2 段目に委ねる
     if (file.originalSize !== undefined && file.originalSize > MAX_ZIP_FILE_BYTES) {
       throw new ZipReadError(tooLargeInside(file.name))
     }
