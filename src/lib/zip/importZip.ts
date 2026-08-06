@@ -29,6 +29,13 @@ export interface ZipImportOptions {
   // 既定を「見送る」にしてあるのは §5 の判断 — 戻す操作で手元の編集を黙って
   // 潰すほうが取り返しがつかない。上書きは利用者が明示的に選んだときだけ。
   overwrite?: boolean
+
+  // ノートの反映が始まったとき・1 件進んだときの知らせ
+  // (docs/28-エクスポート計画.md §9)。**取り込みの成否には関わらない**ので、
+  // 渡さなくても動く。添付の進み具合は読んだバイト数として route 側が数える
+  // (この関数はバイトを読む前の入口を持っていない)
+  onNotesStart?: (total: number) => void
+  onNoteDone?: () => void
 }
 
 export interface ZipImportReport extends BaseImportReport {
@@ -146,10 +153,15 @@ async function importNotes(
   // 全ノートを読み終えてから 1 回だけ問い合わせて確かめる
   const referenced = new Set<string>()
 
+  options.onNotesStart?.(notes.length)
+
   for (const entry of notes) {
+    // **見送ったものも 1 件進んだこと**にする。分母は notes.length なので、
+    // 読めないファイルを数えないと最後まで到達しない
     const parsed = parseNoteFile(entry.text)
     if (!parsed.ok) {
       report.skipped.push({ label: entry.path, reason: parsed.reason })
+      options.onNoteDone?.()
       continue
     }
 
@@ -165,6 +177,8 @@ async function importNotes(
         reason: error instanceof Error ? error.message : '保存できませんでした',
       })
       continue
+    } finally {
+      options.onNoteDone?.()
     }
 
     report.imported.push({

@@ -7,6 +7,10 @@ import {
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
+import {
+  type ImportProgressView,
+  useImportProgress,
+} from "@/components/useImportProgress";
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from "@/lib/enex/limits";
 import type { BaseImportReport } from "@/lib/importReport";
 import { MAX_ZIP_BYTES, zipTooLargeMessage } from "@/lib/zip/limits";
@@ -62,6 +66,8 @@ export function NotesImporter() {
   // 選んだ瞬間に出せるよう、状態ではなく描画のたびに求める
   const sizeError = tooLargeMessage(file);
   const isZip = file !== null && looksLikeZip(file);
+  // 取り込み中だけサーバの控えを覗く (docs/28 §9)
+  const progress = useImportProgress(busy);
 
   async function handleImport() {
     if (file === null || sizeError !== null) {
@@ -153,11 +159,7 @@ export function NotesImporter() {
         >
           {busy ? "取り込み中…" : "取り込む"}
         </button>
-        {busy && (
-          <p className="text-sm text-gray-600">
-            画像の変換とサムネイル作成に時間がかかります。このページを閉じずにお待ちください。
-          </p>
-        )}
+        {busy && <ImportProgressBar progress={progress} />}
         {(sizeError ?? error) && (
           <p role="alert" className="text-sm text-red-700">
             {sizeError ?? error}
@@ -166,6 +168,52 @@ export function NotesImporter() {
       </section>
 
       {report && <ImportResult report={report} />}
+    </div>
+  );
+}
+
+// 取り込み中の待ち時間の見せ方 (docs/28-エクスポート計画.md §9)。
+//
+// 500MB を受けられるようになって、取り込みは分単位で待つ操作になった。
+// 「取り込み中…」の一言だけでは、進んでいるのか固まっているのか見分けが
+// 付かない。
+//
+// **数字が出せないときは黙る**。総バイト数を名乗らない相手では % を、
+// 始まったばかりのうちは残り時間を出さない — 初速で計算した「残り 4000 秒」が
+// 一瞬見えるのは、数字が無いより悪い。
+function ImportProgressBar({ progress }: { progress: ImportProgressView | null }) {
+  const percent = progress?.percent ?? null;
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="h-2 overflow-hidden rounded bg-gray-200"
+        role="progressbar"
+        aria-valuenow={percent ?? undefined}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="取り込みの進み具合"
+      >
+        <div
+          // % が判らない間は「動いてはいる」ことだけ伝える細い帯にする
+          className={`h-full bg-blue-600 transition-[width] duration-300 ${
+            percent === null ? "w-1/12 animate-pulse" : ""
+          }`}
+          style={percent === null ? undefined : { width: `${percent}%` }}
+        />
+      </div>
+      <p className="text-sm text-gray-600">
+        {percent === null ? "取り込み中…" : `取り込み中… ${percent}%`}
+        {progress?.remainingText && ` ・ ${progress.remainingText}`}
+      </p>
+      {progress?.phase === "notes" && (
+        <p className="text-sm text-gray-600">
+          ノートを反映しています ({progress.notesDone}/{progress.notesTotal})
+        </p>
+      )}
+      <p className="text-sm text-gray-600">
+        画像の変換とサムネイル作成に時間がかかります。このページを閉じずにお待ちください。
+      </p>
     </div>
   );
 }

@@ -28,6 +28,9 @@ vi.mock('@/lib/enex/importEnex', () => ({
 }))
 
 const { POST } = await import('./route')
+const { currentImport, releaseImport, beginImport } = await import(
+  '@/lib/zip/importProgressStore'
+)
 
 const ENEX = `<?xml version="1.0" encoding="UTF-8"?><en-export></en-export>`
 
@@ -61,6 +64,101 @@ beforeEach(() => {
     deferredImageIndex: 0,
     duplicateSkipped: 0,
   })
+  releaseImport()
+})
+
+// --- 進捗 (docs/28 §9) ---
+
+// importZip は同時実行を想定していない (採番・衝突判定が競合する)。
+// 進捗のスロット以前に必要な門
+test('取り込み中に重ねて呼ばれたら 409', async () => {
+  beginImport(1000)
+  const response = await POST(upload(zipBody()))
+  expect(response.status).toBe(409)
+  expect(importZip).not.toHaveBeenCalled()
+})
+
+test('取り込みが終わればスロットは空く (次が始められる)', async () => {
+  await POST(upload(zipBody()))
+  expect(currentImport()).toBeNull()
+})
+
+// 失敗して抜けたときに握ったままだと、次の取り込みが始められなくなる
+test('失敗してもスロットは空く', async () => {
+  importZip.mockRejectedValue(new Error('壊れています'))
+  await POST(upload(zipBody()))
+  expect(currentImport()).toBeNull()
+})
+
+// 読んだバイト数がそのまま進捗になる。取り込みの最中に覗けること
+test('本文を読みながら進捗を積み上げる', async () => {
+  const seen: Array<number | null> = []
+  importZip.mockImplementation(async (source: AsyncIterable<Uint8Array>) => {
+    for await (const _chunk of source) {
+      seen.push(currentImport()?.readBytes ?? null)
+    }
+    return {
+      imported: [],
+      skipped: [],
+      conflictSkipped: 0,
+      restoredAttachments: 0,
+      deferredImageIndex: 0,
+    }
+  })
+
+  await POST(upload(zipBody()))
+
+  expect(seen.length).toBeGreaterThan(0)
+  expect(seen.at(-1)).toBe(zipBody().byteLength)
+})
+
+// Content-Length が % の分母になる。ブラウザは File を本文にすると必ず
+// 名乗る (大きさが判っているため)。Node の Request は組み立て時に付けないので、
+// ここでは明示して本物の要求に寄せる
+test('名乗られた大きさを進捗の分母にする', async () => {
+  let total: number | null | undefined
+  importZip.mockImplementation(async (source: AsyncIterable<Uint8Array>) => {
+    for await (const _chunk of source) {
+      total = currentImport()?.totalBytes
+    }
+    return {
+      imported: [],
+      skipped: [],
+      conflictSkipped: 0,
+      restoredAttachments: 0,
+      deferredImageIndex: 0,
+    }
+  })
+
+  const request = new Request('http://localhost/api/import', {
+    method: 'POST',
+    body: zipBody(),
+    headers: { 'content-length': String(zipBody().byteLength) },
+  })
+  await POST(request)
+
+  expect(total).toBe(zipBody().byteLength)
+})
+
+// 名乗らない相手 (chunked) では割合を出しようがない。出鱈目な数字より「不明」
+test('名乗りが無ければ分母は null (% を出さない)', async () => {
+  let total: number | null | undefined
+  importZip.mockImplementation(async (source: AsyncIterable<Uint8Array>) => {
+    for await (const _chunk of source) {
+      total = currentImport()?.totalBytes
+    }
+    return {
+      imported: [],
+      skipped: [],
+      conflictSkipped: 0,
+      restoredAttachments: 0,
+      deferredImageIndex: 0,
+    }
+  })
+
+  await POST(upload(zipBody()))
+
+  expect(total).toBeNull()
 })
 
 test('未ログインは 401', async () => {
@@ -109,10 +207,16 @@ test('名乗りではなく中身の先頭で振り分ける', async () => {
 // 戻す操作で手元の編集を黙って潰さない (docs/28 §5)
 test('上書きはクエリで明示されたときだけ有効になる', async () => {
   await POST(upload(zipBody()))
-  expect(importZip).toHaveBeenCalledWith(expect.anything(), { overwrite: false })
+  expect(importZip).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ overwrite: false }),
+  )
 
   await POST(upload(zipBody(), '?overwrite=1'))
-  expect(importZip).toHaveBeenLastCalledWith(expect.anything(), { overwrite: true })
+  expect(importZip).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({ overwrite: true }),
+  )
 })
 
 test('本文が無ければ 400', async () => {

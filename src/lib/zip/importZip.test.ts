@@ -243,3 +243,49 @@ test('ZIP として読めないファイルは例外 (ファイルごと対象�
     /ZIP ファイルではありません/,
   )
 })
+
+// --- 進捗の知らせ (docs/28 §9) ---
+
+test('ノートの反映の始まりと 1 件ごとを知らせる', async () => {
+  const onNotesStart = vi.fn()
+  const onNoteDone = vi.fn()
+
+  await importZip(zip({ 'notes/1.md': noteFile('1'), 'notes/2.md': noteFile('2') }), {
+    onNotesStart,
+    onNoteDone,
+  })
+
+  expect(onNotesStart).toHaveBeenCalledWith(2)
+  expect(onNoteDone).toHaveBeenCalledTimes(2)
+})
+
+// 分母は「読んだファイル数」なので、見送ったものも 1 件進んだことにしないと
+// 最後まで到達しない
+test('見送ったノートも 1 件進んだことにする', async () => {
+  const onNoteDone = vi.fn()
+
+  await importZip(
+    zip({
+      'notes/1.md': noteFile('1'),
+      'notes/broken.md': strToU8('frontmatter がありません'),
+    }),
+    { onNoteDone },
+  )
+
+  expect(onNoteDone).toHaveBeenCalledTimes(2)
+})
+
+test('衝突で見送ったノートも 1 件進んだことにする', async () => {
+  findUniqueItem.mockResolvedValue({ itemNo: '1' })
+  const onNoteDone = vi.fn()
+
+  await importZip(zip({ 'notes/1.md': noteFile('1') }), { onNoteDone })
+
+  expect(onNoteDone).toHaveBeenCalledTimes(1)
+})
+
+// 進捗は表示の補助でしかない。渡さなくても取り込めること
+test('知らせを渡さなくても取り込める', async () => {
+  const report = await importZip(zip({ 'notes/1.md': noteFile('1') }))
+  expect(report.imported).toHaveLength(1)
+})
