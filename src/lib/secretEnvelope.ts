@@ -13,6 +13,8 @@
 //
 // WebCrypto しか使わないので、ブラウザ・Node (テスト) の両方で動く。
 
+import { ownedBytes } from './bytes'
+
 export const ENVELOPE_VERSION = 1
 
 const IV_BYTES = 12
@@ -30,18 +32,6 @@ export class SecretDecryptError extends Error {
     super(message, options)
     this.name = 'SecretDecryptError'
   }
-}
-
-// WebCrypto に渡せる形に写す。
-//
-// Uint8Array の既定の型は Uint8Array<ArrayBufferLike> で、SharedArrayBuffer 由来の
-// ものを含みうるため BufferSource として受け付けられない (webauthnConfig.ts の
-// stableUserHandle と同じ噛み合わなさ)。長さを指定して確保し直せば
-// ArrayBuffer 実体に確定する。
-export function ownedBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  const owned = new Uint8Array(bytes.byteLength)
-  owned.set(bytes)
-  return owned
 }
 
 // 32 バイトの鍵素材を AES-256-GCM の鍵にする。

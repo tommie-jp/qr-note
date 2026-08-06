@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { EnexImporter } from "@/components/EnexImporter";
 import { NotesExporter } from "@/components/NotesExporter";
+import { NotesImporter } from "@/components/NotesImporter";
 import { BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { requireUser } from "@/lib/session";
@@ -47,7 +47,7 @@ export default async function ImportSettingsPage() {
           に変換し、リンクと画像・PDF は引き継ぎますが、フォントと文字サイズの指定は
           落ちます。
         </p>
-        <EnexImporter />
+        <NotesImporter />
       </section>
     </div>
   );

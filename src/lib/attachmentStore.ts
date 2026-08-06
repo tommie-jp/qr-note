@@ -1,15 +1,22 @@
 // 「受け取ったバイト列を添付として保存する」判断を 1 箇所に集めた入口。
 //
-// 手で貼ったアップロード (/api/images の POST) と ENEX インポート
-// (docs/28-エクスポート計画.md §4) の 2 経路から呼ぶ。**形式の判定と変換を
-// 2 か所に書くと必ず片方だけ古くなる** — 実際 uploads.ts のコメントが
-// 「名前の作り方を 2 通りに散らすと片方だけトラバーサル対策が抜ける」と
-// 書いているのと同じ理由で、判定側もここへ寄せる。
+// 手で貼ったアップロード (/api/images の POST)、ENEX インポート
+// (docs/28-エクスポート計画.md §4)、書き出した ZIP の復元 (同 §3) の 3 経路から
+// 呼ぶ。**形式の判定と変換を 3 か所に書くと必ずどれかだけ古くなる** — 実際
+// uploads.ts のコメントが「名前の作り方を 2 通りに散らすと片方だけトラバーサル
+// 対策が抜ける」と書いているのと同じ理由で、判定側もここへ寄せる。
 //
-// 形式はクライアント / ENEX の申告 MIME ではなく**中身の先頭バイト**で決める。
-// ENEX の <resource><mime> は書き出し元の申告でしかなく、信用する理由がない。
+// 形式は申告された MIME ではなく**中身のバイト列**で決める。ENEX の
+// <resource><mime> も ZIP の中の拡張子も書き出し元の申告でしかなく、信用する
+// 理由がない (新規保存の storeAttachment と復元の restoreAttachment で、
+// 何を手がかりにするかだけが違う。理由はそれぞれの関数に書いた)。
 
-import { saveImage, type SaveImageOptions, savePlainAttachment } from './imageStore'
+import {
+  restoreAttachmentRow,
+  saveImage,
+  type SaveImageOptions,
+  savePlainAttachment,
+} from './imageStore'
 import { moveMoovToFront } from './mp4Faststart'
 import { normalizeImage } from './normalizeImage'
 import { makeThumbnail } from './thumbnail'
@@ -17,9 +24,14 @@ import { hasUtf16Bom, normalizeTextBytes } from './normalizeText'
 import {
   audioSaveInfo,
   type ImageFormat,
+  isValidAudioName,
+  isValidImageName,
+  isValidPdfName,
+  isValidVideoName,
   isValidVideoThumb,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
+  mimeForName,
   PDF_EXT,
   PDF_MIME,
   sniffAudioFormat,
@@ -227,4 +239,91 @@ async function storeImage(
 
 function succeed(url: string, isImage: boolean): AttachmentResult {
   return { ok: true, url, name: url.slice(url.lastIndexOf('/') + 1), isImage }
+}
+
+export type RestoreResult =
+  // created=false は「同じ名前の行が既にある」= 二度目の取り込み
+  | { ok: true; created: boolean }
+  | { ok: false; reason: string }
+
+// 書き出した ZIP の添付を**元の保存名のまま**戻す
+// (docs/28-エクスポート計画.md §3)。
+//
+// storeAttachment との違いは「何で形式を決めるか」。アップロードは名前が
+// 利用者由来なので**中身だけ**で決めるが、こちらの名前はこの DB が発番した
+// UUID + 拡張子で、本文の参照がその名前を指している。そこで
+// **拡張子が名乗る形式を、中身が裏付けるか**を見る形にする。順に試す
+// storeAttachment と違って判定順の綾 (UTF-16 の BOM を MP3 と読む等) が
+// 出ないぶん、こちらのほうが素直になる。
+//
+// 名乗りと中身が食い違うものは断る。ZIP は書き手が自由に作れるので、
+// 「.png という名前の HTML」を保存して配信させない (配信側は DB の mime を
+// そのまま Content-Type にする)。
+export async function restoreAttachment(
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<RestoreResult> {
+  const ext = name.slice(name.lastIndexOf('.') + 1)
+
+  // 動画だけ上限が別 (30MB) なので、共通の 10MB 検査より先に片付ける
+  if (isValidVideoName(name)) {
+    if (bytes.byteLength > MAX_VIDEO_BYTES) {
+      return { ok: false, reason: tooLargeMessage(MAX_VIDEO_BYTES) }
+    }
+    const format = sniffVideoFormat(bytes)
+    const info = format === null ? null : videoSaveInfo(format)
+    return info === null || info.ext !== ext
+      ? mismatch(ext)
+      : store(name, bytes, info.mime)
+  }
+
+  if (bytes.byteLength > MAX_IMAGE_BYTES) {
+    return { ok: false, reason: tooLargeMessage(MAX_IMAGE_BYTES) }
+  }
+
+  if (isValidImageName(name)) {
+    // heic/tiff は保存時に WebP へ変換されるので、その名前は発番されない。
+    // 中身が heic のまま来たらここで食い違いとして落ちる。
+    // 拡張子が一致した時点で mime は必ず引ける (どちらも MIME_TO_EXT が出どころ)
+    const mime = sniffImageFormat(bytes) === ext ? mimeForName(name) : null
+    return mime === null ? mismatch(ext) : store(name, bytes, mime)
+  }
+
+  if (isValidAudioName(name)) {
+    const format = sniffAudioFormat(bytes)
+    const info = format === null ? null : audioSaveInfo(format)
+    return info === null || info.ext !== ext
+      ? mismatch(ext)
+      : store(name, bytes, info.mime)
+  }
+
+  if (isValidPdfName(name)) {
+    return sniffPdf(bytes) ? store(name, bytes, PDF_MIME) : mismatch(PDF_EXT)
+  }
+
+  // 名前が txt/csv/md なら textSaveInfo は必ず引ける (同じ一覧が出どころ)。
+  // 中身がテキストとして読めるかだけが残りの条件
+  const textInfo = textSaveInfo(name)
+  if (textInfo !== null) {
+    const text = normalizeTextBytes(bytes)
+    return text === null ? mismatch(ext) : store(name, text, textInfo.mime)
+  }
+
+  return { ok: false, reason: UNSUPPORTED_ATTACHMENT_MESSAGE }
+}
+
+// サムネを作るかは imageStore が決める (画像の行を作る入口はあちらの 3 つだけ)
+async function store(
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  mime: string,
+): Promise<RestoreResult> {
+  return { ok: true, created: await restoreAttachmentRow(name, bytes, mime) }
+}
+
+function mismatch(ext: string): RestoreResult {
+  return {
+    ok: false,
+    reason: `中身が拡張子 (.${ext}) と一致しません`,
+  }
 }

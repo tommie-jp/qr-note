@@ -8,23 +8,18 @@ import {
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from "@/lib/enex/limits";
+import type { BaseImportReport } from "@/lib/importReport";
+import { MAX_ZIP_BYTES, zipTooLargeMessage } from "@/lib/zip/limits";
 
-// /api/import が返すレポート (lib/enex/importEnex.ts と対)
-interface ImportedNote {
-  itemNo: string;
-  title: string;
-}
-
-interface SkippedEntry {
-  label: string;
-  reason: string;
-}
-
-interface ImportReport {
-  imported: ImportedNote[];
-  skipped: SkippedEntry[];
-  deferredImageIndex: number;
-}
+// /api/import が返すレポート。**format で見分ける判別可能ユニオン**にして、
+// 「ZIP なのに duplicateSkipped がある」ような組み合わせを型で締め出す
+// (共通部分は lib/importReport.ts が正本)
+type ImportReport =
+  | ({ format: "zip" } & BaseImportReport & {
+        conflictSkipped: number;
+        restoredAttachments: number;
+      })
+  | ({ format: "enex" } & BaseImportReport & { duplicateSkipped: number });
 
 interface ImportResponse {
   success: boolean;
@@ -32,24 +27,44 @@ interface ImportResponse {
   error: string | null;
 }
 
-// 端末の .enex を選んで送るだけ。変換はすべてサーバ側で行う
-// (docs/28-エクスポート計画.md §4)。
-export function EnexImporter() {
+// 拡張子で「どちらの形式のつもりか」を見る。**実際の振り分けはサーバが中身の
+// 先頭バイトで行う** (拡張子は付け替えられる) ので、ここで見るのは
+// 上限の出し分けと、上書き選択を出すかどうかの案内のためだけ。
+function looksLikeZip(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".zip");
+}
+
+// 上限を超えていれば理由、収まっていれば null。**呼ぶたびに同じ答えになる**
+// ので状態には持たず、その場で求める
+function tooLargeMessage(file: File | null): string | null {
+  if (file === null) {
+    return null;
+  }
+  if (looksLikeZip(file)) {
+    return file.size > MAX_ZIP_BYTES ? zipTooLargeMessage(file.size) : null;
+  }
+  return file.size > MAX_ENEX_BYTES ? enexTooLargeMessage(file.size) : null;
+}
+
+// 端末のファイルを選んで送るだけ。展開も変換もすべてサーバ側で行う
+// (docs/28-エクスポート計画.md §3 / §4)。
+export function NotesImporter() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
 
+  // **送る前に**大きさを見る。上限超過はエッジ (nginx / Caddy) が 413 で
+  // ボディを読み捨てるため、送ってしまうと "Load failed" としか判らない
+  // (サーバの JSON エラーは届かない)。理由を言葉で出せるのはここだけ。
+  // 選んだ瞬間に出せるよう、状態ではなく描画のたびに求める
+  const sizeError = tooLargeMessage(file);
+  const isZip = file !== null && looksLikeZip(file);
+
   async function handleImport() {
-    if (file === null) {
-      return;
-    }
-    // **送る前に**大きさを見る。上限超過はエッジ (nginx / Caddy) が 413 で
-    // ボディを読み捨てるため、送ってしまうと "Load failed" としか判らない
-    // (サーバの JSON エラーは届かない)。理由を言葉で出せるのはここだけ
-    if (file.size > MAX_ENEX_BYTES) {
-      setError(enexTooLargeMessage(file.size));
+    if (file === null || sizeError !== null) {
       return;
     }
     setError(null);
@@ -58,6 +73,9 @@ export function EnexImporter() {
     try {
       const body = new FormData();
       body.append("file", file);
+      if (overwrite) {
+        body.append("overwrite", "1");
+      }
       const response = await fetch("/api/import", {
         method: "POST",
         body,
@@ -74,7 +92,7 @@ export function EnexImporter() {
         inputRef.current.value = "";
       }
     } catch (cause) {
-      console.error("ENEX の取り込みに失敗しました", cause);
+      console.error("取り込みに失敗しました", cause);
       // fetch 自体の失敗 (TypeError: "Load failed" / "Failed to fetch") は
       // 応答が届く前に接続が切れたということ。素の文言を出しても意味が
       // 取れないので、考えられる原因を言葉にする
@@ -97,19 +115,34 @@ export function EnexImporter() {
         <input
           ref={inputRef}
           type="file"
-          accept=".enex,application/xml,text/xml"
+          accept=".zip,.enex,application/zip,application/xml,text/xml"
           onChange={(event) => {
-            const selected = event.target.files?.[0] ?? null;
-            setFile(selected);
-            // 選んだ瞬間に大きさを知らせる。押してから断られるより早い
-            setError(
-              selected !== null && selected.size > MAX_ENEX_BYTES
-                ? enexTooLargeMessage(selected.size)
-                : null,
-            );
+            setFile(event.target.files?.[0] ?? null);
+            setError(null);
           }}
           className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded file:border file:border-gray-300 file:bg-white file:px-3 file:font-medium"
         />
+
+        {/* 衝突ポリシー (docs/28 §5)。**既定は上書きしない** — 戻す操作で
+            手元の編集を黙って潰すほうが取り返しがつかない。番号を振り直す
+            ENEX には関係がないので、.zip を選んだときだけ出す */}
+        {isZip && (
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={overwrite}
+              onChange={(event) => setOverwrite(event.target.checked)}
+              className="mt-1 size-4 shrink-0"
+            />
+            <span>
+              同じ番号のノートがあれば上書きする
+              <span className="block text-gray-600">
+                外しておくと、既にある番号のノートはそのまま残します (取り込み結果に件数を出します)。
+              </span>
+            </span>
+          </label>
+        )}
+
         <button
           type="button"
           onClick={handleImport}
@@ -123,9 +156,9 @@ export function EnexImporter() {
             画像の変換とサムネイル作成に時間がかかります。このページを閉じずにお待ちください。
           </p>
         )}
-        {error && (
+        {(sizeError ?? error) && (
           <p role="alert" className="text-sm text-red-700">
-            {error}
+            {sizeError ?? error}
           </p>
         )}
       </section>
@@ -161,6 +194,28 @@ function ImportResult({ report }: { report: ImportReport }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* 「あえて入れなかった」ものは失敗と分けて出す。既定どおり動いた
+          結果なので、赤い「取り込めなかったもの」に混ぜると誤解を招く */}
+      {report.format === "zip" && report.conflictSkipped > 0 && (
+        <p className={`${BOX_CLASS} py-3 text-sm text-gray-700`}>
+          同じ番号のノートが既にあるため {report.conflictSkipped}{" "}
+          件は入れていません。入れ替えたいときは「同じ番号のノートがあれば上書きする」を
+          選んでもう一度取り込んで下さい。
+        </p>
+      )}
+
+      {report.format === "enex" && report.duplicateSkipped > 0 && (
+        <p className={`${BOX_CLASS} py-3 text-sm text-gray-700`}>
+          既に取り込み済みのノート {report.duplicateSkipped} 件は入れていません。
+        </p>
+      )}
+
+      {report.format === "zip" && report.restoredAttachments > 0 && (
+        <p className="text-sm text-gray-600">
+          添付 {report.restoredAttachments} 件を戻しました。
+        </p>
       )}
 
       {/* 画像検索の索引は作っていない。黙っていると「取り込んだのに画像検索で

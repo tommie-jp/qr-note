@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 // 「入らなかったものが必ずレポートに出るか」であって、Postgres や sharp ではない
 const upsertItem = vi.fn()
 const nextItemNo = vi.fn()
+const applyImportedTimestamps = vi.fn()
 const storeAttachment = vi.fn()
 const executeRaw = vi.fn()
 const queryRaw = vi.fn()
@@ -12,6 +13,8 @@ const deleteMany = vi.fn()
 vi.mock('@/lib/items', () => ({
   nextItemNo: () => nextItemNo(),
   upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
+  applyImportedTimestamps: (itemNo: string, created: Date | null, updated: Date | null) =>
+    applyImportedTimestamps(itemNo, created, updated),
 }))
 
 vi.mock('@/lib/attachmentStore', () => ({
@@ -48,6 +51,7 @@ beforeEach(() => {
   nextItemNo.mockImplementation(async () => String(no++))
   upsertItem.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
+  applyImportedTimestamps.mockResolvedValue(undefined)
   queryRaw.mockResolvedValue([]) // 既定は重複なし
   deleteMany.mockResolvedValue({ count: 0 })
   storeAttachment.mockResolvedValue({
@@ -329,7 +333,7 @@ test('保存に失敗したノートの添付も消す', async () => {
 // 行ができた後に転んだノートを「入らなかった」と報告すると、
 // 取り込み直して二重に作ってしまう
 test('日時の反映で転んでも取り込み済みとして報告する', async () => {
-  executeRaw.mockRejectedValue(new Error('DB が落ちている'))
+  applyImportedTimestamps.mockRejectedValue(new Error('DB が落ちている'))
 
   const report = await importEnex(
     enex(
@@ -363,14 +367,19 @@ test('ENEX の日時を反映する', async () => {
         <created>20240115T093000Z</created><updated>20240220T101500Z</updated>`),
     ),
   )
-  expect(executeRaw).toHaveBeenCalled()
+  expect(applyImportedTimestamps).toHaveBeenCalledWith(
+    '1000',
+    new Date('2024-01-15T09:30:00.000Z'),
+    new Date('2024-02-20T10:15:00.000Z'),
+  )
 })
 
-test('日時が無いノートでは更新しない (取り込んだ時刻のまま)', async () => {
+// 日時をどう埋めるか (片方だけのとき・両方無いとき) の判断は items.ts が持つ
+test('日時が無いノートは null のまま渡す (取り込んだ時刻のまま)', async () => {
   await importEnex(
     enex(note(`<title>題名</title><content>${enml('<div>本文</div>')}</content>`)),
   )
-  expect(executeRaw).not.toHaveBeenCalled()
+  expect(applyImportedTimestamps).toHaveBeenCalledWith('1000', null, null)
 })
 
 // --- 同じ添付の重複 ---

@@ -13,11 +13,11 @@
 //
 // WebCrypto しか使わないので、ブラウザ・Node (テスト) の両方で動く。
 
+import { ownedBytes } from './bytes'
 import {
   SecretDecryptError,
   importContentKey,
   openSecret,
-  ownedBytes,
   sealSecret,
 } from './secretEnvelope'
 

@@ -42,12 +42,14 @@ const ZIP_PREFIX = '../images/'
 // (拾う網は広く、通す門は狭く)。
 const NAME_CHARS = '[A-Za-z0-9.-]+'
 
-function apiRefPattern(): RegExp {
-  return new RegExp(`${API_PREFIX}(${NAME_CHARS})`, 'g')
-}
+// 参照を探す正規表現。**接頭辞の定数から組み立てる**ので、書き換え先を直しても
+// 探す側が取り残されない。/g 付きだが replace は lastIndex を戻し matchAll は
+// 複製を使うので、使い回しても状態は漏れない
+const API_REF = new RegExp(`${escapeRegExp(API_PREFIX)}(${NAME_CHARS})`, 'g')
+const ZIP_REF = new RegExp(`${escapeRegExp(ZIP_PREFIX)}(${NAME_CHARS})`, 'g')
 
-function zipRefPattern(): RegExp {
-  return new RegExp(`\\.\\./images/(${NAME_CHARS})`, 'g')
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 }
 
 export function buildNoteFile(note: PortableNote): string {
@@ -136,7 +138,7 @@ export function parseNoteFile(text: string): ParsedNoteFile {
 // 添付は、戻したときに黙って画像切れになる。
 export function collectAttachmentNames(memo: string): string[] {
   const names = new Set<string>()
-  for (const match of memo.matchAll(apiRefPattern())) {
+  for (const match of memo.matchAll(API_REF)) {
     if (isValidAttachmentName(match[1])) {
       names.add(match[1])
     }
@@ -147,17 +149,16 @@ export function collectAttachmentNames(memo: string): string[] {
 // 参照の書き換えは**保存名として妥当なものだけ**に当てる。単純な文字列置換に
 // すると、本文にたまたま書かれた `../images/…` という文字列まで配信 URL に
 // 化けてしまう (往復で本文が変わる)。
-function toZipLinks(memo: string): string {
-  return memo.replace(apiRefPattern(), (whole, name: string) =>
-    isValidAttachmentName(name) ? `${ZIP_PREFIX}${name}` : whole,
+//
+// 行きと帰りで同じ関数を使う — 往復で解釈がずれない形にしておく
+function rewriteRefs(text: string, pattern: RegExp, prefix: string): string {
+  return text.replace(pattern, (whole, name: string) =>
+    isValidAttachmentName(name) ? `${prefix}${name}` : whole,
   )
 }
 
-function toApiLinks(body: string): string {
-  return body.replace(zipRefPattern(), (whole, name: string) =>
-    isValidAttachmentName(name) ? `${API_PREFIX}${name}` : whole,
-  )
-}
+const toZipLinks = (memo: string) => rewriteRefs(memo, API_REF, ZIP_PREFIX)
+const toApiLinks = (body: string) => rewriteRefs(body, ZIP_REF, API_PREFIX)
 
 function isoOrEmpty(value: Date | null): string {
   // 日時は UTC の ISO 8601 で書く。時差を持つ表記より往復が確実で、
@@ -176,14 +177,11 @@ function parseDateField(raw: string | undefined): Date | null | 'invalid' {
 }
 
 function parseBoolField(raw: string | undefined): boolean | 'invalid' {
-  if (raw === undefined || raw.trim() === '') {
+  const value = raw?.trim() ?? ''
+  if (value === '' || value === 'false') {
     return false
   }
-  const value = raw.trim()
-  if (value === 'true' || value === 'false') {
-    return value === 'true'
-  }
-  return 'invalid'
+  return value === 'true' ? true : 'invalid'
 }
 
 function overLengthReason(memo: string, url: string): string | null {

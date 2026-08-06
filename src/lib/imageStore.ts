@@ -14,14 +14,17 @@ import {
   generateEmbeddingInBackground,
 } from './embedding/embedImageServer'
 import { makeThumbnail } from './thumbnail'
+import { isValidImageName } from './uploads'
 
 // 画像を保存し、本文から参照する URL を返す。
 //
 // 名前は「サーバが生成した UUID + 対応拡張子」のみ。クライアント由来の
 // 文字列をパスに使わない (uploads.ts の isValidImageName と対になっている)。
 //
-// 一覧用のサムネもここで作る。画像を作る経路はこの関数しかないので
-// (docs/20-画像GC計画.md §1)、ここに置けばどの経路で入った画像にもサムネが付く。
+// 一覧用のサムネもここで作る。**画像の行を作る入口はこのファイルの 3 つだけ**
+// なので (saveImage / savePlainAttachment / restoreAttachmentRow。
+// docs/20-画像GC計画.md §1)、サムネの判断もこのファイルから出さない。呼ぶ側に
+// 作らせると、経路が増えたときに片方だけサムネの付かない画像ができる。
 // 作れなかった場合は thumb が null のまま保存する — 画像そのものは正しく
 // 保存されており、一覧が原寸へフォールバックして遅くなるだけなので、
 // アップロードを失敗させる理由にはならない (thumbnail.ts のコメント参照)。
@@ -90,6 +93,46 @@ export async function savePlainAttachment(
   const name = `${randomUUID()}.${ext}`
   await prisma.image.create({ data: { name, mime, data: bytes, thumb: thumb ?? null } })
   return `/api/images/${name}`
+}
+
+// 書き出した ZIP から添付を**元の保存名のまま**戻す
+// (docs/28-エクスポート計画.md §3)。
+//
+// saveImage / savePlainAttachment が UUID を発番するのに対し、こちらは名前を
+// 引数で受ける。**これは名前の作り方を 2 通りにしたのではない** — 戻す名前は
+// この DB がかつて発番した UUID そのもので、本文の `/api/images/<名前>` が
+// それを指している。新しい名前を振ると参照と食い違い、戻したノートの画像が
+// 割れる。呼ぶ側 (lib/zip) が isValidAttachmentName を通した名前だけを渡す
+// 約束で、書式の保証は保存名の規則と同じところに揃う。
+//
+// 同じ名前の行が既にあれば**何もしない**。名前は UUID なので「同じ名前 =
+// 同じ中身」であり、同じ ZIP を二度取り込んでも増えも変わりもしない。
+// 返り値は行を作ったか (レポートの件数に使う)。
+//
+// **既にあるかを先に見る**のが要点。サムネ作り (sharp) は 1 枚あたり数十 ms と
+// 数十 MB を使うので、後で捨てると分かっている仕事を先にやってはいけない。
+// 「書き出して手元で直して戻す」使い方では、ほとんどの添付がこの経路を通る。
+export async function restoreAttachmentRow(
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  mime: string,
+): Promise<boolean> {
+  const existing = await prisma.image.findUnique({
+    where: { name },
+    select: { name: true },
+  })
+  if (existing !== null) {
+    return false
+  }
+  // サムネを持つのは画像だけ。動画の poster は書き出しに含めておらず
+  // (派生キャッシュ)、サーバに ffmpeg も無いので戻せない — 一覧で絵の無い
+  // 行になるだけで、再生には影響しない
+  const thumb = isValidImageName(name) ? await makeThumbnail(bytes, name) : null
+  await prisma.image.create({ data: { name, mime, data: bytes, thumb } })
+  // 画像検索の埋め込みは作らない。一括取り込みでモデルを読むと RSS が 475MB
+  // 増える (SaveImageOptions の deferEmbedding と同じ判断)。派生キャッシュなので
+  // scripts/backfillEmbeddings.ts が後から埋める
+  return true
 }
 
 // images テーブルの実データ総バイト数 (デモの総量クォータ。docs/39 §2-1)。

@@ -26,61 +26,52 @@ export function createZipStream(
   entries: AsyncIterable<ZipEntry>,
 ): ReadableStream<Uint8Array> {
   const source = entries[Symbol.asyncIterator]()
-
-  // fflate は ondata でしか出力を渡してこないので、いったんここで受ける。
-  // 溜まるのは「いま追加した 1 件ぶん」だけ — 次の項目を取りに行くのは
-  // ここが空になってからなので、際限なく積み上がることはない
-  const pending: Uint8Array[] = []
+  // fflate の ondata は add / push / end の中から**同期で**飛ぶので、
+  // 受け取ったチャンクはその場で controller へ渡せる (溜め place は要らない)
+  let controller: ReadableStreamDefaultController<Uint8Array>
   let failure: Error | null = null
-  let closed = false
 
   const zip = new Zip((error, chunk, final) => {
     if (error) {
+      // 壊れた ZIP を「正常な応答」として配らない。次の pull で投げ、
+      // ダウンロードは途中で失敗する (不完全なファイルが残らない)
       failure = error
       return
     }
-    pending.push(chunk)
+    controller.enqueue(chunk)
     if (final) {
-      closed = true
+      controller.close()
     }
   })
 
-  let ended = false
-
   return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      // 出せるものが無い間だけ次の項目を取りに行く。pull は読み手が引いた
-      // ときにしか呼ばれないので、これがそのまま背圧になる
-      while (pending.length === 0 && !closed && failure === null) {
-        const next = await source.next()
-        if (next.done) {
-          ended = true
-          // 中央ディレクトリを書いて閉じる。同期に ondata が飛ぶので、
-          // 抜けた時点で pending か closed のどちらかが立っている
-          zip.end()
-          break
-        }
-        addEntry(zip, next.value)
-      }
+    start(source_) {
+      controller = source_
+    },
 
+    // pull は「まだ引ける」と読み手が言ったときだけ呼ばれる。1 回につき
+    // 1 項目しか進めないことが、そのまま背圧になる (次を DB から取りに行く
+    // のは、いま入れたぶんが掃けてから)
+    async pull() {
       if (failure !== null) {
-        // 壊れた ZIP を「正常な応答」として配らない。ダウンロードは途中で
-        // 失敗し、利用者には不完全なファイルが残らない
         throw failure
       }
-      const chunk = pending.shift()
-      if (chunk === undefined) {
-        controller.close()
+      const next = await source.next()
+      if (next.done) {
+        // 中央ディレクトリを書いて閉じる (ondata が final で飛ぶ)
+        zip.end()
         return
       }
-      controller.enqueue(chunk)
+      addEntry(zip, next.value)
+      if (failure !== null) {
+        throw failure
+      }
     },
 
     async cancel() {
-      // 利用者がダウンロードを中断した。DB のカーソルを開いたままにしない
-      if (!ended) {
-        await source.return?.()
-      }
+      // 利用者がダウンロードを中断した。DB のカーソルを開いたままにしない。
+      // 使い切ったジェネレータへの return は何もしないので、場合分けは要らない
+      await source.return?.()
     },
   })
 }

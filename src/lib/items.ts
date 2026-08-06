@@ -163,6 +163,36 @@ export async function upsertItem(
   })
 }
 
+// 取り込んだノートの作成・更新日時を、元のファイルが持っていた値に戻す
+// (ENEX インポート = docs/28 §4 / ZIP インポート = 同 §3)。
+//
+// Prisma の update は @updatedAt を必ず「いま」で打ってしまうので生 SQL で書く
+// (setItemPublic / trashItems と同じ理由)。これをしないと取り込んだ全ノートが
+// 同じ時刻に並び、更新順の一覧が意味をなさなくなる。
+//
+// **accessed_at は触らない** (docs/37-アクセス順計画.md §5)。列の既定値
+// (now()) のまま = 取り込んだ時刻が入る。これで取り込んだノートが
+// 「アクセス順」の先頭に並び、古い日時 (Evernote 由来の 2012 年など) で
+// 埋もれずに済む — インポートの目的そのもの。
+//
+// どちらか片方しか無いときはもう片方で埋める。両方無ければ何もしない
+// (取り込んだ時刻のまま = upsert が入れた値)。
+export async function applyImportedTimestamps(
+  itemNo: string,
+  createdAt: Date | null,
+  updatedAt: Date | null,
+): Promise<void> {
+  const created = createdAt ?? updatedAt
+  const updated = updatedAt ?? createdAt
+  if (created === null || updated === null) {
+    return
+  }
+  await prisma.$executeRaw`
+    UPDATE items SET created_at = ${created}, updated_at = ${updated}
+    WHERE item_no = ${itemNo}
+  `
+}
+
 // 本文に貼った画像を回転したとき、旧 URL を新 URL に書き換える
 // (docs/49-画像回転計画.md §3)。回転は画像を新 UUID で保存し直すため、その名前を
 // 参照している本文をすべて追随させる。返り値は書き換えたノート数。

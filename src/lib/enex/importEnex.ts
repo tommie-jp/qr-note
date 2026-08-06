@@ -10,7 +10,8 @@
 
 import { storeAttachment } from '@/lib/attachmentStore'
 import { prisma } from '@/lib/db'
-import { nextItemNo, upsertItem } from '@/lib/items'
+import type { BaseImportReport } from '@/lib/importReport'
+import { applyImportedTimestamps, nextItemNo, upsertItem } from '@/lib/items'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 import { buildMemo, enexTagToMemoTag } from './buildMemo'
 import {
@@ -29,18 +30,6 @@ import {
 // 1 回の取り込みで作るノートの上限。個人利用の実感からは十分に大きく、
 // 細工したファイルで採番 (nextItemNo) を延々と回されないための安全弁でもある
 export const MAX_NOTES_PER_IMPORT = 500
-
-export interface ImportedNote {
-  itemNo: string
-  // 一覧に出す名前。題名が無いノートもあるので空文字がありうる
-  title: string
-}
-
-export interface SkippedEntry {
-  // 何が取り込めなかったか (「ノート「題名」の添付 dot.png」など)
-  label: string
-  reason: string
-}
 
 export interface ImportOptions {
   // 画像検索の埋め込みをその場で作るか (既定: 作らない)。
@@ -86,15 +75,7 @@ export interface ImportOptions {
   allowDuplicate?: boolean
 }
 
-export interface ImportReport {
-  imported: ImportedNote[]
-  // ノート・添付・タグをまとめて 1 本にする。利用者が知りたいのは
-  // 「入らなかったものと、その理由」であって、内部の分類ではない
-  skipped: SkippedEntry[]
-  // 画像検索の索引を作らずに保存した画像の数 (storeResources の deferEmbedding)。
-  // 黙って作らないと「取り込んだのに画像検索に出てこない」だけが見えて、
-  // 不具合と区別が付かない。数を返して画面で知らせる
-  deferredImageIndex: number
+export interface ImportReport extends BaseImportReport {
   // 既に取り込み済みでスキップしたノート数 (重複判定)。skipped とは分けて数える —
   // 「失敗して入らなかった」ではなく「既にあるので入れなかった」で、
   // 再実行の正常な結果だから (これが多い = 冪等に効いている)
@@ -396,26 +377,10 @@ async function isDuplicate(note: EnexNote): Promise<boolean> {
   return rows.length > 0
 }
 
-// ENEX の作成・更新日時をそのまま反映する。
-//
-// Prisma の update は @updatedAt を必ず「いま」で打ってしまうので生 SQL で書く
-// (items.ts の setItemPublic / scripts の backfill 群と同じ理由)。これをしないと
-// 取り込んだ全ノートが同じ時刻に並び、更新順の一覧が意味をなさなくなる。
+// ENEX の作成・更新日時をそのまま反映する (中身は lib/items.ts に集約。
+// ZIP インポートも同じ関数を通る)。
 async function applyEnexTimestamps(itemNo: string, note: EnexNote): Promise<void> {
-  const created = note.createdAt ?? note.updatedAt
-  const updated = note.updatedAt ?? note.createdAt
-  if (created === null || updated === null) {
-    // どちらも無いノートは取り込んだ時刻のまま (upsert が入れた値) にする
-    return
-  }
-  // **accessed_at は触らない** (docs/37-アクセス順計画.md §5)。列の既定値
-  // (now()) のまま = 取り込んだ時刻が入る。これで取り込んだノートが
-  // 「アクセス順」の先頭に並び、Evernote 由来の古い日時で埋もれずに済む
-  // (更新順では 2012 年のノートとして沈む) — インポートの目的そのもの
-  await prisma.$executeRaw`
-    UPDATE items SET created_at = ${created}, updated_at = ${updated}
-    WHERE item_no = ${itemNo}
-  `
+  await applyImportedTimestamps(itemNo, note.createdAt, note.updatedAt)
 }
 
 // 取り込みをやめたノートの添付を消す。
