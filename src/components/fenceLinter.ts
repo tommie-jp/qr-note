@@ -3,13 +3,13 @@ import { linter, type Diagnostic } from "@codemirror/lint";
 import type { EditorView } from "@codemirror/view";
 import { suggestFenceLang } from "@/lib/fenceLanguages";
 
-// フェンスの言語名 (CodeInfo) を走査し、circuitikz / mermaid の打ち間違いっぽい
-// ものに「◯◯ の間違いでは?」と警告する。
+// フェンスの言語名 (CodeInfo) を走査し、circuitikz / mermaid / quiz の
+// 打ち間違いっぽいものに「◯◯ の間違いでは?」と警告する。
 //
 // 補完だけでは入れ替わり誤字 (mermiad など) が候補ゼロになり無反応で確定して
-// しまうため、確実に気付けるようにするのがこの linter の役目。対象を描画する
-// 2 言語に絞るのは、それ以外は打ち間違えても「ただのコードブロック」になるだけで
-// 実害が小さいから (rust などの正当な言語を叱らないためでもある)
+// しまうため、確実に気付けるようにするのがこの linter の役目。対象を
+// RENDERED_LANGS に絞るのは、それ以外は打ち間違えても「ただのコードブロック」に
+// なるだけで実害が小さいから (rust などの正当な言語を叱らないためでもある)
 export const fenceLanguageLinter = linter((view: EditorView): Diagnostic[] => {
   const diagnostics: Diagnostic[] = [];
   syntaxTree(view.state).iterate({

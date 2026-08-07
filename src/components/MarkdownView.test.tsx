@@ -77,6 +77,24 @@ test("mermaid 以外のコードフェンスはコードブロックのまま", 
   expect(html).not.toContain("mermaid-diagram");
 });
 
+// docs/58-CBT問題集計画.md §1。図と違い渡すものは無く、本文だけで完結する
+test("quiz フェンスは押せる問題カードにする", () => {
+  const html = render(
+    "```quiz\n問: 時定数は。\n1. $RC$\n2. $L/R$\n正解: 1\n解説: 定義から。\n```",
+  );
+  expect(html).toContain("時定数は。");
+  expect(html).toContain("<button");
+  expect(html).not.toContain("<code");
+  // 解答するまで正解も解説も出さない
+  expect(html).not.toContain("解説");
+});
+
+test("quiz フェンスの書き方の誤りは赤枠で知らせる", () => {
+  const html = render("```quiz\nこれは問題ではない\n```");
+  expect(html).toContain("問題の書き方のエラー");
+  expect(html).toContain("これは問題ではない");
+});
+
 test("hast の node prop を DOM に漏らさない", () => {
   const html = render("[link](https://example.com)\n\n```bash\nls\n```");
   expect(html).not.toContain("node=");

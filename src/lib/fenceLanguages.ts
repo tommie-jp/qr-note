@@ -6,16 +6,22 @@
 export const CIRCUIT_LANG = 'circuitikz'
 export const MERMAID_LANG = 'mermaid'
 
-// 打ち間違えると「図になるはずが黙ってコードブロック」になる 2 言語。
-// linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
-export const RENDERED_LANGS = [CIRCUIT_LANG, MERMAID_LANG] as const
+// 押して解ける問題カードとして描画するフェンス言語
+// (docs/58-CBT問題集計画.md)。図ではないが「打ち間違えると黙って
+// コードブロックになる」性質は同じなので、下の RENDERED_LANGS に含める
+export const QUIZ_LANG = 'quiz'
 
-// 補完に出す言語 (広め)。図の 2 つ + メモでよく書くコード言語。
+// 打ち間違えると「図やカードになるはずが黙ってコードブロック」になる言語。
+// linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
+export const RENDERED_LANGS = [CIRCUIT_LANG, MERMAID_LANG, QUIZ_LANG] as const
+
+// 補完に出す言語 (広め)。特別扱いする 3 つ + メモでよく書くコード言語。
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
   CIRCUIT_LANG,
   MERMAID_LANG,
+  QUIZ_LANG,
   'text',
   'bash',
   'sh',

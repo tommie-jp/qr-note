@@ -6,25 +6,28 @@ import {
 } from "react";
 import type { Element } from "hast";
 import type { PluggableList } from "unified";
-import Markdown, { defaultUrlTransform } from "react-markdown";
+import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
-import rehypeSanitize, { defaultSchema, type Options } from "rehype-sanitize";
+import rehypeSanitize from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { remarkTagLinks } from "./remarkTagLinks";
 import { remarkDetails, remarkDetailsSyntax } from "./remarkDetails";
-import {
-  alertTypeFromClassName,
-  ALERT_CLASS_PREFIX,
-  remarkAlerts,
-} from "./remarkAlerts";
+import { alertTypeFromClassName, remarkAlerts } from "./remarkAlerts";
 import { MarkdownAlert } from "./MarkdownAlert";
 import { CodeBlock } from "./CodeBlock";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { CircuitDiagram } from "./CircuitDiagram";
+import { QuizFence } from "./quiz/QuizFence";
+import {
+  KATEX_OPTIONS,
+  linkWithTarget,
+  sanitizeSchema,
+  urlTransform,
+} from "./markdownPipeline";
 import { ZoomableImage } from "./ZoomableImage";
 import { PdfLink } from "./pdf/PdfLink";
 import { AudioPlayer } from "./audio/AudioPlayer";
@@ -36,71 +39,9 @@ import { DEFAULT_SECRET_LABEL, secretNameFromUrl } from "@/lib/secrets";
 import { AUDIO_EXTENSION_ALTERNATION } from "@/lib/audioFormats";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
 import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
-import { CIRCUIT_LANG, MERMAID_LANG } from "@/lib/fenceLanguages";
+import { CIRCUIT_LANG, MERMAID_LANG, QUIZ_LANG } from "@/lib/fenceLanguages";
 import type { CircuitMap } from "@/lib/circuitCache";
 import "katex/dist/katex.min.css";
-
-// rehype-katex は code の math-inline / math-display クラスを目印にするため、
-// sanitize で落とされないよう許可する (language-* はデフォルトでも許可)。
-// sanitize → katex の順にすることで、ユーザー入力は sanitize 済み・
-// KaTeX が生成した HTML はそのまま残る (remark-math 公式レシピ)
-const sanitizeSchema = {
-  ...defaultSchema,
-  // 脚注の id を二重に前置きしない (docs/54-markdown表示拡張計画.md §3)。
-  // remark-rehype が既に `user-content-fn-1` の形で付けており、サニタイズが
-  // その上からもう一度 `user-content-` を足すと id だけが
-  // `user-content-user-content-fn-1` になって、参照リンク (href は書き換え
-  // 対象外) と食い違う。脚注は出ているのに押しても飛ばない、という
-  // 気づきにくい壊れ方をする。
-  //
-  // 外しても乗っ取りの余地は増えない: 生 HTML は無効なので本文から任意の id は
-  // 書けず、id を作るのは remark-rehype (脚注) と KaTeX だけ
-  clobberPrefix: "",
-  attributes: {
-    ...defaultSchema.attributes,
-    code: [["className", /^language-./, "math-inline", "math-display"]],
-    // アラートの目印 (docs/54 §2)。remarkAlerts が刻む `alert-<種類>` だけを
-    // 通す。値の作り手はプラグインで、利用者の入力はここに入らない。
-    //
-    // **rehypeTaskLines (サニタイズの後に刻む) と手が違うのは意図的。**
-    // あちらは既にある要素に行番号を「足す」だけなので後段でよいが、
-    // アラートは目印の文字を本文から**取り除く**必要があり、それは Markdown の
-    // 構文解釈そのもの — hast まで下りると段落の間の改行ノードを跨いで
-    // 探すことになる。mdast で解いて class 1 つで渡すほうが素直なので、
-    // その 1 つだけを許可リストに載せている
-    blockquote: [
-      ...(defaultSchema.attributes?.blockquote ?? []),
-      ["className", new RegExp(`^${ALERT_CLASS_PREFIX}`)],
-    ],
-  },
-  protocols: {
-    ...defaultSchema.protocols,
-    // blob: を許すのはシークレット断片のため (docs/51-部分暗号化計画.md §9)。
-    // 断片の中に貼った画像は、復号したバイト列から Blob URL を作って
-    // 差し替える — サーバは復号できないので、通常の /api/images では出せない。
-    //
-    // 緩めても増える攻撃面は無い: blob: URL は自分のオリジンの JS だけが
-    // 作れて、本文に手で書いた blob: は何も指さない (無効な URL になる)
-    src: [...(defaultSchema.protocols?.src ?? []), "blob"],
-  },
-} satisfies Options;
-
-// \rule{99999em}{...} のような巨大サイズ指定でページを潰せないよう上限を設ける
-// (KaTeX の maxSize デフォルトは Infinity)
-const KATEX_MAX_SIZE_EM = 50;
-
-// URL の通し方。react-markdown は**サニタイズより前に**既定の urlTransform
-// (https?|ircs?|mailto|xmpp のみ許可) で URL を空文字に潰すため、
-// sanitizeSchema の protocols に blob を足すだけでは足りない — シークレット
-// 断片内の画像 (復号したバイト列の blob: URL。docs/51 §9) がここで消え、
-// alt 文字だけが表示される (実機で発生)。
-//
-// blob: を通しても攻撃面は増えない: blob: URL は自分のオリジンの JS だけが
-// 作れて、本文に手で書いた blob: は何も指さない (sanitizeSchema と同じ理由)。
-// それ以外の未知プロトコル (javascript: 等) は今までどおり既定に任せて潰す
-function urlTransform(url: string): string {
-  return url.startsWith("blob:") ? url : defaultUrlTransform(url);
-}
 
 interface MarkdownViewProps {
   markdown: string;
@@ -169,8 +110,9 @@ function readFence(
   return { lang, code: code.trim() };
 }
 
-// フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に差し替え、
-// それ以外はコピーボタン付きのコードブロックにする (docs/54 §1)
+// フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
+// quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
+// する (docs/54 §1、docs/58-CBT問題集計画.md §1)
 function preOrDiagram(circuits: CircuitMap) {
   return function PreOrDiagram({
     node: _node,
@@ -184,6 +126,12 @@ function preOrDiagram(circuits: CircuitMap) {
 
     if (fence.lang === MERMAID_LANG) {
       return <MermaidDiagram code={fence.code} />;
+    }
+
+    // 図と違い描画に外部ライブラリも事前処理も要らない (中身は本文だけで
+    // 完結する) ので、渡されるものは無く、ここで解いてそのまま描く
+    if (fence.lang === QUIZ_LANG) {
+      return <QuizFence code={fence.code} />;
     }
 
     // 描画済みの結果が無いフェンス (circuits を渡していないページ) は
@@ -352,27 +300,6 @@ function blockquoteWithAlert({
   return <MarkdownAlert type={type}>{children}</MarkdownAlert>;
 }
 
-// 外部サイトへのリンクだけ別タブで開く。#タグ の検索リンクやメモへの
-// 内部リンク (/... で始まる) までタブを増やすと使いにくいため除く。
-// mailto: などもメーラーが起動して空タブが残るだけなので対象外
-function isExternalLink(href: string | undefined): boolean {
-  return /^https?:\/\//i.test(href ?? "");
-}
-
-function linkWithTarget({
-  node: _node,
-  children,
-  ...props
-}: MarkdownComponentProps<"a">) {
-  // rel="noreferrer" は noopener を兼ねるため、別タブでも opener は渡らない
-  const target = isExternalLink(props.href) ? "_blank" : undefined;
-  return (
-    <a {...props} className="break-all" rel="noreferrer" target={target}>
-      {children}
-    </a>
-  );
-}
-
 // prose の既定に対する手直し。
 // - タスク項目の中黒は落とす。チェックボックスと二重の目印になって読みにくい
 //   (字下げは残して他の箇条書きと行頭を揃える)
@@ -414,7 +341,7 @@ export function MarkdownView({
   // 「静かに押せないだけ」に戻ってしまう。刻むのは行番号だけで実害はない
   const rehypePlugins: PluggableList = [
     [rehypeSanitize, sanitizeSchema],
-    [rehypeKatex, { maxSize: KATEX_MAX_SIZE_EM }],
+    [rehypeKatex, KATEX_OPTIONS],
     rehypeTaskLines,
   ];
 
