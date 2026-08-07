@@ -88,3 +88,21 @@ export function parseTagToken(token: string): string | null {
 export function tagSearchHref(tag: string): string {
   return `/?q=${encodeURIComponent(`#${tag}`)}`
 }
+
+// tagSearchHref の逆。リンク先がタグ検索なら `#タグ` を、違えば null を返す。
+// タグを押したことを検索履歴に残すために使う (docs/59-検索候補計画.md §2)。
+//
+// **`q` 1 つだけ**の `/?q=#…` に限る。ページ送りや一覧への戻り
+// (buildSearchUrl は page / sort を足す) を巻き込まないため — あちらは
+// 「今見ている検索を続ける」操作で、新しく検索したわけではない。
+export function tagSearchQuery(href: string | null | undefined): string | null {
+  if (!href?.startsWith('/?')) {
+    return null
+  }
+  const params = new URLSearchParams(href.slice(2))
+  const q = params.get('q')
+  if (q === null || [...params.keys()].length !== 1) {
+    return null
+  }
+  return parseTagToken(q) === null ? null : q
+}

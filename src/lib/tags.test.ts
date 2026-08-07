@@ -4,6 +4,7 @@ import {
   normalizeTag,
   parseTagToken,
   tagSearchHref,
+  tagSearchQuery,
 } from './tags'
 
 describe('normalizeTag', () => {
@@ -123,5 +124,31 @@ describe('tagSearchHref', () => {
 
   test('percent-encodes multibyte tag names', () => {
     expect(tagSearchHref('抵抗')).toBe('/?q=%23%E6%8A%B5%E6%8A%97')
+  })
+})
+
+describe('tagSearchQuery', () => {
+  test('reads back what tagSearchHref built', () => {
+    expect(tagSearchQuery(tagSearchHref('過渡現象'))).toBe('#過渡現象')
+    expect(tagSearchQuery(tagSearchHref('bjt'))).toBe('#bjt')
+  })
+
+  test('ignores a search that is not a single tag', () => {
+    expect(tagSearchQuery('/?q=%E6%8A%B5%E6%8A%97')).toBeNull() // ただの語
+    expect(tagSearchQuery('/?q=%23a+%23b')).toBeNull() // タグ 2 つ
+    expect(tagSearchQuery('/?q=%23')).toBeNull() // タグ名が空
+  })
+
+  test('ignores paging and back links (they continue the current search)', () => {
+    expect(tagSearchQuery('/?q=%23bjt&page=2')).toBeNull()
+    expect(tagSearchQuery('/?q=%23bjt&sort=accessed')).toBeNull()
+  })
+
+  test('ignores links that are not a search', () => {
+    expect(tagSearchQuery('/item/1085')).toBeNull()
+    expect(tagSearchQuery('/')).toBeNull()
+    expect(tagSearchQuery('https://example.com/?q=%23bjt')).toBeNull()
+    expect(tagSearchQuery(null)).toBeNull()
+    expect(tagSearchQuery(undefined)).toBeNull()
   })
 })

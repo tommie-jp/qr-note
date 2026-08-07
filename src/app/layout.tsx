@@ -22,6 +22,7 @@ import {
   LogIcon,
 } from "@/components/MenuIcons";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
+import { RecordTagSearch } from "@/components/RecordTagSearch";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import {
   isDemoMode,
@@ -306,6 +307,11 @@ export default async function RootLayout({
             デモでは /logs を閉じる (docs/38 §4) ので転送も仕掛けない
             (受け口も 403 を返す) */}
         {user && !isDemo && <ClientLogCapture />}
+        {/* タグを押した検索を履歴に残す。何も描かない。タグのリンクは一覧・
+            画像タイル・詳細ページ・メモ本文の 4 か所にあるので、配って回らず
+            ここで一括して受ける (docs/59-検索候補計画.md §2)。
+            未ログインでは一覧も詳細も出ないので仕掛けない */}
+        {user && <RecordTagSearch />}
         <DebugConsole />
         </BottomBarProvider>
       </body>
