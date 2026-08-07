@@ -9,11 +9,30 @@ import {
   COMPACT_PRIMARY_BUTTON_CLASS,
 } from "@/components/ui";
 import {
-  applyCompletion,
+  keywordContextAtCursor,
+  matchKeywords,
+} from "@/lib/keywordComplete";
+import {
+  replaceRange,
+  type CompleteRange,
+} from "@/lib/queryComplete";
+import {
+  addSavedQuery,
+  browserQueryStorage,
+  loadQueries,
+  readQueries,
+  recordRecentQuery,
+  RECENT_KEY,
+  removeSavedQuery,
+  SAVED_KEY,
+  SAVED_LIMIT,
+  saveQueries,
+  splitSuggestions,
+} from "@/lib/searchQueries";
+import {
   longestCommonPrefix,
   matchTags,
   tagContextAtCursor,
-  type TagContext,
 } from "@/lib/tagComplete";
 
 interface SearchFormProps {
@@ -21,19 +40,43 @@ interface SearchFormProps {
   tags: string[];
 }
 
+// ドロップダウンに並ぶ 1 行 (docs/59-検索候補計画.md §1)。
+//
+//   tag / keyword … 打ちかけのトークンを置き換える (続きの補完)
+//   saved / recent … クエリ全体を差し替える (打ちかけの語は捨てる)
+type SuggestKind = "tag" | "keyword" | "saved" | "recent";
+
+interface Suggestion {
+  kind: SuggestKind;
+  // tag はタグ名 (# を含まない)、他は挿入する文字列そのもの
+  value: string;
+}
+
 interface Dropdown {
-  ctx: TagContext;
-  candidates: string[];
+  // 補完中のトークン。パターン・最近の検索を並べているときは null。
+  // 候補は「補完だけ」か「一覧だけ」のどちらかで、混ざることはない
+  token: { range: CompleteRange; typed: string } | null;
+  items: Suggestion[];
   active: number; // -1 = 未選択 (この間は Enter で検索送信)
 }
 
 const MAX_CANDIDATES = 8;
 
+// 候補として実際に挿入する文字列。タグだけ `#` が要る
+function insertTextOf(s: Suggestion): string {
+  return s.kind === "tag" ? `#${s.value}` : s.value;
+}
+
 // 打ち終わりを待つ間隔。短すぎると 1 文字ごとに DB を引き、長いと反応が鈍い
 const SEARCH_DEBOUNCE_MS = 300;
 
-// 検索窓。素の GET フォームのまま、タグ (#…) を打ちかけたときだけ
-// 候補ドロップダウンで補完を助ける (JS 無効でも検索自体は動く)。
+// 検索窓。素の GET フォームのまま、候補ドロップダウンで入力を助ける
+// (JS 無効でも検索自体は動く)。出す候補は 4 種類あって、混ざることはない
+// (docs/59-検索候補計画.md §1):
+//
+//   窓が空          … 登録パターン (★) → 最近の検索 (🕐)
+//   `#…` を打ちかけ … タグ候補
+//   その他の語      … キーワード候補 (is:todo / is:done)
 //
 // スキャナと画像検索のモーダルは以前ここが持っていたが、ボタンが下部バーへ
 // 移ったので所有権も BottomActionBar へ渡した (docs/31-下部操作バー計画.md §5-1)。
@@ -135,15 +178,62 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     navigate(value);
   };
 
-  // 現在の値とキャレット位置からタグ文脈と候補を計算する。
+  // 登録パターンと最近の検索を並べたドロップダウン (窓が空のとき)。
+  //
+  // **開くたびに localStorage を読み直す**。最近の検索は結果のノートを開いた
+  // ときにも記録される (SearchNav) ので、マウント時に読んで持っていると古い
+  const openList = (): Dropdown | null => {
+    const storage = browserQueryStorage();
+    const { saved, recent } = splitSuggestions(
+      loadQueries(storage, SAVED_KEY),
+      loadQueries(storage, RECENT_KEY),
+    );
+    const items: Suggestion[] = [
+      ...saved.map((value): Suggestion => ({ kind: "saved", value })),
+      ...recent.map((value): Suggestion => ({ kind: "recent", value })),
+    ];
+    return items.length > 0 ? { token: null, items, active: -1 } : null;
+  };
+
+  // 現在の値とキャレット位置から出すべき候補を決める (docs/59 §1)。
+  // タグ → キーワード → (空欄なら) 一覧 の順に見る。
   const refresh = (value: string, caret: number) => {
-    const ctx = tagContextAtCursor(value, caret);
-    if (!ctx) {
-      setDropdown(null);
+    const tagCtx = tagContextAtCursor(value, caret);
+    if (tagCtx) {
+      const names = matchTags(tagCtx.prefix, tags, MAX_CANDIDATES);
+      // 打ち終わったタグ 1 つだけが残る形 (`#抵抗` に対して候補も「抵抗」) では
+      // 出さない。選んでも何も変わらないのに結果を覆うだけで、窓へフォーカス
+      // するたびに出てくる。matchTags 側で落とさないのは、`#ab` に対する
+      // 候補が [ab, abc] のとき Tab が `#abc` まで走ってしまうため
+      const settled = names.length === 1 && names[0] === tagCtx.prefix;
+      setDropdown(
+        names.length > 0 && !settled
+          ? {
+              token: { range: tagCtx, typed: `#${tagCtx.prefix}` },
+              items: names.map((value) => ({ kind: "tag", value })),
+              active: -1,
+            }
+          : null,
+      );
       return;
     }
-    const candidates = matchTags(ctx.prefix, tags, MAX_CANDIDATES);
-    setDropdown(candidates.length > 0 ? { ctx, candidates, active: -1 } : null);
+
+    const kwCtx = keywordContextAtCursor(value, caret);
+    if (kwCtx) {
+      const keywords = matchKeywords(kwCtx.prefix);
+      setDropdown(
+        keywords.length > 0
+          ? {
+              token: { range: kwCtx, typed: kwCtx.prefix },
+              items: keywords.map((value) => ({ kind: "keyword", value })),
+              active: -1,
+            }
+          : null,
+      );
+      return;
+    }
+
+    setDropdown(value.trim() === "" ? openList() : null);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,54 +247,100 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     }
   };
 
-  // 補完を確定して入力へ反映する。
-  const accept = (tagName: string, ctx: TagContext) => {
-    const { query: next, cursor } = applyCompletion(query, ctx, tagName, {
-      addSpace: true,
-    });
-    setQuery(next);
-    pendingCaret.current = cursor;
+  // 候補を確定して入力へ反映する。
+  //
+  // 候補を選ぶのはどれも検索の意思表示なので、debounce を待たずに引き、
+  // 同時に最近の検索へ記録する (docs/59-検索候補計画.md §2)。
+  const accept = (s: Suggestion, dd: Dropdown) => {
+    if (dd.token) {
+      // 補完 … 打ちかけのトークンだけを置き換え、続きを打てるよう窓に残る
+      const { query: next, cursor } = replaceRange(
+        query,
+        dd.token.range,
+        insertTextOf(s),
+        { addSpace: true },
+      );
+      setQuery(next);
+      pendingCaret.current = cursor;
+      setDropdown(null);
+      inputRef.current?.focus();
+      recordRecentQuery(next);
+      searchNow(next);
+      return;
+    }
+    // パターン・最近 … クエリ全体を差し替える。結果を見に行く操作なので
+    // 送信と同じくキーボードを閉じる
+    setQuery(s.value);
     setDropdown(null);
+    inputRef.current?.blur();
+    recordRecentQuery(s.value);
+    searchNow(s.value);
+  };
+
+  // 候補の行を登録パターンに入れる / 外す (docs/59-検索候補計画.md §4)。
+  //
+  // 押した後もドロップダウンは開いたままにするが、**行の並びは動かさない**。
+  // 登録した行を ★ の欄へ移すと下の行が 1 つずつ繰り上がり、続けて押した指が
+  // 隣の検索語を登録してしまう。★/☆ と 🕐 が切り替わるだけで合図は足りるので、
+  // 並べ直すのは次に開いたときでよい
+  const toggleSaved = (s: Suggestion, dd: Dropdown) => {
+    const storage = browserQueryStorage();
+    const list = readQueries(storage, SAVED_KEY);
+    if (!storage || list === null) {
+      return; // 読めない物へ書き戻さない (searchQueries.ts の readQueries 参照)
+    }
+    const next =
+      s.kind === "saved"
+        ? removeSavedQuery(list, s.value)
+        : addSavedQuery(list, s.value);
+    saveQueries(storage, SAVED_KEY, next);
+    setDropdown({
+      ...dd,
+      items: dd.items.map((it) => ({
+        kind: next.includes(it.value) ? "saved" : "recent",
+        value: it.value,
+      })),
+    });
     inputRef.current?.focus();
-    // タグを選ぶのは検索の意思表示なので待たずに引く
-    searchNow(next);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // IME 変換中 (日本語入力) のキーは補完に横取りしない。
     if (e.nativeEvent.isComposing) return;
     if (!dropdown) return;
-    const { ctx, candidates, active } = dropdown;
+    const { token, items, active } = dropdown;
 
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setDropdown({ ...dropdown, active: (active + 1) % candidates.length });
+        setDropdown({ ...dropdown, active: (active + 1) % items.length });
         break;
       case "ArrowUp":
         e.preventDefault();
         setDropdown({
           ...dropdown,
-          active: active <= 0 ? candidates.length - 1 : active - 1,
+          active: active <= 0 ? items.length - 1 : active - 1,
         });
         break;
       case "Enter":
-        // 候補を選択中のときだけ補完。未選択なら送信を妨げない。
+        // 候補を選択中のときだけ確定。未選択なら送信を妨げない。
         if (active >= 0) {
           e.preventDefault();
-          accept(candidates[active], ctx);
+          accept(items[active], dropdown);
         }
         break;
       case "Tab": {
         // bash 流: 一意なら確定、複数なら最長共通プレフィックスまで伸ばす。
+        // 打ちかけのトークンがある補完のときだけ (一覧では伸ばす先がない)
+        if (!token) break;
         e.preventDefault();
-        if (candidates.length === 1) {
-          accept(candidates[0], ctx);
+        if (items.length === 1) {
+          accept(items[0], dropdown);
           break;
         }
-        const lcp = longestCommonPrefix(candidates);
-        if (lcp.length > ctx.prefix.length) {
-          const { query: next, cursor } = applyCompletion(query, ctx, lcp);
+        const lcp = longestCommonPrefix(items.map(insertTextOf));
+        if (lcp.length > token.typed.length) {
+          const { query: next, cursor } = replaceRange(query, token.range, lcp);
           setQuery(next);
           pendingCaret.current = cursor;
           refresh(next, cursor);
@@ -222,10 +358,19 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
   // JS 無効なら preventDefault が走らず、素の GET フォームとして今までどおり動く
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // 明示的な送信は「これで探したい」の合図なので記録する。
+    // 打鍵ごとの検索 (scheduleSearch) では記録しない — 打ちかけの語が並ぶため
+    recordRecentQuery(query);
     searchNow(query);
     // モバイルでキーボードを閉じて結果を見せる
     inputRef.current?.blur();
   };
+
+  // 登録パターンが満杯か。登録できる数と出す数が同じ (SAVED_LIMIT) なので、
+  // 出ている ★ の行を数えれば分かる
+  const savedFull =
+    dropdown !== null &&
+    dropdown.items.filter((s) => s.kind === "saved").length >= SAVED_LIMIT;
 
   return (
     // スキャン・画像検索が下部バーへ抜けてボタンは 2 つ (検索・+) になったので、
@@ -256,7 +401,12 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
           onClick={(e) =>
             refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)
           }
-          onFocus={() => setIsFocused(true)}
+          // フォーカスしただけで候補を出す。窓が空なら登録パターンと
+          // 最近の検索、打ちかけならその続き (docs/59-検索候補計画.md §1)
+          onFocus={(e) => {
+            setIsFocused(true);
+            refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0);
+          }}
           onBlur={() => {
             setIsFocused(false);
             setDropdown(null);
@@ -266,32 +416,83 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
           role="combobox"
           aria-expanded={dropdown !== null}
           aria-autocomplete="list"
-          aria-controls="tag-suggestions"
+          aria-controls="search-suggestions"
           className={`w-full ${COMPACT_INPUT_CLASS}`}
         />
         {dropdown && (
           <ul
-            id="tag-suggestions"
+            id="search-suggestions"
             role="listbox"
-            className="absolute left-0 top-full z-10 mt-1 w-full max-w-xs overflow-hidden rounded border border-gray-300 bg-white shadow-lg"
+            className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded border border-gray-300 bg-white shadow-lg"
           >
-            {dropdown.candidates.map((tag, i) => (
+            {dropdown.items.map((s, i) => (
+              // key は値だけ。★/☆ を押すと kind が入れ替わるので、kind を
+              // 混ぜると押した行が作り直されてしまう
               <li
-                key={tag}
+                key={s.value}
                 role="option"
                 aria-selected={i === dropdown.active}
                 // blur より先に確定するため mousedown で拾う。
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  accept(tag, dropdown.ctx);
+                  accept(s, dropdown);
                 }}
-                className={`flex min-h-10 cursor-pointer items-center px-3 ${
+                // 登録パターンと最近の検索の境目に線を引く。同じ見た目で
+                // 続けると、固定の 3 件と入れ替わる 3 件が地続きに見える
+                className={`flex min-h-10 cursor-pointer items-center gap-2 px-3 ${
+                  s.kind === "recent" &&
+                  dropdown.items[i - 1]?.kind === "saved"
+                    ? "border-t border-gray-200"
+                    : ""
+                } ${
                   i === dropdown.active
                     ? "bg-blue-600 text-white"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
-                #{tag}
+                <span className="flex-1 truncate">
+                  {s.kind === "recent" && (
+                    <span aria-hidden className="mr-1.5 opacity-60">
+                      🕐
+                    </span>
+                  )}
+                  {insertTextOf(s)}
+                </span>
+                {/* ☆/★ で登録パターンに入れる・外す。listbox の option に
+                    ボタンを入れるのは ARIA 的には行儀が悪いが、行そのものは
+                    mousedown で確定できるまま、キーボード操作も listbox の
+                    ものが生きる。tabIndex=-1 で Tab の巡回からは外す
+                    (Tab は補完に使う) */}
+                {(s.kind === "saved" || s.kind === "recent") && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    // 満杯のときは押せなくする。黙って何も起きないと
+                    // 「登録したつもり」になるため、理由を title に出す
+                    disabled={s.kind === "recent" && savedFull}
+                    aria-label={
+                      s.kind === "saved"
+                        ? `「${s.value}」を登録パターンから外す`
+                        : `「${s.value}」を登録パターンにする`
+                    }
+                    title={
+                      s.kind === "saved"
+                        ? "登録パターンから外す"
+                        : savedFull
+                          ? `登録は ${SAVED_LIMIT} 件まで (★ を押して外す)`
+                          : "登録する"
+                    }
+                    // 行の確定 (li の mousedown) へ伝わらないよう止める
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleSaved(s, dropdown);
+                    }}
+                    className="-mr-1 flex size-8 shrink-0 items-center justify-center rounded text-amber-500 hover:bg-black/10 disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    {s.kind === "saved" ? "★" : "☆"}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

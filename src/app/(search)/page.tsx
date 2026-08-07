@@ -160,7 +160,10 @@ async function HomeResults({
   // カード・masonry は広い画面で列を増やしたいので広幅。compact の
   // 1 カラムだけは読み幅を保つ (docs/23 §1, docs/32 §1)
   return (
-    <SearchResults className={view === "compact" ? "" : WIDE_RESULTS_CLASS}>
+    <SearchResults
+      query={query}
+      className={view === "compact" ? "" : WIDE_RESULTS_CLASS}
+    >
       {/* 並び順は下部バーへ移したので、この行は件数と補助リンクだけになった
           (docs/31-下部操作バー計画.md §2)。
           件数は text-sm、その脇の補助リンクはさらに一段下げて text-xs。
