@@ -11,8 +11,13 @@
 // ずつ流し込めば 30000 件でも通ることを確かめた (この 1 行が上限を決めている
 // ので、消さないこと)。
 //
+// **読む項目は呼び出し側が選ぶ** (ZipReadOptions.accept)。取り込みの対象外と
+// 判っている項目は展開して捨てるだけにして、下の大きさの門にも掛けない。
+// 関係のない ZIP を選んだときに「中の exe が大きすぎます」という、こちらの
+// 都合でしかない理由で全体を断らないため。
+//
 // 書き込み境界なので門も敷く。ZIP は「入口が小さくても出口が無限になりうる」
-// 形式で (ZIP 爆弾)、門は 2 段:
+// 形式で (ZIP 爆弾)、門は 2 段 (どちらも**読む項目にだけ**掛かる):
 //
 //   1. ヘッダが展開後の大きさを名乗っているなら、**展開する前に**それで断る
 //   2. 名乗っていないものは、出てきたバイト数を数えて上限で断つ
@@ -77,6 +82,18 @@ export function isZipBytes(head: Uint8Array): boolean {
 // 抱える量は呼び出し側が縛る)。
 export type ZipEntryHandler = (entry: RawZipEntry) => Promise<void>
 
+export interface ZipReadOptions {
+  // その項目を読むか。**false を返した項目は中身を捨てながら読み飛ばす**。
+  //
+  // 取り込みの対象外 (notes/ でも images/ でもない) と判っている項目を、
+  // 展開して抱える前に外すために要る。これが無いと、関係のない ZIP を
+  // 選んだときに「中に入っている 98MB の exe が大きすぎます」と、
+  // **こちらの都合でしかない理由**で全体を断ることになる (実際に起きた)。
+  //
+  // 判定は path だけで行う。中身を見る前に決められることしかここには無い。
+  accept?: (path: string) => boolean
+}
+
 // ZIP を流し読みして、項目ごとに handler を呼ぶ。
 //
 // **ファイルごと断る事情**は ZipReadError で投げる (ZIP として読めない・
@@ -85,6 +102,7 @@ export type ZipEntryHandler = (entry: RawZipEntry) => Promise<void>
 export async function readZipStream(
   source: AsyncIterable<Uint8Array>,
   onEntry: ZipEntryHandler,
+  options: ZipReadOptions = {},
 ): Promise<void> {
   // 揃った項目の待ち行列。fflate の ondata は同期で飛ぶので await できない —
   // いったんここへ積み、push と push の間で掃き出す。1 回の push (64KB) で
@@ -93,6 +111,17 @@ export async function readZipStream(
   let entryCount = 0
   let totalBytes = 0
   let signature: 'local' | 'empty' | null = null
+
+  // 展開後の合計を数える (ZIP 爆弾よけ)。**読み飛ばす項目も数える** —
+  // 捨てるにせよ展開はしているので、際限なく付き合わないための歯止めは要る
+  const countTotal = (bytes: number) => {
+    totalBytes += bytes
+    if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
+      throw new ZipReadError(
+        `展開後の合計が大きすぎます (上限 ${megabytes(MAX_ZIP_TOTAL_BYTES)}MB)`,
+      )
+    }
+  }
 
   const unzip = new Unzip()
   unzip.register(UnzipInflate)
@@ -107,33 +136,47 @@ export async function readZipStream(
         `ZIP に入っているファイルが多すぎます (上限 ${MAX_ZIP_ENTRIES} 個)。ノートを分けて書き出してから取り込んで下さい`,
       )
     }
+    const path = file.name
+
+    // 読まないと決めた項目は、**中身を受けたそばから捨てる**。
+    //
+    // start() を呼ばずに放置してはいけない: fflate は start() されていない
+    // 項目のバイト列を「後で読むかもしれない」と抱え込む (Unzip.push の
+    // this.k) ので、読み飛ばしたはずの中身がそのままメモリに積み上がる。
+    // 大きさの門 (1 項目 50MB) も掛けない — 取り込まない中身の大きさは、
+    // こちらの器とは関係がない
+    if (options.accept !== undefined && !options.accept(path)) {
+      file.ondata = (error, chunk) => {
+        if (error) {
+          throw error
+        }
+        countTotal(chunk.length)
+      }
+      file.start()
+      return
+    }
+
     // **1 段目**: 名乗っている大きさで、展開を始める前に断る。ここを通せば
     // 巨大な確保そのものが起きない。このアプリの書き出しはヘッダにサイズを
     // 書く (zipStream.ts) のでここで受かる。名乗らない他所の ZIP (データ
     // 記述子方式) は undefined になり、2 段目に委ねる
     if (file.originalSize !== undefined && file.originalSize > MAX_ZIP_FILE_BYTES) {
-      throw new ZipReadError(tooLargeInside(file.name))
+      throw new ZipReadError(tooLargeInside(path))
     }
 
     const chunks: Uint8Array[] = []
     let size = 0
-    const path = file.name
 
     file.ondata = (error, chunk, final) => {
       if (error) {
         throw error
       }
       size += chunk.length
-      totalBytes += chunk.length
       // **2 段目**: 出てきたバイト数で数える。名乗りは当てにならない
       if (size > MAX_ZIP_FILE_BYTES) {
         throw new ZipReadError(tooLargeInside(path))
       }
-      if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
-        throw new ZipReadError(
-          `展開後の合計が大きすぎます (上限 ${megabytes(MAX_ZIP_TOTAL_BYTES)}MB)`,
-        )
-      }
+      countTotal(chunk.length)
       chunks.push(chunk)
       if (final) {
         ready.push({ path, data: concatBytes(chunks, size) })

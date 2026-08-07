@@ -16,6 +16,11 @@ const NOTES_DIR = 'notes'
 const IMAGES_DIR = 'images'
 const NOTE_EXT = '.md'
 
+// 書き出しの覚え書き (docs/28 §1)。どの版がいつ書き出したかを ZIP 自身に
+// 残しておくためのもので、**取り込みは中身を要求しない** — 旧い ZIP にも
+// 手で組んだ vault にも無いので、無ければ無いで読む
+export const META_ENTRY_PATH = 'export.json'
+
 // ノート 1 件のパス。
 //
 // git 履歴 (lib/git/notePath.ts) も同じ `notes/<itemNo>.md` を使うが、**意図して
@@ -42,6 +47,9 @@ export function attachmentEntryPath(name: string): string {
 export type EntryKind =
   | { kind: 'note' }
   | { kind: 'attachment'; name: string }
+  // 書き出しの覚え書き (export.json)。取り込みでは中身を使わないが、
+  // **「このアプリが書き出した ZIP だ」という印**にはなる
+  | { kind: 'meta' }
   // ディレクトリ項目など、読み飛ばしてよいもの
   | { kind: 'skip' }
   | { kind: 'reject'; reason: string }
@@ -49,6 +57,11 @@ export type EntryKind =
 // ZIP の項目名を振り分ける。**許すものだけを書く**方針で、想定外は理由を付けて
 // 断る (黙って読み飛ばすと「入ったつもりで入っていない」が起きる)。
 export function classifyEntry(path: string): EntryKind {
+  // 覚え書きは直下に 1 枚だけ。**下の「notes/ と images/ の外」より先に見る**
+  if (path === META_ENTRY_PATH) {
+    return { kind: 'meta' }
+  }
+
   // ディレクトリ項目は ZIP の構造でしかない (中身を持たない)
   if (path.endsWith('/')) {
     return path === `${NOTES_DIR}/` || path === `${IMAGES_DIR}/`

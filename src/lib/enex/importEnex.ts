@@ -10,6 +10,7 @@
 
 import { storeAttachment } from '@/lib/attachmentStore'
 import { prisma } from '@/lib/db'
+import { isAlreadyImported } from '@/lib/importDuplicate'
 import type { BaseImportReport } from '@/lib/importReport'
 import { applyImportedTimestamps, nextItemNo, upsertItem } from '@/lib/items'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
@@ -350,31 +351,13 @@ function collectTags(
   return tags
 }
 
-// 既に取り込み済みのノートか (docs/28 §4)。
+// 既に取り込み済みのノートか (docs/28 §4)。判定そのものは ZIP の renumber と
+// 共有する (lib/importDuplicate.ts)。ここは ENEX の形から鍵を組むだけ。
 //
-// 「同じ created_at (ENEX 由来・秒精度) + 同じ題名 (memo 1 行目)」で照合する。
-// この組はほぼ一意で、同時刻・同題名で別内容のノートは実用上あり得ない。
-//
-// **日時の無いノートは判定対象外** (常に新規として入れる)。照合の鍵が
-// 題名だけになり、同名の別ノート (「メモ」「無題」など) を取り違えるため。
-// 数が出ても実害は「同名ノートが 2 件」で、日時ありの誤スキップより軽い。
-//
-// title 列は無いので memo の 1 行目で見る。buildMemo が題名を 1 行目に
-// 置くので、取り込み済みノートの memo 先頭は必ず題名になっている。
+// **buildMemo は題名を trim して 1 行目に置く**ので、照合も trim 済みで渡す
+// (書き込みと照合で正規化がずれると、毎回「新しい」と判定されてしまう)。
 async function isDuplicate(note: EnexNote): Promise<boolean> {
-  const created = note.createdAt ?? note.updatedAt
-  // buildMemo は題名を trim して 1 行目に置くので、照合も trim 済みで比べる
-  const title = note.title.trim()
-  if (created === null || title === '') {
-    return false
-  }
-  const rows = await prisma.$queryRaw<{ one: number }[]>`
-    SELECT 1 AS one FROM items
-    WHERE created_at = ${created}
-      AND split_part(memo, E'\n', 1) = ${title}
-    LIMIT 1
-  `
-  return rows.length > 0
+  return isAlreadyImported(note.createdAt ?? note.updatedAt, note.title.trim())
 }
 
 // ENEX の作成・更新日時をそのまま反映する (中身は lib/items.ts に集約。

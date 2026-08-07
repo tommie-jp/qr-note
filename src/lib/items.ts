@@ -125,13 +125,21 @@ export async function isPublicImageName(name: string): Promise<boolean> {
 // 予約はしない。番号が競合するのは別タブで同時に作ったときだけで、単一
 // ユーザでは実質起きない。万一先を越されても、編集ページは既存ノートなら
 // その本文を表示する (事前入力しない) ので開いた瞬間に気づける。
-export async function nextItemNo(): Promise<string> {
+//
+// alsoUsed は「DB にはまだ無いが使用中とみなす番号」。ZIP の取り込みで衝突した
+// ノートに番号を振るとき (docs/28 §5「新しい番号で取り込む」)、**同じ ZIP の
+// 中でまだ書いていないノートの番号**を渡す。これが無いと、空き番号がたまたま
+// ZIP 側の別ノートの番号だったときにそれを横取りしてしまい、衝突していな
+// かったノートまで後から衝突する (元の番号のまま入るという約束が崩れる)。
+export async function nextItemNo(alsoUsed: readonly number[] = []): Promise<string> {
   const rows = await prisma.item.findMany({
     where: { itemNoNum: { gte: MIN_ITEM_NO } },
     select: { itemNoNum: true },
     orderBy: { itemNoNum: 'asc' },
   })
-  const usedAsc = rows.flatMap((row) => (row.itemNoNum === null ? [] : [row.itemNoNum]))
+  const used = rows.flatMap((row) => (row.itemNoNum === null ? [] : [row.itemNoNum]))
+  // firstUnusedNo は昇順を前提にする (重複は読み飛ばせる)
+  const usedAsc = alsoUsed.length === 0 ? used : [...used, ...alsoUsed].sort((a, b) => a - b)
   return String(firstUnusedNo(usedAsc, MIN_ITEM_NO))
 }
 

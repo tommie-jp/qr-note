@@ -12,6 +12,13 @@ export interface ImportedNote {
   itemNo: string
   // 一覧に出す名前。題名が無いノートもあるので空文字がありうる
   title: string
+  // 番号を振り直して入れたときの**元の番号** (docs/28 §5「新しい番号で
+  // 取り込む」)。振り直していなければ無い。
+  //
+  // 一覧に「1042 → 20001」と旧新の対応を出すために持つ。itemNo は印刷した
+  // QR の URL そのものなので、どれが振り直されたか判らないと、手元のシールと
+  // ノートの対応を確かめられない
+  renumberedFrom?: string
 }
 
 export interface SkippedEntry {

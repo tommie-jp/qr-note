@@ -55,6 +55,7 @@ beforeEach(() => {
     imported: [],
     skipped: [],
     conflictSkipped: 0,
+    duplicateSkipped: 0,
     restoredAttachments: 0,
     deferredImageIndex: 0,
   })
@@ -101,6 +102,7 @@ test('本文を読みながら進捗を積み上げる', async () => {
       imported: [],
       skipped: [],
       conflictSkipped: 0,
+      duplicateSkipped: 0,
       restoredAttachments: 0,
       deferredImageIndex: 0,
     }
@@ -125,6 +127,7 @@ test('名乗られた大きさを進捗の分母にする', async () => {
       imported: [],
       skipped: [],
       conflictSkipped: 0,
+      duplicateSkipped: 0,
       restoredAttachments: 0,
       deferredImageIndex: 0,
     }
@@ -151,6 +154,7 @@ test('名乗りが無ければ分母は null (% を出さない)', async () => {
       imported: [],
       skipped: [],
       conflictSkipped: 0,
+      duplicateSkipped: 0,
       restoredAttachments: 0,
       deferredImageIndex: 0,
     }
@@ -205,18 +209,74 @@ test('名乗りではなく中身の先頭で振り分ける', async () => {
 })
 
 // 戻す操作で手元の編集を黙って潰さない (docs/28 §5)
-test('上書きはクエリで明示されたときだけ有効になる', async () => {
+test('省略したときの衝突ポリシーは skip', async () => {
   await POST(upload(zipBody()))
   expect(importZip).toHaveBeenCalledWith(
     expect.anything(),
-    expect.objectContaining({ overwrite: false }),
+    expect.objectContaining({ conflict: 'skip' }),
   )
+})
 
-  await POST(upload(zipBody(), '?overwrite=1'))
+test('conflict はクエリで選ぶ', async () => {
+  await POST(upload(zipBody(), '?conflict=overwrite'))
   expect(importZip).toHaveBeenLastCalledWith(
     expect.anything(),
-    expect.objectContaining({ overwrite: true }),
+    expect.objectContaining({ conflict: 'overwrite' }),
   )
+
+  await POST(upload(zipBody(), '?conflict=renumber'))
+  expect(importZip).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({ conflict: 'renumber' }),
+  )
+})
+
+// タイポで renumber のつもりが skip で走ると「取り込めたのに増えていない」に
+// 見える。黙って既定へ倒さず断る (export の scope と同じ主義)
+test('未知の conflict は 400 (黙って skip にしない)', async () => {
+  const response = await POST(upload(zipBody(), '?conflict=renumbeer'))
+  expect(response.status).toBe(400)
+  expect(importZip).not.toHaveBeenCalled()
+})
+
+// 古い画面 (開きっぱなしのタブ) が投げてくる形。黙って skip で走らせると
+// 「上書きしたのに変わらない」になる
+test('旧 ?overwrite= は 400 で言い換えを案内する', async () => {
+  const response = await POST(upload(zipBody(), '?overwrite=1'))
+  expect(response.status).toBe(400)
+  expect((await response.json()).error).toContain('conflict=overwrite')
+  expect(importZip).not.toHaveBeenCalled()
+})
+
+// --- エラーで抜けるときの本文の後始末 ---
+
+// **読み切らないと応答が届かないことがある** (route.ts の drainRequest)。
+// 中継 (本番の nginx / WSL のポート転送) は送信を先に捌こうとするため、
+// 読み残したまま応答すると画面が「取り込み中…」のまま止まって見える
+test('取り込みが失敗しても本文を最後まで読む', async () => {
+  importZip.mockRejectedValue(new Error('ZIP を展開できませんでした'))
+  let pulls = 0
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1
+      if (pulls > 4) {
+        controller.close()
+        return
+      }
+      controller.enqueue(zipBody())
+    },
+  })
+
+  const request = new Request('http://localhost/api/import', {
+    method: 'POST',
+    body,
+    // @ts-expect-error undici は本文にストリームを渡すとき duplex を要求する
+    duplex: 'half',
+  })
+  const response = await POST(request)
+
+  expect(response.status).toBe(400)
+  expect(pulls).toBe(5) // 閉じるまで引き切った
 })
 
 test('本文が無ければ 400', async () => {

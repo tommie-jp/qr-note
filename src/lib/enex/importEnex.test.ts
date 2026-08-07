@@ -7,8 +7,8 @@ const nextItemNo = vi.fn()
 const applyImportedTimestamps = vi.fn()
 const storeAttachment = vi.fn()
 const executeRaw = vi.fn()
-const queryRaw = vi.fn()
 const deleteMany = vi.fn()
+const isAlreadyImported = vi.fn()
 
 vi.mock('@/lib/items', () => ({
   nextItemNo: () => nextItemNo(),
@@ -25,10 +25,16 @@ vi.mock('@/lib/attachmentStore', () => ({
 vi.mock('@/lib/db', () => ({
   prisma: {
     $executeRaw: (...args: unknown[]) => executeRaw(...args),
-    // 重複判定 (isDuplicate) が使う。既定は「重複なし」(空配列)
-    $queryRaw: (...args: unknown[]) => queryRaw(...args),
     image: { deleteMany: (args: unknown) => deleteMany(args) },
   },
+}))
+
+// 重複判定は ZIP の renumber と共有する (lib/importDuplicate.ts)。
+// 判定そのものは lib/importDuplicate.test.ts が見るので、ここでは
+// 「いつ呼ぶか・呼んだ結果をどう扱うか」だけを差し替えて確かめる
+vi.mock('@/lib/importDuplicate', () => ({
+  isAlreadyImported: (created: Date | null, title: string) =>
+    isAlreadyImported(created, title),
 }))
 
 const { importEnex } = await import('./importEnex')
@@ -52,7 +58,7 @@ beforeEach(() => {
   upsertItem.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
   applyImportedTimestamps.mockResolvedValue(undefined)
-  queryRaw.mockResolvedValue([]) // 既定は重複なし
+  isAlreadyImported.mockResolvedValue(false) // 既定は重複なし
   deleteMany.mockResolvedValue({ count: 0 })
   storeAttachment.mockResolvedValue({
     ok: true,
@@ -95,8 +101,7 @@ const noteWithDate = (title: string) =>
   )
 
 test('既に取り込み済みのノートはスキップして数える', async () => {
-  // 重複判定のクエリが 1 行返す = 既にある
-  queryRaw.mockResolvedValue([{ one: 1 }])
+  isAlreadyImported.mockResolvedValue(true)
 
   const report = await importEnex(enex(noteWithDate('うどん')))
 
@@ -108,7 +113,7 @@ test('既に取り込み済みのノートはスキップして数える', async
 })
 
 test('--force (allowDuplicate) なら重複でも入れ直す', async () => {
-  queryRaw.mockResolvedValue([{ one: 1 }])
+  isAlreadyImported.mockResolvedValue(true)
 
   const report = await importEnex(enex(noteWithDate('うどん')), {
     allowDuplicate: true,
@@ -116,21 +121,20 @@ test('--force (allowDuplicate) なら重複でも入れ直す', async () => {
 
   expect(report.imported).toHaveLength(1)
   expect(report.duplicateSkipped).toBe(0)
-  // 判定クエリ自体を撃たない (allowDuplicate のとき isDuplicate を呼ばない)
-  expect(queryRaw).not.toHaveBeenCalled()
+  // 判定自体を撃たない (allowDuplicate のとき isAlreadyImported を呼ばない)
+  expect(isAlreadyImported).not.toHaveBeenCalled()
 })
 
 // 日時の無いノートは題名だけの照合になり、同名の別ノートを取り違えるので
-// 判定対象から外す (常に新規)
-test('日時の無いノートは重複判定せず常に入る', async () => {
-  queryRaw.mockResolvedValue([{ one: 1 }])
-
+// 判定対象から外す (常に新規)。断るのは importDuplicate 側なので、
+// ここは「日時が無いことを隠さずに渡す」ところまでを見る
+test('日時の無いノートは日時 null のまま判定にかける', async () => {
   const report = await importEnex(
     enex(note(`<title>無題</title><content>${enml('<div>x</div>')}</content>`)),
   )
 
   expect(report.imported).toHaveLength(1)
-  expect(queryRaw).not.toHaveBeenCalled()
+  expect(isAlreadyImported).toHaveBeenCalledWith(null, '無題')
 })
 
 // --- ノート数の上限 ---

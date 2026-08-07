@@ -13,17 +13,53 @@ import {
 } from "@/components/useImportProgress";
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from "@/lib/enex/limits";
 import type { BaseImportReport } from "@/lib/importReport";
+import type { ConflictPolicy } from "@/lib/zip/conflictPolicy";
 import { MAX_ZIP_BYTES, zipTooLargeMessage } from "@/lib/zip/limits";
 
 // /api/import が返すレポート。**format で見分ける判別可能ユニオン**にして、
-// 「ZIP なのに duplicateSkipped がある」ような組み合わせを型で締め出す
-// (共通部分は lib/importReport.ts が正本)
+// 「ZIP なのに restoredAttachments が無い」ような組み合わせを型で締め出す
+// (共通部分は lib/importReport.ts が正本)。duplicateSkipped は両方が持つが、
+// 意味は違う — ENEX は「既に取り込み済み」、ZIP は「衝突したが同内容だった」
 type ImportReport =
   | ({ format: "zip" } & BaseImportReport & {
         conflictSkipped: number;
+        duplicateSkipped: number;
         restoredAttachments: number;
       })
   | ({ format: "enex" } & BaseImportReport & { duplicateSkipped: number });
+
+// 衝突したときの 3 択 (docs/28-エクスポート計画.md §5)。
+//
+// **既定は「そのまま残す」** — 戻す操作で手元の編集を黙って潰すほうが
+// 取り返しがつかない。3 つ目の注意書きは選ぶ人にだけ見えればよいが、
+// **選ぶ前に見えていなければ意味がない**ので選択肢に添えて常に出す
+const CONFLICT_CHOICES: {
+  value: ConflictPolicy;
+  label: string;
+  description: string;
+  caution?: string;
+}[] = [
+  {
+    value: "skip",
+    label: "そのまま残す",
+    description:
+      "ZIP 側を入れず、既にある番号のノートをそのまま残します (取り込み結果に件数を出します)。",
+  },
+  {
+    value: "overwrite",
+    label: "上書きする",
+    description:
+      "既にある番号のノートを ZIP の内容で置き換えます。手元の編集は消えます。",
+  },
+  {
+    value: "renumber",
+    label: "新しい番号で取り込む",
+    description:
+      "既にあるノートはそのまま残し、ZIP 側のノートには空き番号を振って両方入れます (別のインスタンスのノートを取り込むとき)。",
+    caution:
+      "新しい番号を振ったノートは、印刷済みの QR シールとは対応しなくなります。",
+  },
+];
 
 interface ImportResponse {
   success: boolean;
@@ -55,7 +91,7 @@ function tooLargeMessage(file: File | null): string | null {
 export function NotesImporter() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [overwrite, setOverwrite] = useState(false);
+  const [conflict, setConflict] = useState<ConflictPolicy>("skip");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -81,14 +117,11 @@ export function NotesImporter() {
       // 500MB まで受けるので、包むとサーバ側が本文全体をメモリに載せることに
       // なる (docs/28 §3)。ブラウザは File をディスクから流して送るため、
       // こちら側でも中身を抱えずに済む。同時に送りたい設定はクエリへ
-      const response = await fetch(
-        `/api/import${overwrite ? "?overwrite=1" : ""}`,
-        {
-          method: "POST",
-          body: file,
-          credentials: "same-origin",
-        },
-      );
+      const response = await fetch(`/api/import?conflict=${conflict}`, {
+        method: "POST",
+        body: file,
+        credentials: "same-origin",
+      });
       const result: ImportResponse = await response.json();
       if (!response.ok || !result.success || result.data === null) {
         throw new Error(result.error ?? `取り込めませんでした (${response.status})`);
@@ -131,24 +164,38 @@ export function NotesImporter() {
           className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded file:border file:border-gray-300 file:bg-white file:px-3 file:font-medium"
         />
 
-        {/* 衝突ポリシー (docs/28 §5)。**既定は上書きしない** — 戻す操作で
+        {/* 衝突ポリシー (docs/28 §5)。**既定はそのまま残す** — 戻す操作で
             手元の編集を黙って潰すほうが取り返しがつかない。番号を振り直す
             ENEX には関係がないので、.zip を選んだときだけ出す */}
         {isZip && (
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={overwrite}
-              onChange={(event) => setOverwrite(event.target.checked)}
-              className="mt-1 size-4 shrink-0"
-            />
-            <span>
-              同じ番号のノートがあれば上書きする
-              <span className="block text-gray-600">
-                外しておくと、既にある番号のノートはそのまま残します (取り込み結果に件数を出します)。
-              </span>
-            </span>
-          </label>
+          <fieldset className="space-y-2 text-sm">
+            <legend className="font-medium">
+              同じ番号のノートが既にあるとき
+            </legend>
+            {CONFLICT_CHOICES.map((choice) => (
+              <label key={choice.value} className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="conflict"
+                  value={choice.value}
+                  checked={conflict === choice.value}
+                  onChange={() => setConflict(choice.value)}
+                  className="mt-1 size-4 shrink-0"
+                />
+                <span>
+                  {choice.label}
+                  <span className="block text-gray-600">
+                    {choice.description}
+                  </span>
+                  {choice.caution && (
+                    <span className="block text-amber-700">
+                      {choice.caution}
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </fieldset>
         )}
 
         <button
@@ -218,7 +265,19 @@ function ImportProgressBar({ progress }: { progress: ImportProgressView | null }
   );
 }
 
+// 一覧に出す「取り込めなかったもの」の上限。
+//
+// 関係のない ZIP は取り込み口が 1 行で断る (importZip の assertOurZip) ので
+// ここまで来ないが、**ノートに紛れたゴミ**は現実に何百件も出る (vault に
+// 置いた .DS_Store や __MACOSX/ など)。全部並べると本当に見たい 1 行が
+// 埋もれるので、頭だけ出して残りは件数で伝える
+const SKIPPED_SHOWN = 20
+
 function ImportResult({ report }: { report: ImportReport }) {
+  const renumbered = report.imported.filter(
+    (note) => note.renumberedFrom !== undefined,
+  ).length;
+
   return (
     <section className="space-y-4">
       <h2 className="font-bold">
@@ -232,6 +291,14 @@ function ImportResult({ report }: { report: ImportReport }) {
         <ul className="space-y-2">
           {report.imported.map((note) => (
             <li key={note.itemNo} className={`${BOX_CLASS} py-3`}>
+              {/* 振り直したものは「旧 → 新」で出す。どれが振り直されたか
+                  判らないと、手元の QR シールとの対応を確かめられない */}
+              {note.renumberedFrom !== undefined && (
+                <span className="text-gray-500">
+                  {note.renumberedFrom}
+                  {" → "}
+                </span>
+              )}
               <Link
                 href={`/item/${note.itemNo}`}
                 className="text-blue-600 underline"
@@ -246,13 +313,34 @@ function ImportResult({ report }: { report: ImportReport }) {
         </ul>
       )}
 
+      {/* 番号が変わったことは QR シールの貼り替えに直結する。一覧の
+          「旧 → 新」だけでは見落とすので、件数も別に出す */}
+      {renumbered > 0 && (
+        <p className={`${BOX_CLASS} py-3 text-sm text-amber-700`}>
+          {renumbered}{" "}
+          件は番号が空いていなかったため、新しい番号で取り込みました
+          (上の一覧の「旧 → 新」)。これらのノートは、印刷済みの QR
+          シールとは対応しません。
+        </p>
+      )}
+
       {/* 「あえて入れなかった」ものは失敗と分けて出す。既定どおり動いた
           結果なので、赤い「取り込めなかったもの」に混ぜると誤解を招く */}
       {report.format === "zip" && report.conflictSkipped > 0 && (
         <p className={`${BOX_CLASS} py-3 text-sm text-gray-700`}>
           同じ番号のノートが既にあるため {report.conflictSkipped}{" "}
-          件は入れていません。入れ替えたいときは「同じ番号のノートがあれば上書きする」を
-          選んでもう一度取り込んで下さい。
+          件は入れていません。入れ替えたいときは「上書きする」を、
+          両方残したいときは「新しい番号で取り込む」を選んでもう一度取り込んで下さい。
+        </p>
+      )}
+
+      {/* ZIP の duplicateSkipped は「番号は衝突したが、同じ内容のノートが
+          既にいた」= 再実行で増えなかったということ (docs/28 §5) */}
+      {report.format === "zip" && report.duplicateSkipped > 0 && (
+        <p className={`${BOX_CLASS} py-3 text-sm text-gray-700`}>
+          同じ内容のノートが既にあるため {report.duplicateSkipped}{" "}
+          件は新しい番号を振らずに入れていません (同じ ZIP
+          を取り込み直しても増えません)。
         </p>
       )}
 
@@ -283,9 +371,11 @@ function ImportResult({ report }: { report: ImportReport }) {
       {/* 見送ったものは必ず出す。黙って落とすと「全部入った」と読めてしまう */}
       {report.skipped.length > 0 && (
         <div className="space-y-2">
-          <h3 className="font-bold">取り込めなかったもの</h3>
+          <h3 className="font-bold">
+            取り込めなかったもの ({report.skipped.length} 件)
+          </h3>
           <ul className="space-y-2">
-            {report.skipped.map((entry, index) => (
+            {report.skipped.slice(0, SKIPPED_SHOWN).map((entry, index) => (
               <li
                 key={`${entry.label}-${index}`}
                 className={`${BOX_CLASS} py-3 text-sm`}
@@ -295,6 +385,11 @@ function ImportResult({ report }: { report: ImportReport }) {
               </li>
             ))}
           </ul>
+          {report.skipped.length > SKIPPED_SHOWN && (
+            <p className="text-sm text-gray-600">
+              ほか {report.skipped.length - SKIPPED_SHOWN} 件は省略しました。
+            </p>
+          )}
         </div>
       )}
 

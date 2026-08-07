@@ -11,14 +11,18 @@ const findUniqueItem = vi.fn()
 const findUniqueImage = vi.fn()
 const findManyImage = vi.fn()
 const upsertItem = vi.fn()
+const nextItemNo = vi.fn()
 const setItemPublic = vi.fn()
 const applyImportedTimestamps = vi.fn()
 const restoreAttachment = vi.fn()
 const executeRaw = vi.fn()
+const queryRaw = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   prisma: {
     $executeRaw: (...args: unknown[]) => executeRaw(...args),
+    // 重複判定 (importDuplicate) が使う。ここは本物を通す
+    $queryRaw: (...args: unknown[]) => queryRaw(...args),
     item: {
       findMany: (args: unknown) => findManyItem(args),
       findUnique: (args: unknown) => findUniqueItem(args),
@@ -32,6 +36,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/items', () => ({
   upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
+  nextItemNo: (alsoUsed?: readonly number[]) => nextItemNo(alsoUsed),
   setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
   applyImportedTimestamps: (itemNo: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemNo, created, updated),
@@ -64,8 +69,8 @@ async function exportToZip(itemNos: string[] | null): Promise<Uint8Array> {
 }
 
 // 取り込みは本文を流し読みする。書き出した ZIP をそのまま流し込む
-async function importFrom(itemNos: string[] | null) {
-  return importZip(chunkedBytes(await exportToZip(itemNos)))
+async function importFrom(itemNos: string[] | null, options = {}) {
+  return importZip(chunkedBytes(await exportToZip(itemNos)), options)
 }
 
 beforeEach(() => {
@@ -77,6 +82,8 @@ beforeEach(() => {
   setItemPublic.mockResolvedValue(0)
   applyImportedTimestamps.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
+  queryRaw.mockResolvedValue([]) // 既定は「同内容のノートはいない」
+  nextItemNo.mockResolvedValue('20001')
   restoreAttachment.mockResolvedValue({ ok: true, created: true })
 })
 
@@ -167,6 +174,52 @@ test('末尾が改行の本文も往復して元に戻る', async () => {
     url: '',
     mode: 'memo',
   })
+})
+
+// --- 新しい番号で取り込む (§5) ---
+
+// renumber の要件は「別のインスタンスのノートを手元を壊さず取り込む」。
+// 書き出した本物の ZIP を、番号が埋まっている手元へ流す形で確かめる
+const ONE_NOTE = [
+  {
+    itemNo: '1042',
+    memo: '題名\n本文',
+    url: '',
+    mode: 'memo' as const,
+    createdAt: new Date('2025-11-02T01:30:00.000Z'),
+    updatedAt: new Date('2026-07-01T08:12:00.000Z'),
+    publicAt: null,
+  },
+]
+
+test('renumber は衝突したノートを新しい番号で入れる', async () => {
+  findManyItem.mockResolvedValue(ONE_NOTE)
+  findUniqueItem.mockResolvedValue({ itemNo: '1042' }) // 手元に 1042 がある
+
+  const report = await importFrom(['1042'], { conflict: 'renumber' })
+
+  expect(report.imported).toEqual([
+    { itemNo: '20001', title: '題名', renumberedFrom: '1042' },
+  ])
+  expect(upsertItem).toHaveBeenCalledWith('20001', {
+    memo: '題名\n本文',
+    url: '',
+    mode: 'memo',
+  })
+})
+
+// 素朴に作ると、同じ ZIP を 2 回流した時点で全ノートが複製される
+test('renumber で同じ ZIP を流し直しても増えない', async () => {
+  findManyItem.mockResolvedValue(ONE_NOTE)
+  findUniqueItem.mockResolvedValue({ itemNo: '1042' })
+  queryRaw.mockResolvedValue([{ one: 1 }]) // 同内容のノートが既にいる
+
+  const report = await importFrom(['1042'], { conflict: 'renumber' })
+
+  expect(report.duplicateSkipped).toBe(1)
+  expect(report.imported).toEqual([])
+  expect(nextItemNo).not.toHaveBeenCalled()
+  expect(upsertItem).not.toHaveBeenCalled()
 })
 
 test('複数ノートと共有の添付をまとめて往復できる', async () => {

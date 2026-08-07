@@ -4,6 +4,11 @@ import { concatBytes } from '@/lib/bytes'
 import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
 import { checkUploadRequest } from '@/lib/uploads'
+import {
+  CONFLICT_POLICY_ERROR,
+  type ConflictPolicy,
+  parseConflictPolicy,
+} from '@/lib/zip/conflictPolicy'
 import { importZip } from '@/lib/zip/importZip'
 import { MAX_ZIP_BYTES, zipTooLargeMessage } from '@/lib/zip/limits'
 import {
@@ -27,8 +32,8 @@ function errorResponse(status: number, error: string): NextResponse {
 // **本文はファイルそのもの** (multipart ではない)。ZIP は 500MB まで受けるので、
 // formData() で包むと本文全体とその複製がメモリに載ってしまう (本番 VPS は
 // RAM 2GB)。生のボディなら `request.body` をそのまま展開器へ流せて、載るのは
-// 「いま保存している添付 1 件」だけになる。同時に送りたい設定 (上書きするか)
-// はクエリに置く — 本文に混ぜないぶん、流し読みの邪魔にもならない。
+// 「いま保存している添付 1 件」だけになる。同時に送りたい設定 (番号が衝突した
+// ときの扱い) はクエリに置く — 本文に混ぜないぶん、流し読みの邪魔にもならない。
 //
 // **サーバ側で変換する**。クライアントは端末のファイルを送るだけで、展開も
 // ENML → Markdown も添付の保存もここから先で行う。
@@ -51,9 +56,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     return errorResponse(400, 'ファイルの中身が送られていません')
   }
 
-  // 既にある番号を上書きするか (§5)。**送られてこなければ上書きしない**
-  // 形にしておく (旗の欠落が無防備へ倒れない)
-  const overwrite = new URL(request.url).searchParams.get('overwrite') === '1'
+  // 同じ番号のノートが既にあるときどうするか (§5)。**送られてこなければ
+  // そのまま残す** (旗の欠落が無防備へ倒れない)。知らない値は 400 で断る —
+  // タイポが黙って skip で走ると「取り込めたのに増えていない」にしか見えない
+  const params = new URL(request.url).searchParams
+  // 旧い画面 (開きっぱなしのタブ) は ?overwrite=1 を投げてくる。黙って skip で
+  // 走らせると「上書きしたのに変わらない」になるので、名前が変わったと伝える
+  if (params.has('overwrite')) {
+    return errorResponse(400, 'overwrite は廃止しました。conflict=overwrite を使って下さい')
+  }
+  const conflict = parseConflictPolicy(params.get('conflict'))
+  if (conflict === null) {
+    return errorResponse(400, CONFLICT_POLICY_ERROR)
+  }
 
   // 進捗の控えを取る (docs/28 §9)。**取れなければ断る** — importZip は
   // 同時実行を想定しておらず (採番・衝突判定が競合する)、これは進捗以前に
@@ -68,11 +83,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     throw error
   }
 
+  // 本文は 1 本の reader から読む。**読み手を握ったままにする**のが要点で、
+  // 途中で抜けた後の読み捨て (drainRequest) が同じ続きから読めるようにする
+  const reader = request.body.getReader()
+  const received = { bytes: 0 }
+
   try {
-    const response = await dispatch(chunksOf(request.body), overwrite, handle)
+    const response = await dispatch(chunksOf(reader, received), conflict, handle)
     handle.finish()
     return response
   } catch (error) {
+    // **応答を返す前に、届いていない本文を読み捨てる**。理由は drainRequest に
+    await drainRequest(reader, received, handle)
     if (error instanceof UploadTooLargeError) {
       return errorResponse(413, error.message)
     }
@@ -85,8 +107,46 @@ export async function POST(request: Request): Promise<NextResponse> {
       error instanceof Error ? error.message : 'ファイルを読み込めませんでした',
     )
   } finally {
+    reader.releaseLock()
     // **必ず空ける**。握ったまま抜けると次の取り込みが始められない
     releaseImport()
+  }
+}
+
+// エラー応答を返す前に、まだ届いていない本文を読み捨てる。
+//
+// **読み切らないと応答が届かないことがある**。サーバが本文を読み終える前に
+// 応答を返す形は、直結 (curl・localhost) なら早い応答として素直に届くが、
+// 間に中継が挟まると話が変わる — 本番の nginx は /api/import だけ
+// proxy_request_buffering off で中継しており、WSL のポート転送や社内 proxy も
+// 同じ位置に立つ。中継はクライアントの送信を先に捌こうとするため、応答が
+// 中継されないまま送信だけが続き、画面には**「取り込み中…」が出たきり何も
+// 起きない**。残りを読んでやれば送信が終わり、理由付きのエラーが画面に出る。
+//
+// **読み捨ての上限は「まだ受け取ってよい残り」まで**。413 (大きすぎる) で
+// 抜けたときは予算が尽きているので 1 バイトも読まない — 断った相手に
+// 付き合って 500MB を読むのでは、上限を設けた意味がなくなる。
+async function drainRequest(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  received: { bytes: number },
+  handle: ImportProgressHandle,
+): Promise<void> {
+  let budget = MAX_ZIP_BYTES - received.bytes
+  try {
+    while (budget > 0) {
+      const { done, value } = await reader.read()
+      if (done) {
+        return
+      }
+      budget -= value.byteLength
+      // 読み捨てたぶんも進捗に数える。画面のバーは最後まで進み、
+      // 送り終わったところでエラーが出る (止まったように見せない)
+      handle.addBytes(value.byteLength)
+    }
+  } catch (error) {
+    // 既に切れている・読めない。**返せる応答を返すほうが大事**なので、
+    // ここで失敗しても本当のエラー (呼び出し側が持っている) を押しのけない
+    console.error('残りの本文を読み捨てられませんでした:', error)
   }
 }
 
@@ -106,14 +166,14 @@ function contentLength(request: Request): number | null {
 // 食い違うと、振り分けだけ通って展開で落ちる組み合わせができる。
 async function dispatch(
   source: AsyncGenerator<Uint8Array>,
-  overwrite: boolean,
+  conflict: ConflictPolicy,
   handle: ImportProgressHandle,
 ): Promise<NextResponse> {
   const { head, rest } = await peek(source, ZIP_SIGNATURE_BYTES)
 
   if (isZipBytes(head)) {
     const report = await importZip(withLimit(rest, MAX_ZIP_BYTES, zipTooLargeMessage, handle), {
-      overwrite,
+      conflict,
       onNotesStart: handle.startNotes,
       onNoteDone: handle.noteDone,
     })
@@ -138,23 +198,23 @@ async function dispatch(
 // 上限を超えたことは 413 で返したい (400 の「読めなかった」とは違う話)
 class UploadTooLargeError extends Error {}
 
-function chunksOf(body: ReadableStream<Uint8Array>): AsyncGenerator<Uint8Array> {
+// 受け取った本文を流す。**読み手は呼び出し側が握ったまま**にする —
+// ここで releaseLock すると、途中で抜けた後に残りを読み捨てられない。
+// received は読み捨ての予算を決めるための控え (どこまで受け取ったか)。
+function chunksOf(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  received: { bytes: number },
+): AsyncGenerator<Uint8Array> {
   return (async function* () {
-    // getReader() を使うのは、Node と undici のどちらの実装でも
-    // 非同期反復が使えるとは限らないため
-    const reader = body.getReader()
-    try {
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) {
-          return
-        }
-        if (value.byteLength > 0) {
-          yield value
-        }
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) {
+        return
       }
-    } finally {
-      reader.releaseLock()
+      received.bytes += value.byteLength
+      if (value.byteLength > 0) {
+        yield value
+      }
     }
   })()
 }

@@ -29,12 +29,21 @@ function row(itemNo: string, memo = '本文') {
   }
 }
 
-async function collect(itemNos: string[] | null): Promise<ZipEntry[]> {
+const EXPORTED_AT = new Date('2026-08-07T05:00:00.000Z')
+
+async function collectAll(itemNos: string[] | null): Promise<ZipEntry[]> {
   const entries: ZipEntry[] = []
-  for await (const entry of exportEntries(itemNos)) {
+  for await (const entry of exportEntries(itemNos, EXPORTED_AT)) {
     entries.push(entry)
   }
   return entries
+}
+
+// 覚え書き (export.json) は必ず先頭に入る。ここから下の関心は notes/ と
+// images/ の並びなので外して返し、覚え書き自体は専用のテストで確かめる
+async function collect(itemNos: string[] | null): Promise<ZipEntry[]> {
+  const entries = await collectAll(itemNos)
+  return entries.filter((entry) => entry.path !== 'export.json')
 }
 
 function decode(entry: ZipEntry): string {
@@ -44,6 +53,24 @@ function decode(entry: ZipEntry): string {
 beforeEach(() => {
   vi.clearAllMocks()
   findUniqueImage.mockResolvedValue({ data: new Uint8Array([1, 2, 3]) })
+})
+
+// 覚え書き (docs/28 §1)。手元に残った ZIP だけで「どの版がいつ書き出したか」
+// が判るようにする
+test('先頭に export.json を入れる', async () => {
+  findManyItem.mockResolvedValue([row('1042')])
+
+  const entries = await collectAll(['1042'])
+
+  expect(entries[0].path).toBe('export.json')
+  expect(JSON.parse(decode(entries[0]))).toMatchObject({
+    format: 'qr-search-export',
+    formatVersion: 1,
+    exportedAt: '2026-08-07T05:00:00.000Z',
+    noteCount: 1,
+  })
+  // 版はアプリのものをそのまま載せる (調査で頼りにするのはここ)
+  expect(JSON.parse(decode(entries[0])).appVersion).toMatch(/^\d+\.\d+\.\d+/)
 })
 
 test('選択した番号のノートを notes/ に入れる', async () => {

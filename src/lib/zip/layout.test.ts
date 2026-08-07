@@ -43,6 +43,12 @@ test('images/<保存名> は添付として読む', () => {
 })
 
 // ディレクトリ項目は ZIP の構造でしかないので黙って読み飛ばす
+// 書き出しの覚え書き。**直下の他のファイルより先に見る** (README.md のような
+// 「notes/ と images/ の外」として断られてはいけない)
+test('export.json は覚え書きとして読み分ける', () => {
+  expect(classifyEntry('export.json')).toEqual({ kind: 'meta' })
+})
+
 test('ディレクトリ項目は skip', () => {
   expect(classifyEntry('notes/')).toEqual({ kind: 'skip' })
   expect(classifyEntry('images/')).toEqual({ kind: 'skip' })

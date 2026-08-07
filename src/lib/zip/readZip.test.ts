@@ -18,6 +18,60 @@ async function readAll(zip: Uint8Array): Promise<RawZipEntry[]> {
   return entries
 }
 
+// --- 読む項目を呼び出し側が選ぶ (ZipReadOptions.accept) ---
+
+async function readAccepted(
+  zip: Uint8Array,
+  accept: (path: string) => boolean,
+): Promise<RawZipEntry[]> {
+  const entries: RawZipEntry[] = []
+  await readZipStream(
+    chunkedBytes(zip),
+    async (entry) => {
+      entries.push({ path: entry.path, data: entry.data.slice() })
+    },
+    { accept },
+  )
+  return entries
+}
+
+test('accept が false を返した項目は渡ってこない', async () => {
+  const zip = zipSync({
+    'notes/1042.md': strToU8('本文'),
+    'app.exe': strToU8('MZ...'),
+  })
+
+  const entries = await readAccepted(zip, (path) => path.startsWith('notes/'))
+
+  expect(entries.map((entry) => entry.path)).toEqual(['notes/1042.md'])
+})
+
+// 取り込まない項目の大きさは、こちらの器の都合とは関係がない。ここを門に
+// 掛けると、関係のない ZIP を選んだだけで「中の exe が大きすぎます」になる
+test('読まない項目は 1 項目の大きさの門に掛からない', async () => {
+  const zip = zipSync({
+    'app.exe': new Uint8Array(MAX_ZIP_FILE_BYTES + 1),
+    'notes/1042.md': strToU8('本文'),
+  })
+
+  const entries = await readAccepted(zip, (path) => path.startsWith('notes/'))
+
+  expect(entries.map((entry) => entry.path)).toEqual(['notes/1042.md'])
+})
+
+// 捨てるにせよ展開はしている。際限なく付き合わないための歯止めは残す
+test('読まない項目も展開後の合計には数える', async () => {
+  const chunk = new Uint8Array(MAX_ZIP_FILE_BYTES - 1)
+  const files: Record<string, Uint8Array> = {}
+  for (let index = 0; index * (MAX_ZIP_FILE_BYTES - 1) <= MAX_ZIP_TOTAL_BYTES; index += 1) {
+    files[`junk/${index}.bin`] = chunk
+  }
+
+  await expect(readAccepted(zipSync(files), () => false)).rejects.toThrow(
+    /展開後の合計が大きすぎます/,
+  )
+}, 60000)
+
 test('項目を名前とバイト列で取り出す', async () => {
   const zip = zipSync({
     'notes/1042.md': strToU8('本文'),

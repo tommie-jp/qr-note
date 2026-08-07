@@ -5,7 +5,8 @@
 // 足りない。zipStream.ts の背圧がそのままこの関数の歩みになる。
 
 import { prisma } from '@/lib/db'
-import { attachmentEntryPath, noteEntryPath } from './layout'
+import { buildExportMeta } from './exportMeta'
+import { attachmentEntryPath, META_ENTRY_PATH, noteEntryPath } from './layout'
 import { buildNoteFile, collectAttachmentNames, type PortableNote } from './noteFile'
 import type { ZipEntry } from './zipStream'
 
@@ -17,10 +18,23 @@ const NOTE_BATCH = 100
 //
 // ゴミ箱 (deletedAt 非 null) は含めない (docs/28 §6)。選択エクスポートに
 // ゴミ箱のノートが紛れることは UI 上ないが、番号を直接送られても入らない。
+//
+// exportedAt を引数で受けるのはテストのため (アプリからは省略して現在時刻)。
 export async function* exportEntries(
   itemNos: readonly string[] | null,
+  exportedAt: Date = new Date(),
 ): AsyncGenerator<ZipEntry> {
   const targets = itemNos ?? (await allItemNos())
+
+  // 覚え書きを先頭に置く (docs/28 §1)。**先頭なのは人が展開したときに
+  // 目に付く位置だから**で、取り込み側は順番に依存しない。
+  // 件数は「入れるつもりの数」— 途中で消えたノートがあれば実際の .md は減る
+  yield {
+    path: META_ENTRY_PATH,
+    data: encodeText(buildExportMeta(targets.length, exportedAt)),
+    compress: true,
+    mtime: exportedAt,
+  }
 
   // 添付は本文を全部読んでから集める。複数のノートが同じ画像を指すことがある
   // (docs/20-画像GC計画.md §1) ので、名前で重複を落としてから 1 回だけ入れる
