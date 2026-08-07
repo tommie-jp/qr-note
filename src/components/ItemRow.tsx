@@ -15,6 +15,11 @@ export type RowViewMode = Exclude<ViewMode, "image">;
 
 interface ItemRowProps {
   item: Item;
+  // ノートを開くリンク先。ItemList が検索状態を載せた URL を組み立てて渡し、
+  // ノート側の前後ナビが「一覧のどこに居るか」を復元できるようにする
+  // (docs/60-学習進捗計画.md §4)。**任意にしない**: 既定を持たせると、
+  // 渡し忘れた一覧で前後ナビだけが黙って消える
+  href: string;
   // 選択モードで先頭に差し込むチェックボックス (通常時は undefined)。
   checkbox?: ReactNode;
   // 表示モード (docs/23-検索結果表示モード計画.md)。既定は今までの 2 行表示。
@@ -45,6 +50,7 @@ const THUMB_SIZE_CLASS: Record<RowViewMode, string> = {
 // 「他の場所で既に見えているもの」を流さないため (memoPreview.ts 参照)。
 export function ItemRow({
   item,
+  href,
   checkbox,
   view = DEFAULT_VIEW_MODE,
   swipeTrashAction,
@@ -119,14 +125,14 @@ export function ItemRow({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-baseline gap-2">
             <Link
-              href={`/item/${item.itemNo}`}
+              href={href}
               transitionTypes={["nav-forward"]}
               className="shrink-0 font-mono font-bold"
             >
               #{item.itemNo}
             </Link>
             <Link
-              href={`/item/${item.itemNo}`}
+              href={href}
               transitionTypes={["nav-forward"]}
               className={`truncate text-gray-600 ${stretchedLink}`}
             >
@@ -171,7 +177,7 @@ export function ItemRow({
     <div className="relative flex items-baseline gap-3 px-4 py-1.5 transition-colors hover:bg-gray-50 active:bg-gray-100">
       {checkbox}
       <Link
-        href={`/item/${item.itemNo}`}
+        href={href}
         transitionTypes={["nav-forward"]}
         className="shrink-0 font-mono font-bold"
       >
@@ -179,7 +185,7 @@ export function ItemRow({
       </Link>
       <div className="min-w-0 flex-1">
         <Link
-          href={`/item/${item.itemNo}`}
+          href={href}
           transitionTypes={["nav-forward"]}
           className={`block truncate text-gray-600 ${stretchedLink}`}
         >

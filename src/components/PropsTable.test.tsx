@@ -22,7 +22,7 @@ const rows: ItemPropsRow[] = [
   },
 ];
 
-const html = () => renderToStaticMarkup(<PropsTable rows={rows} />);
+const html = () => renderToStaticMarkup(<PropsTable rows={rows} query="" sort="updated" />);
 
 describe("PropsTable", () => {
   test("renders a header for each property key in the result set", () => {
@@ -55,7 +55,7 @@ describe("PropsTable", () => {
   });
 
   test("renders nothing when there are no rows", () => {
-    expect(renderToStaticMarkup(<PropsTable rows={[]} />)).toBe("");
+    expect(renderToStaticMarkup(<PropsTable rows={[]} query="" sort="updated" />)).toBe("");
   });
 
   test("says nothing about omitted rows when the table is complete", () => {
@@ -64,12 +64,12 @@ describe("PropsTable", () => {
 
   // 黙って打ち切ると「これで全部」と読めてしまう。
   test("tells the reader when rows were left out", () => {
-    const out = renderToStaticMarkup(<PropsTable rows={rows} omitted={7} />);
+    const out = renderToStaticMarkup(<PropsTable rows={rows} omitted={7} query="" sort="updated" />);
     expect(out).toContain("他 7 件は表に載せていません");
   });
 
   test("renders nothing when no row has properties", () => {
     const empty: ItemPropsRow[] = [{ itemNo: "1", summary: "a", props: [] }];
-    expect(renderToStaticMarkup(<PropsTable rows={empty} />)).toBe("");
+    expect(renderToStaticMarkup(<PropsTable rows={empty} query="" sort="updated" />)).toBe("");
   });
 });

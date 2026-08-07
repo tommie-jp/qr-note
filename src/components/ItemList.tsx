@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
+import { buildItemUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { BulkTagToolbar } from "./BulkTagToolbar";
@@ -149,6 +150,11 @@ export function ItemList({
   // 型 (RowViewMode) で保証する
   const rowView = view === "image" ? "compact" : view;
 
+  // ノートへのリンクに検索状態を載せる (docs/60-学習進捗計画.md §4)。
+  // 開いた先で「一覧の前後」を辿れるようにするため。検索していないときは
+  // buildItemUrl が素の /item/<番号> に畳むので、今までと同じ URL になる
+  const itemHref = (itemNo: string) => buildItemUrl(itemNo, query, sort);
+
   // 画像モードは描画を ImageMasonry に丸ごと委譲する (docs/32 §2)。
   //
   //   0 件 (検索ヒットなし) … 該当なしの案内と新規登録/ゴミ箱の導線は
@@ -164,7 +170,7 @@ export function ItemList({
         </ul>
       );
     }
-    return <ImageMasonry items={items} />;
+    return <ImageMasonry items={items} itemHref={itemHref} />;
   }
 
   if (!selectMode) {
@@ -177,6 +183,7 @@ export function ItemList({
           <ItemRow
             key={item.itemNo}
             item={item}
+            href={itemHref(item.itemNo)}
             view={rowView}
             swipeTrashAction={swipeEnabled ? trashAction : undefined}
             swipeOpen={openItemNo === item.itemNo}
@@ -210,6 +217,7 @@ export function ItemList({
           <ItemRow
             key={item.itemNo}
             item={item}
+            href={itemHref(item.itemNo)}
             view={rowView}
             checkbox={
               <input

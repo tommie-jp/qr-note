@@ -3,6 +3,8 @@ import {
   MAX_SEARCH_TERMS,
   parseSearchExpr,
   queryHasTagTerm,
+  queryTracksTaskProgress,
+  stripTaskTerms,
   type SearchExpr,
 } from './search'
 
@@ -406,5 +408,83 @@ describe('is:todo / is:done', () => {
 
   test('語の途中の is: は演算子にしない', () => {
     expect(parseSearchExpr('this:todo')).toEqual(t('this:todo'))
+  })
+})
+
+// --- 学習進捗の母数を出すための道具 (docs/60-学習進捗計画.md §2) ---
+
+describe('queryTracksTaskProgress', () => {
+  test('is true when a check-state term is ANDed at the top level', () => {
+    expect(queryTracksTaskProgress('is:todo')).toBe(true)
+    expect(queryTracksTaskProgress('#英単語 is:done')).toBe(true)
+    expect(queryTracksTaskProgress('#英単語 #難 is:todo')).toBe(true)
+  })
+
+  // 母数は「チェック語を外した式」で数えるので、否定でも AND の直下なら
+  // 外した式は必ず広がる (= 上位集合になる)
+  test('is true when negated at the top level', () => {
+    expect(queryTracksTaskProgress('!is:todo')).toBe(true)
+    expect(queryTracksTaskProgress('#英単語 !is:todo')).toBe(true)
+  })
+
+  // OR の枝から葉を抜くと式は逆に狭まり、母数が結果より小さくなる。
+  // 一覧と無関係な数を出すくらいなら出さない
+  test('is false when a check-state term sits under an OR', () => {
+    expect(queryTracksTaskProgress('#英単語 OR is:todo')).toBe(false)
+    expect(queryTracksTaskProgress('(#a OR is:todo) #b')).toBe(false)
+    // 最上位に裸のチェック語があっても、OR の枝に潜んでいれば同じく嘘になる
+    expect(queryTracksTaskProgress('#a is:done (is:todo OR #難)')).toBe(false)
+  })
+
+  test('is false when the check-state term is inside a negated group', () => {
+    expect(queryTracksTaskProgress('!(is:todo #難)')).toBe(false)
+  })
+
+  test('is false without a check-state term', () => {
+    expect(queryTracksTaskProgress('#英単語')).toBe(false)
+    expect(queryTracksTaskProgress('')).toBe(false)
+  })
+
+  test('is false for a quoted "is:todo" (a full-text literal)', () => {
+    expect(queryTracksTaskProgress('"is:todo"')).toBe(false)
+  })
+})
+
+describe('stripTaskTerms', () => {
+  // 「今の検索からチェックの条件だけ外したもの」= 進捗の母数の検索式
+  const strip = (query: string): SearchExpr | null => {
+    const expr = parseSearchExpr(query)
+    return expr === null ? null : stripTaskTerms(expr)
+  }
+
+  test('チェック語を落として残りを返す', () => {
+    expect(strip('#過渡現象 is:todo')).toEqual(tag('過渡現象'))
+    expect(strip('#過渡現象 is:todo is:done')).toEqual(tag('過渡現象'))
+  })
+
+  test('チェック語しかなければ null (絞り込みなし = 全ノートが母数)', () => {
+    expect(strip('is:todo')).toBeNull()
+    expect(strip('is:todo OR is:done')).toBeNull()
+  })
+
+  // 被演算子が消えた `!` は否定ごと落とす。残すと「全件除外」に化ける
+  // (capTerms が予算切れの葉に対して行うのと同じ判断)
+  test('被演算子が消えた否定は否定ごと落とす', () => {
+    expect(strip('!is:todo')).toBeNull()
+    expect(strip('#英単語 !is:todo')).toEqual(tag('英単語'))
+  })
+
+  test('入れ子の中のチェック語も落とす', () => {
+    expect(strip('#a (is:todo OR #難)')).toEqual(and(tag('a'), tag('難')))
+    expect(strip('(#a is:todo) OR #b')).toEqual(or(tag('a'), tag('b')))
+  })
+
+  test('チェック語が無ければそのまま返す', () => {
+    expect(strip('#英単語 抵抗')).toEqual(and(tag('英単語'), t('抵抗')))
+  })
+
+  // 引用したら task 語ではなくただの語なので、母数の条件にも残る
+  test('引用された "is:todo" は落とさない', () => {
+    expect(strip('#a "is:todo"')).toEqual(and(tag('a'), t('is:todo')))
   })
 })

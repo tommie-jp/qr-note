@@ -28,7 +28,7 @@ function makeItem(overrides: Partial<Item> = {}): Item {
 }
 
 const render = (items: Item[]) =>
-  renderToStaticMarkup(<ImageMasonry items={items} />);
+  renderToStaticMarkup(<ImageMasonry items={items} itemHref={(no) => `/item/${no}`} />);
 
 test("1 ノートの複数画像をすべてタイルにし、どれもノート詳細へ繋ぐ", () => {
   const html = render([

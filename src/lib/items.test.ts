@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import type {
+  countTaskProgress as CountTaskProgressFn,
   countTrashedItems as CountTrashedItemsFn,
   countTrashedMatches as CountTrashedMatchesFn,
+  findListNeighbors as FindListNeighborsFn,
   getItem as GetItemFn,
   isPublicImageName as IsPublicImageNameFn,
   listTags as ListTagsFn,
@@ -42,6 +44,8 @@ describe.skipIf(!runDbTests)(
     let listTrashedItems: typeof ListTrashedItemsFn
     let countTrashedItems: typeof CountTrashedItemsFn
     let countTrashedMatches: typeof CountTrashedMatchesFn
+    let countTaskProgress: typeof CountTaskProgressFn
+    let findListNeighbors: typeof FindListNeighborsFn
     let nextItemNo: typeof NextItemNoFn
     let setItemPublic: typeof SetItemPublicFn
     let isPublicImageName: typeof IsPublicImageNameFn
@@ -135,6 +139,41 @@ describe.skipIf(!runDbTests)(
         url: '',
         mode: 'memo' as const,
       },
+      // 学習進捗と前後ナビ用 (docs/60-学習進捗計画.md)。チェック 2 つで
+      // 未着手 / 自信なし / 習得済み の 3 状態を作る。
+      // zzftcheck 系とは別トークンにする — あちらは後続のテストが
+      // zzftcheck2 のノートを足すため、部分一致で巻き込まれる
+      {
+        itemNo: 'zzftn1',
+        memo: 'zzftnav 問1\n- [ ] 学習済み\n- [ ] 自信あり',
+        url: '',
+        mode: 'memo' as const,
+        taskTodo: 2,
+        taskDone: 0,
+      },
+      {
+        itemNo: 'zzftn2',
+        memo: 'zzftnav 問2\n- [x] 学習済み\n- [ ] 自信あり',
+        url: '',
+        mode: 'memo' as const,
+        taskTodo: 1,
+        taskDone: 1,
+      },
+      {
+        itemNo: 'zzftn3',
+        memo: 'zzftnav 問3\n- [x] 学習済み\n- [x] 自信あり',
+        url: '',
+        mode: 'memo' as const,
+        taskTodo: 0,
+        taskDone: 2,
+      },
+      // チェックを持たないので進捗の母数に入らない
+      {
+        itemNo: 'zzftn4',
+        memo: 'zzftnav 問4 チェックなし',
+        url: '',
+        mode: 'memo' as const,
+      },
     ]
 
     beforeAll(async () => {
@@ -150,6 +189,8 @@ describe.skipIf(!runDbTests)(
         listTrashedItems,
         countTrashedItems,
         countTrashedMatches,
+        countTaskProgress,
+        findListNeighbors,
         nextItemNo,
         setItemPublic,
         isPublicImageName,
@@ -320,6 +361,93 @@ describe.skipIf(!runDbTests)(
         // 実ノート (この機能のメモなど) ができた日に落ちる
         const r = await searchItems('zzftcheck "is:todo"', 1)
         expect(itemNos(r)).toEqual([])
+      })
+
+      // 学習の進捗 (docs/60-学習進捗計画.md §2)。
+      // 分母は「検索からチェック語を外し、チェックを持つノートに絞った数」
+      describe('countTaskProgress', () => {
+        test('チェックを持つノートが分母、全部チェックしたものが分子', async () => {
+          expect(await countTaskProgress('zzftnav is:todo')).toEqual({
+            done: 1,
+            total: 3,
+          })
+        })
+
+        test('絞り込みが is:todo でも is:done でも母数は変わらない', async () => {
+          const todo = await countTaskProgress('zzftnav is:todo')
+          expect(await countTaskProgress('zzftnav is:done')).toEqual(todo)
+          expect(await countTaskProgress('zzftnav !is:todo')).toEqual(todo)
+          // チェック語が無くても同じ (母数は元の検索だけで決まる)
+          expect(await countTaskProgress('zzftnav')).toEqual(todo)
+        })
+
+        test('チェックのないノートは分母に入らない', async () => {
+          // zzftnav は 4 件ヒットするが、チェックを持つのは 3 件
+          expect((await searchItems('zzftnav', 1)).total).toBe(4)
+          expect((await countTaskProgress('zzftnav')).total).toBe(3)
+        })
+
+        test('当たらない検索は 0 / 0 (呼び出し側が出し分ける)', async () => {
+          expect(await countTaskProgress('zzftnothinghere is:todo')).toEqual({
+            done: 0,
+            total: 0,
+          })
+        })
+      })
+
+      // 一覧の中の前後 (docs/60-学習進捗計画.md §4)。
+      // seed は itemNoNum が null なので、itemNo 順 = item_no の辞書順で安定する
+      describe('findListNeighbors', () => {
+        test('一覧の並びで前後を返す', async () => {
+          expect(await findListNeighbors('zzftnav', 'itemNo', 'zzftn2')).toEqual({
+            prev: 'zzftn1',
+            next: 'zzftn3',
+          })
+        })
+
+        test('端では行き先が null になる', async () => {
+          expect(await findListNeighbors('zzftnav', 'itemNo', 'zzftn1')).toEqual({
+            prev: null,
+            next: 'zzftn2',
+          })
+          expect(await findListNeighbors('zzftnav', 'itemNo', 'zzftn4')).toEqual({
+            prev: 'zzftn3',
+            next: null,
+          })
+        })
+
+        test('絞り込みに合うものだけを辿る (学習済みを飛ばす)', async () => {
+          // is:todo に残るのは zzftn1 (未着手) と zzftn2 (自信なし)。
+          // 習得済みの zzftn3 とチェック無しの zzftn4 は飛ばす
+          expect(
+            await findListNeighbors('zzftnav is:todo', 'itemNo', 'zzftn1'),
+          ).toEqual({ prev: null, next: 'zzftn2' })
+        })
+
+        // ここが要 (docs/60 §4)。チェックを付けた直後は自分が一覧から消えるが、
+        // それでも「次」は正しく次のノートを指さなければならない
+        test('自分が絞り込みから外れていても前後は求まる', async () => {
+          expect(
+            await findListNeighbors('zzftnav is:todo', 'itemNo', 'zzftn3'),
+          ).toEqual({ prev: 'zzftn2', next: null })
+        })
+
+        test('未登録の itemNo では前後とも null (ナビを出さない)', async () => {
+          expect(
+            await findListNeighbors('zzftnav', 'itemNo', 'zzftnope'),
+          ).toEqual({ prev: null, next: null })
+        })
+
+        test('ゴミ箱のノートは辿らない', async () => {
+          await trashItems(['zzftn2'])
+          try {
+            expect(
+              await findListNeighbors('zzftnav', 'itemNo', 'zzftn1'),
+            ).toEqual({ prev: null, next: 'zzftn3' })
+          } finally {
+            await restoreItems(['zzftn2'])
+          }
+        })
       })
 
       test('保存するとチェック数が追随する (派生キャッシュ)', async () => {

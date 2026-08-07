@@ -10,7 +10,12 @@ import {
   parseStoredProps,
   type ItemPropsRow,
 } from '@/lib/props'
-import { parseSearchExpr, type SearchExpr, type SearchTerm } from '@/lib/search'
+import {
+  parseSearchExpr,
+  stripTaskTerms,
+  type SearchExpr,
+  type SearchTerm,
+} from '@/lib/search'
 import { orderByClause } from '@/lib/sortOrder'
 import { extractTags } from '@/lib/tags'
 import { countTasks } from '@/lib/taskCheckbox'
@@ -319,14 +324,27 @@ function exprCondition(expr: SearchExpr): Prisma.Sql {
 }
 
 // 検索クエリの条件式 (WHERE は付けない)。空クエリ (絞り込みなし) なら null。
-function buildQueryCondition(query: string): Prisma.Sql | null {
-  const expr = parseSearchExpr(query)
+//
+// stripTasks … チェック語 (`is:todo` / `is:done`) を外した式にする。
+// 学習進捗の母数「今の検索からチェックの条件だけ外した集合」を数えるときだけ
+// true にする (docs/60-学習進捗計画.md §2)。
+function buildQueryCondition(
+  query: string,
+  stripTasks = false,
+): Prisma.Sql | null {
+  const parsed = parseSearchExpr(query)
+  const expr = parsed !== null && stripTasks ? stripTaskTerms(parsed) : parsed
   return expr === null ? null : exprCondition(expr)
 }
 
 const NOT_TRASHED = Prisma.sql`deleted_at IS NULL`
 const TRASHED = Prisma.sql`deleted_at IS NOT NULL`
 const HAS_PROPS = Prisma.sql`props <> '[]'::jsonb`
+// 進捗の対象 = チェックを 1 つ以上持つノート (docs/60-学習進捗計画.md §2)。
+// チェックの無いノートを分母に入れると、混ざった瞬間に率が嘘になる
+const HAS_TASKS = Prisma.sql`(task_todo > 0 OR task_done > 0)`
+// 完了 = 全部チェックした。「一部だけ付いた」を済みに数えない
+const ALL_CHECKED = Prisma.sql`(task_done > 0 AND task_todo = 0)`
 
 // 条件を AND で綴じて WHERE 句にする (null の条件は無視する)。
 // 各条件を括弧で包むのが要点。検索条件は最上位が OR (`(…) OR (…)`) に
@@ -580,4 +598,71 @@ export async function countTrashedMatches(query: string): Promise<number> {
     SELECT count(*)::int AS count FROM items ${buildTrashedWhere(query)}
   `
   return rows[0]?.count ?? 0
+}
+
+// 学習の進捗 (docs/60-学習進捗計画.md §2)。
+// total … 検索からチェック語を外し「チェックを持つ」で絞った件数 (母数)
+// done  … そのうち全部チェックしたノート
+export interface TaskProgress {
+  done: number
+  total: number
+}
+
+// `#過渡現象 is:todo` のような検索でも、母数は `#過渡現象` のうち
+// チェックを持つノート全体になる。**同じ WHERE を 2 度引かない** —
+// FILTER 付きの集約 1 本で分母と分子を同時に数える (件数と食い違わない)。
+export async function countTaskProgress(query: string): Promise<TaskProgress> {
+  const where = buildWhereFrom([
+    NOT_TRASHED,
+    buildQueryCondition(query, true),
+    HAS_TASKS,
+  ])
+  const rows = await prisma.$queryRaw<TaskProgress[]>`
+    SELECT count(*)::int AS total,
+           (count(*) FILTER (WHERE ${ALL_CHECKED}))::int AS done
+    FROM items
+    ${where}
+  `
+  return { done: rows[0]?.done ?? 0, total: rows[0]?.total ?? 0 }
+}
+
+// 一覧の中での隣 (docs/60-学習進捗計画.md §4)。itemNo が一覧の何番目かを
+// 探さずに、SQL の lag/lead で前後 1 件だけを返す。
+export interface ListNeighbors {
+  prev: string | null
+  next: string | null
+}
+
+// **検索条件に「今のノート自身」を OR で足してから並べる**のが要点。
+// ノートを開いている間にチェックを付けると `is:todo` の一覧からは消えるが、
+// それでも「次」は正しく次のノートを指さなければならない。自分を足しておけば
+// 本来の並び位置に差し込まれ、前後が求まる (一覧に残っているときは足しても
+// 結果が変わらないので、場合分けは要らない)。
+//
+// 未登録の itemNo (QR シールだけ貼った番号) では一致する行が無く、
+// 前後とも null になる = 呼び出し側はナビを出さない。
+export async function findListNeighbors(
+  query: string,
+  sort: Sort,
+  itemNo: string,
+): Promise<ListNeighbors> {
+  const condition = buildQueryCondition(query)
+  const scope =
+    condition === null
+      ? null
+      : Prisma.sql`${condition} OR item_no = ${itemNo}`
+  // 並び順は sortOrder.ts の定数のみ (buildOrderBy と同じ理由で raw に通せる)。
+  // WINDOW 句で 1 度だけ書き、lag と lead が必ず同じ並びを見るようにする
+  const rows = await prisma.$queryRaw<ListNeighbors[]>`
+    WITH ordered AS (
+      SELECT item_no,
+             lag(item_no)  OVER w AS prev,
+             lead(item_no) OVER w AS next
+      FROM items
+      ${buildWhereFrom([NOT_TRASHED, scope])}
+      WINDOW w AS (ORDER BY ${Prisma.raw(orderByClause(sort))})
+    )
+    SELECT prev, next FROM ordered WHERE item_no = ${itemNo}
+  `
+  return { prev: rows[0]?.prev ?? null, next: rows[0]?.next ?? null }
 }

@@ -32,7 +32,12 @@ const renderRow = (
 ) =>
   renderToStaticMarkup(
     <ul>
-      <ItemRow item={item} checkbox={checkbox} view={view} />
+      <ItemRow
+        item={item}
+        href={`/item/${item.itemNo}`}
+        checkbox={checkbox}
+        view={view}
+      />
     </ul>,
   );
 
@@ -194,6 +199,7 @@ const renderSwipeRow = (item: Item, view: RowViewMode = "compact") =>
     <ul>
       <ItemRow
         item={item}
+        href={`/item/${item.itemNo}`}
         view={view}
         swipeTrashAction={noop}
         swipeOpen={false}
@@ -218,6 +224,7 @@ test("選択モード (checkbox) ではスワイプを有効にしない", () =>
     <ul>
       <ItemRow
         item={makeItem({ itemNo: "42" })}
+        href="/item/42"
         checkbox={<input type="checkbox" name="itemNo" value="42" />}
         swipeTrashAction={noop}
         swipeOpen={false}
@@ -246,6 +253,7 @@ test("カードでも選択モードならスワイプを有効にしない", ()
     <ul>
       <ItemRow
         item={makeItem({ itemNo: "42" })}
+        href="/item/42"
         view="card"
         checkbox={<input type="checkbox" name="itemNo" value="42" />}
         swipeTrashAction={noop}

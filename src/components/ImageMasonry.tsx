@@ -19,9 +19,14 @@ import { tagSearchHref } from "@/lib/tags";
 // 借りている (docs/32 §2)。
 interface ImageMasonryProps {
   items: Item[];
+  // ノートを開くリンク先を作る。ItemRow と同じく ItemList から降ってくる —
+  // 検索状態をリンクに載せる約束 (docs/60-学習進捗計画.md §4) の置き場所を
+  // 一覧側 1 か所に保つため。**任意にしない**: 省いても型が通ると、
+  // 新しい一覧を足したときに前後ナビだけが黙って消える
+  itemHref: (itemNo: string) => string;
 }
 
-export function ImageMasonry({ items }: ImageMasonryProps) {
+export function ImageMasonry({ items, itemHref }: ImageMasonryProps) {
   // URL モードのノートは memo が空なので allImageNames("") === [] となり
   // 自然に落ちる (ItemRow のような isUrl 分岐は要らない)
   const tiles = items.flatMap((item) =>
@@ -61,7 +66,7 @@ export function ImageMasonry({ items }: ImageMasonryProps) {
                 (stretched link)。タグは別の行き先なので入れ子にできず、下で
                 z-10 で膜の上に出す (ItemRow と同じ仕掛け・docs/32 §2) */}
             <Link
-              href={`/item/${item.itemNo}`}
+              href={itemHref(item.itemNo)}
               transitionTypes={["nav-forward"]}
               className="block after:absolute after:inset-0"
             >

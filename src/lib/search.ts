@@ -301,28 +301,55 @@ function parseTokens(tokens: Token[]): SearchExpr | null {
   return parseOr()
 }
 
+// keep が false を返した葉を落とした木を返す。空になったノードは combine が
+// 畳み、何も残らなければ null。
+//
+// **`!` の被演算子が消えたら否定ごと落とす**のがこの関数の肝。残すと
+// 「NOT (無条件)」= 全件除外に化け、絞ったつもりが 0 件になる。
+// 葉を落とす操作はどれもこの落とし穴を踏むので、走査を 1 つに集約してある。
+function pruneTerms(
+  expr: SearchExpr,
+  keep: (term: SearchTerm) => boolean,
+): SearchExpr | null {
+  switch (expr.op) {
+    case 'term':
+      return keep(expr.term) ? expr : null
+    case 'not': {
+      const child = pruneTerms(expr.child, keep)
+      return child === null ? null : { op: 'not', child }
+    }
+    case 'and':
+    case 'or':
+      return combine(
+        expr.op,
+        expr.children.map((child) => pruneTerms(child, keep)),
+      )
+  }
+}
+
+// 条件に当たる葉があるか。throughNot が false なら否定の中は見ない。
+function someTerm(
+  expr: SearchExpr,
+  pred: (term: SearchTerm) => boolean,
+  throughNot: boolean,
+): boolean {
+  switch (expr.op) {
+    case 'term':
+      return pred(expr.term)
+    case 'not':
+      return throughNot && someTerm(expr.child, pred, throughNot)
+    case 'and':
+    case 'or':
+      return expr.children.some((child) => someTerm(child, pred, throughNot))
+  }
+}
+
+const isTaskTerm = (term: SearchTerm): boolean => term.kind === 'task'
+
 // 葉 (検索語) の数を先頭から数えて上限で丸める (WHERE 肥大の安全弁)。
-// 予算切れの葉を落とした結果、空になったノードは消える。`!` の被演算子が
-// 消えた場合は否定ごと消す (「全件除外」に化けるより無条件のほうが安全)。
 function capTerms(expr: SearchExpr, max: number): SearchExpr | null {
   let budget = max
-  const walk = (node: SearchExpr): SearchExpr | null => {
-    switch (node.op) {
-      case 'term': {
-        if (budget <= 0) return null
-        budget--
-        return node
-      }
-      case 'not': {
-        const child = walk(node.child)
-        return child === null ? null : { op: 'not', child }
-      }
-      case 'and':
-      case 'or':
-        return combine(node.op, node.children.map(walk))
-    }
-  }
-  return walk(expr)
+  return pruneTerms(expr, () => budget-- > 0)
 }
 
 // 検索クエリを AST に解析する。絞り込みが何も残らなければ null。
@@ -335,19 +362,52 @@ export function parseSearchExpr(query: string): SearchExpr | null {
 // 特性表を出すかの判定に使う: 表は「同族の部品を並べて比べる」ビューであり、
 // タグ検索がまさにその族の指定だから (docs/08-プロパティ計画.md)。
 // 否定 (`!#npn` = 「npn 以外すべて」) は族の指定にならないため数えない。
-function hasPositiveTag(expr: SearchExpr): boolean {
-  switch (expr.op) {
-    case 'term':
-      return expr.term.kind === 'tag'
-    case 'not':
-      return false
-    case 'and':
-    case 'or':
-      return expr.children.some(hasPositiveTag)
-  }
-}
-
 export function queryHasTagTerm(query: string): boolean {
   const expr = parseSearchExpr(query)
-  return expr !== null && hasPositiveTag(expr)
+  // 否定の中は見ない (`!#npn` = 「npn 以外すべて」は族の指定にならない)
+  return expr !== null && someTerm(expr, (t) => t.kind === 'tag', false)
+}
+
+// 検索式からチェック状態の葉 (`is:todo` / `is:done`) を取り除く。
+// 学習進捗の**母数**は「今の検索からチェックの条件だけ外した集合」なので、
+// その条件式をここで作る (docs/60-学習進捗計画.md §2)。
+export function stripTaskTerms(expr: SearchExpr): SearchExpr | null {
+  return pruneTerms(expr, (term) => !isTaskTerm(term))
+}
+
+// 最上位の AND に並んでいる項。AND でなければ式そのものが唯一の項。
+function conjuncts(expr: SearchExpr): SearchExpr[] {
+  return expr.op === 'and' ? expr.children : [expr]
+}
+
+// その項が `is:todo` / `!is:done` のような裸のチェック語か。
+function isTaskCondition(expr: SearchExpr): boolean {
+  if (expr.op === 'not') {
+    return isTaskCondition(expr.child)
+  }
+  return expr.op === 'term' && isTaskTerm(expr.term)
+}
+
+// 検索結果に学習の進捗を出してよいか (docs/60-学習進捗計画.md §2)。
+//
+// 母数は stripTaskTerms でチェック語を外した式で数えるので、**外した式が
+// 元の結果の上位集合でなければ数が嘘になる**。それが保証できるのは
+// チェック語が最上位の AND に並んでいるとき (`#英単語 is:todo` /
+// `#英単語 !is:todo`) だけ — AND から項を抜けば式は必ず広がる。
+//
+// OR の枝から葉を抜くと逆に狭まるので、`#英単語 OR is:todo` のような式では
+// 出さない。40 件出ている脇に「チェック完了 3 / 5」と、一覧と無関係な
+// 母数が並ぶことになるため。
+export function queryTracksTaskProgress(query: string): boolean {
+  const expr = parseSearchExpr(query)
+  if (expr === null) {
+    return false
+  }
+  const top = conjuncts(expr)
+  // 裸のチェック語**以外**の項の中に潜んでいるチェック語 (OR の枝や
+  // `!(is:todo #難)` の中) があれば、母数が上位集合にならない
+  if (top.some((c) => !isTaskCondition(c) && someTerm(c, isTaskTerm, true))) {
+    return false
+  }
+  return top.some(isTaskCondition)
 }

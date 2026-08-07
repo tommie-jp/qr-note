@@ -85,8 +85,9 @@ test("quiz フェンスは押せる問題カードにする", () => {
   expect(html).toContain("時定数は。");
   expect(html).toContain("<button");
   expect(html).not.toContain("<code");
-  // 解答するまで正解も解説も出さない
-  expect(html).not.toContain("解説");
+  // 解答するまで正解も解説も出さない。解説の**中身**で見るのは、
+  // 「解説」の 2 文字が降参ボタン (わからない (解説を見る)) にも入るため
+  expect(html).not.toContain("定義から");
 });
 
 test("quiz フェンスの書き方の誤りは赤枠で知らせる", () => {

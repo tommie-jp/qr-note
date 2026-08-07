@@ -16,6 +16,7 @@ import PullToRefresh from "@/components/PullToRefresh";
 import { SearchForm } from "@/components/SearchForm";
 import { SearchNavProvider, SearchResults } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
+import { TaskProgress } from "@/components/TaskProgress";
 import {
   BUSY_NOTICE_CLASS,
   BUSY_SPINNER_CLASS,
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
 import {
+  countTaskProgress,
   countTrashedItems,
   countTrashedMatches,
   listTags,
@@ -31,7 +33,7 @@ import {
   searchItems,
 } from "@/lib/items";
 import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
-import { queryHasTagTerm } from "@/lib/search";
+import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { buildSearchUrl } from "@/lib/searchUrl";
 import { qrStickerHost } from "@/lib/site";
 import { SORT_COOKIE, resolveSort } from "@/lib/sortMode";
@@ -136,12 +138,19 @@ async function HomeResults({
   // 特性表はタグ検索のときだけ出す。表は「同族の部品を並べて比べる」ビューで、
   // タグ検索がまさにその族の指定だから (docs/08-プロパティ計画.md §4)。
   const showProps = queryHasTagTerm(query);
-  const [result, props, trashCount] = await Promise.all([
+  // 学習の進捗はチェック状態で絞り込んでいるときだけ数える
+  // (docs/60-学習進捗計画.md §2)。常時出すと、チェックを使っていない
+  // ノート群にも 0% が並ぶ
+  const showProgress = queryTracksTaskProgress(query);
+  const [result, props, trashCount, progress] = await Promise.all([
     searchItems(query, Number(page) || 1, sort),
     showProps
       ? searchItemProps(query, sort)
       : Promise.resolve({ rows: [], omitted: 0 }),
     countTrashedItems(),
+    showProgress
+      ? countTaskProgress(query)
+      : Promise.resolve({ done: 0, total: 0 }),
   ]);
 
   // 0 件のときだけ引く 2 つ。どちらも独立なので並べて撃つ。
@@ -189,7 +198,16 @@ async function HomeResults({
         )}
       </p>
 
-      <PropsTable rows={props.rows} omitted={props.omitted} />
+      {/* 件数のすぐ下に進捗。件数 (いま何件出ているか) と進捗 (全体のどこまで
+          進んだか) は続けて読む物なので離さない */}
+      <TaskProgress done={progress.done} total={progress.total} />
+
+      <PropsTable
+        rows={props.rows}
+        omitted={props.omitted}
+        query={query}
+        sort={sort}
+      />
 
       <ItemList
         items={result.items}

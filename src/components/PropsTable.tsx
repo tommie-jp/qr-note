@@ -8,18 +8,30 @@ import {
   type ItemPropsRow,
   type PropsSortDir,
 } from "@/lib/props";
+import { buildItemUrl } from "@/lib/searchUrl";
+import type { Sort } from "@/lib/validation";
 
 interface PropsTableProps {
   rows: ItemPropsRow[];
   // 上限に達して表から溢れた件数 (0 なら全件載っている)。
   omitted?: number;
+  // 表を出している検索状態。行のリンクに載せる — 表は一覧と同じ検索結果を
+  // 別の形で見せているので、リンク先も一覧の行と揃っていなければならない。
+  // でないと「同じ検索なのに、表から開くと前後ナビが出ない」がおきる
+  // (docs/60-学習進捗計画.md §4)。
+  //
+  // ItemList には出来上がった href を渡しているのに、ここだけ元の値を渡すのは
+  // **サーバコンポーネント (page.tsx) が直接描く唯一の一覧だから** —
+  // 関数は client 部品の prop として渡せない
+  query: string;
+  sort: Sort;
 }
 
 // タグ検索の結果に含まれるプロパティ (hFE=208 など) を並べた特性表。
 // 列はヒットしたノートに現れるキーの和集合で、ヘッダをクリックすると
 // その列で並べ替える。並べ替え自体は純関数 sortTableRows に委ねる
 // (node 環境のテストで挙動を固定できるようにするため)。
-export function PropsTable({ rows, omitted = 0 }: PropsTableProps) {
+export function PropsTable({ rows, omitted = 0, query, sort }: PropsTableProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [dir, setDir] = useState<PropsSortDir>("asc");
 
@@ -76,7 +88,7 @@ export function PropsTable({ rows, omitted = 0 }: PropsTableProps) {
                     横スクロールの表で hFE などの列が画面外へ押し出され、
                     「並べて比べる」という表の目的が崩れる (特にスマホ)。 */}
                 <Link
-                  href={`/item/${row.itemNo}`}
+                  href={buildItemUrl(row.itemNo, query, sort)}
                   className="flex max-w-56 items-baseline gap-2"
                   title={row.summary}
                 >
