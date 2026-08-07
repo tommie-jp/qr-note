@@ -110,8 +110,8 @@ describe('addSavedQuery / removeSavedQuery', () => {
     expect(addSavedQuery(['is:todo'], '  ')).toEqual(['is:todo'])
   })
 
-  test('caps the list at SAVED_LIMIT (= what the dropdown shows)', () => {
-    // 表示数より多く持てると「登録したのに出ない・外せない」が生まれる
+  test('caps the list at SAVED_LIMIT (= what もっと表示 can show)', () => {
+    // 出し切れない数まで持てると「登録したのに出ない・外せない」が生まれる
     const list = Array.from({ length: SAVED_LIMIT }, (_, i) => `p${i}`)
 
     expect(addSavedQuery(list, 'new')).toEqual(list)
@@ -132,34 +132,51 @@ describe('addSavedQuery / removeSavedQuery', () => {
 })
 
 describe('splitSuggestions', () => {
-  test('shows every pattern and SUGGEST_COUNT of the recent list', () => {
-    // Arrange
-    const saved = ['s1', 's2', 's3']
-    const recent = ['r1', 'r2', 'r3', 'r4']
+  // 上限いっぱいの一覧 (p0…/q0…)。SUGGEST_COUNT より多いので畳まれる
+  const fullSaved = Array.from({ length: SAVED_LIMIT }, (_, i) => `p${i}`)
+  const fullRecent = Array.from({ length: QUERY_LIMIT }, (_, i) => `q${i}`)
 
+  test('shows SUGGEST_COUNT of each while collapsed', () => {
     // Act
-    const r = splitSuggestions(saved, recent)
+    const r = splitSuggestions(fullSaved, fullRecent)
 
     // Assert
-    expect(r.saved).toEqual(['s1', 's2', 's3'])
-    expect(r.recent).toEqual(['r1', 'r2', 'r3'])
-    expect(SUGGEST_COUNT).toBe(3)
+    expect(r.saved).toHaveLength(SUGGEST_COUNT)
+    expect(r.recent).toHaveLength(SUGGEST_COUNT)
+    expect(r.saved[0]).toBe('p0')
+    expect(r.recent[0]).toBe('q0')
+    expect(SUGGEST_COUNT).toBe(5)
+  })
+
+  test('says there is more to show when either list is longer', () => {
+    expect(splitSuggestions(fullSaved, fullRecent).hasMore).toBe(true)
+    expect(splitSuggestions(['s1'], ['r1']).hasMore).toBe(false)
+  })
+
+  test('shows everything once expanded, and then there is no more', () => {
+    const r = splitSuggestions(fullSaved, fullRecent, true)
+
+    expect(r.saved).toHaveLength(SAVED_LIMIT)
+    expect(r.recent).toHaveLength(QUERY_LIMIT)
+    expect(r.hasMore).toBe(false)
   })
 
   test('does not repeat a pattern that is also in the recent list', () => {
     // 登録したパターンはよく使う = 最近の検索にも必ず入るので、
-    // 掃除しないと 6 行のうち 3 行が同じ物になる
-    const r = splitSuggestions(['is:todo'], ['is:todo', 'r1', 'r2', 'r3'])
+    // 掃除しないと同じ物が 2 度並ぶ
+    const r = splitSuggestions(['is:todo'], ['is:todo', 'r1', 'r2'])
 
-    expect(r.recent).toEqual(['r1', 'r2', 'r3'])
+    expect(r.recent).toEqual(['r1', 'r2'])
   })
 
-  test('hides every registered pattern, so a 🕐 row is always unregistered', () => {
-    // 「★ の欄に居る = 登録済み」が常に成り立つので、🕐 の ☆ を押せば
-    // 必ず登録され、★ を押せば必ず外せる (どちらも空振りしない)
-    const r = splitSuggestions(['s1', 's2', 's3'], ['s3', 'r1'])
+  test('hides patterns that are themselves hidden by the fold', () => {
+    // 畳んでいる間も「🕐 の行は必ず未登録」が成り立たないと、☆ が空振りする。
+    // 引くのは表示分ではなく登録パターン全部
+    const hidden = fullSaved[SAVED_LIMIT - 1]
+    const r = splitSuggestions(fullSaved, [hidden, 'r1'])
 
-    expect(r.recent).toEqual(['r1'])
+    expect(r.saved).not.toContain(hidden) // 畳まれて出ていない
+    expect(r.recent).toEqual(['r1']) // それでも 🕐 には出さない
   })
 })
 

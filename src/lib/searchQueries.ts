@@ -22,18 +22,19 @@ export interface QueryStorage {
 export const RECENT_KEY = 'qr-search-recent'
 export const SAVED_KEY = 'qr-search-saved'
 
-// ドロップダウンに出す件数 (種類ごと)。合わせて 6 行 = 画面を覆わない上限。
-export const SUGGEST_COUNT = 3
+// 最初にドロップダウンへ出す件数 (種類ごと)。合わせて 10 行 = 画面を覆わない上限。
+// これを超える分は「もっと表示」を押したときだけ出す。
+export const SUGGEST_COUNT = 5
 
-// 最近の検索を覚えておく上限。出すのは先頭 3 件だけだが、それより深く持つのは
-// 前方一致の掃除 (addRecentQuery) を効かせるため — 3 件しか持たないと掃除する
-// 前に押し出されて、残骸が消えずに枠を食い続ける。
-export const QUERY_LIMIT = 20
+// 最近の検索を覚えておく上限。
+export const QUERY_LIMIT = 10
 
-// 登録パターンの上限。**出す件数とわざと同じにする**。持てる数を表示数より
-// 多くすると「登録したのに ★ の欄に出ない・外す導線も無い」パターンが生まれ、
-// 消せないまま枠を食う。全部見えていれば ★ を押して必ず外せる。
-export const SAVED_LIMIT = SUGGEST_COUNT
+// 登録パターンの上限。
+//
+// **持てる数を「もっと表示」で出し切れる数に収める**のが要点。出し切れないと
+// 「登録したのに ★ の欄に出ない・外す導線も無い」パターンが生まれ、消せないまま
+// 枠を食う。上限まで広げれば必ず画面に出せるので、★ を押して必ず外せる。
+export const SAVED_LIMIT = 10
 
 // 最近の検索へ 1 件足す (先頭が最新)。
 //
@@ -68,19 +69,26 @@ export function removeSavedQuery(list: readonly string[], query: string): string
   return list.filter((e) => e !== query)
 }
 
-// ドロップダウンに出す 2 組を決める。
+// ドロップダウンに出す 2 組を決める。expanded は「もっと表示」を押した後。
 //
-// 登録パターンはよく使う = 最近の検索にも必ず入るので、掃除しないと 6 行の
-// うち 3 行が同じ物になる。登録パターンは**全部出す** (SAVED_LIMIT が表示数と
-// 同じなので隠れる物がない) ので、「★ の欄に居る = 登録済み」が常に成り立ち、
-// 🕐 の行の ☆ は必ず未登録を意味する。
+// 登録パターンはよく使う = 最近の検索にも必ず入るので、掃除しないと同じ物が
+// 2 度並ぶ。**隠れている分も含めた登録パターン全部**を最近から引くのが要点で、
+// これで「🕐 の行は必ず未登録」が畳んでいる間も成り立つ (☆ が空振りしない)。
+//
+// hasMore … まだ出していない候補があるか。畳んでいるときだけ立つ。
 export function splitSuggestions(
   saved: readonly string[],
   recent: readonly string[],
-): { saved: string[]; recent: string[] } {
+  expanded = false,
+): { saved: string[]; recent: string[]; hasMore: boolean } {
+  const fresh = recent.filter((q) => !saved.includes(q))
+  if (expanded) {
+    return { saved: [...saved], recent: fresh, hasMore: false }
+  }
   return {
-    saved: [...saved],
-    recent: recent.filter((q) => !saved.includes(q)).slice(0, SUGGEST_COUNT),
+    saved: saved.slice(0, SUGGEST_COUNT),
+    recent: fresh.slice(0, SUGGEST_COUNT),
+    hasMore: saved.length > SUGGEST_COUNT || fresh.length > SUGGEST_COUNT,
   }
 }
 

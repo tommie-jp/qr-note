@@ -19,6 +19,7 @@ import {
 import {
   addSavedQuery,
   browserQueryStorage,
+  isSavedFull,
   loadQueries,
   readQueries,
   recordRecentQuery,
@@ -52,10 +53,20 @@ interface Suggestion {
   value: string;
 }
 
+// 一覧 (パターン + 最近の検索) を出しているときだけ持つ状態。
+interface ListState {
+  expanded: boolean; // 「もっと表示」を押した後か
+  hasMore: boolean; // まだ出していない候補があるか
+  // 登録が上限に達しているか。**出ている ★ の数では判断できない** —
+  // 畳んでいる間は登録済みでも隠れている物があるため
+  savedFull: boolean;
+}
+
 interface Dropdown {
   // 補完中のトークン。パターン・最近の検索を並べているときは null。
   // 候補は「補完だけ」か「一覧だけ」のどちらかで、混ざることはない
   token: { range: CompleteRange; typed: string } | null;
+  list: ListState | null; // token と裏表 (どちらか一方だけが非 null)
   items: Suggestion[];
   active: number; // -1 = 未選択 (この間は Enter で検索送信)
 }
@@ -182,17 +193,23 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
   //
   // **開くたびに localStorage を読み直す**。最近の検索は結果のノートを開いた
   // ときにも記録される (SearchNav) ので、マウント時に読んで持っていると古い
-  const openList = (): Dropdown | null => {
+  const openList = (expanded = false): Dropdown | null => {
     const storage = browserQueryStorage();
-    const { saved, recent } = splitSuggestions(
-      loadQueries(storage, SAVED_KEY),
-      loadQueries(storage, RECENT_KEY),
-    );
+    const all = loadQueries(storage, SAVED_KEY);
+    const shown = splitSuggestions(all, loadQueries(storage, RECENT_KEY), expanded);
     const items: Suggestion[] = [
-      ...saved.map((value): Suggestion => ({ kind: "saved", value })),
-      ...recent.map((value): Suggestion => ({ kind: "recent", value })),
+      ...shown.saved.map((value): Suggestion => ({ kind: "saved", value })),
+      ...shown.recent.map((value): Suggestion => ({ kind: "recent", value })),
     ];
-    return items.length > 0 ? { token: null, items, active: -1 } : null;
+    if (items.length === 0) {
+      return null;
+    }
+    return {
+      token: null,
+      list: { expanded, hasMore: shown.hasMore, savedFull: isSavedFull(all) },
+      items,
+      active: -1,
+    };
   };
 
   // 現在の値とキャレット位置から出すべき候補を決める (docs/59 §1)。
@@ -210,6 +227,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
         names.length > 0 && !settled
           ? {
               token: { range: tagCtx, typed: `#${tagCtx.prefix}` },
+              list: null,
               items: names.map((value) => ({ kind: "tag", value })),
               active: -1,
             }
@@ -225,6 +243,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
         keywords.length > 0
           ? {
               token: { range: kwCtx, typed: kwCtx.prefix },
+              list: null,
               items: keywords.map((value) => ({ kind: "keyword", value })),
               active: -1,
             }
@@ -296,6 +315,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     saveQueries(storage, SAVED_KEY, next);
     setDropdown({
       ...dd,
+      list: dd.list && { ...dd.list, savedFull: isSavedFull(next) },
       items: dd.items.map((it) => ({
         kind: next.includes(it.value) ? "saved" : "recent",
         value: it.value,
@@ -366,11 +386,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     inputRef.current?.blur();
   };
 
-  // 登録パターンが満杯か。登録できる数と出す数が同じ (SAVED_LIMIT) なので、
-  // 出ている ★ の行を数えれば分かる
-  const savedFull =
-    dropdown !== null &&
-    dropdown.items.filter((s) => s.kind === "saved").length >= SAVED_LIMIT;
+  const savedFull = dropdown?.list?.savedFull ?? false;
 
   return (
     // スキャン・画像検索が下部バーへ抜けてボタンは 2 つ (検索・+) になったので、
@@ -495,6 +511,26 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
                 )}
               </li>
             ))}
+            {/* 畳んでいる分を出す。listbox の option にはしない — 候補では
+                なく操作なので、↑↓ で拾えると Enter で「検索」されてしまう。
+                押しても窓は開いたままにしたいので mousedown で拾う
+                (blur より先。★/☆ と同じ) */}
+            {dropdown.list?.hasMore && (
+              <li role="presentation" className="border-t border-gray-200">
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setDropdown(openList(true));
+                    inputRef.current?.focus();
+                  }}
+                  className="flex min-h-10 w-full items-center justify-center px-3 text-sm text-blue-600 hover:bg-gray-100"
+                >
+                  もっと表示
+                </button>
+              </li>
+            )}
           </ul>
         )}
       </div>
