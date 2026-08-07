@@ -22,7 +22,7 @@ import {
   isSavedFull,
   loadQueries,
   readQueries,
-  recordRecentQuery,
+  recordQueryUse,
   RECENT_KEY,
   removeSavedQuery,
   SAVED_KEY,
@@ -283,7 +283,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
       pendingCaret.current = cursor;
       setDropdown(null);
       inputRef.current?.focus();
-      recordRecentQuery(next);
+      recordQueryUse(next);
       searchNow(next);
       return;
     }
@@ -292,7 +292,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     setQuery(s.value);
     setDropdown(null);
     inputRef.current?.blur();
-    recordRecentQuery(s.value);
+    recordQueryUse(s.value);
     searchNow(s.value);
   };
 
@@ -313,6 +313,12 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
         ? removeSavedQuery(list, s.value)
         : addSavedQuery(list, s.value);
     saveQueries(storage, SAVED_KEY, next);
+    // 外した行はその場で 🕐 に変わるので、履歴にも実際に入れておく。
+    // 入れないと「閉じて開いたら消えていた」になる (登録パターンとして
+    // 使っていた間は履歴へ足していないため。searchQueries.ts の recordQueryUse)
+    if (s.kind === "saved") {
+      recordQueryUse(s.value, storage);
+    }
     setDropdown({
       ...dd,
       list: dd.list && { ...dd.list, savedFull: isSavedFull(next) },
@@ -380,7 +386,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     e.preventDefault();
     // 明示的な送信は「これで探したい」の合図なので記録する。
     // 打鍵ごとの検索 (scheduleSearch) では記録しない — 打ちかけの語が並ぶため
-    recordRecentQuery(query);
+    recordQueryUse(query);
     searchNow(query);
     // モバイルでキーボードを閉じて結果を見せる
     inputRef.current?.blur();

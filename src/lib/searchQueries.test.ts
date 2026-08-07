@@ -6,7 +6,7 @@ import {
   isSavedFull,
   loadQueries,
   readQueries,
-  recordRecentQuery,
+  recordQueryUse,
   QUERY_LIMIT,
   RECENT_KEY,
   removeSavedQuery,
@@ -14,6 +14,7 @@ import {
   SAVED_LIMIT,
   saveQueries,
   splitSuggestions,
+  touchSavedQuery,
   SUGGEST_COUNT,
   type QueryStorage,
 } from './searchQueries'
@@ -92,12 +93,27 @@ describe('addRecentQuery', () => {
   })
 })
 
-describe('addSavedQuery / removeSavedQuery', () => {
-  test('appends to the end so registered patterns keep their order', () => {
-    // 最近の検索と違い、パターンは並びが動かないから筋肉記憶が効く
+describe('addSavedQuery / touchSavedQuery / removeSavedQuery', () => {
+  test('puts a newly registered pattern at the head (= just used)', () => {
     const next = addSavedQuery(['#英単語 is:todo'], 'is:done')
 
-    expect(next).toEqual(['#英単語 is:todo', 'is:done'])
+    expect(next).toEqual(['is:done', '#英単語 is:todo'])
+  })
+
+  test('moves a used pattern to the head', () => {
+    expect(touchSavedQuery(['a', 'b', 'c'], 'b')).toEqual(['b', 'a', 'c'])
+  })
+
+  test('leaves the list alone when the pattern is not registered', () => {
+    expect(touchSavedQuery(['a', 'b'], 'z')).toEqual(['a', 'b'])
+  })
+
+  test('does not mutate the given list', () => {
+    const list = ['a', 'b']
+
+    touchSavedQuery(list, 'b')
+
+    expect(list).toEqual(['a', 'b'])
   })
 
   test('does not register the same pattern twice', () => {
@@ -235,36 +251,61 @@ describe('loadQueries', () => {
   })
 })
 
-describe('recordRecentQuery', () => {
-  test('records the query at the head of the recent list', () => {
+describe('recordQueryUse', () => {
+  test('records an unregistered query at the head of the recent list', () => {
     // Arrange
     const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(['抵抗']) })
 
     // Act
-    recordRecentQuery('is:todo', storage)
+    recordQueryUse('is:todo', storage)
 
     // Assert
     expect(loadQueries(storage, RECENT_KEY)).toEqual(['is:todo', '抵抗'])
   })
 
+  test('moves a registered pattern to the head instead', () => {
+    // Arrange
+    const storage = fakeStorage({
+      [SAVED_KEY]: JSON.stringify(['a', 'is:todo']),
+      [RECENT_KEY]: JSON.stringify(['抵抗']),
+    })
+
+    // Act
+    recordQueryUse('is:todo', storage)
+
+    // Assert
+    expect(loadQueries(storage, SAVED_KEY)).toEqual(['is:todo', 'a'])
+    // 履歴には足さない — ★ に出ている物が 🕐 の枠を見えないまま食うため
+    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
+  })
+
+  test('falls back to the recent list when the pattern list is unreadable', () => {
+    // 登録済みか判らないまま履歴まで諦めるより、履歴には残るほうがまし
+    const storage = fakeStorage({ [SAVED_KEY]: '{' })
+
+    recordQueryUse('抵抗', storage)
+
+    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
+  })
+
   test('ignores an empty query (the home link searches nothing)', () => {
     const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(['抵抗']) })
 
-    recordRecentQuery('  ', storage)
+    recordQueryUse('  ', storage)
 
     expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
   })
 
   test('does nothing when storage is unavailable', () => {
-    expect(() => recordRecentQuery('抵抗', null)).not.toThrow()
+    expect(() => recordQueryUse('抵抗', null)).not.toThrow()
   })
 
-  test('leaves an unreadable list alone instead of overwriting it', () => {
+  test('leaves an unreadable recent list alone instead of overwriting it', () => {
     // Arrange … 壊れた値を [] と読んで書き戻すと、覚えていた分が全部消える
     const storage = fakeStorage({ [RECENT_KEY]: '{' })
 
     // Act
-    recordRecentQuery('抵抗', storage)
+    recordQueryUse('抵抗', storage)
 
     // Assert
     expect(storage.getItem(RECENT_KEY)).toBe('{')

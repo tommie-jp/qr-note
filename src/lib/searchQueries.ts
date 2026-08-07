@@ -1,7 +1,7 @@
 // 検索窓が覚えているクエリ (docs/59-検索候補計画.md §2-4)。2 種類ある。
 //
 //   最近の検索   … 直近に検索した語。使うほど勝手に入れ替わる。
-//   登録パターン … ☆ で自分が登録した検索式。並びは動かない。
+//   登録パターン … ☆ で自分が登録した検索式。数が少なく、自分で選んで置いた物。
 //
 // **localStorage に置く**。検索のたびに DB へ書くのは重すぎるし、最近の検索は
 // 端末ごとに違ってよい (スマホでは部品番号、PC では調べ物、という差がそのまま
@@ -50,15 +50,25 @@ export function addRecentQuery(list: readonly string[], query: string): string[]
   return [q, ...list.filter((e) => !q.startsWith(e))].slice(0, QUERY_LIMIT)
 }
 
-// 登録パターンへ 1 件足す。**末尾へ足す** — パターンは並びが動かないから
-// 筋肉記憶が効く、というのが最近の検索との違いなので、既存の並びは崩さない。
-// 満杯のときは何もしない (UI 側は ☆ を押せなくして理由を出す)。
+// 登録パターンへ 1 件足す。**先頭へ足す** — 登録パターンも最近使った順に
+// 並べる (docs/59-検索候補計画.md §4) ので、登録した = 今使ったばかり、が
+// いちばん上に来る。満杯のときは何もしない (UI 側は ☆ を押せなくして理由を
+// 出す)。古い物を押し出さないのは、消えるのが登録した覚えのある物だから。
 export function addSavedQuery(list: readonly string[], query: string): string[] {
   const q = query.trim()
   if (!q || list.includes(q) || list.length >= SAVED_LIMIT) {
     return [...list]
   }
-  return [...list, q]
+  return [q, ...list]
+}
+
+// 使った登録パターンを先頭へ動かす (最近使った順)。登録されていなければ何もしない。
+export function touchSavedQuery(list: readonly string[], query: string): string[] {
+  const q = query.trim()
+  if (!list.includes(q)) {
+    return [...list]
+  }
+  return [q, ...list.filter((e) => e !== q)]
 }
 
 export function isSavedFull(list: readonly string[]): boolean {
@@ -96,7 +106,7 @@ export function splitSuggestions(
 //
 // 「まだ何も保存していない」(= []) と区別が要るのは、書き込みが読んだ値への
 // 追加・削除だから — 壊れた値を [] と読んで書き戻すと、利用者が登録した
-// パターンを 1 クリックで消してしまう。書き手 (recordRecentQuery / UI) は
+// パターンを 1 クリックで消してしまう。書き手 (recordQueryUse / UI) は
 // null なら書かずに諦める。
 export function readQueries(
   storage: QueryStorage | null | undefined,
@@ -161,21 +171,33 @@ export function browserQueryStorage(): QueryStorage | null {
   }
 }
 
-// 最近の検索へ 1 件記録する。読み書きの 3 手をまとめた唯一の入口で、
+// クエリを「使った」と記録する。読み書きをまとめた唯一の入口で、
 // 検索窓 (SearchForm) と結果一覧 (SearchNav) の両方から呼ばれる。
 //
 // **呼ぶのは「意思表示」のときだけ** (docs/59-検索候補計画.md §2)。
 // 打鍵ごとの検索 (debounce) からは呼ばない — 呼ぶと打ちかけの語で枠が埋まる。
-export function recordRecentQuery(
+//
+// 登録パターンなら最近使った順の先頭へ動かすだけで、最近の検索には足さない。
+// 足すと ★ の欄に出ている物が 🕐 の枠を見えないまま食う (表示では登録済みを
+// 引くので、履歴が 10 件のうち何件かは常に空振りになる)。
+export function recordQueryUse(
   query: string,
   storage: QueryStorage | null = browserQueryStorage(),
 ): void {
-  if (!storage || query.trim() === '') {
+  const q = query.trim()
+  if (!storage || q === '') {
     return
   }
-  const list = readQueries(storage, RECENT_KEY)
-  if (list === null) {
+  // 読めないときは「登録パターンではない」として扱う。判らないまま履歴まで
+  // 諦めるより、履歴には残るほうがまし
+  const saved = readQueries(storage, SAVED_KEY)
+  if (saved?.includes(q)) {
+    saveQueries(storage, SAVED_KEY, touchSavedQuery(saved, q))
+    return
+  }
+  const recent = readQueries(storage, RECENT_KEY)
+  if (recent === null) {
     return // 読めない物へ書き戻さない (readQueries 参照)
   }
-  saveQueries(storage, RECENT_KEY, addRecentQuery(list, query))
+  saveQueries(storage, RECENT_KEY, addRecentQuery(recent, q))
 }

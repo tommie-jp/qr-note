@@ -8,7 +8,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { recordRecentQuery } from "@/lib/searchQueries";
+import { recordQueryUse } from "@/lib/searchQueries";
 import { buildSearchUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 
@@ -89,7 +89,7 @@ export function SearchResults({
   const recordOnOpen = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target;
     if (target instanceof Element && target.closest('a[href^="/item/"]')) {
-      recordRecentQuery(query);
+      recordQueryUse(query);
     }
   };
 
