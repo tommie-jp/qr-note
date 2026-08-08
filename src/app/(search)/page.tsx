@@ -22,7 +22,7 @@ import {
   BUSY_SPINNER_CLASS,
   WIDE_RESULTS_CLASS,
 } from "@/components/ui";
-import { isProductionEnv } from "@/lib/appEnv";
+import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import {
   countTaskProgress,
   countTrashedItems,
@@ -82,7 +82,11 @@ export default async function Home({ searchParams }: HomeProps) {
           {/* 縦の間隔は詰める。検索窓・件数・一覧は 1 つの操作面として続けて
               読む物で、離すほど 1 画面に入る件数が減る */}
           <div className="space-y-2">
-            <SearchForm initialQuery={query} tags={tags.map((t) => t.tag)} />
+            <SearchForm
+              initialQuery={query}
+              tags={tags.map((t) => t.tag)}
+              isDemo={isDemoMode()}
+            />
 
             {/* 検索本体は Suspense で後送り。初回のドキュメント読み込み
                 (ログイン直後など) は固定部が先に出て、結果は届き次第差し替わる。

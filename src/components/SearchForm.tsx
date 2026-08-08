@@ -43,6 +43,9 @@ import {
 interface SearchFormProps {
   initialQuery: string;
   tags: string[];
+  // デモかどうか。process.env はクライアントに渡らないのでサーバから降ろす
+  // (BottomActionBar の isProd と同じ判断)。localStorage の引き取りだけが使う
+  isDemo: boolean;
 }
 
 // ドロップダウンに並ぶ 1 行 (docs/59-検索候補計画.md §1)。
@@ -95,7 +98,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 //
 // スキャナと画像検索のモーダルは以前ここが持っていたが、ボタンが下部バーへ
 // 移ったので所有権も BottomActionBar へ渡した (docs/31-下部操作バー計画.md §5-1)。
-export function SearchForm({ initialQuery, tags }: SearchFormProps) {
+export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
   const { navigate } = useSearchNav();
   const [query, setQuery] = useState(initialQuery);
   const [dropdown, setDropdown] = useState<Dropdown | null>(null);
@@ -245,14 +248,15 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
   };
 
   // 移す前の版が localStorage に残した登録パターンを引き取る (一度だけ)。
-  // 引き取り終わったら searchQueryLegacy.ts ごと消す
+  // 引き取り終わったら searchQueryLegacy.ts ごと消す。
+  // デモは受け取らないので送りもしない (searchQueryLegacy.ts 冒頭)
   useEffect(() => {
-    void migrateLegacyQueries().then((next) => {
+    void migrateLegacyQueries(isDemo).then((next) => {
       if (next !== null) {
         setLists(next);
       }
     });
-  }, []);
+  }, [isDemo]);
 
   // サーバから候補が届いたとき。
   //

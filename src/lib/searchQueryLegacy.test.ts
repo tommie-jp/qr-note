@@ -61,7 +61,7 @@ describe('migrateLegacyQueries', () => {
     mocks.answer = { saved: ['is:todo', '#発注'], recent: [] }
 
     // Act
-    const lists = await migrateLegacyQueries()
+    const lists = await migrateLegacyQueries(false)
 
     // Assert
     expect(mocks.sent).toEqual([['is:todo', '#発注']])
@@ -73,7 +73,7 @@ describe('migrateLegacyQueries', () => {
     const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(['抵抗', 'コンデンサ']) })
     install(storage)
 
-    await migrateLegacyQueries()
+    await migrateLegacyQueries(false)
 
     expect(mocks.sent).toEqual([[]])
     expect(storage.keys()).toEqual([])
@@ -83,7 +83,7 @@ describe('migrateLegacyQueries', () => {
     const storage = fakeStorage()
     install(storage)
 
-    expect(await migrateLegacyQueries()).toBeNull()
+    expect(await migrateLegacyQueries(false)).toBeNull()
     expect(mocks.sent).toEqual([])
   })
 
@@ -93,18 +93,20 @@ describe('migrateLegacyQueries', () => {
     install(storage)
     mocks.answer = null
 
-    expect(await migrateLegacyQueries()).toBeNull()
+    expect(await migrateLegacyQueries(false)).toBeNull()
     expect(storage.getItem(SAVED_KEY)).not.toBeNull()
   })
 
-  test('keeps the keys when the server answered but stored nothing (demo)', async () => {
-    // デモは口を塞がず「空を返す」で断る。200 を鵜呑みにすると、
-    // 登録パターンがサーバにも localStorage にも無くなる
+  // デモは履歴を持たない (docs/38-デモモード計画.md)。持たない相手には
+  // **そもそも送らない** — 送っても永久に受け取られず、検索窓を開くたびに
+  // 送り直す無限ループになる
+  test('sends nothing on a demo instance (it would never be accepted)', async () => {
     const storage = fakeStorage({ [SAVED_KEY]: JSON.stringify(['is:todo']) })
     install(storage)
-    mocks.answer = { saved: [], recent: [] }
 
-    expect(await migrateLegacyQueries()).toBeNull()
+    expect(await migrateLegacyQueries(true)).toBeNull()
+    expect(mocks.sent).toEqual([])
+    // 消さない。デモを離れて本番で開いたときに引き取れる物を残しておく
     expect(storage.getItem(SAVED_KEY)).not.toBeNull()
   })
 
@@ -113,7 +115,7 @@ describe('migrateLegacyQueries', () => {
     install(storage)
     mocks.answer = { saved: ['a'], recent: [] }
 
-    expect(await migrateLegacyQueries()).not.toBeNull()
+    expect(await migrateLegacyQueries(false)).not.toBeNull()
     expect(storage.keys()).toEqual([])
   })
 
@@ -121,7 +123,7 @@ describe('migrateLegacyQueries', () => {
     const storage = fakeStorage({ [SAVED_KEY]: '{' })
     install(storage)
 
-    await migrateLegacyQueries()
+    await migrateLegacyQueries(false)
 
     expect(mocks.sent).toEqual([[]])
     expect(storage.keys()).toEqual([])
@@ -131,7 +133,7 @@ describe('migrateLegacyQueries', () => {
     const storage = fakeStorage({ [SAVED_KEY]: JSON.stringify(['is:todo', '', 42]) })
     install(storage)
 
-    await migrateLegacyQueries()
+    await migrateLegacyQueries(false)
 
     expect(mocks.sent).toEqual([['is:todo']])
   })
@@ -139,7 +141,7 @@ describe('migrateLegacyQueries', () => {
   test('does nothing on the server render', async () => {
     vi.stubGlobal('window', undefined)
 
-    expect(await migrateLegacyQueries()).toBeNull()
+    expect(await migrateLegacyQueries(false)).toBeNull()
     expect(mocks.sent).toEqual([])
   })
 })

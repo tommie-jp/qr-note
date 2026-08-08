@@ -10,6 +10,11 @@
 // 送れたら localStorage の鍵は消す。**利用者ごとの済み印は持たない** — 鍵を
 // 消してしまえば、同じ端末で別の人がログインしても引き取る物が残っていない
 // (他人の登録パターンを取り込んでしまう事故がそもそも起きない)。
+//
+// **デモには送らない** (docs/38-デモモード計画.md)。デモは共有アカウントなので
+// 履歴を持たず、口を塞がずに「空を返す」で断る (docs/59 §7)。持たない相手に
+// 送っても永久に受け取られないので、送る前に降りる。デモかどうかを知っているのは
+// サーバだけなので、呼び出し側 (SearchForm) から渡してもらう。
 
 import { importSavedQueries } from './searchQueryClient'
 import { sanitizeQueryList, type QueryLists } from './searchQueries'
@@ -36,7 +41,18 @@ function readLegacySaved(storage: Storage): string[] {
 //
 // **送れなかったら鍵を残す**。消してから失敗すると、利用者が登録した
 // パターンがどこにも無くなる。次に検索窓を開いたときにやり直せばよい。
-export async function migrateLegacyQueries(): Promise<QueryLists | null> {
+//
+// やり直しが効くのは**一時的な失敗**だけ、というのが要点。圏外・500 なら
+// importSavedQueries が null を返し、次の機会に同じ物を送れる。一方デモは
+// 何度送っても受け取らない (§ 冒頭) ので、やり直しても永久に終わらない。
+// そこで isDemo で送る前に降りる。
+export async function migrateLegacyQueries(
+  isDemo: boolean,
+): Promise<QueryLists | null> {
+  if (isDemo) {
+    return null
+  }
+
   let storage: Storage
   try {
     if (typeof window === 'undefined') {
@@ -58,16 +74,11 @@ export async function migrateLegacyQueries(): Promise<QueryLists | null> {
     return null
   }
 
-  // **受け取った証拠が無いなら鍵を消さない**。デモは口を塞がず「空を返す」で
-  // 断る (docs/59 §7) ので、200 が返ってきても入っていないことがある。送った
-  // のに登録パターンが 1 つも無い応答は、入っていない合図として扱う。
-  //
-  // 上限で一部が落ちた場合は 1 つ以上返るので、ここには来ない (落ちたのは
-  // いちばん使っていないパターンで、それは仕様どおり)
-  if (legacy.length > 0 && lists.saved.length === 0) {
-    console.warn('searchQueryLegacy: 引き取りが反映されなかったので鍵は残す')
-    return null
-  }
+  // ここまで来たら「サーバが受け取った」と見てよい。以前は保険として
+  // 「200 だが saved が空なら鍵を残す」を置いていたが、**その応答を返すのは
+  // デモだけ**で、デモは何度送っても同じ応答を返す。結果、検索窓を開くたびに
+  // 送り直す無限ループになっていた。デモは上で降りるようにしたので、この
+  // 分岐ごと外す (一時的な失敗は importSavedQueries の null 側で拾える)。
 
   try {
     // 最近の検索は送らずに捨てる。数回検索すれば貯まり直す
