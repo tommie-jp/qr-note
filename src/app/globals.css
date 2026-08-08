@@ -56,9 +56,14 @@ summary {
    未指定のため、ブラウザ既定の等幅サイズ (13px) で描画される。iOS Safari は
    16px 未満の入力欄にフォーカスすると自動ズームし、更新後もズームが残るので、
    16px (= 1rem, 読み込み中 textarea の text-base と同じ) を明示して防ぐ。
-   倍率は 1 を下限にしてあるので (noteFontScale.ts)、掛けても 16px を割らない */
-.cm-editor {
-  font-size: calc(1rem * var(--note-font-scale, 1));
+
+   max() が縮小方向の防波堤 (docs/61 §2)。テキストサイズは 75% まで下げられる
+   ようになったが、入力欄だけは 16px を割らせない — 縮小時は「読む文字は
+   小さく、書く文字は等倍のまま」になる。読み込み中の textarea (.note-input-scale)
+   も同じ式にすること。ずれると CodeMirror が乗った瞬間に文字が跳ねる */
+.cm-editor,
+.note-input-scale {
+  font-size: max(1rem, calc(1rem * var(--note-font-scale, 1)));
 }
 
 /* viewport-fit=cover でノッチ/ホームバーに潜り込まないための余白。

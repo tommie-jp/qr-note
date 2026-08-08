@@ -30,26 +30,30 @@ test("数でない値は等倍に倒す", () => {
 // 段を後から増減しても、古い端末に残った値が捨てられない (いちばん近い段に寄る)
 test("段にない値はいちばん近い段に寄せる", () => {
   expect(normalizeNoteFontScale("1.2")).toBe(1.15);
-  expect(normalizeNoteFontScale("99")).toBe(1.5);
-  expect(normalizeNoteFontScale("-5")).toBe(1);
+  expect(normalizeNoteFontScale("99")).toBe(2);
+  expect(normalizeNoteFontScale("-5")).toBe(0.75);
+  // 旧仕様 (下限 100%) の頃には無かった値も近い段に拾う
+  expect(normalizeNoteFontScale("0.7")).toBe(0.75);
 });
 
 test("＋で次の段へ、−で前の段へ動く", () => {
   expect(stepNoteFontScale(1, 1)).toBe(1.15);
   expect(stepNoteFontScale(1.3, -1)).toBe(1.15);
+  expect(stepNoteFontScale(1, -1)).toBe(0.85);
 });
 
 // 端で止める。押し続けても行き過ぎない (ボタン側は disabled になるが、
 // 判断はここ 1 か所に持たせる)
 test("端では動かない", () => {
-  expect(stepNoteFontScale(1, -1)).toBe(1);
-  expect(stepNoteFontScale(1.5, 1)).toBe(1.5);
+  expect(stepNoteFontScale(0.75, -1)).toBe(0.75);
+  expect(stepNoteFontScale(2, 1)).toBe(2);
 });
 
 test("倍率は百分率の文字で見せる", () => {
+  expect(noteFontScaleLabel(0.75)).toBe("75%");
   expect(noteFontScaleLabel(1)).toBe("100%");
   expect(noteFontScaleLabel(1.15)).toBe("115%");
-  expect(noteFontScaleLabel(1.5)).toBe("150%");
+  expect(noteFontScaleLabel(2)).toBe("200%");
 });
 
 // 初回描画前に走るインラインスクリプト。TS 側と同じ寄せ方をするかを、
@@ -78,6 +82,7 @@ function runInitScript(stored: string | null): string | null {
 test("インラインスクリプトが保存値を CSS 変数へ写す", () => {
   expect(runInitScript("1.3")).toBe("1.3");
   expect(runInitScript("1.2")).toBe("1.15");
+  expect(runInitScript("0.75")).toBe("0.75");
 });
 
 // 等倍は CSS 側の既定と同じなので触らない。読み込みのたびに
@@ -106,5 +111,6 @@ test("localStorage が投げても落ちない", () => {
 
 test("保存先の鍵をスクリプトと TS で共有する", () => {
   expect(NOTE_FONT_SCALE_INIT_SCRIPT).toContain(NOTE_FONT_SCALE_KEY);
-  expect(NOTE_FONT_SCALES[0]).toBe(DEFAULT_NOTE_FONT_SCALE);
+  // 既定は段の中に居ること (外れると ＋ / − の起点が定まらない)
+  expect(NOTE_FONT_SCALES).toContain(DEFAULT_NOTE_FONT_SCALE);
 });

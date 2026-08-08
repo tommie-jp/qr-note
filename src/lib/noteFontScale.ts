@@ -11,13 +11,17 @@ export const NOTE_FONT_SCALE_KEY = "note-font-scale";
 export const NOTE_FONT_SCALE_VAR = "--note-font-scale";
 
 // 段は離散にする。連続のスライダーは片手で狙いにくいうえ、「元に戻す」が
-// 曖昧になる。**縮小方向は作らない** — .cm-editor をこの倍率で動かすので、
-// 1 を割ると 16px 未満になり、iOS Safari が入力欄フォーカス時に自動ズームする
-// (globals.css の .cm-editor に経緯)。一時的に小さく見たいときは
-// ピンチズームが残してある (layout.tsx の generateViewport)
-export const NOTE_FONT_SCALES = [1, 1.15, 1.3, 1.5] as const;
+// 曖昧になる。
+//
+// 縮小方向 (75% / 85%) は**本文の表示にだけ**効く。入力欄 (.cm-editor と
+// 読み込み中の textarea) は globals.css が max() で 16px を下限に留める —
+// 16px 未満の入力欄は iOS Safari がフォーカス時に自動ズームして戻らないため。
+// つまり縮小時は「読む文字は小さく、書く文字は等倍のまま」になる
+export const NOTE_FONT_SCALES = [
+  0.75, 0.85, 1, 1.15, 1.3, 1.5, 1.75, 2,
+] as const;
 
-export const DEFAULT_NOTE_FONT_SCALE = NOTE_FONT_SCALES[0];
+export const DEFAULT_NOTE_FONT_SCALE = 1;
 
 // localStorage の値は誰でも書き換えられるうえ、段を後から変えれば古い端末に
 // 知らない値が残る。**捨てずにいちばん近い段へ寄せる** — 「1.2 が保存されて
@@ -73,6 +77,8 @@ export const NOTE_FONT_SCALE_INIT_SCRIPT = `(function(){try{var r=localStorage.g
   NOTE_FONT_SCALE_KEY,
 )});if(r===null)return;var n=parseFloat(r);if(!isFinite(n))return;var s=${JSON.stringify(
   NOTE_FONT_SCALES,
-)},c=s[0];for(var i=1;i<s.length;i++){if(Math.abs(s[i]-n)<Math.abs(c-n))c=s[i]}if(c!==s[0])document.documentElement.style.setProperty(${JSON.stringify(
+)},c=s[0];for(var i=1;i<s.length;i++){if(Math.abs(s[i]-n)<Math.abs(c-n))c=s[i]}if(c!==${JSON.stringify(
+  DEFAULT_NOTE_FONT_SCALE,
+)})document.documentElement.style.setProperty(${JSON.stringify(
   NOTE_FONT_SCALE_VAR,
 )},String(c))}catch(e){}})()`;

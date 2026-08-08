@@ -28,10 +28,11 @@ test("倍率の変化を読み上げる live region を持つ", () => {
   expect(render()).toContain('aria-live="polite"');
 });
 
-// 等倍が下限 (docs/61 §2)。押しても何も起きないボタンを押せる形で
-// 見せない — 下限に居ることはボタンの見た目で分かるべき
-test("等倍では縮小だけを押せなくする", () => {
-  const html = render();
-  expect(html.match(/disabled=""/g)).toHaveLength(1);
-  expect(html).toContain('aria-label="小さく" disabled=""');
+// 等倍は段の途中 (75%〜200% の中の 100%) なので、どちら向きにも動ける。
+// 端での disabled は stepNoteFontScale の「端では動かない」が担保しており、
+// SSR で確かめられるのは初期状態だけ (jsdom を持たない。冒頭のコメント参照)
+test("等倍では両方向に動かせる", () => {
+  // 属性そのものを見る ("disabled" の文字列は Tailwind の disabled: 変体
+  // クラスにも現れるので、それには反応させない)
+  expect(render()).not.toContain('disabled=""');
 });

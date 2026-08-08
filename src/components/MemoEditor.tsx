@@ -210,15 +210,16 @@ export function MemoEditor({
         </p>
       )}
       {!isEditorReady && (
-        // note-text-scale … CodeMirror (.cm-editor) と同じ倍率で描く
-        // (docs/61-テキストサイズ計画.md)。付けないと、本文を大きくしている
-        // 人には読み込みが終わった瞬間に文字が跳ねて見える。基準は
-        // MEMO_INPUT_CLASS の text-base と同じ 1rem
+        // note-input-scale … CodeMirror (.cm-editor) と同じ式で描く
+        // (docs/61-テキストサイズ計画.md)。付けないと、文字サイズを変えている
+        // 人には読み込みが終わった瞬間に文字が跳ねて見える。note-text-scale
+        // (本文用) ではないのは、入力欄は 16px を下回らせないため — これも
+        // textarea なので、縮めたまま触られると iOS が自動ズームする
         <textarea
           readOnly
           rows={8}
           value={value}
-          className={`${MEMO_INPUT_CLASS} note-text-scale [--note-text-base:1rem]`}
+          className={`${MEMO_INPUT_CLASS} note-input-scale`}
           placeholder="エディタを読み込み中…"
         />
       )}
