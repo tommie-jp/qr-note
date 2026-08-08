@@ -252,6 +252,17 @@ DATABASE_URL="$REMOTE_DB_URL" npx prisma migrate deploy
 echo "--- タスク数の派生列を数え直す"
 DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTaskCounts.ts
 
+# 見出しの派生列を切り出し直す (docs/63-タイトル順計画.md §4)。
+#
+# **忘れると「タイトル順」が全件同着 = 番号順にしか見えない。** 列を足す
+# マイグレーションは既存行を '' のまま置き、'' は NULLS LAST で末尾へ回るため、
+# 並べ替えの効かない一覧が黙って出る。
+#
+# タスク数と同じく冪等で、値が合っている行は書かない (598 件で 1 秒未満) ので
+# 毎回流す。派生列を更新しない経路 (Ver1 取り込み) で狂っても次のデプロイで直る。
+echo "--- 見出しの派生列を切り出し直す"
+DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTitles.ts
+
 SSH -O cancel -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE" 2>/dev/null || true
 
 # compose.yaml の転送は再作成の**直前**に置く。ここで送っておけば、続く

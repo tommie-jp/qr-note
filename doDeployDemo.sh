@@ -67,8 +67,17 @@ ssh -M -S "$SEED_CTRL" -f -N \
   -L "127.0.0.1:${SEED_TUNNEL_PORT}:127.0.0.1:5433" \
   -o ExitOnForwardFailure=yes "$REMOTE"
 
-DATABASE_URL="postgresql://qr:${ENC_PW}@127.0.0.1:${SEED_TUNNEL_PORT}/${SEED_DB}" \
-  npx prisma migrate deploy
+SEED_DB_URL="postgresql://qr:${ENC_PW}@127.0.0.1:${SEED_TUNNEL_PORT}/${SEED_DB}"
+DATABASE_URL="$SEED_DB_URL" npx prisma migrate deploy
+
+# 種の派生列も埋め直す (docs/63-タイトル順計画.md §4)。
+#
+# **live 側だけ直しても毎時のリセットで巻き戻る。** reseedDemo.sh は
+# `createdb -T qr_seed qr` で種を丸ごと複製するので、種の title が '' のままだと
+# 1 時間後の live も '' に戻り、「タイトル順」が番号順にしか見えなくなる。
+# スキーマ同期と同じ理由 (§ 冒頭 2.) で、ここに置くのがいちばん忘れない。
+echo "--- 種の見出しを切り出し直す"
+DATABASE_URL="$SEED_DB_URL" npx tsx scripts/backfillTitles.ts
 
 # 種の PGroonga 索引は migrate や過去の複製で壊れていることがあるが、直さない。
 # 毎時の reseedDemo.sh が createdb -T の後に live 側を REINDEX するため、
