@@ -22,6 +22,9 @@
 #     DEPLOY_REMOTE_DIR=qr-demo DEPLOY_DB_PORT=5433 DEPLOY_DB_NAME=qr_seed \
 #       ./doBackfillTitles.sh
 #
+# 通常は `./doDeploy.sh --demo` が live と種の両方を面倒みるので、この手動の
+# 出番は「デプロイとは別に直したい」ときだけ。
+#
 # 環境変数で上書き可能 (doDeploy.sh と同じ既定):
 #   DEPLOY_REMOTE      ssh 接続先 (default: vps2)
 #   DEPLOY_REMOTE_DIR  リモートの compose ディレクトリ ($HOME 相対, default: 41-QR-search/qr-search)
@@ -36,6 +39,9 @@ REMOTE_DIR="${DEPLOY_REMOTE_DIR:-41-QR-search/qr-search}"
 TUNNEL_PORT="${DEPLOY_TUNNEL_PORT:-15432}"
 REMOTE_DB_PORT="${DEPLOY_DB_PORT:-5432}"
 DB_NAME="${DEPLOY_DB_NAME:-qr}"
+
+# 毎時リセットの種。**書く前に REINDEX が要る唯一の DB** (下の理由)
+SEED_DB_NAME="qr_seed"
 
 [ "$#" -eq 0 ] || { echo "usage: $0   (引数なし。デモは環境変数で切替)" >&2; exit 1; }
 
@@ -60,6 +66,27 @@ ssh -M -S "$SSH_CTRL" -f -N \
   -o ExitOnForwardFailure=yes "$REMOTE"
 
 export DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${DB_NAME}"
+
+# 種だけは書く前に PGroonga を直す。**読むだけなら要らないが、書くには要る。**
+#
+# 種は `createdb -T qr` (テンプレート複製) で撮るので Groonga の内部構造が
+# 壊れた状態で生まれる (docs/39-デモ公開計画.md §6-2)。壊れた索引のまま
+# items を UPDATE すると
+#   pgroonga: PGrnLookupWithSize: object isn't found: <Sources…>
+# で落ちる。しかも backfillTitles.ts の UPDATE は 1 文ずつ確定するので、
+# **途中で落ちると種が半分だけ直った状態で残り**、それが次の毎時リセットで
+# live へ複製される (直したつもりで悪化する)。
+#
+# live は対象外。本番の qr は複製で生まれておらず、デモの live は
+# reseedDemo.sh が複製の直後に REINDEX している。
+#
+# </dev/null … docker compose exec -T は繋いだ stdin を食い尽くすので、
+# 塞がないと後続のコマンドが黙って実行されなくなる
+if [ "$DB_NAME" = "$SEED_DB_NAME" ]; then
+  log "種の PGroonga を REINDEX (壊れた索引のままでは UPDATE が落ちる)"
+  ssh -S "$SSH_CTRL" "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db \
+    psql -U qr -d $DB_NAME -c 'REINDEX DATABASE $DB_NAME'" </dev/null
+fi
 
 log "見出しを切り出し直す"
 npx tsx scripts/backfillTitles.ts

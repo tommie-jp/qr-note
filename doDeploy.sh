@@ -300,17 +300,57 @@ DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTitles.ts
 # デモは live の qr を migrate しただけでは足りない。種 qr_seed が旧スキーマのまま
 # 残り、次の毎時リセット (`createdb -T qr_seed qr`) がスキーマを巻き戻して app が
 # 起動不能になる (docs/39-デモ公開計画.md §6-3)。ここで種にも同じ migration を当てる。
-# **種のデータ (showcase) は触らない** — pending が無ければ "No pending migrations"
-# で no-op なので、コードのみの更新でも安全に通る。種は live と同じ Postgres の
-# 別 DB なので、上のトンネルを DB 名だけ変えて使い回す。
+# pending が無ければ "No pending migrations" で no-op なので、コードのみの更新でも
+# 安全に通る。種は live と同じ Postgres の別 DB なので、上のトンネルを DB 名だけ
+# 変えて使い回す。
 #
-# 種の PGroonga 索引は migrate や過去の複製で壊れていることがあるが、直さない。
-# 毎時の reseedDemo.sh が createdb -T の後に live 側を REINDEX するため、
-# qr_seed 自身の索引状態は live に影響しない (docs/39 §6-2)。
+# **触るのはスキーマと派生列だけ** — 種のノート (showcase の中身) は書き換えない。
+# 派生列 (title / task_*) は本文から機械的に切り出したキャッシュなので、
+# 埋め直しても「見せている内容」は変わらない。
 if [ "$DEMO" = 1 ]; then
+  SEED_DB_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${SEED_DB}"
+
   echo "--- 種 ($SEED_DB) のスキーマを live に揃える"
-  DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${SEED_DB}" \
-    npx prisma migrate deploy
+  DATABASE_URL="$SEED_DB_URL" npx prisma migrate deploy
+
+  # 種の PGroonga を先に直す。**読むだけなら要らないが、書くには要る。**
+  #
+  # 種は `createdb -T qr` (テンプレート複製) で撮るので、Groonga の内部構造が
+  # 壊れた状態で生まれる (docs/39-デモ公開計画.md §6-2 と同じ罠)。壊れた索引の
+  # まま items を UPDATE すると
+  #   pgroonga: PGrnLookupWithSize: object isn't found: <Sources…>
+  # で落ちる — 索引は行を書き換えるたびに更新されるため。
+  #
+  # ここには以前「種の索引は直さない (毎時の reseedDemo.sh が live 側を
+  # REINDEX するので影響しない)」と書いてあった。**読む一方だった頃は本当
+  # だったが、下で種へ書くようになったので成り立たない。** 退役した
+  # doDeployDemo.sh が同じ理由でこの注意書きを撤回していたのに、
+  # doDeploy.sh へ畳むときに移し損ねていた。
+  #
+  # </dev/null … docker compose exec -T は繋いだ stdin を食い尽くすので、
+  # 塞がないと後続のコマンドが黙って実行されなくなる
+  echo "--- 種の PGroonga を REINDEX (壊れた索引のままでは UPDATE が落ちる)"
+  SSH "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db \
+    psql -U qr -d $SEED_DB -c 'REINDEX DATABASE $SEED_DB'" </dev/null
+
+  # 種の派生列も埋め直す (docs/63-タイトル順計画.md §4)。
+  #
+  # **live 側だけ直しても毎時のリセットで巻き戻る。** reseedDemo.sh は
+  # `createdb -T qr_seed qr` で種を丸ごと複製するので、種の title が '' のままだと
+  # 1 時間後の live も '' に戻り、「タイトル順」が全件同着 = 番号順にしか
+  # 見えなくなる。スキーマ同期をここに置いているのと同じ理由で、忘れないよう
+  # 隣に並べる。
+  echo "--- 種の見出しを切り出し直す"
+  DATABASE_URL="$SEED_DB_URL" npx tsx scripts/backfillTitles.ts
+
+  # タスク数も同じ理由で埋め直す (live 側は上で流している)。派生列を 1 つだけ
+  # 直しても、もう片方が巻き戻れば結局ちぐはぐになる
+  echo "--- 種のタスク数を数え直す"
+  DATABASE_URL="$SEED_DB_URL" npx tsx scripts/backfillTaskCounts.ts
+
+  # ここで直した種の索引は、次の reseedDemo.sh の createdb -T でまた壊れる。
+  # それでよい — あちらは複製の直後に live を REINDEX するので live は健全に
+  # 保たれる (docs/39 §6-2)。ここの REINDEX は「この後の UPDATE を通すため」
 fi
 
 SSH -O cancel -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE" 2>/dev/null || true

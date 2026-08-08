@@ -144,4 +144,32 @@ describe('migrateLegacyQueries', () => {
     expect(await migrateLegacyQueries(false)).toBeNull()
     expect(mocks.sent).toEqual([])
   })
+
+  // localStorage は塞ぎ方が 2 通りあり、どちらも別の壊れ方をする。
+  // **投げると誰も拾えない** — 呼び出し元 (SearchForm) は `void migrate…()` で
+  // 撃つだけなので unhandled rejection になり、しかも検索窓を開くたびに出る。
+
+  // Firefox の dom.storage.enabled=false。例外を出さずに undefined になるので、
+  // 参照を try で囲っただけでは素通りし、getItem を呼んだ瞬間に落ちる
+  test('survives a browser where localStorage is undefined', async () => {
+    vi.stubGlobal('window', { localStorage: undefined })
+
+    await expect(migrateLegacyQueries(false)).resolves.toBeNull()
+    expect(mocks.sent).toEqual([])
+  })
+
+  // Safari / 一部のプライベートモードは getItem 側が SecurityError を投げる
+  test('survives a browser where getItem throws', async () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => {
+          throw new Error('SecurityError')
+        },
+        removeItem: () => {},
+      },
+    })
+
+    await expect(migrateLegacyQueries(false)).resolves.toBeNull()
+    expect(mocks.sent).toEqual([])
+  })
 })

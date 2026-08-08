@@ -53,18 +53,41 @@ export async function migrateLegacyQueries(
     return null
   }
 
-  let storage: Storage
+  // localStorage は**触るだけで落ちうる**外部資源。塞ぎ方が 2 通りあり、
+  // どちらも別の壊れ方をするので両方受ける:
+  //
+  //   Firefox (dom.storage.enabled=false) … window.localStorage が例外を
+  //     出さずに undefined になる。`catch` は素通りするので、後で
+  //     getItem を呼んだ瞬間に TypeError になる
+  //   Safari / 一部のプライベートモード … 参照または getItem が
+  //     SecurityError を投げる
+  //
+  // ここは効果 (SearchForm) から `void migrate…()` で撃たれるだけなので、
+  // 投げると誰も拾わず **unhandled rejection** になり、しかも検索窓を開く
+  // たびに出る。読めなければ「引き取る物が無い」と同じ扱いにして降りる。
+  let storage: Storage | null
   try {
     if (typeof window === 'undefined') {
       return null // サーバ描画中
     }
-    storage = window.localStorage
+    storage = window.localStorage ?? null
   } catch {
     return null // 参照そのものが例外になる設定 (一部のプライベートモード)
   }
+  if (storage === null) {
+    return null
+  }
 
-  // 鍵が 1 つも無ければ、この端末は移行済みか初めて使う端末
-  if (storage.getItem(SAVED_KEY) === null && storage.getItem(RECENT_KEY) === null) {
+  // 鍵が 1 つも無ければ、この端末は移行済みか初めて使う端末。
+  // getItem も try の中に入れる (読めない設定では上と同じく降りる)
+  let hasLegacyKeys: boolean
+  try {
+    hasLegacyKeys =
+      storage.getItem(SAVED_KEY) !== null || storage.getItem(RECENT_KEY) !== null
+  } catch {
+    return null
+  }
+  if (!hasLegacyKeys) {
     return null
   }
 

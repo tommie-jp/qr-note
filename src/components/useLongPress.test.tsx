@@ -33,6 +33,9 @@ const mouseEvent = () => {
   return { event: event as unknown as React.MouseEvent, spy: event };
 };
 
+const keyEvent = (key: string) =>
+  ({ key, preventDefault: vi.fn() }) as unknown as React.KeyboardEvent;
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -122,5 +125,60 @@ test("指を離した後の contextmenu は握り潰さない", () => {
   handlers.onPointerUp();
   handlers.onContextMenu(mouseEvent().event);
 
+  expect(handlers.onClick(mouseEvent().event)).toBe(false);
+});
+
+// 長押しでメニューが開いた直後、そのまま指をボタンの外へ滑らせて離す
+// (開いたメニューへ向かう自然な動き)。この枠に click は来ないので、
+// 握り潰す構えを残すと次の活性化を食べてしまう
+test("長押しの後に枠の外で離したら、握り潰す構えを残さない", () => {
+  vi.useFakeTimers();
+  const onLongPress = vi.fn();
+  const handlers = handlersOf(onLongPress);
+
+  handlers.onPointerDown(pointerDown());
+  vi.advanceTimersByTime(LONG_PRESS_MS);
+  expect(onLongPress).toHaveBeenCalledTimes(1);
+  handlers.onPointerLeave();
+
+  expect(handlers.onClick(mouseEvent().event)).toBe(false);
+});
+
+test("押下が取り消されたときも構えを残さない", () => {
+  vi.useFakeTimers();
+  const handlers = handlersOf(vi.fn());
+
+  handlers.onPointerDown(pointerDown());
+  vi.advanceTimersByTime(LONG_PRESS_MS);
+  handlers.onPointerCancel();
+
+  expect(handlers.onClick(mouseEvent().event)).toBe(false);
+});
+
+// キーボードからの活性化には押下 (onPointerDown) が先行しないので、構えを
+// 倒す機会がここにしかない。**残っていると押しても何も起きないボタンになり、
+// 原因も見えない** — ボタンはフォーカスを持ったままなので、長押しの後に
+// Enter を押した人がこれを踏む
+test("キーボードからの活性化は、構えが残っていても通す", () => {
+  vi.useFakeTimers();
+  const handlers = handlersOf(vi.fn());
+
+  // Android Chrome は contextmenu の後の click を投げてこないことがあり、
+  // その場合は構えが立ったまま残る
+  handlers.onPointerDown(pointerDown());
+  handlers.onContextMenu(mouseEvent().event);
+
+  handlers.onKeyDown(keyEvent("Enter"));
+  expect(handlers.onClick(mouseEvent().event)).toBe(false);
+});
+
+// ↑ ↓ はメニューを開く合図。こちらは click を伴わないので、開いた後に
+// 構えが残っていないことだけ確かめる
+test("↑ でメニューを開いても構えは残らない", () => {
+  const onLongPress = vi.fn();
+  const handlers = handlersOf(onLongPress);
+
+  handlers.onKeyDown(keyEvent("ArrowUp"));
+  expect(onLongPress).toHaveBeenCalledTimes(1);
   expect(handlers.onClick(mouseEvent().event)).toBe(false);
 });

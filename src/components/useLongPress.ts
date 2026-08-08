@@ -43,6 +43,22 @@ export function useLongPress(onLongPress: () => void) {
     start.current = null;
   };
 
+  // 押下ごと無かったことにする (cancel に加えて握り潰す構えも倒す)。
+  //
+  // **click が来ないと判った時点で構えを倒す**のがこの関数の役目。
+  // fired は「放した指の click を握り潰す」ための一時的な構えなので、
+  // その click が二度と来ない経路では残してはいけない — 残ると次の活性化
+  // (フォーカスの残った Enter / Space、読み上げソフトからの実行) を食べて、
+  // 押しても何も起きないボタンになる。原因も見えない。
+  //
+  // 対象は「枠の外へ出た」「押下が取り消された」の 2 つ。**onPointerUp は
+  // 含めない** — こちらは枠の中で離した合図で、click がこの後に必ず来る
+  // (それを握り潰すのが本来の目的)。
+  const abandonPress = () => {
+    cancel();
+    fired.current = false;
+  };
+
   // 押したまま画面が切り替わった (選択モードへ入ったなど) ときに、
   // 消えた部品のタイマーが後から発火しないようにする
   useEffect(() => cancel, []);
@@ -70,11 +86,17 @@ export function useLongPress(onLongPress: () => void) {
         cancel();
       }
     },
+    // 枠の中で離した = この後に click が来る。構えは倒さない (それを
+    // 握り潰すのが目的なので、倒すと長押しの後にフォームが送信される)
     onPointerUp: cancel,
-    onPointerCancel: cancel,
+    onPointerCancel: abandonPress,
     // 指・カーソルがスロットの外へ出たら取り消す。放した先が別のスロット
-    // だったときに、押していないほうのメニューが出るのを防ぐ
-    onPointerLeave: cancel,
+    // だったときに、押していないほうのメニューが出るのを防ぐ。
+    //
+    // 構えも倒す (abandonPress)。長押しでメニューが開いた直後、そのまま指を
+    // 開いたメニューへ滑らせて外で離す — という自然な動きでは、この枠に
+    // click が来ないため
+    onPointerLeave: abandonPress,
     // 握り潰したかを返す。呼ぶ側が「長押しの後始末だったのか、普通の
     // タップだったのか」で続きを振り分けられるようにするため
     // (BottomActionBar の dismissOrCycle)。React の型は void を期待するが、
@@ -120,6 +142,17 @@ export function useLongPress(onLongPress: () => void) {
     // 利用者には嘘になる。↑ にするのはメニューが上へ出るため
     // (Enter / Space はスロット本来の循環に残す)
     onKeyDown: (event: React.KeyboardEvent) => {
+      // **キーは必ず構えを倒してから振り分ける。**
+      //
+      // キーボードからの活性化 (Enter / Space) には押下が先行しないので、
+      // fired を倒す機会がここにしかない。ポインタ側は次の onPointerDown が
+      // 倒すため自然に治るが、キーボードだけは治る当てがなく、構えが
+      // 残っていると「押しても何も起きないボタン」になる。
+      //
+      // 長押しやタッチの contextmenu の後に click が来ないブラウザがあり
+      // (Android Chrome)、そこを踏んだ人がそのままフォーカスの残った
+      // ボタンで Enter を押す、という順番で実際に起きる
+      fired.current = false;
       if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
         return;
       }
