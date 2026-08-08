@@ -36,14 +36,15 @@ export function parseMode(value: unknown): Mode {
   return value === 'url' ? 'url' : 'memo'
 }
 
-// 一覧の並び順。accessed = 最近見た順 (docs/37-アクセス順計画.md)
-export type Sort = 'itemNo' | 'updated' | 'accessed'
+// 一覧の並び順。accessed = 最近見た順 (docs/37-アクセス順計画.md)、
+// title = 一覧の見出し順 (docs/63-タイトル順計画.md)
+export type Sort = 'itemNo' | 'updated' | 'accessed' | 'title'
 
 // Ver1 の /search と同じく更新日降順を既定にする。
-// **既定を変えない**のが要点 — アクセス順は明示的に選んだときだけ使う
-// (日常の画面が導入で突然変わらないように)
+// **既定を変えない**のが要点 — アクセス順やタイトル順は明示的に選んだときだけ
+// 使う (日常の画面が導入で突然変わらないように)
 export function parseSort(value: unknown): Sort {
-  if (value === 'itemNo' || value === 'accessed') {
+  if (value === 'itemNo' || value === 'accessed' || value === 'title') {
     return value
   }
   return 'updated'

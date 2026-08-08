@@ -246,6 +246,9 @@ export async function rewriteImageReference(
 function derivedFromMemo(memo: string) {
   const tasks = countTasks(memo)
   return {
+    // 一覧の見出し。並べ替え専用の列で、表示は今までどおり ItemRow が
+    // memoSummary() をその場で通す (docs/63-タイトル順計画.md §3)
+    title: memoSummary(memo),
     tags: extractTags(memo),
     props: extractProps(memo),
     taskTodo: tasks.todo,
@@ -418,6 +421,7 @@ export async function searchItems(
            memo,
            url,
            mode,
+           title,
            tags,
            props,
            task_todo  AS "taskTodo",

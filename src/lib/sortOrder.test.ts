@@ -16,10 +16,18 @@ test('アクセス順は accessed_at 降順', () => {
   )
 })
 
+// 一覧の見出し順 (docs/63-タイトル順計画.md)。見出しは URL モードだけ url を
+// 見るので、ItemRow と同じ切り分けを SQL 側でもする
+test('タイトル順は見出し昇順 (無題は末尾)', () => {
+  expect(orderByClause('title')).toBe(
+    "NULLIF(CASE WHEN mode = 'url' THEN url ELSE title END, '') ASC NULLS LAST, item_no ASC",
+  )
+})
+
 // 同時刻の行で並びが不定になると、ページ送りと前後ナビが読み込みのたびに
 // 揺れる (docs/15 §2-2)。どの並びでも item_no で決着させる
 test('どの並びも item_no でタイブレークする', () => {
-  for (const sort of ['itemNo', 'updated', 'accessed'] as const) {
+  for (const sort of ['itemNo', 'updated', 'accessed', 'title'] as const) {
     expect(orderByClause(sort)).toMatch(/item_no ASC$/)
   }
 })

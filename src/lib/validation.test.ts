@@ -106,6 +106,11 @@ describe('parseSort', () => {
     expect(parseSort('accessed')).toBe('accessed')
   })
 
+  // 一覧の見出し順 (docs/63-タイトル順計画.md)
+  test('returns "title" for "title"', () => {
+    expect(parseSort('title')).toBe('title')
+  })
+
   test('defaults to "updated" for undefined or unknown values', () => {
     expect(parseSort(undefined)).toBe('updated')
     expect(parseSort('other')).toBe('updated')

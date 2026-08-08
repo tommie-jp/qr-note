@@ -17,6 +17,16 @@ model Item {
   memo      String   @default("")
   url       String   @default("")
   mode      Mode     @default(memo)
+  // memo の先頭行から Markdown 記法を剥がした見出しの派生キャッシュ
+  // (docs/63-タイトル順計画.md)。一覧のタイトル順で ORDER BY に使う。
+  //
+  // 表示は今までどおり memoSummary() をその場で通す (この列は読まない)。
+  // 正本は memo で、保存のたびに作り直す点は tags / props と同じ。
+  // **列を足したのは並べ替えのため** — 見出しの切り出しは Markdown の解析
+  // (コードフェンス・折りたたみ・行頭記法) が要り、SQL では書けない。
+  //
+  // 索引は張らない。数百件の seq scan + sort で足りる (task_todo と同じ判断)。
+  title     String   @default("")
   // memo から抽出したタグ (正規化済み) の派生キャッシュ。検索・補完に使う。
   tags      String[] @default([])
   // memo のプロパティ行 (hFE=208 など) から抽出した派生キャッシュ。

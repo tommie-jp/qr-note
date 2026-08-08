@@ -62,8 +62,8 @@ test("画像表示の次は小に戻る (循環の最後の辺)", () => {
   expect(html).toContain("表示: 画像 (押すと小に切替、長押しで一覧)");
 });
 
-// 並び順は 更新順 → アクセス順 → 番号順 の 3 値循環
-// (docs/37-アクセス順計画.md)。表示モードと同じ形。
+// 並び順は 更新順 → アクセス順 → 番号順 → タイトル順 の 4 値循環
+// (docs/37-アクセス順計画.md、docs/63-タイトル順計画.md)。表示モードと同じ形。
 // **リンクではなくフォーム送信**にしてあるのは cookie に覚えるため
 // (src/lib/sortMode.ts)。value は循環の次の並び
 test("更新順の次はアクセス順", () => {
@@ -81,11 +81,18 @@ test("アクセス順の次は番号順", () => {
   expect(html).toContain("並び順: アクセス順 (押すと番号順に切替、長押しで一覧)");
 });
 
-test("番号順の次は既定の更新順に戻る (循環の最後の辺)", () => {
+test("番号順の次はタイトル順", () => {
   const html = render("compact", "itemNo");
   expect(html).toContain(">番号順<");
+  expect(html).toContain('value="title"');
+  expect(html).toContain("並び順: 番号順 (押すとタイトル順に切替、長押しで一覧)");
+});
+
+test("タイトル順の次は既定の更新順に戻る (循環の最後の辺)", () => {
+  const html = render("compact", "title");
+  expect(html).toContain(">タイトル順<");
   expect(html).toContain('value="updated"');
-  expect(html).toContain("並び順: 番号順 (押すと更新順に切替、長押しで一覧)");
+  expect(html).toContain("並び順: タイトル順 (押すと更新順に切替、長押しで一覧)");
 });
 
 // リンクのままだと URL しか変わらず、?sort= を持たない入口から入るたびに

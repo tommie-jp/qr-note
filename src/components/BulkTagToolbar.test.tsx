@@ -10,6 +10,7 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     memo: "",
     url: "",
     mode: "memo",
+    title: "",
     tags: [],
     props: [],
     taskTodo: 0,

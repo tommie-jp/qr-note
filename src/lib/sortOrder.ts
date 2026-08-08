@@ -8,6 +8,8 @@
 //   更新順      … 既定。書いた順に積み上がる
 //   アクセス順  … 最近見た順。ENEX から取り込んだノートは作成・更新日時が
 //                 Evernote 由来 (2012 年など) で更新順では埋もれるため
+//   タイトル順  … 名前で引くとき (docs/63-タイトル順計画.md)。日時を覚えて
+//                 いなくても、見出しの頭文字から辿り着ける
 
 import type { Sort } from './validation'
 
@@ -26,6 +28,15 @@ export function orderByClause(sort: Sort): string {
     case 'accessed':
       // 見ていないノートが同着になったときは更新順で解く
       return 'accessed_at DESC, updated_at DESC, item_no ASC'
+    case 'title':
+      // 並べる鍵は**一覧に出ている見出しそのもの**にする。URL モードの行だけ
+      // 見出しが url なのは ItemRow.tsx と同じ切り分けで、ここを揃えないと
+      // 「画面の並びと違う順」になる (title 列は memo 由来なので url を知らない)。
+      //
+      // 見出しの無いノート (空メモ・画像だけ) は '' になる。空文字は照合順序上
+      // 先頭に来てしまい、名前で引きたいときに邪魔なので NULLIF で末尾へ回す
+      // (番号順が非数字を末尾へ回すのと同じ考え方)。
+      return "NULLIF(CASE WHEN mode = 'url' THEN url ELSE title END, '') ASC NULLS LAST, item_no ASC"
     default:
       return 'updated_at DESC, item_no ASC'
   }

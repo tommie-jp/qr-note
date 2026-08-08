@@ -166,15 +166,20 @@ export function BottomActionBar({
   // 長押しメニューに並べる順。循環と同じ並びにして、短いタップで辿る順と
   // メニューの上下が食い違わないようにする
   const viewOrder: ViewMode[] = ["compact", "card", "image"];
-  // 並び順は 3 値の循環 (docs/37-アクセス順計画.md)。表示モードと同じ形にし、
-  // ラベルには現在値を出す方針を保つ。順は「更新順 → アクセス順 → 番号順」で、
-  // よく使う 2 つ (更新順・アクセス順) を隣どうしに置く
+  // 並び順は 4 値の循環 (docs/37-アクセス順計画.md、docs/63-タイトル順計画.md)。
+  // 表示モードと同じ形にし、ラベルには現在値を出す方針を保つ。順は
+  // 「更新順 → アクセス順 → 番号順 → タイトル順」で、よく使う 2 つ
+  // (更新順・アクセス順) を隣どうしに置いたまま、タイトル順を末尾に足す。
+  //
+  // 4 値になると短いタップで一周するのが遠くなるが、長押しで直接選べる
+  // (docs/62 §3) ので、循環の順を組み替えてまで近づけない
   const sortLabel: Record<Sort, string> = {
     updated: "更新順",
     accessed: "アクセス順",
     itemNo: "番号順",
+    title: "タイトル順",
   };
-  // 並び順は 3 値とも同じアイコン。表示モードのように形で区別しないのは、
+  // 並び順は 4 値とも同じアイコン。表示モードのように形で区別しないのは、
   // 「並び替え」という 1 つの機能の中の選択肢だから (色も 1 色)。
   // それでも表で持つのは、スロット側 (CycleSlot) が表示モードと同じ形で
   // 扱えるようにするため — 片方だけ特別扱いする分岐を作らない
@@ -182,13 +187,15 @@ export function BottomActionBar({
     updated: <SortIcon />,
     accessed: <SortIcon />,
     itemNo: <SortIcon />,
+    title: <SortIcon />,
   };
   const nextSortOf: Record<Sort, Sort> = {
     updated: "accessed",
     accessed: "itemNo",
-    itemNo: "updated",
+    itemNo: "title",
+    title: "updated",
   };
-  const sortOrder: Sort[] = ["updated", "accessed", "itemNo"];
+  const sortOrder: Sort[] = ["updated", "accessed", "itemNo", "title"];
 
   return (
     <>
