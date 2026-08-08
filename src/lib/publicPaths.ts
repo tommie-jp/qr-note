@@ -10,6 +10,7 @@
 import manifest from '@/app/manifest'
 import { PUBLIC_AUTH_PATHS } from './authPaths'
 import { LOGIN_PATH, LOGIN_REQUIRED_PATH } from './loginRedirect'
+import { OFFLINE_PATH } from './offline/params'
 import { isValidAttachmentName } from './uploads'
 import { isValidItemNo } from './validation'
 
@@ -33,6 +34,17 @@ function pwaPaths(): Set<string> {
     // (どちらも app/ 直下の特別ファイルで Next.js が配信する)
     '/icon.svg',
     '/apple-icon.png',
+    // Service Worker 本体 (public/sw.js。docs/65-オフライン対応計画.md §5)。
+    // 閉じるとログイン案内の HTML が sw.js として返り、登録が
+    // 「スクリプトの MIME が違う」で失敗する。中身は静的な JS で秘密を含まない
+    '/sw.js',
+    // オフラインの画面 (app/offline/page.tsx)。**ノートを 1 件も含まない殻**で、
+    // 中身は端末の IndexedDB からしか来ない。開けてある理由は 2 つ:
+    //   - 閉じたままだと Service Worker が殻を保存するとき、ログイン案内
+    //     (200 で返る) をノートの画面として抱え込む余地が残る
+    //   - 圏外ではログインし直せない。セッションが切れても、既に端末にある
+    //     ノートは読めるべき
+    OFFLINE_PATH,
   ])
 }
 

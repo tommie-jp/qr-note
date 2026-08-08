@@ -22,6 +22,7 @@ import {
   LockIcon,
   LogIcon,
 } from "@/components/MenuIcons";
+import { OfflineSync } from "@/components/OfflineSync";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { RecordTagSearch } from "@/components/RecordTagSearch";
 import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
@@ -335,6 +336,12 @@ export default async function RootLayout({
             ここで一括して受ける (docs/59-検索候補計画.md §2)。
             未ログインでは一覧も詳細も出ないので仕掛けない */}
         {user && <RecordTagSearch />}
+        {/* オフライン用の持ち出し (docs/65-オフライン対応計画.md)。何も描かない。
+            ログイン中だけ仕掛ける — 同期の口は 401 を返すので、未ログインで
+            拾っても運べない (ClientLogCapture と同じ判断)。デモでも仕掛けない:
+            消えるデータを端末へ溜める意味が無く、共有アカウントなので
+            他人のノートが端末に残る (docs/38-デモモード計画.md §4) */}
+        {user && !isDemo && <OfflineSync version={pkg.version} />}
         <DebugConsole />
         </BottomBarProvider>
       </body>

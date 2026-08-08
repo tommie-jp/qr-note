@@ -34,6 +34,18 @@ describe('isPublicPath', () => {
     expect(isPublicPath(path)).toBe(true)
   })
 
+  // オフライン対応 (docs/65-オフライン対応計画.md §5)。
+  // /sw.js を閉じるとログイン案内の HTML が返って登録が失敗し、/offline を
+  // 閉じると Service Worker がその案内をノートの画面として抱え込む
+  test.each(['/sw.js', '/offline'])('%s is public (offline shell)', (path) => {
+    expect(isPublicPath(path)).toBe(true)
+  })
+
+  // 開けてよいのは殻だけ。ノート本文が流れる同期の口は閉じたままにする
+  test('/api/sync/items is not public (note bodies)', () => {
+    expect(isPublicPath('/api/sync/items')).toBe(false)
+  })
+
   // 使い方の説明にノートの中身は出ない
   test.each(['/docs/search', '/docs/memo'])('%s is public (help text only)', (path) => {
     expect(isPublicPath(path)).toBe(true)

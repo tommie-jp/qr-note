@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LOGOUT_PATH } from "@/lib/authPaths";
 import { LogoutIcon } from "@/components/MenuIcons";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
+import { clearOfflineData } from "@/lib/offline/db";
 
 // ログアウト (docs/18-ログイン計画.md §11)。
 //
@@ -38,6 +39,16 @@ export function LogoutButton({
       if (!response.ok) {
         throw new Error(`ログアウトに失敗しました (${response.status})`);
       }
+      // 端末に持ち出したノートと添付も消す (docs/65-オフライン対応計画.md)。
+      //
+      // **セッションを切るだけでは足りない。** /offline はログイン不要で
+      // 開けるので、消さずに残すと「ログアウトしたのに端末を触れば全ノートを
+      // 読めて検索もできる」状態になる。
+      //
+      // サーバ側が終わってから消す。先に消してログアウトが失敗すると、
+      // 入ったままなのに手元のノートだけ消えることになる。
+      // この関数は投げない (失敗しても再読み込みまでは必ず進む)
+      await clearOfflineData();
       window.location.reload();
     } catch (error) {
       // 握りつぶさない。「押したのに入ったまま」の原因を追えるようにする
