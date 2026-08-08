@@ -70,6 +70,21 @@ ssh -M -S "$SEED_CTRL" -f -N \
 SEED_DB_URL="postgresql://qr:${ENC_PW}@127.0.0.1:${SEED_TUNNEL_PORT}/${SEED_DB}"
 DATABASE_URL="$SEED_DB_URL" npx prisma migrate deploy
 
+# 種の PGroonga を先に直す。**読むだけなら要らないが、書くには要る。**
+#
+# 種は `createdb -T qr` (テンプレート複製) で撮るので、Groonga の内部構造が
+# 壊れた状態で生まれる (reseedDemo.sh §3/4 と同じ罠)。壊れた索引のまま
+# items を UPDATE すると
+#   pgroonga: PGrnLookupWithSize: object isn't found: <Sources…>
+# で落ちる — 索引は行を書き換えるたびに更新されるため。
+#
+# 以前ここには「種の索引は直さない (live 側を REINDEX するので影響しない)」と
+# 書いてあった。読む一方だった頃は本当だったが、下の派生列の埋め直しで
+# **種へ書く**ようになったので直す必要ができた。
+echo "--- 種の PGroonga を REINDEX (壊れた索引のままでは UPDATE が落ちる)"
+ssh "$REMOTE" "cd '$DEMO_DIR' && docker compose exec -T db \
+  psql -U qr -d $SEED_DB -c 'REINDEX DATABASE $SEED_DB'" </dev/null
+
 # 種の派生列も埋め直す (docs/63-タイトル順計画.md §4)。
 #
 # **live 側だけ直しても毎時のリセットで巻き戻る。** reseedDemo.sh は
@@ -79,8 +94,8 @@ DATABASE_URL="$SEED_DB_URL" npx prisma migrate deploy
 echo "--- 種の見出しを切り出し直す"
 DATABASE_URL="$SEED_DB_URL" npx tsx scripts/backfillTitles.ts
 
-# 種の PGroonga 索引は migrate や過去の複製で壊れていることがあるが、直さない。
-# 毎時の reseedDemo.sh が createdb -T の後に live 側を REINDEX するため、
-# qr_seed 自身の索引状態は live に影響しない (docs/39 §6-2)。
+# ここで直した種の索引は、次の reseedDemo.sh の createdb -T でまた壊れる。
+# それでよい — あちらは複製の直後に live を REINDEX するので、live は健全に
+# 保たれる (docs/39 §6-2)。ここの REINDEX は「この後の UPDATE を通すため」。
 
 log "デモのデプロイ + 種のスキーマ同期 完了"
