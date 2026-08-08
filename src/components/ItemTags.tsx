@@ -17,9 +17,19 @@ export function ItemTags({ tags, linked = true }: ItemTagsProps) {
   }
 
   return (
-    <ul className="flex flex-wrap gap-2">
+    // **折り返さず横スクロールさせる** (docs/62 §7)。タグを 10 個も付けた
+    // ノートでは折り返した帯が 3 行 4 行と縦に伸び、本文が画面の下へ
+    // 押し出されていた。タグは本文を読みに来た人にとって脇の情報なので、
+    // 縦は 1 行ぶんに固定して、要る人だけ横へ送る。
+    //
+    // overscroll-x-contain … 端まで送った勢いが背後 (ページ全体) へ伝わって
+    // 戻る操作に化けるのを防ぐ。
+    // scrollbar-width:thin … 隠さない。隠すと PC では「まだ右にある」合図が
+    // 一切なくなる (スマホは指で弾けば判るが、マウスでは判らない)
+    <ul className="flex gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
       {tags.map((tag) => (
-        <li key={tag}>
+        // shrink-0 … flex の既定では縮んでタグ名が潰れる。潰さず溢れさせる
+        <li key={tag} className="shrink-0">
           {linked ? (
             <Link
               href={tagSearchHref(tag)}

@@ -41,15 +41,16 @@ export const ACTION_LINK_CLASS = `${ACTION_LINK_SKIN} min-h-11 px-2`;
 // 使う場所は SearchForm / ItemList / (search)/page.tsx だけ
 const COMPACT_SIZE = "min-h-9 text-sm";
 
-export const COMPACT_PRIMARY_BUTTON_CLASS = `${PRIMARY_SKIN} ${COMPACT_SIZE} px-4`;
-
 export const COMPACT_SECONDARY_BUTTON_CLASS = `${SECONDARY_SKIN} ${COMPACT_SIZE} px-3`;
 
 export const COMPACT_ACTION_LINK_CLASS = `${ACTION_LINK_SKIN} ${COMPACT_SIZE} px-2`;
 
-// 記号 1 文字だけのボタン (「+」)。左右の余白を持たず高さと同じ幅の正方形に
-// する。px-3 のままだと 1 文字に対して枠が横長になり、間延びして見える
-export const COMPACT_ICON_BUTTON_CLASS = `${SECONDARY_SKIN} min-h-9 w-9 text-lg`;
+// アイコンだけのボタン (検索窓の行の「+」)。左右の余白を持たず高さと同じ幅の
+// 正方形にする。px-3 のままだと 1 つの図形に対して枠が横長になり、間延びして見える
+export const COMPACT_ICON_BUTTON_CLASS = `${SECONDARY_SKIN} min-h-9 w-9`;
+
+// 同じ寸法の主ボタン版 (検索窓の行の虫眼鏡)。文字を持たないので px は要らない
+export const COMPACT_PRIMARY_ICON_BUTTON_CLASS = `${PRIMARY_SKIN} min-h-9 w-9`;
 
 // 本文の上に重ねる小さいボタン (コードブロックのコピー)。
 // 44px を割るのは、本文の一部を覆う道具だから — 大きくすると読みたい行を
@@ -120,8 +121,13 @@ export const WIDE_RESULTS_CLASS =
 // z-10 … ハンバーガーメニューの外側タップ用の覆い (z-10) と同層に置き、
 // DOM 順で覆いを勝たせる。バーが覆いより上だと、メニューを開いたまま
 // バーが押せてしまう (docs/11 §8-4 の落とし穴 3 と同じ罠)
+//
+// select-none / touch-callout … バーは「押す物」だけが並ぶ帯で、文字を
+// 読んで持ち出す場所ではない。既定のままだと、指を置いたとたんにラベルが
+// 青く反転し、iOS では「コピー / 調べる」の吹き出しが出る。長押しを
+// メニューに使う (docs/62-下部バー長押し計画.md) なら、これが毎回かぶる
 export const BOTTOM_BAR_CLASS =
-  "fixed inset-x-0 bottom-0 z-10 border-t backdrop-blur print:hidden";
+  "fixed inset-x-0 bottom-0 z-10 select-none border-t backdrop-blur [-webkit-touch-callout:none] print:hidden";
 
 // landscape-phone:max-w-4xl … スマホ横持ちでは main と同じく 672px の上限を
 // 緩め、スロットを全幅に広げる (docs/31 §12-4)
@@ -144,3 +150,13 @@ export const BOTTOM_BAR_SLOT_CLASS =
 // landscape-phone はスロットが min-h-9 (36px) + 下余白 4px ≒ 2.5rem
 export const BOTTOM_BAR_SPACER_CLASS =
   "h-[calc(3.25rem+env(safe-area-inset-bottom))] print:hidden landscape-phone:h-[calc(2.5rem+env(safe-area-inset-bottom))]";
+
+// 下部バーのスロットを長押ししたとき出るメニューの 1 行
+// (docs/62-下部バー長押し計画.md §3)。
+//
+// 高さは 44px のまま。バーのスロット自体を 44px にした理由 (狙って押す場所)
+// はメニューにもそのまま当てはまり、むしろ選択肢が縦に近接するぶん
+// 押し間違いの余地が大きい。文字はバーのラベル (0.625rem) ではなく text-sm —
+// メニューは一覧の密度と競合しないので、詰める理由がない
+export const SLOT_MENU_ITEM_CLASS =
+  "flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200";

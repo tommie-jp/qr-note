@@ -59,7 +59,7 @@ test("画像表示の次は小に戻る (循環の最後の辺)", () => {
   expect(html).toContain('value="compact"');
   expect(html).not.toContain('value="image"');
   // 行き先も読み上げに乗せる (押す前に循環の次が判る)
-  expect(html).toContain("表示: 画像 (押すと小に切替)");
+  expect(html).toContain("表示: 画像 (押すと小に切替、長押しで一覧)");
 });
 
 // 並び順は 更新順 → アクセス順 → 番号順 の 3 値循環
@@ -71,21 +71,21 @@ test("更新順の次はアクセス順", () => {
   expect(html).toContain(">更新順<");
   expect(html).toContain('value="accessed"');
   // 行き先も読み上げに乗せる (押す前に循環の次が判る)
-  expect(html).toContain("並び順: 更新順 (押すとアクセス順に切替)");
+  expect(html).toContain("並び順: 更新順 (押すとアクセス順に切替、長押しで一覧)");
 });
 
 test("アクセス順の次は番号順", () => {
   const html = render("compact", "accessed");
   expect(html).toContain(">アクセス順<");
   expect(html).toContain('value="itemNo"');
-  expect(html).toContain("並び順: アクセス順 (押すと番号順に切替)");
+  expect(html).toContain("並び順: アクセス順 (押すと番号順に切替、長押しで一覧)");
 });
 
 test("番号順の次は既定の更新順に戻る (循環の最後の辺)", () => {
   const html = render("compact", "itemNo");
   expect(html).toContain(">番号順<");
   expect(html).toContain('value="updated"');
-  expect(html).toContain("並び順: 番号順 (押すと更新順に切替)");
+  expect(html).toContain("並び順: 番号順 (押すと更新順に切替、長押しで一覧)");
 });
 
 // リンクのままだと URL しか変わらず、?sort= を持たない入口から入るたびに
@@ -139,6 +139,33 @@ test("5 スロットのアイコンにそれぞれ機能色が乗る", () => {
   ]) {
     expect(html).toContain(color);
   }
+});
+
+// 長押しメニュー (docs/62-下部バー長押し計画.md)。
+// 開いた後の描画は state なので静的描画では作れない (jsdom を持たない土台)。
+// ここで固定できるのは「既定では閉じている」「開ける口が読み上げに出ている」
+// の 2 つで、開閉そのものはブラウザで確認する
+test("長押しメニューは既定では閉じている", () => {
+  const html = render();
+  // 開いていない = 選択肢が DOM に居ない。居ると JS 無効の環境で
+  // 3 つの submit ボタンが常時見えてしまう
+  expect(html).not.toContain('role="menu"');
+  expect(html).toContain('aria-expanded="false"');
+});
+
+test("表示と並び順は長押しでメニューが開くことを読み上げに出す", () => {
+  const html = render();
+  // aria-haspopup が無いと、押したら値が変わるだけのボタンに見える
+  expect(html.match(/aria-haspopup="menu"/g)).toHaveLength(2);
+});
+
+// アイコン列は「押す物」だけの帯で、文字を持ち出す場所ではない。
+// 選択できるままだと長押しのたびにラベルが反転し、iOS では
+// 「コピー / 調べる」の吹き出しがメニューに重なる
+test("バーの文字は選択・コピーできない", () => {
+  const html = render();
+  expect(html).toContain("select-none");
+  expect(html).toContain("[-webkit-touch-callout:none]");
 });
 
 test("一覧がバーに隠れないよう余白を確保する", () => {

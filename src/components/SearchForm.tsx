@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ClearIcon, PlusIcon, SearchIcon } from "@/components/MenuIcons";
 import { PendingLink } from "@/components/PendingLink";
 import { useSearchNav } from "@/components/SearchNav";
 import {
   COMPACT_ICON_BUTTON_CLASS,
   COMPACT_INPUT_CLASS,
-  COMPACT_PRIMARY_BUTTON_CLASS,
+  COMPACT_PRIMARY_ICON_BUTTON_CLASS,
 } from "@/components/ui";
 import {
   keywordContextAtCursor,
@@ -439,8 +440,41 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
           aria-expanded={dropdown !== null}
           aria-autocomplete="list"
           aria-controls="search-suggestions"
-          className={`w-full ${COMPACT_INPUT_CLASS}`}
+          // pr-9 … 右端に重ねる ✕ のぶんを空ける。空けないと長い検索語の
+          // 末尾が ✕ の下へ潜る。**空でも空けたままにする** — 出たり
+          // 消えたりで文字が横に跳ねるほうが目に付く。
+          // [&::-webkit-search-cancel-button]:hidden … 標準の ✕ を消す。
+          // 消さないと Windows の Chrome/Edge だけ ✕ が 2 つ並ぶ
+          className={`w-full pr-9 ${COMPACT_INPUT_CLASS} [&::-webkit-search-cancel-button]:hidden`}
         />
+        {/* 検索語を消す ✕ (docs/62 §6)。標準のものは iOS Safari と
+            Android Chrome に無いので自前で持つ。
+            空のときは出さない — 消す物が無いのに押せる的があると、
+            押してから何も起きないことに気づく。
+            mousedown で preventDefault … これが無いと押した瞬間に入力欄が
+            blur し、onBlur がドロップダウンを閉じてしまう (★/☆ と同じ手) */}
+        {query !== "" && (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="検索語を消す"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              // **フォーカスを先に戻す。** 窓から外れていた場合 (結果を
+              // スクロールするとキーボードを閉じるため blur する) は
+              // focus() が onFocus を同期で走らせ、その中の refresh が
+              // **まだ古い値が入っている DOM** を読んで候補を組み直す。
+              // 後に回すと、こちらで出した一覧をそれが上書きしてしまう
+              inputRef.current?.focus();
+              setQuery("");
+              setDropdown(openList());
+              searchNow("");
+            }}
+            className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:bg-gray-200"
+          >
+            <ClearIcon />
+          </button>
+        )}
         {dropdown && (
           <ul
             id="search-suggestions"
@@ -546,12 +580,17 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
           (docs/31-下部操作バー計画.md §2) */}
       <div className="flex gap-1.5">
         {/* 打つそばから検索するので普段は押さなくてよいが、JS 無効時の唯一の
-            検索手段であり、確定の合図としても残す */}
+            検索手段であり、確定の合図としても残す。
+            「検索」の文字をやめて虫眼鏡にする (docs/62 §5)。窓の中身が何か、
+            隣に何があるかから用途は明らかで、狭い画面ではその 2 文字ぶんが
+            そのまま入力欄の幅になる。意味は aria-label / title で補う */}
         <button
           type="submit"
-          className={`whitespace-nowrap ${COMPACT_PRIMARY_BUTTON_CLASS}`}
+          aria-label="検索"
+          title="検索"
+          className={COMPACT_PRIMARY_ICON_BUTTON_CLASS}
         >
-          検索
+          <SearchIcon />
         </button>
         {/* 空ノートを作る (docs/27-新規ノート追加計画.md)。
             遷移先の /new は押した瞬間に採番して /edit/<番号> へ送るので、
@@ -561,17 +600,23 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
             /new は force-dynamic で loading.tsx を持たない = 押してから画面が
             変わるまで何も起きないので、素の Link ではなく PendingLink で
             スピナーを出す (docs/11-アプリ的UIUX計画.md §1-2)。
-            ラベルが「+」だけなのは幅を詰めるため。意味は aria-label / title で補う。
-            左右の余白を持たない正方形にするのも同じ理由 (COMPACT_ICON_BUTTON_CLASS) */}
+            中身が ＋ だけなのは幅を詰めるため。意味は aria-label / title で補う。
+            左右の余白を持たない正方形にするのも同じ理由 (COMPACT_ICON_BUTTON_CLASS)。
+            **文字の "+" ではなく PlusIcon (svg)** にしてある (docs/62 §4) —
+            文字はフォント任せのベースラインに載るので、中央寄せしても
+            中央に見えなかった。緑なのは「足す」の合図 (MenuIcons.tsx)。
+            スピナーは absolute で流れから抜く。流れに置くと ＋ と横に並んで
+            正方形からはみ出す (PendingLink の spinnerClassName) */}
         <PendingLink
           href="/new"
           prefetch={false}
           aria-label="新規ノート"
           title="新規ノート"
           transitionTypes={["nav-forward"]}
-          className={COMPACT_ICON_BUTTON_CLASS}
+          spinnerClassName="absolute right-0.5 top-0.5 text-emerald-600"
+          className={`relative ${COMPACT_ICON_BUTTON_CLASS}`}
         >
-          +
+          <PlusIcon />
         </PendingLink>
       </div>
     </form>
