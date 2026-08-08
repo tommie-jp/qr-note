@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { type ReactNode, useCallback, useRef, useState } from "react";
+import { CycleSlot } from "@/components/CycleSlot";
 import {
   GridViewIcon,
   ImageSearchIcon,
@@ -12,6 +13,7 @@ import {
   SortIcon,
 } from "@/components/MenuIcons";
 import { useSelectMode } from "@/components/SelectModeProvider";
+import { SlotIcon } from "@/components/SlotIcon";
 import { SlotMenu } from "@/components/SlotMenu";
 import {
   BOTTOM_BAR_CLASS,
@@ -57,22 +59,6 @@ const ImageSearchModal = dynamic(
   () => import("@/components/ImageSearchModal").then((m) => m.ImageSearchModal),
   { ssr: false },
 );
-
-// スロットごとの機能色 (docs/31-下部操作バー計画.md §11-1)。
-// ラベルを読まなくても色と形で狙えるようにする。色をアイコン側ではなく
-// ここから与えるのは、選択スロットが押下中に白へ反転するため — 反転を知って
-// いるのはこの部品だけで、currentColor 経由なら text-white がそのまま勝つ。
-// ラベルの文字は塗らない。0.625rem を 5 色に塗るとうるさく、読みにくくなる
-function SlotIcon({
-  color,
-  children,
-}: {
-  color: string;
-  children: React.ReactNode;
-}) {
-  // flex … span を inline のまま置くと svg の下にベースラインぶんの隙間が出る
-  return <span className={`flex ${color}`}>{children}</span>;
-}
 
 // 長押しメニューの行頭に置く「いまこれ」の印 (docs/62 §3)。
 //
@@ -177,7 +163,6 @@ export function BottomActionBar({
     card: "image",
     image: "compact",
   };
-  const nextView = nextViewOf[view];
   // 長押しメニューに並べる順。循環と同じ並びにして、短いタップで辿る順と
   // メニューの上下が食い違わないようにする
   const viewOrder: ViewMode[] = ["compact", "card", "image"];
@@ -189,12 +174,20 @@ export function BottomActionBar({
     accessed: "アクセス順",
     itemNo: "番号順",
   };
+  // 並び順は 3 値とも同じアイコン。表示モードのように形で区別しないのは、
+  // 「並び替え」という 1 つの機能の中の選択肢だから (色も 1 色)。
+  // それでも表で持つのは、スロット側 (CycleSlot) が表示モードと同じ形で
+  // 扱えるようにするため — 片方だけ特別扱いする分岐を作らない
+  const sortIcon: Record<Sort, ReactNode> = {
+    updated: <SortIcon />,
+    accessed: <SortIcon />,
+    itemNo: <SortIcon />,
+  };
   const nextSortOf: Record<Sort, Sort> = {
     updated: "accessed",
     accessed: "itemNo",
     itemNo: "updated",
   };
-  const nextSort = nextSortOf[sort];
   const sortOrder: Sort[] = ["updated", "accessed", "itemNo"];
 
   return (
@@ -243,21 +236,21 @@ export function BottomActionBar({
               submit ボタンなので、送り先も cookie の書き方も 1 通りのまま。
               relative … メニュー (absolute) の基準になる */}
           <form action={viewAction} className="relative flex flex-1">
-            <button
-              ref={viewButtonRef}
-              type="submit"
-              name={VIEW_MODE_COOKIE}
-              value={nextView}
-              aria-label={`表示: ${viewLabel[view]} (押すと${viewLabel[nextView]}に切替、長押しで一覧)`}
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "view"}
-              {...viewPress}
+            <CycleSlot
+              cookieName={VIEW_MODE_COOKIE}
+              current={view}
+              nextOf={nextViewOf}
+              labelOf={viewLabel}
+              iconOf={viewIcon}
+              color="text-emerald-600"
+              describe={(mode) =>
+                `表示: ${viewLabel[mode]} (押すと${viewLabel[nextViewOf[mode]]}に切替、長押しで一覧)`
+              }
+              expanded={openMenu === "view"}
+              buttonRef={viewButtonRef}
+              press={viewPress}
               onClick={(event) => dismissOrCycle(event, "view", viewPress.onClick)}
-              className={`${BOTTOM_BAR_SLOT_CLASS} text-gray-700`}
-            >
-              <SlotIcon color="text-emerald-600">{viewIcon[view]}</SlotIcon>
-              {viewLabel[view]}
-            </button>
+            />
             {/* メニューは**ボタンより後ろ**に置く。absolute なので見た目の
                 位置は変わらないが、DOM の並びがそのままタブ順になるため、
                 前に置くと開いた項目へ Shift+Tab でしか入れない */}
@@ -298,23 +291,21 @@ export function BottomActionBar({
               検索語は hidden で持ち回す (並び替えで検索語が消えては困る) */}
           <form action={sortAction} className="relative flex flex-1">
             <input type="hidden" name="q" value={query} />
-            <button
-              ref={sortButtonRef}
-              type="submit"
-              name={SORT_COOKIE}
-              value={nextSort}
-              aria-label={`並び順: ${sortLabel[sort]} (押すと${sortLabel[nextSort]}に切替、長押しで一覧)`}
-              aria-haspopup="menu"
-              aria-expanded={openMenu === "sort"}
-              {...sortPress}
+            <CycleSlot
+              cookieName={SORT_COOKIE}
+              current={sort}
+              nextOf={nextSortOf}
+              labelOf={sortLabel}
+              iconOf={sortIcon}
+              color="text-amber-600"
+              describe={(value) =>
+                `並び順: ${sortLabel[value]} (押すと${sortLabel[nextSortOf[value]]}に切替、長押しで一覧)`
+              }
+              expanded={openMenu === "sort"}
+              buttonRef={sortButtonRef}
+              press={sortPress}
               onClick={(event) => dismissOrCycle(event, "sort", sortPress.onClick)}
-              className={`${BOTTOM_BAR_SLOT_CLASS} text-gray-700`}
-            >
-              <SlotIcon color="text-amber-600">
-                <SortIcon />
-              </SlotIcon>
-              {sortLabel[sort]}
-            </button>
+            />
             {/* 表示モードと同じく、メニューはボタンより後ろ (タブ順のため) */}
             {openMenu === "sort" && (
               <SlotMenu
