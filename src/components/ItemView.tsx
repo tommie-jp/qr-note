@@ -126,8 +126,11 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           />
         }
         textView={
+          // note-text-scale … markdown 表示と同じ倍率で拡大する
+          // (docs/61-テキストサイズ計画.md)。基準は従来の text-base のままに
+          // したいので --note-text-base で 1rem を与える (既定は prose-sm 相当)
           <pre
-            className={`whitespace-pre-wrap break-words ${BOX_CLASS} font-mono text-base`}
+            className={`whitespace-pre-wrap break-words ${BOX_CLASS} note-text-scale font-mono [--note-text-base:1rem]`}
           >
             {memo}
           </pre>

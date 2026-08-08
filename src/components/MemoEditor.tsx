@@ -210,11 +210,15 @@ export function MemoEditor({
         </p>
       )}
       {!isEditorReady && (
+        // note-text-scale … CodeMirror (.cm-editor) と同じ倍率で描く
+        // (docs/61-テキストサイズ計画.md)。付けないと、本文を大きくしている
+        // 人には読み込みが終わった瞬間に文字が跳ねて見える。基準は
+        // MEMO_INPUT_CLASS の text-base と同じ 1rem
         <textarea
           readOnly
           rows={8}
           value={value}
-          className={MEMO_INPUT_CLASS}
+          className={`${MEMO_INPUT_CLASS} note-text-scale [--note-text-base:1rem]`}
           placeholder="エディタを読み込み中…"
         />
       )}

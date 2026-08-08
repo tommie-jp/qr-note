@@ -78,8 +78,13 @@ export const BUSY_SPINNER_CLASS =
 //
 // gap-2 は行頭のアイコン (MenuIcons.tsx) との間隔。高さは 44px のまま —
 // メニューは「狙って押す」場所なので、検索画面のように詰めない
-export const HEADER_MENU_ITEM_CLASS =
-  "flex min-h-11 w-full items-center gap-2 rounded px-3 text-left font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200";
+// 押せない行 (中に自前のボタンを持つ TextSizeMenuItem など) はこちらを使う。
+// 押せる行と寸法だけを共有し、押した感じの色は持たない — 行のどこを押しても
+// 何も起きないのに反応が返ると、押し損ねたように見えるため
+export const HEADER_MENU_ROW_CLASS =
+  "flex min-h-11 w-full items-center gap-2 rounded px-3 text-left font-medium text-gray-700";
+
+export const HEADER_MENU_ITEM_CLASS = `${HEADER_MENU_ROW_CLASS} transition-colors hover:bg-gray-100 active:bg-gray-200`;
 
 // 破壊的な操作 (ゴミ箱へ / 永久削除)。赤は「戻せないかもしれない」の合図で、
 // 押す前に一拍置かせる。枠は持たせない (主ボタンと同格に見せない)

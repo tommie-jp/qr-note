@@ -36,12 +36,29 @@ summary {
   touch-action: manipulation;
 }
 
+/* 本文の文字サイズ (docs/61-テキストサイズ計画.md)。
+   --note-font-scale は html に立つ倍率 (メニューの ＋ / − と、初回描画前に
+   走る layout.tsx のインラインスクリプトが書く)。立っていなければ 1 = 従来どおり。
+
+   **@utility ではなく素の CSS で書くこと。** ここは cascade layer の外なので、
+   layer の中にいる Tailwind の text-base や typography の prose-sm より必ず
+   強い。@utility にすると同じ layer の中で並び順の勝負になり、prose-sm の
+   font-size に負けて効かないことがある (.cm-editor / .textLayer が素の CSS な
+   のも同じ理由)。
+
+   基準サイズは使う側が --note-text-base で与える。既定の 0.875rem は
+   prose-sm と同じ寸法で、倍率 1 なら見た目は変わらない */
+.note-text-scale {
+  font-size: calc(var(--note-text-base, 0.875rem) * var(--note-font-scale, 1));
+}
+
 /* CodeMirror (memo エディタ) は font-family: monospace のみ指定で font-size が
    未指定のため、ブラウザ既定の等幅サイズ (13px) で描画される。iOS Safari は
    16px 未満の入力欄にフォーカスすると自動ズームし、更新後もズームが残るので、
-   16px (= 1rem, 読み込み中 textarea の text-base と同じ) を明示して防ぐ */
+   16px (= 1rem, 読み込み中 textarea の text-base と同じ) を明示して防ぐ。
+   倍率は 1 を下限にしてあるので (noteFontScale.ts)、掛けても 16px を割らない */
 .cm-editor {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--note-font-scale, 1));
 }
 
 /* viewport-fit=cover でノッチ/ホームバーに潜り込まないための余白。

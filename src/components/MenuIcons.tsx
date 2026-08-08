@@ -148,6 +148,22 @@ export function InfoIcon() {
   );
 }
 
+// テキストサイズ: 大小 2 つの "A" (docs/61-テキストサイズ計画.md §3)。
+// 拡大鏡や ± の記号にはしない — 隣に ＋ / − のボタンが並ぶので、行頭にも
+// 記号を置くと同じ話を二度する。文字そのものの大小で「文字の大きさ」を指す。
+//
+// **<text> でフォントに描かせない。** 字幅は端末のフォント任せで、serif の
+// 実体が違えば右の A が viewBox からはみ出して脚が切れる (svg は既定で
+// overflow:hidden)。他のアイコンと同じく線で描けば寸法は自分で決まる
+export function TextSizeIcon() {
+  return (
+    <StrokeIcon className="text-indigo-600">
+      <path d="M2 20l3-8 3 8M3 17.5h4" />
+      <path d="M11 20l5-13 5 13M12.7 16h6.6" />
+    </StrokeIcon>
+  );
+}
+
 // GitHub だけは線画にしない。Octocat は塗りで成立している商標で、
 // 線でなぞると別物になる。公式 octicon (mark-github, MIT) の形をそのまま使う。
 // 同じ理由で色も付けない — 商標を勝手に塗り替えないため、ここだけ行の文字色に従う

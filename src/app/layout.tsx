@@ -23,7 +23,9 @@ import {
 } from "@/components/MenuIcons";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { RecordTagSearch } from "@/components/RecordTagSearch";
+import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
+import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/noteFontScale";
 import {
   isDemoMode,
   isProductionEnv,
@@ -102,7 +104,19 @@ export default async function RootLayout({
   const isDemo = isDemoMode();
 
   return (
-    <html lang="ja" className="h-full antialiased">
+    // suppressHydrationWarning … 下のインラインスクリプトが hydration より前に
+    // この html へ style (--note-font-scale) を書き足すため。付けないと React が
+    // 差分を「不整合」と見なし、境界ごと描き直して倍率が失われる
+    <html lang="ja" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        {/* 本文の文字サイズを初回描画の前に当てる (docs/61-テキストサイズ計画.md)。
+            useEffect で当てると等倍の本文が一度見えてから大きくなるので、
+            HTML の解析中に同期で走らせる (Next の
+            docs/01-app/02-guides/preventing-flash-before-hydration.md と同じ手) */}
+        <script
+          dangerouslySetInnerHTML={{ __html: NOTE_FONT_SCALE_INIT_SCRIPT }}
+        />
+      </head>
       <body
         className={`min-h-full text-gray-900 ${isProd ? "bg-gray-50" : "bg-pink-50"}`}
       >
@@ -153,6 +167,10 @@ export default async function RootLayout({
                 <InfoIcon />
                 クレジット
               </Link>
+              {/* 本文の文字サイズ (docs/61-テキストサイズ計画.md)。
+                  ログイン状態やデモに依らず出す — 読みやすさの設定であって、
+                  ノートを持っているかとは関係がない (公開ノートにも効く) */}
+              <TextSizeMenuItem />
               {user ? (
                 <>
                   {/* デモでは設定系の導線を出さない (docs/38-デモモード計画.md §4)。
