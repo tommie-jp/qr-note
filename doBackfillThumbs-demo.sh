@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # デモ (qr-demo) の images.thumb を作り直す doBackfillThumbs.sh の薄いラッパ。
 #
-# なぜラッパを分けるか (doDeployDemo.sh と同じ理由):
+# なぜラッパを分けるか (doDeploy.sh の --demo と同じ理由):
 #  1. env を固定する。手打ちで DEPLOY_DB_PORT=5433 を忘れると、
 #     デモのつもりで**本番 (5432) の thumb を作り直してしまう**。
 #  2. **種 qr_seed も作り直す**。デモは毎時 `createdb -T qr_seed qr` で

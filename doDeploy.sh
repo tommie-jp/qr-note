@@ -32,15 +32,36 @@
 # バージョンアップはイメージビルドより前に行う。
 #
 # 使い方:
-#   ./doDeploy.sh [patch|minor|major | --no-version-up] [--send-compose.yml]
+#   ./doDeploy.sh [patch|minor|major | --no-version-up] [--demo] [--send-compose.yml]
 #                                                          (版指定の省略時: patch)
 #   ./doDeploy.sh -h                                        (この説明を表示)
 #
+#   --demo  デモインスタンス (qr-demo) へ配る。
+#
+#     デモスタックの接続先を一括で固定する: リモートディレクトリ qr-demo、
+#     migrate 先の DB ポート 5433、ヘルスチェック先の app ポート 3100。
+#     **app ポートが 3000 のままだと本番 app を叩いて誤って成功と判定する**ため、
+#     手打ちの env ではなくこの旗で配ること (env を明示すればそちらが勝つ)。
+#
+#     **既定で版を上げない** (--no-version-up 相当)。デモは本番と同じ版を配るのが
+#     通常の運用なので、既定側をそちらに寄せてある。デモだけ版を上げたいときは
+#     patch|minor|major を明示する。
+#
+#       ./doDeploy.sh patch      # 本番: 版を上げて配る
+#       ./doDeploy.sh --demo     # デモ: 同じ版を再利用して配る
+#
+#     さらに手順 6 で**種 qr_seed にも migrate を当てる** (docs/39-デモ公開計画.md
+#     §6-3)。live の qr だけ新スキーマにすると、種は旧スキーマのまま残り、次の
+#     毎時リセット (`createdb -T qr_seed qr`) がスキーマを巻き戻して app が起動
+#     不能になる。**種のデータ (showcase) は触らない** — pending が無ければ
+#     "No pending migrations" で no-op なので、コードのみの更新でも安全に通る。
+#     種の「中身」を変えたいときは別途 docs/40 §3 で撮り直す。
+#
 #   --no-version-up  版を上げず、現行 package.json の版をそのまま配る。
 #
-#     本番→デモを同じ版で配るための経路。doDeploy.sh は毎回 doVersion.sh で版を
-#     上げるので、ラッパ (doDeployDemo.sh) をそのまま続けて呼ぶと版がずれる。
-#     デモ側を --no-version-up で呼べば、直前に本番へ配った版をそのまま載せられる。
+#     本番→デモを同じ版で配るための経路 (--demo では既定でこの動きになる)。
+#     doDeploy.sh は毎回 doVersion.sh で版を上げるので、本番の後にデモを無印で
+#     呼ぶと版がずれる。版を据え置けば、直前に本番へ配った版をそのまま載せられる。
 #     レジストリに同版のイメージがあれば **ビルドも lint/test も飛ばして再利用**する
 #     (本番と**ビット単位で同一**のイメージが載る)。無ければ版据え置きでビルドする。
 #     注意: 再利用時に配られるのは「その版を push した時点のイメージ」で、手元の
@@ -55,24 +76,23 @@
 #     コンテナには届かず「設定したのに未設定と言われる」形で嵌まる
 #     (docs/29-パスキー計画.md §12 で実際に踏んだ)。
 #
-# 環境変数で上書き可能:
+# 環境変数で上書き可能 (括弧内は 既定 / --demo 時の既定):
 #   DEPLOY_REMOTE          ssh 接続先 (default: vps2)
-#   DEPLOY_REMOTE_DIR      リモートの compose ディレクトリ ($HOME 相対, default: 41-QR-search/qr-search)
+#   DEPLOY_REMOTE_DIR      リモートの compose ディレクトリ ($HOME 相対,
+#                          default: 41-QR-search/qr-search / --demo: qr-demo)
 #   DEPLOY_TUNNEL_PORT     マイグレーション用トンネルのローカルポート (default: 15432)
-#   DEPLOY_DB_PORT         マイグレーション先の **リモート側** DB ポート (default: 5432)
-#   DEPLOY_APP_PORT        ヘルスチェックで叩くリモート側 app ポート (default: 3000)
+#   DEPLOY_DB_PORT         マイグレーション先の **リモート側** DB ポート (default: 5432 / --demo: 5433)
+#   DEPLOY_APP_PORT        ヘルスチェックで叩くリモート側 app ポート (default: 3000 / --demo: 3100)
 #   DEPLOY_REGISTRY_PORT   レジストリ転送用トンネルのローカルポート (default: 15000)
 #   DEPLOY_REGISTRY_REMOTE_PORT リモート registry:2 の待受ポート (default: 5000)
 #
-# デモインスタンス (qr-demo) へのデプロイは、別スタックのポートに向けて:
-#   DEPLOY_REMOTE_DIR=qr-demo DEPLOY_DB_PORT=5433 DEPLOY_APP_PORT=3100 ./doDeploy.sh
-# (compose.demo.yaml + デモ .env は配置済みの前提。docs/39-デモ公開計画.md §5)
+# デモは compose.demo.yaml + デモ .env が配置済みの前提 (docs/39-デモ公開計画.md §5)。
 # レジストリは本番・デモで共用する (イメージ名が同じなのでそのまま両対応)。
 set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() {
-  echo "usage: $0 [patch|minor|major | --no-version-up] [--send-compose.yml]" >&2
+  echo "usage: $0 [patch|minor|major | --no-version-up] [--demo] [--send-compose.yml]" >&2
   echo "       $0 -h    (詳しい説明)" >&2
   exit 1
 }
@@ -87,11 +107,13 @@ help() {
 BUMP=""
 NO_VERSION_UP=0
 SEND_COMPOSE=0
+DEMO=0
 for arg in "$@"; do
   case "$arg" in
     -h|--help) help ;;
     --send-compose.yml) SEND_COMPOSE=1 ;;
     --no-version-up) NO_VERSION_UP=1 ;;
+    --demo) DEMO=1 ;;
     patch|minor|major)
       # バージョンの上げ幅を 2 つ書かれたら、どちらの意図か決められない
       [ -z "$BUMP" ] || usage
@@ -102,15 +124,27 @@ for arg in "$@"; do
 done
 # 版を上げない指定と、上げ幅の指定は矛盾する
 if [ "$NO_VERSION_UP" = 1 ] && [ -n "$BUMP" ]; then usage; fi
+# --demo は既定で版を据え置く。デモには本番と同じ版を配るのが通常の運用で、
+# 上げ幅を明示したときだけ (デモ単独のリリース) 版を上げる
+if [ "$DEMO" = 1 ] && [ -z "$BUMP" ]; then NO_VERSION_UP=1; fi
 BUMP="${BUMP:-patch}"
 
 REMOTE="${DEPLOY_REMOTE:-vps2}"
-REMOTE_DIR="${DEPLOY_REMOTE_DIR:-41-QR-search/qr-search}"
 TUNNEL_PORT="${DEPLOY_TUNNEL_PORT:-15432}"
-# マイグレーション先のリモート側 DB ポートと、ヘルスチェックの app ポート。
-# 既定 (5432 / 3000) は本番。デモは別スタックの別ポート (5433 / 3100) を渡す。
-# **デモで 3000 のままだと、本番 app を叩いて誤って成功と判定する**ので必須
-REMOTE_DB_PORT="${DEPLOY_DB_PORT:-5432}"
+# 接続先 (compose ディレクトリ / migrate 先 DB ポート / ヘルスチェックの app ポート)。
+# 既定 (41-QR-search/qr-search / 5432 / 3000) は本番、--demo は別スタックの値。
+# **デモで app ポートが 3000 のままだと、本番 app を叩いて誤って成功と判定する**
+# ため、3 点をまとめて旗で切り替える (env を明示すればそちらが勝つ)。
+if [ "$DEMO" = 1 ]; then
+  REMOTE_DIR="${DEPLOY_REMOTE_DIR:-qr-demo}"
+  REMOTE_DB_PORT="${DEPLOY_DB_PORT:-5433}"
+  APP_PORT="${DEPLOY_APP_PORT:-3100}"
+  SEED_DB="qr_seed"       # 毎時リセットの種 DB (手順 6 でスキーマを揃える)
+else
+  REMOTE_DIR="${DEPLOY_REMOTE_DIR:-41-QR-search/qr-search}"
+  REMOTE_DB_PORT="${DEPLOY_DB_PORT:-5432}"
+  APP_PORT="${DEPLOY_APP_PORT:-3000}"
+fi
 # レジストリ転送用トンネル: ローカル $REGISTRY_PORT → リモート $REGISTRY_REMOTE_PORT。
 # 本番・デモとも同じレジストリを共用するので、ここはスタックによらず既定でよい。
 REGISTRY_PORT="${DEPLOY_REGISTRY_PORT:-15000}"
@@ -122,7 +156,7 @@ BUILDER="qr-host"           # host ネットワークの buildx ビルダー名
 BUILD_EPOCH="1704067200"
 REG_LOCAL="127.0.0.1:${REGISTRY_PORT}/qr-search-app"
 REG_REMOTE="127.0.0.1:${REGISTRY_REMOTE_PORT}/qr-search-app"
-HEALTH_URL="http://127.0.0.1:${DEPLOY_APP_PORT:-3000}/"
+HEALTH_URL="http://127.0.0.1:${APP_PORT}/"
 HEALTH_RETRIES=30
 
 log() { echo ""; echo "==> $*"; }
@@ -262,6 +296,22 @@ DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTaskCounts.ts
 # 毎回流す。派生列を更新しない経路 (Ver1 取り込み) で狂っても次のデプロイで直る。
 echo "--- 見出しの派生列を切り出し直す"
 DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTitles.ts
+
+# デモは live の qr を migrate しただけでは足りない。種 qr_seed が旧スキーマのまま
+# 残り、次の毎時リセット (`createdb -T qr_seed qr`) がスキーマを巻き戻して app が
+# 起動不能になる (docs/39-デモ公開計画.md §6-3)。ここで種にも同じ migration を当てる。
+# **種のデータ (showcase) は触らない** — pending が無ければ "No pending migrations"
+# で no-op なので、コードのみの更新でも安全に通る。種は live と同じ Postgres の
+# 別 DB なので、上のトンネルを DB 名だけ変えて使い回す。
+#
+# 種の PGroonga 索引は migrate や過去の複製で壊れていることがあるが、直さない。
+# 毎時の reseedDemo.sh が createdb -T の後に live 側を REINDEX するため、
+# qr_seed 自身の索引状態は live に影響しない (docs/39 §6-2)。
+if [ "$DEMO" = 1 ]; then
+  echo "--- 種 ($SEED_DB) のスキーマを live に揃える"
+  DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${SEED_DB}" \
+    npx prisma migrate deploy
+fi
 
 SSH -O cancel -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE" 2>/dev/null || true
 
