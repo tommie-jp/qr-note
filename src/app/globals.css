@@ -52,6 +52,23 @@ summary {
   font-size: calc(var(--note-text-base, 0.875rem) * var(--note-font-scale, 1));
 }
 
+/* 図 (circuitikz / mermaid) も本文と同じ倍率で拡縮する (docs/61 §4)。
+   circuitikz の SVG はサーバ生成で width="222.046" のような固定 px 属性を
+   持つため、font-size では動かない。transform: scale() はレイアウト箱が
+   変わらず余白だけ崩れるので、レイアウトごと拡縮する zoom を使う
+   (Safari/Chrome は昔から、Firefox は 126+。非対応では等倍のまま = 安全な劣化)。
+   overflow-x … 拡大した図が本文カードの幅を超えたら、図の中だけ横に
+   スクロールさせる (コードブロックと同じ作法)。等倍でも幅広の回路図には効く */
+.circuit-diagram,
+.mermaid-diagram {
+  overflow-x: auto;
+}
+
+.circuit-diagram > svg,
+.mermaid-diagram > svg {
+  zoom: var(--note-font-scale, 1);
+}
+
 /* CodeMirror (memo エディタ) は font-family: monospace のみ指定で font-size が
    未指定のため、ブラウザ既定の等幅サイズ (13px) で描画される。iOS Safari は
    16px 未満の入力欄にフォーカスすると自動ズームし、更新後もズームが残るので、
