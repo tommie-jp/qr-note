@@ -111,10 +111,23 @@ describe('parseSort', () => {
     expect(parseSort('title')).toBe('title')
   })
 
+  // 逆順は種別ごとに別の値として持つ (docs/64-並び順逆順計画.md §2)。
+  // 基底の 4 値の意味は変えないので、前に選んだ cookie も共有 URL も
+  // そのままの並びで開く
+  test('returns the reversed sorts as-is', () => {
+    expect(parseSort('updatedAsc')).toBe('updatedAsc')
+    expect(parseSort('accessedAsc')).toBe('accessedAsc')
+    expect(parseSort('itemNoDesc')).toBe('itemNoDesc')
+    expect(parseSort('titleDesc')).toBe('titleDesc')
+  })
+
   test('defaults to "updated" for undefined or unknown values', () => {
     expect(parseSort(undefined)).toBe('updated')
     expect(parseSort('other')).toBe('updated')
     expect(parseSort(null)).toBe('updated')
+    // 方向だけの値は並びを決められないので既定へ倒す
+    expect(parseSort('asc')).toBe('updated')
+    expect(parseSort('updatedDesc')).toBe('updated')
   })
 })
 

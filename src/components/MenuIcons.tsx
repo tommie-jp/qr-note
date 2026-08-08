@@ -269,11 +269,32 @@ export function ImageViewIcon() {
   );
 }
 
-// 並び順: 上下矢印。面になるシェイプが無いのでティントは敷かない
+// 並び順: 上下矢印。面になるシェイプが無いのでティントは敷かない。
+// 方向を持たない「並び替え」そのものの印で、長押しメニューの行頭に使う
 export function SortIcon() {
   return (
     <StrokeIconLarge>
       <path d="M12 5v14M5 12l7-7 7 7M5 12l7 7 7-7" />
+    </StrokeIconLarge>
+  );
+}
+
+// 並び順の方向 (docs/64-並び順逆順計画.md §4)。下部バーのスロットは
+// **アイコンで方向を出す** — ラベルに「↓」を足すと、いちばん長い
+// 「アクセス順」が 5 スロットの幅 (320px 端末で 1 枠 56px) からあふれる。
+// 矢印の頭を片側だけにして、上下両向きの SortIcon と一目で見分かるようにする
+export function SortDescIcon() {
+  return (
+    <StrokeIconLarge>
+      <path d="M12 4v16M6 14l6 6 6-6" />
+    </StrokeIconLarge>
+  );
+}
+
+export function SortAscIcon() {
+  return (
+    <StrokeIconLarge>
+      <path d="M12 20V4M6 10l6-6 6 6" />
     </StrokeIconLarge>
   );
 }

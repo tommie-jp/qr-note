@@ -71,28 +71,63 @@ test("更新順の次はアクセス順", () => {
   expect(html).toContain(">更新順<");
   expect(html).toContain('value="accessed"');
   // 行き先も読み上げに乗せる (押す前に循環の次が判る)
-  expect(html).toContain("並び順: 更新順 (押すとアクセス順に切替、長押しで一覧)");
+  expect(html).toContain(
+    "並び順: 更新順・新しい順 (押すとアクセス順に切替、長押しで一覧)",
+  );
 });
 
 test("アクセス順の次は番号順", () => {
   const html = render("compact", "accessed");
   expect(html).toContain(">アクセス順<");
   expect(html).toContain('value="itemNo"');
-  expect(html).toContain("並び順: アクセス順 (押すと番号順に切替、長押しで一覧)");
+  expect(html).toContain(
+    "並び順: アクセス順・新しい順 (押すと番号順に切替、長押しで一覧)",
+  );
 });
 
 test("番号順の次はタイトル順", () => {
   const html = render("compact", "itemNo");
   expect(html).toContain(">番号順<");
   expect(html).toContain('value="title"');
-  expect(html).toContain("並び順: 番号順 (押すとタイトル順に切替、長押しで一覧)");
+  expect(html).toContain(
+    "並び順: 番号順・小さい順 (押すとタイトル順に切替、長押しで一覧)",
+  );
 });
 
 test("タイトル順の次は既定の更新順に戻る (循環の最後の辺)", () => {
   const html = render("compact", "title");
   expect(html).toContain(">タイトル順<");
   expect(html).toContain('value="updated"');
-  expect(html).toContain("並び順: タイトル順 (押すと更新順に切替、長押しで一覧)");
+  expect(html).toContain(
+    "並び順: タイトル順・昇順 (押すと更新順に切替、長押しで一覧)",
+  );
+});
+
+// 逆順 (docs/64-並び順逆順計画.md)。メニューは 4 行のままで、
+// **選んである行をもう一度押したときだけ**方向が裏返る。
+// バーのラベルは種別のまま (幅が増えない) で、方向はアイコンと読み上げに出す
+test("逆順でも種別のラベルは変わらず、方向は読み上げに出る", () => {
+  const html = render("compact", "updatedAsc");
+  expect(html).toContain(">更新順<");
+  expect(html).toContain(
+    "並び順: 更新順・古い順 (押すとアクセス順に切替、長押しで一覧)",
+  );
+});
+
+// 短いタップは今までどおり**種別だけ**を回す。方向はその種別の既定に戻す —
+// 8 値を 1 スロットで循環させると一周が遠すぎるし、いま何順なのかも見失う
+test("逆順から短いタップで回すと次の種別の既定の方向へ行く", () => {
+  expect(render("compact", "updatedAsc")).toContain('value="accessed"');
+  expect(render("compact", "itemNoDesc")).toContain('value="title"');
+  expect(render("compact", "titleDesc")).toContain('value="updated"');
+});
+
+test("方向ごとに違うアイコンを出す (昇順と降順で描画が変わる)", () => {
+  // 形そのもの (上向き / 下向きの矢印) はブラウザで確認する。ここで固定
+  // できるのは「方向で描き分けている」ことだけ
+  expect(render("compact", "accessed")).not.toBe(
+    render("compact", "accessedAsc"),
+  );
 });
 
 // リンクのままだと URL しか変わらず、?sort= を持たない入口から入るたびに

@@ -10,6 +10,8 @@ import {
   ListViewIcon,
   ScanIcon,
   SelectIcon,
+  SortAscIcon,
+  SortDescIcon,
   SortIcon,
 } from "@/components/MenuIcons";
 import { useSelectMode } from "@/components/SelectModeProvider";
@@ -23,8 +25,15 @@ import {
   SLOT_MENU_ITEM_CLASS,
 } from "@/components/ui";
 import { useLongPress } from "@/components/useLongPress";
+import {
+  baseOf,
+  bySort,
+  isDescending,
+  isReversed,
+  reverseOf,
+} from "@/lib/sortDirection";
 import { SORT_COOKIE } from "@/lib/sortMode";
-import type { Sort } from "@/lib/validation";
+import type { Sort, SortBase } from "@/lib/validation";
 import { VIEW_MODE_COOKIE, type ViewMode } from "@/lib/viewMode";
 
 // cookie を書くサーバーアクション。db.ts を巻き込まないよう prop で受ける
@@ -69,6 +78,23 @@ function MenuCheck({ checked }: { checked: boolean }) {
   return (
     <span aria-hidden className="w-4 shrink-0 text-center text-blue-600">
       {checked ? "✓" : ""}
+    </span>
+  );
+}
+
+// 並び順メニューの現在行だけに出す方向の印 (docs/64-並び順逆順計画.md §4)。
+//
+// **行の右端に離して置く**のが要点。ラベルの隣に付けると種別の名前の一部に
+// 見えるが、離すと「この行にもう 1 つ的がある」と読める — 実際この行は
+// 押すと方向が裏返る。矢印の向きは並びそのもの (降順なら ↓) で、
+// 「押すと下がる」ではない。読み上げ側は行の aria-label が持つので隠す
+function DirectionMark({ sort }: { sort: Sort }) {
+  return (
+    <span
+      aria-hidden
+      className="ml-auto pl-4 text-base leading-none text-amber-600"
+    >
+      {isDescending(sort) ? "↓" : "↑"}
     </span>
   );
 }
@@ -172,30 +198,49 @@ export function BottomActionBar({
   // (更新順・アクセス順) を隣どうしに置いたまま、タイトル順を末尾に足す。
   //
   // 4 値になると短いタップで一周するのが遠くなるが、長押しで直接選べる
-  // (docs/62 §3) ので、循環の順を組み替えてまで近づけない
-  const sortLabel: Record<Sort, string> = {
+  // (docs/62 §3) ので、循環の順を組み替えてまで近づけない。
+  //
+  // **逆順は行を増やさない** (docs/64-並び順逆順計画.md)。8 行のメニューと
+  // 8 値の循環にすると、選ぶ前に読む量も一周の遠さも倍になる。ここで扱うのは
+  // 種別 4 つのままで、方向はメニューの現在行の再タップに載せる
+  const sortBaseLabel: Record<SortBase, string> = {
     updated: "更新順",
     accessed: "アクセス順",
     itemNo: "番号順",
     title: "タイトル順",
   };
-  // 並び順は 4 値とも同じアイコン。表示モードのように形で区別しないのは、
-  // 「並び替え」という 1 つの機能の中の選択肢だから (色も 1 色)。
-  // それでも表で持つのは、スロット側 (CycleSlot) が表示モードと同じ形で
-  // 扱えるようにするため — 片方だけ特別扱いする分岐を作らない
-  const sortIcon: Record<Sort, ReactNode> = {
-    updated: <SortIcon />,
-    accessed: <SortIcon />,
-    itemNo: <SortIcon />,
-    title: <SortIcon />,
+  // 方向の呼び名は [既定の向き, 逆順] の順。種別で言い方が変わる — 日時を
+  // 「昇順」と読んでも新旧のどちらが上か判らないし、番号に「新しい」は無い。
+  // 名前で語れないタイトル順にだけ昇順・降順を使う
+  const sortDirectionLabel: Record<SortBase, readonly [string, string]> = {
+    updated: ["新しい順", "古い順"],
+    accessed: ["新しい順", "古い順"],
+    itemNo: ["小さい順", "大きい順"],
+    title: ["昇順", "降順"],
   };
-  const nextSortOf: Record<Sort, Sort> = {
+  const directionLabelOf = (value: Sort) =>
+    sortDirectionLabel[baseOf(value)][isReversed(value) ? 1 : 0];
+  const nextBaseOf: Record<SortBase, SortBase> = {
     updated: "accessed",
     accessed: "itemNo",
     itemNo: "title",
     title: "updated",
   };
-  const sortOrder: Sort[] = ["updated", "accessed", "itemNo", "title"];
+  const sortBases: SortBase[] = ["updated", "accessed", "itemNo", "title"];
+
+  // CycleSlot へ渡す表は 8 値ぶん要る (送信中の値を畳む鍵になる)。
+  // 種別ごとの表から widen するだけなので、逆順を足しても書く表は増えない
+  const sortLabel = bySort((value) => sortBaseLabel[baseOf(value)]);
+  // 種別では形を変えない — 「並び替え」という 1 つの機能の中の選択肢だから
+  // (色も 1 色)。**変えるのは方向だけ**で、↑ / ↓ をラベルに足す代わりに
+  // アイコンで出す (docs/64 §4。「アクセス順↓」は 5 スロットの幅に入らない)
+  const sortIcon = bySort<ReactNode>((value) =>
+    isDescending(value) ? <SortDescIcon /> : <SortAscIcon />,
+  );
+  // 短いタップは**種別だけ**を回し、方向はその種別の既定に戻す。
+  // 方向を引き継ぐと、同じ「番号順」を押しても前回どちらを見ていたかで
+  // 結果が変わる (押す前に何が起きるか読めない)
+  const nextSortOf = bySort<Sort>((value) => nextBaseOf[baseOf(value)]);
 
   return (
     <>
@@ -306,7 +351,7 @@ export function BottomActionBar({
               iconOf={sortIcon}
               color="text-amber-600"
               describe={(value) =>
-                `並び順: ${sortLabel[value]} (押すと${sortLabel[nextSortOf[value]]}に切替、長押しで一覧)`
+                `並び順: ${sortLabel[value]}・${directionLabelOf(value)} (押すと${sortLabel[nextSortOf[value]]}に切替、長押しで一覧)`
               }
               expanded={openMenu === "sort"}
               buttonRef={sortButtonRef}
@@ -320,24 +365,40 @@ export function BottomActionBar({
                 anchorRef={sortButtonRef}
                 onClose={closeMenu}
               >
-                {sortOrder.map((value) => (
-                  <button
-                    key={value}
-                    type="submit"
-                    name={SORT_COOKIE}
-                    value={value}
-                    role="menuitemradio"
-                    aria-checked={value === sort}
-                    onClick={closeAfterSubmit}
-                    className={SLOT_MENU_ITEM_CLASS}
-                  >
-                    <MenuCheck checked={value === sort} />
-                    <SlotIcon color="text-amber-600">
-                      <SortIcon />
-                    </SlotIcon>
-                    {sortLabel[value]}
-                  </button>
-                ))}
+                {/* 行は種別 4 つのまま。**選んである行だけ、送る値が
+                    「方向を裏返した同じ種別」になる** (docs/64 §3) —
+                    選び直す意味の無いタップに逆順を載せるので、行も
+                    循環の値も増えない。押すたびに往復するので迷子にならない */}
+                {sortBases.map((base) => {
+                  const current = base === baseOf(sort);
+                  const flipped = reverseOf(sort);
+                  return (
+                    <button
+                      key={base}
+                      type="submit"
+                      name={SORT_COOKIE}
+                      value={current ? flipped : base}
+                      role="menuitemradio"
+                      aria-checked={current}
+                      // 現在行は押しても種別が変わらないので、何が起きるかを
+                      // 読み上げに書く。矢印だけでは「押せる」と判らない
+                      aria-label={
+                        current
+                          ? `${sortBaseLabel[base]}・${directionLabelOf(sort)} (押すと${directionLabelOf(flipped)}に切替)`
+                          : undefined
+                      }
+                      onClick={closeAfterSubmit}
+                      className={SLOT_MENU_ITEM_CLASS}
+                    >
+                      <MenuCheck checked={current} />
+                      <SlotIcon color="text-amber-600">
+                        <SortIcon />
+                      </SlotIcon>
+                      {sortBaseLabel[base]}
+                      {current && <DirectionMark sort={sort} />}
+                    </button>
+                  );
+                })}
               </SlotMenu>
             )}
           </form>
