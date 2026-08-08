@@ -487,7 +487,11 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
       onSubmit={handleSubmit}
       className="relative flex items-start gap-1.5"
     >
-      <div className="relative min-w-40 flex-1">
+      {/* min-w-[10rem] ではなく px で持つ。テキストサイズ (docs/61) は root の
+          font-size を動かすので、rem の下限は倍率ぶん広がり、200% では窓だけで
+          320px を要求して画面ごと横スクロールになる。窓の中の文字は倍率どおり
+          大きくなるので、器の下限まで一緒に広げる必要はない */}
+      <div className="relative min-w-[160px] flex-1">
         <input
           ref={inputRef}
           type="search"

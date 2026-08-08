@@ -131,8 +131,11 @@ export const BOTTOM_BAR_CLASS =
 
 // landscape-phone:max-w-4xl … スマホ横持ちでは main と同じく 672px の上限を
 // 緩め、スロットを全幅に広げる (docs/31 §12-4)
+// bottom-bar-scale-cap … テキストサイズ (docs/61) の倍率をここだけ 130% で
+// 頭打ちにする。5 スロットを必ず横に並べる帯なので、他と同じだけ大きくすると
+// 175% で画面幅に入らず、右端のスロットが画面の外へ出る (globals.css に詳細)
 export const BOTTOM_BAR_INNER_CLASS =
-  "mx-auto flex max-w-2xl items-stretch px-safe pb-[max(0.25rem,env(safe-area-inset-bottom))] landscape-phone:max-w-4xl";
+  "bottom-bar-scale-cap mx-auto flex max-w-2xl items-stretch px-safe pb-[max(0.25rem,env(safe-area-inset-bottom))] landscape-phone:max-w-4xl";
 
 // バーの 1 スロット。5 等分 (flex-1) して 320px でも 64px を確保する。
 // 高さ 44px 以上 … バーは「狙って押す」場所なので、検索画面の他の操作
@@ -148,8 +151,10 @@ export const BOTTOM_BAR_SLOT_CLASS =
 // バーぶんの余白。これがないと一覧の最終行とページ送りがバーに隠れる。
 // 高さ = アイコン 24 + 隙間 + ラベル + 上下余白 ≒ 3.25rem。
 // landscape-phone はスロットが min-h-9 (36px) + 下余白 4px ≒ 2.5rem
+// バーと同じ上限を掛ける。掛けないと、バーの高さが 130% で止まった後も
+// ここだけ伸び続け、一覧の下に使われない空白が残る
 export const BOTTOM_BAR_SPACER_CLASS =
-  "h-[calc(3.25rem+env(safe-area-inset-bottom))] print:hidden landscape-phone:h-[calc(2.5rem+env(safe-area-inset-bottom))]";
+  "bottom-bar-scale-cap h-[calc(3.25rem+env(safe-area-inset-bottom))] print:hidden landscape-phone:h-[calc(2.5rem+env(safe-area-inset-bottom))]";
 
 // 下部バーのスロットを長押ししたとき出るメニューの 1 行
 // (docs/62-下部バー長押し計画.md §3)。

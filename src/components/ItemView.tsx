@@ -43,11 +43,14 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between">
+      {/* flex-wrap … テキストサイズ (docs/61) を上げると見出しと操作リンク
+          (編集 / 履歴 / QR / 記法) が 1 行に収まらない。折り返さないと画面ごと
+          横スクロールになるので、2 行になるほうを取る (ヘッダーの帯と同じ判断) */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
         <h1 className="text-xl font-bold">
           item <span className="font-mono">#{itemNo}</span>
         </h1>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <Link
             href={`/edit/${itemNo}`}
             className={ACTION_LINK_CLASS}
@@ -126,11 +129,8 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           />
         }
         textView={
-          // note-text-scale … markdown 表示と同じ倍率で拡大する
-          // (docs/61-テキストサイズ計画.md)。基準は従来の text-base のままに
-          // したいので --note-text-base で 1rem を与える (既定は prose-sm 相当)
           <pre
-            className={`whitespace-pre-wrap break-words ${BOX_CLASS} note-text-scale font-mono [--note-text-base:1rem]`}
+            className={`whitespace-pre-wrap break-words ${BOX_CLASS} font-mono text-base`}
           >
             {memo}
           </pre>

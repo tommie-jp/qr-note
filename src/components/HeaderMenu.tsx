@@ -163,13 +163,18 @@ export function HeaderMenu({ children }: { children: React.ReactNode }) {
                 実際 240px の横画面で ✕ へのタップをシートが横取りした。
                 overscroll-contain … スクロールが端に達したとき背面へ
                 伝播させない (背面は overflow:hidden で止めているが、iOS は
-                チェーンでラバーバンドが動くことがある) */}
+                チェーンでラバーバンドが動くことがある)。
+                [&>*]:shrink-0 … 縦に積んだ項目は縮ませない。テキストサイズ
+                (docs/61) を上げると長い項目が 2 行になるが、既定の
+                flex-shrink:1 のままだと入れ物が高さを 1 行ぶんに詰め、
+                あふれた 2 行目が次の項目に重なって描かれる (つまみに
+                shrink-0 が付いているのと同じ理由) */}
             <div
               ref={sheetRef}
               role="menu"
               tabIndex={-1}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[calc(100dvh-max(0.25rem,env(safe-area-inset-top))-2.5rem)] max-w-2xl flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-t-2xl border border-gray-300 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.15)] motion-safe:animate-sheet-up landscape-phone:max-w-4xl"
+              className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[calc(100dvh-max(0.25rem,env(safe-area-inset-top))-2.5rem)] max-w-2xl flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-t-2xl border border-gray-300 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.15)] motion-safe:animate-sheet-up landscape-phone:max-w-4xl [&>*]:shrink-0"
             >
               {/* つまみ。掴んで動かせるわけではないが、この形が
                   「下から出た一時的なシート」の合図として通じている */}

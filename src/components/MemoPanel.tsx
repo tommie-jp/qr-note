@@ -57,7 +57,9 @@ export function MemoPanel({
 
   return (
     <div className="space-y-2">
-      <div role="tablist" className="flex gap-1">
+      {/* flex-wrap … テキストサイズ (docs/61) を上げると 3 つのタブが 1 行に
+          収まらない。折り返さないと画面ごと横スクロールになる */}
+      <div role="tablist" className="flex flex-wrap gap-1">
         {modes.map(({ key, label }) => (
           <button
             key={key}

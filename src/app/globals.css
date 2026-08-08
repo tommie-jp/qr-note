@@ -17,6 +17,28 @@ html {
   overscroll-behavior: none;
   /* 横向きにしたとき iOS が本文を勝手に拡大するのを防ぐ */
   -webkit-text-size-adjust: 100%;
+
+  /* 文字サイズ (docs/61-テキストサイズ計画.md)。--note-font-scale は
+     メニューの ＋ / − と、初回描画前に走る layout.tsx のインラインスクリプトが
+     この html へ立てる。立っていなければ 1 = 従来どおり。
+
+     **root ごと動かすのが要点。** 当初は本文の器にだけ倍率を掛けていたが、
+     「一覧の文字も大きくしたい」となった時点でその形は破綻する — 画面ごとに
+     クラスを貼って回れば、貼り忘れた場所だけ小さいままの「まだら」が必ず残る。
+     このアプリの寸法は Tailwind でほぼ rem なので、ここを動かせば文字・余白・
+     タップ目標・アイコンが**比率を保ったまま**一斉に伸縮する (ブラウザの
+     ズームと同じ挙動)。個別の倍率クラスは全部これに置き換えて消した。
+
+     % で書くこと。rem や em にすると自分自身を参照して倍率が累乗になる */
+  font-size: calc(100% * var(--note-font-scale, 1));
+}
+
+/* 印刷は等倍に戻す。紙の大きさは画面の設定と関係がなく、200% のまま刷ると
+   1 ページに数行しか載らない */
+@media print {
+  html {
+    font-size: 100%;
+  }
 }
 
 body {
@@ -36,23 +58,32 @@ summary {
   touch-action: manipulation;
 }
 
-/* 本文の文字サイズ (docs/61-テキストサイズ計画.md)。
-   --note-font-scale は html に立つ倍率 (メニューの ＋ / − と、初回描画前に
-   走る layout.tsx のインラインスクリプトが書く)。立っていなければ 1 = 従来どおり。
+/* 下部バーだけは倍率に上限を設ける (docs/61 §3)。
+   バーは 5 つのスロットを**必ず横に並べる**帯なので、他と同じだけ大きくすると
+   175% で 390px の画面に入らなくなり、右端のスロットが画面の外へ出る
+   (fixed なので文書の横スクロールにも現れず、ただ消える)。
 
-   **@utility ではなく素の CSS で書くこと。** ここは cascade layer の外なので、
-   layer の中にいる Tailwind の text-base や typography の prose-sm より必ず
-   強い。@utility にすると同じ layer の中で並び順の勝負になり、prose-sm の
-   font-size に負けて効かないことがある (.cm-editor / .textLayer が素の CSS な
-   のも同じ理由)。
+   min(1, 1.3 / 倍率) … 130% までは素直に追随し、それを超えたら 130% の
+   見た目で頭打ちにする。zoom なのは、中の寸法 (アイコンの size-6 など) が
+   rem で書かれていて font-size では動かないため。帯の背景は全幅のまま
+   欲しいので、fixed な親ではなく**中の行**に掛ける。
+   余白 (spacer) にも同じ上限を掛けること — 掛け忘れると、バーの高さが
+   止まった後も一覧の下の空きだけが伸び続ける。
 
-   基準サイズは使う側が --note-text-base で与える。既定の 0.875rem は
-   prose-sm と同じ寸法で、倍率 1 なら見た目は変わらない */
-.note-text-scale {
-  font-size: calc(var(--note-text-base, 0.875rem) * var(--note-font-scale, 1));
+   **式はカスタムプロパティに逃がすこと。** zoom へ直接書くと、ビルド時の
+   CSS 最適化 (lightningcss) が var() 込みの除算を畳めずに宣言ごと落とし、
+   ブラウザには何も届かない (実際それで無反応だった)。カスタムプロパティの
+   中身はただのトークン列として素通しされるので、評価はブラウザまで残る */
+:root {
+  --bottom-bar-scale-cap: min(1, 1.3 / var(--note-font-scale, 1));
 }
 
-/* 図 (circuitikz / mermaid) も本文と同じ倍率で拡縮する (docs/61 §4)。
+.bottom-bar-scale-cap {
+  zoom: var(--bottom-bar-scale-cap);
+}
+
+/* 図 (circuitikz / mermaid) だけは root の rem に追随しないので個別に掛ける
+   (docs/61 §4)。
    circuitikz の SVG はサーバ生成で width="222.046" のような固定 px 属性を
    持つため、font-size では動かない。transform: scale() はレイアウト箱が
    変わらず余白だけ崩れるので、レイアウトごと拡縮する zoom を使う
@@ -69,18 +100,27 @@ summary {
   zoom: var(--note-font-scale, 1);
 }
 
-/* CodeMirror (memo エディタ) は font-family: monospace のみ指定で font-size が
-   未指定のため、ブラウザ既定の等幅サイズ (13px) で描画される。iOS Safari は
-   16px 未満の入力欄にフォーカスすると自動ズームし、更新後もズームが残るので、
-   16px (= 1rem, 読み込み中 textarea の text-base と同じ) を明示して防ぐ。
+/* 入力欄は 16px を割らせない (docs/61 §2)。iOS Safari は 16px 未満の入力欄に
+   フォーカスすると画面を勝手に拡大し、更新後もズームが残る。
 
-   max() が縮小方向の防波堤 (docs/61 §2)。テキストサイズは 75% まで下げられる
-   ようになったが、入力欄だけは 16px を割らせない — 縮小時は「読む文字は
-   小さく、書く文字は等倍のまま」になる。読み込み中の textarea (.note-input-scale)
-   も同じ式にすること。ずれると CodeMirror が乗った瞬間に文字が跳ねる */
-.cm-editor,
-.note-input-scale {
-  font-size: max(1rem, calc(1rem * var(--note-font-scale, 1)));
+   **px で書くこと。** 1rem は root の倍率で一緒に縮むので、rem で下限を
+   書くと 75% では下限ごと 12px まで落ちて防御にならない。
+   1em は「その入力欄が本来なるはずの大きさ」で、拡大方向はこれが勝つ。
+
+   対象は入力欄すべて。テキストサイズが画面全体に効くようになったので、
+   検索窓 (COMPACT_INPUT_CLASS が文字だけ 16px を守っていた) を含め、
+   縮む可能性のある入力欄が一斉に増えた。1 か所でまとめて止める。
+   チェックボックス / ラジオは字を持たない (font-size は的の大きさに効かない)
+   ので外す — 一覧のタスクチェックまで 16px 相当に膨らませない。
+
+   .cm-editor (memo エディタ) は font-family: monospace のみ指定で font-size が
+   未指定のため、ブラウザ既定の等幅サイズ (13px) になる。同じ式で 1em に
+   揃えると、読み込み中の textarea から CodeMirror へ切り替わっても跳ねない */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select,
+.cm-editor {
+  font-size: max(16px, 1em);
 }
 
 /* viewport-fit=cover でノッチ/ホームバーに潜り込まないための余白。

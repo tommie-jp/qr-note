@@ -346,11 +346,11 @@ export function MarkdownView({
   ];
 
   return (
-    // note-text-scale … メニューの「テキストサイズ」で拡大する対象
-    // (docs/61-テキストサイズ計画.md)。prose-sm は残す — 上書きするのは器の
-    // font-size だけで、見出し・余白は em で書かれているため丸ごと追随する
+    // 文字サイズの倍率は root (html) に掛かっているので、ここは何も持たない
+    // (docs/61-テキストサイズ計画.md)。prose-sm の 0.875rem も rem なので
+    // 一緒に伸縮する
     <div
-      className={`prose prose-sm note-text-scale max-w-none break-words ${PROSE_TWEAKS} ${BOX_CLASS}`}
+      className={`prose prose-sm max-w-none break-words ${PROSE_TWEAKS} ${BOX_CLASS}`}
     >
       <Markdown
         remarkPlugins={remarkPlugins}

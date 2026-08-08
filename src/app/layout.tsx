@@ -141,7 +141,12 @@ export default async function RootLayout({
           {/* landscape-phone:max-w-4xl … スマホ横持ちでは 672px の器の外に
               遊びの余白ができるだけなので、上限を緩めて全幅を使う
               (main・下部バーと揃える。docs/31 §12-4) */}
-          <div className="mx-auto flex max-w-2xl items-baseline gap-2 px-safe pt-safe landscape-phone:max-w-4xl">
+          {/* flex-wrap … テキストサイズを上げると帯の中身 (サイト名・版・
+              目印・ユーザー名) が 1 行に収まらなくなる (docs/61 §1)。
+              折り返さないと画面ごと横スクロールになるので、帯が 2 行に
+              なるほうを取る — 縦に伸びるのは見えるが、横スクロールは
+              「なぜか右にずれる」形で気づきにくい */}
+          <div className="mx-auto flex max-w-2xl flex-wrap items-baseline gap-2 px-safe pt-safe landscape-phone:max-w-4xl">
             {/* 項目はハンバーガーメニューへ畳む (docs/11-アプリ的UIUX計画.md §6)。
                 横に並べていたときは iPhone の幅で 1 文字ずつ折り返れて崩れた。
                 左端に置くのは、片手持ちの親指が届く側だから */}

@@ -68,8 +68,11 @@ export function TextSizeMenuItem() {
     // ＋ を 1 回押しただけで閉じてしまい、続けて押せない。HeaderQrButton と
     // 同じ「自前の状態を持つ項目」の扱い。
     // 開いたままなら、暗くした覆いの向こうに本文の変化も見える
+    // flex-wrap … 倍率を上げると自分の行 (名前 + ＋ / −) も大きくなり、
+    // 200% では 1 行に収まらない。折り返してシートの中で 2 行になるほうが、
+    // 名前が切れたり ＋ が画面の外へ出るより扱いやすい
     <div
-      className={`${HEADER_MENU_ROW_CLASS} justify-between`}
+      className={`${HEADER_MENU_ROW_CLASS} flex-wrap justify-between`}
       onClick={(event) => event.stopPropagation()}
     >
       <span className="flex items-center gap-2">
