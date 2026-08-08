@@ -2,34 +2,18 @@ import { describe, expect, test } from 'vitest'
 import {
   addRecentQuery,
   addSavedQuery,
-  browserQueryStorage,
+  applyQueryUse,
+  isRecordableQuery,
   isSavedFull,
-  loadQueries,
-  readQueries,
-  recordQueryUse,
+  MAX_QUERY_LENGTH,
   QUERY_LIMIT,
-  RECENT_KEY,
   removeSavedQuery,
-  SAVED_KEY,
+  sanitizeQueryList,
   SAVED_LIMIT,
-  saveQueries,
   splitSuggestions,
   touchSavedQuery,
   SUGGEST_COUNT,
-  type QueryStorage,
 } from './searchQueries'
-
-// localStorage の代役。vitest の環境は node なので本物は無い
-// (drawPrefs.test.ts と同じ書き方)。
-function fakeStorage(initial: Record<string, string> = {}): QueryStorage {
-  const data = { ...initial }
-  return {
-    getItem: (key) => data[key] ?? null,
-    setItem: (key, value) => {
-      data[key] = value
-    },
-  }
-}
 
 describe('addRecentQuery', () => {
   test('puts a new query at the head', () => {
@@ -196,152 +180,94 @@ describe('splitSuggestions', () => {
   })
 })
 
-describe('readQueries', () => {
-  test('returns an empty list when nothing has been saved (safe to write)', () => {
-    expect(readQueries(fakeStorage(), SAVED_KEY)).toEqual([])
-  })
-
-  test('returns null on broken JSON so a write cannot clobber it', () => {
-    expect(readQueries(fakeStorage({ [SAVED_KEY]: '{' }), SAVED_KEY)).toBeNull()
-  })
-
-  test('returns null when the stored value is not an array', () => {
-    expect(readQueries(fakeStorage({ [SAVED_KEY]: '"a"' }), SAVED_KEY)).toBeNull()
-  })
-
-  test('returns null when storage is unavailable', () => {
-    expect(readQueries(null, SAVED_KEY)).toBeNull()
-  })
-})
-
-describe('loadQueries', () => {
-  test('reads a saved list back', () => {
-    const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(['抵抗', 'is:todo']) })
-
-    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗', 'is:todo'])
-  })
-
-  test('returns an empty list when nothing has been saved', () => {
-    expect(loadQueries(fakeStorage(), RECENT_KEY)).toEqual([])
-  })
-
-  test('returns an empty list when storage is unavailable', () => {
-    expect(loadQueries(null, RECENT_KEY)).toEqual([])
-  })
-
-  test('returns an empty list on broken JSON', () => {
-    expect(loadQueries(fakeStorage({ [RECENT_KEY]: '{' }), RECENT_KEY)).toEqual([])
-  })
-
-  test('drops non-string and empty entries (hand-edited storage)', () => {
-    const storage = fakeStorage({ [SAVED_KEY]: JSON.stringify(['a', 3, null, '', 'b']) })
-
-    expect(loadQueries(storage, SAVED_KEY)).toEqual(['a', 'b'])
-  })
-
-  test('returns an empty list when the stored value is not an array', () => {
-    expect(loadQueries(fakeStorage({ [SAVED_KEY]: '"a"' }), SAVED_KEY)).toEqual([])
-  })
-
-  test('caps what it reads back', () => {
-    const stored = Array.from({ length: QUERY_LIMIT + 10 }, (_, i) => `q${i}`)
-    const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(stored) })
-
-    expect(loadQueries(storage, RECENT_KEY)).toHaveLength(QUERY_LIMIT)
-  })
-})
-
-describe('recordQueryUse', () => {
+describe('applyQueryUse', () => {
   test('records an unregistered query at the head of the recent list', () => {
     // Arrange
-    const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(['抵抗']) })
+    const lists = { saved: ['is:todo'], recent: ['抵抗'] }
 
     // Act
-    recordQueryUse('is:todo', storage)
+    const next = applyQueryUse(lists, 'コンデンサ')
 
     // Assert
-    expect(loadQueries(storage, RECENT_KEY)).toEqual(['is:todo', '抵抗'])
+    expect(next.recent).toEqual(['コンデンサ', '抵抗'])
+    expect(next.saved).toEqual(['is:todo']) // 登録パターンは動かない
   })
 
-  test('moves a registered pattern to the head instead', () => {
-    // Arrange
-    const storage = fakeStorage({
-      [SAVED_KEY]: JSON.stringify(['a', 'is:todo']),
-      [RECENT_KEY]: JSON.stringify(['抵抗']),
-    })
+  test('moves a registered pattern to the head instead of adding it to history', () => {
+    // ★ の欄に出ている物が 🕐 の枠を見えないまま食うのを防ぐ (表示では
+    // 登録済みを引くので、履歴に入れても必ず空振りになる)
+    const lists = { saved: ['#発注', 'is:todo'], recent: ['抵抗'] }
 
-    // Act
-    recordQueryUse('is:todo', storage)
+    const next = applyQueryUse(lists, 'is:todo')
 
-    // Assert
-    expect(loadQueries(storage, SAVED_KEY)).toEqual(['is:todo', 'a'])
-    // 履歴には足さない — ★ に出ている物が 🕐 の枠を見えないまま食うため
-    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
-  })
-
-  test('falls back to the recent list when the pattern list is unreadable', () => {
-    // 登録済みか判らないまま履歴まで諦めるより、履歴には残るほうがまし
-    const storage = fakeStorage({ [SAVED_KEY]: '{' })
-
-    recordQueryUse('抵抗', storage)
-
-    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
+    expect(next.saved).toEqual(['is:todo', '#発注'])
+    expect(next.recent).toEqual(['抵抗'])
   })
 
   test('ignores an empty query (the home link searches nothing)', () => {
-    const storage = fakeStorage({ [RECENT_KEY]: JSON.stringify(['抵抗']) })
+    const lists = { saved: ['is:todo'], recent: ['抵抗'] }
 
-    recordQueryUse('  ', storage)
+    const next = applyQueryUse(lists, '   ')
 
-    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
+    expect(next).toEqual(lists)
   })
 
-  test('does nothing when storage is unavailable', () => {
-    expect(() => recordQueryUse('抵抗', null)).not.toThrow()
+  test('does not mutate the given lists', () => {
+    const lists = { saved: ['is:todo'], recent: ['抵抗'] }
+
+    applyQueryUse(lists, 'コンデンサ')
+
+    expect(lists).toEqual({ saved: ['is:todo'], recent: ['抵抗'] })
   })
 
-  test('leaves an unreadable recent list alone instead of overwriting it', () => {
-    // Arrange … 壊れた値を [] と読んで書き戻すと、覚えていた分が全部消える
-    const storage = fakeStorage({ [RECENT_KEY]: '{' })
+  test('caps the recent list at QUERY_LIMIT', () => {
+    const recent = Array.from({ length: QUERY_LIMIT }, (_, i) => `q${i}`)
 
-    // Act
-    recordQueryUse('抵抗', storage)
+    const next = applyQueryUse({ saved: [], recent }, 'new')
 
-    // Assert
-    expect(storage.getItem(RECENT_KEY)).toBe('{')
-  })
-})
-
-describe('browserQueryStorage', () => {
-  test('returns null off the browser (server render)', () => {
-    expect(browserQueryStorage()).toBeNull()
+    expect(next.recent).toHaveLength(QUERY_LIMIT)
+    expect(next.recent[0]).toBe('new')
+    expect(next.recent).not.toContain(`q${QUERY_LIMIT - 1}`)
   })
 })
 
-describe('saveQueries', () => {
-  test('round-trips through storage', () => {
-    // Arrange
-    const storage = fakeStorage()
-
-    // Act
-    saveQueries(storage, RECENT_KEY, ['抵抗'])
-
-    // Assert
-    expect(loadQueries(storage, RECENT_KEY)).toEqual(['抵抗'])
+describe('isRecordableQuery', () => {
+  test('accepts an ordinary query', () => {
+    expect(isRecordableQuery('#抵抗 10k')).toBe(true)
   })
 
-  test('survives a storage that refuses to write (private mode / quota)', () => {
-    const storage: QueryStorage = {
-      getItem: () => null,
-      setItem: () => {
-        throw new Error('QuotaExceededError')
-      },
-    }
-
-    expect(() => saveQueries(storage, RECENT_KEY, ['抵抗'])).not.toThrow()
+  test('rejects a blank query', () => {
+    expect(isRecordableQuery('')).toBe(false)
+    expect(isRecordableQuery('   ')).toBe(false)
   })
 
-  test('does nothing when storage is unavailable', () => {
-    expect(() => saveQueries(null, RECENT_KEY, ['抵抗'])).not.toThrow()
+  test('rejects anything that is not a string (hand-crafted request)', () => {
+    expect(isRecordableQuery(42)).toBe(false)
+    expect(isRecordableQuery(null)).toBe(false)
+    expect(isRecordableQuery(['抵抗'])).toBe(false)
+  })
+
+  test('rejects a pasted wall of text so it is not hoarded', () => {
+    expect(isRecordableQuery('あ'.repeat(MAX_QUERY_LENGTH))).toBe(true)
+    expect(isRecordableQuery('あ'.repeat(MAX_QUERY_LENGTH + 1))).toBe(false)
+  })
+})
+
+describe('sanitizeQueryList', () => {
+  test('keeps the order and trims each entry', () => {
+    expect(sanitizeQueryList([' a ', 'b'])).toEqual(['a', 'b'])
+  })
+
+  test('drops entries that cannot be recorded', () => {
+    expect(sanitizeQueryList(['a', '', 7, null, 'あ'.repeat(999)])).toEqual(['a'])
+  })
+
+  test('keeps the first of a duplicate (order carries meaning)', () => {
+    expect(sanitizeQueryList(['a', 'b', 'a'])).toEqual(['a', 'b'])
+  })
+
+  test('returns an empty list when the value is not an array', () => {
+    expect(sanitizeQueryList('a')).toEqual([])
+    expect(sanitizeQueryList(undefined)).toEqual([])
   })
 })

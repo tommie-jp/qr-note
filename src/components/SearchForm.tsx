@@ -18,18 +18,21 @@ import {
   type CompleteRange,
 } from "@/lib/queryComplete";
 import {
-  addSavedQuery,
-  browserQueryStorage,
-  isSavedFull,
-  loadQueries,
-  readQueries,
+  cachedQueries,
+  fetchQueries,
   recordQueryUse,
-  RECENT_KEY,
+  registerSavedQuery,
+  unregisterSavedQuery,
+} from "@/lib/searchQueryClient";
+import { migrateLegacyQueries } from "@/lib/searchQueryLegacy";
+import {
+  addSavedQuery,
+  applyQueryUse,
+  isSavedFull,
   removeSavedQuery,
-  SAVED_KEY,
   SAVED_LIMIT,
-  saveQueries,
   splitSuggestions,
+  type QueryLists,
 } from "@/lib/searchQueries";
 import {
   longestCommonPrefix,
@@ -96,8 +99,14 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
   const { navigate } = useSearchNav();
   const [query, setQuery] = useState(initialQuery);
   const [dropdown, setDropdown] = useState<Dropdown | null>(null);
+  // サーバから受け取った候補 (docs/59-検索候補計画.md §7)。null = まだ読めて
+  // いない。初期値にモジュールのキャッシュを使うことで、一度読んだ後は
+  // ページを移っても開いた瞬間に出る (取り直しは並行して走る)
+  const [lists, setLists] = useState<QueryLists | null>(() => cachedQueries());
   // 入力中かどうか (URL の反映を止める判断に使う)
   const [isFocused, setIsFocused] = useState(false);
+  // Escape で候補を閉じたか。閉じた後にサーバの取得が届いても開き直さない
+  const [dismissed, setDismissed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   // 補完適用後にキャレット位置を復元するための保留値。
@@ -192,12 +201,17 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
 
   // 登録パターンと最近の検索を並べたドロップダウン (窓が空のとき)。
   //
-  // **開くたびに localStorage を読み直す**。最近の検索は結果のノートを開いた
-  // ときにも記録される (SearchNav) ので、マウント時に読んで持っていると古い
-  const openList = (expanded = false): Dropdown | null => {
-    const storage = browserQueryStorage();
-    const all = loadQueries(storage, SAVED_KEY);
-    const shown = splitSuggestions(all, loadQueries(storage, RECENT_KEY), expanded);
+  // source を渡せるようにしてあるのは、サーバから届いた直後の値で組みたい
+  // ことがあるため (state はまだ古い)。省略時は今持っている物を使う。
+  // まだ読めていない (null) なら出さない — 空の枠を出すより何も出さないほうがよい
+  const openList = (
+    source: QueryLists | null = lists,
+    expanded = false,
+  ): Dropdown | null => {
+    if (source === null) {
+      return null;
+    }
+    const shown = splitSuggestions(source.saved, source.recent, expanded);
     const items: Suggestion[] = [
       ...shown.saved.map((value): Suggestion => ({ kind: "saved", value })),
       ...shown.recent.map((value): Suggestion => ({ kind: "recent", value })),
@@ -207,15 +221,62 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
     }
     return {
       token: null,
-      list: { expanded, hasMore: shown.hasMore, savedFull: isSavedFull(all) },
+      list: {
+        expanded,
+        hasMore: shown.hasMore,
+        savedFull: isSavedFull(source.saved),
+      },
       items,
       active: -1,
     };
   };
 
+  // 候補をサーバから取り直す (docs/59-検索候補計画.md §7)。
+  //
+  // **開くたびに引き直す**。最近の検索は結果のノートを開いたときにも記録され
+  // (SearchNav)、別の端末からも増えるので、一度読んで持っていると古い。
+  // 待たせはしない — 届いたら下の同期ブロックが拾う
+  const reloadLists = () => {
+    void fetchQueries().then((next) => {
+      if (next !== null) {
+        setLists(next);
+      }
+    });
+  };
+
+  // 移す前の版が localStorage に残した登録パターンを引き取る (一度だけ)。
+  // 引き取り終わったら searchQueryLegacy.ts ごと消す
+  useEffect(() => {
+    void migrateLegacyQueries().then((next) => {
+      if (next !== null) {
+        setLists(next);
+      }
+    });
+  }, []);
+
+  // サーバから候補が届いたとき。
+  //
+  // **開いている一覧は組み直さない** — 並びが指の下で動くと、続けて押した指が
+  // 隣の検索語を登録してしまう (toggleSaved と同じ理由)。閉じているときだけ
+  // 開く = 「読めていなくて出せなかった」を後から拾う。開いている場合の新しい
+  // 値は、次に開いたときに使われる
+  //
+  // Escape で閉じた後は開き直さない。**閉じたのに勝手に開く**のがいちばん
+  // 困る形で、フォーカスしたときの取得はまだ飛んでいるので必ず後から届く
+  const [syncedLists, setSyncedLists] = useState(lists);
+  if (lists !== syncedLists) {
+    setSyncedLists(lists);
+    if (dropdown === null && isFocused && !dismissed && query.trim() === "") {
+      setDropdown(openList(lists));
+    }
+  }
+
   // 現在の値とキャレット位置から出すべき候補を決める (docs/59 §1)。
   // タグ → キーワード → (空欄なら) 一覧 の順に見る。
   const refresh = (value: string, caret: number) => {
+    // 打つ・押す・フォーカスし直すのはどれも「また出してよい」の合図。
+    // Escape で閉じたことは、ここでご破算にする
+    setDismissed(false);
     const tagCtx = tagContextAtCursor(value, caret);
     if (tagCtx) {
       const names = matchTags(tagCtx.prefix, tags, MAX_CANDIDATES);
@@ -304,27 +365,46 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
   // 隣の検索語を登録してしまう。★/☆ と 🕐 が切り替わるだけで合図は足りるので、
   // 並べ直すのは次に開いたときでよい
   const toggleSaved = (s: Suggestion, dd: Dropdown) => {
-    const storage = browserQueryStorage();
-    const list = readQueries(storage, SAVED_KEY);
-    if (!storage || list === null) {
-      return; // 読めない物へ書き戻さない (searchQueries.ts の readQueries 参照)
+    if (lists === null) {
+      return; // まだ読めていない。知らない物へ書き戻さない
     }
-    const next =
-      s.kind === "saved"
-        ? removeSavedQuery(list, s.value)
-        : addSavedQuery(list, s.value);
-    saveQueries(storage, SAVED_KEY, next);
+    if (s.kind === "recent" && isSavedFull(lists.saved)) {
+      // 満杯。☆ は押せなくしてあるが、別の端末で埋まった場合は一覧を組んだ
+      // 時点の値がまだ「空きあり」なので押せてしまう。**黙って何も起きない
+      // のがいちばん困る** (登録したつもりになる) ので、押せない見た目へ
+      // 直して理由を出す (☆ の title)
+      setDropdown({ ...dd, list: dd.list && { ...dd.list, savedFull: true } });
+      return;
+    }
     // 外した行はその場で 🕐 に変わるので、履歴にも実際に入れておく。
     // 入れないと「閉じて開いたら消えていた」になる (登録パターンとして
-    // 使っていた間は履歴へ足していないため。searchQueries.ts の recordQueryUse)
-    if (s.kind === "saved") {
-      recordQueryUse(s.value, storage);
-    }
+    // 使っていた間は履歴へ足していないため)。サーバも同じことをする
+    // (searchQueryStore の unregisterSaved) ので、手元と答えが揃う
+    const next: QueryLists =
+      s.kind === "saved"
+        ? applyQueryUse(
+            { saved: removeSavedQuery(lists.saved, s.value), recent: lists.recent },
+            s.value,
+          )
+        : { saved: addSavedQuery(lists.saved, s.value), recent: lists.recent };
+    // 楽観更新。★ を押した手応えを往復待ちにしない
+    setLists(next);
+    void (
+      s.kind === "saved"
+        ? unregisterSavedQuery(s.value)
+        : registerSavedQuery(s.value)
+    ).then((server) => {
+      // 断られた (満杯・通信断) ときは null。手元の楽観更新は次に開いたときの
+      // 読み直しで正本に戻るので、ここで巻き戻して画面を跳ねさせない
+      if (server !== null) {
+        setLists(server);
+      }
+    });
     setDropdown({
       ...dd,
-      list: dd.list && { ...dd.list, savedFull: isSavedFull(next) },
+      list: dd.list && { ...dd.list, savedFull: isSavedFull(next.saved) },
       items: dd.items.map((it) => ({
-        kind: next.includes(it.value) ? "saved" : "recent",
+        kind: next.saved.includes(it.value) ? "saved" : "recent",
         value: it.value,
       })),
     });
@@ -377,6 +457,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
       case "Escape":
         e.preventDefault();
         setDropdown(null);
+        setDismissed(true);
         break;
     }
   };
@@ -428,6 +509,9 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
           // 最近の検索、打ちかけならその続き (docs/59-検索候補計画.md §1)
           onFocus={(e) => {
             setIsFocused(true);
+            // 候補はここで初めて要る値なので、読むのもここ 1 回きりでよい
+            // (描画のたびには引かない。docs/59-検索候補計画.md §7)
+            reloadLists();
             refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0);
           }}
           onBlur={() => {
@@ -562,7 +646,7 @@ export function SearchForm({ initialQuery, tags }: SearchFormProps) {
                   tabIndex={-1}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    setDropdown(openList(true));
+                    setDropdown(openList(lists, true));
                     inputRef.current?.focus();
                   }}
                   className="flex min-h-10 w-full items-center justify-center px-3 text-sm text-blue-600 hover:bg-gray-100"

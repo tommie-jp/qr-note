@@ -8,7 +8,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { recordQueryUse } from "@/lib/searchQueries";
+import { recordQueryUse } from "@/lib/searchQueryClient";
 import { buildSearchUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 

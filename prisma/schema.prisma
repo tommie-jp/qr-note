@@ -198,3 +198,37 @@ model CircuitSvg {
 
   @@map("circuit_svgs")
 }
+
+// 検索窓が覚えているクエリ (docs/59-検索候補計画.md §7)。
+//
+//   kind = 'recent' … 直近に検索した語。使うほど勝手に入れ替わる
+//   kind = 'saved'  … ☆ で自分が登録した検索式
+//
+// **もとは localStorage に置いていた**。端末ごとに違ってよいと考えていたが、
+// 実際には同じ人が iPhone と PC を行き来するので、登録パターンを片方で作っても
+// もう片方に無いのが不便だった。書き込みの契機は「意思表示」のときだけ
+// (打鍵ごとの検索からは呼ばない) なので、DB に置いても頻度は高くない。
+//
+// **1 クエリ = 1 行**。JSON を 1 列に持つと、2 台から同時に登録したときに
+// 後から書いたほうが相手の登録を消してしまう。行に割ると衝突する範囲が
+// そのクエリだけで済む。
+//
+// userName で仕切るのが要点 — 履歴は「その人が何を探しているか」そのもので、
+// 利用者が増えたときに混ざってはいけない。Session / WebAuthnCredential と
+// 同じく、User 表は作らず名前の文字列で持つ (docs/29 §11)。
+model SearchQuery {
+  id       Int    @id @default(autoincrement())
+  userName String @map("user_name")
+  kind     String
+  query    String
+  // 最近使った順に並べるための時刻。@updatedAt にはしない —
+  // 「使った」以外の理由で行を触ったときに順が動いてほしくないので、
+  // 動かす場所を書き手が明示する
+  usedAt DateTime @default(now()) @map("used_at")
+
+  // 同じ人の同じ種類に同じクエリは 1 行だけ。upsert の当て先でもある
+  @@unique([userName, kind, query])
+  // 一覧は必ず「その人の分を最近使った順で」引く
+  @@index([userName, usedAt])
+  @@map("search_queries")
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { recordQueryUse } from "@/lib/searchQueries";
+import { recordQueryUse } from "@/lib/searchQueryClient";
 import { tagSearchQuery } from "@/lib/tags";
 
 // タグ (#…) を押したときの検索を履歴に残す (docs/59-検索候補計画.md §2)。

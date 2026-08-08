@@ -1,26 +1,27 @@
-// 検索窓が覚えているクエリ (docs/59-検索候補計画.md §2-4)。2 種類ある。
+// 検索窓が覚えているクエリ (docs/59-検索候補計画.md §2-4, §7)。2 種類ある。
 //
 //   最近の検索   … 直近に検索した語。使うほど勝手に入れ替わる。
 //   登録パターン … ☆ で自分が登録した検索式。数が少なく、自分で選んで置いた物。
 //
-// **localStorage に置く**。検索のたびに DB へ書くのは重すぎるし、最近の検索は
-// 端末ごとに違ってよい (スマホでは部品番号、PC では調べ物、という差がそのまま
-// 出るのが自然)。並び順 (sortMode.ts) や表示モード (viewMode.ts) が cookie なのは
-// サーバが描画前に読む必要があるからで、候補はフォーカスして初めて要る値なので
-// その理由が無い。
+// **置き場はサーバ (DB)**。もとは localStorage に置き「最近の検索は端末ごとに
+// 違ってよい」と考えていたが、実際には同じ人が iPhone と PC を行き来するので、
+// 片方で登録したパターンがもう片方に無いのが不便だった。書き込みの契機は
+// 「意思表示」のときだけ (打鍵ごとの検索からは呼ばない) なので、DB に置いても
+// 書き込み頻度は高くない。
 //
-// 読み出しは信用しない — 手で書き換えられる値なので、配列であること・中身が
-// 空でない文字列であることを検算してから使う (drawPrefs.ts と同じ作法)。
+// **このファイルは純粋な計算だけ**を持つ。読み書きは 2 か所に分かれる:
+//
+//   searchQueryStore.ts  … サーバ側。userName で仕切って DB へ (正本)
+//   searchQueryClient.ts … クライアント側。/api/search-queries を叩く
+//
+// 並びの意味づけ (前方一致の掃除・上限・登録が履歴より強い) をここ 1 か所に
+// 置くことで、サーバの書き込みとクライアントの楽観更新が食い違わない。
 
-// localStorage のうち、ここで使う分だけの形。テストから差し替えられるように
-// 具象の Storage ではなくこの幅で受ける。
-export interface QueryStorage {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
+// 覚えている 2 つのリスト。どちらも**最近使った順** (先頭が最新)。
+export interface QueryLists {
+  saved: string[]
+  recent: string[]
 }
-
-export const RECENT_KEY = 'qr-search-recent'
-export const SAVED_KEY = 'qr-search-saved'
 
 // 最初にドロップダウンへ出す件数 (種類ごと)。合わせて 10 行 = 画面を覆わない上限。
 // これを超える分は「もっと表示」を押したときだけ出す。
@@ -35,6 +36,11 @@ export const QUERY_LIMIT = 10
 // 「登録したのに ★ の欄に出ない・外す導線も無い」パターンが生まれ、消せないまま
 // 枠を食う。上限まで広げれば必ず画面に出せるので、★ を押して必ず外せる。
 export const SAVED_LIMIT = 10
+
+// 1 件の長さの上限。検索窓に貼り付けた長文をそのまま溜め込まないための歯止めで、
+// 実用的な検索式 (タグ数個 + 語) には十分な幅。外から来る値なので、
+// サーバ側の入口 (route) でもこの値で断る。
+export const MAX_QUERY_LENGTH = 200
 
 // 最近の検索へ 1 件足す (先頭が最新)。
 //
@@ -79,6 +85,29 @@ export function removeSavedQuery(list: readonly string[], query: string): string
   return list.filter((e) => e !== query)
 }
 
+// クエリを「使った」を 2 つのリストへ反映する (docs/59-検索候補計画.md §2)。
+//
+// **記録の意味づけの正本**。サーバの書き込み (searchQueryStore) とクライアントの
+// 楽観更新 (searchQueryClient) が同じ答えを出すよう、両方がこれを通る。
+//
+// 登録パターンなら最近使った順の先頭へ動かすだけで、最近の検索には足さない。
+// 足すと ★ の欄に出ている物が 🕐 の枠を見えないまま食う (表示では登録済みを
+// 引くので、履歴が 10 件のうち何件かは常に空振りになる)。
+export function applyQueryUse(lists: QueryLists, query: string): QueryLists {
+  const q = query.trim()
+  if (!q) {
+    return cloneLists(lists)
+  }
+  if (lists.saved.includes(q)) {
+    return { saved: touchSavedQuery(lists.saved, q), recent: [...lists.recent] }
+  }
+  return { saved: [...lists.saved], recent: addRecentQuery(lists.recent, q) }
+}
+
+export function cloneLists(lists: QueryLists): QueryLists {
+  return { saved: [...lists.saved], recent: [...lists.recent] }
+}
+
 // ドロップダウンに出す 2 組を決める。expanded は「もっと表示」を押した後。
 //
 // 登録パターンはよく使う = 最近の検索にも必ず入るので、掃除しないと同じ物が
@@ -102,102 +131,36 @@ export function splitSuggestions(
   }
 }
 
-// 保存済みの一覧。**読めなかったときは null** を返す。
+// 覚えるに値するクエリか。空・長すぎ・文字列でない物を断る。
 //
-// 「まだ何も保存していない」(= []) と区別が要るのは、書き込みが読んだ値への
-// 追加・削除だから — 壊れた値を [] と読んで書き戻すと、利用者が登録した
-// パターンを 1 クリックで消してしまう。書き手 (recordQueryUse / UI) は
-// null なら書かずに諦める。
-export function readQueries(
-  storage: QueryStorage | null | undefined,
-  key: string,
-): string[] | null {
-  if (!storage) {
-    return null
+// **外から来た値はここを必ず通す**。route (他人が直接叩ける口) と
+// クライアント (localStorage から移した値) の両方が使う。
+export function isRecordableQuery(query: unknown): query is string {
+  return (
+    typeof query === 'string' &&
+    query.trim() !== '' &&
+    query.trim().length <= MAX_QUERY_LENGTH
+  )
+}
+
+// 外から受け取ったクエリの配列を、覚えられる形だけに絞る。
+// 重複は先に出てきたほうを残す (順が意味を持つため)。
+export function sanitizeQueryList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
   }
-  try {
-    const raw = storage.getItem(key)
-    if (!raw) {
-      return [] // 未保存。ここへ書き足すのは正しい
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const e of value) {
+    if (!isRecordableQuery(e)) {
+      continue
     }
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) {
-      console.warn(`searchQueries: ${key} が配列ではない`, raw)
-      return null
+    const q = e.trim()
+    if (seen.has(q)) {
+      continue
     }
-    return parsed
-      .filter((e): e is string => typeof e === 'string' && e.trim() !== '')
-      .slice(0, QUERY_LIMIT)
-  } catch (e) {
-    // 壊れた JSON、プライベートモードの拒否。候補が出ないだけで検索は動くが、
-    // 黙って消えると原因が追えないので記録だけ残す
-    console.warn(`searchQueries: ${key} を読めなかった`, e)
-    return null
+    seen.add(q)
+    out.push(q)
   }
-}
-
-// 表示のための読み出し。読めなければ「候補なし」として扱う。
-export function loadQueries(
-  storage: QueryStorage | null | undefined,
-  key: string,
-): string[] {
-  return readQueries(storage, key) ?? []
-}
-
-export function saveQueries(
-  storage: QueryStorage | null | undefined,
-  key: string,
-  list: readonly string[],
-): void {
-  if (!storage) {
-    return
-  }
-  try {
-    storage.setItem(key, JSON.stringify(list))
-  } catch (e) {
-    // 容量超過・プライベートモード。覚えられないだけで検索には影響しないが、
-    // 「覚えたつもりが消えている」の原因になるので記録は残す
-    console.warn(`searchQueries: ${key} へ書けなかった`, e)
-  }
-}
-
-// ブラウザの localStorage。サーバ描画中と、参照そのものが例外になる設定
-// (一部のプライベートモード) では null を返す。
-export function browserQueryStorage(): QueryStorage | null {
-  try {
-    return typeof window === 'undefined' ? null : window.localStorage
-  } catch {
-    return null
-  }
-}
-
-// クエリを「使った」と記録する。読み書きをまとめた唯一の入口で、
-// 検索窓 (SearchForm) と結果一覧 (SearchNav) の両方から呼ばれる。
-//
-// **呼ぶのは「意思表示」のときだけ** (docs/59-検索候補計画.md §2)。
-// 打鍵ごとの検索 (debounce) からは呼ばない — 呼ぶと打ちかけの語で枠が埋まる。
-//
-// 登録パターンなら最近使った順の先頭へ動かすだけで、最近の検索には足さない。
-// 足すと ★ の欄に出ている物が 🕐 の枠を見えないまま食う (表示では登録済みを
-// 引くので、履歴が 10 件のうち何件かは常に空振りになる)。
-export function recordQueryUse(
-  query: string,
-  storage: QueryStorage | null = browserQueryStorage(),
-): void {
-  const q = query.trim()
-  if (!storage || q === '') {
-    return
-  }
-  // 読めないときは「登録パターンではない」として扱う。判らないまま履歴まで
-  // 諦めるより、履歴には残るほうがまし
-  const saved = readQueries(storage, SAVED_KEY)
-  if (saved?.includes(q)) {
-    saveQueries(storage, SAVED_KEY, touchSavedQuery(saved, q))
-    return
-  }
-  const recent = readQueries(storage, RECENT_KEY)
-  if (recent === null) {
-    return // 読めない物へ書き戻さない (readQueries 参照)
-  }
-  saveQueries(storage, RECENT_KEY, addRecentQuery(recent, q))
+  return out
 }
