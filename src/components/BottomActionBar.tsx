@@ -11,7 +11,6 @@ import {
   SelectIcon,
   SortIcon,
 } from "@/components/MenuIcons";
-import { HistoryNav } from "@/components/HistoryNav";
 import { useSelectMode } from "@/components/SelectModeProvider";
 import { SlotMenu } from "@/components/SlotMenu";
 import {
@@ -210,11 +209,8 @@ export function BottomActionBar({
         }`}
       >
         <div className={BOTTOM_BAR_INNER_CLASS}>
-          {/* 戻る/進む (← →)。もとはヘッダーにあったが下部バーの左端へ移した
-              (HistoryNav.tsx の冒頭)。5 スロットのような flex-1 では伸ばさず、
-              矢印ぶんの幅だけ占める */}
-          <HistoryNav />
-
+          {/* 戻る/進む (◀ ▶) はここにあったが、ヘッダーへ移した
+              (docs/11 §5-2)。5 スロットだけの帯に戻る */}
           {/* カメラ非対応の環境でも隠さない。押したとき理由を出す方が
               原因を追える (docs/09-スキャン計画.md §6) */}
           <button

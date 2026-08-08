@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { useBottomBar } from "@/components/BottomBarContext";
+import { useBottomBarSlot } from "@/components/BottomBarContext";
 import { EditToolbar } from "@/components/EditToolbar";
 import { PanelActiveContext } from "@/components/PanelActiveContext";
 import {
@@ -365,15 +365,18 @@ export default function MemoEditorInner({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // 編集ボタンは下部バー (PageBottomBar) の差し込み口へ portal する。
-  // portal は React ツリーの親子を保つので、囲みの <form> の子孫のまま —
-  // useFormStatus (更新ボタン) が効き、onClick から下の state/ref も触れる
-  const { hostEl } = useBottomBar();
   // タブパネル (MemoPanel) が hidden で保持する構成では、非表示タブでも
   // このコンポーネントはマウントされたまま。portal は hidden の枠を抜けて
   // 下部バーに残るので、表向きのタブのときだけ portal する (既定 true =
   // MemoPanel を通らない /edit ページでは常に表示扱い)
   const panelActive = useContext(PanelActiveContext);
+  // 編集ボタンは下部バー (PageBottomBar) の差し込み口へ portal する。
+  // portal は React ツリーの親子を保つので、囲みの <form> の子孫のまま —
+  // useFormStatus (更新ボタン) が効き、onClick から下の state/ref も触れる。
+  //
+  // 帯は差し込む側がいるときだけ出るので、まず要ると申告する
+  // (useBottomBarSlot)。口 (hostEl) が返るのは帯が描かれた次の描画から
+  const hostEl = useBottomBarSlot(panelActive);
 
   useEffect(() => {
     onReady();
@@ -966,11 +969,10 @@ export default function MemoEditorInner({
         />
       )}
       {/* 操作ボタンを下部バーの差し込み口へ portal する。差し込み口が出来る
-          (hostEl) まで、かつ表向きのタブ (panelActive) のときだけ。portal は
-          React ツリーの親子を保つので、更新ボタンの useFormStatus は囲みの form を
+          まで hostEl は null (表向きのタブでない間も null)。portal は React
+          ツリーの親子を保つので、更新ボタンの useFormStatus は囲みの form を
           拾い、各ハンドラは上の state/ref を触れる */}
-      {panelActive &&
-        hostEl &&
+      {hostEl &&
         createPortal(
           <EditToolbar
             onSubmit={submitForm}

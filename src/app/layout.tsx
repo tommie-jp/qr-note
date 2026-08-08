@@ -9,7 +9,8 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { HeaderMenu } from "@/components/HeaderMenu";
 import { HeaderQrButton } from "@/components/HeaderQrButton";
 import { BottomBarProvider } from "@/components/BottomBarContext";
-import { PageBottomBar } from "@/components/HistoryNav";
+import { HistoryNav } from "@/components/HistoryNav";
+import { PageBottomBar } from "@/components/PageBottomBar";
 import { LoginButton } from "@/components/LoginButton";
 import { LogoutButton } from "@/components/LogoutButton";
 import {
@@ -251,9 +252,6 @@ export default async function RootLayout({
                 </>
               )}
             </HeaderMenu>
-            {/* ← → (戻る/進む) はヘッダーから下部バーの左端へ移した
-                (HistoryNav.tsx)。片手持ちの親指が届く下端に寄せる。
-                本体は main の後ろの <HistoryNavBar /> と BottomActionBar が持つ */}
             {/* アイコンもホームリンクに含める。押せる的が広がるうえ、
                 アイコンとサイト名が別々の当たり判定に割れるのを避ける。
                 /icon.svg は app/icon.svg が規約で配信するもの (PNG より
@@ -270,6 +268,10 @@ export default async function RootLayout({
               {SITE_NAME}
             </Link>
             <span className="text-xs text-gray-400">v{pkg.version}</span>
+            {/* 戻る/進む (◀ ▶)。下部バーの左端から、サイト名・バージョンの右へ
+                戻した (docs/11 §5-2)。ヘッダーは全ページで同じ位置にあり、
+                編集帯やスロットの並びと場所を取り合わない */}
+            <HistoryNav />
             {/* 色には数日で慣れて見えなくなるので、文字でも書く */}
             {!isProd && (
               <span
@@ -317,10 +319,8 @@ export default async function RootLayout({
         <main className="mx-auto max-w-2xl px-safe pt-6 pb-safe landscape-phone:max-w-4xl">
           {children}
         </main>
-        {/* 下部バー。左端の ← → は BottomActionBar を持つホーム ("/") 以外の
-            全ページに敷き、戻る/進むの導線を残す (PageBottomBar が "/" では
-            自身を描かない)。standalone 起動はブラウザの戻るが無いため要る。
-            ノート編集中はここへ編集ボタンが portal で入る */}
+        {/* 下部バー。中身はノート編集中の編集ボタン (portal) だけで、差し込む
+            側がいなければ自身を描かない。戻る/進むはヘッダーへ移した */}
         <PageBottomBar isProd={isProd} />
         {/* どちらも何も描かない (docs/30-ブラウザログ計画.md)。
             転送はログイン中だけ仕掛ける — 受け口は 401 を返すので、
