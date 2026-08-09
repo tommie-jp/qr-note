@@ -12,6 +12,7 @@ import { TrashActionBar } from "@/components/TrashActionBar";
 import { TrashList } from "@/components/TrashList";
 import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
+import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { listTrashedItems } from "@/lib/items";
 import { resolveTrashSort, TRASH_SORT_COOKIE } from "@/lib/sortMode";
 import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/viewMode";
@@ -37,6 +38,12 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   );
   const view = parseViewMode(cookieStore.get(VIEW_MODE_COOKIE)?.value);
   const items = await listTrashedItems(sort);
+  // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md §5)。
+  // 検索一覧と同じ: キャッシュ済みの SVG を引くだけで描画はしない
+  const circuitThumbs = await loadCircuitThumbs(
+    items,
+    view === "image" ? "all" : "first",
+  );
 
   return (
     <PageTransition>
@@ -65,6 +72,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
             restoreAction={restoreItemsAction}
             purgeAction={purgeItemsAction}
             emptyTrashAction={emptyTrashAction}
+            circuitThumbs={circuitThumbs}
           />
         </div>
       </div>

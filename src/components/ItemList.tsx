@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
+// 値の import は不可 — circuitThumbs.ts は prisma を引き込むサーバ専用 module
+// (offline/circuits.ts と同じ線引き)。型は erase されるので安全
+import type { CircuitThumbMap } from "@/lib/circuitThumbs";
 import { buildItemUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
@@ -37,6 +40,10 @@ interface ItemListProps {
   registerHref: string | null;
   // 同じ検索条件でゴミ箱に当たった件数 (0 件検索のときだけサーバが数える)
   trashedMatches: number;
+  // itemNo → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §5)。
+  // page.tsx (サーバ) が loadCircuitThumbs で引いて降ろす。小/大は先頭 1 枚を
+  // 行のサムネに、画像モードは全部をタイルに使う
+  circuitThumbs?: CircuitThumbMap;
 }
 
 function emptyState(
@@ -103,6 +110,7 @@ export function ItemList({
   pinAction,
   registerHref,
   trashedMatches,
+  circuitThumbs,
 }: ItemListProps) {
   // 選択モードの入り切りは下部バーが持つ (docs/31-下部操作バー計画.md §5-2)。
   // 選んだ番号の Set はここに残す — バーは「何件選ばれたか」を知る必要がなく、
@@ -182,7 +190,13 @@ export function ItemList({
         </ul>
       );
     }
-    return <ImageMasonry items={items} itemHref={itemHref} />;
+    return (
+      <ImageMasonry
+        items={items}
+        itemHref={itemHref}
+        circuitThumbs={circuitThumbs}
+      />
+    );
   }
 
   if (!selectMode) {
@@ -198,6 +212,7 @@ export function ItemList({
             href={itemHref(item.itemNo)}
             searchState={searchState}
             view={rowView}
+            circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
             swipeTrashAction={swipeEnabled ? trashAction : undefined}
             swipeOpen={openItemNo === item.itemNo}
             onSwipeOpenChange={
@@ -234,6 +249,7 @@ export function ItemList({
             href={itemHref(item.itemNo)}
             searchState={searchState}
             view={rowView}
+            circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
             checkbox={
               <input
                 type="checkbox"

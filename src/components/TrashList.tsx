@@ -1,4 +1,7 @@
 import type { Item } from "@/generated/prisma/client";
+// 値の import は不可 — circuitThumbs.ts は prisma を引き込むサーバ専用 module
+// (offline/circuits.ts と同じ線引き)。型は erase されるので安全
+import type { CircuitThumbMap } from "@/lib/circuitThumbs";
 import { formatJstDateTime } from "@/lib/datetime";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
@@ -16,6 +19,10 @@ interface TrashListProps {
   restoreAction: TrashAction;
   purgeAction: TrashAction;
   emptyTrashAction: TrashAction;
+  // itemNo → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §5)。
+  // 部品 (ItemRow / ImageMasonry) は検索一覧と共有だが、データはページごとに
+  // 配線が要る — trash/page.tsx が loadCircuitThumbs で引いて降ろす
+  circuitThumbs?: CircuitThumbMap;
 }
 
 // ゴミ箱からノートを開くリンク。検索一覧と違って持ち回す検索状態が無いので
@@ -76,6 +83,7 @@ export function TrashList({
   restoreAction,
   purgeAction,
   emptyTrashAction,
+  circuitThumbs,
 }: TrashListProps) {
   if (items.length === 0) {
     return (
@@ -119,7 +127,11 @@ export function TrashList({
             画像表示では行ごとの操作を出しません。復元はノートを開くか、
             小・大表示に切り替えてください。
           </p>
-          <ImageMasonry items={items} itemHref={itemHref} />
+          <ImageMasonry
+            items={items}
+            itemHref={itemHref}
+            circuitThumbs={circuitThumbs}
+          />
         </>
       ) : (
         <ul className={listClass}>
@@ -129,6 +141,7 @@ export function TrashList({
               item={item}
               href={itemHref(item.itemNo)}
               view={view}
+              circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
               footer={
                 <RowActions
                   item={item}

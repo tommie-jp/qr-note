@@ -34,6 +34,7 @@ import {
   searchItemProps,
   searchItems,
 } from "@/lib/items";
+import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { buildSearchUrl } from "@/lib/searchUrl";
@@ -172,6 +173,14 @@ async function HomeResults({
   ]);
   const registerHref = nextNo === null ? null : scanRegisterHref(nextNo, query);
 
+  // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md)。キャッシュ済みの
+  // SVG を引くだけで描画はしない。小/大は画像の無いノートの先頭 1 枚、
+  // 画像モードは全部 (表示モードはサーバで既知なので引く量を絞れる)
+  const circuitThumbs = await loadCircuitThumbs(
+    result.items,
+    view === "image" ? "all" : "first",
+  );
+
   // カード・masonry は広い画面で列を増やしたいので広幅。compact の
   // 1 カラムだけは読み幅を保つ (docs/23 §1, docs/32 §1)
   return (
@@ -237,6 +246,7 @@ async function HomeResults({
         pinAction={setItemsOfflinePinAction}
         registerHref={registerHref}
         trashedMatches={trashedMatches}
+        circuitThumbs={circuitThumbs}
       />
 
       {/* ページ送りは「前へ/次へ」からオンデマンド表示へ (docs/33)。

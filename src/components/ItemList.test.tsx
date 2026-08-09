@@ -35,6 +35,7 @@ const render = (
   registerHref: string | null = null,
   trashedMatches = 0,
   view: ViewMode = "compact",
+  circuitThumbs?: Record<string, string[]>,
 ) =>
   // 選択モードは下部バーと共有する context なので、単体でも provider が要る
   // (docs/31-下部操作バー計画.md §5-2)
@@ -51,6 +52,7 @@ const render = (
         pinAction={noop}
         registerHref={registerHref}
         trashedMatches={trashedMatches}
+        circuitThumbs={circuitThumbs}
       />
     </SelectModeProvider>,
   );
@@ -183,6 +185,38 @@ test("画像表示は画像だけを Grid で敷き詰め、画像なしノー�
   // 一覧の行 (divide-y) ではなく、画像なしノートはどこにも出ない
   expect(html).not.toContain("divide-y");
   expect(html).not.toContain('href="/item/20"');
+});
+
+// 回路図サムネの中継 (docs/68-一覧回路図サムネ計画.md §5)。
+// 表示の中身は ItemRow.test.tsx / ImageMasonry.test.tsx が見る。ここは
+// prop が正しい部品まで届くことだけを確かめる
+
+const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
+
+test("小/大表示は回路図サムネの先頭 1 枚を行へ降ろす", () => {
+  const html = render(
+    [makeItem({ itemNo: "10", memo: "RC 回路" })],
+    "",
+    null,
+    0,
+    "compact",
+    { "10": [CIRCUIT_SVG] },
+  );
+  expect(html).toContain("circuit-thumb");
+  expect(html).toContain('<path d="M0 0h10"/>');
+});
+
+test("画像表示は回路図サムネを masonry へ丸ごと降ろす", () => {
+  const html = render(
+    [makeItem({ itemNo: "10", memo: "RC 回路" })],
+    "",
+    null,
+    0,
+    "image",
+    { "10": [CIRCUIT_SVG] },
+  );
+  expect(html).toContain("circuit-thumb");
+  expect(html).toContain('href="/item/10"');
 });
 
 test("画像表示でも 0 件時は該当なしの案内と新規登録の導線を失わない", () => {

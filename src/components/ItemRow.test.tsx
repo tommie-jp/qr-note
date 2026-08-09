@@ -163,6 +163,56 @@ test("画像のないノートは img を出さない", () => {
   expect(renderRow(makeItem({ memo: "画像なし" }))).not.toContain("<img");
 });
 
+// 回路図サムネ (docs/68-一覧回路図サムネ計画.md §3)
+
+const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>'
+
+const renderCircuitRow = (item: Item, view: RowViewMode = "compact") =>
+  renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={item}
+        href={`/item/${item.itemNo}`}
+        searchState={SEARCH_STATE}
+        view={view}
+        circuitThumb={CIRCUIT_SVG}
+      />
+    </ul>,
+  );
+
+test("画像が無ければ回路図の SVG をサムネに出す", () => {
+  const html = renderCircuitRow(makeItem({ memo: "RC 回路" }));
+  expect(html).toContain("circuit-thumb");
+  // SVG は文字列のまま埋め込まれる (dangerouslySetInnerHTML)
+  expect(html).toContain('<path d="M0 0h10"/>');
+  // 小表示は画像サムネと同じ 2 行分の枠
+  expect(html).toContain("size-10");
+});
+
+test("カード表示の回路図サムネは 5 行分の枠で出す", () => {
+  const html = renderCircuitRow(makeItem({ memo: "RC 回路" }), "card");
+  expect(html).toContain("circuit-thumb");
+  expect(html).toContain("size-24");
+});
+
+test("画像があれば画像を優先し、回路図サムネは出さない", () => {
+  const html = renderCircuitRow(
+    makeItem({ memo: `写真\n![](/api/images/${IMAGE})` }),
+  );
+  expect(html).toContain(`src="/api/images/${IMAGE}?thumb=1`);
+  expect(html).not.toContain("circuit-thumb");
+});
+
+test("回路図サムネは装飾扱い (タイトルが説明する)", () => {
+  const html = renderCircuitRow(makeItem({ memo: "RC 回路" }));
+  expect(html).toContain('aria-hidden="true"');
+});
+
+test("SVG を渡さなければ回路図サムネの枠ごと出ない", () => {
+  const html = renderRow(makeItem({ memo: "RC 回路" }));
+  expect(html).not.toContain("circuit-thumb");
+});
+
 // カード表示の本文プレビュー (docs/23-検索結果表示モード計画.md §3)
 
 test("カード表示は本文プレビューを 3 行の枠で出す", () => {

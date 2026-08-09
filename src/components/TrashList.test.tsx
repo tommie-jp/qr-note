@@ -28,7 +28,11 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
-const render = (items: Item[], view: ViewMode = "compact") =>
+const render = (
+  items: Item[],
+  view: ViewMode = "compact",
+  circuitThumbs?: Record<string, string[]>,
+) =>
   renderToStaticMarkup(
     <TrashList
       items={items}
@@ -36,6 +40,7 @@ const render = (items: Item[], view: ViewMode = "compact") =>
       restoreAction={noop}
       purgeAction={noop}
       emptyTrashAction={noop}
+      circuitThumbs={circuitThumbs}
     />,
   );
 
@@ -126,4 +131,25 @@ test("画像表示では行ごとの操作を出さず、行き先を案内す�
   expect(html).toContain("ノートを開くか");
   // 「ゴミ箱を空にする」は一覧全体への操作なのでどの形式でも残す
   expect(html).toContain("空にする");
+});
+
+// 回路図サムネの中継 (docs/68-一覧回路図サムネ計画.md §5)。
+// ゴミ箱でも「消してよいか」の判断材料は検索一覧と同じだけ要る
+
+const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
+
+test("小表示は回路図サムネを行へ降ろす", () => {
+  const html = render([makeItem({ itemNo: "10", memo: "RC 回路" })], "compact", {
+    "10": [CIRCUIT_SVG],
+  });
+  expect(html).toContain("circuit-thumb");
+  expect(html).toContain('<path d="M0 0h10"/>');
+});
+
+test("画像表示は回路図サムネを masonry へ降ろす", () => {
+  const html = render([makeItem({ itemNo: "10", memo: "RC 回路" })], "image", {
+    "10": [CIRCUIT_SVG],
+  });
+  expect(html).toContain("circuit-thumb");
+  expect(html).toContain('href="/item/10"');
 });

@@ -29,8 +29,14 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
-const render = (items: Item[]) =>
-  renderToStaticMarkup(<ImageMasonry items={items} itemHref={(no) => `/item/${no}`} />);
+const render = (items: Item[], circuitThumbs?: Record<string, string[]>) =>
+  renderToStaticMarkup(
+    <ImageMasonry
+      items={items}
+      itemHref={(no) => `/item/${no}`}
+      circuitThumbs={circuitThumbs}
+    />,
+  );
 
 test("1 ノートの複数画像をすべてタイルにし、どれもノート詳細へ繋ぐ", () => {
   const html = render([
@@ -98,8 +104,52 @@ test("ページ内に画像が 1 枚も無ければ案内だけを出す", () =>
     makeItem({ itemNo: "50", memo: "画像なし" }),
     makeItem({ itemNo: "60", mode: "url", url: "https://example.com" }),
   ]);
-  expect(html).toContain("このページには画像がありません");
+  expect(html).toContain("このページには画像・回路図がありません");
   expect(html).not.toContain("/api/images/");
+});
+
+// 回路図タイル (docs/68-一覧回路図サムネ計画.md §4)
+
+const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
+const CIRCUIT_SVG_2 = '<svg viewBox="0 0 20 20"><path d="M0 0h20"/></svg>';
+
+test("回路図をタイルとして並べ、ノート詳細へ繋ぐ", () => {
+  const html = render([makeItem({ itemNo: "90", memo: "RC 回路" })], {
+    "90": [CIRCUIT_SVG],
+  });
+  expect(html).toContain("circuit-thumb");
+  expect(html).toContain('<path d="M0 0h10"/>');
+  expect(html).toContain('href="/item/90"');
+  // キャプション (compact 準拠の 2 行) も画像タイルと同じに出す
+  expect(html).toContain("#90");
+  expect(html).toContain("RC 回路");
+});
+
+test("同じノートの画像タイルの後に回路図タイルを並べる", () => {
+  const html = render(
+    [makeItem({ itemNo: "91", memo: `図と写真\n![](/api/images/${IMAGE_1})` })],
+    { "91": [CIRCUIT_SVG, CIRCUIT_SVG_2] },
+  );
+  // 画像 1 + 回路図 2 = タイル 3 枚 (どれもノート詳細へ)
+  expect(html.match(/href="\/item\/91"/g)).toHaveLength(3);
+  // 画像タイルが先、回路図タイルが後
+  const imagePos = html.indexOf(`/api/images/${IMAGE_1}`);
+  const circuitPos = html.indexOf("circuit-thumb");
+  expect(imagePos).toBeGreaterThan(-1);
+  expect(circuitPos).toBeGreaterThan(imagePos);
+});
+
+test("回路図の SVG が無いノートは今までどおり画像タイルだけ", () => {
+  const html = render([
+    makeItem({ itemNo: "92", memo: `![](/api/images/${IMAGE_1})` }),
+  ]);
+  expect(html).toContain(`/api/images/${IMAGE_1}`);
+  expect(html).not.toContain("circuit-thumb");
+});
+
+test("画像も回路図も無いページは案内だけを出す (文言は両方に触れる)", () => {
+  const html = render([makeItem({ itemNo: "93", memo: "文章だけ" })]);
+  expect(html).toContain("このページには画像・回路図がありません");
 });
 
 test("行優先で埋まる Grid で組む (multi-column ではない)", () => {

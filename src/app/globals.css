@@ -108,6 +108,18 @@ summary {
   zoom: var(--note-font-scale, 1);
 }
 
+/* 一覧の回路図サムネ (docs/68-一覧回路図サムネ計画.md §3)。
+   上と同じくサーバ生成 SVG は固定 px の width/height 属性を持つので、
+   CSS で枠いっぱいに上書きする。SVG は viewBox を持ち、preserveAspectRatio の
+   既定 (xMidYMid meet) が効くので、これだけで object-contain 相当になる
+   (図全体を余白付きで見せ、切り抜かない。画像タイルと同じ見せ方)。
+   本文用の .circuit-diagram と分けるのは、あちらの zoom (文字サイズ追随) を
+   サムネに効かせないため */
+.circuit-thumb > svg {
+  width: 100%;
+  height: 100%;
+}
+
 /* 入力欄は 16px を割らせない (docs/61 §2)。iOS Safari は 16px 未満の入力欄に
    フォーカスすると画面を勝手に拡大し、更新後もズームが残る。
 

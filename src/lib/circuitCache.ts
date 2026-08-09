@@ -9,8 +9,10 @@ import { extractCircuitSources } from './circuitFences'
 
 // 1 つのメモで描く回路図の上限。
 // 描画は 1 枚ずつ順に行い、1 枚あたり最大 CIRCUIT_TIMEOUT_MS かかるため、
-// 際限なく並べられるとページ表示がその分だけ止まる (10,000 字あれば数十個書ける)
-const MAX_CIRCUITS_PER_MEMO = 8
+// 際限なく並べられるとページ表示がその分だけ止まる (10,000 字あれば数十個書ける)。
+// 一覧サムネの取得 (circuitThumbs.ts) も同じ上限で切り、9 個目以降は
+// 「描かれない図」なので引きにも行かない
+export const MAX_CIRCUITS_PER_MEMO = 8
 
 // 1 つの ```circuitikz フェンスの描画結果。成功か失敗のどちらか
 export type CircuitResult = { svg: string } | { error: string; texLog: string }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { firstThumbInfo } from "@/lib/memoImages";
+import { CircuitThumb } from "./CircuitThumb";
 import { RowThumb } from "./RowThumb";
 import {
   SwipeToTrashRow,
@@ -43,6 +44,11 @@ interface ItemRowProps {
   // 行の下に足す補助行 (ゴミ箱の削除日時と復元 / 永久削除)。
   // 押せる物を入れられるよう、stretched link の膜より前に出して描く
   footer?: ReactNode;
+  // 画像サムネが無いノートの代わりの顔にする回路図
+  // (docs/68-一覧回路図サムネ計画.md §3)。サーバで描画・検査済みの SVG 文字列。
+  // 一覧側 (circuitThumbs.ts) が「本文の最初に描画済みの図」を選んで降ろす。
+  // **画像があるノートでは使わない** — 優先順位の分岐は下の thumb が持つ
+  circuitThumb?: string;
 }
 
 // サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
@@ -72,6 +78,7 @@ export function ItemRow({
   onSwipeOpenChange,
   searchState,
   footer,
+  circuitThumb,
 }: ItemRowProps) {
   const isUrl = item.mode === "url";
   // 見出しが空でも文字を置く。**当たり判定のため**で、飾りではない —
@@ -86,14 +93,22 @@ export function ItemRow({
   // RowThumb がアイコンへ切り替える (docs/14 §Phase4)
   const thumbInfo = isUrl ? null : firstThumbInfo(item.memo);
 
-  const thumb = thumbInfo && (
+  // 顔の優先順位: 画像/動画 → 回路図 → なし (docs/68 §1)。画像があるノートは
+  // 今までどおりの見た目を保ち、文字だけだったノートにだけ回路図が加わる
+  const thumb = thumbInfo ? (
     <RowThumb
       name={thumbInfo.name}
       isVideo={thumbInfo.isVideo}
       sizePx={THUMB_PX[view]}
       sizeClass={THUMB_SIZE_CLASS[view]}
     />
-  );
+  ) : circuitThumb ? (
+    <CircuitThumb
+      variant="row"
+      svg={circuitThumb}
+      sizeClass={THUMB_SIZE_CLASS[view]}
+    />
+  ) : null;
 
   const tags = item.tags.length > 0 && (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
