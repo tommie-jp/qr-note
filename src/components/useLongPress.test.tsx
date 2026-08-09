@@ -260,3 +260,36 @@ test('rightClick: "native" でも押している最中の contextmenu は長押�
   // 指を離した click は握り潰す (メニューを出しただけでノートが開かない)
   expect(handlers.onClick(mouseEvent().event)).toBe(true);
 });
+
+// タッチのポインタは pointerdown で押した要素に暗黙に捕まるので、指が外へ
+// 出ても leave は来ない。代わりに **pointerup の直後・互換 click の前**に
+// 後始末として飛んでくる。ここで構えを倒すと続く click が握り潰されず、
+// 開いたばかりの長押しメニューがその場で閉じる (スマホで一瞬光って消える)
+test("枠の中で離した後に来る pointerleave では構えを倒さない", () => {
+  vi.useFakeTimers();
+  const onLongPress = vi.fn();
+  const handlers = handlersOf(onLongPress);
+
+  handlers.onPointerDown(pointerDown());
+  vi.advanceTimersByTime(LONG_PRESS_MS);
+  expect(onLongPress).toHaveBeenCalledTimes(1);
+  // タッチが投げてくる順番: up → leave → click
+  handlers.onPointerUp();
+  handlers.onPointerLeave();
+
+  expect(handlers.onClick(mouseEvent().event)).toBe(true);
+});
+
+// 押している最中の leave は今までどおり取り消す (マウスで押したまま枠の外へ
+// 出す動き)。放した先が別のスロットでメニューが出るのを防ぐため
+test("押している最中に枠の外へ出たら長押しを取り消す", () => {
+  vi.useFakeTimers();
+  const onLongPress = vi.fn();
+  const handlers = handlersOf(onLongPress);
+
+  handlers.onPointerDown(pointerDown());
+  handlers.onPointerLeave();
+  vi.advanceTimersByTime(LONG_PRESS_MS);
+
+  expect(onLongPress).not.toHaveBeenCalled();
+});

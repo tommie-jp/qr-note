@@ -122,13 +122,25 @@ export function useLongPress(
       // 握り潰すのが目的なので、倒すと長押しの後にフォームが送信される)
       onPointerUp: cancel,
       onPointerCancel: abandonPress,
-      // 指・カーソルがスロットの外へ出たら取り消す。放した先が別のスロット
-      // だったときに、押していないほうのメニューが出るのを防ぐ。
+      // 指・カーソルが枠の外へ出たら取り消す。放した先が別のスロットだった
+      // ときに、押していないほうのメニューが出るのを防ぐ。
       //
-      // 構えも倒す (abandonPress)。長押しでメニューが開いた直後、そのまま指を
-      // 開いたメニューへ滑らせて外で離す — という自然な動きでは、この枠に
-      // click が来ないため
-      onPointerLeave: abandonPress,
+      // **押している最中でなければ何もしない。** タッチのポインタは
+      // pointerdown で押した要素に暗黙に捕まるので、指が外へ出ても leave は
+      // 来ず、代わりに **pointerup の直後・互換 click の前**に後始末として
+      // 飛んでくる。素通しで構えを倒すと、そこで長押し成立の印が消えて
+      // 続く click が握り潰されず、開いたばかりのメニューを dismissOrCycle が
+      // その場で閉じる — スマホで長押しメニューが一瞬光って消える形で出た。
+      // 検索結果の行 (SwipeToTrashRow) が onPointerLeave を繋がないのと同じ事情。
+      //
+      // 押している最中かは start で判る (pointerup の cancel が畳むので、
+      // 後始末として来た leave では既に null)。
+      onPointerLeave: () => {
+        if (start.current === null) {
+          return
+        }
+        abandonPress();
+      },
       // 握り潰したかを返す。呼ぶ側が「長押しの後始末だったのか、普通の
       // タップだったのか」で続きを振り分けられるようにするため
       // (BottomActionBar の dismissOrCycle)。React の型は void を期待するが、
