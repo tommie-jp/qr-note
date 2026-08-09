@@ -72,7 +72,9 @@ test("選択中はノートをゴミ箱へ入れるボタンを出す", () => {
 
 test("未選択ならゴミ箱へボタンも無効化する", () => {
   const html = render([makeItem({ itemNo: "1" })], new Set());
-  expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*ゴミ箱へ/);
+  // ラベルの前にアイコン (TrashIcon の svg) が入るので、間の要素は跨いで見る。
+  // 閉じ ✕ を挟まないことで「同じ button の中の文字」であることは保てる
+  expect(html).toMatch(/<button[^>]*disabled(?:(?!<\/button>)[\s\S])*ゴミ箱へ/);
 });
 
 test("タグのチップは「タグを削除」と明示する (ノートの削除と区別する)", () => {

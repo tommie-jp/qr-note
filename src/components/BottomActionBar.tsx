@@ -301,7 +301,9 @@ export function BottomActionBar({
               expanded={openMenu === "view"}
               buttonRef={viewButtonRef}
               press={viewPress}
-              onClick={(event) => dismissOrCycle(event, "view", viewPress.onClick)}
+              onClick={(event) =>
+                dismissOrCycle(event, "view", viewPress.handlers.onClick)
+              }
             />
             {/* メニューは**ボタンより後ろ**に置く。absolute なので見た目の
                 位置は変わらないが、DOM の並びがそのままタブ順になるため、
@@ -356,7 +358,9 @@ export function BottomActionBar({
               expanded={openMenu === "sort"}
               buttonRef={sortButtonRef}
               press={sortPress}
-              onClick={(event) => dismissOrCycle(event, "sort", sortPress.onClick)}
+              onClick={(event) =>
+                dismissOrCycle(event, "sort", sortPress.handlers.onClick)
+              }
             />
             {/* 表示モードと同じく、メニューはボタンより後ろ (タブ順のため) */}
             {openMenu === "sort" && (

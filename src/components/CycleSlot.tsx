@@ -77,7 +77,7 @@ export function CycleSlot<T extends string>({
       aria-haspopup="menu"
       aria-expanded={expanded}
       aria-busy={pending}
-      {...press}
+      {...press.handlers}
       onClick={onClick}
       className={`${BOTTOM_BAR_SLOT_CLASS} text-gray-700`}
     >

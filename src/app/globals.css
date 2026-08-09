@@ -11,6 +11,14 @@
    (視界の高さ 400px 前後) を含み、PC の通常ウィンドウを外す境目 */
 @custom-variant landscape-phone (@media (orientation: landscape) and (max-height: 500px));
 
+/* 指で触る画面だけに効く変体 (docs/66-行アクション計画.md §5-2)。
+   例: touch:select-none
+
+   長押しでメニューを出す場所では文字選択を止めたいが、**止めるのはタッチだけ**。
+   PC まで select-none にすると、一覧のタイトルや本文をマウスで選んでコピーする
+   手が丸ごと消える。長押しに化けようがないポインタで禁じる理由がない */
+@custom-variant touch (@media (hover: none));
+
 html {
   /* iOS のラバーバンド (ドラッグで画面全体が引きずられる) と
      Android の引っ張って更新を止める */

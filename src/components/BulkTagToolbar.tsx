@@ -2,6 +2,7 @@
 
 import type { Item } from "@/generated/prisma/client";
 import { selectedTagsUnion } from "@/lib/bulkTags";
+import { TrashIcon } from "./MenuIcons";
 import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "./ui";
 
 interface BulkTagToolbarProps {
@@ -126,7 +127,8 @@ export function BulkTagToolbar({
           disabled={disabled}
           className={`${DANGER_BUTTON_CLASS} whitespace-nowrap`}
         >
-          🗑 ゴミ箱へ
+          <TrashIcon />
+          ゴミ箱へ
         </button>
       </div>
     </div>

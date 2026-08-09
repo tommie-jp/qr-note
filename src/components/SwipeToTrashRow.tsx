@@ -8,6 +8,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { unstable_rethrow } from "next/navigation";
+import type { MenuPoint } from "@/lib/rowActionMenu";
 import {
   SWIPE_BUTTON_WIDTH,
   beginSwipe,
@@ -17,6 +19,14 @@ import {
   settleSwipe,
   type SwipeState,
 } from "@/lib/swipeRow";
+import { TrashIcon } from "./MenuIcons";
+import { RowActionMenu } from "./RowActionMenu";
+import {
+  RowActionButtons,
+  ROW_ACTION_SELECTOR,
+  type RowAction,
+} from "./RowActions";
+import { useLongPress } from "./useLongPress";
 
 interface SwipeToTrashRowProps {
   itemNo: string;
@@ -35,12 +45,21 @@ interface SwipeToTrashRowProps {
   children: ReactNode;
 }
 
-// ノートの 1 行 / 1 カードを左スワイプで削除できるようにするラッパー
-// (docs/43-スワイプ削除計画.md)。判定ロジックは lib/swipeRow.ts の純関数に
-// 任せ、ここは pointer と DOM/React state の橋渡しに徹する。
+// ノートの 1 行 / 1 カードに操作を付けるラッパー。
+//
+//   左スワイプ … 右端の赤い「削除」ボタンを露出させる (docs/43-スワイプ削除計画.md)。
+//   ホバー     … 右端にアイコンボタン列を出す。PC 用 (docs/66-行アクション計画.md §4)。
+//   長押し     … 指の近くに操作メニューを出す。スマホ用 (docs/66 §5)。
+//
+// 判定ロジックは lib/swipeRow.ts と lib/longPress.ts の純関数に任せ、ここは
+// pointer と DOM/React state の橋渡しに徹する。
 //
 //   背面 … 右端に固定した赤い「削除」ボタン。
 //   前面 … 既存の行 (bg-white)。translateX で左へずれてボタンを露出させる。
+//
+// **行アクションの一覧 (actions) をここで組む。** 送信中・失敗の状態を持てるのが
+// この階層だけなので、実行する手と一覧を同じ所に置く。今後ピン留めなどを足す
+// ときは actions に 1 つ足せば、ホバーの列とメニューの両方に同時に現れる。
 export function SwipeToTrashRow({
   itemNo,
   trashAction,
@@ -63,6 +82,13 @@ export function SwipeToTrashRow({
   const [removing, setRemoving] = useState(false);
   const [failed, setFailed] = useState(false);
   const [isPending, startTransition] = useTransition();
+  // 長押しメニューを開いている位置 (画面座標)。閉じているときは null。
+  //
+  // **開いているメニューを 1 つに保つのに、親へ持ち上げる必要はない。**
+  // RowActionMenu は document の pointerdown を capture で拾って閉じるので、
+  // 別の行を押した時点で先に閉じる (スワイプの開閉が openItemNo を親に
+  // 置いているのは、あちらが「押されていない間も開いたまま」だから)
+  const [menuAt, setMenuAt] = useState<MenuPoint | null>(null);
 
   const apply = (next: SwipeState) => {
     stateRef.current = next;
@@ -80,30 +106,68 @@ export function SwipeToTrashRow({
 
   const busy = removing || isPending;
 
+  // 長押しでメニューを開く (docs/66 §5)。
+  //
+  // rightClick: "native" … PC の右クリックはブラウザ既定のメニューに渡す。
+  // 行の当たり判定は本物のリンク (stretched link) で、「右クリックで URL を
+  // コピー」は ItemRow が守ると明言している性質なので奪えない。PC には
+  // ホバーのボタン列があり、長押しの代わりはそちらが務める
+  const longPress = useLongPress(
+    (point) => {
+      if (busy) return;
+      // 開きかけの引き出しは畳む。引き出しとメニューが同時に出ていると、
+      // どちらの削除を押したのか判らなくなる
+      onOpenChange(false);
+      setMenuAt(point);
+    },
+    { rightClick: "native" },
+  );
+
+  // ボタン列の上で始まった押下は、スワイプにも長押しにも渡さない。
+  // ボタンを押しただけで行が滑ったり、押しているうちにメニューが
+  // ボタンを覆って出てくるのを防ぐ
+  const isOnRowAction = (target: EventTarget | null) =>
+    target instanceof Element && target.closest(ROW_ACTION_SELECTOR) !== null;
+
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (busy) return;
     // マウスは左ボタンのときだけ (右クリックのコンテキストメニューを邪魔しない)。
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (isOnRowAction(e.target)) return;
     // 新しいジェスチャの開始で、前のドラッグが残した抑止フラグを捨てる。
     // 大きく払って開くと click が飛んでこず、抑止フラグが消費されないまま
     // 残る。それを次のタップ (閉じる操作) の click が食ってしまうため、
     // ここで必ずリセットする。同じジェスチャ内の click だけを抑止できる。
     suppressClick.current = false;
+    // **マウスでは長押しを仕掛けない。** PC の近道はホバーのボタン列 (§4) で、
+    // こちらは指のための入口。仕掛けると、ゆっくりクリックした人 (0.5 秒は
+    // 意外と短い) の click が握り潰され、ノートが開かない行になる。
+    // ペンは指と同じ扱い — ホバーを持たない入力なので長押しが要る
+    if (e.pointerType !== "mouse") {
+      longPress.handlers.onPointerDown(e);
+    }
     apply(beginSwipe(stateRef.current, e.clientX, e.clientY, e.timeStamp));
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    longPress.handlers.onPointerMove(e);
     const prev = stateRef.current;
     if (prev.phase === "idle") return;
     const next = moveSwipe(prev, e.clientX, e.clientY, e.timeStamp);
     // 横と確定した瞬間だけ pointer を捕まえ、枠の外へ出ても move を受け続ける。
     if (next.phase === "dragging" && prev.phase !== "dragging") {
+      // **同時にここで長押しを捨てる。** 取り消しの閾値はスワイプが 8px
+      // (SWIPE_SLOP)、長押しが 10px (LONG_PRESS_MOVE_TOLERANCE_PX) で 2px
+      // 重なっており、その隙間まで払って指を止めると、引き出しが開いたまま
+      // 0.5 秒後にメニューまで出る
+      longPress.cancel();
       e.currentTarget.setPointerCapture?.(e.pointerId);
     }
     apply(next);
   };
 
   const handlePointerUp = () => {
+    longPress.handlers.onPointerUp();
     const prev = stateRef.current;
     if (prev.phase !== "dragging") {
       // ドラッグに至らなかった (=タップ)。開閉は動かさない。click 側で処理する。
@@ -120,7 +184,26 @@ export function SwipeToTrashRow({
     onOpenChange(open);
   };
 
+  const handlePointerCancel = () => {
+    longPress.handlers.onPointerCancel();
+    handlePointerUp();
+  };
+
   const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    // **ボタン列への click は何があっても素通しする。** 下の 2 つはどちらも
+    // 「行のどこかを押した」ことを前提にした握り潰しで、ボタンに掛けると
+    // 押しても何も起きないボタンになる — 引き出しが開いている間や、
+    // ドラッグで開いた直後 (suppressClick が残っている) に実際そうなる。
+    // capture 段で stopPropagation するとボタン自身の onClick まで届かない
+    if (isOnRowAction(e.target)) {
+      return;
+    }
+    // 長押しを終えた指離しの click は、長押し側が握り潰す (メニューを出した
+    // だけのつもりでノートが開くのを防ぐ)。**スワイプの判定より先に見る** —
+    // 後にすると「開いていないタップ」として素通りする
+    if (longPress.handlers.onClick(e)) {
+      return;
+    }
     // ドラッグ直後の click は 1 回だけ握りつぶす。
     if (suppressClick.current) {
       suppressClick.current = false;
@@ -147,13 +230,32 @@ export function SwipeToTrashRow({
       try {
         await trashAction(formData);
         // 成功時は revalidate で一覧からこの行ごと消えるので、畳んだまま待つ。
-      } catch {
-        // 失敗したら畳みを戻してエラーを見せる (静かに握りつぶさない)。
+      } catch (error) {
+        // **成功しても例外は飛んでくる。** trashItemsAction は最後に
+        // redirect() を呼び、これは内部エラーを投げることで動く仕組みなので、
+        // 素の catch は成功した削除まで「失敗」にしてしまう (実際、消えた行の
+        // 上に一瞬エラーが出ていた)。フレームワークの例外はここで投げ直す
+        unstable_rethrow(error);
+        // 本物の失敗は畳みを戻してエラーを見せる (静かに握りつぶさない)。
         setRemoving(false);
         setFailed(true);
       }
     });
   };
+
+  // 行アクションの一覧 (docs/66 §3)。ホバーのボタン列と長押しメニューは
+  // どちらもこれを描くので、1 つ足せば両方に同時に現れる。
+  // useMemo で包まない — 読む側 (ボタン列・メニュー) はどちらも毎描画で
+  // 描き直す軽い部品で、同一性に依存する所が無い
+  const actions: RowAction[] = [
+    {
+      key: "trash",
+      label: "ゴミ箱へ移動",
+      icon: <TrashIcon />,
+      danger: true,
+      onSelect: handleDelete,
+    },
+  ];
 
   const open = offset !== 0;
   const isCard = view === "card";
@@ -191,22 +293,52 @@ export function SwipeToTrashRow({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        // **onPointerLeave は繋がない。** タッチのポインタは pointerdown で
+        // 押した要素に暗黙に捕まるので、指が行の外へ出ても leave は来ず、
+        // 代わりに **pointerup の直後・互換 click の前**に後始末として飛んでくる。
+        // 繋ぐと長押し成立の印がそこで倒れ、続く click が握り潰されずに
+        // stretched link がノートを開く — 開いたばかりのメニューごと消える。
+        // 指が行から離れた場合の取り消しは onPointerMove の 10px 判定が既に見ている
+        onContextMenu={longPress.handlers.onContextMenu}
         onClickCapture={handleClickCapture}
         // pan-y … 縦スクロールはブラウザに任せ、横だけこちらが取る。
         // ドラッグ中だけ transition を外して指に張り付かせる。
-        className={`relative bg-white touch-pan-y ${isCard ? "h-full" : ""} ${
-          dragging ? "" : "transition-transform duration-200"
-        }`}
+        //
+        // group … ホバーでアイコンボタン列を出すための的 (docs/66 §4)。
+        // touch:select-none / -webkit-touch-callout:none … 長押しに反応させる
+        // ための備え (§5-2)。iOS はリンクを長押しすると既定でプレビューの
+        // 吹き出しを出し、こちらのメニューに重なる。**行の当たり判定は本物の
+        // <a> なので、contextmenu を止めるだけでは防げない**。選択の禁止は
+        // タッチだけに絞る — PC まで効かせると一覧の文字をマウスで選べなくなる
+        className={`group relative bg-white touch-pan-y touch:select-none [-webkit-touch-callout:none] ${
+          isCard ? "h-full" : ""
+        } ${dragging ? "" : "transition-transform duration-200"}`}
         style={{ transform: `translateX(${offset}px)` }}
       >
         {children}
+        {/* PC 用のボタン列。スマホでは hover が無いので出ない (§4) */}
+        <RowActionButtons itemNo={itemNo} actions={actions} view={view} />
         {failed && (
           <p className="px-4 pb-1 text-sm text-red-600" role="alert">
             削除に失敗しました。通信を確認して再度お試しください。
           </p>
         )}
       </div>
+
+      {/* 長押しメニュー (§5-3)。**前面 div の中に置いてはいけない** —
+          あちらは translateX を持ち、transform のある要素は fixed の包含
+          ブロックになるので、画面座標のつもりの位置が行の中を指す。
+          ここに置けば body へ portal されるだけで、li の overflow-hidden にも
+          切られない */}
+      {menuAt && (
+        <RowActionMenu
+          label={`#${itemNo} の操作`}
+          actions={actions}
+          at={menuAt}
+          onClose={() => setMenuAt(null)}
+        />
+      )}
     </li>
   );
 }

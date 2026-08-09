@@ -9,6 +9,7 @@ import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { BulkTagToolbar } from "./BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";
+import { TrashIcon } from "./MenuIcons";
 import { useSelectMode } from "./SelectModeProvider";
 import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "./ui";
 
@@ -65,7 +66,8 @@ function emptyState(
             transitionTypes={["nav-forward"]}
             className={`${ACTION_LINK_CLASS} justify-center`}
           >
-            🗑 ゴミ箱に {trashedMatches} 件の一致があります
+            <TrashIcon />
+            ゴミ箱に {trashedMatches} 件の一致があります
           </Link>
         </p>
       )}
