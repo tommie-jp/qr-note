@@ -24,18 +24,24 @@ const TINT = { fill: "currentColor", fillOpacity: 0.15 } as const;
 
 // 線画のアイコンで共通の描き方。塗りではなく線で描くのは、メニューの
 // 文字 (font-medium) と線の太さが揃って馴染むため
+// sizeClass … 既定 (20px) を**差し替える**ための口。className に size-4 を
+// 足す形では効かない — Tailwind の同種ユーティリティは class 属性の並び順では
+// なく生成 CSS の並び順で勝敗が決まるので、size-5 が残って効かないことがある。
+// 使う側が「どちらが勝つか」を読めないのは危ないので、差し替えは別の口にする
 function StrokeIcon({
   children,
   className,
+  sizeClass = SIZE_CLASS,
 }: {
   children: React.ReactNode;
   className?: string;
+  sizeClass?: string;
 }) {
   return (
     <svg
       aria-hidden
       viewBox="0 0 24 24"
-      className={className ? `${SIZE_CLASS} ${className}` : SIZE_CLASS}
+      className={className ? `${sizeClass} ${className}` : sizeClass}
       fill="none"
       stroke="currentColor"
       strokeWidth={1.8}
@@ -478,9 +484,12 @@ export function LockIcon() {
 // これまで絵文字の 🗑 を使っていた場所も、すべてこれに置き換えた。絵文字は
 // 端末ごとに字形も色も違い、単色の線画が並ぶ中に 1 つだけ混ざるとそこが
 // 浮く (縦位置もフォント任せで揃わない)
-export function TrashIcon() {
+// 大きさを受けるのはこの 1 つだけ。検索結果の件数行 (text-xs) に並べるときに、
+// 既定の 20px では文字より背が高くなって行を押し広げるため
+// (docs/31 §11-4 の「色はアイコン側」はそのまま — 受けるのは大きさだけ)
+export function TrashIcon({ small = false }: { small?: boolean } = {}) {
   return (
-    <StrokeIcon>
+    <StrokeIcon sizeClass={small ? "size-4 shrink-0" : undefined}>
       <path d="M4 7h16" />
       <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
       <path
@@ -488,6 +497,25 @@ export function TrashIcon() {
         d="M6 7h12l-.8 12.1a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9z"
       />
       <path d="M10.5 11.5v5.5M13.5 11.5v5.5" />
+    </StrokeIcon>
+  );
+}
+
+// オフラインで使う印 (docs/65-オフライン対応計画.md §7)。
+// 「端末へ落とす」を下向きの矢印と受け皿で描く。
+//
+// **雲に斜線 (いわゆる圏外の印) にはしない。** あれは「通信できない」という
+// 状態を表す絵で、ここは「持ち出す」という操作を押す物である。押した結果が
+// 「圏外になる」と読めてしまう向きは避ける。
+//
+// TrashIcon と同じく色は持たせない — 一括ツールバー (青) と、後から別の場所へ
+// 置くときとで色が変わるため。
+export function OfflinePinIcon() {
+  return (
+    <StrokeIcon>
+      <path d="M12 3v9" />
+      <path d="M8.5 8.5 12 12l3.5-3.5" />
+      <path {...TINT} d="M4 14h4l1.2 2.5h5.6L16 14h4v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
     </StrokeIcon>
   );
 }

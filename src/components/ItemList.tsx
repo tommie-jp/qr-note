@@ -29,6 +29,8 @@ interface ItemListProps {
   view?: ViewMode;
   // 選択したノートをゴミ箱へ入れる (docs/12-ゴミ箱計画.md §5)
   trashAction: BulkTagAction;
+  // 選択したノートをオフラインの対象にする (docs/65-オフライン対応計画.md §7)
+  pinAction: BulkTagAction;
   // 0 件の検索語をタグにした新規ノートの編集ページ。タグにできない語
   // (URL・複数語) や採番できないときは null。採番はサーバでしか引けないので
   // page.tsx から降ろす (docs/10-スキャン新規登録計画.md)
@@ -98,6 +100,7 @@ export function ItemList({
   action,
   view = DEFAULT_VIEW_MODE,
   trashAction,
+  pinAction,
   registerHref,
   trashedMatches,
 }: ItemListProps) {
@@ -218,6 +221,7 @@ export function ItemList({
         items={items}
         selected={selected}
         trashAction={trashAction}
+        pinAction={pinAction}
         onSelectAll={() => setSelected(new Set(items.map((i) => i.itemNo)))}
         onClear={() => setSelected(new Set())}
         onCancel={exit}

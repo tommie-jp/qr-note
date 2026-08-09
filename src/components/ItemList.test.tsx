@@ -48,6 +48,7 @@ const render = (
         action={noop}
         view={view}
         trashAction={noop}
+        pinAction={noop}
         registerHref={registerHref}
         trashedMatches={trashedMatches}
       />

@@ -220,6 +220,47 @@ export async function setItemOfflinePinAction(formData: FormData): Promise<void>
   revalidatePath(`/item/${itemNo}`)
 }
 
+// 検索結果で選択したノートにまとめて印を立てる (docs/65 §7)。
+// 一括タグ・ゴミ箱と同じフォームから formAction で分岐して呼ばれる。
+//
+// **立てるだけで、外す口はここに作らない。** 一括で外せると、全選択して
+// 押した瞬間に端末の持ち出しが丸ごと消える — 消えたことは圏外へ出るまで
+// 判らない。外すのは 1 件ずつ (ノート画面のトグル) で足りる。
+//
+// 回路図は 1 件ずつと同じく**ここで描いておく** (§7-2)。選んだ数だけ TeX が
+// 走るので遅くなりうるが、描かずに印だけ立てると「圏外で図だけ出ない」が
+// 選んだ件数ぶん一度に生まれる。描画の失敗で操作は止めない。
+export async function setItemsOfflinePinAction(formData: FormData): Promise<void> {
+  await requireUser()
+  // 単体のトグルと同じ理由でデモを塞ぐ (旗の欠落に頼らない)
+  if (isDemoMode()) {
+    throw new Error('デモモードではオフライン保存は使えません')
+  }
+  const itemNos = parseSelectedItemNos(formData)
+  const back = parseBackUrl(formData)
+
+  for (const itemNo of itemNos) {
+    await setItemOfflinePin(itemNo, true)
+    const item = await getItem(itemNo)
+    if (item === null) {
+      continue
+    }
+    try {
+      await renderCircuits(item.memo)
+    } catch (error) {
+      console.warn(`オフライン用の回路図を描けませんでした (${itemNo})`, error)
+    }
+  }
+
+  if (itemNos.length > 0) {
+    // 一覧も描き直す。印は一覧に出ないが、**次の同期で持ち出す対象が
+    // 変わった**ので、キャッシュされた古い応答を残さない
+    revalidatePath('/')
+  }
+
+  redirect(back)
+}
+
 // --- ゴミ箱 (二段階削除。docs/12-ゴミ箱計画.md) ---
 
 // 検索結果で選択したノートをゴミ箱へ入れる (復元できるので confirm は出さない)。

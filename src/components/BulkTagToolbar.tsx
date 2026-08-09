@@ -2,7 +2,7 @@
 
 import type { Item } from "@/generated/prisma/client";
 import { selectedTagsUnion } from "@/lib/bulkTags";
-import { TrashIcon } from "./MenuIcons";
+import { OfflinePinIcon, TrashIcon } from "./MenuIcons";
 import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "./ui";
 
 interface BulkTagToolbarProps {
@@ -11,6 +11,9 @@ interface BulkTagToolbarProps {
   // ノートをゴミ箱へ入れるサーバーアクション。同じ form のまま formAction で
   // 送り先だけ差し替える (bulkTagAction に mode 分岐を足さない)
   trashAction: (formData: FormData) => void | Promise<void>;
+  // 選択したノートをオフラインの対象にするサーバーアクション
+  // (docs/65-オフライン対応計画.md §7)。trashAction と同じ差し替え方
+  pinAction: (formData: FormData) => void | Promise<void>;
   onSelectAll: () => void;
   onClear: () => void;
   onCancel: () => void;
@@ -27,6 +30,7 @@ export function BulkTagToolbar({
   items,
   selected,
   trashAction,
+  pinAction,
   onSelectAll,
   onClear,
   onCancel,
@@ -121,14 +125,34 @@ export function BulkTagToolbar({
         >
           ⬇ エクスポート
         </button>
+        {/* 選んだノートをまとめてオフラインの対象にする (docs/65 §7)。
+            **文字を残すのは「押した結果が端末の外に出ない」から** — 絵だけだと
+            エクスポート (⬇) と向きの似た絵が並ぶうえ、これは通信量を使う操作
+            なので、押す前に何が起きるか読めるほうがよい。「オフライン」では
+            3 つ並ぶ最下段が窮屈になるので「オフ」まで詰める */}
+        <button
+          type="submit"
+          formAction={pinAction}
+          disabled={disabled}
+          title="選択したノートをオフラインで使えるようにする"
+          className={`${SECONDARY_BUTTON_CLASS} whitespace-nowrap`}
+        >
+          <OfflinePinIcon />
+          オフ
+        </button>
+        {/* ゴミ箱は**絵だけ**にする。行アクション (docs/66) と同じ絵で、
+            意味は既に覚えられている物なので文字が要らない。3 つ並ぶ最下段で
+            一番幅を返せるのがここでもある。
+            aria-label と title で、読み上げと長押しには言葉を残す */}
         <button
           type="submit"
           formAction={trashAction}
           disabled={disabled}
+          aria-label="ゴミ箱へ"
+          title="ゴミ箱へ"
           className={`${DANGER_BUTTON_CLASS} whitespace-nowrap`}
         >
           <TrashIcon />
-          ゴミ箱へ
         </button>
       </div>
     </div>

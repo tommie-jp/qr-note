@@ -33,6 +33,7 @@ const render = (items: Item[], selected: Set<string>) =>
       items={items}
       selected={selected}
       trashAction={noop}
+      pinAction={noop}
       onSelectAll={noop}
       onClear={noop}
       onCancel={noop}
@@ -100,4 +101,24 @@ test("選択中はエクスポートボタンを出す (POST /api/export)", () =
 test("未選択ならエクスポートも無効化する", () => {
   const html = render([makeItem({ itemNo: "1" })], new Set());
   expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*エクスポート/);
+});
+
+// 最下段の 3 つ (docs/65-オフライン対応計画.md §7)。
+// **ゴミ箱だけ文字を落とす** — 行アクションと同じ絵で意味が覚えられている物で、
+// 3 つ並ぶ最下段で一番幅を返せる。読み上げには aria-label で言葉を残す
+test("オフラインは絵と文字、ゴミ箱は絵だけにする", () => {
+  // Arrange & Act
+  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+
+  // Assert
+  expect(html).toContain("オフ");
+  expect(html).toContain('aria-label="ゴミ箱へ"');
+  expect(html).not.toContain("ゴミ箱へ<");
+});
+
+// 押せない状態で送ると 0 件のまま印だけ立てに行くことになる
+test("1 件も選んでいなければオフラインもゴミ箱も押せない", () => {
+  const html = render([makeItem({ itemNo: "1" })], new Set());
+  // disabled な submit ボタンが 3 つ (エクスポート・オフライン・ゴミ箱) 以上ある
+  expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(3);
 });

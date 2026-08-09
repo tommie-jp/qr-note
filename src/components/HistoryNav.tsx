@@ -87,8 +87,16 @@ function TriangleIcon({ direction }: { direction: "back" | "forward" }) {
 //
 // min-h-11 … 見た目は 20px の三角でも、タップ目標は 44px を確保する。
 // 帯の高さを押し上げないよう、親側が負のマージンで打ち消す (HeaderMenu と同じ)
-const BUTTON_CLASS =
-  "flex min-h-11 items-center justify-center rounded px-1.5 text-sky-600 transition-colors active:bg-sky-100 disabled:text-gray-300 disabled:active:bg-transparent";
+// 内側の余白だけを詰めて、三角どうしの見た目の間隔を半角スペース 2 つぶん
+// (8px) にする。内訳は 4px (gap-1) + 2px + 2px。
+//
+// **gap-1 は 0 にしない。** 上に書いたとおり「戻る」の押し間違いは進む先を
+// 捨てるので、当たり判定そのものは離しておく。外側の px-1.5 も残す —
+// 詰めるのは 2 つの間だけで、指の当たる幅は減らさない
+const BUTTON_BASE =
+  "flex min-h-11 items-center justify-center rounded text-sky-600 transition-colors active:bg-sky-100 disabled:text-gray-300 disabled:active:bg-transparent";
+const BACK_CLASS = `${BUTTON_BASE} pl-1.5 pr-0.5`;
+const FORWARD_CLASS = `${BUTTON_BASE} pl-0.5 pr-1.5`;
 
 export function HistoryNav() {
   const canGoBack = useCanGo("back");
@@ -110,7 +118,7 @@ export function HistoryNav() {
         onClick={() => window.history.back()}
         disabled={!canGoBack}
         aria-label="前の画面に戻る"
-        className={BUTTON_CLASS}
+        className={BACK_CLASS}
       >
         <TriangleIcon direction="back" />
       </button>
@@ -119,7 +127,7 @@ export function HistoryNav() {
         onClick={() => window.history.forward()}
         disabled={!canGoForward}
         aria-label="次の画面に進む"
-        className={BUTTON_CLASS}
+        className={FORWARD_CLASS}
       >
         <TriangleIcon direction="forward" />
       </button>

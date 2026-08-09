@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   bulkTagAction,
+  setItemsOfflinePinAction,
   setSortAction,
   setViewModeAction,
   trashItemsAction,
@@ -10,6 +11,7 @@ import {
 import { AutoLoadMore } from "@/components/AutoLoadMore";
 import { BottomActionBar } from "@/components/BottomActionBar";
 import { ItemList } from "@/components/ItemList";
+import { TrashIcon } from "@/components/MenuIcons";
 import { PageTransition } from "@/components/PageTransition";
 import { PropsTable } from "@/components/PropsTable";
 import PullToRefresh from "@/components/PullToRefresh";
@@ -187,17 +189,28 @@ async function HomeResults({
           {query ? `「${query}」の検索結果: ` : "すべて: "}
           {result.total} 件
         </span>
-        <Link href="/docs/search" className="text-xs text-blue-600 underline">
-          検索ヘルプ
+        {/* **絵と記号に詰める** (件数の行を短くするため)。ここは件数を読みに
+            来る行で、補助リンクは「あることを知っている人が押す物」なので、
+            文字で名乗り続ける必要がない。読み上げには aria-label で言葉を残す。
+            丸で囲むのは「？」1 文字だとリンクに見えないため */}
+        <Link
+          href="/docs/search"
+          aria-label="検索ヘルプ"
+          title="検索ヘルプ"
+          className="rounded-full border border-blue-300 px-1.5 text-xs leading-4 text-blue-600"
+        >
+          ?
         </Link>
         {/* ゴミ箱が空のときは出さない (普段は目に入らないように) */}
         {trashCount > 0 && (
           <Link
             href="/trash"
             transitionTypes={["nav-forward"]}
-            className="text-xs text-blue-600 underline"
+            aria-label={`ゴミ箱 (${trashCount} 件)`}
+            title="ゴミ箱"
+            className="inline-flex items-center gap-0.5 self-center text-xs text-blue-600"
           >
-            ゴミ箱 ({trashCount})
+            <TrashIcon small />({trashCount})
           </Link>
         )}
       </p>
@@ -221,6 +234,7 @@ async function HomeResults({
         action={bulkTagAction}
         view={view}
         trashAction={trashItemsAction}
+        pinAction={setItemsOfflinePinAction}
         registerHref={registerHref}
         trashedMatches={trashedMatches}
       />
