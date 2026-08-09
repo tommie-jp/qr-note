@@ -275,3 +275,27 @@ test("カードでも選択モードならスワイプを有効にしない", ()
   // 枠は今までどおり残る
   expect(html).toContain("rounded");
 });
+
+// 見出しが空でも文字を置く。**当たり判定のため** — 見出しのリンクは
+// stretched link の基準なので、中身が空だと箱ごと高さ 0 になり、行のどこを
+// 押してもノートが開かなくなる (画像だけのノート、ゴミ箱の空ノート)
+test("見出しが空のノートでも代わりの文字を置く", () => {
+  const html = renderRow(makeItem({ itemNo: "42", memo: "" }));
+  expect(html).toContain("(空のノート)");
+});
+
+// 補助行 (ゴミ箱の削除日時と復元 / 永久削除)。膜の下に居るとボタンを押しても
+// ノートが開いてしまうので、必ず relative z-10 で包んで出す
+test("footer は stretched link の膜より前に出す", () => {
+  const html = renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={makeItem({ itemNo: "42" })}
+        href="/item/42"
+        footer={<button type="button">復元</button>}
+      />
+    </ul>,
+  );
+  expect(html).toContain("復元");
+  expect(html).toContain("relative z-10");
+});

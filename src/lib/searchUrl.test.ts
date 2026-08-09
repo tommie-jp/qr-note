@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { buildItemUrl, buildSearchUrl } from './searchUrl'
+import { buildItemUrl, buildSearchUrl, buildTrashUrl } from './searchUrl'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {
   expect(buildSearchUrl('', 1, 'updated')).toBe('/')
@@ -48,5 +48,17 @@ describe('buildItemUrl', () => {
 
   test('itemNo は URL エンコードする', () => {
     expect(buildItemUrl('a b', 'bjt', 'updated')).toBe('/item/a%20b?q=bjt')
+  })
+})
+
+// ゴミ箱 (docs/67-ゴミ箱表示形式計画.md §2)。持ち回すのは並び順だけ
+describe('buildTrashUrl', () => {
+  test('既定 (削除順) は素の /trash に畳む', () => {
+    expect(buildTrashUrl('deleted')).toBe('/trash')
+  })
+
+  test('既定でない並びは ?sort= に載せる', () => {
+    expect(buildTrashUrl('deletedAsc')).toBe('/trash?sort=deletedAsc')
+    expect(buildTrashUrl('itemNo')).toBe('/trash?sort=itemNo')
   })
 })

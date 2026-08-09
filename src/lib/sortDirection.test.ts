@@ -1,7 +1,21 @@
 import { expect, test } from 'vitest'
-import { baseOf, bySort, isDescending, isReversed, reverseOf } from './sortDirection'
+import {
+  baseOf,
+  bySort,
+  byTrashSort,
+  isDescending,
+  isReversed,
+  reverseOf,
+  SEARCH_SORT_SPEC,
+  SORT_BASES,
+  TRASH_SORT_BASES,
+  TRASH_SORT_SPEC,
+  trashBaseOf,
+  trashIsDescending,
+  trashReverseOf,
+} from './sortDirection'
 import { orderByClause } from './sortOrder'
-import { parseSort, SORTS } from './validation'
+import { parseSort, SORTS, TRASH_SORTS } from './validation'
 
 // 並び順は「種別 4 つ × 方向 2 つ」を 1 本の文字列で持つ
 // (docs/64-並び順逆順計画.md §2)。基底の 4 値は**その種別の既定の方向**を指し、
@@ -77,4 +91,66 @@ test('bySort は 8 値ぶんの表を作る', () => {
   const table = bySort((sort) => baseOf(sort))
   expect(Object.keys(table).sort()).toEqual([...SORTS].sort())
   expect(table.updatedAsc).toBe('updated')
+})
+
+// --- ゴミ箱 (docs/67-ゴミ箱表示形式計画.md §2) ---
+//
+// 増えたのは「削除順」の 1 対だけ。残りの 4 種別は検索一覧とまったく同じに
+// 振る舞わなければならない (同じスロット部品が両方を描くため)
+
+test('削除順も種別に畳まれ、他の種別は検索一覧と同じ', () => {
+  expect(trashBaseOf('deleted')).toBe('deleted')
+  expect(trashBaseOf('deletedAsc')).toBe('deleted')
+  for (const sort of SORTS) {
+    expect(trashBaseOf(sort)).toBe(baseOf(sort))
+  }
+})
+
+test('trashReverseOf は方向だけを裏返し、2 回で元に戻る', () => {
+  expect(trashReverseOf('deleted')).toBe('deletedAsc')
+  expect(trashReverseOf('deletedAsc')).toBe('deleted')
+  for (const sort of TRASH_SORTS) {
+    expect(trashBaseOf(trashReverseOf(sort))).toBe(trashBaseOf(sort))
+    expect(trashReverseOf(trashReverseOf(sort))).toBe(sort)
+  }
+})
+
+// 削除順の既定は「新しく消した順」= 降順。更新順・アクセス順と同じ扱い
+test('削除順の既定は降順', () => {
+  expect(trashIsDescending('deleted')).toBe(true)
+  expect(trashIsDescending('deletedAsc')).toBe(false)
+})
+
+// 画面の矢印と実際の並びが食い違うのがいちばん困る (上の検索側と同じ検査)
+test('ゴミ箱でもアイコンの向きは ORDER BY の向きと一致する', () => {
+  for (const sort of TRASH_SORTS) {
+    const clause = orderByClause(sort)
+    const keys = clause.slice(0, clause.lastIndexOf('item_no ASC'))
+    expect(keys.includes(' DESC')).toBe(trashIsDescending(sort))
+  }
+})
+
+test('byTrashSort は 10 値ぶんの表を作る', () => {
+  const table = byTrashSort((sort) => trashBaseOf(sort))
+  expect(Object.keys(table).sort()).toEqual([...TRASH_SORTS].sort())
+  expect(table.deletedAsc).toBe('deleted')
+})
+
+// メニューは種別ぶんの行しか出さない。ゴミ箱は削除順が先頭 (既定なので、
+// いちばん上に置く) で、残りは検索一覧と同じ並び
+test('ゴミ箱の種別は削除順が先頭で、残りは検索一覧と同じ並び', () => {
+  expect(TRASH_SORT_BASES).toEqual(['deleted', ...SORT_BASES])
+})
+
+// 下部バーの部品が引く一式。spec のどれか 1 つを取り違えると、
+// メニューの印だけが現在行からずれる (画面では気づきにくい)
+test('spec は自分の種別と関数の組で閉じている', () => {
+  expect(SEARCH_SORT_SPEC.bases).toEqual(SORT_BASES)
+  expect(SEARCH_SORT_SPEC.baseOf('updatedAsc')).toBe('updated')
+  expect(TRASH_SORT_SPEC.bases).toEqual(TRASH_SORT_BASES)
+  expect(TRASH_SORT_SPEC.baseOf('deletedAsc')).toBe('deleted')
+  expect(TRASH_SORT_SPEC.isDescending('deleted')).toBe(true)
+  expect(Object.keys(TRASH_SORT_SPEC.by((s) => s)).sort()).toEqual(
+    [...TRASH_SORTS].sort(),
+  )
 })

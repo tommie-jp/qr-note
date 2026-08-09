@@ -25,8 +25,12 @@ import {
   upsertMemo,
 } from '@/lib/items'
 import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'
-import { buildSearchUrl } from '@/lib/searchUrl'
-import { SORT_COOKIE, SORT_COOKIE_MAX_AGE } from '@/lib/sortMode'
+import { buildSearchUrl, buildTrashUrl } from '@/lib/searchUrl'
+import {
+  SORT_COOKIE,
+  SORT_COOKIE_MAX_AGE,
+  TRASH_SORT_COOKIE,
+} from '@/lib/sortMode'
 import { currentUser, requireUser } from '@/lib/session'
 import { addTagsToMemo, removeTagsFromMemo } from '@/lib/tagEdit'
 import { toggleTaskLine } from '@/lib/taskCheckbox'
@@ -35,6 +39,7 @@ import {
   MAX_TEXT_LENGTH,
   parseMode,
   parseSort,
+  parseTrashSort,
 } from '@/lib/validation'
 import {
   parseViewMode,
@@ -382,6 +387,27 @@ export async function setSortAction(formData: FormData): Promise<void> {
   // 並びを変えたら 1 ページ目から見せる (buildSearchUrl と同じ約束)。
   // redirect で URL にも載せるので、ページ送り・戻り先がその並びを引き継ぐ
   redirect(buildSearchUrl(query, 1, sort))
+}
+
+// ゴミ箱の並び順を切り替える (docs/67-ゴミ箱表示形式計画.md §2)。
+//
+// setSortAction と同じ形 (cookie に覚えてから URL へ redirect) だが、cookie は
+// 別 (TRASH_SORT_COOKIE) で、持ち回す検索語も無い。分ける理由は sortMode.ts。
+export async function setTrashSortAction(formData: FormData): Promise<void> {
+  const sort = parseTrashSort(formData.get(TRASH_SORT_COOKIE))
+
+  const store = await cookies()
+  store.set(TRASH_SORT_COOKIE, sort, {
+    // サーバしか読まない (描画前に読めることがこの方式の要)
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    // 他サイトからの遷移で好みが飛ばない程度に緩く
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SORT_COOKIE_MAX_AGE,
+  })
+
+  redirect(buildTrashUrl(sort))
 }
 
 // --- git 履歴 (docs/57-ノートgit履歴計画.md) ---

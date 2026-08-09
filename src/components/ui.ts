@@ -134,8 +134,19 @@ export const BOTTOM_BAR_CLASS =
 // bottom-bar-scale-cap … テキストサイズ (docs/61) の倍率をここだけ 130% で
 // 頭打ちにする。5 スロットを必ず横に並べる帯なので、他と同じだけ大きくすると
 // 175% で画面幅に入らず、右端のスロットが画面の外へ出る (globals.css に詳細)
-export const BOTTOM_BAR_INNER_CLASS =
-  "bottom-bar-scale-cap mx-auto flex max-w-2xl items-stretch px-safe pb-[max(0.25rem,env(safe-area-inset-bottom))] landscape-phone:max-w-4xl";
+const BOTTOM_BAR_INNER_BASE =
+  "bottom-bar-scale-cap mx-auto flex items-stretch px-safe pb-[max(0.25rem,env(safe-area-inset-bottom))]";
+
+export const BOTTOM_BAR_INNER_CLASS = `${BOTTOM_BAR_INNER_BASE} max-w-2xl landscape-phone:max-w-4xl`;
+
+// スロットが少ない画面 (ゴミ箱は表示・並び順の 2 つだけ。
+// docs/67-ゴミ箱表示形式計画.md §4) の内側。
+//
+// スロットは flex-1 で器を等分するので、max-w-2xl のままだと 2 つが画面幅の
+// 半分ずつを占める。押す的が大きすぎて「バーいっぱいの 2 択」に見え、
+// 検索画面の同じスロットとも別物に見えてしまう。器のほうを絞って、
+// スロットの幅を 5 つ並べたときと揃える。
+export const BOTTOM_BAR_INNER_NARROW_CLASS = `${BOTTOM_BAR_INNER_BASE} max-w-xs`;
 
 // バーの 1 スロット。5 等分 (flex-1) して 320px でも 64px を確保する。
 // 高さ 44px 以上 … バーは「狙って押す」場所なので、検索画面の他の操作

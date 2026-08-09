@@ -8,7 +8,31 @@
 // メニューに 8 行並べると、選ぶ前に読む量が倍になる。種別を選ぶ 4 行のまま、
 // 選んである行の再タップだけを方向の裏返しに使う (docs/64 §3)。
 
-import { type Sort, type SortBase, SORTS } from './validation'
+import {
+  type Sort,
+  type SortBase,
+  SORTS,
+  type TrashSort,
+  type TrashSortBase,
+  TRASH_SORTS,
+} from './validation'
+
+// メニューに並べる種別の順。**短いタップの循環もこの並びから作る**
+// (cycle.ts の cycleOf) ので、メニューの上下と辿る順が食い違わない。
+// よく使う 2 つ (更新順・アクセス順) を隣どうしに置いたまま、後から足した
+// タイトル順を末尾に付けてある
+export const SORT_BASES: readonly SortBase[] = [
+  'updated',
+  'accessed',
+  'itemNo',
+  'title',
+]
+
+// ゴミ箱は先頭が削除順 (あちらの既定。docs/67-ゴミ箱表示形式計画.md §2)
+export const TRASH_SORT_BASES: readonly TrashSortBase[] = [
+  'deleted',
+  ...SORT_BASES,
+]
 
 // 種別 → 逆順の値。基底の 4 値は既定の方向なので、この表が方向の全体像になる
 const REVERSED_OF: Record<SortBase, Sort> = {
@@ -75,4 +99,69 @@ export function bySort<V>(of: (sort: Sort) => V): Record<Sort, V> {
     Sort,
     V
   >
+}
+
+// --- ゴミ箱 (docs/67-ゴミ箱表示形式計画.md §2) ---
+//
+// ゴミ箱の並びは Sort の 4 種別に「削除順」を足しただけなので、上の 3 つの表を
+// 5 種別ぶんに書き換えることはしない。**書き換えると Record<SortBase, …> を
+// 受けている検索側のバーが 5 行目 (削除順) を要求され始める** — 検索一覧では
+// 意味を持たない並びなのに、あちらの表にも埋めなければならなくなる。
+// 増えた 1 対だけをここで受けて、残りは上の関数へそのまま委ねる。
+
+function isDeletedSort(sort: TrashSort): sort is 'deleted' | 'deletedAsc' {
+  return sort === 'deleted' || sort === 'deletedAsc'
+}
+
+export function trashBaseOf(sort: TrashSort): TrashSortBase {
+  return isDeletedSort(sort) ? 'deleted' : baseOf(sort)
+}
+
+export function trashReverseOf(sort: TrashSort): TrashSort {
+  if (isDeletedSort(sort)) {
+    return sort === 'deleted' ? 'deletedAsc' : 'deleted'
+  }
+  return reverseOf(sort)
+}
+
+// 削除順の既定は降順 (新しく消した物が上)。更新順・アクセス順と同じ扱い
+export function trashIsDescending(sort: TrashSort): boolean {
+  return isDeletedSort(sort) ? sort === 'deleted' : isDescending(sort)
+}
+
+export function byTrashSort<V>(of: (sort: TrashSort) => V): Record<TrashSort, V> {
+  return Object.fromEntries(
+    TRASH_SORTS.map((sort) => [sort, of(sort)]),
+  ) as Record<TrashSort, V>
+}
+
+// --- 下部バーへ渡す一式 (components/SortSlot.tsx) ---
+//
+// 検索一覧とゴミ箱で違うのは「種別が 4 つか 5 つか」だけで、メニューの組み立て
+// (現在行の再タップだけ方向を裏返す) も循環も同じ。**違いをこの 2 つの束に
+// 閉じ込めて、画面側には同じ部品を置く**。
+export interface SortSpec<S extends string, B extends S> {
+  // メニューに並べる種別。短いタップの循環もこの並びから作る
+  bases: readonly B[]
+  baseOf: (sort: S) => B
+  reverseOf: (sort: S) => S
+  isDescending: (sort: S) => boolean
+  // 妥当な値をすべて並べた表を組む (CycleSlot が送信中の値を畳む鍵)
+  by: <V>(of: (sort: S) => V) => Record<S, V>
+}
+
+export const SEARCH_SORT_SPEC: SortSpec<Sort, SortBase> = {
+  bases: SORT_BASES,
+  baseOf,
+  reverseOf,
+  isDescending,
+  by: bySort,
+}
+
+export const TRASH_SORT_SPEC: SortSpec<TrashSort, TrashSortBase> = {
+  bases: TRASH_SORT_BASES,
+  baseOf: trashBaseOf,
+  reverseOf: trashReverseOf,
+  isDescending: trashIsDescending,
+  by: byTrashSort,
 }

@@ -6,6 +6,8 @@ import {
   itemNoToNum,
   parseMode,
   parseSort,
+  parseTrashSort,
+  SORTS,
 } from './validation'
 
 describe('isValidItemNo', () => {
@@ -128,6 +130,34 @@ describe('parseSort', () => {
     // 方向だけの値は並びを決められないので既定へ倒す
     expect(parseSort('asc')).toBe('updated')
     expect(parseSort('updatedDesc')).toBe('updated')
+  })
+})
+
+// ゴミ箱だけの並び (docs/67-ゴミ箱表示形式計画.md §2)
+describe('parseTrashSort', () => {
+  test('削除順とその逆順をそのまま通す', () => {
+    expect(parseTrashSort('deleted')).toBe('deleted')
+    expect(parseTrashSort('deletedAsc')).toBe('deletedAsc')
+  })
+
+  // ゴミ箱でも「更新順で消し忘れを探す」「番号順でシールと突き合わせる」は要る
+  test('検索一覧と同じ並びもそのまま通す', () => {
+    for (const sort of SORTS) {
+      expect(parseTrashSort(sort)).toBe(sort)
+    }
+  })
+
+  test('知らない値は削除順へ倒す (ゴミ箱の既定)', () => {
+    expect(parseTrashSort(undefined)).toBe('deleted')
+    expect(parseTrashSort('other')).toBe('deleted')
+    expect(parseTrashSort('; DROP TABLE items')).toBe('deleted')
+  })
+
+  // **検索側は削除順を知らない。** deleted_at は検索一覧では必ず null なので、
+  // `/?sort=deleted` は意味のない並びになる。型を分けた効果をここで固定する
+  test('削除順は検索側の parseSort では既定へ倒れる', () => {
+    expect(parseSort('deleted')).toBe('updated')
+    expect(parseSort('deletedAsc')).toBe('updated')
   })
 })
 

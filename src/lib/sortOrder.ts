@@ -10,8 +10,10 @@
 //                 Evernote 由来 (2012 年など) で更新順では埋もれるため
 //   タイトル順  … 名前で引くとき (docs/63-タイトル順計画.md)。日時を覚えて
 //                 いなくても、見出しの頭文字から辿り着ける
+//   削除順      … ゴミ箱だけの並び (docs/67-ゴミ箱表示形式計画.md)。あちらの
+//                 既定。検索一覧では deleted_at が必ず null なので出てこない
 
-import type { Sort } from './validation'
+import type { TrashSort } from './validation'
 
 // **どの並びも item_no で決着させる**のが要点。同時刻の行 (インポート直後など)
 // で並びが不定になると、ページ送りと前後ナビが読み込みのたびに揺れる
@@ -27,8 +29,15 @@ import type { Sort } from './validation'
 // NULLS LAST も裏返さない。番号として読めない itemNo と見出しの無いノートは、
 // どちらの向きでも末尾に置く。方向を変えたとたんに読めない行が先頭を
 // 埋めるのでは、逆順にした意味 (端から辿る) が消える。
-export function orderByClause(sort: Sort): string {
+export function orderByClause(sort: TrashSort): string {
   switch (sort) {
+    case 'deleted':
+      // ゴミ箱の既定。消したばかりの物が上 (「いま消したあれ」を戻すのが
+      // ゴミ箱を開く最大の動機)
+      return 'deleted_at DESC, item_no ASC'
+    case 'deletedAsc':
+      // 長く置いてある順。永久削除の候補を端から片付けるとき
+      return 'deleted_at ASC, item_no ASC'
     case 'itemNo':
       // 非数字の itemNo は item_no_num が null なので末尾へ回す
       return 'item_no_num ASC NULLS LAST, item_no ASC'

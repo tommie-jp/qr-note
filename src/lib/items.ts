@@ -24,6 +24,7 @@ import {
   itemNoToNum,
   type Mode,
   type Sort,
+  type TrashSort,
 } from '@/lib/validation'
 
 export const PAGE_SIZE = 20
@@ -369,10 +370,33 @@ function buildPropsWhere(query: string): Prisma.Sql {
   return buildWhereFrom([NOT_TRASHED, buildQueryCondition(query), HAS_PROPS])
 }
 
-// ゴミ箱側の WHERE 句 (0 件検索時の案内で使う)。検索と同じ条件を裏返すだけ。
+// ゴミ箱側の WHERE 句 (ゴミ箱一覧と、0 件検索時の案内)。検索と同じ条件を
+// 裏返すだけ。空クエリのときは「ゴミ箱にある」だけが残り、一覧の全件になる。
 function buildTrashedWhere(query: string): Prisma.Sql {
   return buildWhereFrom([TRASHED, buildQueryCondition(query)])
 }
+
+// 生 SQL で 1 件ぶんを引くときの列。camelCase へ射影して既存の Item 型に
+// 合わせる (findMany と同じ形)。検索一覧とゴミ箱一覧の両方が同じ Item[] を
+// 返すので、列の並びを 2 か所に書かない — 片方にだけ列を足すと、そちらでしか
+// 使えない Item が生まれる。
+const ITEM_COLUMNS = Prisma.sql`
+  item_no     AS "itemNo",
+  item_no_num AS "itemNoNum",
+  memo,
+  url,
+  mode,
+  title,
+  tags,
+  props,
+  task_todo   AS "taskTodo",
+  task_done   AS "taskDone",
+  created_at  AS "createdAt",
+  updated_at  AS "updatedAt",
+  accessed_at AS "accessedAt",
+  deleted_at  AS "deletedAt",
+  public_at   AS "publicAt"
+`
 
 // ソート句。PGroonga のスコアは小テーブルで seq scan になり効かないため、
 // 関連度順は採用せず現行の更新順/番号順/アクセス順を維持する
@@ -381,7 +405,7 @@ function buildTrashedWhere(query: string): Prisma.Sql {
 // 句の組み立ては sortOrder.ts の純関数が持つ (DATABASE_URL 無しでテストする
 // ため)。**Prisma.raw に渡してよいのは、あちらが自前の定数しか返さないから** —
 // 引数の文字列が SQL へ混ざる余地はない (sortOrder.ts のコメントと対)。
-function buildOrderBy(sort: Sort): Prisma.Sql {
+function buildOrderBy(sort: TrashSort): Prisma.Sql {
   return Prisma.raw(`ORDER BY ${orderByClause(sort)}`)
 }
 
@@ -414,23 +438,8 @@ export async function searchItems(
   )
   const limit = safePage * PAGE_SIZE
 
-  // 列は camelCase へ射影し既存の Item 型に合わせる (findMany と同じ形)。
   const items = await prisma.$queryRaw<Item[]>`
-    SELECT item_no    AS "itemNo",
-           item_no_num AS "itemNoNum",
-           memo,
-           url,
-           mode,
-           title,
-           tags,
-           props,
-           task_todo  AS "taskTodo",
-           task_done  AS "taskDone",
-           created_at AS "createdAt",
-           updated_at AS "updatedAt",
-           accessed_at AS "accessedAt",
-           deleted_at AS "deletedAt",
-           public_at  AS "publicAt"
+    SELECT ${ITEM_COLUMNS}
     FROM items
     ${where}
     ${buildOrderBy(sort)}
@@ -562,32 +571,24 @@ export async function emptyTrash(): Promise<string[]> {
   return targets
 }
 
-export interface TrashedItem {
-  itemNo: string
-  summary: string
-  deletedAt: Date
-}
-
-// ゴミ箱の一覧 (削除の新しい順)。要約はここで作り、memo 全文はクライアントへ
-// 送らない (特性表と同じ流儀)。個人利用で数件しか溜まらない前提でページ送りなし。
-export async function listTrashedItems(): Promise<TrashedItem[]> {
-  const rows = await prisma.item.findMany({
-    where: { deletedAt: { not: null } },
-    select: { itemNo: true, memo: true, url: true, mode: true, deletedAt: true },
-    orderBy: { deletedAt: 'desc' },
-  })
-  // where で非 null に絞っているが型は Date | null なので、flatMap で外す
-  return rows.flatMap((row) =>
-    row.deletedAt === null
-      ? []
-      : [
-          {
-            itemNo: row.itemNo,
-            summary: row.mode === 'url' ? row.url : memoSummary(row.memo),
-            deletedAt: row.deletedAt,
-          },
-        ],
-  )
+// ゴミ箱の一覧。既定は削除の新しい順で、検索一覧と同じ 4 種別にも並べ替えられる
+// (docs/67-ゴミ箱表示形式計画.md §2)。個人利用で数件しか溜まらない前提なので
+// ページ送りは無い (「ゴミ箱を空にする」の件数が全件を指す前提でもある)。
+//
+// **要約ではなく Item をそのまま返す。** 以前は itemNo/summary/deletedAt の
+// 3 つだけを返して memo 全文をクライアントへ送らないようにしていたが、
+// 大表示の本文プレビューも画像表示のタイルも本文から作るので、要約では
+// 描けない。検索一覧 (searchItems) は元から Item[] を返しており、そちらと
+// 同じ扱いになるだけ。
+export async function listTrashedItems(
+  sort: TrashSort = 'deleted',
+): Promise<Item[]> {
+  return prisma.$queryRaw<Item[]>`
+    SELECT ${ITEM_COLUMNS}
+    FROM items
+    ${buildTrashedWhere('')}
+    ${buildOrderBy(sort)}
+  `
 }
 
 export async function countTrashedItems(): Promise<number> {

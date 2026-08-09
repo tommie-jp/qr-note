@@ -73,6 +73,29 @@ export function parseSort(value: unknown): Sort {
   return SORTS.includes(value as Sort) ? (value as Sort) : 'updated'
 }
 
+// ゴミ箱だけが持つ並び (docs/67-ゴミ箱表示形式計画.md §2)。
+//
+// **共有の Sort には混ぜない**のが要点。deleted_at は検索一覧では必ず null
+// なので、`/?sort=deleted` は「全件が同着」という意味のない並びになる。
+// 型を分けておけば、検索側の parseSort がゴミ箱の値を既定へ倒してくれる。
+//
+// 逆に Sort の 4 種別はゴミ箱でもそのまま使える (更新順で消し忘れを探す、
+// 番号順でシールと突き合わせる) ので、TrashSort は Sort を含む上位集合にする。
+export type TrashSortBase = SortBase | 'deleted'
+export type TrashSort = Sort | 'deleted' | 'deletedAsc'
+
+export const TRASH_SORTS: readonly TrashSort[] = [
+  'deleted',
+  'deletedAsc',
+  ...SORTS,
+]
+
+// ゴミ箱の既定は削除順 (新しい順)。今までの並び (deleted_at desc 固定) と
+// 同じにして、この機能が入っても何もしていない人の画面は変わらないようにする
+export function parseTrashSort(value: unknown): TrashSort {
+  return TRASH_SORTS.includes(value as TrashSort) ? (value as TrashSort) : 'deleted'
+}
+
 export function buildItemUrl(baseUrl: string, itemNo: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/item/${itemNo}`
 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { orderByClause } from './sortOrder'
-import { SORTS } from './validation'
+import { TRASH_SORTS } from './validation'
 
 test('番号順は item_no_num 昇順 (非数字は末尾)', () => {
   expect(orderByClause('itemNo')).toBe('item_no_num ASC NULLS LAST, item_no ASC')
@@ -52,10 +52,20 @@ test('タイトル順の逆順は見出し降順 (無題は末尾のまま)', ()
   )
 })
 
+// ゴミ箱だけの並び (docs/67-ゴミ箱表示形式計画.md §2)。既定は
+// 「いま消したあれ」を戻しやすい降順
+test('削除順は deleted_at 降順', () => {
+  expect(orderByClause('deleted')).toBe('deleted_at DESC, item_no ASC')
+})
+
+test('削除順の逆順は deleted_at 昇順 (長く置いてある順)', () => {
+  expect(orderByClause('deletedAsc')).toBe('deleted_at ASC, item_no ASC')
+})
+
 // 同時刻の行で並びが不定になると、ページ送りと前後ナビが読み込みのたびに
 // 揺れる (docs/15 §2-2)。どの並びでも item_no で決着させる
 test('どの並びも item_no でタイブレークする', () => {
-  for (const sort of SORTS) {
+  for (const sort of TRASH_SORTS) {
     expect(orderByClause(sort)).toMatch(/item_no ASC$/)
   }
 })

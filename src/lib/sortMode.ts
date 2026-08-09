@@ -22,9 +22,20 @@
 // cookie ならサーバコンポーネントが描画前に読めるので、初回描画から正しい
 // 並びで出る (localStorage だと一度描いてから跳ねる)。
 
-import { parseSort, type Sort } from './validation'
+import { parseSort, parseTrashSort, type Sort, type TrashSort } from './validation'
 
 export const SORT_COOKIE = 'sort'
+
+// ゴミ箱の並びは別の cookie に持つ (docs/67-ゴミ箱表示形式計画.md §2)。
+//
+// **検索一覧と共有しない。** ゴミ箱の既定は削除順で、その値は検索側では
+// 意味を持たない (deleted_at が必ず null)。1 つの cookie にすると、ゴミ箱で
+// 削除順を選んだ後に検索へ戻ったとき、知らない値として既定へ倒れる —
+// つまり検索の並びがゴミ箱を開くたびに巻き戻る。逆に検索で選んだ並びが
+// ゴミ箱の既定 (削除順) を上書きするのも期待と違う。
+//
+// 一方 URL の `?sort=` はパスで分かれる (`/` と `/trash`) ので分ける必要がない。
+export const TRASH_SORT_COOKIE = 'trashSort'
 
 // 好みなので、次に自分で変えるまで続く (viewMode と揃えて 1 年)
 export const SORT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -42,4 +53,17 @@ export function resolveSort(urlSort: unknown, cookieSort: unknown): Sort {
     return parseSort(urlSort)
   }
   return parseSort(cookieSort)
+}
+
+// ゴミ箱側も同じ二段構え。/trash への入口 (検索結果の「ゴミ箱 (N)」リンク・
+// 0 件案内・ノートのバナー) はどれも `?sort=` を持たないので、cookie が
+// 無いと開くたびに既定へ戻る — 検索側で cookie を足した理由そのもの。
+export function resolveTrashSort(
+  urlSort: unknown,
+  cookieSort: unknown,
+): TrashSort {
+  if (urlSort !== undefined && urlSort !== null) {
+    return parseTrashSort(urlSort)
+  }
+  return parseTrashSort(cookieSort)
 }

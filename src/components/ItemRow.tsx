@@ -32,9 +32,17 @@ interface ItemRowProps {
   swipeTrashAction?: (formData: FormData) => void | Promise<void>;
   swipeOpen?: boolean;
   onSwipeOpenChange?: (open: boolean) => void;
-  // 削除後に戻る検索状態。**任意にしない** — 既定を持たせると、渡し忘れた
-  // 一覧で削除のたび素の / へ飛ばされる (href と同じ理由)
-  searchState: RowSearchState;
+  // 削除後に戻る検索状態。**スワイプ削除を渡すなら必須** — 無いと
+  // trashItemsAction の redirect 先が素の / になり、「検索して 1 件消したら
+  // 全件の先頭に居た」になる。渡し忘れはスワイプごと無効にして受ける
+  // (下の swipeEnabled)。黙って間違った所へ飛ばすより、機能が出ないほうが気づける。
+  //
+  // ゴミ箱の一覧 (docs/67-ゴミ箱表示形式計画.md §3) はスワイプ削除を出さない
+  // ので、検索状態そのものを持たない
+  searchState?: RowSearchState;
+  // 行の下に足す補助行 (ゴミ箱の削除日時と復元 / 永久削除)。
+  // 押せる物を入れられるよう、stretched link の膜より前に出して描く
+  footer?: ReactNode;
 }
 
 // サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
@@ -63,9 +71,14 @@ export function ItemRow({
   swipeOpen = false,
   onSwipeOpenChange,
   searchState,
+  footer,
 }: ItemRowProps) {
   const isUrl = item.mode === "url";
-  const title = isUrl ? item.url : memoSummary(item.memo);
+  // 見出しが空でも文字を置く。**当たり判定のため**で、飾りではない —
+  // 見出しのリンクは stretched link の基準 (::after inset-0) なので、中身が
+  // 空だと箱ごと高さ 0 になり、行のどこを押してもノートが開かなくなる。
+  // 画像だけのノートやゴミ箱の空ノートで実際に起きる
+  const title = (isUrl ? item.url : memoSummary(item.memo)) || "(空のノート)";
   // URL モードのノートには本文も貼った画像も無い (memo が空)
   const preview = isUrl ? "" : memoPreview(item.memo);
   // サムネにできる添付 (画像 or 動画 poster)。音声・PDF・テキストは thumb を
@@ -112,10 +125,17 @@ export function ItemRow({
   // うえ、選んでいる最中に枠へ触れるたびノートへ飛んでしまう
   const stretchedLink = checkbox ? "" : "after:absolute after:inset-0";
 
-  // スワイプ削除は非選択 (checkbox なし) のときだけ。3 つの prop が揃って初めて
+  // スワイプ削除は非選択 (checkbox なし) のときだけ。prop が揃って初めて
   // 有効にする — ItemList が小/大表示のときだけ降ろしてくる (docs/43 §9-4)。
   const swipeEnabled = Boolean(
-    swipeTrashAction && onSwipeOpenChange && !checkbox,
+    swipeTrashAction && onSwipeOpenChange && searchState && !checkbox,
+  );
+
+  // 補助行は膜 (stretched link) の上に出す。下に居るとボタンを押しても
+  // ノートが開いてしまう — タグを relative z-10 にしているのと同じ理由。
+  // 呼ぶ側に任せず、ここで包んで敷き忘れを防ぐ
+  const footerRow = footer && (
+    <div className="relative z-10 mt-1">{footer}</div>
   );
 
   if (view === "card") {
@@ -154,12 +174,13 @@ export function ItemRow({
             // なるため、抽出側で数えても画面の行数とは一致しない
             <p className="mt-1 line-clamp-3 text-sm text-gray-500">{preview}</p>
           )}
+          {footerRow}
         </div>
         {thumb}
       </div>
     );
 
-    if (swipeEnabled && swipeTrashAction && onSwipeOpenChange) {
+    if (swipeEnabled && swipeTrashAction && onSwipeOpenChange && searchState) {
       return (
         <SwipeToTrashRow
           itemNo={item.itemNo}
@@ -200,12 +221,13 @@ export function ItemRow({
           {title}
         </Link>
         {tags && <div className="mt-0.5">{tags}</div>}
+        {footerRow}
       </div>
       {thumb}
     </div>
   );
 
-  if (swipeEnabled && swipeTrashAction && onSwipeOpenChange) {
+  if (swipeEnabled && swipeTrashAction && onSwipeOpenChange && searchState) {
     return (
       <SwipeToTrashRow
         itemNo={item.itemNo}

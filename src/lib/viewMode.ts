@@ -32,10 +32,17 @@ export const VIEW_MODE_COOKIE = 'view'
 // 受けない ItemRow の既定値に使えなくなる。リテラル型のまま整合だけ検査する
 export const DEFAULT_VIEW_MODE = 'compact' satisfies ViewMode
 
+// 妥当なモードをすべて並べた表。**この並びがそのまま UI の順になる** —
+// 下部バーの短いタップの循環 (小 → 大 → 画像) と長押しメニューの上下を、
+// どちらも cycleOf でここから作る (SORTS と lib/sortDirection.ts の関係と同じ)。
+export const VIEW_MODES: readonly ViewMode[] = ['compact', 'card', 'image']
+
 // cookie は利用者が自由に書き換えられる外部入力なので、素通しせず畳む
 // (parseSort と同じ流儀)。
 export function parseViewMode(value: unknown): ViewMode {
-  return value === 'card' || value === 'image' ? value : DEFAULT_VIEW_MODE
+  return VIEW_MODES.includes(value as ViewMode)
+    ? (value as ViewMode)
+    : DEFAULT_VIEW_MODE
 }
 
 // cookie の寿命 (秒)。1 年。好みなので、次に自分で変えるまで続くのが期待どおり。

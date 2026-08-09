@@ -718,7 +718,7 @@ describe.skipIf(!runDbTests)(
         expect(await countTrashedMatches('zzftcntoken !#zzftcndrop')).toBe(1)
       })
 
-      test('listTrashedItems returns newest-deleted first, with a summary', async () => {
+      test('listTrashedItems returns newest-deleted first, with the note itself', async () => {
         await seedNote('zzftlt1', {
           memo: 'ふるいノート\n本文',
           deletedAt: new Date('2026-01-01T00:00:00Z'),
@@ -731,7 +731,33 @@ describe.skipIf(!runDbTests)(
         const mine = (await listTrashedItems()).filter((r) => r.itemNo.startsWith('zzftlt'))
 
         expect(mine.map((r) => r.itemNo)).toEqual(['zzftlt2', 'zzftlt1'])
-        expect(mine[0]?.summary).toBe('あたらしいノート')
+        // 大表示の本文プレビューと画像表示のタイルは本文から作るので、
+        // 要約ではなく Item をそのまま返す (docs/67-ゴミ箱表示形式計画.md §2)
+        expect(mine[0]?.memo).toBe('あたらしいノート\n本文')
+      })
+
+      // ゴミ箱にも並び順が効く (docs/67-ゴミ箱表示形式計画.md §2)。
+      // 番号は昇順、削除日時は 1 が新しい方 — こうしておくと 3 つの並びが
+      // それぞれ別の結果になり、指定が本当に SQL まで届いているか判る
+      test('listTrashedItems sorts by the given order', async () => {
+        await seedNote('zzftls1', {
+          memo: 'ゴミ箱の並び 1',
+          deletedAt: new Date('2026-02-01T00:00:00Z'),
+        })
+        await seedNote('zzftls2', {
+          memo: 'ゴミ箱の並び 2',
+          deletedAt: new Date('2026-01-01T00:00:00Z'),
+        })
+
+        const mineOf = async (sort: Parameters<typeof listTrashedItems>[0]) =>
+          (await listTrashedItems(sort))
+            .filter((r) => r.itemNo.startsWith('zzftls'))
+            .map((r) => r.itemNo)
+
+        expect(await mineOf('deleted')).toEqual(['zzftls1', 'zzftls2'])
+        expect(await mineOf('deletedAsc')).toEqual(['zzftls2', 'zzftls1'])
+        // 検索一覧と同じ種別も使える (番号順は item_no 昇順)
+        expect(await mineOf('itemNo')).toEqual(['zzftls1', 'zzftls2'])
       })
 
       test('countTrashedItems counts the trash', async () => {

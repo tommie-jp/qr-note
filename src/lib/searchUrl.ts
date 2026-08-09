@@ -1,4 +1,4 @@
-import type { Sort } from './validation'
+import type { Sort, TrashSort } from './validation'
 
 // 検索一覧 (/) の URL を組み立てる。既定値 (page=1 / sort=updated) は省略して
 // 短い URL にする。一覧のページ送り・並び替えリンクと、一括操作後の戻り先で共用する。
@@ -15,6 +15,15 @@ export function buildSearchUrl(query: string, page: number, sort: Sort): string 
   }
   const qs = params.toString()
   return qs ? `/?${qs}` : '/'
+}
+
+// ゴミ箱 (/trash) の URL。並び替えたときの行き先で使う
+// (docs/67-ゴミ箱表示形式計画.md §2)。
+//
+// 検索と違って持ち回す物は並び順だけ — ゴミ箱に検索窓もページ送りも無い。
+// 既定 (削除順) は省いて素の /trash に畳む (buildSearchUrl と同じ約束)。
+export function buildTrashUrl(sort: TrashSort): string {
+  return sort === 'deleted' ? '/trash' : `/trash?sort=${sort}`
 }
 
 // 一覧からノートを開く URL。検索語と並び順を持ち回し、ノート側の前後ナビ
