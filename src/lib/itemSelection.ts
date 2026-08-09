@@ -38,3 +38,25 @@ export function parseBackUrl(formData: FormData): string {
     parseSort(formData.get('sort')),
   )
 }
+
+// 1 件だけをゴミ箱へ入れるときのフォーム内容 (行のスワイプ・ホバーの
+// ゴミ箱ボタン・長押しメニュー。docs/66-行アクション計画.md)。
+//
+// **戻り先の 3 つを必ず載せる。** trashItemsAction は最後に
+// redirect(parseBackUrl(formData)) を呼ぶので、載せ忘れると素の / へ飛ばされ、
+// 「検索して 1 件消したら全件の先頭に居た」になる。一括操作の側は
+// BulkTagToolbar の hidden が同じ 3 つを送っており、1 件の側だけ抜けていた。
+//
+// 手で FormData を組む場所が増えたので、ここに 1 本化して検査を効かせる
+// (組み立てはブラウザの中でしか走らず、抜けても型では捕まらない)。
+export function buildTrashFormData(
+  itemNo: string,
+  back: { q: string; page: number; sort: string },
+): FormData {
+  const formData = new FormData()
+  formData.append('itemNo', itemNo)
+  formData.append('q', back.q)
+  formData.append('page', String(back.page))
+  formData.append('sort', back.sort)
+  return formData
+}

@@ -157,6 +157,13 @@ export function ItemList({
   // buildItemUrl が素の /item/<番号> に畳むので、今までと同じ URL になる
   const itemHref = (itemNo: string) => buildItemUrl(itemNo, query, sort);
 
+  // 1 件を削除した後に戻る先。**戻り先を持ち回さないと素の / へ飛ばされる** —
+  // trashItemsAction は最後に redirect(parseBackUrl(formData)) を呼ぶので、
+  // 検索語もページも送らないと「検索して 1 件消したら全件の先頭に居た」に
+  // なる。一括削除の側は BulkTagToolbar のフォームが同じ 3 つを hidden で
+  // 送っており、こちらだけ抜けていた
+  const searchState = { q: query, page, sort };
+
   // 画像モードは描画を ImageMasonry に丸ごと委譲する (docs/32 §2)。
   //
   //   0 件 (検索ヒットなし) … 該当なしの案内と新規登録/ゴミ箱の導線は
@@ -186,6 +193,7 @@ export function ItemList({
             key={item.itemNo}
             item={item}
             href={itemHref(item.itemNo)}
+            searchState={searchState}
             view={rowView}
             swipeTrashAction={swipeEnabled ? trashAction : undefined}
             swipeOpen={openItemNo === item.itemNo}
@@ -220,6 +228,7 @@ export function ItemList({
             key={item.itemNo}
             item={item}
             href={itemHref(item.itemNo)}
+            searchState={searchState}
             view={rowView}
             checkbox={
               <input

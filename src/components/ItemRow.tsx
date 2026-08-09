@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { firstThumbInfo } from "@/lib/memoImages";
 import { RowThumb } from "./RowThumb";
-import { SwipeToTrashRow } from "./SwipeToTrashRow";
+import {
+  SwipeToTrashRow,
+  type RowSearchState,
+} from "./SwipeToTrashRow";
 import { memoPreview } from "@/lib/memoPreview";
 import { memoSummary } from "@/lib/memoSummary";
 import { tagSearchHref } from "@/lib/tags";
@@ -29,6 +32,9 @@ interface ItemRowProps {
   swipeTrashAction?: (formData: FormData) => void | Promise<void>;
   swipeOpen?: boolean;
   onSwipeOpenChange?: (open: boolean) => void;
+  // 削除後に戻る検索状態。**任意にしない** — 既定を持たせると、渡し忘れた
+  // 一覧で削除のたび素の / へ飛ばされる (href と同じ理由)
+  searchState: RowSearchState;
 }
 
 // サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
@@ -56,6 +62,7 @@ export function ItemRow({
   swipeTrashAction,
   swipeOpen = false,
   onSwipeOpenChange,
+  searchState,
 }: ItemRowProps) {
   const isUrl = item.mode === "url";
   const title = isUrl ? item.url : memoSummary(item.memo);
@@ -157,6 +164,7 @@ export function ItemRow({
         <SwipeToTrashRow
           itemNo={item.itemNo}
           trashAction={swipeTrashAction}
+          searchState={searchState}
           isOpen={swipeOpen}
           onOpenChange={onSwipeOpenChange}
           view="card"
@@ -202,6 +210,7 @@ export function ItemRow({
       <SwipeToTrashRow
         itemNo={item.itemNo}
         trashAction={swipeTrashAction}
+        searchState={searchState}
         isOpen={swipeOpen}
         onOpenChange={onSwipeOpenChange}
         view="compact"

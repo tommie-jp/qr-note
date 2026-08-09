@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { unstable_rethrow } from "next/navigation";
+import { buildTrashFormData } from "@/lib/itemSelection";
 import type { MenuPoint } from "@/lib/rowActionMenu";
 import {
   SWIPE_BUTTON_WIDTH,
@@ -28,10 +29,20 @@ import {
 } from "./RowActions";
 import { useLongPress } from "./useLongPress";
 
+// 削除後に戻る検索状態。trashItemsAction は最後に redirect(parseBackUrl(...)) を
+// 呼ぶので、これを送らないと素の / へ飛ばされ、検索語もページも失われる
+// (一括削除は BulkTagToolbar のフォームが hidden で同じ 3 つを送っている)。
+export interface RowSearchState {
+  q: string;
+  page: number;
+  sort: string;
+}
+
 interface SwipeToTrashRowProps {
   itemNo: string;
   // ノートをゴミ箱へ入れるサーバーアクション (BulkTagToolbar と同じ trashItemsAction)。
   trashAction: (formData: FormData) => void | Promise<void>;
+  searchState: RowSearchState;
   // この行が開いているか。「開くのは常に 1 行だけ」を親 (ItemList) が持つ。
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -63,6 +74,7 @@ interface SwipeToTrashRowProps {
 export function SwipeToTrashRow({
   itemNo,
   trashAction,
+  searchState,
   isOpen,
   onOpenChange,
   view,
@@ -224,8 +236,9 @@ export function SwipeToTrashRow({
     if (busy) return;
     setFailed(false);
     setRemoving(true);
-    const formData = new FormData();
-    formData.append("itemNo", itemNo);
+    // 戻り先 (q/page/sort) も一緒に載る。手で組むと載せ忘れても型では
+    // 捕まらないので、組み立ては lib の 1 本に寄せてある
+    const formData = buildTrashFormData(itemNo, searchState);
     startTransition(async () => {
       try {
         await trashAction(formData);

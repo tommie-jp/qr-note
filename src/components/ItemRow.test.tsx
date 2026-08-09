@@ -26,6 +26,9 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
+// 削除後の戻り先。ItemRow が必須で受けるので、テストでも毎回渡す
+const SEARCH_STATE = { q: "", page: 1, sort: "updated" };
+
 const renderRow = (
   item: Item,
   checkbox?: React.ReactNode,
@@ -36,6 +39,7 @@ const renderRow = (
       <ItemRow
         item={item}
         href={`/item/${item.itemNo}`}
+        searchState={SEARCH_STATE}
         checkbox={checkbox}
         view={view}
       />
@@ -201,6 +205,7 @@ const renderSwipeRow = (item: Item, view: RowViewMode = "compact") =>
       <ItemRow
         item={item}
         href={`/item/${item.itemNo}`}
+        searchState={SEARCH_STATE}
         view={view}
         swipeTrashAction={noop}
         swipeOpen={false}
@@ -226,6 +231,7 @@ test("選択モード (checkbox) ではスワイプを有効にしない", () =>
       <ItemRow
         item={makeItem({ itemNo: "42" })}
         href="/item/42"
+        searchState={SEARCH_STATE}
         checkbox={<input type="checkbox" name="itemNo" value="42" />}
         swipeTrashAction={noop}
         swipeOpen={false}
@@ -255,6 +261,7 @@ test("カードでも選択モードならスワイプを有効にしない", ()
       <ItemRow
         item={makeItem({ itemNo: "42" })}
         href="/item/42"
+        searchState={SEARCH_STATE}
         view="card"
         checkbox={<input type="checkbox" name="itemNo" value="42" />}
         swipeTrashAction={noop}

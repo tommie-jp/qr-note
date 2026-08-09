@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseBackUrl, parseSelectedItemNos } from './itemSelection'
+import { buildTrashFormData, parseBackUrl, parseSelectedItemNos } from './itemSelection'
 
 function form(entries: Array<[string, string]>): FormData {
   const fd = new FormData()
@@ -62,5 +62,23 @@ describe('parseBackUrl', () => {
       ['q', 'x'],
     ])
     expect(parseBackUrl(fd)).toBe('/?q=x')
+  })
+})
+
+describe('buildTrashFormData', () => {
+  test('選んだ 1 件を itemNo に載せる', () => {
+    expect(buildTrashFormData('42', { q: '', page: 1, sort: 'updated' }).getAll('itemNo')).toEqual(['42'])
+  })
+
+  // ここが本題。載せ忘れると parseBackUrl が素の / を返し、検索して 1 件
+  // 消しただけで全件の先頭へ飛ばされる (行の削除だけこれが抜けていた)
+  test('検索状態をそのまま往復できる (削除後に同じ一覧へ戻る)', () => {
+    const fd = buildTrashFormData('42', { q: '抵抗', page: 3, sort: 'itemNo' })
+    expect(parseBackUrl(fd)).toBe('/?q=%E6%8A%B5%E6%8A%97&page=3&sort=itemNo')
+  })
+
+  test('検索していないときは一覧の先頭へ戻る', () => {
+    const fd = buildTrashFormData('42', { q: '', page: 1, sort: 'updated' })
+    expect(parseBackUrl(fd)).toBe('/')
   })
 })
