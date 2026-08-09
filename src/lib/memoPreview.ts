@@ -12,7 +12,11 @@
 // 折り返して 2 行にも 3 行にもなるので、「3 行に収める」のは line-clamp の仕事。
 // ここは「3 行を埋めるのに十分なテキスト」を渡すことだけを受け持つ。
 
-import { isStructureLine, stripLineMarkdown } from './memoSummary'
+import {
+  isStructureLine,
+  renderedFenceSkipper,
+  stripLineMarkdown,
+} from './memoSummary'
 import { isPropLine } from './props'
 import { parseTagToken } from './tags'
 
@@ -48,8 +52,14 @@ export function memoPreview(memo: string): string {
   // カードのタイトルに出ている行をちょうど 1 つだけ飛ばす
   let titlePassed = false
 
+  // 描画フェンス (circuitikz 等) の中身は落とす。図やカードに化けて
+  // テキストとして表示されない物で、図は回路図サムネとして右端に出ている
+  // (画像の alt を落とすのと同じ理屈)。タイトル判定より前に通すことで、
+  // memoSummary と同じ行選択を保つ
+  const isHiddenFenceBody = renderedFenceSkipper()
+
   for (const line of memo.split(/\r?\n/)) {
-    if (isStructureLine(line)) {
+    if (isHiddenFenceBody(line) || isStructureLine(line)) {
       continue
     }
 

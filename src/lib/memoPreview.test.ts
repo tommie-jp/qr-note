@@ -99,3 +99,54 @@ test('本文が無ければ空文字を返す', () => {
   expect(memoPreview('')).toBe('')
   expect(memoPreview('タイトル\n#tag\nhFE=208')).toBe('')
 })
+
+// 描画フェンス (circuitikz / mermaid / quiz) の中身は落とす (docs/68 §7)。
+// ノート表示では図やカードに化けてテキストとして見えない物なので、
+// プレビューに流すと画像の alt と同じ「他で見えている物の重複」になる
+
+test('circuitikz フェンスの中身は出さない (前後の散文は残す)', () => {
+  const memo = [
+    'タイトル',
+    '学習済み 自信あり',
+    '```circuitikz',
+    '\\begin{circuitikz} \\draw (0,0) to[R] (2,0);',
+    '\\end{circuitikz}',
+    '```',
+    '答えは 10V',
+  ].join('\n')
+  expect(memoPreview(memo)).toBe('学習済み 自信あり 答えは 10V')
+})
+
+test('mermaid と quiz のフェンスの中身も出さない', () => {
+  expect(memoPreview('タイトル\n```mermaid\ngraph TD;\n```\n本文')).toBe('本文')
+  expect(memoPreview('タイトル\n```quiz\nQ: 問い\n```\n本文')).toBe('本文')
+})
+
+test('普通のコードフェンスの中身は今までどおり出す', () => {
+  // bash 等はノート表示でもテキスト (コードブロック) として見えている
+  expect(memoPreview('タイトル\n```bash\nls -la\n```')).toBe('ls -la')
+})
+
+test('閉じ忘れた描画フェンスは末尾まで落とす', () => {
+  expect(memoPreview('タイトル\n本文\n```circuitikz\n\\draw (0,0);')).toBe(
+    '本文',
+  )
+})
+
+test('描画フェンスしか無いノートのプレビューは空', () => {
+  expect(memoPreview('タイトル\n```circuitikz\n\\draw (0,0);\n```')).toBe('')
+})
+
+test('普通のフェンスの後の描画フェンスも落とす (状態が混ざらない)', () => {
+  const memo = [
+    'タイトル',
+    '```bash',
+    'ls',
+    '```',
+    '```circuitikz',
+    '\\draw (0,0);',
+    '```',
+    '結び',
+  ].join('\n')
+  expect(memoPreview(memo)).toBe('ls 結び')
+})

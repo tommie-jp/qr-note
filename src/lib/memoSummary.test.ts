@@ -30,7 +30,22 @@ test('リンク・画像はテキストだけ残す', () => {
 })
 
 test('コードフェンスの区切り行はスキップする', () => {
-  expect(memoSummary('```mermaid\ngraph TD;\n```')).toBe('graph TD;')
+  // 普通のコード (ノート表示でもテキストとして見える) は中身を要約に使う
+  expect(memoSummary('```bash\nls -la\n```')).toBe('ls -la')
+})
+
+// 描画フェンス (circuitikz / mermaid / quiz) はノート表示で図やカードに化け、
+// ソースはテキストとして見えない。TeX やグラフ記法を要約 (一覧のタイトル) に
+// 出さない (docs/68 §7)
+test('描画フェンスの中身は要約に使わない', () => {
+  expect(memoSummary('```mermaid\ngraph TD;\n```\n散文の行')).toBe('散文の行')
+  expect(memoSummary('```circuitikz\n\\draw (0,0);\n```\n回路メモ')).toBe(
+    '回路メモ',
+  )
+})
+
+test('描画フェンスしか無いメモの要約は空 (一覧側が「(空のノート)」を出す)', () => {
+  expect(memoSummary('```circuitikz\n\\draw (0,0);\n```')).toBe('')
 })
 
 test('先頭の空行・引用記法を飛ばす', () => {

@@ -1,6 +1,7 @@
 // 一覧の要約表示用に、memo の先頭行から Markdown 記法を取り除く。
 // 表示専用の簡易変換 (正確なパースは表示側の react-markdown が担う)
 
+import { RENDERED_LANGS } from './fenceLanguages'
 import { readAlertMarker } from './markdownAlerts'
 
 // 行頭の記法: 見出し / 引用 / 箇条書き / 番号リスト / チェックボックス /
@@ -22,6 +23,37 @@ const INLINE_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
 
 // コードフェンスの区切り行 (```lang / ~~~)。中身ではないので飛ばす。
 const FENCE_MARKER = /^\s*(```|~~~)/
+
+// 区切り行の言語トークン (開き行の ```circuitikz など。閉じ行では空文字)
+const FENCE_LANG = /^\s*(?:```|~~~)\s*(\S*)/
+
+// 描画フェンス (circuitikz / mermaid / quiz) の**中身の行**を見分ける状態機械。
+// 行順に全行を 1 回ずつ通すこと (区切り行も見せないと開閉を追えない)。
+// true を返した行は「図やカードに化けてテキストとして表示されない中身」なので、
+// 要約にもプレビューにも出さない — TeX やグラフ記法が一覧に流れると見苦しく、
+// 図は回路図サムネ (docs/68) として別に見えている。
+//
+// 普通のコード (bash 等) の中身はノート表示でもテキストとして見えるので通す。
+// remark は使わず FENCE_MARKER と同じ行単位の近似で揃える (このファイル冒頭の
+// 「表示専用の簡易変換」の線)。割り切り: 普通のフェンスの中に区切り行そっくりの
+// 行 (` ```circuitikz ` の説明書きなど) があると開閉を読み違えるが、
+// isStructureLine も同じ近似で、実害は要約の行選びがずれるだけ
+export function renderedFenceSkipper(): (line: string) => boolean {
+  let inFence: 'rendered' | 'plain' | null = null
+  return (line) => {
+    const marker = FENCE_LANG.exec(line)
+    if (marker) {
+      inFence = inFence
+        ? null
+        : (RENDERED_LANGS as readonly string[]).includes(marker[1])
+          ? 'rendered'
+          : 'plain'
+      // 区切り行そのものは isStructureLine が落とす (役割を重ねない)
+      return false
+    }
+    return inFence === 'rendered'
+  }
+}
 
 // 折りたたみの区切り行 (`:::details` / `:::`。docs/54-markdown表示拡張計画.md §4)
 const DIRECTIVE_MARKER = /^\s*:{3,}/
@@ -60,8 +92,12 @@ export function stripLineMarkdown(line: string): string {
 }
 
 export function memoSummary(memo: string): string {
+  // 描画フェンスの中身は要約に使わない (renderedFenceSkipper のコメント参照)。
+  // memoPreview も同じ skipper を通す — 片方だけ直すと一覧の 1 行目と
+  // プレビューで別の行が選ばれる (isStructureLine と同じ約束)
+  const isHiddenFenceBody = renderedFenceSkipper()
   for (const line of memo.split(/\r?\n/)) {
-    if (isStructureLine(line)) {
+    if (isHiddenFenceBody(line) || isStructureLine(line)) {
       continue
     }
     const text = stripLineMarkdown(line)
