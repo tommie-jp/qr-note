@@ -23,6 +23,7 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     accessedAt: new Date("2026-07-01T00:00:00Z"),
     deletedAt: new Date("2026-07-15T03:04:05Z"),
     publicAt: null,
+    offlinePin: false,
     ...overrides,
   };
 }

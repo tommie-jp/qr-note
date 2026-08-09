@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import type { OfflineSyncPayload } from "@/lib/offline/item";
+import { syncPinnedAssets } from "@/lib/offline/pinCache";
 import { registerOfflineWorker, warmOfflineShell } from "@/lib/offline/register";
 import {
   LAST_SYNC_ATTEMPT_KEY,
@@ -16,10 +18,11 @@ import { syncOfflineItems } from "@/lib/offline/sync";
 // layout.tsx が**ログイン中のときだけ**置く。同期の口は 401 を返すので、
 // 未ログインで仕掛けても失敗するだけ (ClientLogCapture と同じ判断)。
 //
-// やることは 3 つ:
+// やることは 4 つ:
 //   1. Service Worker を版付きで登録する (殻と添付のキャッシュはあちらの担当)
-//   2. ノート本文を IndexedDB へ取り込む
-//   3. /offline の殻を保存させる (暖機)
+//   2. ノート本文と描画済みの回路図を IndexedDB へ取り込む
+//   3. 印付きノート (offline_pin) の添付を端末へ揃える
+//   4. /offline の殻を保存させる (暖機)
 //
 // **どれが失敗しても画面は止めない。** オフラインで使えないだけで、
 // オンラインの機能は何一つ変わらない。ただし黙って消えると原因が追えないので
@@ -75,10 +78,34 @@ export function OfflineSync({ version }: OfflineSyncProps) {
       // 開くたびにタイムアウトを待たされる (schedule.ts の冒頭)
       writeMark(LAST_SYNC_ATTEMPT_KEY, String(Date.now()));
 
+      let payload: OfflineSyncPayload | null = null;
       try {
-        await syncOfflineItems();
+        payload = await syncOfflineItems();
       } catch (error) {
         console.warn("OfflineSync: ノートを同期できませんでした", error);
+      }
+      if (cancelled) return;
+
+      // 印付きノートの添付を揃える (docs/65-オフライン対応計画.md §10)。
+      //
+      // **ここだけは自動で通信量を使う。** サムネの全件先読みを手動にしている
+      // のと矛盾しては見えるが、印は「このノートは圏外でも原寸まで要る」と
+      // 利用者が 1 件ずつ選んだ結果で、断りは既に取れている。逆に、選んだのに
+      // 毎回 /offline を開いてボタンを押させるなら印の意味が無い。
+      //
+      // Worker が居なくても走らせる — 書くのはこちら側で、居ないと困るのは
+      // 返す側だけ (pinCache.ts)。
+      if (payload !== null && payload.items.some((item) => item.pinned)) {
+        try {
+          const result = await syncPinnedAssets(payload.items);
+          if (result.failed > 0) {
+            console.warn(
+              `OfflineSync: 印付きノートの添付を ${result.failed} 件保存できませんでした`,
+            );
+          }
+        } catch (error) {
+          console.warn("OfflineSync: 印付きノートを保存できませんでした", error);
+        }
       }
       if (cancelled || !hasWorker) return;
 

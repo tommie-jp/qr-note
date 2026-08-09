@@ -67,6 +67,18 @@ model Item {
   // 判定の正本は src/lib/publicItem.ts の isPublicItem() で、ゴミ箱 (deleted_at
   // 非 null) の行はここが非 null でも公開しない。
   publicAt  DateTime? @map("public_at")
+  // 「オフラインで常に使う」印 (docs/65-オフライン対応計画.md §7)。
+  // true のノートは、本文だけでなく添付の原寸・回路図・シークレット断片まで
+  // 端末へ持ち出す。
+  //
+  // **端末ごとではなくノートごとに持つ**。単独ユーザーの前提では「スマホで
+  // 印を付けたノートは PC でも持ち出される」ほうが期待に合い、端末を増やす
+  // たびに付け直す手間も要らない。端末ごとの容量差は、持ち出す側 (sync) が
+  // 保存に失敗したときに断ることで吸収する。
+  //
+  // 索引は張らない。同期は全件を 1 クエリで引くので絞り込みに使わない
+  // (task_todo / title と同じ判断)。
+  offlinePin Boolean @default(false) @map("offline_pin")
 
   @@index([itemNoNum])
   @@index([tags], type: Gin)

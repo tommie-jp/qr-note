@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
 import {
   restoreItemsAction,
+  setItemOfflinePinAction,
   setItemPublicAction,
   toggleMemoTaskAction,
   updateMemoAction,
@@ -12,6 +13,7 @@ import { ItemUrlBox } from "@/components/ItemUrlBox";
 import { MarkdownView } from "@/components/MarkdownView";
 import { MemoPanel } from "@/components/MemoPanel";
 import { MemoEditor } from "@/components/MemoEditor";
+import { OfflinePinToggle } from "@/components/OfflinePinToggle";
 import { PendingLink } from "@/components/PendingLink";
 import { PublicToggle } from "@/components/PublicToggle";
 import { SavedToast } from "@/components/SavedToast";
@@ -20,6 +22,7 @@ import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { renderCircuits } from "@/lib/circuitCache";
+import { pinAttachmentBytes } from "@/lib/offline/pinSize";
 
 interface ItemViewProps {
   itemNo: string;
@@ -38,8 +41,14 @@ interface ItemViewProps {
 export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
   const memo = item?.memo ?? "";
   // ```circuitikz は TeX (WASM) で描くため非同期。MarkdownView は同期に描くので
-  // ここで済ませて結果を渡す (2 回目以降は DB キャッシュを引くだけ)
-  const circuits = await renderCircuits(memo);
+  // ここで済ませて結果を渡す (2 回目以降は DB キャッシュを引くだけ)。
+  //
+  // 印を付けたときに落ちる量も一緒に数える。どちらも memo だけから決まる
+  // 独立な問い合わせなので並べる (直列にすると描画が待つ分だけ遅くなる)
+  const [circuits, attachmentBytes] = await Promise.all([
+    renderCircuits(memo),
+    pinAttachmentBytes(memo),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -108,6 +117,19 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           itemNo={itemNo}
           publicAt={item.publicAt}
           setPublicAction={setItemPublicAction}
+        />
+      )}
+
+      {/* オフラインの印 (docs/65-オフライン対応計画.md §7)。未登録のノートには
+          出さない — 持ち出す中身がまだ無い (公開トグルと同じ判断)。
+          デモでは同期の口ごと閉じてある (api/sync/items) ので、押せても
+          何も起きないトグルを出さない */}
+      {item && !isDemoMode() && (
+        <OfflinePinToggle
+          itemNo={itemNo}
+          pinned={item.offlinePin}
+          attachmentBytes={attachmentBytes}
+          setPinAction={setItemOfflinePinAction}
         />
       )}
 

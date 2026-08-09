@@ -96,4 +96,51 @@ describe('parseSyncPayload', () => {
     expect(parseSyncPayload({ ...payload([]), truncated: true })?.truncated).toBe(true)
     expect(parseSyncPayload({ ...payload([]), truncated: 'yes' })?.truncated).toBe(false)
   })
+
+  // 印は「通信量を使ってよい」という同意そのもの。読めない値を true に倒すと、
+  // 同意していないノートの原寸添付まで自動で落とし始める
+  test('pinned は true のときだけ立つ (読めない値は印なしへ倒す)', () => {
+    expect(parseSyncPayload(payload([validItem()]))?.items[0].pinned).toBe(false)
+    expect(parseSyncPayload(payload([validItem({ pinned: true })]))?.items[0].pinned).toBe(true)
+    expect(parseSyncPayload(payload([validItem({ pinned: 'yes' })]))?.items[0].pinned).toBe(false)
+  })
+})
+
+// 回路図 (docs/65-オフライン対応計画.md §8)。
+//
+// **無くても本文は読める** (コードブロックとして出る) ので、読めない形は
+// 落とすだけで同期そのものは成功させる。
+describe('parseSyncPayload の回路図', () => {
+  const circuit = { source: '\\draw (0,0) to[R] (2,0);', svg: '<svg></svg>' }
+
+  test('回路図をそのまま読み取る', () => {
+    const parsed = parseSyncPayload({ ...payload([]), circuits: [circuit] })
+    expect(parsed?.circuits).toEqual([circuit])
+  })
+
+  test('回路図が無い応答は空配列になる (古い版のサーバ・保存)', () => {
+    expect(parseSyncPayload(payload([]))?.circuits).toEqual([])
+    expect(parseSyncPayload({ ...payload([]), circuits: 'x' })?.circuits).toEqual([])
+  })
+
+  test('形の違う 1 枚だけを落とす', () => {
+    // Arrange
+    const data = {
+      ...payload([]),
+      circuits: [{ source: '', svg: '<svg/>' }, { source: 'a' }, circuit, 42],
+    }
+
+    // Act
+    const parsed = parseSyncPayload(data)
+
+    // Assert
+    expect(parsed?.circuits).toEqual([circuit])
+  })
+
+  test('circuitsOmitted は有限の数値のときだけ読む', () => {
+    expect(parseSyncPayload(payload([]))?.circuitsOmitted).toBe(0)
+    expect(parseSyncPayload({ ...payload([]), circuitsOmitted: 3 })?.circuitsOmitted).toBe(3)
+    expect(parseSyncPayload({ ...payload([]), circuitsOmitted: '3' })?.circuitsOmitted).toBe(0)
+    expect(parseSyncPayload({ ...payload([]), circuitsOmitted: NaN })?.circuitsOmitted).toBe(0)
+  })
 })

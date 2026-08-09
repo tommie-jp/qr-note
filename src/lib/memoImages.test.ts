@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest'
 import {
+  allAttachments,
   allImageNames,
+  attachmentUrl,
   firstImageName,
   firstThumbInfo,
   replaceImageName,
@@ -11,6 +13,7 @@ const OTHER = '11108562-47b2-4c00-846d-23dd7e804ff8.png'
 const VIDEO_MP4 = '2232f915-45fe-4121-836f-0fa6bbd9c4dc.mp4'
 const VIDEO_MKV = '1f3f2278-58ec-46f4-8846-128440a4b7fd.mkv'
 const AUDIO = '0f1e2d3c-4b5a-4678-9abc-def012345678.webm'
+const PDF = '5b6c7d8e-9f01-4234-8567-89abcdef0123.pdf'
 
 test('本文に貼られた画像の名前を返す', () => {
   expect(firstImageName(`写真\n![](/api/images/${NAME})`)).toBe(NAME)
@@ -145,4 +148,45 @@ test('replaceImageName: 幅記法や alt はそのまま残る (URL の名前部
 test('replaceImageName: 対象でない画像はそのまま', () => {
   const memo = `![](/api/images/${OTHER})`
   expect(replaceImageName(memo, NAME, VIDEO_MP4)).toBe(memo)
+})
+
+// --- allAttachments (docs/65-オフライン対応計画.md §10) ---
+//
+// 「圏外でこのノートを開くのに要るファイル一式」なので、**1 つも落とせない**。
+// 一覧の顔 (firstThumbInfo) や画像検索の索引 (allImageNames) とは逆の性質で、
+// あちらは音声や PDF を意図的に外している
+
+test('allAttachments: 種類を問わず出現順に返す', () => {
+  const memo = `![図](/api/images/${NAME})\n![音](/api/images/${AUDIO})\n![資料](/api/images/${PDF})`
+  expect(allAttachments(memo).map((a) => a.name)).toEqual([NAME, AUDIO, PDF])
+})
+
+test('allAttachments: サムネを持つのは画像と動画だけ', () => {
+  const memo = `![図](/api/images/${NAME})\n![録画](/api/images/${VIDEO_MP4})\n![資料](/api/images/${PDF})`
+  expect(allAttachments(memo)).toEqual([
+    { name: NAME, hasThumb: true },
+    { name: VIDEO_MP4, hasThumb: true },
+    { name: PDF, hasThumb: false },
+  ])
+})
+
+test('allAttachments: 同じ添付は 1 度だけ', () => {
+  expect(allAttachments(`![a](/api/images/${NAME})\n![b](/api/images/${NAME})`)).toEqual([
+    { name: NAME, hasThumb: true },
+  ])
+})
+
+test('allAttachments: コードの中と外部 URL と不正な名前は拾わない', () => {
+  const memo = [
+    '```',
+    `![図](/api/images/${NAME})`,
+    '```',
+    '![外](https://example.com/a.jpg)',
+    '![変](/api/images/../etc/passwd)',
+  ].join('\n')
+  expect(allAttachments(memo)).toEqual([])
+})
+
+test('attachmentUrl: 原寸の配信 URL を組む', () => {
+  expect(attachmentUrl(NAME)).toBe(`/api/images/${NAME}`)
 })

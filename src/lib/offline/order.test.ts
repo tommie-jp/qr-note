@@ -17,6 +17,7 @@ function item(over: Partial<OfflineItem> = {}): OfflineItem {
     taskDone: 0,
     updatedAt: '2026-08-01T00:00:00.000Z',
     accessedAt: '2026-08-01T00:00:00.000Z',
+    pinned: false,
     ...over,
   }
 }

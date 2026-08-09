@@ -11,6 +11,10 @@
 // 「包んだ鍵」と「検証値」だけ。
 
 import {
+  loadKeyringCache,
+  saveKeyringCache,
+} from './offline/keyring'
+import {
   fetchKeyring,
   initKeyring,
   saveKeyWrap,
@@ -63,6 +67,7 @@ export async function setupSecrets(): Promise<string> {
   )
 
   await unlockWith(masterKey)
+  await refreshKeyringCache()
   return formatRecoveryKey(encodeRecoveryKey(masterKey))
 }
 
@@ -130,14 +135,62 @@ export async function enrollThisDevice(): Promise<void> {
     assertion.credentialId,
     await wrapMasterKey(kek, masterKey, assertion.credentialId),
   )
+  // 足した包みを写しにも入れる。**これが無いと、有効にした端末が圏外へ出た
+  // 途端に「このパスキーでは有効になっていません」に戻る**
+  await refreshKeyringCache()
 }
 
 async function requireInitialized(): Promise<KeyringState> {
-  const keyring = await fetchKeyring()
+  const keyring = await readKeyring()
   if (!keyring.initialized) {
     throw new SecretSetupError(
       '暗号化がまだ設定されていません。設定画面から始めてください',
     )
   }
   return keyring
+}
+
+// 鍵束を読む。**サーバを先に見て、駄目なら端末の写しへ落ちる**
+// (docs/65-オフライン対応計画.md §9)。
+//
+// 順番が逆ではいけない。写しを先に使うと、別の端末でパスキーを足した直後に
+// 「有効になっていません」と断られる — 直し方の判らない不具合になる。
+// サーバが答えられるなら常にそちらが正で、写しは圏外の保険にすぎない。
+//
+// 写しも無ければ**サーバ側の失敗をそのまま投げる**。「圏外だから解錠できない」
+// ことと「鍵束が壊れている」ことは、利用者にできることが違う。
+async function readKeyring(): Promise<KeyringState> {
+  try {
+    const keyring = await fetchKeyring()
+    // 写しを更新するのはここだけ。取れたときに必ず書き直せば、写しが古いまま
+    // 残る窓は「取れなかった間」に限られる
+    await saveKeyringCache(keyring).catch((error: unknown) => {
+      // 保存できなくても解錠はできる。困るのは次に圏外へ出たときだけ
+      console.warn('鍵束を端末に保存できませんでした', error)
+    })
+    return keyring
+  } catch (cause) {
+    const cached = await loadKeyringCache().catch((error: unknown) => {
+      console.warn('端末の鍵束を読めませんでした', error)
+      return null
+    })
+    if (cached === null) {
+      throw cause
+    }
+    return cached
+  }
+}
+
+// 鍵束を書き換えた後に写しを追いつかせる (初回設定・パスキーの追加)。
+//
+// **書いた値を自分で組み立てて写しに入れない。** サーバが返す形 (label など
+// こちらが知らない列を含む) をそのまま持つのが写しの約束で、手で作ると
+// 「オンラインで読んだ形」と「書いた直後の形」の 2 通りが生まれる。
+async function refreshKeyringCache(): Promise<void> {
+  try {
+    await saveKeyringCache(await fetchKeyring())
+  } catch (error) {
+    // 追いつけなくても次にオンラインで解錠したときに揃う
+    console.warn('鍵束の写しを更新できませんでした', error)
+  }
 }

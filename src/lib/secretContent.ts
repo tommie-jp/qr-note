@@ -3,6 +3,7 @@
 // 暗号化・復号はここだけで行い、画面は平文の文字列とバイト列だけを扱う。
 // **平文がサーバへ出る経路はここには無い** — 送るのは必ず封をした後。
 
+import { forgetCachedUrl } from './offline/cacheNames'
 import { fetchSecretBlob, saveSecret } from './secretApi'
 import { openSecret, sealSecret } from './secretEnvelope'
 import {
@@ -11,6 +12,7 @@ import {
   normalizeSecretMime,
   secretMimeKind,
 } from './secretPayload'
+import { secretUrl } from './secrets'
 import { unlockedKey } from './secretSession'
 
 // 鍵がまだ無い状態で読み書きしようとした。画面は解錠を促す。
@@ -100,6 +102,13 @@ async function sealAndSave(
 ): Promise<void> {
   const sealed = await sealSecret(requireKey(), plaintext, secretContext(name, mime))
   await saveSecret(name, mime, sealed)
+  // **端末に残った旧い暗号文を捨てる** (docs/65-オフライン対応計画.md §9)。
+  // 断片は「同じ名前のまま中身が変わる」唯一の口なので、消さないと圏外で
+  // 編集前の中身が復号される — しかも復号は成功するので、古いと気づけない。
+  //
+  // 保存の後に置く。先に消すと、保存が失敗したときに手元の写しだけを
+  // 失うことになる (圏外で読めるはずだった物が消える)
+  await forgetCachedUrl(secretUrl(name))
 }
 
 function requireKey(): CryptoKey {

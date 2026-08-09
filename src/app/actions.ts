@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { isDemoMode } from '@/lib/appEnv'
 import { parseBulkTagForm } from '@/lib/bulkTags'
+import { renderCircuits } from '@/lib/circuitCache'
 import { isValidCommitOid } from '@/lib/git/notePath'
 import {
   commitNote,
@@ -19,6 +20,7 @@ import {
   purgeItems,
   recordItemAccess,
   restoreItems,
+  setItemOfflinePin,
   setItemPublic,
   trashItems,
   upsertItem,
@@ -172,6 +174,49 @@ export async function setItemPublicAction(formData: FormData): Promise<void> {
   // '1' だけを公開と読む。判らない値は非公開へ倒す (既定を閉じる側へ)
   const isPublic = formData.get('public') === '1'
   await setItemPublic(itemNo, isPublic)
+  revalidatePath(`/item/${itemNo}`)
+}
+
+// --- オフラインの印 (docs/65-オフライン対応計画.md §7) ---
+
+// ノートを「オフラインで常に使う」対象にする / やめる。
+//
+// 公開トグルと同じく**望む状態** (pin=1 / 0) を送る形にする。裏返す形だと
+// 二重送信で意図と逆に倒れる。
+//
+// 印を立てるときに**回路図を描いておく**のがこの口の要点。同期
+// (syncItems.ts) は出来上がっている図を配るだけで描かないので、ここで
+// 描かないと「印を付けたのに圏外で図だけ出ない」になる。ノートを一度でも
+// 開いていれば ItemView が描き済みだが、それに頼ると「開かずに印だけ付けた」
+// 経路が漏れる。
+//
+// 描画の失敗でトグルを止めない。TeX のエラーは本文側の問題で、印を付ける
+// 操作とは別の話 (図はオンラインで開けばエラーとして見える)。
+export async function setItemOfflinePinAction(formData: FormData): Promise<void> {
+  await requireUser()
+  // デモでは同期の口ごと閉じてある (api/sync/items) ので、印を立てても何も
+  // 起きない。**旗の欠落に頼らず口も閉じる** — UI で出さないことと、叩けない
+  // ことは別の話 (setItemPublicAction と同じ流儀)。共有アカウントのデモで
+  // 誰かが印を立てると、他の人の画面にもその帯が出てしまう
+  if (isDemoMode()) {
+    throw new Error('デモモードではオフライン保存は使えません')
+  }
+  const itemNo = readItemNo(formData)
+  // '1' だけを印ありと読む。判らない値は印なしへ倒す (通信量を使わない側へ)
+  const pinned = formData.get('pin') === '1'
+  await setItemOfflinePin(itemNo, pinned)
+
+  if (pinned) {
+    const item = await getItem(itemNo)
+    if (item !== null) {
+      try {
+        await renderCircuits(item.memo)
+      } catch (error) {
+        console.warn(`オフライン用の回路図を描けませんでした (${itemNo})`, error)
+      }
+    }
+  }
+
   revalidatePath(`/item/${itemNo}`)
 }
 

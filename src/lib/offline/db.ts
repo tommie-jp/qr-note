@@ -11,114 +11,23 @@
 //
 // localStorage ではなく IndexedDB にするのは容量 (localStorage は 5MB 前後で、
 // 本文をすべて置くと将来詰まる) と、同期 API を待たずに読める非同期性のため。
-//
-// iOS の IndexedDB は歴史的に不安定なので、**ここは捨てて作り直せるキャッシュ**
-// として扱う。失敗は握り潰さず投げ、呼び出し側 (sync.ts) が「同期していない」
-// 状態へ倒す。
+// IndexedDB そのものの配管は idb.ts が持つ。
 
+import { deleteRecord, getRecord, putRecord } from './idb'
 import { parseSyncPayload, type OfflineSyncPayload } from './item'
+import { clearKeyringCache } from './keyring'
 
-const DB_NAME = 'qr-search-offline'
-const DB_VERSION = 1
-const STORE = 'snapshot'
 // 1 レコードしか持たないので鍵は固定 (out-of-line key)
 const SNAPSHOT_KEY = 'items'
 
-// IDBRequest を Promise にする。IndexedDB は 2010 年代前半の API で
-// Promise を返さないため、使うたびに書く定型をここに 1 つだけ置く
-function promisify<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB の要求が失敗しました'))
-  })
-}
-
-// IndexedDB が使えない環境 (サーバ側の描画、プライベートブラウズの一部) では
-// 例外にする。呼び出し側は「オフライン用の保存は無い」として扱う
-function openOnce(): Promise<IDBDatabase> {
-  if (typeof indexedDB === 'undefined') {
-    return Promise.reject(new Error('この環境では IndexedDB を使えません'))
-  }
-  const request = indexedDB.open(DB_NAME, DB_VERSION)
-  request.onupgradeneeded = () => {
-    if (!request.result.objectStoreNames.contains(STORE)) {
-      request.result.createObjectStore(STORE)
-    }
-  }
-  return promisify(request)
-}
-
-function deleteDb(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB を削除できませんでした'))
-    // blocked … 別タブが同じ DB を開いている。そちらが閉じるまで待つと
-    // 固まるので、消せなかったことにして諦める (次の起動でやり直す)
-    request.onblocked = () => reject(new Error('IndexedDB が他のタブに使われています'))
-  })
-}
-
-// **同じ版のまま中身が壊れている場合から立ち直る**のがこの関数の役目。
-//
-// 版が上がらない限り onupgradeneeded は呼ばれない。ところが「DB はあるのに
-// ストアが無い」状態は現実に作れる — 別のコードが版 1 で開いた、途中で
-// 失敗した、といった経路である。そのまま返すと transaction が毎回
-// NotFoundError で落ち、**再同期しても直らない**行き止まりになる。
-//
-// ここは捨てて作り直せるキャッシュ (冒頭) なので、迷わず消してから開き直す。
-// やり直しは 1 回だけ (それでも駄目なら環境側の問題で、繰り返しても同じ)。
-async function openDb(): Promise<IDBDatabase> {
-  const db = await openOnce()
-  if (db.objectStoreNames.contains(STORE)) {
-    return db
-  }
-  db.close()
-  await deleteDb()
-  const rebuilt = await openOnce()
-  if (!rebuilt.objectStoreNames.contains(STORE)) {
-    rebuilt.close()
-    throw new Error('IndexedDB を作り直せませんでした')
-  }
-  return rebuilt
-}
-
-// トランザクションを 1 つ張って処理を通す。
-//
-// **complete を待つ**のが要点。put の onsuccess はトランザクションの確定より
-// 前に来るので、そこで解決すると「保存できた」と言った直後に落ちて中身が
-// 無い、が起こりうる
-async function withStore<T>(
-  mode: IDBTransactionMode,
-  run: (store: IDBObjectStore) => Promise<T>,
-): Promise<T> {
-  const db = await openDb()
-  try {
-    const tx = db.transaction(STORE, mode)
-    const done = new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB のトランザクションが失敗しました'))
-      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB のトランザクションが中断されました'))
-    })
-    const result = await run(tx.objectStore(STORE))
-    await done
-    return result
-  } finally {
-    // 開きっぱなしにすると、別タブが版を上げるときに blocked で止まる
-    db.close()
-  }
-}
-
 export async function saveOfflineSnapshot(payload: OfflineSyncPayload): Promise<void> {
-  await withStore('readwrite', (store) => promisify(store.put(payload, SNAPSHOT_KEY)))
+  await putRecord('snapshot', SNAPSHOT_KEY, payload)
 }
 
 // 保存が無ければ null。壊れていた (形が違う) ときも null にして、呼び出し側は
 // 「まだ同期していない」と同じ扱いにする — 直す手立ては再同期しかないため
 export async function loadOfflineSnapshot(): Promise<OfflineSyncPayload | null> {
-  const stored = await withStore('readonly', (store) =>
-    promisify<unknown>(store.get(SNAPSHOT_KEY)),
-  )
+  const stored = await getRecord('snapshot', SNAPSHOT_KEY)
   return stored === undefined ? null : parseSyncPayload(stored)
 }
 
@@ -130,7 +39,7 @@ export async function loadOfflineSnapshot(): Promise<OfflineSyncPayload | null> 
 // 端末を触れば全ノートを読めて検索もできる」状態になる。呼び出しは
 // LogoutButton (clearOfflineData) が持つ。
 export async function clearOfflineSnapshot(): Promise<void> {
-  await withStore('readwrite', (store) => promisify(store.delete(SNAPSHOT_KEY)))
+  await deleteRecord('snapshot', SNAPSHOT_KEY)
 }
 
 // Service Worker が持つ棚の名前の頭 (sw.js の SHELL_CACHE / MEDIA_CACHE と対)。
@@ -139,10 +48,13 @@ const CACHE_PREFIX = 'qr-'
 
 // ログアウトで端末から持ち出し分を消す。
 //
-// 消す先は 2 つある。**IndexedDB だけでは足りない**:
-//   IndexedDB … ノート本文・タグ・URL (一覧と検索の中身そのもの)
-//   Cache Storage … 添付のサムネと原寸 (/api/images/)。sw.js は
-//     キャッシュから返すとき認証を見ないので、残すと画像だけ読めてしまう
+// 消す先は 3 つある。**IndexedDB のノートだけでは足りない**:
+//   snapshot (IndexedDB) … ノート本文・タグ・URL (一覧と検索の中身そのもの)
+//   keyring  (IndexedDB) … シークレットの鍵束の写し (keyring.ts)。中身は
+//     包んだ鍵なので単体では読めないが、ログアウトした端末に残す理由が無い
+//   Cache Storage … 添付のサムネと原寸 (/api/images/)、印付きノートの持ち出し
+//     (qr-pin-v1)、シークレットの暗号文 (qr-secret-v1)。sw.js はキャッシュから
+//     返すとき認証を見ないので、残すと画像だけ読めてしまう
 //
 // 殻 (qr-shell-*) も消す。中身にノートは無いが、ログイン中に描いた HTML
 // なのでヘッダにユーザー名が焼き付いている。次のログインで暖機し直せばよい。
@@ -155,6 +67,11 @@ export async function clearOfflineData(): Promise<void> {
     await clearOfflineSnapshot()
   } catch (error) {
     console.warn('オフライン用のノートを消せませんでした', error)
+  }
+  try {
+    await clearKeyringCache()
+  } catch (error) {
+    console.warn('オフライン用の鍵束を消せませんでした', error)
   }
   try {
     if (typeof caches !== 'undefined') {

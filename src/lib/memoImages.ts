@@ -9,7 +9,7 @@
 // 移せる (そのときもこの関数が正本の抽出規則として残る)。
 
 import { stripCode } from './tags'
-import { isValidImageName, isValidVideoName } from './uploads'
+import { isValidAttachmentName, isValidImageName, isValidVideoName } from './uploads'
 
 // Markdown の画像記法 `![alt](url)` の url を捕捉する。
 // リンク記法 `[text](url)` は先頭の `!` が無いので外れる — 貼った画像ではなく
@@ -98,6 +98,40 @@ export function firstThumbInfo(
     return info
   }
   return null
+}
+
+// 本文に貼られた自前の添付を種類を問わず (画像・動画・音声・PDF・テキスト)
+// 出現順・重複除去で返す (docs/65-オフライン対応計画.md §10)。
+//
+// **firstThumbInfo / allImageNames とは用途が違う。** あちらは「一覧の顔」と
+// 「画像検索の索引」で、混ぜると音声や PDF がサムネ候補に紛れ込む
+// (isValidAttachmentName を分けている理由。uploads.ts)。こちらは
+// 「このノートを圏外で開くのに要るファイル一式」なので、逆に 1 つも
+// 落とせない — 落とすと印を付けたのに開けない添付が残る。
+//
+// hasThumb は一覧サムネ (?thumb=1) を持つか。持つのは画像と動画だけで、
+// 音声・PDF・テキストは thumb 列を持たない。
+export function allAttachments(memo: string): { name: string; hasThumb: boolean }[] {
+  const seen = new Map<string, boolean>()
+  for (const match of stripCode(memo).matchAll(IMAGE_SYNTAX)) {
+    const url = match[1]
+    if (!url.startsWith(IMAGE_PATH_PREFIX)) {
+      continue
+    }
+    // 幅記法や query が付いた形は本文には現れない (挿入は必ず素の URL) が、
+    // 拾った文字列をそのまま信じないのはこのファイルの流儀 (iterImageNames)
+    const name = url.slice(IMAGE_PATH_PREFIX.length)
+    if (!isValidAttachmentName(name) || seen.has(name)) {
+      continue
+    }
+    seen.set(name, isValidImageName(name) || isValidVideoName(name))
+  }
+  return [...seen].map(([name, hasThumb]) => ({ name, hasThumb }))
+}
+
+// 添付の配信 URL (原寸)。
+export function attachmentUrl(name: string): string {
+  return `${IMAGE_PATH_PREFIX}${name}`
 }
 
 // 本文に貼られた自前画像の名前をすべて (出現順・重複除去) 返す。

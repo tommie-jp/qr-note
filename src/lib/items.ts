@@ -66,6 +66,21 @@ export async function setItemPublic(itemNo: string, isPublic: boolean): Promise<
   `
 }
 
+// --- オフラインの印 (docs/65-オフライン対応計画.md §7) ---
+
+// 「オフラインで常に使う」印を立てる / 下ろす。
+//
+// **updated_at を触らない**ので生 SQL で書く (setItemPublic と同じ理由)。
+// 印は読み方の設定であって本文の変更ではないため、付けただけで更新順の
+// 先頭に来るのは嘘になる — しかも同期は更新の新しい順に打ち切るので、
+// 動かすと「印を付けたノートが他を押し出す」という別の嘘まで生む。
+export async function setItemOfflinePin(itemNo: string, pinned: boolean): Promise<number> {
+  return prisma.$executeRaw`
+    UPDATE items SET offline_pin = ${pinned}
+    WHERE item_no = ${itemNo} AND offline_pin <> ${pinned}
+  `
+}
+
 // --- アクセス順 (docs/37-アクセス順計画.md) ---
 
 // 連打・二重発火を吸収する間隔。リロードや React の StrictMode で

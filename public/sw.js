@@ -40,10 +40,26 @@ const SHELL_CACHE = `qr-shell-${VERSION}`
 // 添付 (サムネ・画像・動画)。名前が UUID で中身が変わらないので版を分けない。
 // 分けるとリリースのたびに数十 MB を落とし直すことになる
 const MEDIA_CACHE = 'qr-media-v1'
+// 印付きノート (offline_pin) の持ち出し (docs/65-オフライン対応計画.md §10)。
+// **MEDIA_CACHE と分けるのが要点。** あちらは上限 600 件で古い順に捨てるので、
+// 混ぜると「オフラインで常に使う」と言われた添付が、別のノートを眺めただけで
+// 押し出される。こちらに上限は無く、捨てるのは印を外したときだけ。
+// 出し入れするのは画面側 (pinCache.ts) で、ここは返すだけ
+const PIN_CACHE = 'qr-pin-v1'
+// シークレット断片の暗号文 (docs/65-オフライン対応計画.md §9)。
+// 置くのは**暗号文だけ**で、鍵はここを通らない (端末に写すのは鍵束 = 包んだ鍵で、
+// それは IndexedDB。開けるのは Face ID か復旧キーだけ)
+const SECRET_CACHE = 'qr-secret-v1'
 
 const OFFLINE_PATH = '/offline'
 const STATIC_PREFIX = '/_next/static/'
 const MEDIA_PREFIX = '/api/images/'
+const SECRET_PREFIX = '/api/secrets/'
+// 鍵束は断片と同じ prefix にぶら下がるが、**キャッシュしてはいけない**。
+// 中身は「いまサーバがどう思っているか」で、別の端末でパスキーを足すと変わる。
+// 圏外用の写しは IndexedDB が持つ (offline/keyring.ts) — あちらは書き換わった
+// ことに気づける (取れたときに必ず上書きする) が、ここに沈めると気づけない
+const KEYRING_PATH = '/api/secrets/keyring'
 
 // 添付キャッシュの上限 (件数)。ノートを消しても URL は本文から消えるだけで
 // キャッシュには残るため、放っておくと際限なく太る。古い順に捨てる
@@ -235,6 +251,28 @@ function offlineRedirectUrl(url) {
   return target.toString()
 }
 
+// 印付きの棚を先に見てから、いつもの棚を見る。
+//
+// **順番が要点。** 同じ URL が両方にあることは普通に起こる (印を付ける前に
+// 眺めていたノート)。印付きの棚は捨てられないので、そちらを先に見れば
+// 「見たついで」の棚が上限で削られても圏外の見え方は変わらない。
+//
+// 印付きの棚へ**書くのはここではない** (画面側の pinCache.ts が突き合わせて
+// 出し入れする)。書く側と捨てる側が同じ場所にいないと、印を外したときに
+// 消し残る — 期限で腐らせる棚ではないので、消し残りは永久に残る。
+async function pinnedFirst(request, cacheName) {
+  // **caches.open で開いてから match する。** caches.match({ cacheName }) は
+  // その名前の棚がまだ無いと NotFoundError で落ちる仕様で、印を 1 つも
+  // 付けていない端末ではそれが常態になる — 落ちれば respondWith ごと失敗し、
+  // **オンラインでも画像が割れる**。open は無ければ作るので、その穴が無い
+  const pinCache = await caches.open(PIN_CACHE)
+  const pinned = await pinCache.match(request)
+  if (pinned) {
+    return pinned
+  }
+  return cacheFirst(request, cacheName)
+}
+
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName)
   const hit = await cache.match(request)
@@ -314,7 +352,17 @@ self.addEventListener('fetch', (event) => {
   // 全体 (200) を返してしまい、動画のシークが壊れる (httpRange.ts が
   // 206 を返す前提でプレイヤーが動いている)
   if (url.pathname.startsWith(MEDIA_PREFIX) && !request.headers.has('Range')) {
-    event.respondWith(cacheFirst(request, MEDIA_CACHE))
+    event.respondWith(pinnedFirst(request, MEDIA_CACHE))
+    return
+  }
+
+  // シークレット断片の暗号文 (docs/65-オフライン対応計画.md §9)。名前は UUID で、
+  // 中身が変わるのは編集したときだけ — そのときは画面側が消す
+  // (offline/cacheNames.ts の forgetCachedUrl)。
+  //
+  // **鍵束だけは通さない** (KEYRING_PATH の理由を参照)。
+  if (url.pathname.startsWith(SECRET_PREFIX) && url.pathname !== KEYRING_PATH) {
+    event.respondWith(pinnedFirst(request, SECRET_CACHE))
     return
   }
 
