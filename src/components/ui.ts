@@ -163,18 +163,26 @@ export const BOTTOM_BAR_SPACER_CLASS =
 // はメニューにもそのまま当てはまり、むしろ選択肢が縦に近接するぶん
 // 押し間違いの余地が大きい。文字はバーのラベル (0.625rem) ではなく text-sm —
 // メニューは一覧の密度と競合しないので、詰める理由がない
-// 色を持たない土台。行アクションのメニュー (docs/66-行アクション計画.md §5-3)
-// は項目ごとに色が違う (危険な操作だけ赤) ので、色は使う側から与える。
+export const SLOT_MENU_ITEM_CLASS =
+  "flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200";
+
+// 行アクションのメニュー項目 (docs/66-行アクション計画.md §5-3)。
 //
-// **色抜きで分けるのが要点。** 土台に text-gray-700 を残したまま使う側で
-// text-red-700 を足すと、どちらが勝つかは class 属性の並び順ではなく
-// 生成された CSS の並び順で決まる (同じ詳細度の同族ユーティリティ) — 効いたり
-// 効かなかったりする指定になる
-const SLOT_MENU_ITEM_SKIN =
-  "flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 text-left text-sm font-medium transition-colors";
+// **こちらは文字を出さずアイコンだけ**にする。下部バーのメニューは 3 つの値の
+// うちどれを選ぶかを読む場所なので文字が要るが、行アクションは操作が並ぶだけで、
+// 指のすぐ上に出る小さな的に文字まで載せると横に広がって行を覆う。名前は
+// aria-label で言う (伏せているのは絵の説明であって、意味ではない)。
+//
+// 色は使う側から与える。**色抜きで分けるのが要点** — 土台に text-gray-700 を
+// 残したまま使う側で text-red-700 を足すと、どちらが勝つかは class 属性の
+// 並び順ではなく生成された CSS の並び順で決まる (同じ詳細度の同族
+// ユーティリティ)。効いたり効かなかったりする指定になる。
+//
+// 44px 角。文字が無いぶん的が細くなるので、幅の下限も高さと同じだけ取る
+const ROW_MENU_ICON_ITEM_SKIN =
+  "flex min-h-11 min-w-11 items-center justify-center transition-colors";
 
-export const SLOT_MENU_ITEM_CLASS = `${SLOT_MENU_ITEM_SKIN} text-gray-700 hover:bg-gray-100 active:bg-gray-200`;
+export const ROW_MENU_ICON_ITEM_CLASS = `${ROW_MENU_ICON_ITEM_SKIN} text-gray-700 hover:bg-gray-100 active:bg-gray-200`;
 
-// 行アクションのメニュー項目。取り返しの付きにくい操作 (ゴミ箱へ移動) は
-// 赤で描き、押下の地色も赤系に合わせる
-export const ROW_MENU_ITEM_DANGER_CLASS = `${SLOT_MENU_ITEM_SKIN} text-red-700 hover:bg-red-50 active:bg-red-100`;
+// 取り返しの付きにくい操作 (ゴミ箱へ移動)。押下の地色も赤系に合わせる
+export const ROW_MENU_ICON_ITEM_DANGER_CLASS = `${ROW_MENU_ICON_ITEM_SKIN} text-red-700 hover:bg-red-50 active:bg-red-100`;

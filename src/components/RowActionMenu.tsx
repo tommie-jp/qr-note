@@ -8,7 +8,10 @@ import {
   type MenuPosition,
 } from "@/lib/rowActionMenu";
 import type { RowAction } from "./RowActions";
-import { ROW_MENU_ITEM_DANGER_CLASS, SLOT_MENU_ITEM_CLASS } from "./ui";
+import {
+  ROW_MENU_ICON_ITEM_CLASS,
+  ROW_MENU_ICON_ITEM_DANGER_CLASS,
+} from "./ui";
 
 interface RowActionMenuProps {
   // 読み上げ用。「#12 の操作」
@@ -115,12 +118,17 @@ export function RowActionMenu({
             action.onSelect();
             onClose();
           }}
+          // 文字は出さないので、名前はここで言う。メニュー自身が
+          // 「#12 の操作」と名乗っているので、番号は重ねない
+          aria-label={action.label}
+          title={action.label}
           className={
-            action.danger ? ROW_MENU_ITEM_DANGER_CLASS : SLOT_MENU_ITEM_CLASS
+            action.danger
+              ? ROW_MENU_ICON_ITEM_DANGER_CLASS
+              : ROW_MENU_ICON_ITEM_CLASS
           }
         >
           {action.icon}
-          {action.label}
         </button>
       ))}
     </div>,
