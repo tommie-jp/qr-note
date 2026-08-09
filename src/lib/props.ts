@@ -21,6 +21,7 @@
 // (エラーにならず黙って消える)。実メモに device=2N5551 / hFE=120～200 のような
 // 書き方が既にあるため、値は緩く受けて表示はそのまま、判断は人に委ねる。
 
+import { INLINE_MATH } from '@/lib/memoSummary'
 import { normalizeTag, stripCode } from '@/lib/tags'
 
 // メモ本文から抽出した 1 プロパティ。
@@ -89,10 +90,13 @@ export function parsePropToken(token: string): PropEntry | null {
 // コードフェンス・インラインコード・数式を潰す。
 // フェンスとブロック数式は行ごと消えるように改行へ、インラインのものは
 // 行全体条件を満たさなくするために PLACEHOLDER へ置換する。
+// インライン数式の見つけ方は memoSummary の INLINE_MATH に揃える —
+// 別の正規表現を持つと、プレビュー (memoPreview → isPropLine) と
+// ここでプロパティ行の判定が食い違う
 function stripNonProse(memo: string): string {
   return stripCode(memo, PLACEHOLDER)
     .replace(/\$\$[\s\S]*?\$\$/g, '\n')
-    .replace(/\$[^$\n]*\$/g, PLACEHOLDER)
+    .replace(INLINE_MATH, PLACEHOLDER)
 }
 
 // 行がプロパティ行 (全トークンが key=value) なら各トークンの PropEntry を返す。

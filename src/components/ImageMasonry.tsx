@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts は prisma を引き込むサーバ専用 module
+// 値の import は不可 — circuitThumbs.ts / mathText.ts はサーバ専用 module
 // (offline/circuits.ts と同じ線引き)。型は erase されるので安全
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
+import type { MathTextMap } from "@/lib/mathText";
 import { allImageNames, thumbUrl } from "@/lib/memoImages";
 import { memoSummary } from "@/lib/memoSummary";
 import { tagSearchHref } from "@/lib/tags";
 import { CircuitThumb } from "./CircuitThumb";
+import { MathText } from "./MathText";
 
 // 画像表示モード (docs/32-画像表示モード計画.md)。ページ内のノート本文に
 // 貼られた自前画像だけをグリッドで敷き詰め、写真からノートを探す入口にする。
@@ -32,13 +34,21 @@ interface ImageMasonryProps {
   // ページ側 (サーバ) が circuit_svgs から引いて降ろす。未描画の図は
   // 入っていないので、無いものは無いなりに画像タイルだけが並ぶ
   circuitThumbs?: CircuitThumbMap;
+  // itemNo → 数式入りタイトルの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
+  // キャプションの 1 行目に使う。無いノートはプレーンテキストのまま
+  mathTexts?: MathTextMap;
 }
 
 // タイルの中身。画像 (サムネ URL を引く) か回路図 (SVG を直接埋め込む) の
 // どちらか。キャプションとリンクの組み方は共通
 type TileMedia = { image: string; svg?: never } | { image?: never; svg: string };
 
-export function ImageMasonry({ items, itemHref, circuitThumbs }: ImageMasonryProps) {
+export function ImageMasonry({
+  items,
+  itemHref,
+  circuitThumbs,
+  mathTexts,
+}: ImageMasonryProps) {
   // URL モードのノートは memo が空なので allImageNames("") === [] となり
   // 自然に落ちる (ItemRow のような isUrl 分岐は要らない)。
   // 回路図はノートごとに画像の後へ並べる (種類内は出現順)。本文の完全な
@@ -83,7 +93,12 @@ export function ImageMasonry({ items, itemHref, circuitThumbs }: ImageMasonryPro
       {tiles.map(({ item, key, media }) => {
         // URL モードのノートは memo が空でタイルにならないので isUrl 分岐は不要。
         // 画像しか無いノートはタイトルが空になり得るが、その場合は #番号 だけ出す
-        const title = memoSummary(item.memo);
+        const mathTitle = mathTexts?.[item.itemNo]?.title;
+        const title = mathTitle ? (
+          <MathText html={mathTitle} />
+        ) : (
+          memoSummary(item.memo)
+        );
         return (
           // relative … stretched link の基準
           <li

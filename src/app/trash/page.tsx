@@ -14,6 +14,7 @@ import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { listTrashedItems } from "@/lib/items";
+import { buildMathTexts } from "@/lib/mathText";
 import { resolveTrashSort, TRASH_SORT_COOKIE } from "@/lib/sortMode";
 import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/viewMode";
 
@@ -44,6 +45,9 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
     items,
     view === "image" ? "all" : "first",
   );
+  // タイトル・プレビューの数式も検索一覧と同じに (docs/69-一覧数式計画.md)。
+  // プレビューが描かれるのはカード表示だけ
+  const mathTexts = buildMathTexts(items, view === "card" ? "both" : "title");
 
   return (
     <PageTransition>
@@ -73,6 +77,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
             purgeAction={purgeItemsAction}
             emptyTrashAction={emptyTrashAction}
             circuitThumbs={circuitThumbs}
+            mathTexts={mathTexts}
           />
         </div>
       </div>

@@ -13,8 +13,9 @@
 // ここは「3 行を埋めるのに十分なテキスト」を渡すことだけを受け持つ。
 
 import {
+  hiddenLineSkipper,
+  inlineMathRanges,
   isStructureLine,
-  renderedFenceSkipper,
   stripLineMarkdown,
 } from './memoSummary'
 import { isPropLine } from './props'
@@ -56,10 +57,10 @@ export function memoPreview(memo: string): string {
   // テキストとして表示されない物で、図は回路図サムネとして右端に出ている
   // (画像の alt を落とすのと同じ理屈)。タイトル判定より前に通すことで、
   // memoSummary と同じ行選択を保つ
-  const isHiddenFenceBody = renderedFenceSkipper()
+  const isHiddenLine = hiddenLineSkipper()
 
   for (const line of memo.split(/\r?\n/)) {
-    if (isHiddenFenceBody(line) || isStructureLine(line)) {
+    if (isHiddenLine(line) || isStructureLine(line)) {
       continue
     }
 
@@ -93,8 +94,31 @@ export function memoPreview(memo: string): string {
     }
   }
 
-  const preview = parts.join(' ')
-  return preview.length > MEMO_PREVIEW_MAX_LENGTH
-    ? `${preview.slice(0, MEMO_PREVIEW_MAX_LENGTH)}…`
-    : preview
+  // 行の区切りは空白ではなく改行で残す。表示 (HTML) では空白と同じに
+  // 描かれるが、空白で繋ぐと別々の行の $ 同士が INLINE_MATH の対になり、
+  // 「入力は $5 まで / 出力は $12 まで」の 2 行が 1 つの偽数式になる
+  // (INLINE_MATH は改行を跨がない)
+  const preview = parts.join('\n')
+  if (preview.length <= MEMO_PREVIEW_MAX_LENGTH) {
+    return preview
+  }
+  // 切り口が数式 ($...$) の内側に落ちると「$E=1…」のような生 TeX の
+  // 切れ端が残る (KaTeX 描画もできない) ので、その数式の開始 $ の手前へ戻す
+  let cut = MEMO_PREVIEW_MAX_LENGTH
+  for (const range of inlineMathRanges(preview)) {
+    if (range.start >= cut) {
+      break
+    }
+    if (cut < range.end) {
+      cut = range.start
+      break
+    }
+  }
+  // プレビューの頭から長い数式が始まっていると cut が 0 になり、本文が
+  // 「…」だけになってしまう。そのときは数式の途中でも従来どおりの位置で
+  // 切る (生 TeX の切れ端が出るが、空よりはまし)
+  if (cut === 0) {
+    cut = MEMO_PREVIEW_MAX_LENGTH
+  }
+  return `${preview.slice(0, cut).trimEnd()}…`
 }

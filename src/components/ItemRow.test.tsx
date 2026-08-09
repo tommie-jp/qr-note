@@ -350,3 +350,45 @@ test("footer は stretched link の膜より前に出す", () => {
   expect(html).toContain("復元");
   expect(html).toContain("relative z-10");
 });
+
+// 数式入りタイトル/プレビュー (docs/69-一覧数式計画.md)。
+// HTML はサーバ (mathText.ts) が KaTeX+エスケープ済みで降ろす前提
+
+const MATH_HTML = '<span class="katex">E=100</span>';
+
+test("mathTitle があればタイトルを KaTeX の HTML で出す", () => {
+  const html = renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={makeItem({ memo: "$E=100$ の回路" })}
+        href="/item/1"
+        searchState={SEARCH_STATE}
+        mathTitle={MATH_HTML}
+      />
+    </ul>,
+  );
+  expect(html).toContain('class="katex"');
+  expect(html).not.toContain("$E=100$");
+});
+
+test("mathPreview があればカードの本文プレビューを KaTeX の HTML で出す", () => {
+  const html = renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={makeItem({ memo: "タイトル\n定常状態では $I=E/R$ になる" })}
+        href="/item/1"
+        searchState={SEARCH_STATE}
+        view="card"
+        mathPreview={MATH_HTML}
+      />
+    </ul>,
+  );
+  expect(html).toContain('class="katex"');
+  expect(html).not.toContain("$I=E/R$");
+});
+
+test("math props が無ければ今までどおりプレーンテキスト", () => {
+  const html = renderRow(makeItem({ memo: "$E=100$ の回路" }));
+  expect(html).toContain("$E=100$ の回路");
+  expect(html).not.toContain("katex");
+});

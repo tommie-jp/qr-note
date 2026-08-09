@@ -73,3 +73,34 @@ describe("PropsTable", () => {
     expect(renderToStaticMarkup(<PropsTable rows={empty} query="" sort="updated" />)).toBe("");
   });
 });
+
+// 数式入りの要約列 (docs/69-一覧数式計画.md)。HTML はサーバ (mathText.ts) が
+// KaTeX+エスケープ済みで降ろす。無い行はプレーンテキストのまま
+describe("PropsTable math summaries", () => {
+  test("mathSummaries があれば要約を KaTeX の HTML で出す", () => {
+    const mathRows: ItemPropsRow[] = [
+      {
+        itemNo: "1089",
+        summary: "$E=100$ の回路",
+        props: [{ key: "r", label: "R", value: "10" }],
+      },
+    ];
+    const out = renderToStaticMarkup(
+      <PropsTable
+        rows={mathRows}
+        query=""
+        sort="updated"
+        mathSummaries={{ "1089": '<span class="katex">E=100</span>' }}
+      />,
+    );
+    expect(out).toContain('class="katex"');
+    // ツールチップ (title 属性) はプレーンテキストのまま残す
+    expect(out).toContain('title="$E=100$ の回路"');
+  });
+
+  test("mathSummaries が無い行はプレーンテキストのまま", () => {
+    const out = html();
+    expect(out).not.toContain("katex");
+    expect(out).toContain("2SC2712-Y");
+  });
+});

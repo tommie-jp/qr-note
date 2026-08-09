@@ -12,19 +12,9 @@
 // WWW-Authenticate でなければならないため (route.ts のコメント参照)。
 // ここだけ HTML を手で組む。
 
-const ESCAPES: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-}
-
 // next は safeNextPath を通っていて出どころは検算済みだが、'"' や '<' は
 // 通り抜ける。属性の中に生で置くと属性を閉じられるので必ず包む
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => ESCAPES[char])
-}
+import { escapeHtml } from '@/lib/escapeHtml'
 
 // 戻り先 (safeNextPath を通した値) を受け取り、401 のボディを組む
 export function loginCancelledPage(next: string): string {

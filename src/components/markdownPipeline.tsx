@@ -61,11 +61,10 @@ export const sanitizeSchema = {
   },
 } satisfies Options;
 
-// \rule{99999em}{...} のような巨大サイズ指定でページを潰せないよう上限を設ける
-// (KaTeX の maxSize デフォルトは Infinity)
-const KATEX_MAX_SIZE_EM = 50;
-
-export const KATEX_OPTIONS = { maxSize: KATEX_MAX_SIZE_EM };
+// KaTeX のオプションは葉モジュールへ移した (一覧のサーバ描画 mathText.ts と
+// 共有するため。あちらがここを import すると react-markdown ごと引き込む)。
+// 既存の import 元 (MarkdownView / QuizMarkdown) のためにここから再輸出する
+export { KATEX_OPTIONS } from "@/lib/katexOptions";
 
 // URL の通し方。react-markdown は**サニタイズより前に**既定の urlTransform
 // (https?|ircs?|mailto|xmpp のみ許可) で URL を空文字に潰すため、

@@ -35,6 +35,7 @@ import {
   searchItems,
 } from "@/lib/items";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
+import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
 import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { buildSearchUrl } from "@/lib/searchUrl";
@@ -181,6 +182,16 @@ async function HomeResults({
     view === "image" ? "all" : "first",
   );
 
+  // タイトル・プレビューの数式を KaTeX の HTML に (docs/69-一覧数式計画.md)。
+  // DB は引かない同期処理。プレビューが描かれるのはカード表示だけなので、
+  // それ以外はタイトルだけ作る (circuitThumbs の mode と同じ考え)。
+  // 特性表の要約列はタイトルと同じ文字列なので描画を使い回す
+  const mathTexts = buildMathTexts(
+    result.items,
+    view === "card" ? "both" : "title",
+  );
+  const mathSummaries = buildMathSummaries(props.rows, mathTexts);
+
   // カード・masonry は広い画面で列を増やしたいので広幅。compact の
   // 1 カラムだけは読み幅を保つ (docs/23 §1, docs/32 §1)
   return (
@@ -233,6 +244,7 @@ async function HomeResults({
         omitted={props.omitted}
         query={query}
         sort={sort}
+        mathSummaries={mathSummaries}
       />
 
       <ItemList
@@ -247,6 +259,7 @@ async function HomeResults({
         registerHref={registerHref}
         trashedMatches={trashedMatches}
         circuitThumbs={circuitThumbs}
+        mathTexts={mathTexts}
       />
 
       {/* ページ送りは「前へ/次へ」からオンデマンド表示へ (docs/33)。

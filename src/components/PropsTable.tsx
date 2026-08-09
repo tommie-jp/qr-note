@@ -10,6 +10,7 @@ import {
 } from "@/lib/props";
 import { buildItemUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
+import { MathText } from "./MathText";
 
 interface PropsTableProps {
   rows: ItemPropsRow[];
@@ -25,13 +26,23 @@ interface PropsTableProps {
   // 関数は client 部品の prop として渡せない
   query: string;
   sort: Sort;
+  // itemNo → 数式入り要約の KaTeX 済み HTML (docs/69-一覧数式計画.md)。
+  // page.tsx (サーバ) が renderInlineMathHtml で作って降ろす。数式の無い行は
+  // 入っておらず、プレーンテキスト (row.summary) のまま出す
+  mathSummaries?: Record<string, string>;
 }
 
 // タグ検索の結果に含まれるプロパティ (hFE=208 など) を並べた特性表。
 // 列はヒットしたノートに現れるキーの和集合で、ヘッダをクリックすると
 // その列で並べ替える。並べ替え自体は純関数 sortTableRows に委ねる
 // (node 環境のテストで挙動を固定できるようにするため)。
-export function PropsTable({ rows, omitted = 0, query, sort }: PropsTableProps) {
+export function PropsTable({
+  rows,
+  omitted = 0,
+  query,
+  sort,
+  mathSummaries,
+}: PropsTableProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [dir, setDir] = useState<PropsSortDir>("asc");
 
@@ -93,7 +104,15 @@ export function PropsTable({ rows, omitted = 0, query, sort }: PropsTableProps) 
                   title={row.summary}
                 >
                   <span className="shrink-0 font-mono font-bold">#{row.itemNo}</span>
-                  <span className="min-w-0 truncate text-gray-600">{row.summary}</span>
+                  {/* ツールチップ (title 属性) は上でプレーンテキストのまま。
+                      属性に HTML は入らないので、数式は表示側だけ KaTeX にする */}
+                  <span className="min-w-0 truncate text-gray-600">
+                    {mathSummaries?.[row.itemNo] ? (
+                      <MathText html={mathSummaries[row.itemNo]} />
+                    ) : (
+                      row.summary
+                    )}
+                  </span>
                 </Link>
               </td>
               {columns.map((column) => (

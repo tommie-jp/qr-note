@@ -29,12 +29,17 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
-const render = (items: Item[], circuitThumbs?: Record<string, string[]>) =>
+const render = (
+  items: Item[],
+  circuitThumbs?: Record<string, string[]>,
+  mathTexts?: Record<string, { title?: string; preview?: string }>,
+) =>
   renderToStaticMarkup(
     <ImageMasonry
       items={items}
       itemHref={(no) => `/item/${no}`}
       circuitThumbs={circuitThumbs}
+      mathTexts={mathTexts}
     />,
   );
 
@@ -167,4 +172,16 @@ test("行優先で埋まる Grid で組む (multi-column ではない)", () => {
   expect(html).toContain("object-contain");
   // 20 件 × 複数枚が並ぶので遅延読み込み
   expect(html).toContain('loading="lazy"');
+});
+
+// 数式入りキャプション (docs/69-一覧数式計画.md)
+
+test("mathTexts のタイトルがあればキャプションを KaTeX の HTML で出す", () => {
+  const html = render(
+    [makeItem({ itemNo: "95", memo: `$E=100$ の回路\n![](/api/images/${IMAGE_1})` })],
+    undefined,
+    { "95": { title: '<span class="katex">E=100</span>' } },
+  );
+  expect(html).toContain('class="katex"');
+  expect(html).not.toContain("$E=100$");
 });

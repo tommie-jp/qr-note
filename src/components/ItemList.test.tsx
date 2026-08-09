@@ -36,6 +36,7 @@ const render = (
   trashedMatches = 0,
   view: ViewMode = "compact",
   circuitThumbs?: Record<string, string[]>,
+  mathTexts?: Record<string, { title?: string; preview?: string }>,
 ) =>
   // 選択モードは下部バーと共有する context なので、単体でも provider が要る
   // (docs/31-下部操作バー計画.md §5-2)
@@ -53,6 +54,7 @@ const render = (
         registerHref={registerHref}
         trashedMatches={trashedMatches}
         circuitThumbs={circuitThumbs}
+        mathTexts={mathTexts}
       />
     </SelectModeProvider>,
   );
@@ -229,4 +231,35 @@ test("画像表示でも 0 件時は該当なしの案内と新規登録の導�
   );
   expect(html).toContain("該当する部品がありません");
   expect(html).toContain("新規登録");
+});
+
+// 数式入りタイトル/プレビューの中継 (docs/69-一覧数式計画.md)
+
+const MATH_HTML = '<span class="katex">E=100</span>';
+
+test("小/大表示は数式 HTML を行へ降ろす", () => {
+  const html = render(
+    [makeItem({ itemNo: "10", memo: "$E=100$ の回路" })],
+    "",
+    null,
+    0,
+    "compact",
+    undefined,
+    { "10": { title: MATH_HTML } },
+  );
+  expect(html).toContain('class="katex"');
+  expect(html).not.toContain("$E=100$");
+});
+
+test("画像表示は数式 HTML を masonry へ降ろす", () => {
+  const html = render(
+    [makeItem({ itemNo: "10", memo: `$E=100$\n![](/api/images/${IMAGE})` })],
+    "",
+    null,
+    0,
+    "image",
+    undefined,
+    { "10": { title: MATH_HTML } },
+  );
+  expect(html).toContain('class="katex"');
 });

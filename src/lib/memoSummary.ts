@@ -21,28 +21,65 @@ const INLINE_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\[\^[^\]]+\]/g, ''], // 脚注の参照 (`本文[^1]`) → 番号ごと落とす
 ]
 
+// インライン数式 ($...$)。remark-math の解釈の行単位近似で、一覧側の数式の
+// 見つけ方はこの 1 本に揃える (マスク・打ち切り・KaTeX 描画・props.ts の
+// stripNonProse で別々の正規表現を持つと壊れ方が食い違う)。
+//   - 改行は跨がない (数式は行内で閉じる)
+//   - \$ エスケープ (通貨。docs/メモ記法.md §数式) は開き・閉じどちらの
+//     区切りにもしない。閉じが \$ しか無い式 ($5\$/個$ など) は一致せず
+//     生のまま出る — 誤った切り出しで KaTeX に渡すより安全側
+//   - 中身は 1 文字以上 ($$ の空一致で本文の $$ を消してしまわない)
+export const INLINE_MATH = /(?<!\\)\$[^$\n]+(?<!\\)\$/g
+
+// text 中のインライン数式の範囲 (start は開始 $、end は閉じ $ の次)。
+// matchAll は lastIndex を汚さないので共有の正規表現でも安全
+export function inlineMathRanges(
+  text: string,
+): { start: number; end: number }[] {
+  return [...text.matchAll(INLINE_MATH)].map((m) => ({
+    start: m.index,
+    end: m.index + m[0].length,
+  }))
+}
+
+// 1 行の中で閉じるブロック数式 ($$x$$)。改行は跨がない — 行を跨ぐ対は
+// hiddenLineSkipper の状態機械が行単位で追う。全文への正規表現 1 発だと、
+// 無関係な $$ 同士 (散文の $$ とブロックの開き、bash フェンスの echo $$ 等)
+// が対になって間の散文ごと消える事故が起きる
+const SINGLE_LINE_BLOCK_MATH = /\$\$.*?\$\$/g
+
 // コードフェンスの区切り行 (```lang / ~~~)。中身ではないので飛ばす。
 const FENCE_MARKER = /^\s*(```|~~~)/
 
 // 区切り行の言語トークン (開き行の ```circuitikz など。閉じ行では空文字)
 const FENCE_LANG = /^\s*(?:```|~~~)\s*(\S*)/
 
-// 描画フェンス (circuitikz / mermaid / quiz) の**中身の行**を見分ける状態機械。
-// 行順に全行を 1 回ずつ通すこと (区切り行も見せないと開閉を追えない)。
-// true を返した行は「図やカードに化けてテキストとして表示されない中身」なので、
-// 要約にもプレビューにも出さない — TeX やグラフ記法が一覧に流れると見苦しく、
+// 「図やカードに化けてテキストとして表示されない中身」の行を見分ける状態機械。
+// 対象は描画フェンス (circuitikz / mermaid / quiz) の中身と、行を跨ぐ
+// ブロック数式 ($$...$$) の中身 + 区切り行。行順に全行を 1 回ずつ通すこと
+// (区切り行も見せないと開閉を追えない)。true を返した行は要約にも
+// プレビューにも出さない — TeX やグラフ記法が一覧に流れると見苦しく、
 // 図は回路図サムネ (docs/68) として別に見えている。
 //
 // 普通のコード (bash 等) の中身はノート表示でもテキストとして見えるので通す。
+// フェンスの中の $$ (echo $$ など) はブロック数式として扱わない。
+// 閉じていない $$ は本文の残り全部を隠す — remark-math も末尾まで数式として
+// 描くので、ノート表示との見え方が揃う。
+//
 // remark は使わず FENCE_MARKER と同じ行単位の近似で揃える (このファイル冒頭の
 // 「表示専用の簡易変換」の線)。割り切り: 普通のフェンスの中に区切り行そっくりの
 // 行 (` ```circuitikz ` の説明書きなど) があると開閉を読み違えるが、
 // isStructureLine も同じ近似で、実害は要約の行選びがずれるだけ
-export function renderedFenceSkipper(): (line: string) => boolean {
+export function hiddenLineSkipper(): (line: string) => boolean {
   let inFence: 'rendered' | 'plain' | null = null
+  let inMathBlock = false
   return (line) => {
     const marker = FENCE_LANG.exec(line)
     if (marker) {
+      if (inMathBlock) {
+        // 数式ブロックの中の ``` は TeX の一部。フェンスとして数えない
+        return true
+      }
       inFence = inFence
         ? null
         : (RENDERED_LANGS as readonly string[]).includes(marker[1])
@@ -51,7 +88,28 @@ export function renderedFenceSkipper(): (line: string) => boolean {
       // 区切り行そのものは isStructureLine が落とす (役割を重ねない)
       return false
     }
-    return inFence === 'rendered'
+    if (inFence) {
+      return inFence === 'rendered'
+    }
+    if (!line.includes('$$')) {
+      return inMathBlock
+    }
+    // 行内で閉じる対 ($$x$$) はブロックの開閉ではない (stripLineMarkdown が
+    // その場で落とす)。残った $$ だけを開き/閉じとして見る
+    const rest = line.replace(SINGLE_LINE_BLOCK_MATH, '')
+    if (inMathBlock) {
+      if (rest.includes('$$')) {
+        inMathBlock = false
+      }
+      return true
+    }
+    // 開きは行頭の $$ だけ (remark-math のブロック数式は行頭から始まる)。
+    // 散文の途中の $$ はただの文字として通す
+    if (/^\s*\$\$/.test(rest)) {
+      inMathBlock = true
+      return true
+    }
+    return false
   }
 }
 
@@ -75,9 +133,31 @@ export function isStructureLine(line: string): boolean {
 
 // 1 行から Markdown 記法を取り除いて表示用のテキストにする。
 // memoPreview (一覧の本文プレビュー) も同じ剥がし方を使うので公開している。
+// 数式の退避先の目印。本文には現れない置換文字 (props.ts の PLACEHOLDER と
+// 同じ選択)。番号で挟む (￼3￼) のは復元を位置合わせに頼らないため —
+// リンク剥がしが URL の中の退避印ごと消しても、残った印は自分の数式に戻る
+const MATH_MASK_CHAR = '￼'
+const MATH_MASK_RE = /￼(\d+)￼/g
+
 export function stripLineMarkdown(line: string): string {
   // 折りたたみのラベルは、囲いを外した中身として扱う
   let text = DIRECTIVE_LABEL.exec(line)?.[1] ?? line
+  // 数式の中は TeX であって Markdown ではない。強調・リンク剥がしが
+  // $x^*$ を $x^$ に壊すため、先に丸ごと退避して最後に戻す。
+  // $ の無い行 (大多数) はこの機構ごと飛ばす
+  const maskedMath: string[] = []
+  if (text.includes('$')) {
+    // 行内で閉じるブロック数式 ($$x$$) は図扱いで丸ごと落とす
+    // (hiddenLineSkipper のコメント参照。行を跨ぐ対はあちらが隠す)
+    text = text.replace(SINGLE_LINE_BLOCK_MATH, ' ')
+    // 本文に元から居る退避印の文字は捨てる (PDF や Word からの貼り付けに
+    // 混ざる不可視文字)。残すと復元がその印を数式と取り違える
+    text = text.split(MATH_MASK_CHAR).join('')
+    text = text.replace(
+      INLINE_MATH,
+      (math) => `${MATH_MASK_CHAR}${maskedMath.push(math) - 1}${MATH_MASK_CHAR}`,
+    )
+  }
   // 引用の入れ子 (> > ...) などに備えて、変化しなくなるまで行頭記法を剥がす。
   // アラートの目印 (`> [!NOTE]`) は引用を剥がした後に現れるので同じ輪の中で見る
   for (let prev = ''; prev !== text; ) {
@@ -88,16 +168,21 @@ export function stripLineMarkdown(line: string): string {
   for (const [pattern, replacement] of INLINE_PATTERNS) {
     text = text.replace(pattern, replacement)
   }
+  if (maskedMath.length > 0) {
+    // リンクや画像の剥がしで印ごと消えた数式 (URL の中に居た物) は
+    // 戻らないまま — 消えた文脈と一緒に消えるのが正しい
+    text = text.replace(MATH_MASK_RE, (_, i) => maskedMath[Number(i)] ?? '')
+  }
   return text.trim()
 }
 
 export function memoSummary(memo: string): string {
-  // 描画フェンスの中身は要約に使わない (renderedFenceSkipper のコメント参照)。
-  // memoPreview も同じ skipper を通す — 片方だけ直すと一覧の 1 行目と
-  // プレビューで別の行が選ばれる (isStructureLine と同じ約束)
-  const isHiddenFenceBody = renderedFenceSkipper()
+  // 描画フェンスとブロック数式の中身は要約に使わない (hiddenLineSkipper の
+  // コメント参照)。memoPreview も同じ skipper を通す — 片方だけ直すと
+  // 一覧の 1 行目とプレビューで別の行が選ばれる (isStructureLine と同じ約束)
+  const isHiddenLine = hiddenLineSkipper()
   for (const line of memo.split(/\r?\n/)) {
-    if (isHiddenFenceBody(line) || isStructureLine(line)) {
+    if (isHiddenLine(line) || isStructureLine(line)) {
       continue
     }
     const text = stripLineMarkdown(line)

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts は prisma を引き込むサーバ専用 module
+// 値の import は不可 — circuitThumbs.ts / mathText.ts はサーバ専用 module
 // (offline/circuits.ts と同じ線引き)。型は erase されるので安全
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
+import type { MathTextMap } from "@/lib/mathText";
 import { buildItemUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
@@ -44,6 +45,9 @@ interface ItemListProps {
   // page.tsx (サーバ) が loadCircuitThumbs で引いて降ろす。小/大は先頭 1 枚を
   // 行のサムネに、画像モードは全部をタイルに使う
   circuitThumbs?: CircuitThumbMap;
+  // itemNo → 数式入りタイトル/プレビューの KaTeX 済み HTML
+  // (docs/69-一覧数式計画.md)。page.tsx (サーバ) が buildMathTexts で作って降ろす
+  mathTexts?: MathTextMap;
 }
 
 function emptyState(
@@ -111,6 +115,7 @@ export function ItemList({
   registerHref,
   trashedMatches,
   circuitThumbs,
+  mathTexts,
 }: ItemListProps) {
   // 選択モードの入り切りは下部バーが持つ (docs/31-下部操作バー計画.md §5-2)。
   // 選んだ番号の Set はここに残す — バーは「何件選ばれたか」を知る必要がなく、
@@ -195,6 +200,7 @@ export function ItemList({
         items={items}
         itemHref={itemHref}
         circuitThumbs={circuitThumbs}
+        mathTexts={mathTexts}
       />
     );
   }
@@ -213,6 +219,8 @@ export function ItemList({
             searchState={searchState}
             view={rowView}
             circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
+            mathTitle={mathTexts?.[item.itemNo]?.title}
+            mathPreview={mathTexts?.[item.itemNo]?.preview}
             swipeTrashAction={swipeEnabled ? trashAction : undefined}
             swipeOpen={openItemNo === item.itemNo}
             onSwipeOpenChange={
@@ -250,6 +258,8 @@ export function ItemList({
             searchState={searchState}
             view={rowView}
             circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
+            mathTitle={mathTexts?.[item.itemNo]?.title}
+            mathPreview={mathTexts?.[item.itemNo]?.preview}
             checkbox={
               <input
                 type="checkbox"

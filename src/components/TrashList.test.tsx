@@ -32,6 +32,7 @@ const render = (
   items: Item[],
   view: ViewMode = "compact",
   circuitThumbs?: Record<string, string[]>,
+  mathTexts?: Record<string, { title?: string; preview?: string }>,
 ) =>
   renderToStaticMarkup(
     <TrashList
@@ -41,6 +42,7 @@ const render = (
       purgeAction={noop}
       emptyTrashAction={noop}
       circuitThumbs={circuitThumbs}
+      mathTexts={mathTexts}
     />,
   );
 
@@ -152,4 +154,17 @@ test("画像表示は回路図サムネを masonry へ降ろす", () => {
   });
   expect(html).toContain("circuit-thumb");
   expect(html).toContain('href="/item/10"');
+});
+
+// 数式入りタイトルの中継 (docs/69-一覧数式計画.md)
+
+test("小表示は数式 HTML を行へ降ろす", () => {
+  const html = render(
+    [makeItem({ itemNo: "10", memo: "$E=100$ の回路" })],
+    "compact",
+    undefined,
+    { "10": { title: '<span class="katex">E=100</span>' } },
+  );
+  expect(html).toContain('class="katex"');
+  expect(html).not.toContain("$E=100$");
 });

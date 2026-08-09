@@ -1,7 +1,8 @@
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts は prisma を引き込むサーバ専用 module
+// 値の import は不可 — circuitThumbs.ts / mathText.ts はサーバ専用 module
 // (offline/circuits.ts と同じ線引き)。型は erase されるので安全
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
+import type { MathTextMap } from "@/lib/mathText";
 import { formatJstDateTime } from "@/lib/datetime";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
@@ -23,6 +24,9 @@ interface TrashListProps {
   // 部品 (ItemRow / ImageMasonry) は検索一覧と共有だが、データはページごとに
   // 配線が要る — trash/page.tsx が loadCircuitThumbs で引いて降ろす
   circuitThumbs?: CircuitThumbMap;
+  // itemNo → 数式入りタイトル/プレビューの KaTeX 済み HTML
+  // (docs/69-一覧数式計画.md)。こちらも trash/page.tsx が作って降ろす
+  mathTexts?: MathTextMap;
 }
 
 // ゴミ箱からノートを開くリンク。検索一覧と違って持ち回す検索状態が無いので
@@ -84,6 +88,7 @@ export function TrashList({
   purgeAction,
   emptyTrashAction,
   circuitThumbs,
+  mathTexts,
 }: TrashListProps) {
   if (items.length === 0) {
     return (
@@ -131,6 +136,7 @@ export function TrashList({
             items={items}
             itemHref={itemHref}
             circuitThumbs={circuitThumbs}
+            mathTexts={mathTexts}
           />
         </>
       ) : (
@@ -142,6 +148,8 @@ export function TrashList({
               href={itemHref(item.itemNo)}
               view={view}
               circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
+              mathTitle={mathTexts?.[item.itemNo]?.title}
+              mathPreview={mathTexts?.[item.itemNo]?.preview}
               footer={
                 <RowActions
                   item={item}

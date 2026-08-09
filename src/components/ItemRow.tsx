@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { firstThumbInfo } from "@/lib/memoImages";
 import { CircuitThumb } from "./CircuitThumb";
+import { MathText } from "./MathText";
 import { RowThumb } from "./RowThumb";
 import {
   SwipeToTrashRow,
@@ -49,6 +50,11 @@ interface ItemRowProps {
   // 一覧側 (circuitThumbs.ts) が「本文の最初に描画済みの図」を選んで降ろす。
   // **画像があるノートでは使わない** — 優先順位の分岐は下の thumb が持つ
   circuitThumb?: string;
+  // 数式入りのタイトル/プレビューの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
+  // サーバ (mathText.ts) が数式を含むノートにだけ作って降ろす。
+  // 無ければ従来どおりプレーンテキスト (title / preview) で出す
+  mathTitle?: string;
+  mathPreview?: string;
 }
 
 // サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
@@ -79,15 +85,32 @@ export function ItemRow({
   searchState,
   footer,
   circuitThumb,
+  mathTitle,
+  mathPreview,
 }: ItemRowProps) {
   const isUrl = item.mode === "url";
   // 見出しが空でも文字を置く。**当たり判定のため**で、飾りではない —
   // 見出しのリンクは stretched link の基準 (::after inset-0) なので、中身が
   // 空だと箱ごと高さ 0 になり、行のどこを押してもノートが開かなくなる。
   // 画像だけのノートやゴミ箱の空ノートで実際に起きる
-  const title = (isUrl ? item.url : memoSummary(item.memo)) || "(空のノート)";
+  // 数式入りは KaTeX 済み HTML を優先する。math 側があるときは memoSummary /
+  // memoPreview を呼ばない — この部品は client 束にも入るので、捨てるだけの
+  // 本文パースを SSR と hydration の 2 回やらないため。
+  // mathTitle が来るのは要約が数式を含むとき (mathText.ts の足切り) なので、
+  // 「(空のノート)」の受け皿と衝突しない
+  const titleText = mathTitle ? (
+    <MathText html={mathTitle} />
+  ) : (
+    (isUrl ? item.url : memoSummary(item.memo)) || "(空のノート)"
+  );
   // URL モードのノートには本文も貼った画像も無い (memo が空)
-  const preview = isUrl ? "" : memoPreview(item.memo);
+  const previewText = mathPreview ? (
+    <MathText html={mathPreview} />
+  ) : isUrl ? (
+    ""
+  ) : (
+    memoPreview(item.memo)
+  );
   // サムネにできる添付 (画像 or 動画 poster)。音声・PDF・テキストは thumb を
   // 持たないので null (一覧では文字だけ)。動画は poster を出し、無ければ
   // RowThumb がアイコンへ切り替える (docs/14 §Phase4)
@@ -178,16 +201,18 @@ export function ItemRow({
               transitionTypes={["nav-forward"]}
               className={`truncate text-gray-600 ${stretchedLink}`}
             >
-              {title}
+              {titleText}
             </Link>
           </div>
           {/* タグが無くても行の高さは取る。隣のカードと本文の始まる位置が
               揃わないと、並べたときに行がガタつく */}
           <div className="mt-0.5 min-h-4">{tags}</div>
-          {preview && (
+          {previewText && (
             // 行数は CSS で決める。Markdown 上の 1 行は折り返して 2 行にも
             // なるため、抽出側で数えても画面の行数とは一致しない
-            <p className="mt-1 line-clamp-3 text-sm text-gray-500">{preview}</p>
+            <p className="mt-1 line-clamp-3 text-sm text-gray-500">
+              {previewText}
+            </p>
           )}
           {footerRow}
         </div>
@@ -233,7 +258,7 @@ export function ItemRow({
           transitionTypes={["nav-forward"]}
           className={`block truncate text-gray-600 ${stretchedLink}`}
         >
-          {title}
+          {titleText}
         </Link>
         {tags && <div className="mt-0.5">{tags}</div>}
         {footerRow}
