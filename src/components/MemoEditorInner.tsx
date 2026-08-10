@@ -5,6 +5,10 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import "@atomic-editor/editor/styles.css";
+// ライブプレビューの数式 (mathBlocks.ts) が KaTeX の組んだ HTML を出すので、
+// 編集画面でもその CSS が要る。閲覧側 (MarkdownView) とは別の入り口なので
+// ここでも読み込む — 無いと数式が素の文字列として崩れて出る
+import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import dynamic from "next/dynamic";
 import {

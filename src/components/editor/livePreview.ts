@@ -12,6 +12,7 @@ import { Compartment, type Extension } from "@codemirror/state";
 import { inlinePreview } from "@atomic-editor/editor";
 import { attachmentBlocks } from "./attachmentBlocks";
 import { fenceBlocks } from "./fenceBlocks";
+import { mathBlocks } from "./mathBlocks";
 import { tableBlocks } from "./tableBlocks";
 
 // 拡張の入れ替え口。**配列ごと差し替えない**のが要点 —
@@ -55,6 +56,8 @@ export function livePreviewExtension(): Extension {
     tableBlocks(),
     // カーソルの無い ```mermaid フェンスを図として描く (同上。fenceBlocks.ts)
     fenceBlocks(),
+    // カーソルの無いインライン数式を KaTeX で描く (同上。mathBlocks.ts)
+    mathBlocks(),
   ];
 }
 
