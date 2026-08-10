@@ -1,18 +1,11 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
 
-// mermaid 本体は重いので、図を含むページを開いたときだけ動的 import する。
-// import と initialize はモジュールで 1 回だけ行い、全インスタンスで共有する
-let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
-
-function loadMermaid() {
-  mermaidPromise ??= import("mermaid").then(({ default: mermaid }) => {
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
-    return mermaid;
-  });
-  return mermaidPromise;
-}
+// 読み込み・初期化・描画は @/lib/mermaidRender に寄せた。編集画面の
+// ライブプレビュー (docs/70 §7) も同じ図を描くため — initialize が
+// 二重に走らないよう、出どころを 1 つにする
 
 // 描画結果は「成功 (svg)」「失敗 (error)」「描画中 (null)」のいずれか 1 つ
 type RenderState = { svg: string } | { error: string } | null;
@@ -28,21 +21,16 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
 
   useEffect(() => {
     let cancelled = false;
-    // mermaid.render の id は DOM id になるため useId の記号を除去する
-    const renderId = `mermaid-${reactId.replace(/[^a-zA-Z0-9]/g, "")}`;
+    const renderId = mermaidRenderId(reactId);
 
     (async () => {
       try {
-        const mermaid = await loadMermaid();
-        const { svg } = await mermaid.render(renderId, code);
+        const svg = await renderMermaidSvg(code, renderId);
         if (!cancelled) {
           setState({ svg });
         }
       } catch (e) {
-        // 構文エラー時に mermaid が body へ残す一時要素を掃除する
-        // (外側の div は "d" + renderId の id を持つ)
-        document.getElementById(`d${renderId}`)?.remove();
-        document.getElementById(renderId)?.remove();
+        // 一時要素の掃除は renderMermaidSvg が済ませている
         if (!cancelled) {
           setState({ error: e instanceof Error ? e.message : String(e) });
         }

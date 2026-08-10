@@ -409,3 +409,29 @@ select,
   background: var(--color-gray-50, #f9fafb);
   font-weight: 600;
 }
+
+/* 編集画面のライブプレビューで出す図 (docs/70-編集ライブプレビュー計画.md §7)。
+   いまは mermaid だけ。読み取り専用で、カーソルが入れば原文に戻る。 */
+.cm-qr-fence {
+  overflow-x: auto;
+  margin: 0.25rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--color-gray-200, #e5e7eb);
+  border-radius: 0.375rem;
+  background: var(--color-gray-50, #f9fafb);
+}
+
+/* 描画待ちと構文エラーは、図が出ない理由が判るように文字で見せる
+   (黙って空の枠にすると「壊れた」としか見えない) */
+.cm-qr-fence-busy {
+  color: var(--color-gray-500, #6b7280);
+  font-size: 0.8125rem;
+}
+
+.cm-qr-fence-error {
+  border-color: var(--color-red-300, #fca5a5);
+  background: var(--color-red-50, #fef2f2);
+  color: var(--color-red-700, #b91c1c);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+}
