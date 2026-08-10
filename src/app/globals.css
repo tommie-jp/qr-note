@@ -473,6 +473,17 @@ select,
   --atomic-editor-code-bg: var(--color-gray-100, #f3f4f6);
   --atomic-editor-code-rail: var(--color-gray-400, #9ca3af);
 
+  /* 選択範囲。既定は暗色テーマ用の濃い紫 (#7c3aed 28% + #1e1e1e 72%) で、
+     明色の地では文字が沈んで読めない。フェンスの中は素の選択色が地に隠れる
+     ため、あちらが専用の色を重ねている (.cm-atomic-fenced-selection) —
+     つまりここを与えないとフェンス内の選択だけ紫に潰れる (実機で報告)。
+     PDF の文字選択と同じ青系にして、選択中も文字が読める薄さにする */
+  --atomic-editor-selection-bg: rgb(0 90 255 / 0.25);
+  --atomic-editor-search-bg: rgb(251 189 8 / 0.35);
+  --atomic-editor-search-bg-active: rgb(251 189 8 / 0.6);
+  --atomic-editor-initial-reveal-bg: rgb(0 90 255 / 0.1);
+  --atomic-editor-initial-reveal-bg-strong: rgb(0 90 255 / 0.2);
+
   /* リンクと強調は本文 (prose) の青に合わせる */
   --atomic-editor-accent: var(--color-blue-600, #2563eb);
   --atomic-editor-accent-bright: var(--color-blue-700, #1d4ed8);
