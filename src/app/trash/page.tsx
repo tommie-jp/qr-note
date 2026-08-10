@@ -15,6 +15,7 @@ import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { listTrashedItems } from "@/lib/items";
 import { buildMathTexts } from "@/lib/mathText";
+import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { resolveTrashSort, TRASH_SORT_COOKIE } from "@/lib/sortMode";
 import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/viewMode";
 
@@ -48,6 +49,9 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   // タイトル・プレビューの数式も検索一覧と同じに (docs/69-一覧数式計画.md)。
   // プレビューが描かれるのはカード表示だけ
   const mathTexts = buildMathTexts(items, view === "card" ? "both" : "title");
+  // 画像も回路図も無いノートの顔になる、本文の縮小プレビュー
+  // (docs/71-一覧ノートプレビュー計画.md)。検索一覧と同じ配線
+  const notePreviews = buildNotePreviews(items, circuitThumbs, view);
 
   return (
     <PageTransition>
@@ -78,6 +82,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
             emptyTrashAction={emptyTrashAction}
             circuitThumbs={circuitThumbs}
             mathTexts={mathTexts}
+            notePreviews={notePreviews}
           />
         </div>
       </div>

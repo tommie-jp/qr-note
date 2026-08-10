@@ -42,14 +42,10 @@ export function replaceImageName(
 // firstImageName / allImageNames の共通の抽出規則。
 function* iterImageNames(memo: string): Generator<string> {
   for (const match of stripCode(memo).matchAll(IMAGE_SYNTAX)) {
-    const url = match[1]
-    if (!url.startsWith(IMAGE_PATH_PREFIX)) {
-      continue
-    }
     // 書式の検算。名前は配信 URL に組み立てる値なので、本文から拾った文字列を
     // そのまま信じない (route.ts が 400 で弾く形と同じ線引きをここでも敷く)
-    const name = url.slice(IMAGE_PATH_PREFIX.length)
-    if (isValidImageName(name)) {
+    const name = attachmentNameFromUrl(match[1])
+    if (name !== null && isValidImageName(name)) {
       yield name
     }
   }
@@ -75,11 +71,10 @@ function* iterThumbAttachments(
   memo: string,
 ): Generator<{ name: string; isVideo: boolean }> {
   for (const match of stripCode(memo).matchAll(IMAGE_SYNTAX)) {
-    const url = match[1]
-    if (!url.startsWith(IMAGE_PATH_PREFIX)) {
+    const name = attachmentNameFromUrl(match[1])
+    if (name === null) {
       continue
     }
-    const name = url.slice(IMAGE_PATH_PREFIX.length)
     if (isValidImageName(name)) {
       yield { name, isVideo: false }
     } else if (isValidVideoName(name)) {
@@ -94,6 +89,12 @@ function* iterThumbAttachments(
 export function firstThumbInfo(
   memo: string,
 ): { name: string; isVideo: boolean } | null {
+  // 添付 URL の気配が無い本文は stripCode ごと飛ばす (circuitThumbs.ts の
+  // 足切りと同じ)。一覧は全行 (SSR + hydration + プレビュー対象判定) で
+  // これを呼ぶので、大半のノートを includes 1 回で済ませる
+  if (!memo.includes(IMAGE_PATH_PREFIX)) {
+    return null
+  }
   for (const info of iterThumbAttachments(memo)) {
     return info
   }
@@ -114,14 +115,10 @@ export function firstThumbInfo(
 export function allAttachments(memo: string): { name: string; hasThumb: boolean }[] {
   const seen = new Map<string, boolean>()
   for (const match of stripCode(memo).matchAll(IMAGE_SYNTAX)) {
-    const url = match[1]
-    if (!url.startsWith(IMAGE_PATH_PREFIX)) {
-      continue
-    }
     // 幅記法や query が付いた形は本文には現れない (挿入は必ず素の URL) が、
     // 拾った文字列をそのまま信じないのはこのファイルの流儀 (iterImageNames)
-    const name = url.slice(IMAGE_PATH_PREFIX.length)
-    if (!isValidAttachmentName(name) || seen.has(name)) {
+    const name = attachmentNameFromUrl(match[1])
+    if (name === null || !isValidAttachmentName(name) || seen.has(name)) {
       continue
     }
     seen.set(name, isValidImageName(name) || isValidVideoName(name))
@@ -132,6 +129,15 @@ export function allAttachments(memo: string): { name: string; hasThumb: boolean 
 // 添付の配信 URL (原寸)。
 export function attachmentUrl(name: string): string {
   return `${IMAGE_PATH_PREFIX}${name}`
+}
+
+// 配信 URL (`/api/images/<name>`) から保存名を取り出す (attachmentUrl の逆)。
+// 自前の添付でなければ null。**書式の検算はしない** — 呼ぶ側が用途に応じた
+// isValid*Name で確かめること (このファイルの流儀: 拾った文字列を信じない)
+export function attachmentNameFromUrl(url: string): string | null {
+  return url.startsWith(IMAGE_PATH_PREFIX)
+    ? url.slice(IMAGE_PATH_PREFIX.length)
+    : null
 }
 
 // 本文に貼られた自前画像の名前をすべて (出現順・重複除去) 返す。

@@ -51,10 +51,89 @@ const SINGLE_LINE_BLOCK_MATH = /\$\$.*?\$\$/g
 // コードフェンスの区切り行 (```lang / ~~~)。中身ではないので飛ばす。
 const FENCE_MARKER = /^\s*(```|~~~)/
 
-// 区切り行の言語トークン (開き行の ```circuitikz など。閉じ行では空文字)
-const FENCE_LANG = /^\s*(?:```|~~~)\s*(\S*)/
+// 区切り行の区切り文字と言語トークン (開き行の ```circuitikz など。
+// 閉じ行では言語は空文字)
+const FENCE_LANG = /^\s*(```|~~~)\s*(\S*)/
 
-// 「図やカードに化けてテキストとして表示されない中身」の行を見分ける状態機械。
+// フェンス (```) と行を跨ぐブロック数式 ($$) の開閉を追う行単位の状態機械。
+// hiddenLineSkipper (この下) と notePreviewSource (notePreview.ts) が共有する
+// 唯一の実装 — INLINE_MATH と同じく「一覧側の見つけ方はこの 1 本に揃える」。
+// 別々に持つと、要約が隠した行をプレビューが描く (逆も) 壊れ方になる。
+//
+// 規則 (remark の行単位の近似。冒頭の「表示専用の簡易変換」の線):
+//   - 数式ブロックの中の ``` は TeX の一部。フェンスとして数えない
+//   - フェンスの中の $$ (echo $$ など) はブロック数式として扱わない
+//   - 行内で閉じる対 ($$x$$) は開閉に数えない。開きは行頭の $$ だけ
+//   - 閉じていない $$ / フェンスは本文の末尾まで開いたまま
+// 割り切り: 普通のフェンスの中に区切り行そっくりの行 (` ```circuitikz ` の
+// 説明書きなど) があると開閉を読み違えるが、isStructureLine も同じ近似で、
+// 実害は行選びや見た目がずれるだけ
+export interface FenceMathTracker {
+  // 行を 1 つ進め、その行の種別を返す。行順に全行を通すこと
+  step(line: string): 'marker' | 'fence-body' | 'math' | 'text'
+  // 開いているフェンスの区切り文字 (``` / ~~~)。閉じの補完にそのまま使える
+  readonly fenceMarker: string | null
+  // 開いているフェンスの言語トークン (開いていなければ空文字)
+  readonly fenceLang: string
+  readonly inMathBlock: boolean
+}
+
+export function fenceMathTracker(): FenceMathTracker {
+  let fenceMarker: string | null = null
+  let fenceLang = ''
+  let inMathBlock = false
+  return {
+    get fenceMarker() {
+      return fenceMarker
+    },
+    get fenceLang() {
+      return fenceLang
+    },
+    get inMathBlock() {
+      return inMathBlock
+    },
+    step(line) {
+      const marker = inMathBlock ? null : FENCE_LANG.exec(line)
+      if (marker) {
+        if (fenceMarker === null) {
+          fenceMarker = marker[1]
+          fenceLang = marker[2]
+          return 'marker'
+        }
+        if (marker[1] === fenceMarker) {
+          fenceMarker = null
+          fenceLang = ''
+          return 'marker'
+        }
+        // 別種の区切り (``` の中の ~~~ など) は閉じない。CommonMark も
+        // 開きと同じ文字の区切りだけを閉じとして扱う
+        return 'fence-body'
+      }
+      if (fenceMarker !== null) {
+        return 'fence-body'
+      }
+      if (inMathBlock) {
+        if (
+          line.includes('$$') &&
+          line.replace(SINGLE_LINE_BLOCK_MATH, '').includes('$$')
+        ) {
+          inMathBlock = false
+        }
+        return 'math'
+      }
+      if (
+        line.includes('$$') &&
+        /^\s*\$\$/.test(line.replace(SINGLE_LINE_BLOCK_MATH, ''))
+      ) {
+        inMathBlock = true
+        return 'math'
+      }
+      return 'text'
+    },
+  }
+}
+
+// 「図やカードに化けてテキストとして表示されない中身」の行を見分ける。
 // 対象は描画フェンス (circuitikz / mermaid / quiz) の中身と、行を跨ぐ
 // ブロック数式 ($$...$$) の中身 + 区切り行。行順に全行を 1 回ずつ通すこと
 // (区切り行も見せないと開閉を追えない)。true を返した行は要約にも
@@ -62,54 +141,19 @@ const FENCE_LANG = /^\s*(?:```|~~~)\s*(\S*)/
 // 図は回路図サムネ (docs/68) として別に見えている。
 //
 // 普通のコード (bash 等) の中身はノート表示でもテキストとして見えるので通す。
-// フェンスの中の $$ (echo $$ など) はブロック数式として扱わない。
-// 閉じていない $$ は本文の残り全部を隠す — remark-math も末尾まで数式として
-// 描くので、ノート表示との見え方が揃う。
-//
-// remark は使わず FENCE_MARKER と同じ行単位の近似で揃える (このファイル冒頭の
-// 「表示専用の簡易変換」の線)。割り切り: 普通のフェンスの中に区切り行そっくりの
-// 行 (` ```circuitikz ` の説明書きなど) があると開閉を読み違えるが、
-// isStructureLine も同じ近似で、実害は要約の行選びがずれるだけ
+// 開閉の追い方そのものは fenceMathTracker (上) に一本化してある
 export function hiddenLineSkipper(): (line: string) => boolean {
-  let inFence: 'rendered' | 'plain' | null = null
-  let inMathBlock = false
+  const tracker = fenceMathTracker()
   return (line) => {
-    const marker = FENCE_LANG.exec(line)
-    if (marker) {
-      if (inMathBlock) {
-        // 数式ブロックの中の ``` は TeX の一部。フェンスとして数えない
+    switch (tracker.step(line)) {
+      case 'math':
         return true
-      }
-      inFence = inFence
-        ? null
-        : (RENDERED_LANGS as readonly string[]).includes(marker[1])
-          ? 'rendered'
-          : 'plain'
-      // 区切り行そのものは isStructureLine が落とす (役割を重ねない)
-      return false
+      case 'fence-body':
+        return (RENDERED_LANGS as readonly string[]).includes(tracker.fenceLang)
+      default:
+        // 区切り行そのものは isStructureLine が落とす (役割を重ねない)
+        return false
     }
-    if (inFence) {
-      return inFence === 'rendered'
-    }
-    if (!line.includes('$$')) {
-      return inMathBlock
-    }
-    // 行内で閉じる対 ($$x$$) はブロックの開閉ではない (stripLineMarkdown が
-    // その場で落とす)。残った $$ だけを開き/閉じとして見る
-    const rest = line.replace(SINGLE_LINE_BLOCK_MATH, '')
-    if (inMathBlock) {
-      if (rest.includes('$$')) {
-        inMathBlock = false
-      }
-      return true
-    }
-    // 開きは行頭の $$ だけ (remark-math のブロック数式は行頭から始まる)。
-    // 散文の途中の $$ はただの文字として通す
-    if (/^\s*\$\$/.test(rest)) {
-      inMathBlock = true
-      return true
-    }
-    return false
   }
 }
 

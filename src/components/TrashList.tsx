@@ -1,8 +1,9 @@
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts / mathText.ts はサーバ専用 module
-// (offline/circuits.ts と同じ線引き)。型は erase されるので安全
+// 値の import は不可 — circuitThumbs.ts / mathText.ts / NotePreviewThumb.tsx は
+// サーバ専用 module (offline/circuits.ts と同じ線引き)。型は erase されるので安全
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
 import type { MathTextMap } from "@/lib/mathText";
+import type { NotePreviewMap } from "./NotePreviewThumb";
 import { formatJstDateTime } from "@/lib/datetime";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
@@ -27,6 +28,9 @@ interface TrashListProps {
   // itemNo → 数式入りタイトル/プレビューの KaTeX 済み HTML
   // (docs/69-一覧数式計画.md)。こちらも trash/page.tsx が作って降ろす
   mathTexts?: MathTextMap;
+  // itemNo → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
+  // 消してよいかの判断材料は検索一覧より要るので、ゴミ箱でも同じ顔を出す
+  notePreviews?: NotePreviewMap;
 }
 
 // ゴミ箱からノートを開くリンク。検索一覧と違って持ち回す検索状態が無いので
@@ -89,6 +93,7 @@ export function TrashList({
   emptyTrashAction,
   circuitThumbs,
   mathTexts,
+  notePreviews,
 }: TrashListProps) {
   if (items.length === 0) {
     return (
@@ -150,6 +155,7 @@ export function TrashList({
               circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
               mathTitle={mathTexts?.[item.itemNo]?.title}
               mathPreview={mathTexts?.[item.itemNo]?.preview}
+              notePreview={notePreviews?.[item.itemNo]}
               footer={
                 <RowActions
                   item={item}

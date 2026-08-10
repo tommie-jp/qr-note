@@ -4,6 +4,7 @@ import type { Item } from "@/generated/prisma/client";
 import { firstThumbInfo } from "@/lib/memoImages";
 import { CircuitThumb } from "./CircuitThumb";
 import { MathText } from "./MathText";
+import { NotePreviewFrame } from "./NotePreviewFrame";
 import { RowThumb } from "./RowThumb";
 import {
   SwipeToTrashRow,
@@ -55,6 +56,11 @@ interface ItemRowProps {
   // 無ければ従来どおりプレーンテキスト (title / preview) で出す
   mathTitle?: string;
   mathPreview?: string;
+  // 画像も回路図も無いノートの顔にする、ノート全体の縮小プレビュー
+  // (docs/71-一覧ノートプレビュー計画.md)。サーバ (buildNotePreviews) が
+  // 描いた ReactNode を受けて NotePreviewFrame で縮める。
+  // **画像・回路図があるノートでは使わない** — 優先順位の分岐は下の thumb が持つ
+  notePreview?: ReactNode;
 }
 
 // サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
@@ -87,6 +93,7 @@ export function ItemRow({
   circuitThumb,
   mathTitle,
   mathPreview,
+  notePreview,
 }: ItemRowProps) {
   const isUrl = item.mode === "url";
   // 見出しが空でも文字を置く。**当たり判定のため**で、飾りではない —
@@ -116,8 +123,9 @@ export function ItemRow({
   // RowThumb がアイコンへ切り替える (docs/14 §Phase4)
   const thumbInfo = isUrl ? null : firstThumbInfo(item.memo);
 
-  // 顔の優先順位: 画像/動画 → 回路図 → なし (docs/68 §1)。画像があるノートは
-  // 今までどおりの見た目を保ち、文字だけだったノートにだけ回路図が加わる
+  // 顔の優先順位: 画像/動画 → 回路図 → ノート全体プレビュー (docs/68 §1、
+  // docs/70)。画像・回路図があるノートは今までどおりの見た目を保ち、
+  // 文字だけだったノートにだけ本文の縮小プレビューが加わる
   const thumb = thumbInfo ? (
     <RowThumb
       name={thumbInfo.name}
@@ -131,6 +139,10 @@ export function ItemRow({
       svg={circuitThumb}
       sizeClass={THUMB_SIZE_CLASS[view]}
     />
+  ) : notePreview ? (
+    // 枠の寸法は NotePreviewFrame が持つ (キャンバスと縮小率と釣り合う組で
+    // 持たないとずれるため。THUMB_SIZE_CLASS と同じ値を別に定義している)
+    <NotePreviewFrame view={view}>{notePreview}</NotePreviewFrame>
   ) : null;
 
   const tags = item.tags.length > 0 && (

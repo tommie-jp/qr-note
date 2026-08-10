@@ -213,6 +213,78 @@ test("SVG を渡さなければ回路図サムネの枠ごと出ない", () => {
   expect(html).not.toContain("circuit-thumb");
 });
 
+// ノート全体プレビュー (docs/71-一覧ノートプレビュー計画.md)
+
+const NOTE_PREVIEW = <div data-testid="preview">縮小した本文</div>;
+
+const renderPreviewRow = (item: Item, view: RowViewMode = "compact") =>
+  renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={item}
+        href={`/item/${item.itemNo}`}
+        searchState={SEARCH_STATE}
+        view={view}
+        notePreview={NOTE_PREVIEW}
+      />
+    </ul>,
+  );
+
+test("画像も回路図も無ければノート全体プレビューを縮小枠で出す", () => {
+  const html = renderPreviewRow(makeItem({ memo: "文字だけのノート" }));
+  expect(html).toContain("note-preview");
+  expect(html).toContain("縮小した本文");
+  // 小表示は画像サムネと同じ 2 行分の枠。キャンバス 10rem × 0.25 = 2.5rem
+  expect(html).toContain("size-10");
+  expect(html).toContain("h-40 w-40");
+  expect(html).toContain("scale-[0.25]");
+});
+
+test("カード表示のプレビューは 5 行分の枠で出す (20rem × 0.3 = 6rem)", () => {
+  const html = renderPreviewRow(makeItem({ memo: "文字だけ" }), "card");
+  expect(html).toContain("size-24");
+  expect(html).toContain("h-80 w-80");
+  expect(html).toContain("scale-[0.3]");
+});
+
+test("プレビューの枠は装飾扱いで、押す・フォーカスの経路を塞ぐ", () => {
+  // 中身は本文の縮小描画 (リンク風の文字などが入る)。膜の下で押せる物を
+  // 作らないよう aria-hidden + inert + pointer-events-none の三重で守る
+  const html = renderPreviewRow(makeItem({ memo: "文字だけ" }));
+  expect(html).toContain('aria-hidden="true"');
+  expect(html).toContain("inert");
+  expect(html).toContain("pointer-events-none");
+});
+
+test("画像があれば画像を優先し、プレビューは出さない", () => {
+  const html = renderPreviewRow(
+    makeItem({ memo: `写真\n![](/api/images/${IMAGE})` }),
+  );
+  expect(html).toContain(`src="/api/images/${IMAGE}?thumb=1`);
+  expect(html).not.toContain("note-preview");
+});
+
+test("回路図サムネがあれば回路図を優先し、プレビューは出さない", () => {
+  const html = renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={makeItem({ memo: "RC 回路" })}
+        href="/item/1"
+        searchState={SEARCH_STATE}
+        circuitThumb={CIRCUIT_SVG}
+        notePreview={NOTE_PREVIEW}
+      />
+    </ul>,
+  );
+  expect(html).toContain("circuit-thumb");
+  expect(html).not.toContain("note-preview");
+});
+
+test("notePreview を渡さなければ枠ごと出ない (今までどおり文字だけ)", () => {
+  const html = renderRow(makeItem({ memo: "文字だけのノート" }));
+  expect(html).not.toContain("note-preview");
+});
+
 // カード表示の本文プレビュー (docs/23-検索結果表示モード計画.md §3)
 
 test("カード表示は本文プレビューを 3 行の枠で出す", () => {

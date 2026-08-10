@@ -1,20 +1,41 @@
-// markdown を描くときの共有部品 — サニタイズ規則・URL の通し方・リンクの描き方
+// markdown を描くときの共有部品 — サニタイズ規則・URL の通し方・プラグイン列・
+// リンクの描き方・フェンス読み・添付 URL の振り分け・アラート引用
 // (MarkdownView から切り出し)。
 //
 // 切り出したのは、本文の一部を**入れ子で描く**部品ができたから
 // (```quiz フェンスの問題文・選択肢・解説。docs/58-CBT問題集計画.md §2)。
 // MarkdownView から直接 import すると、MarkdownView → QuizFence →
 // MarkdownView の循環参照になる。規則そのものはどちらから見ても同じなので、
-// 依存の葉としてここに置く。
+// MarkdownView より下の層としてここに置く (循環しない・server/client どちら
+// からも安全 — "use client" も hook も持たない部品しか import しないこと)。
+// 一覧のノート全体プレビュー (NotePreviewThumb.tsx。
+// docs/71-一覧ノートプレビュー計画.md) も同じ規則で描くため、ここを共有する。
 //
 // **入れ子側でも同じものを使うこと**が要点 — 別に緩い規則を持つと、本文では
 // 通らない書き方がフェンスの中だけ通る穴になる。リンクの rel も同じで、
 // 入れ子だけ素の <a> だと参照元 (ノートの URL) が外部サイトへ漏れる。
 
-import type { ComponentProps, ReactNode } from "react";
+import {
+  Children,
+  isValidElement,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { defaultUrlTransform } from "react-markdown";
-import { defaultSchema, type Options } from "rehype-sanitize";
-import { ALERT_CLASS_PREFIX } from "./remarkAlerts";
+import type { PluggableList } from "unified";
+import rehypeKatex from "rehype-katex";
+import rehypeSanitize, { defaultSchema, type Options } from "rehype-sanitize";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import {
+  ALERT_CLASS_PREFIX,
+  alertTypeFromClassName,
+  remarkAlerts,
+} from "./remarkAlerts";
+import { remarkDetails, remarkDetailsSyntax } from "./remarkDetails";
+import { MarkdownAlert } from "./MarkdownAlert";
+import { KATEX_OPTIONS } from "@/lib/katexOptions";
 
 // rehype-katex は code の math-inline / math-display クラスを目印にするため、
 // sanitize で落とされないよう許可する (language-* はデフォルトでも許可)。
@@ -61,10 +82,45 @@ export const sanitizeSchema = {
   },
 } satisfies Options;
 
-// KaTeX のオプションは葉モジュールへ移した (一覧のサーバ描画 mathText.ts と
-// 共有するため。あちらがここを import すると react-markdown ごと引き込む)。
+// KaTeX のオプションは葉モジュールに置いてある (一覧のサーバ描画 mathText.ts
+// と共有するため。あちらがここを import すると react-markdown ごと引き込む)。
 // 既存の import 元 (MarkdownView / QuizMarkdown) のためにここから再輸出する
-export { KATEX_OPTIONS } from "@/lib/katexOptions";
+export { KATEX_OPTIONS };
+
+// 本文とプレビューが共有するプラグイン列の土台 (docs/71 §4)。
+// **新しい記法のプラグインはここに足す** — MarkdownView だけに足すと、
+// 一覧のプレビューがその記法を生の文字のまま描く (逆も) ずれ方をする。
+//
+// 並びの約束:
+// - remarkDetails は **remarkBreaks より前** — 知らない directive を原文の
+//   文字に戻すとき、戻した中の改行も他の本文と同じ改行として描かせるため
+//   (後ろに置くと 1 行に潰れて見える)
+// - rehype は sanitize → katex の順 — ユーザー入力は sanitize 済み・KaTeX が
+//   生成した HTML はそのまま残る (remark-math 公式レシピ)
+//
+// 消費側が足すもの: MarkdownView は remarkTagLinks (タグをリンクに) と
+// rehypeTaskLines (チェックボックスの行番号) を後ろに足す。プレビューは
+// 押せる物を作らないので土台のまま使う
+export const BASE_REMARK_PLUGINS: PluggableList = [
+  remarkGfm,
+  remarkDetailsSyntax,
+  remarkDetails,
+  remarkBreaks,
+  remarkMath,
+  remarkAlerts,
+];
+export const BASE_REHYPE_PLUGINS: PluggableList = [
+  [rehypeSanitize, sanitizeSchema],
+  [rehypeKatex, KATEX_OPTIONS],
+];
+
+// 脚注まわりの文言 (docs/54 §3)。既定は英語の "Footnotes" で、隠し見出しに
+// 付く sr-only class はサニタイズで落ちるため画面に出る — 本文でも
+// プレビューでも同じ日本語を出す
+export const REMARK_REHYPE_OPTIONS = {
+  footnoteLabel: "脚注",
+  footnoteBackLabel: "本文に戻る",
+};
 
 // URL の通し方。react-markdown は**サニタイズより前に**既定の urlTransform
 // (https?|ircs?|mailto|xmpp のみ許可) で URL を空文字に潰すため、
@@ -87,12 +143,70 @@ function isExternalLink(href: string | undefined): boolean {
 }
 
 // react-markdown はカスタムコンポーネントに hast の node を渡してくるため、
-// DOM 要素へ spread する前に取り除く
+// DOM 要素へ spread する前に取り除く。カスタムレンダラを持つ描画側
+// (MarkdownView / NotePreviewThumb) が共通に使う props 型
+export type MarkdownComponentProps<
+  T extends "pre" | "a" | "img" | "input" | "blockquote",
+> = ComponentProps<T> & {
+  node?: unknown;
+};
+
+// フェンスの言語と中身を取り出す。<pre> の中が <code> でなければ null。
+// **言語指定がなければ lang は null** (字下げのコードブロックもここに来る) —
+// コピーボタンは言語の有無によらず出したいので、言語なしを弾かない
+export function readFence(
+  children: ReactNode,
+): { lang: string | null; code: string } | null {
+  const child = Children.toArray(children)[0];
+  if (!isValidElement<{ className?: string; children?: ReactNode }>(child)) {
+    return null;
+  }
+  const lang =
+    /\blanguage-([^\s]+)/.exec(child.props.className ?? "")?.[1] ?? null;
+  const code = Children.toArray(child.props.children)
+    .filter((c): c is string => typeof c === "string")
+    .join("");
+  return { lang, code: code.trim() };
+}
+
+// 添付 URL の振り分け (classifyImgSrc) は @/lib/imgSrcKind へ移した。
+// 編集画面の添付チップ (client) からも読むためで、経緯は移設先の冒頭に書いた。
+// ここから re-export はしない — 消費側が置き場を直に指すほうが、
+// 「これは Server Component 用の入れ物」という境界が保たれる
+
+// alt 末尾の "|数字" を表示幅 (px) として解釈する独自記法
+// (例: ![スクショ|200](/api/images/x.png))。生 HTML を無効にしたまま画像ごとに
+// 幅を指定できるようにするため。剥がしたラベルはチップの表示名にも使う
+export function parseAltWidth(alt: string | undefined): {
+  label: string;
+  width: number | null;
+} {
+  const match = /^(.*?)\|(\d+)$/.exec(alt ?? "");
+  return match
+    ? { label: match[1], width: Number(match[2]) }
+    : { label: alt ?? "", width: null };
+}
+
+// remarkAlerts が刻んだ class を読んでアラートの枠に差し替える (docs/54 §2)。
+// 目印の無い引用 (知らない種類の `[!FOO]` を含む) はただの引用のまま
+export function blockquoteWithAlert({
+  node: _node,
+  children,
+  className,
+  ...props
+}: MarkdownComponentProps<"blockquote">) {
+  const type = alertTypeFromClassName(className);
+  if (type === null) {
+    return <blockquote {...props}>{children}</blockquote>;
+  }
+  return <MarkdownAlert type={type}>{children}</MarkdownAlert>;
+}
+
 export function linkWithTarget({
   node: _node,
   children,
   ...props
-}: ComponentProps<"a"> & { node?: unknown }): ReactNode {
+}: MarkdownComponentProps<"a">): ReactNode {
   // rel="noreferrer" は noopener を兼ねるため、別タブでも opener は渡らない。
   // 参照元 (ノートの URL) を外部サイトに知らせないためでもある
   const target = isExternalLink(props.href) ? "_blank" : undefined;

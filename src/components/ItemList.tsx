@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts / mathText.ts はサーバ専用 module
-// (offline/circuits.ts と同じ線引き)。型は erase されるので安全
+// 値の import は不可 — circuitThumbs.ts / mathText.ts / NotePreviewThumb.tsx は
+// サーバ専用 module (offline/circuits.ts と同じ線引き)。型は erase されるので安全
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
 import type { MathTextMap } from "@/lib/mathText";
+import type { NotePreviewMap } from "./NotePreviewThumb";
 import { buildItemUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
@@ -48,6 +49,10 @@ interface ItemListProps {
   // itemNo → 数式入りタイトル/プレビューの KaTeX 済み HTML
   // (docs/69-一覧数式計画.md)。page.tsx (サーバ) が buildMathTexts で作って降ろす
   mathTexts?: MathTextMap;
+  // itemNo → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
+  // page.tsx (サーバ) が buildNotePreviews で描いて降ろす。画像も回路図も
+  // 無いノートの顔になる (優先順位は ItemRow の thumb 分岐が持つ)
+  notePreviews?: NotePreviewMap;
 }
 
 function emptyState(
@@ -116,6 +121,7 @@ export function ItemList({
   trashedMatches,
   circuitThumbs,
   mathTexts,
+  notePreviews,
 }: ItemListProps) {
   // 選択モードの入り切りは下部バーが持つ (docs/31-下部操作バー計画.md §5-2)。
   // 選んだ番号の Set はここに残す — バーは「何件選ばれたか」を知る必要がなく、
@@ -221,6 +227,7 @@ export function ItemList({
             circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
             mathTitle={mathTexts?.[item.itemNo]?.title}
             mathPreview={mathTexts?.[item.itemNo]?.preview}
+            notePreview={notePreviews?.[item.itemNo]}
             swipeTrashAction={swipeEnabled ? trashAction : undefined}
             swipeOpen={openItemNo === item.itemNo}
             onSwipeOpenChange={
@@ -260,6 +267,7 @@ export function ItemList({
             circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
             mathTitle={mathTexts?.[item.itemNo]?.title}
             mathPreview={mathTexts?.[item.itemNo]?.preview}
+            notePreview={notePreviews?.[item.itemNo]}
             checkbox={
               <input
                 type="checkbox"

@@ -1,21 +1,7 @@
-import {
-  Children,
-  isValidElement,
-  type ComponentProps,
-  type ReactNode,
-} from "react";
 import type { Element } from "hast";
 import type { PluggableList } from "unified";
 import Markdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import rehypeSanitize from "rehype-sanitize";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 import { remarkTagLinks } from "./remarkTagLinks";
-import { remarkDetails, remarkDetailsSyntax } from "./remarkDetails";
-import { alertTypeFromClassName, remarkAlerts } from "./remarkAlerts";
-import { MarkdownAlert } from "./MarkdownAlert";
 import { CodeBlock } from "./CodeBlock";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
@@ -23,9 +9,14 @@ import { MermaidDiagram } from "./MermaidDiagram";
 import { CircuitDiagram } from "./CircuitDiagram";
 import { QuizFence } from "./quiz/QuizFence";
 import {
-  KATEX_OPTIONS,
+  BASE_REHYPE_PLUGINS,
+  BASE_REMARK_PLUGINS,
+  blockquoteWithAlert,
   linkWithTarget,
-  sanitizeSchema,
+  type MarkdownComponentProps,
+  parseAltWidth,
+  readFence,
+  REMARK_REHYPE_OPTIONS,
   urlTransform,
 } from "./markdownPipeline";
 import { ZoomableImage } from "./ZoomableImage";
@@ -35,10 +26,8 @@ import { VideoPlayer } from "./video/VideoPlayer";
 import { TextLink } from "./text/TextLink";
 import { SecretBlock } from "./secret/SecretBlock";
 import { BOX_CLASS } from "./ui";
-import { DEFAULT_SECRET_LABEL, secretNameFromUrl } from "@/lib/secrets";
-import { AUDIO_EXTENSION_ALTERNATION } from "@/lib/audioFormats";
-import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
-import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
+import { classifyImgSrc } from "@/lib/imgSrcKind";
+import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
 import { CIRCUIT_LANG, MERMAID_LANG, QUIZ_LANG } from "@/lib/fenceLanguages";
 import type { CircuitMap } from "@/lib/circuitCache";
 import "katex/dist/katex.min.css";
@@ -84,32 +73,6 @@ interface MarkdownViewProps {
   onToggleTask?: ToggleTaskHandler;
 }
 
-// react-markdown はカスタムコンポーネントに hast の node を渡してくるため、
-// DOM 要素へ spread する前に取り除く
-type MarkdownComponentProps<
-  T extends "pre" | "a" | "img" | "input" | "blockquote",
-> = ComponentProps<T> & {
-  node?: unknown;
-};
-
-// フェンスの言語と中身を取り出す。<pre> の中が <code> でなければ null。
-// **言語指定がなければ lang は null** (字下げのコードブロックもここに来る) —
-// コピーボタンは言語の有無によらず出したいので、言語なしを弾かない
-function readFence(
-  children: ReactNode,
-): { lang: string | null; code: string } | null {
-  const child = Children.toArray(children)[0];
-  if (!isValidElement<{ className?: string; children?: ReactNode }>(child)) {
-    return null;
-  }
-  const lang =
-    /\blanguage-([^\s]+)/.exec(child.props.className ?? "")?.[1] ?? null;
-  const code = Children.toArray(child.props.children)
-    .filter((c): c is string => typeof c === "string")
-    .join("");
-  return { lang, code: code.trim() };
-}
-
 // フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
 // quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
 // する (docs/54 §1、docs/58-CBT問題集計画.md §1)
@@ -149,39 +112,11 @@ function preOrDiagram(circuits: CircuitMap) {
   };
 }
 
-// 音声の配信 URL (`/api/images/<uuid>.mp3` など)。エディタは音声を画像記法
-// `![audio](url)` で挿入するので (docs/12-添付ファイル種類拡張メモ.md)、img の
-// src が音声ならここで <audio> に振り分ける。この <audio> は sanitize 後に
-// React が組み立てる要素なので、生 HTML の許可リスト (sanitizeSchema) は要らない。
-const AUDIO_SRC_RE = new RegExp(
-  `\\.(?:${AUDIO_EXTENSION_ALTERNATION})(?:[?#]|$)`,
-  "i",
-);
-
-// 動画の配信 URL (`/api/images/<uuid>.mp4` など)。エディタは動画を画像記法
-// `![video](url)` で挿入するので (docs/14-動画挿入計画.md)、img の src が動画なら
-// <video> に振り分ける。保存名の拡張子は mp4|mkv|mov で、音声の .webm とは
-// 重ならない (webm 動画は .mkv で保存される。videoFormats.ts の経緯)。
-const VIDEO_SRC_RE = new RegExp(
-  `\\.(?:${VIDEO_EXTENSION_ALTERNATION})(?:[?#]|$)`,
-  "i",
-);
-
-// PDF も同じく画像記法 `![ファイル名.pdf](url)` で本文に入る。インライン
-// ビューアは埋め込まず、押したらブラウザ内蔵ビューアが開くリンクにする
-// (iPhone との相性がよく、本文が重くならない)
-const PDF_SRC_RE = /\.pdf(?:[?#]|$)/i;
-
-// テキスト系 (txt/csv/md) も同じ画像記法で入る。PDF と同じくページ内の
-// ビューアで開く (docs/12-添付ファイル種類拡張メモ.md)
-const TEXT_SRC_RE = new RegExp(
-  `\\.(?:${TEXT_EXTENSION_ALTERNATION})(?:[?#]|$)`,
-  "i",
-);
-
-// alt 末尾の "|数字" を表示幅 (px) として解釈する (例: ![スクショ|200](/api/images/x.png))。
-// 生 HTML を無効にしたまま画像ごとに幅を指定できるようにするための独自記法。
-// 画像はクリックで拡大できるよう ZoomableImage で描画する。
+// 画像記法の src を種別ごとの部品に振り分ける。判定順は classifyImgSrc
+// (markdownPipeline.tsx) に一本化 — 一覧のプレビュー (NotePreviewThumb の
+// previewImg) も同じ判定で描くので、順や種類はここでいじらない。
+// 画像はクリックで拡大できるよう ZoomableImage で描画し、alt 末尾の
+// 幅記法 (parseAltWidth) を表示幅にする。
 // allowRotate なら拡大表示に 90° 回転ボタンを出す (docs/49-画像回転計画.md)
 function imgRenderer(
   allowRotate: boolean,
@@ -193,55 +128,55 @@ function imgRenderer(
     alt,
     ...props
   }: MarkdownComponentProps<"img">) {
-    // シークレット断片 (docs/51-部分暗号化計画.md §3)。**いちばん先に見る** —
+    const src = typeof props.src === "string" ? props.src : "";
+    const cls = classifyImgSrc(src);
+    // シークレット断片 (docs/51-部分暗号化計画.md §3) は**いちばん先** —
     // 中身は暗号文なので、下の <img> に落ちると必ず割れた画像になる。
     // alt がラベル、URL が断片の名前で、どちらも平文のまま本文に残る
-    const secretName =
-      typeof props.src === "string" ? secretNameFromUrl(props.src) : null;
-    if (secretName !== null) {
+    if (cls.kind === "secret") {
       return (
         <SecretBlock
-          name={secretName}
+          name={cls.name}
           label={alt || DEFAULT_SECRET_LABEL}
           allowEdit={allowSecretEdit}
         />
       );
     }
-    // 復号済みの媒体 (Blob URL)。拡張子が無いので対応表で振り分ける
-    const blobKind =
-      typeof props.src === "string" ? blobKinds.get(props.src) : undefined;
+    // 復号済みの媒体 (Blob URL)。拡張子が無い (classifyImgSrc は image に
+    // 畳む) ので対応表で振り分ける
+    const blobKind = blobKinds.get(src);
     if (blobKind === "audio") {
-      return <AudioPlayer src={props.src as string} label={alt || "audio"} />;
+      return <AudioPlayer src={src} label={alt || "audio"} />;
     }
     if (blobKind === "video") {
-      return <VideoPlayer src={props.src as string} label={alt || "video"} />;
+      return <VideoPlayer src={src} label={alt || "video"} />;
     }
-    if (typeof props.src === "string" && AUDIO_SRC_RE.test(props.src)) {
+    if (cls.kind === "audio") {
       // 音声プレイヤー + 共有ボタン。<audio> は iOS の長押し共有が効かないので、
       // 自前で共有の口を持つ (AudioPlayer.tsx の冒頭に経緯)
-      return <AudioPlayer src={props.src} label={alt || "audio"} />;
+      return <AudioPlayer src={src} label={alt || "audio"} />;
     }
-    if (typeof props.src === "string" && VIDEO_SRC_RE.test(props.src)) {
+    if (cls.kind === "video") {
       // 動画プレイヤー + 共有ボタン (VideoPlayer.tsx)。poster に ?thumb=1 を渡す
-      return <VideoPlayer src={props.src} label={alt || "video"} />;
+      return <VideoPlayer src={src} label={alt || "video"} />;
     }
-    if (typeof props.src === "string" && PDF_SRC_RE.test(props.src)) {
+    if (cls.kind === "pdf") {
       // alt には挿入時のファイル名が入る (MemoEditorInner の pdfAltText)。
       // 押すとページ内のモーダルで開く (画面遷移しないので standalone PWA でも
       // 確実にノートへ戻れる。PdfLink.tsx の冒頭に経緯)
-      return <PdfLink href={props.src} label={alt || "PDF"} />;
+      return <PdfLink href={src} label={alt || "PDF"} />;
     }
-    if (typeof props.src === "string" && TEXT_SRC_RE.test(props.src)) {
+    if (cls.kind === "text") {
       // PDF と同じ扱い。中身は解釈せず、そのままの文字として見せる
-      return <TextLink href={props.src} label={alt || "テキスト"} />;
+      return <TextLink href={src} label={alt || "テキスト"} />;
     }
-    const match = /^(.*?)\|(\d+)$/.exec(alt ?? "");
-    if (match) {
+    const { label, width } = parseAltWidth(alt);
+    if (width !== null) {
       return (
         <ZoomableImage
           {...props}
-          alt={match[1]}
-          width={Number(match[2])}
+          alt={label}
+          width={width}
           allowRotate={allowRotate}
         />
       );
@@ -285,21 +220,6 @@ function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
   };
 }
 
-// remarkAlerts が刻んだ class を読んでアラートの枠に差し替える (docs/54 §2)。
-// 目印の無い引用 (知らない種類の `[!FOO]` を含む) はただの引用のまま
-function blockquoteWithAlert({
-  node: _node,
-  children,
-  className,
-  ...props
-}: MarkdownComponentProps<"blockquote">) {
-  const type = alertTypeFromClassName(className);
-  if (type === null) {
-    return <blockquote {...props}>{children}</blockquote>;
-  }
-  return <MarkdownAlert type={type}>{children}</MarkdownAlert>;
-}
-
 // prose の既定に対する手直し。
 // - タスク項目の中黒は落とす。チェックボックスと二重の目印になって読みにくい
 //   (字下げは残して他の箇条書きと行頭を揃える)
@@ -320,30 +240,18 @@ export function MarkdownView({
   blobKinds = new Map(),
   onToggleTask,
 }: MarkdownViewProps) {
+  // プラグイン列の土台は markdownPipeline.tsx (一覧のプレビューと共有)。
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
-  // 残るので、本文の見た目は「リンクでない #タグ」になる。
-  //
-  // remarkDetails は **remarkBreaks より前**に置く — 知らない directive を
-  // 原文の文字に戻すとき、戻した中の改行も他の本文と同じように改行として
-  // 描かせたいため (後ろに置くと 1 行に潰れて見える)
-  const remarkPlugins = [
-    remarkGfm,
-    remarkDetailsSyntax,
-    remarkDetails,
-    remarkBreaks,
-    remarkMath,
-    remarkAlerts,
+  // 残るので、本文の見た目は「リンクでない #タグ」になる
+  const remarkPlugins: PluggableList = [
+    ...BASE_REMARK_PLUGINS,
     ...(linkTags ? [remarkTagLinks] : []),
   ];
 
   // rehypeTaskLines は**サニタイズより後**に置く (前だと data-line が落ちる)。
   // 押せない画面でも外さない — 出し分けを増やすと、片方だけ直したときに
   // 「静かに押せないだけ」に戻ってしまう。刻むのは行番号だけで実害はない
-  const rehypePlugins: PluggableList = [
-    [rehypeSanitize, sanitizeSchema],
-    [rehypeKatex, KATEX_OPTIONS],
-    rehypeTaskLines,
-  ];
+  const rehypePlugins: PluggableList = [...BASE_REHYPE_PLUGINS, rehypeTaskLines];
 
   return (
     // 文字サイズの倍率は root (html) に掛かっているので、ここは何も持たない
@@ -356,12 +264,7 @@ export function MarkdownView({
         remarkPlugins={remarkPlugins}
         urlTransform={urlTransform}
         rehypePlugins={rehypePlugins}
-        // 脚注まわりの文言 (docs/54 §3)。既定は英語の "Footnotes" で、
-        // 隠し見出しに付く sr-only class はサニタイズで落ちるため画面に出る
-        remarkRehypeOptions={{
-          footnoteLabel: "脚注",
-          footnoteBackLabel: "本文に戻る",
-        }}
+        remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={{
           pre: preOrDiagram(circuits),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),

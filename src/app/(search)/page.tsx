@@ -36,6 +36,7 @@ import {
 } from "@/lib/items";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
+import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { buildSearchUrl } from "@/lib/searchUrl";
@@ -192,6 +193,13 @@ async function HomeResults({
   );
   const mathSummaries = buildMathSummaries(props.rows, mathTexts);
 
+  // 画像も回路図も無いノートの顔になる、本文の縮小プレビュー
+  // (docs/71-一覧ノートプレビュー計画.md)。DB は引かない同期処理。
+  // **回路図サムネの後に作る** (出るノートに作っても使われない)。
+  // 表示モードごとの出し分け (画像モードは作らない・小はさらに足切り) は
+  // buildNotePreviews の中 (circuitThumbs / mathTexts と同じ作法)
+  const notePreviews = buildNotePreviews(result.items, circuitThumbs, view);
+
   // カード・masonry は広い画面で列を増やしたいので広幅。compact の
   // 1 カラムだけは読み幅を保つ (docs/23 §1, docs/32 §1)
   return (
@@ -260,6 +268,7 @@ async function HomeResults({
         trashedMatches={trashedMatches}
         circuitThumbs={circuitThumbs}
         mathTexts={mathTexts}
+        notePreviews={notePreviews}
       />
 
       {/* ページ送りは「前へ/次へ」からオンデマンド表示へ (docs/33)。
