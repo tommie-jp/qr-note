@@ -142,6 +142,15 @@ export function EditToolbar({
       {/* ← → の右に固定する主ボタン */}
       <SubmitBarButton onSubmit={onSubmit} />
 
+      {/* 書式だけ横スクロール帯の**外**に出す。
+          帯は overflow-x-auto を持ち、CSS の規定で片方が visible でなくなると
+          もう片方 (overflow-y) も visible ではなくなる = auto になる。
+          メニューは帯の上端より上へ開くので、中に置くと切り取られて
+          何も出ないように見える (実機で発生)。
+          常に見える位置になるのは書式にとってむしろ好都合 — 打鍵の合間に
+          使うもので、スクロールの奥にあると届きにくい */}
+      <FormatMenuButton onFormat={onFormat} className={TOOL_SLOT} />
+
       {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる */}
       <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
         <button
@@ -166,9 +175,6 @@ export function EditToolbar({
           </ToolIcon>
           やり直す
         </button>
-        {/* 元に戻す/やり直す の次に置く。打鍵の合間に使うものなので、
-            たまにしか使わない挿入系 (スキャン・画像・録音…) より手前 */}
-        <FormatMenuButton onFormat={onFormat} className={TOOL_SLOT} />
         <button
           type="button"
           onClick={onScan}

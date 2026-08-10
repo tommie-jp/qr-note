@@ -19,6 +19,12 @@ import type { FormatAction } from "./markdownFormat";
 // 選んだあと即座に閉じてよい — BarSlot が閉じるのを遅らせているのは、
 // 行がフォームの submit ボタンで送信が後から走るためで、ここは
 // その場で CodeMirror に反映される普通のボタン。
+//
+// **overflow を持つ入れ物の中に置かないこと。** メニューは absolute で
+// ボタンの上端より上へ開く。CSS の規定で overflow-x だけを auto にすると
+// overflow-y も visible ではなくなるため、横スクロールの帯 (EditToolbar の
+// ツール列) の中に置くとメニューが切り取られ、押しても何も出ないように
+// 見える。これで一度実機で出ているので、置き場所を動かすときは注意。
 
 interface FormatMenuItem {
   action: FormatAction;
@@ -76,6 +82,9 @@ export function FormatMenuButton({ onFormat, className }: FormatMenuButtonProps)
           label="書式"
           anchorRef={buttonRef}
           onClose={() => setOpen(false)}
+          // ボタンの左端を軸に右へ開く。中心を軸にすると、帯の左寄りに
+          // あるこのボタンでは画面の左外へはみ出して見本の記法が切れる
+          align="start"
         >
           {ITEMS.map((item) => (
             <button

@@ -10,8 +10,23 @@ interface SlotMenuProps {
   // (閉じるのはボタン自身の役目。理由は下の onPointerDown)
   anchorRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
+  // どこを軸に開くか。既定の center は下部バーのスロット用 — スロットは
+  // 帯の全幅に等間隔で並ぶので、中心に揃えれば画面内に収まる。
+  //
+  // **端に寄った小さなボタンでは center が使えない** (docs/70 §6)。
+  // 書式ボタンは帯の左寄りにあり、中心を軸にすると幅 190px 前後の
+  // メニューが画面の左外へ 13px はみ出して記法の見本が切れる (実機で確認)。
+  // start はボタンの左端を軸にして右へ開く
+  align?: "center" | "start";
   children: React.ReactNode;
 }
+
+// 位置決めの土台。動き (motion-safe:animate-sheet-up) とは**別の要素**に
+// 分けてあるので、ここは translate を自由に使える (下のコメント参照)
+const ALIGN_CLASS: Record<"center" | "start", string> = {
+  center: "left-1/2 -translate-x-1/2",
+  start: "left-0",
+};
 
 // 下部バーのスロットを長押ししたときに、その真上へ出す小さな選択メニュー
 // (docs/62-下部バー長押し計画.md §3)。
@@ -32,6 +47,7 @@ export function SlotMenu({
   label,
   anchorRef,
   onClose,
+  align = "center",
   children,
 }: SlotMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -85,10 +101,10 @@ export function SlotMenu({
     // が残り続け、中央寄せが丸ごと消える。実際それで、右寄りのスロット
     // (並び順) のメニューが画面の右端からはみ出して文字が切れていた
     <div
-      // left-1/2 -translate-x-1/2 … スロットの中心に揃える。スロットは
-      // 64px 前後しかないので、左端に合わせるとメニューが隣のスロットの
-      // 上に偏って、どれを長押ししたのか判らなくなる
-      className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2"
+      // center … スロットの中心に揃える。スロットは 64px 前後しかないので、
+      // 左端に合わせるとメニューが隣のスロットの上に偏って、どれを長押し
+      // したのか判らなくなる (端に寄ったボタンで start を使う理由は上の align)
+      className={`absolute bottom-full z-10 mb-1 ${ALIGN_CLASS[align]}`}
     >
       <div
         ref={menuRef}
