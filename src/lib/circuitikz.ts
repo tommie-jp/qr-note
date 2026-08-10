@@ -30,6 +30,31 @@ const OPAMP_FONT_FIX = String.raw`\makeatletter
 const PREAMBLE = `\\usepackage{circuitikz}\n${OPAMP_FONT_FIX}\n\\begin{document}\n`
 const POSTAMBLE = '\n\\end{document}\n'
 
+// 図の環境が既に書かれているか。**circuitikz と tikzpicture だけを見る** —
+// `\begin{scope}` のような入れ子の環境は図の外枠ではないので、これがあっても
+// 外枠は要る
+const HAS_PICTURE_ENV = /\\begin\{(?:circuitikz|tikzpicture)\}/
+
+// 外枠の環境が無ければ補う。
+//
+// ```circuitikz というフェンス名で種類は判っているので、`\begin{circuitikz}` を
+// 毎回書かせるのは冗長 (利用者の指摘)。本体だけ書けば描けるようにする。
+//
+// **「無ければ補う」にするのが要点で、無条件には包まない。**
+//   - 既存のノートは全部この環境を含んでいる。無条件に包むと二重になって壊れる
+//   - `\begin{circuitikz}[scale=1.5]` のようにオプションを付けたい人が居る
+//   - 回路以外の図を tikzpicture で描いているノートがあり得る
+// どれも「書いてあればそのまま通す」で両立する。
+//
+// キャッシュの主キー (circuitHash) は**生のソース**から作るので、この変更で
+// 既存の行が無効になることはない (環境ありのソースは包まれず、出力も同じ)。
+// RENDERER_VERSION を上げないのはそのため
+export function withCircuitEnvironment(source: string): string {
+  return HAS_PICTURE_ENV.test(source)
+    ? source
+    : `\\begin{circuitikz}\n${source}\n\\end{circuitikz}`
+}
+
 // 描画スクリプトは Next のバンドル対象ではなく、実行時にそのまま起動する
 // (standalone へは next.config.ts の outputFileTracingIncludes で同梱)。
 // child_process.fork() は Turbopack が引数を静的解析して「バンドルすべき
@@ -231,6 +256,8 @@ function renderOnce(source: string): Promise<string> {
       )
     })
 
-    child.send({ source: `${PREAMBLE}${source}${POSTAMBLE}` })
+    child.send({
+      source: `${PREAMBLE}${withCircuitEnvironment(source)}${POSTAMBLE}`,
+    })
   })
 }
