@@ -197,3 +197,12 @@ export const ROW_MENU_ICON_ITEM_CLASS = `${ROW_MENU_ICON_ITEM_SKIN} text-gray-70
 
 // 取り返しの付きにくい操作 (ゴミ箱へ移動)。押下の地色も赤系に合わせる
 export const ROW_MENU_ICON_ITEM_DANGER_CLASS = `${ROW_MENU_ICON_ITEM_SKIN} text-red-700 hover:bg-red-50 active:bg-red-100`;
+
+// 描けなかった図・問題のエラーカードに添える「元のソース」。
+//
+// **地色を明示するのが要点。** ここは本文 (prose) の中で、Tailwind Typography
+// は `pre` を暗色 (bg-gray-900 系) で組む。文字色だけ text-gray-700 にすると
+// 暗い地に暗い文字が乗って読めなくなる (実機で報告)。エラーカードは
+// 「何を書いたか」を見せる場所なので、地ごと明色に固定する
+export const ERROR_SOURCE_CLASS =
+  "mt-2 overflow-x-auto rounded border border-gray-200 bg-white p-2 text-sm text-gray-800";

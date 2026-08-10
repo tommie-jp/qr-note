@@ -22,10 +22,17 @@ function templateBody(): string {
 }
 
 describe("isUntouchedTemplate", () => {
-  test("書式メニューで入れたままの雛形は「手つかず」と見る", () => {
-    // 骨組みを置いた瞬間に「問: の中身が空です」と出るのは、
-    // 入れた瞬間に赤を突きつけるのと同じ
-    expect(isUntouchedTemplate(templateBody())).toBe(true);
+  test("書式メニューの雛形は見本入りなので「手つかず」ではない", () => {
+    // 雛形は見本の文を入れて配るようになったので、そもそも parseQuiz が通り、
+    // この見送りに頼らなくても叱られない。ここが true に戻ったら、
+    // 雛形が空欄配りに逆戻りした合図
+    expect(isUntouchedTemplate(templateBody())).toBe(false);
+  });
+
+  test("見本を消して空にしたものは「手つかず」と見る", () => {
+    // 打ち直そうとして全部消した途中の状態。まだ書いていないだけなので、
+    // そこで赤を出すのは急かしているだけ
+    expect(isUntouchedTemplate("問: \n1. \n2. \n正解: 1\n解説: ")).toBe(true);
   });
 
   test("問を書き始めたら手つかずではない", () => {

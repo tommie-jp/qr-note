@@ -1,6 +1,7 @@
 import { parseQuiz } from "@/lib/quizParse";
 import { QuizCard } from "./QuizCard";
 import { QuizMarkdown } from "./QuizMarkdown";
+import { ERROR_SOURCE_CLASS } from "@/components/ui";
 
 interface QuizFenceProps {
   code: string;
@@ -20,7 +21,7 @@ export function QuizFence({ code }: QuizFenceProps) {
     return (
       <div className="my-4 rounded border border-red-300 bg-red-50 p-3">
         <p className="text-red-700">問題の書き方のエラー: {quiz.error}</p>
-        <pre className="mt-2 overflow-x-auto text-sm text-gray-700">{code}</pre>
+        <pre className={ERROR_SOURCE_CLASS}>{code}</pre>
       </div>
     );
   }

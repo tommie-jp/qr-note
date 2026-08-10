@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
+import { ERROR_SOURCE_CLASS } from "./ui";
 
 // 読み込み・初期化・描画は @/lib/mermaidRender に寄せた。編集画面の
 // ライブプレビュー (docs/70 §7) も同じ図を描くため — initialize が
@@ -46,7 +47,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     return (
       <div className="mermaid-diagram rounded border border-red-300 bg-red-50 p-3">
         <p className="text-red-700">mermaid の構文エラー: {state.error}</p>
-        <pre className="mt-2 overflow-x-auto text-sm text-gray-700">{code}</pre>
+        <pre className={ERROR_SOURCE_CLASS}>{code}</pre>
       </div>
     );
   }

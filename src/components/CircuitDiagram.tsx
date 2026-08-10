@@ -1,4 +1,5 @@
 import type { CircuitResult } from "@/lib/circuitCache";
+import { ERROR_SOURCE_CLASS } from "./ui";
 
 interface CircuitDiagramProps {
   result: CircuitResult;
@@ -17,7 +18,7 @@ export function CircuitDiagram({ result, code }: CircuitDiagramProps) {
         {result.texLog && (
           <pre className="mt-2 overflow-x-auto text-sm text-red-900">{result.texLog}</pre>
         )}
-        <pre className="mt-2 overflow-x-auto text-sm text-gray-700">{code}</pre>
+        <pre className={ERROR_SOURCE_CLASS}>{code}</pre>
       </div>
     );
   }
