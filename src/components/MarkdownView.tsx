@@ -116,7 +116,10 @@ function preOrDiagram(circuits: CircuitMap) {
 // (markdownPipeline.tsx) に一本化 — 一覧のプレビュー (NotePreviewThumb の
 // previewImg) も同じ判定で描くので、順や種類はここでいじらない。
 // 画像はクリックで拡大できるよう ZoomableImage で描画し、alt 末尾の
-// 幅記法 (parseAltWidth) を表示幅にする。
+// 幅記法 (parseAltWidth) を表示幅にする。**幅記法を読むのは画像と動画だけ** —
+// 音声・PDF・テキスト・シークレットは alt をラベルとして丸ごと使う
+// (`![仕様書|80].pdf` のような紛らわしいファイル名を勝手に削らない。
+// docs/73-動画幅指定計画.md §3)。
 // allowRotate なら拡大表示に 90° 回転ボタンを出す (docs/49-画像回転計画.md)
 function imgRenderer(
   allowRotate: boolean,
@@ -149,7 +152,8 @@ function imgRenderer(
       return <AudioPlayer src={src} label={alt || "audio"} />;
     }
     if (blobKind === "video") {
-      return <VideoPlayer src={src} label={alt || "video"} />;
+      const { label, width } = parseAltWidth(alt);
+      return <VideoPlayer src={src} label={label || "video"} width={width} />;
     }
     if (cls.kind === "audio") {
       // 音声プレイヤー + 共有ボタン。<audio> は iOS の長押し共有が効かないので、
@@ -157,8 +161,11 @@ function imgRenderer(
       return <AudioPlayer src={src} label={alt || "audio"} />;
     }
     if (cls.kind === "video") {
-      // 動画プレイヤー + 共有ボタン (VideoPlayer.tsx)。poster に ?thumb=1 を渡す
-      return <VideoPlayer src={src} label={alt || "video"} />;
+      // 動画プレイヤー + 共有ボタン (VideoPlayer.tsx)。poster に ?thumb=1 を渡す。
+      // 画像と同じ幅記法が効く (docs/73-動画幅指定計画.md)。剥がしたラベルは
+      // 共有・保存のファイル名になるので、幅を混ぜたまま渡さない
+      const { label, width } = parseAltWidth(alt);
+      return <VideoPlayer src={src} label={label || "video"} width={width} />;
     }
     if (cls.kind === "pdf") {
       // alt には挿入時のファイル名が入る (MemoEditorInner の pdfAltText)。

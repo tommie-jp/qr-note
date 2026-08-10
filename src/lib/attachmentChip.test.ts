@@ -87,6 +87,9 @@ describe('attachmentChip', () => {
     expect(attachmentChip('/api/images/abc.pdf', '仕様書|80').label).toBe(
       '仕様書',
     )
+    // 動画は本文で幅が効く側 (docs/73-動画幅指定計画.md)。チップは実寸で
+    // 描かないので、ここでも剥がすだけ
+    expect(attachmentChip('/api/images/abc.mp4', '録画|300').label).toBe('録画')
   })
 
   test('幅記法だけの alt は種別の名前に落とす', () => {

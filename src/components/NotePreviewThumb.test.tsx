@@ -105,6 +105,14 @@ test("画像の幅記法 (alt|200) はチップのラベルから外す", () => 
   expect(html).not.toContain("|200");
 });
 
+// 動画も同じ記法で幅を指定できる (docs/73-動画幅指定計画.md)。一覧は実寸で
+// 描かないので幅そのものは捨て、ラベルだけ残す
+test("動画の幅記法もチップのラベルから外す", () => {
+  const html = render(`![録画|300](/api/images/${SECRET}.mp4)`);
+  expect(html).toContain("録画");
+  expect(html).not.toContain("|300");
+});
+
 test("生の HTML (script) は出力しない (本文と同じサニタイズ)", () => {
   const html = render('<script>alert("x")</script>ほげ');
   expect(html).not.toContain("<script");

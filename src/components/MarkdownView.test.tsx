@@ -164,6 +164,37 @@ test("末尾が数字でない | は幅指定として扱わない", () => {
   expect(html).not.toContain("width=");
 });
 
+// 動画も同じ記法で幅を指定できる (docs/73-動画幅指定計画.md)。画像と違い
+// **上限**として効く — <video> は既定で全幅に伸びるので、固定幅にすると
+// 画面より広い指定で横スクロールが生える
+test("alt 末尾の |数字 を動画の表示幅の上限として解釈する", () => {
+  const html = render("![録画|300](/api/images/a.mp4)");
+  expect(html).toContain("<video");
+  expect(html).toContain("max-width:300px");
+  expect(html).not.toContain("max-w-md");
+});
+
+test("幅指定なしの動画は従来どおり max-w-md のまま", () => {
+  const html = render("![録画](/api/images/a.mp4)");
+  expect(html).toContain("<video");
+  expect(html).toContain("max-w-md");
+  expect(html).not.toContain("max-width");
+});
+
+// 幅を剥がしたラベルが共有・保存のファイル名になる (剥がさないと
+// 「録画|300.mp4」で保存される)
+test("動画の保存名に幅記法を混ぜない", () => {
+  const html = render("![録画|300](/api/images/a.mp4)");
+  expect(html).toContain('download="録画.mp4"');
+  expect(html).not.toContain("|300");
+});
+
+test("末尾が数字でない | は動画でも幅指定として扱わない", () => {
+  const html = render("![a|b](/api/images/a.mp4)");
+  expect(html).toContain('download="a|b.mp4"');
+  expect(html).not.toContain("max-width");
+});
+
 // 音声 (docs/12-添付ファイル種類拡張メモ.md)。エディタは音声を ![audio](url)
 // で挿入し、レンダラは src の拡張子を見て <audio> に振り分ける
 test("音声 URL の画像記法は <audio> プレイヤーにする", () => {
@@ -358,6 +389,21 @@ test("blobKinds で音声・動画のプレイヤーに振り分ける", () => {
   );
   expect(html).toContain("<audio");
   expect(html).toContain("<video");
+});
+
+// 復号した動画 (Blob URL) にも同じ幅記法が効く。シークレットのラベルは
+// 平文で本文に残るので、幅を書けるのは通常の動画と同じ (docs/73 §3)
+test("blobKinds の動画にも alt の幅指定が効く", () => {
+  const video = "blob:https://example.com/v";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={`![録画|300](${video})`}
+      blobKinds={new Map<string, "image" | "audio" | "video">([[video, "video"]])}
+    />,
+  );
+  expect(html).toContain("<video");
+  expect(html).toContain("max-width:300px");
+  expect(html).not.toContain("|300");
 });
 
 test("blobKinds に無い blob: は今までどおり画像として描く", () => {

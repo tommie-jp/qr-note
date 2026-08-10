@@ -12,8 +12,12 @@ import { SECONDARY_BUTTON_CLASS } from "../ui";
 
 interface VideoPlayerProps {
   src: string;
-  // 挿入時の alt (録画の日時など)。共有ファイル名の元にする
+  // 挿入時の alt (録画の日時など)。共有ファイル名の元にする。
+  // 幅記法 (`![録画|300]`) は MarkdownView 側で剥がしてから渡す
   label: string;
+  // 本文の幅記法で指定された表示幅 (px)。null なら既定の上限のまま
+  // (docs/73-動画幅指定計画.md)
+  width?: number | null;
 }
 
 // 取り込んだ動画のバイト列と mime。共有シートへ渡すために一度だけ取得して持つ
@@ -33,7 +37,7 @@ interface VideoBytes {
 //
 // **playsInline は必須** — iOS はこれが無いと再生時に全画面へ遷移し、
 // standalone PWA でノートへ戻れなくなる。
-export function VideoPlayer({ src, label }: VideoPlayerProps) {
+export function VideoPlayer({ src, label, width = null }: VideoPlayerProps) {
   // 共有が「唯一の出口」でありかつ実際に動く iOS でだけボタンを出す
   // (shouldOfferShare)。PC・Android はプレイヤーの ⋮ / 右クリックで保存でき、
   // しかも Chromium は files 付き share を恒久拒否する (shareFile.ts)
@@ -121,14 +125,19 @@ export function VideoPlayer({ src, label }: VideoPlayerProps) {
   return (
     <span className="flex flex-col gap-1">
       {/* preload は metadata (開いただけで全データを取らない)。poster は
-          クライアント生成の WebP (?thumb=1)。無ければ配信が 404 → 無視される */}
+          クライアント生成の WebP (?thumb=1)。無ければ配信が 404 → 無視される。
+          幅記法 (![録画|300]) は**固定幅ではなく上限**にする — <video> は
+          既定で全幅に伸びる部品なので、画面より広い指定を固定幅にすると
+          iPhone で横スクロールが生える (docs/73-動画幅指定計画.md §2)。
+          既定の max-w-md (448px) を指定値で差し替えるだけ、という形 */}
       <video
         controls
         playsInline
         preload="metadata"
         poster={`${src}?thumb=1`}
         src={src}
-        className="w-full max-w-md rounded"
+        className={width === null ? "w-full max-w-md rounded" : "w-full rounded"}
+        style={width === null ? undefined : { maxWidth: width }}
       />
       <span className="flex items-center gap-2">
         {canShare ? (
