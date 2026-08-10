@@ -11,9 +11,12 @@ export type LivePreviewStorage = Pick<Storage, 'getItem' | 'setItem'>
 
 export const LIVE_PREVIEW_STORAGE_KEY = 'qr-search:live-preview'
 
-// **既定は OFF**。日本語 IME での挙動を iPhone 実機で確かめるまで、
-// 従来どおりの編集表示で出す (計画 §8。確認できたらここを true にする)
-export const LIVE_PREVIEW_DEFAULT = false
+// **既定は ON**。日本語 IME での挙動を確かめてから切り替えた
+// (デスクトップ Chromium は CDP の合成イベントで、iPhone は実機で。計画 §8)。
+//
+// 一度でも切り替えた端末は保存値が優先されるので、OFF にしてある端末が
+// 勝手に ON へ戻ることはない (parseLivePreviewPref は '0' を尊重する)
+export const LIVE_PREVIEW_DEFAULT = true
 
 // 保存されていない・読めない・知らない値はすべて既定に倒す
 // (localStorage は外部入力として扱う)
