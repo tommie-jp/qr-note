@@ -34,6 +34,31 @@ function quizBody(source: string): string | null {
   return body.join("\n");
 }
 
+// 「問」と選択肢の中身を取り出すための最小の網 (quizParse.ts と同じ書式を見る。
+// あちらの規則を借りるのではなく**中身が空かどうかだけ**を見るので、
+// 全角コロン・全角数字まで含めた本判定は parseQuiz に任せたままでよい)
+const QUESTION_LINE = /^問\s*[:：]\s*(.*)$/;
+const CHOICE_LINE = /^ {0,3}[0-9０-９]\s*[.．]\s*(.*)$/;
+
+// 書式メニューが入れた雛形のまま (まだ何も書いていない) か。
+//
+// **「問」と選択肢がどちらも空**であることを条件にする。雛形は `正解: 1` を
+// 埋めた状態で入るので「全部空」では判定できず、逆に利用者が書き始めるのは
+// 必ず問か選択肢なので、この 2 つを見れば「手が入ったか」が判る
+export function isUntouchedTemplate(body: string): boolean {
+  const lines = body.split("\n");
+  const question = lines
+    .map((line) => QUESTION_LINE.exec(line)?.[1])
+    .find((v) => v !== undefined);
+  if (question === undefined || question.trim() !== "") {
+    return false;
+  }
+  const choices = lines
+    .map((line) => CHOICE_LINE.exec(line)?.[1])
+    .filter((v): v is string => v !== undefined);
+  return choices.length > 0 && choices.every((c) => c.trim() === "");
+}
+
 export const quizLinter = linter((view: EditorView): Diagnostic[] => {
   const diagnostics: Diagnostic[] = [];
   syntaxTree(view.state).iterate({
@@ -48,6 +73,19 @@ export const quizLinter = linter((view: EditorView): Diagnostic[] => {
       // **書き始めの空フェンスは叱らない。** ```quiz と打った直後は必ず
       // 空で、そこで「問: がありません」と出るのは急かしているだけ
       if (body.trim() === "") {
+        return;
+      }
+      // **書式メニューで入れた雛形も叱らない。** 骨組みだけを置いた状態で
+      // 「問: の中身が空です」と出るのは、入れた瞬間に赤を突きつけるのと
+      // 同じ。何も書いていないのは間違いではなく、まだ書いていないだけ
+      if (isUntouchedTemplate(body)) {
+        return;
+      }
+      // **書いている最中のフェンスも叱らない。** カーソルがこのフェンスの
+      // 中にある間は、まだ手が入っている途中。この feature の他の部品
+      // (表・図・数式) と同じ線引きで、離れたときに見せる
+      const { from: selFrom, to: selTo } = view.state.selection.main;
+      if (selFrom <= node.to && selTo >= node.from) {
         return;
       }
       const result = parseQuiz(body);
