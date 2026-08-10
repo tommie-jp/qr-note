@@ -112,7 +112,13 @@ export function SlotMenu({
         aria-label={label}
         // max-w … 端のスロットで画面外へはみ出さないための保険
         // (はみ出すと横スクロールが出る)
-        className="flex w-max max-w-[80vw] flex-col overflow-hidden rounded-lg border border-gray-300 bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.18)] motion-safe:animate-sheet-up"
+        //
+        // max-h + overflow-y-auto … **項目が増えたときの保険**。この帯は
+        // 画面の下端にあり、メニューは上へ開く。書式メニューのように 10 行を
+        // 超えると、スマホの縦では画面の上へ突き抜けて先頭の項目に届かなく
+        // なる。届かない項目は無いのと同じなので、中でスクロールさせる
+        // (下部バーの 3 行メニューはここに当たらない)
+        className="flex max-h-[60vh] w-max max-w-[80vw] flex-col overflow-y-auto overscroll-contain rounded-lg border border-gray-300 bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.18)] motion-safe:animate-sheet-up"
       >
         {children}
       </div>
