@@ -16,7 +16,28 @@ export type FormatAction =
   | "heading"
   | "bullet"
   | "task"
-  | "quote";
+  | "quote"
+  | "quiz";
+
+// ```quiz の雛形 (docs/58-CBT問題集計画.md §2)。
+//
+// **行指向の記法は iPhone で手打ちするために選んだもの**だが、それでも
+// キーワードと選択肢の番号を毎回打つのは重い。骨組みを入れて中身だけ
+// 埋められるようにする。選択肢を 2 つにしてあるのは最少構成 — 足りなければ
+// 行を増やすほうが、余った行を消すより楽
+const QUIZ_TEMPLATE = [
+  "```quiz",
+  "問: ",
+  "1. ",
+  "2. ",
+  "正解: 1",
+  "解説: ",
+  "```",
+].join("\n");
+
+// 雛形を入れたあとカーソルを置く場所 (「問: 」の直後)。
+// いちばん先に書くところへ落とすと、そのまま打ち始められる
+const QUIZ_CURSOR_OFFSET = "```quiz\n問: ".length;
 
 // 囲む記法。**斜体 (`*`) は入れていない** — 太字 `**` と前後が重なり、
 // 「`**太字**` に斜体を掛ける」が「星を 1 つずつ剥がして太字を解く」と
@@ -203,7 +224,24 @@ export function formatSpec(
       return toggleWrap(state, WRAP_MARKER[action]);
     case "heading":
       return cycleHeading(state);
+    case "quiz":
+      return insertQuizTemplate(state);
     default:
       return toggleLinePrefix(state, action);
   }
+}
+
+// 問題の雛形を 1 ブロックとして差し込む。
+//
+// **前が行頭でなければ改行から始める** — フェンスは行頭から始まらないと
+// フェンスにならない。後ろにも改行を足して、続けて書く場所を空けておく
+function insertQuizTemplate(state: EditorState): TransactionSpec {
+  const { from, to } = state.selection.main;
+  const atLineStart = from === state.doc.lineAt(from).from;
+  const prefix = atLineStart ? "" : "\n";
+  const insert = `${prefix}${QUIZ_TEMPLATE}\n`;
+  return {
+    changes: { from, to, insert },
+    selection: { anchor: from + prefix.length + QUIZ_CURSOR_OFFSET },
+  };
 }

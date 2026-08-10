@@ -56,6 +56,7 @@ import {
   livePreviewContent,
 } from "./editor/livePreview";
 import { formatSpec, type FormatAction } from "./editor/markdownFormat";
+import { quizLinter } from "./editor/quizLinter";
 import {
   LIVE_PREVIEW_DEFAULT,
   loadLivePreviewPref,
@@ -669,6 +670,9 @@ export default function MemoEditorInner({
       // circuitikz / mermaid の打ち間違いに警告を出す (補完だけでは
       // 入れ替わり誤字が無反応で確定してしまうため)
       fenceLanguageLinter,
+      // ```quiz の中身の書き方 (docs/58 §2)。間違いに気づく場所が
+      // 閲覧タブまで遠いので、編集中にその場で知らせる
+      quizLinter,
       EditorView.lineWrapping,
       // 旧 textarea の maxLength 相当: 上限を超える変更を受け付けない
       EditorState.changeFilter.of((tr) => tr.newDoc.length <= MAX_TEXT_LENGTH),

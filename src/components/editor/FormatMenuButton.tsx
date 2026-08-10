@@ -40,6 +40,9 @@ const ITEMS: readonly FormatMenuItem[] = [
   { action: "task", label: "チェックボックス", sample: "- [ ]" },
   { action: "quote", label: "引用", sample: ">" },
   { action: "code", label: "コード", sample: "`" },
+  // 雛形の差し込み (付け外しではない)。行指向の記法は手打ち前提だが、
+  // キーワードと選択肢の番号まで毎回打つのは重い (docs/58 §2)
+  { action: "quiz", label: "問題", sample: "quiz" },
 ];
 
 interface FormatMenuButtonProps {
