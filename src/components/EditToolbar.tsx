@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import {
   DrawIcon,
   ImageInsertIcon,
+  LivePreviewIcon,
   LockIcon,
   MicIcon,
   OcrIcon,
@@ -96,6 +97,11 @@ export interface EditToolbarProps {
   // 進捗ラベル (uploadLabel など) と同じく呼び出し側が文字列を作る
   secretLabel: string;
   onSecret: () => void;
+  // ライブプレビューの ON/OFF (docs/70-編集ライブプレビュー計画.md §4)。
+  // 表示の切り替えだけなので busy でも押せる — 本文にもアップロードにも
+  // 触らないため、処理中に止める理由がない
+  livePreview: boolean;
+  onToggleLivePreview: () => void;
   // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
   busy: boolean;
 }
@@ -121,6 +127,8 @@ export function EditToolbar({
   onOcr,
   secretLabel,
   onSecret,
+  livePreview,
+  onToggleLivePreview,
   busy,
 }: EditToolbarProps) {
   return (
@@ -128,7 +136,7 @@ export function EditToolbar({
       {/* ← → の右に固定する主ボタン */}
       <SubmitBarButton onSubmit={onSubmit} />
 
-      {/* 残り 7 つは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる */}
+      {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる */}
       <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
         <button
           type="button"
@@ -239,6 +247,20 @@ export function EditToolbar({
             <LockIcon />
           </ToolIcon>
           {secretLabel}
+        </button>
+        {/* 表示の切り替えなので busy でも押せる (本文にも通信にも触らない)。
+            帯の末尾に置くのは、一度決めたらあまり動かさない設定だから —
+            打鍵中に使う挿入系のボタンを、スクロールの奥へ押しやらない */}
+        <button
+          type="button"
+          onClick={onToggleLivePreview}
+          aria-pressed={livePreview}
+          className={TOOL_SLOT}
+        >
+          <ToolIcon color={livePreview ? "text-blue-600" : "text-gray-500"}>
+            <LivePreviewIcon />
+          </ToolIcon>
+          {livePreview ? "記法を表示" : "装飾表示"}
         </button>
       </div>
     </>

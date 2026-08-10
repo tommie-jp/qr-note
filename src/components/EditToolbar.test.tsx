@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { EditToolbar } from "./EditToolbar";
 
-// 静的描画で 9 ボタン (更新 + 8 ツール) が出ることを確かめる。ラベルは呼び出し側
+// 静的描画で 11 ボタン (更新 + 10 ツール) が出ることを確かめる。ラベルは呼び出し側
 // (MemoEditorInner) が progressLabels で作った文字列をそのまま受けるので、
 // ここでは代表値を渡す。押下時の挙動 (portal・requestSubmit・録音等) はブラウザで確認。
 const noop = () => {};
@@ -30,12 +30,14 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       onOcr={noop}
       secretLabel="秘密"
       onSecret={noop}
+      livePreview={false}
+      onToggleLivePreview={noop}
       busy={false}
       {...overrides}
     />,
   );
 
-test("更新 と 8 つのツールをすべて描く", () => {
+test("更新 と 10 のツールをすべて描く", () => {
   const html = render();
   for (const label of [
     "更新",
@@ -48,9 +50,21 @@ test("更新 と 8 つのツールをすべて描く", () => {
     "お絵かき",
     "画像をOCR",
     "秘密",
+    "装飾表示",
   ]) {
     expect(html).toContain(label);
   }
+});
+
+// ライブプレビューの切り替え (docs/70-編集ライブプレビュー計画.md §4)。
+// ボタンの文字は**次に何が起きるか**を言う: OFF なら「装飾表示」(押すと装飾に
+// なる)、ON なら「記法を表示」(押すと生記法に戻る)
+test("ライブプレビューの ON/OFF で文字と押下状態が変わる", () => {
+  expect(render({ livePreview: false })).toContain("装飾表示");
+
+  const on = render({ livePreview: true });
+  expect(on).toContain("記法を表示");
+  expect(on).toContain('aria-pressed="true"');
 });
 
 test("進捗ラベルはそのまま表示する (アップロード%・OCR件数など)", () => {

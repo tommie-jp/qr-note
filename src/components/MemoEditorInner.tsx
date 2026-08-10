@@ -4,6 +4,7 @@ import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
+import "@atomic-editor/editor/styles.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import dynamic from "next/dynamic";
 import {
@@ -45,6 +46,15 @@ import {
 } from "@/lib/secrets";
 import { fenceLanguageCompletion } from "./fenceCompletion";
 import { fenceLanguageLinter } from "./fenceLinter";
+import {
+  createLivePreviewCompartment,
+  livePreviewContent,
+} from "./editor/livePreview";
+import {
+  LIVE_PREVIEW_DEFAULT,
+  loadLivePreviewPref,
+  saveLivePreviewPref,
+} from "@/lib/livePreviewPref";
 import {
   disposeOcr,
   isOcrReady,
@@ -298,6 +308,26 @@ const BASIC_SETUP = {
 let uploadSeq = 0;
 let ocrSeq = 0;
 
+// ライブプレビューの設定の読み書き (docs/70-編集ライブプレビュー計画.md §4)。
+// **window.localStorage を触ること自体が例外になる**ブラウザがある
+// (Cookie を全面禁止した Chrome など)。判定・整形は lib 側の純関数が持ち、
+// ここは「触れない環境でも編集は従来どおりできる」ための包みだけを足す
+function readLivePreviewPref(): boolean {
+  try {
+    return loadLivePreviewPref(window.localStorage);
+  } catch {
+    return LIVE_PREVIEW_DEFAULT;
+  }
+}
+
+function writeLivePreviewPref(enabled: boolean): void {
+  try {
+    saveLivePreviewPref(window.localStorage, enabled);
+  } catch {
+    // 覚えられなくても、その場の切り替えは効いている
+  }
+}
+
 interface InsertFilesOptions {
   // 音声の画像記法に入れる alt。録音は日時を残したいので上書きする
   // (ファイル選択・ペースト由来の音声は既定の "audio" のまま)
@@ -361,6 +391,11 @@ export default function MemoEditorInner({
   // ツールバーに出す文字。カーソルが記法の上なら「秘密を編集」に変わる
   // (docs/52 §1)。押した先の分岐は openSecret が持つので、これは見た目だけ
   const [secretLabel, setSecretLabel] = useState("秘密");
+  // ライブプレビュー (docs/70-編集ライブプレビュー計画.md)。記法を隠して
+  // 装飾済みに見せる表示で、**本文は書き換えない**。OFF は従来の編集表示。
+  // この部品は ssr: false で読み込まれる (MemoEditor.tsx) ので、初期値を
+  // localStorage から同期に読んでも hydration はずれない
+  const [livePreview, setLivePreview] = useState(readLivePreviewPref);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -586,13 +621,18 @@ export default function MemoEditorInner({
     }
   };
 
-  const extensions = useMemo(() => {
+  // 拡張一式と、ライブプレビューの差し替え口を**一緒に**組む。
+  // Compartment をここで作るのは、拡張と寿命を揃えるため — 外で作って
+  // 配列の中から参照すると、拡張を組む useMemo の依存に載ってしまう
+  // (載せれば切り替えのたびに全再構成、載せなければ lint が鳴る)
+  const { extensions, livePreviewCompartment } = useMemo(() => {
+    const livePreviewCompartment = createLivePreviewCompartment();
     // markdown() は内部で新しい言語インスタンスを作ってそこに組み込み補完を
     // 登録する。export される markdownLanguage は別インスタンスのため、
     // そちらに登録しても効かない (バンドル環境で languageDataAt に載らない)。
     // markdown() が返した当のインスタンス (md.language) に登録する
     const md = markdown();
-    return [
+    const extensions = [
       md,
       // ```<言語> の補完 (basicSetup が autocompletion を既定で有効化済み)。
       // override せず language data 経由で登録し、組み込み補完と共存させる
@@ -603,6 +643,13 @@ export default function MemoEditorInner({
       EditorView.lineWrapping,
       // 旧 textarea の maxLength 相当: 上限を超える変更を受け付けない
       EditorState.changeFilter.of((tr) => tr.newDoc.length <= MAX_TEXT_LENGTH),
+      // ライブプレビューの差し込み口。中身の入れ替えは reconfigure で行い、
+      // この配列の**参照は変えない** (参照が変わると拡張一式が組み直される)。
+      //
+      // ここでは常に空 (= OFF) で始め、覚えてある設定は下の effect が
+      // マウント直後に入れ直す。初期値をここで読まないのは、拡張を組むのが
+      // 描画中で、そこから localStorage を読むと React の作法から外れるため
+      livePreviewCompartment.of(livePreviewContent(false)),
       EditorView.domEventHandlers({
         paste: (event, view) => {
           const files = pickFiles(event.clipboardData?.files);
@@ -635,8 +682,38 @@ export default function MemoEditorInner({
         },
       }),
     ];
+    return { extensions, livePreviewCompartment };
     // insertImages は ref と state セッターのみ参照するため再生成不要
   }, []);
+
+  // 覚えてあるライブプレビューの設定を、エディタが出来た直後に入れ直す。
+  // 拡張は常に OFF で組んである (上) ので、ON のときだけ 1 回入れ替える。
+  // CodeMirror 本体は子なので、この effect の時点で view は出来ている
+  useEffect(() => {
+    // ここでの livePreview はマウント時の値 = localStorage から読んだ設定
+    if (!livePreview) {
+      return;
+    }
+    editorRef.current?.view?.dispatch({
+      effects: livePreviewCompartment.reconfigure(livePreviewContent(true)),
+    });
+    // マウント時に一度だけ (以後の切り替えは toggleLivePreview が行う)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ライブプレビューの ON/OFF。Compartment の中身だけを入れ替えるので、
+  // 拡張一式の組み直しも本文への書き込みも起きない (履歴に 1 手も積まれない)
+  const toggleLivePreview = () => {
+    const next = !livePreview;
+    setLivePreview(next);
+    writeLivePreviewPref(next);
+    const view = editorRef.current?.view;
+    if (view) {
+      view.dispatch({
+        effects: livePreviewCompartment.reconfigure(livePreviewContent(next)),
+      });
+    }
+  };
 
   // undo / redo をボタンから呼ぶ。モバイルには Ctrl+Z がないため
   const runHistoryCommand = (command: (view: EditorView) => boolean) => {
@@ -999,6 +1076,8 @@ export default function MemoEditorInner({
             onOcr={() => void runOcrAtCursor()}
             secretLabel={secretLabel}
             onSecret={openSecret}
+            livePreview={livePreview}
+            onToggleLivePreview={toggleLivePreview}
             busy={busy}
           />,
           hostEl,

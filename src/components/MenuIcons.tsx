@@ -474,6 +474,19 @@ export function LockIcon() {
   );
 }
 
+// ライブプレビューの切り替え (docs/70-編集ライブプレビュー計画.md §4)。
+// 「記法が装飾に変わる」ことを、大小 2 段の文字組み + 下線で表す。
+// 目のアイコン (プレビュー) にしないのは、この画面では「閲覧に切り替える」
+// (markdown タブ) と紛らわしいため — 切り替わるのは編集中の見え方だけ
+export function LivePreviewIcon() {
+  return (
+    <StrokeIconLarge>
+      <path d="M4 8h7M4 12h7M4 16h4" />
+      <path d="M15 16V8h2.5a2.5 2.5 0 0 1 0 5H15" />
+    </StrokeIconLarge>
+  );
+}
+
 // ゴミ箱 (docs/66-行アクション計画.md §6)。
 //
 // **色は持たせず currentColor のまま置く。** 上のメニュー用アイコンと違い、

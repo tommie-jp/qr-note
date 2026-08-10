@@ -314,3 +314,59 @@ select,
 .textLayer ::selection {
   background: rgb(0 90 255 / 0.25);
 }
+
+/* 編集画面のライブプレビューで出す添付チップ
+   (docs/70-編集ライブプレビュー計画.md §5)。
+
+   CodeMirror の WidgetType が React の外で組む素の DOM なので、Tailwind の
+   ユーティリティではなくここに書く。**高さを固定する**のが要点 — 画像の
+   読み込み前後で行の高さが動くと、打鍵中に文字が飛び、iOS では慣性
+   スクロールが途切れる (atomic-editor が行高不変を設計原則にしている理由)。 */
+.cm-qr-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-width: 100%;
+  height: 2rem;
+  margin: 0.125rem 0;
+  padding: 0 0.5rem 0 0.25rem;
+  border: 1px solid var(--color-gray-300, #d1d5db);
+  border-radius: 0.375rem;
+  background: var(--color-gray-50, #f9fafb);
+  cursor: pointer;
+  /* 記法の行より一段引いて見せる (本文そのものではなく添付の印なので) */
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: var(--color-gray-700, #374151);
+}
+
+/* シークレットだけ色を変える。閲覧側 (SecretBlock) と揃えて、
+   「ここは中身が見えていない」ことを一目で判るようにする */
+.cm-qr-attachment[data-kind="secret"] {
+  border-color: var(--color-amber-300, #fcd34d);
+  background: var(--color-amber-50, #fffbeb);
+  color: var(--color-amber-800, #92400e);
+}
+
+/* 実物は正方形の枠に収める。原寸で出さないので、縦横比の違う画像が
+   並んでも行の高さは変わらない (実寸で見たいときは markdown タブがある) */
+.cm-qr-attachment-thumb {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.25rem;
+  object-fit: cover;
+  flex: none;
+}
+
+.cm-qr-attachment-glyph {
+  width: 1.25rem;
+  text-align: center;
+  flex: none;
+}
+
+/* 長いファイル名で帯が伸びないよう、はみ出しは省略する */
+.cm-qr-attachment-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
