@@ -53,8 +53,10 @@ export interface StoreAttachmentOptions extends SaveImageOptions {
   // 1 件あたりの上限 (既定: MAX_IMAGE_BYTES = 10MB)。
   //
   // 既定値は **HTTP でアップロードする経路の都合**で決まっている — エッジ
-  // (Caddyfile / deploy/nginx) のボディ上限 12MB に収まる大きさ。DB に
-  // 置ける大きさの上限ではない。
+  // (Caddyfile / deploy/nginx) のボディ上限 35MB と、Next.js が proxy 経由の
+  // 本文を複製できる量 (next.config.ts の proxyClientMaxBodySize = 31MB) に
+  // 収まる大きさ。**その枠を丸ごと使うのは動画だけ**で、画像・音声・PDF・
+  // テキストはここで 10MB に絞る。DB に置ける大きさの上限ではない。
   //
   // ファイルから直接読む一括取り込み (scripts/importEnex.ts) は HTTP を
   // 通らないので、この制限を課す理由がない。実際、iPhone の写真は 10MB を
