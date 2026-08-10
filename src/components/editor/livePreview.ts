@@ -11,6 +11,7 @@
 import { Compartment, type Extension } from "@codemirror/state";
 import { inlinePreview } from "@atomic-editor/editor";
 import { attachmentBlocks } from "./attachmentBlocks";
+import { tableBlocks } from "./tableBlocks";
 
 // 拡張の入れ替え口。**配列ごと差し替えない**のが要点 —
 // @uiw/react-codemirror は extensions の**参照**が変わるたびに拡張一式を
@@ -33,9 +34,9 @@ export function createLivePreviewCompartment(): Compartment {
 // 必ず対で入れる — 片方だけだと添付が消えるか、二重に描かれる。
 //
 // 組まないもの (@atomic-editor/editor は別 export なので単に呼ばない):
-//   - tables … contenteditable のセルから本文へ**書き戻す**機能。
-//     「本文を書き換えない」という前提から外れるので、undo との整合を
-//     確かめてから判断する (計画 §7)
+//   - tables … contenteditable のセルから本文へ**書き戻す**機能。書き戻しの
+//     たびに寄せ (`:---:`) が潰れ、テーブル全体が整形しなおされるので採らない
+//     (計画 §7)。代わりに読み取り専用の tableBlocks を自前で持つ
 //   - wikiLinks / highlightMarkdown … `[[ ]]` と `==` はこの本文に無い記法。
 //     入れると余計な解釈が増えるだけ
 export function livePreviewExtension(): Extension {
@@ -49,6 +50,8 @@ export function livePreviewExtension(): Extension {
       },
     }),
     attachmentBlocks(),
+    // カーソルの無いテーブルを表として描く (読み取り専用。tableBlocks.ts)
+    tableBlocks(),
   ];
 }
 

@@ -377,3 +377,35 @@ select,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 編集画面のライブプレビューで出す表 (docs/70-編集ライブプレビュー計画.md §7)。
+   読み取り専用 — カーソルが入れば生の markdown に戻る。
+
+   CodeMirror の WidgetType が React の外で組む素の DOM なので、Tailwind の
+   ユーティリティではなくここに書く (添付チップと同じ事情)。 */
+.cm-qr-table {
+  /* 幅の広い表は表の中だけ横にスクロールさせる。本文ごと横に伸ばすと
+     エディタの折り返しが壊れる (コードブロックと同じ作法) */
+  overflow-x: auto;
+  margin: 0.25rem 0;
+}
+
+.cm-qr-table table {
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.cm-qr-table th,
+.cm-qr-table td {
+  border: 1px solid var(--color-gray-300, #d1d5db);
+  padding: 0.25rem 0.5rem;
+  /* 原文どおりの見た目を保つため、セルの中では折り返さない。
+     はみ出す分は上の overflow-x に任せる */
+  white-space: nowrap;
+}
+
+.cm-qr-table th {
+  background: var(--color-gray-50, #f9fafb);
+  font-weight: 600;
+}
