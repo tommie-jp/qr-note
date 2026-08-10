@@ -450,3 +450,49 @@ select,
   margin: 0.25rem 0;
   text-align: center;
 }
+
+/* @atomic-editor/editor は**暗色テーマ前提**で、色をすべて CSS 変数の
+   既定値 (暗色) から取る。この app は明色なので、変数を明色側に定義し直す
+   (docs/70-編集ライブプレビュー計画.md §4)。
+
+   個別の規則を上書きするのではなく変数を与えるのが要点 — 規則を狙い撃ちすると
+   パッケージ側の更新で当たらなくなるが、変数はあちらの拡張点そのもの。
+
+   いちばん困るのはフェンス (```mermaid など) の背景で、既定は #2d2d2d 相当。
+   明色の本文の中に黒い帯が出て、中の文字が読めなかった (実機で報告) */
+.cm-editor {
+  --atomic-editor-bg: transparent;
+  --atomic-editor-bg-surface: var(--color-gray-50, #f9fafb);
+  --atomic-editor-bg-panel: #fff;
+  --atomic-editor-fg: var(--color-gray-900, #111827);
+  --atomic-editor-fg-muted: var(--color-gray-600, #4b5563);
+  --atomic-editor-fg-faint: var(--color-gray-400, #9ca3af);
+  --atomic-editor-border: var(--color-gray-300, #d1d5db);
+
+  /* フェンスの帯。本文と地続きに見える薄い灰色 + 左の細い罫 */
+  --atomic-editor-code-bg: var(--color-gray-100, #f3f4f6);
+  --atomic-editor-code-rail: var(--color-gray-400, #9ca3af);
+
+  /* リンクと強調は本文 (prose) の青に合わせる */
+  --atomic-editor-accent: var(--color-blue-600, #2563eb);
+  --atomic-editor-accent-bright: var(--color-blue-700, #1d4ed8);
+  --atomic-editor-accent-soft: var(--color-blue-100, #dbeafe);
+  --atomic-editor-link: var(--color-blue-700, #1d4ed8);
+  --atomic-editor-link-hover: var(--color-blue-800, #1e40af);
+
+  /* 構文色。既定は暗い背景に載せる明るい色で、白地では薄すぎて読めない。
+     明度を落として明色の地に合わせる */
+  --atomic-editor-hl-keyword: #7c3aed;
+  --atomic-editor-hl-string: #047857;
+  --atomic-editor-hl-number: #b45309;
+  --atomic-editor-hl-comment: var(--color-gray-500, #6b7280);
+  --atomic-editor-hl-function: #1d4ed8;
+  --atomic-editor-hl-variable: var(--color-gray-800, #1f2937);
+  --atomic-editor-hl-property: #0e7490;
+  --atomic-editor-hl-type: #b45309;
+  --atomic-editor-hl-tag: #be123c;
+  --atomic-editor-hl-operator: var(--color-gray-600, #4b5563);
+  --atomic-editor-hl-regexp: #be123c;
+  --atomic-editor-hl-escape: #be123c;
+  --atomic-editor-hl-invalid: var(--color-red-600, #dc2626);
+}
