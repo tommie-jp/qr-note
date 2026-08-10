@@ -101,6 +101,11 @@ export default async function RootLayout({
   // 完全なクラス名を両方書いて選ぶこと
   const isProd = isProductionEnv();
 
+  // ヘッダーの帯の地色。ハンバーガーボタンにも同じ色を渡す — 帯は横スクロール
+  // するようになり、貼り付いたままのボタンの下を文字が潜るので、ボタン側にも
+  // 同じ地色が要る。2 か所に書き分けると片方だけ変えた日に文字が透ける
+  const headerBgClass = isProd ? "bg-white/95" : "bg-pink-100/95";
+
   // デモインスタンスの目印 (docs/38-デモモード計画.md §6)。バナー・バッジ・
   // 設定系リンクの出し分けに使う。デモは本番相当で立てるので isProd とは独立
   const isDemo = isDemoMode();
@@ -131,8 +136,8 @@ export default async function RootLayout({
             本文はほぼ白いカードで覆われるため、body の色より常時見えている
             この帯の色のほうが「本番ではない」ことに気づく主な手がかりになる */}
         <header
-          className={`sticky top-0 z-20 border-b backdrop-blur print:hidden ${
-            isProd ? "border-gray-200 bg-white/95" : "border-pink-300 bg-pink-100/95"
+          className={`sticky top-0 z-20 border-b backdrop-blur print:hidden ${headerBgClass} ${
+            isProd ? "border-gray-200" : "border-pink-300"
           }`}
         >
           {/* 帯は低く抑える。ボタン側が min-h-11 (44px) を負のマージンで
@@ -143,16 +148,36 @@ export default async function RootLayout({
           {/* landscape-phone:max-w-4xl … スマホ横持ちでは 672px の器の外に
               遊びの余白ができるだけなので、上限を緩めて全幅を使う
               (main・下部バーと揃える。docs/31 §12-4) */}
-          {/* flex-wrap … テキストサイズを上げると帯の中身 (サイト名・版・
-              目印・ユーザー名) が 1 行に収まらなくなる (docs/61 §1)。
-              折り返さないと画面ごと横スクロールになるので、帯が 2 行に
-              なるほうを取る — 縦に伸びるのは見えるが、横スクロールは
-              「なぜか右にずれる」形で気づきにくい */}
-          <div className="mx-auto flex max-w-2xl flex-wrap items-baseline gap-2 px-safe pt-safe landscape-phone:max-w-4xl">
+          {/* **帯は必ず 1 行。収まらない分は帯の中だけ横へ送る** (docs/11 §6-5)。
+              以前は flex-wrap で 2 行にしていた (docs/61 §1)。「横スクロールは
+              なぜか右にずれる形で気づきにくい」という理由だったが、それは
+              **ページごと**横にずれる場合の話で、ここで動くのは帯の中身だけ。
+              LOCAL の目印やテキストサイズ拡大のたびに帯が 2 行へ伸び、本文が
+              下へ押し出されるほうが目に付く。
+              overscroll-x-contain … 端まで送った勢いがブラウザの「戻る」に
+              化けないようにする (ItemTags と同じ)。
+              [scrollbar-width:none] … **ここだけは隠す。** ItemTags は
+              「隠すと PC で『まだ右にある』合図が消える」として細く出しているが、
+              この器のスクロール窓は下の pb-3 のぶん帯より 12px 低く、古典的な
+              スクロールバー (PC) は**帯の外・本文の上**に浮いて描かれる。
+              置き場所の無いバーを出すくらいなら出さないほうを取る (右端で
+              文字が切れていること自体が合図になる)。
+              [&>*]:shrink-0 … 縮めずに溢れさせる。既定のままだと文字が潰れて
+              そもそもスクロールが要らない形に詰められてしまう。
+              pb-3 -mb-3 … **overflow-x を指定すると overflow-y は visible から
+              auto に計算される。** 下へはみ出している物 (ハンバーガーの -mb-3、
+              HistoryNav の -my-1.5) がそのままだとスクロール可能領域になり、
+              帯に縦スクロールバーが出る。pb-3 で内側へ入れて、同じ幅の -mb-3 で
+              帯の高さを元に戻す (見た目の高さは従来どおり)。
+              左パディングが無いのは、ハンバーガーが sticky left-0 で貼り付く
+              ため — 器に左余白が残ると、スクロール開始の瞬間にボタンだけ
+              その幅ぶん左へ飛ぶ。左の safe-area はボタン自身が padding で持つ */}
+          <div className="mx-auto flex max-w-2xl items-baseline gap-1.5 overflow-x-auto overscroll-x-contain pt-safe pr-safe pb-3 -mb-3 [scrollbar-width:none] landscape-phone:max-w-4xl [&>*]:shrink-0">
             {/* 項目はハンバーガーメニューへ畳む (docs/11-アプリ的UIUX計画.md §6)。
                 横に並べていたときは iPhone の幅で 1 文字ずつ折り返れて崩れた。
-                左端に置くのは、片手持ちの親指が届く側だから */}
-            <HeaderMenu>
+                左端に置くのは、片手持ちの親指が届く側だから。帯が横へ動いても
+                ここだけは貼り付いたまま残る (sticky) */}
+            <HeaderMenu bgClass={headerBgClass}>
               <HeaderQrButton
                 qrDataUrl={siteQrDataUrl}
                 url={siteUrl}

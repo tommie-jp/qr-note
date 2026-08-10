@@ -9,7 +9,7 @@ import { HeaderMenu } from "./HeaderMenu";
 // 固定はブラウザで実物を通して確認する (docs/11-アプリ的UIUX計画.md §6)。
 const render = () =>
   renderToStaticMarkup(
-    <HeaderMenu>
+    <HeaderMenu bgClass="bg-white/95">
       <a href="/logs">ログ</a>
     </HeaderMenu>,
   );

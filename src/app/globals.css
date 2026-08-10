@@ -150,6 +150,13 @@ select,
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
+/* 右だけの版。ヘッダーの帯は左の余白をハンバーガーボタン自身の padding として
+   持たせている (器に左パディングを残すと、横スクロールを始めた瞬間に
+   sticky のボタンがその幅ぶん左へ飛ぶ)。左を捨てる代わりにこちらを使う */
+@utility pr-safe {
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
 @utility pb-safe {
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }

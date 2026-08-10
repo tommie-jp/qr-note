@@ -23,7 +23,18 @@ import { createPortal } from "react-dom";
 // 中身は children で受け取る。こうすると HeaderMenu 自身はログイン状態を
 // 知らずに済み、layout.tsx (Server Component) が項目を組み立てられる
 // (LogoutButton などのクライアント側の部品もそのまま入れられる)。
-export function HeaderMenu({ children }: { children: React.ReactNode }) {
+//
+// bgClass はヘッダーの帯と同じ地色。帯は 1 行に収めるため横スクロールする
+// ようになり (layout.tsx)、この開閉ボタンだけが sticky で貼り付いて残る。
+// 下をサイト名や版が潜っていくので、同じ色で塞がないと文字が透ける。
+// 色を自前で持たず受け取るのは、帯と 2 か所に書き分けないため
+export function HeaderMenu({
+  children,
+  bgClass,
+}: {
+  children: React.ReactNode;
+  bgClass: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -66,8 +77,18 @@ export function HeaderMenu({ children }: { children: React.ReactNode }) {
 
   return (
     // flex にしておくこと。block のままだとボタンは行ボックスに乗るため、
-    // 下の負マージンが高さに効かず帯が縮まない
-    <div className="relative flex">
+    // 下の負マージンが高さに効かず帯が縮まない。
+    //
+    // sticky left-0 … 帯 (layout.tsx の器) が横スクロール容器なので、その中で
+    // 左端に貼り付く。**器の側に左パディングを置かないこと** — 静止位置が
+    // left:0 とずれ、スクロールを始めた瞬間にボタンだけカクッと飛ぶ。
+    // z-index は付けない: 位置指定要素なので、位置指定でない兄弟 (サイト名・
+    // 版・目印) より後に描かれる。ボタン自身の z-40 の意味は下のコメント参照。
+    //
+    // 地色はこの外側 div に置く。高さがちょうど帯 1 本ぶん (= ボタンの
+    // margin box。下の -mb-3 ではみ出した分は含まない) なので、潜ってくる
+    // 文字を過不足なく隠せる。ボタン側に置くと rounded の角から文字が覗く
+    <div className={`sticky left-0 flex ${bgClass}`}>
       <button
         ref={triggerRef}
         type="button"
@@ -79,12 +100,20 @@ export function HeaderMenu({ children }: { children: React.ReactNode }) {
         // 下に居ると ✕ を押しても覆いがタップを横取りし、この onClick が
         // 動かない。結果的に閉じはする (覆いが閉じる) が、押した物と
         // 動いた物が食い違う状態になり、開閉が二重に走る余地も残る
-        // -mb-2 … 44px のタップ目標は保ったまま、帯の高さへの寄与だけ 36px に
+        // -mb-3 … 44px のタップ目標は保ったまま、帯の高さへの寄与だけ 32px に
         // 減らす。はみ出しは下向きだけにすること。上へ伸ばすと standalone で
         // ステータスバーに潜り込む
         // text-lg … サイト名と同じ文字サイズにして、下の 1cap (= 大文字の高さ)
         // がサイト名の Q と同じ寸法を指すようにする
-        className="relative z-40 -mb-3 inline-flex min-h-11 items-center rounded px-2 text-lg text-gray-500 transition-colors hover:text-gray-900 active:bg-gray-100"
+        // pl-[max(0.75rem,…)] … 帯の器から外した左の safe-area をここで見る。
+        // 下限は器の 1rem より詰めた 0.75rem — 線が画面左端から 12px の位置に
+        // 来る。**当たり判定は x=0 から始まる**ので、端に指が触れれば当たる。
+        // pr-1 … 右は 4px まで詰める。器の gap-1.5 と合わせて、線とアプリ
+        // アイコンの隙間は 10px (以前は px-2 + gap-2 で 16px)。
+        // **幅を 44px へ広げない。** 広げると線の右に死に幅ができ、アプリ
+        // アイコンが逆に遠のく。左端に接しているぶん、幅 35px でも以前
+        // (16px 内側から始まる 35px) より当てやすい
+        className="relative z-40 -mb-3 inline-flex min-h-11 items-center rounded pl-[max(0.75rem,env(safe-area-inset-left))] pr-1 text-lg text-gray-500 transition-colors hover:text-gray-900 active:bg-gray-100"
       >
         {/* アイコンは inline SVG で持つ。この 2 本のためにライブラリを
             足さない (currentColor なので文字色にそのまま追従する)。
