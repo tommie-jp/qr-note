@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { attachmentChip } from './attachmentChip'
+import { thumbUrl } from './memoImages'
 import { DEFAULT_SECRET_LABEL } from './secrets'
 
 // このチップが要るのは、ライブプレビューが画像記法の生文字を隠すから
@@ -10,11 +11,32 @@ import { DEFAULT_SECRET_LABEL } from './secrets'
 // SECRET_NAME_PATTERN)。形の違うものはシークレットとして扱われない
 const SECRET_SRC = '/api/secrets/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d'
 
+// 自前の画像の保存名はサーバが振った UUID + 拡張子 (uploads.ts)
+const IMAGE_NAME = '0421547b-ee29-4613-a6d4-da0f41f94054.png'
+const IMAGE_SRC = `/api/images/${IMAGE_NAME}`
+
 describe('attachmentChip', () => {
-  test('画像はサムネイルを出す', () => {
-    const chip = attachmentChip('/api/images/abc.png', '')
+  test('画像は縮小版 (?thumb=1) を出す', () => {
+    // 原寸は 1 枚数 MB ありうる。1.75rem の箱のために原寸を落とすと、
+    // 写真 10 枚のノートを開いただけで数十 MB を引くことになる
+    const chip = attachmentChip(IMAGE_SRC, '')
     expect(chip.kind).toBe('image')
-    expect(chip.thumbnailUrl).toBe('/api/images/abc.png')
+    expect(chip.thumbnailUrl).toBe(thumbUrl(IMAGE_NAME))
+  })
+
+  test('外部の画像は取りに行かない', () => {
+    // 編集画面を開くだけで第三者へ要求が飛ぶ。一覧プレビュー
+    // (NotePreviewThumb) が外部画像をチップ止まりにするのと同じ方針
+    const chip = attachmentChip('https://example.com/photo.png', '写真')
+    expect(chip.kind).toBe('image')
+    expect(chip.thumbnailUrl).toBeNull()
+  })
+
+  test('保存名の形をしていない自前 URL も取りに行かない', () => {
+    // 本文は手で書けるので、書式外れの URL が入りうる。?thumb=1 を付けても
+    // 配信側が 400 で断るだけなので、はじめから出さない
+    const chip = attachmentChip('/api/images/abc.png', '')
+    expect(chip.thumbnailUrl).toBeNull()
   })
 
   test('音声はサムネイルを出さない', () => {
@@ -56,6 +78,20 @@ describe('attachmentChip', () => {
     expect(attachmentChip('/api/images/abc.mp3', '').label).toBe('音声')
     expect(attachmentChip('/api/images/abc.pdf', '').label).toBe('PDF')
     expect(attachmentChip('/api/images/abc.png', '').label).toBe('画像')
+  })
+
+  test('alt の幅記法はラベルから剥がす', () => {
+    // `![図|200](url)` の 200 は表示幅の指定 (altWidth.ts)。剥がさないと
+    // チップに「図|200」と出る。閲覧・一覧プレビューは既に剥がしている
+    expect(attachmentChip(IMAGE_SRC, '回路図|200').label).toBe('回路図')
+    expect(attachmentChip('/api/images/abc.pdf', '仕様書|80').label).toBe(
+      '仕様書',
+    )
+  })
+
+  test('幅記法だけの alt は種別の名前に落とす', () => {
+    // `![|200](url)` は幅だけの指定。剥がすとラベルが空になる
+    expect(attachmentChip(IMAGE_SRC, '|200').label).toBe('画像')
   })
 
   test('alt が空白だけでも種別の名前に落とす', () => {

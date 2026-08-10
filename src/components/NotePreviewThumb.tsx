@@ -23,12 +23,12 @@ import {
   BASE_REMARK_PLUGINS,
   blockquoteWithAlert,
   type MarkdownComponentProps,
-  parseAltWidth,
   readFence,
   REMARK_REHYPE_OPTIONS,
   urlTransform,
 } from "./markdownPipeline";
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
+import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { RENDERED_LANGS } from "@/lib/fenceLanguages";
 import { attachmentNameFromUrl, thumbUrl } from "@/lib/memoImages";

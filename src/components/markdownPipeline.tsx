@@ -174,18 +174,9 @@ export function readFence(
 // ここから re-export はしない — 消費側が置き場を直に指すほうが、
 // 「これは Server Component 用の入れ物」という境界が保たれる
 
-// alt 末尾の "|数字" を表示幅 (px) として解釈する独自記法
-// (例: ![スクショ|200](/api/images/x.png))。生 HTML を無効にしたまま画像ごとに
-// 幅を指定できるようにするため。剥がしたラベルはチップの表示名にも使う
-export function parseAltWidth(alt: string | undefined): {
-  label: string;
-  width: number | null;
-} {
-  const match = /^(.*?)\|(\d+)$/.exec(alt ?? "");
-  return match
-    ? { label: match[1], width: Number(match[2]) }
-    : { label: alt ?? "", width: null };
-}
+// alt の幅記法の解釈 (parseAltWidth) は @/lib/altWidth へ移した。
+// classifyImgSrc と同じく編集画面の添付チップ (client) からも読むためで、
+// 経緯は移設先の冒頭に書いた。ここから re-export はしない
 
 // remarkAlerts が刻んだ class を読んでアラートの枠に差し替える (docs/54 §2)。
 // 目印の無い引用 (知らない種類の `[!FOO]` を含む) はただの引用のまま

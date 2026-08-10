@@ -14,7 +14,6 @@ import {
   blockquoteWithAlert,
   linkWithTarget,
   type MarkdownComponentProps,
-  parseAltWidth,
   readFence,
   REMARK_REHYPE_OPTIONS,
   urlTransform,
@@ -26,6 +25,7 @@ import { VideoPlayer } from "./video/VideoPlayer";
 import { TextLink } from "./text/TextLink";
 import { SecretBlock } from "./secret/SecretBlock";
 import { BOX_CLASS } from "./ui";
+import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
 import { CIRCUIT_LANG, MERMAID_LANG, QUIZ_LANG } from "@/lib/fenceLanguages";
