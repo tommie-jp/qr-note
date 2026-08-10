@@ -32,12 +32,13 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       onSecret={noop}
       livePreview={false}
       onToggleLivePreview={noop}
+      onFormat={noop}
       busy={false}
       {...overrides}
     />,
   );
 
-test("更新 と 10 のツールをすべて描く", () => {
+test("更新 と 11 のツールをすべて描く", () => {
   const html = render();
   for (const label of [
     "更新",
@@ -51,9 +52,18 @@ test("更新 と 10 のツールをすべて描く", () => {
     "画像をOCR",
     "秘密",
     "装飾表示",
+    "書式",
   ]) {
     expect(html).toContain(label);
   }
+});
+
+// 書式メニューは押すまで開かない (帯に 6 項目を並べない。docs/70 §6)
+test("書式メニューは既定で閉じている", () => {
+  const html = render();
+  expect(html).toContain('aria-haspopup="menu"');
+  expect(html).toContain('aria-expanded="false"');
+  expect(html).not.toContain("チェックボックス");
 });
 
 // ライブプレビューの切り替え (docs/70-編集ライブプレビュー計画.md §4)。

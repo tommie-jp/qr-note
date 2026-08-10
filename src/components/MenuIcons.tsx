@@ -474,6 +474,17 @@ export function LockIcon() {
   );
 }
 
+// 書式メニュー (docs/70-編集ライブプレビュー計画.md §6)。
+// 大文字の「A」に下線 — 文字に何かを掛ける、の一般的な絵
+export function FormatIcon() {
+  return (
+    <StrokeIconLarge>
+      <path d="M5 15L10 5l5 10M6.5 12h7" />
+      <path d="M4 20h16" />
+    </StrokeIconLarge>
+  );
+}
+
 // ライブプレビューの切り替え (docs/70-編集ライブプレビュー計画.md §4)。
 // 「記法が装飾に変わる」ことを、大小 2 段の文字組み + 下線で表す。
 // 目のアイコン (プレビュー) にしないのは、この画面では「閲覧に切り替える」

@@ -15,6 +15,8 @@ import {
   UndoIcon,
   VideoIcon,
 } from "@/components/MenuIcons";
+import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
+import type { FormatAction } from "@/components/editor/markdownFormat";
 
 // ノート編集の操作を下部バーへ差し込むツールバー (docs/31-下部操作バー計画.md の
 // 続き)。MemoEditorInner が createPortal で PageBottomBar の中へ入れる。
@@ -102,6 +104,9 @@ export interface EditToolbarProps {
   // 触らないため、処理中に止める理由がない
   livePreview: boolean;
   onToggleLivePreview: () => void;
+  // 書式メニュー (docs/70 §6)。選択範囲へ記法を付け外しするだけなので
+  // busy でも押せる (アップロードにも通信にも触らない)
+  onFormat: (action: FormatAction) => void;
   // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
   busy: boolean;
 }
@@ -129,6 +134,7 @@ export function EditToolbar({
   onSecret,
   livePreview,
   onToggleLivePreview,
+  onFormat,
   busy,
 }: EditToolbarProps) {
   return (
@@ -160,6 +166,9 @@ export function EditToolbar({
           </ToolIcon>
           やり直す
         </button>
+        {/* 元に戻す/やり直す の次に置く。打鍵の合間に使うものなので、
+            たまにしか使わない挿入系 (スキャン・画像・録音…) より手前 */}
+        <FormatMenuButton onFormat={onFormat} className={TOOL_SLOT} />
         <button
           type="button"
           onClick={onScan}

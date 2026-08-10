@@ -50,6 +50,7 @@ import {
   createLivePreviewCompartment,
   livePreviewContent,
 } from "./editor/livePreview";
+import { formatSpec, type FormatAction } from "./editor/markdownFormat";
 import {
   LIVE_PREVIEW_DEFAULT,
   loadLivePreviewPref,
@@ -706,6 +707,19 @@ export default function MemoEditorInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 書式メニューで選んだ記法を選択範囲へ掛ける (docs/70 §6)。
+  // 何を変えるかは markdownFormat が決め、ここは反映と後始末だけ。
+  // **focus を戻す**のが要点 — メニューのボタンを押した時点でエディタは
+  // フォーカスを失っており、戻さないと続けて打てない (選択も見えなくなる)
+  const applyFormat = (action: FormatAction) => {
+    const view = editorRef.current?.view;
+    if (!view) {
+      return;
+    }
+    view.dispatch(formatSpec(view.state, action));
+    view.focus();
+  };
+
   // ライブプレビューの ON/OFF。Compartment の中身だけを入れ替えるので、
   // 拡張一式の組み直しも本文への書き込みも起きない (履歴に 1 手も積まれない)
   const toggleLivePreview = () => {
@@ -1083,6 +1097,7 @@ export default function MemoEditorInner({
             onSecret={openSecret}
             livePreview={livePreview}
             onToggleLivePreview={toggleLivePreview}
+            onFormat={applyFormat}
             busy={busy}
           />,
           hostEl,
