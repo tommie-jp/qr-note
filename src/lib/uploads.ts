@@ -577,6 +577,31 @@ export function isValidVideoThumb(bytes: Uint8Array): boolean {
   )
 }
 
+// 「動くサムネ」(docs/72-動画アニメサムネ計画.md) のためにクライアントが送る
+// コマ数の上限。抽出も送信も 1 コマぶんずつ増えるので、増やすほど録画直後の
+// 待ち時間と本文サイズが伸びる。8 コマ x 400ms で約 3.2 秒の紙芝居になる。
+export const MAX_VIDEO_ANIM_FRAMES = 8
+
+// コマ 1 枚の上限バイト。クライアントは 320px の JPEG を出すので実測 15〜30KB
+// で収まり、80KB はその余裕分。
+//
+// **合計が multipart のオーバーヘッド枠 (MULTIPART_OVERHEAD_BYTES = 1MB) に
+// 収まる大きさにしてある**のが要点。8 x 80KB + poster 200KB = 840KB なので、
+// コマを足しても checkUploadRequest の Content-Length 検査 (動画本体の上限 +
+// 1MB) に当たらない。ここを緩めるならあちらも一緒に見直すこと。
+export const MAX_VIDEO_ANIM_FRAME_BYTES = 80 * 1024
+
+// 動くサムネのコマとして受け取ってよいバイト列か。判定の考え方は
+// isValidVideoThumb と同じ (中身で決める / SVG は sniffImageFormat が弾く) で、
+// 上限だけが違う。
+export function isValidVideoAnimFrame(bytes: Uint8Array): boolean {
+  return (
+    bytes.byteLength > 0 &&
+    bytes.byteLength <= MAX_VIDEO_ANIM_FRAME_BYTES &&
+    sniffImageFormat(bytes) !== null
+  )
+}
+
 // --- PDF (docs/12-添付ファイル種類拡張メモ.md) ---
 //
 // PDF も音声と同じく変換もサムネも埋め込みもせず、images テーブルへそのまま

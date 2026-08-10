@@ -41,8 +41,11 @@ export async function GET(
   { params }: RouteContext,
 ): Promise<NextResponse> {
   const { name } = await params
-  const wantThumb =
-    new URL(request.url).searchParams.get('thumb') === '1'
+  const search = new URL(request.url).searchParams
+  const wantThumb = search.get('thumb') === '1'
+  // 動画の「動くサムネ」(docs/72-動画アニメサムネ計画.md)。静止サムネと同じ
+  // ?thumb=1 の口に相乗りするが、返すのは別の列 (thumb_anim)
+  const wantAnim = wantThumb && search.get('anim') === '1'
 
   // 名前の検算が先。この後の isPublicImageName は名前を SQL の
   // position() へ渡すので、書式を確かめてから渡す。
@@ -67,6 +70,24 @@ export async function GET(
     return NextResponse.json(
       { success: false, data: null, error: 'ログインが必要です' },
       { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+
+  // 動くサムネ。**代替を一切しない**のが要点 — 無ければ 404 を返し、表示側は
+  // それを「静止サムネのままでよい」の合図として使う (useAnimThumb.ts)。
+  // 静止サムネで代替すると、表示側は差し替えが効いたのか効かなかったのかを
+  // 見分けられず、生成されていない動画に何度も要求を出し続けることになる
+  if (wantAnim) {
+    const row = await prisma.image.findUnique({
+      where: { name },
+      select: { thumbAnim: true },
+    })
+    if (row?.thumbAnim) {
+      return imageResponse(row.thumbAnim, THUMB_MIME, IMMUTABLE_CACHE)
+    }
+    return NextResponse.json(
+      { success: false, data: null, error: '動くサムネイルがありません' },
+      { status: 404, headers: { 'Cache-Control': FALLBACK_CACHE } },
     )
   }
 

@@ -81,17 +81,35 @@ export async function saveImage(
 // ないため embedding は null のままにする。名前の作り方は saveImage と同じ
 // 「サーバ生成 UUID + 対応拡張子」で、トラバーサル対策を 1 か所に揃える。
 //
-// thumb は動画のときだけ渡る — クライアントが先頭フレームから作った WebP
-// (docs/14 §Phase3)。サーバに ffmpeg を持ち込まずに poster を出すための唯一の
-// 経路。音声・PDF は渡さないので従来どおり null。
+// thumbs は動画のときだけ渡る — クライアントが動画から抜いたコマから作った
+// 静止 poster と動くサムネ (docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
+// サーバに ffmpeg を持ち込まずにサムネを出すための唯一の経路。音声・PDF・
+// テキストは渡さないので従来どおり両方 null。
+export interface PlainAttachmentThumbs {
+  // 静止サムネ (一覧の既定 / <video poster>)
+  thumb?: Uint8Array<ArrayBuffer> | null
+  // 動くサムネ (一覧でホバー中・表示中だけ差し替える)。**静止と独立**に
+  // 渡す — コマが足りずアニメだけ作れないことがあり、そのとき静止まで
+  // 落とすと一覧から絵が消えてしまう
+  thumbAnim?: Uint8Array<ArrayBuffer> | null
+}
+
 export async function savePlainAttachment(
   bytes: Uint8Array<ArrayBuffer>,
   mime: string,
   ext: string,
-  thumb?: Uint8Array<ArrayBuffer> | null,
+  thumbs: PlainAttachmentThumbs = {},
 ): Promise<string> {
   const name = `${randomUUID()}.${ext}`
-  await prisma.image.create({ data: { name, mime, data: bytes, thumb: thumb ?? null } })
+  await prisma.image.create({
+    data: {
+      name,
+      mime,
+      data: bytes,
+      thumb: thumbs.thumb ?? null,
+      thumbAnim: thumbs.thumbAnim ?? null,
+    },
+  })
   return `/api/images/${name}`
 }
 

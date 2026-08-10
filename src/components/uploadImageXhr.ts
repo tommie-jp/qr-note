@@ -6,6 +6,7 @@
 
 import { cappedPercent } from "@/lib/progress";
 import { parseUploadResponse } from "@/lib/uploadResponse";
+import type { VideoThumbs } from "@/lib/video/videoPoster";
 
 // 送信バイトが 100% でもサーバ処理 (HEIC 変換・サムネイル・DB) が残るため、
 // 応答が返るまで 99% で保持する
@@ -16,9 +17,11 @@ export function uploadImageWithProgress(
   // 送信量が分からない環境 (lengthComputable = false) では null を渡す。
   // 0% のまま張り付いて「止まって見える」より、% を出さない方がまし
   onPercent: (percent: number | null) => void,
-  // 動画のとき先頭フレームの WebP poster を同送する (docs/14 §Phase3)。
-  // サーバは動画判定時だけ使い、WebP・200KB 以下でなければ捨てる
-  thumb?: Blob | null,
+  // 動画のときサムネの材料を同送する (docs/14 §Phase3,
+  // docs/72-動画アニメサムネ計画.md)。poster は静止サムネ、frames は
+  // 動くサムネの材料。サーバは動画判定時だけ使い、種別と大きさの検査に
+  // 通らないものは捨てる (uploads.ts)
+  thumbs?: VideoThumbs | null,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -49,8 +52,13 @@ export function uploadImageWithProgress(
 
     const formData = new FormData();
     formData.set("file", file);
-    if (thumb) {
-      formData.set("thumb", thumb, "poster.webp");
+    if (thumbs?.poster) {
+      formData.set("thumb", thumbs.poster, "poster.jpg");
+    }
+    // コマは同じ名前で複数付ける (サーバは getAll で受ける)。順番が
+    // そのままコマ送りの順番になるので、append の順を崩さないこと
+    for (const [index, frame] of (thumbs?.frames ?? []).entries()) {
+      formData.append("thumbFrames", frame, `frame${index}.jpg`);
     }
     xhr.send(formData);
   });

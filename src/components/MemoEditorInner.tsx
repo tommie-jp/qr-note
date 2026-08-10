@@ -28,7 +28,7 @@ import { isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
 import { recordingAltText } from "@/lib/audio/audioRecorder";
 import { AUDIO_EXTENSION_ALTERNATION } from "@/lib/audioFormats";
 import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
-import { makeVideoPoster } from "@/lib/video/videoPoster";
+import { makeVideoThumbs } from "@/lib/video/videoPoster";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
 import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
 import { imageAtCursor, ocrInsertion, ocrPlaceholder } from "@/lib/ocr/ocrQuote";
@@ -171,10 +171,11 @@ function isVideoFile(file: File): boolean {
   return file.type.startsWith("video/") || VIDEO_INPUT_EXT_RE.test(file.name);
 }
 
-// poster (先頭フレーム WebP) を作りに行くか。**MIME が video/* のときだけ**にする —
-// .webm は音声と拡張子を共有するので、名前だけで判ると音声 webm でも 5 秒待って
-// 空フレームを作る無駄が出る。録画・実際の動画ファイルは video/* が付く。
-function shouldMakePoster(file: File): boolean {
+// サムネ (静止 poster + 動くサムネのコマ) を作りに行くか。**MIME が video/* の
+// ときだけ**にする — .webm は音声と拡張子を共有するので、名前だけで判ると音声
+// webm でも 5 秒待って空フレームを作る無駄が出る。録画・実際の動画ファイルは
+// video/* が付く。
+function shouldMakeThumbs(file: File): boolean {
   return file.type.startsWith("video/");
 }
 
@@ -565,13 +566,17 @@ export default function MemoEditorInner({
       for (const [index, file] of files.entries()) {
         const token = `![アップロード中 ${++uploadSeq}]()`;
         insertText(view, token);
-        setUpload({ current: index + 1, total: files.length, percent: 0 });
+        // 送信が始まるまでは % を出さない (percent: null →「アップロード中…」)。
+        // 動画では下のコマ抽出に数秒かかることがあり、0% に張り付いて見えるより
+        // % 無しの方がましなため (progressLabels.ts の同旨の判断と揃える)
+        setUpload({ current: index + 1, total: files.length, percent: null });
         try {
-          // 動画は先頭フレームの WebP poster をここで作り、本体と同じ POST で
-          // 送る (docs/14 §Phase3)。作れなければ null (poster 無しで続行)。
-          // 送信 % を出す前に作る — poster 生成は一瞬なので % 表示に影響しない
-          const poster = shouldMakePoster(file)
-            ? await makeVideoPoster(file)
+          // 動画は静止サムネ (poster) と動くサムネのコマをここで作り、本体と
+          // 同じ POST で送る (docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
+          // 作れなければ空 (サムネ無しで続行)。コマ集めには上限時間があり、
+          // 間に合ったぶんだけが送られる (videoPoster.ts の ANIM_BUDGET_MS)
+          const thumbs = shouldMakeThumbs(file)
+            ? await makeVideoThumbs(file)
             : null;
           // 送信 % はボタンラベル (React state) だけに出す。本文トークンを
           // % で書き換えると undo が壊れる (ocrIntoDoc の同旨コメント参照)。
@@ -582,7 +587,7 @@ export default function MemoEditorInner({
             (percent) => {
               setUpload({ current: index + 1, total: files.length, percent });
             },
-            poster,
+            thumbs,
           );
           // 音声は ![audio](url)、動画は ![video](url)、PDF・テキストは
           // ![ファイル名.pdf](url) で挿入し、MarkdownView が src の拡張子を見て

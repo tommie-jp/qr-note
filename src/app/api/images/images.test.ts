@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import type { POST as PostFn } from './route'
 import type { GET as GetFn } from './[name]/route'
 import type { PrismaClient } from '@/generated/prisma/client'
+import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads'
 
 // route を関数として直接呼ぶため、Next.js のリクエストスコープが無く headers() が
 // 投げる。ログイン検査 (lib/session.ts) が headers() を読むので、そこだけ差し替える。
@@ -156,6 +157,70 @@ const MOOV_LAST_M4A = (() => {
 
 function boxTypeAt(bytes: Buffer, at: number): string {
   return bytes.subarray(at + 4, at + 8).toString('latin1')
+}
+
+// 映像トラック (hdlr = 'vide') を持つ最小の mp4。sniffVideoFormat は
+// ブランドではなくトラック種別で動画と判定するので、moov/trak/mdia/hdlr まで
+// 組む必要がある (uploads.test.ts の mp4WithHandlers と同じ形)
+const MP4_BYTES = (() => {
+  const hdlr = m4aBox('hdlr', (() => {
+    const payload = Buffer.alloc(25)
+    payload.write('vide', 8, 'latin1')
+    return payload
+  })())
+  const moov = m4aBox('moov', m4aBox('trak', m4aBox('mdia', hdlr)))
+  const ftyp = m4aBox('ftyp', Buffer.from('isomisommp42', 'latin1'))
+  return Buffer.concat([ftyp, moov])
+})()
+
+function mp4File(): File {
+  return new File([MP4_BYTES], 'movie.mp4', { type: 'video/mp4' })
+}
+
+// 動くサムネのコマ (docs/72-動画アニメサムネ計画.md)。クライアントが canvas から
+// 出すのと同じ JPEG を sharp で作る。色を変えるのは、全コマ同一だと束ねた結果が
+// 1 ページに畳まれかねないため
+async function animFrames(count: number): Promise<Blob[]> {
+  const sharp = (await import('sharp')).default
+  return Promise.all(
+    Array.from({ length: count }, async (_, i) => {
+      const buffer = await sharp({
+        create: {
+          width: 160,
+          height: 90,
+          channels: 3,
+          background: { r: 20 + i * 25, g: 90, b: 200 - i * 20 },
+        },
+      })
+        .jpeg()
+        .toBuffer()
+      return new Blob([new Uint8Array(buffer)], { type: 'image/jpeg' })
+    }),
+  )
+}
+
+// 動画 + poster + 動くサムネのコマ を 1 回の POST で送る (本番の送信と同じ形)
+function videoUploadRequest(poster: Blob | null, frames: Blob[]): Request {
+  const formData = new FormData()
+  formData.set('file', mp4File())
+  if (poster) {
+    formData.set('thumb', poster, 'poster.jpg')
+  }
+  for (const [index, frame] of frames.entries()) {
+    formData.append('thumbFrames', frame, `frame${index}.jpg`)
+  }
+  return new Request('http://localhost/api/images', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+// 動くサムネを求める GET (docs/72-動画アニメサムネ計画.md)
+function animRequest(name: string): [Request, { params: Promise<{ name: string }> }] {
+  return [
+    new Request(`http://localhost/api/images/${name}?thumb=1&anim=1`),
+    { params: Promise.resolve({ name }) },
+  ]
 }
 
 // 最小の PDF (先頭の "%PDF-" だけを見るので、開ける必要はない)
@@ -669,6 +734,65 @@ describe.skipIf(!runDbTests)(
       const res = await GET(req, ctx)
 
       expect(res.status).toBe(404)
+    })
+
+    // 動くサムネ (docs/72-動画アニメサムネ計画.md)。静止 poster と同じ ?thumb=1 の
+    // 口に相乗りするが、返すのは別の列で、無いときの振る舞いも違う
+
+    test('コマを添えた動画は動くサムネを作り、?anim=1 で配る', async () => {
+      const res = await POST(videoUploadRequest(null, await animFrames(6)))
+      expect(res.status).toBe(200)
+      const name = (await res.json()).data.url.split('/').pop() as string
+      created.push(name)
+
+      const [req, ctx] = animRequest(name)
+      const animRes = await GET(req, ctx)
+
+      expect(animRes.status).toBe(200)
+      expect(animRes.headers.get('content-type')).toBe('image/webp')
+      expect(animRes.headers.get('cache-control')).toContain('immutable')
+      // 中身が本当にアニメであること (静止 webp を配っていない)
+      const bytes = new Uint8Array(await animRes.arrayBuffer())
+      const { isAnimatedWebp } = await import('@/lib/video/videoAnim')
+      expect(isAnimatedWebp(bytes)).toBe(true)
+    })
+
+    test('コマが足りない動画は静止 poster だけを持つ (アップロードは成功)', async () => {
+      // 抽出が途中で打ち切られた端末。動くサムネが作れなくても静止まで
+      // 巻き添えにしない (一覧から絵が消えない)
+      const poster = (await animFrames(1))[0]
+      const res = await POST(videoUploadRequest(poster, await animFrames(2)))
+      expect(res.status).toBe(200)
+      const name = (await res.json()).data.url.split('/').pop() as string
+      created.push(name)
+
+      const [thumbReq, thumbCtx] = thumbRequest(name)
+      expect((await GET(thumbReq, thumbCtx)).status).toBe(200)
+
+      const [animReq, animCtx] = animRequest(name)
+      expect((await GET(animReq, animCtx)).status).toBe(404)
+    })
+
+    test('動くサムネが無いときは 404 (静止サムネで代替しない)', async () => {
+      // 表示側は 404 を「静止のままでよい」の合図に使う。ここで静止を返すと
+      // 差し替えが効いたのか判らず、未生成の動画に要求を出し続けることになる
+      const name = await upload(pngFile())
+
+      const [req, ctx] = animRequest(name)
+      const res = await GET(req, ctx)
+
+      expect(res.status).toBe(404)
+      expect(res.headers.get('cache-control')).not.toContain('immutable')
+    })
+
+    test('上限を超える枚数のコマを送っても動画本体は通る', async () => {
+      // 余分なコマは黙って捨てる。動くサムネのために動画の保存を失敗させない
+      const res = await POST(
+        videoUploadRequest(null, await animFrames(MAX_VIDEO_ANIM_FRAMES + 5)),
+      )
+
+      expect(res.status).toBe(200)
+      created.push((await res.json()).data.url.split('/').pop() as string)
     })
 
     test('アップロードした画像は DB に保存される (volume ではなく)', async () => {

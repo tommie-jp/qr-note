@@ -18,6 +18,7 @@ import {
   savePlainAttachment,
 } from './imageStore'
 import { moveMoovToFront } from './mp4Faststart'
+import { makeVideoAnim } from './video/videoAnim'
 import { MAX_ZIP_FILE_BYTES } from './zip/limits'
 import { normalizeImage } from './normalizeImage'
 import { makeThumbnail } from './thumbnail'
@@ -28,6 +29,7 @@ import {
   isValidAudioName,
   isValidImageName,
   isValidPdfName,
+  isValidVideoAnimFrame,
   isValidVideoName,
   isValidVideoThumb,
   MAX_IMAGE_BYTES,
@@ -76,6 +78,15 @@ export interface StoreAttachmentOptions extends SaveImageOptions {
   // poster なしで保存する (配信側が 404 を返し、ブラウザは poster を無視する)。
   // ENEX インポートなど動画を伴わない経路では渡らない。
   videoThumb?: Uint8Array<ArrayBuffer> | null
+
+  // 動くサムネ (アニメーション WebP) の材料になるコマ
+  // (docs/72-動画アニメサムネ計画.md)。videoThumb と同じく**動画と判定された
+  // ときだけ**使い、1 枚ずつ isValidVideoAnimFrame で検査してから束ねる。
+  //
+  // videoThumb と分けて受けるのは、静止 poster と動くサムネの成否を独立させる
+  // ため。コマの抽出は端末とコーデック次第で途中で打ち切られるので、
+  // 「静止は作れたがアニメは作れない」は正常な結果として起こる。
+  videoFrames?: Uint8Array<ArrayBuffer>[]
 }
 
 export type AttachmentResult =
@@ -123,7 +134,18 @@ export async function storeAttachment(
       options.videoThumb && isValidVideoThumb(options.videoThumb)
         ? await makeThumbnail(options.videoThumb, 'video poster')
         : null
-    return succeed(await savePlainAttachment(stored, mime, ext, thumb), false)
+    // 動くサムネ (docs/72-動画アニメサムネ計画.md)。**静止 poster とは独立に
+    // 判定する** — コマの抽出は端末とコーデック次第で途中で打ち切られるので、
+    // 「静止は作れたがアニメは作れない」が普通に起こる。ここで巻き添えにすると
+    // 一覧から絵が消える (13-kick-work の make_assets と同じ考え方)
+    const thumbAnim = await makeVideoAnim(
+      (options.videoFrames ?? []).filter(isValidVideoAnimFrame),
+      'video anim',
+    )
+    return succeed(
+      await savePlainAttachment(stored, mime, ext, { thumb, thumbAnim }),
+      false,
+    )
   }
 
   const maxBytes = options.maxBytes ?? MAX_IMAGE_BYTES

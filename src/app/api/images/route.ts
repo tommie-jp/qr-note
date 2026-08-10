@@ -5,6 +5,8 @@ import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import {
   checkUploadRequest,
   maxAttachmentBytes,
+  MAX_VIDEO_ANIM_FRAME_BYTES,
+  MAX_VIDEO_ANIM_FRAMES,
   MAX_VIDEO_THUMB_BYTES,
   maxUploadBytes,
   tooLargeMessage,
@@ -34,12 +36,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let file: FormDataEntryValue | null
   let thumbField: FormDataEntryValue | null = null
+  let frameFields: FormDataEntryValue[] = []
   try {
     const formData = await request.formData()
     file = formData.get('file')
     // 動画のときだけ付く poster 用 WebP (クライアント生成)。中身の検証は
     // attachmentStore が行うので、ここでは有無だけ拾う (docs/14 §Phase3)
     thumbField = formData.get('thumb')
+    // 動くサムネの材料になるコマ (docs/72-動画アニメサムネ計画.md)。
+    // 同じ名前で複数付くので getAll で受ける
+    frameFields = formData.getAll('thumbFrames')
   } catch (error) {
     // 400 を返すが原因はログに残す。multipart の書き方だけでなく、途中で切れた
     // 通信や境界を書き換えるプロキシもここへ来るため (api/import と同じ理由)
@@ -76,6 +82,22 @@ export async function POST(request: Request): Promise<NextResponse> {
       ? new Uint8Array(await thumbField.arrayBuffer())
       : null
 
+  // 動くサムネのコマ。poster と同じく**バッファする前に枚数と申告サイズで
+  // 切る** — ここを素通しさせると、コマを何百枚も付けた 1 回の POST で
+  // メモリを潰せる。上限を超えたぶんは黙って捨て、動画本体は通す
+  // (動くサムネは無くても静止サムネで一覧は成立する)
+  const videoFrames = await Promise.all(
+    frameFields
+      .filter(
+        (field): field is File =>
+          field instanceof File &&
+          field.size > 0 &&
+          field.size <= MAX_VIDEO_ANIM_FRAME_BYTES,
+      )
+      .slice(0, MAX_VIDEO_ANIM_FRAMES)
+      .map(async (field) => new Uint8Array(await field.arrayBuffer())),
+  )
+
   // ファイル名を渡すのはテキスト (txt/csv/md) の拡張子を決めるためだけ。
   // 名前そのものは保存名にならない (サーバ発番の UUID + 既知の拡張子)。
   // maxBytes は動画以外の 1 ファイル上限 (デモでは 2MB)。動画は
@@ -84,6 +106,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     fileName: file.name,
     maxBytes: maxAttachmentBytes(),
     videoThumb,
+    videoFrames,
   })
   if (!stored.ok) {
     return errorResponse(400, stored.reason)

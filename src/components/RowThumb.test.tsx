@@ -35,3 +35,20 @@ test("大きさ (width/height + サイズクラス) を渡す", () => {
   expect(html).toContain('width="40"');
   expect(html).toContain("size-10");
 });
+
+test("既定は静止サムネ (動くサムネを最初から配らない)", () => {
+  // 一覧の全行が最初からアニメを引くと転送量が跳ね上がる。差し替えは
+  // ホバー中 (PC) / 画面に入った時 (スマホ) だけ (docs/72 §Phase3)
+  const html = render(VIDEO, true);
+
+  expect(html).not.toContain("anim=1");
+  expect(html).toContain(`src="/api/images/${VIDEO}?thumb=1&amp;v=`);
+});
+
+test("再生バッジはポインタを受けない (ホバーを塞がない)", () => {
+  // バッジはサムネの中央に重なる。ポインタを受けると、中央にカーソルを
+  // 置いたときだけ差し替わらない状態になる
+  const html = render(VIDEO, true);
+
+  expect(html).toContain("pointer-events-none");
+});

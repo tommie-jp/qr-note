@@ -16,9 +16,13 @@ import {
   sniffAudioFormat,
   isValidTextName,
   isValidVideoName,
+  isValidVideoAnimFrame,
   isValidVideoThumb,
+  MAX_VIDEO_ANIM_FRAME_BYTES,
+  MAX_VIDEO_ANIM_FRAMES,
   MAX_VIDEO_BYTES,
   MAX_VIDEO_THUMB_BYTES,
+  MULTIPART_OVERHEAD_BYTES,
   sniffImageFormat,
   sniffPdf,
   sniffVideoFormat,
@@ -480,6 +484,31 @@ test('動画のクライアントサムネは sharp が読める画像かつ 200
   const huge = new Uint8Array(MAX_VIDEO_THUMB_BYTES + 1)
   huge.set(webp, 0)
   expect(isValidVideoThumb(huge)).toBe(false)
+})
+
+test('動くサムネのコマは静止サムネより厳しい上限で受ける', () => {
+  // 判定の考え方は poster と同じ (中身で決める) で、上限だけが違う。
+  // コマは枚数ぶん積み上がるので 1 枚あたりを絞る
+  expect(isValidVideoAnimFrame(JPEG_HEAD)).toBe(true)
+  expect(isValidVideoAnimFrame(PNG_HEAD)).toBe(true)
+  expect(
+    isValidVideoAnimFrame(new TextEncoder().encode('<svg onload=alert(1)>')),
+  ).toBe(false)
+  expect(isValidVideoAnimFrame(new Uint8Array(0))).toBe(false)
+
+  const huge = new Uint8Array(MAX_VIDEO_ANIM_FRAME_BYTES + 1)
+  huge.set(JPEG_HEAD, 0)
+  expect(isValidVideoAnimFrame(huge)).toBe(false)
+})
+
+test('コマの合計は multipart のオーバーヘッド枠に収まる', () => {
+  // 動画本体の上限 + MULTIPART_OVERHEAD_BYTES が checkUploadRequest の門なので、
+  // poster とコマの合計がこの枠を超えると、動画そのものが 413 で断られる。
+  // 上限を触るときに気づけるよう関係を式で残す
+  const extras =
+    MAX_VIDEO_THUMB_BYTES + MAX_VIDEO_ANIM_FRAMES * MAX_VIDEO_ANIM_FRAME_BYTES
+
+  expect(extras).toBeLessThan(MULTIPART_OVERHEAD_BYTES)
 })
 
 test('動画の上限は画像より大きい (docs/14: 3 分 720p を収める)', () => {

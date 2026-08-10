@@ -168,3 +168,17 @@ const THUMB_VERSION = 4
 export function thumbUrl(name: string): string {
   return `${IMAGE_PATH_PREFIX}${name}?thumb=1&v=${THUMB_VERSION}`
 }
+
+// 動くサムネ (アニメーション WebP) の生成パラメータの版
+// (docs/72-動画アニメサムネ計画.md)。
+//
+// **THUMB_VERSION と分けて持つ**のが要点。コマ数や間隔を触るたびに静止サムネの
+// 版まで上げると、全画像のキャッシュを割って一覧が丸ごと引き直しになる。
+// 動画にしか付かない列なので、影響範囲もそこに閉じておく。
+const THUMB_ANIM_VERSION = 1
+
+// 動くサムネの配信 URL。未生成なら配信側が 404 を返し、表示は静止のまま
+// (RowThumb / useAnimThumb.ts)。
+export function thumbAnimUrl(name: string): string {
+  return `${IMAGE_PATH_PREFIX}${name}?thumb=1&anim=1&v=${THUMB_ANIM_VERSION}`
+}
