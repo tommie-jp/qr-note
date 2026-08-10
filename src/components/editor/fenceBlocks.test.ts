@@ -1,7 +1,7 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
-import { buildFenceBlocks, mermaidFenceCode } from "./fenceBlocks";
+import { buildFenceBlocks, drawableFence } from "./fenceBlocks";
 
 // 図そのものは mermaid が描く (DOM が要るので node では呼ばれない)。
 // ここで見るのは「どのフェンスを、いつ畳むか」と「中身の取り出し」。
@@ -27,34 +27,42 @@ function foldedCount(doc: string, anchor: number, head = anchor): number {
   return count;
 }
 
-describe("mermaidFenceCode", () => {
+describe("drawableFence", () => {
   test("開きと閉じの行を落として中身だけ返す", () => {
-    expect(mermaidFenceCode(MERMAID)).toBe("graph TD;\n  A-->B;");
+    expect(drawableFence(MERMAID)).toEqual({ kind: "mermaid", code: "graph TD;\n  A-->B;" });
   });
 
-  test("mermaid 以外のフェンスは対象外", () => {
-    expect(mermaidFenceCode("```text\nあ\n```")).toBeNull();
-    expect(mermaidFenceCode("```circuitikz\n\\draw;\n```")).toBeNull();
+  test("circuitikz も対象 (描くのはサーバ)", () => {
+    expect(drawableFence("```circuitikz\n\\draw;\n```")).toEqual({
+      kind: "circuit",
+      code: "\\draw;",
+    });
+  });
+
+  test("描けない種類のフェンスは対象外", () => {
+    expect(drawableFence("```text\nあ\n```")).toBeNull();
+    // quiz は React 部品なのでまだ描かない
+    expect(drawableFence("```quiz\nQ\n```")).toBeNull();
   });
 
   test("言語指定の無いフェンスも対象外", () => {
-    expect(mermaidFenceCode("```\nあ\n```")).toBeNull();
+    expect(drawableFence("```\nあ\n```")).toBeNull();
   });
 
   test("大文字でも読む", () => {
-    expect(mermaidFenceCode("```Mermaid\ngraph TD;\n```")).toBe("graph TD;");
+    expect(drawableFence("```Mermaid\ngraph TD;\n```")?.code).toBe("graph TD;");
   });
 
   test("チルダのフェンスも読む", () => {
-    expect(mermaidFenceCode("~~~mermaid\ngraph TD;\n~~~")).toBe("graph TD;");
+    expect(drawableFence("~~~mermaid\ngraph TD;\n~~~")?.code).toBe("graph TD;");
   });
 
   test("中身が空なら null (描くものが無い)", () => {
-    expect(mermaidFenceCode("```mermaid\n```")).toBeNull();
+    expect(drawableFence("```mermaid\n```")).toBeNull();
   });
 
   test("閉じの無い書きかけでも中身を返す", () => {
-    expect(mermaidFenceCode("```mermaid\ngraph TD;")).toBe("graph TD;");
+    expect(drawableFence("```mermaid\ngraph TD;")?.code).toBe("graph TD;");
   });
 });
 
@@ -73,9 +81,14 @@ describe("buildFenceBlocks", () => {
     expect(foldedCount(MERMAID, MERMAID.length)).toBe(0);
   });
 
-  test("mermaid 以外のフェンスは畳まない", () => {
-    // circuitikz はサーバ描画の結果が編集画面に無い、quiz は React 部品
+  test("circuitikz も畳む (中身はサーバから受け取る)", () => {
     const doc = "```circuitikz\n\\draw;\n```\n\nあと";
+    expect(foldedCount(doc, doc.length)).toBe(1);
+  });
+
+  test("描けない種類のフェンスは畳まない", () => {
+    // quiz は React 部品なのでまだ描かない (生のフェンスのまま出す)
+    const doc = "```quiz\nQ1\n```\n\nあと";
     expect(foldedCount(doc, doc.length)).toBe(0);
   });
 

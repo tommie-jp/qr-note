@@ -4,13 +4,14 @@
 // テーブル (tableBlocks.ts) と同じ**読み取り専用**の作り — カーソルが入れば
 // 生のフェンスに戻り、直すのは原文の上で行う。本文は書き換えない。
 //
-// **いまは mermaid だけ。** 同じフェンスの仲間でも出どころが違う:
-//   - circuitikz / tikz … SVG はサーバ (node-tikzjax) が描いて props で渡る
-//     (MarkdownView の CircuitMap)。編集画面にその結果は無く、取りに行く
-//     API も無いので、ここでは描けない (別途エンドポイントが要る)
+// **描き方はフェンスの種類で違う。**
+//   - mermaid … mermaid.render() がブラウザで SVG 文字列を返すので直接呼ぶ
+//   - circuitikz … 描くのはサーバ (node-tikzjax)。閲覧はページを描くサーバが
+//     先に済ませて props で渡すが、編集画面はその結果を持っていないので
+//     /api/circuits に投げて受け取る (lib/circuitFetch.ts)
 //   - quiz … 描くのは React 部品 (QuizFence)。widget の中で createRoot して
-//     unmount まで面倒みる形になるので、mermaid が落ち着いてから
-// どちらも生のフェンスのまま表示される (閲覧タブで見られるので困らない)。
+//     unmount まで面倒みる形になるので、まだ手を付けていない
+// quiz は生のフェンスのまま表示される (閲覧タブで見られるので困らない)。
 
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import {
@@ -25,7 +26,8 @@ import {
   WidgetType,
   type DecorationSet,
 } from "@codemirror/view";
-import { MERMAID_LANG } from "@/lib/fenceLanguages";
+import { CIRCUIT_LANG, MERMAID_LANG } from "@/lib/fenceLanguages";
+import { fetchCircuitSvg } from "@/lib/circuitFetch";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
 
 const PARSE_BUDGET_MS = 200;
@@ -52,23 +54,28 @@ function rememberSvg(code: string, svg: string): void {
 // widget ごとに違う DOM id を振るための連番 (mermaid が id を要求する)
 let renderSeq = 0;
 
-class MermaidFenceWidget extends WidgetType {
+export type FenceKind = "mermaid" | "circuit";
+
+class FenceWidget extends WidgetType {
   // 描き終わる前に畳みが解かれたら、後から届く SVG を捨てるための印
   private live = true;
 
-  constructor(readonly code: string) {
+  constructor(
+    readonly kind: FenceKind,
+    readonly code: string,
+  ) {
     super();
   }
 
-  eq(other: MermaidFenceWidget): boolean {
-    return other.code === this.code;
+  eq(other: FenceWidget): boolean {
+    return other.kind === this.kind && other.code === this.code;
   }
 
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "cm-qr-fence";
 
-    const cached = svgCache.get(this.code);
+    const cached = svgCache.get(this.cacheKey);
     if (cached !== undefined) {
       // mermaid が securityLevel: "strict" でサニタイズ済み (閲覧側と同じ)
       wrap.innerHTML = cached;
@@ -92,26 +99,49 @@ class MermaidFenceWidget extends WidgetType {
     return wrap;
   }
 
+  // 種類ごとに描き分ける。mermaid はブラウザで、circuitikz はサーバに頼む
+  private get cacheKey(): string {
+    return `${this.kind}:${this.code}`;
+  }
+
   private async draw(wrap: HTMLElement): Promise<void> {
-    try {
-      const svg = await renderMermaidSvg(this.code, mermaidRenderId(`f${++renderSeq}`));
-      rememberSvg(this.code, svg);
-      if (!this.live) {
-        return; // 描いている間に畳みが解かれた
-      }
-      wrap.classList.remove("cm-qr-fence-busy");
-      wrap.innerHTML = svg;
-    } catch (e) {
-      if (!this.live) {
-        return;
-      }
-      // 構文エラーは**隠さない**。図にならない理由が判らないと直せない
-      wrap.classList.remove("cm-qr-fence-busy");
-      wrap.classList.add("cm-qr-fence-error");
-      wrap.textContent = `mermaid の構文エラー: ${
-        e instanceof Error ? e.message : String(e)
-      }`;
+    const outcome =
+      this.kind === "mermaid"
+        ? await this.drawMermaid()
+        : await this.drawCircuit();
+
+    if (!this.live) {
+      return; // 描いている間に畳みが解かれた
     }
+    wrap.classList.remove("cm-qr-fence-busy");
+    if ("error" in outcome) {
+      // 構文エラーは**隠さない**。図にならない理由が判らないと直せない
+      wrap.classList.add("cm-qr-fence-error");
+      wrap.textContent = outcome.error;
+      return;
+    }
+    rememberSvg(this.cacheKey, outcome.svg);
+    wrap.innerHTML = outcome.svg;
+  }
+
+  private async drawMermaid(): Promise<{ svg: string } | { error: string }> {
+    try {
+      const svg = await renderMermaidSvg(
+        this.code,
+        mermaidRenderId(`f${++renderSeq}`),
+      );
+      return { svg };
+    } catch (e) {
+      return {
+        error: `mermaid の構文エラー: ${e instanceof Error ? e.message : String(e)}`,
+      };
+    }
+  }
+
+  // SVG はサーバが描いて検査済み (assertSafeCircuitSvg)。閲覧の
+  // CircuitDiagram と同じものが同じ経路で届く
+  private async drawCircuit(): Promise<{ svg: string } | { error: string }> {
+    return fetchCircuitSvg(this.code);
   }
 
   destroy(): void {
@@ -140,14 +170,13 @@ export function buildFenceBlocks(state: EditorState): DecorationSet {
       if (touching) {
         return;
       }
-      const source = state.doc.sliceString(node.from, node.to);
-      const code = mermaidFenceCode(source);
-      if (code === null) {
+      const fence = drawableFence(state.doc.sliceString(node.from, node.to));
+      if (fence === null) {
         return;
       }
       ranges.push(
         Decoration.replace({
-          widget: new MermaidFenceWidget(code),
+          widget: new FenceWidget(fence.kind, fence.code),
           block: true,
         }).range(node.from, node.to),
       );
@@ -156,15 +185,20 @@ export function buildFenceBlocks(state: EditorState): DecorationSet {
   return Decoration.set(ranges, true);
 }
 
-// ```mermaid フェンスなら中身のコードを返す。それ以外は null。
+// 描ける種類のフェンスなら種類と中身を返す。それ以外は null。
 //
 // 構文木ではなく原文で見るのは、開きの行 (```mermaid) と閉じの行を落として
 // 「中身だけ」を取り出すのがそのほうが素直なため。フェンスの範囲そのものは
 // 構文木が決めているので、ここで拾い間違えることはない
-export function mermaidFenceCode(source: string): string | null {
+export function drawableFence(
+  source: string,
+): { kind: FenceKind; code: string } | null {
   const lines = source.split("\n");
   const opening = /^\s*(?:`{3,}|~{3,})\s*([^\s`]*)/.exec(lines[0]);
-  if (!opening || opening[1].toLowerCase() !== MERMAID_LANG) {
+  const lang = opening?.[1].toLowerCase();
+  const kind: FenceKind | null =
+    lang === MERMAID_LANG ? "mermaid" : lang === CIRCUIT_LANG ? "circuit" : null;
+  if (kind === null) {
     return null;
   }
   const body = lines.slice(1);
@@ -173,7 +207,7 @@ export function mermaidFenceCode(source: string): string | null {
     body.pop();
   }
   const code = body.join("\n").trim();
-  return code.length > 0 ? code : null;
+  return code.length > 0 ? { kind, code } : null;
 }
 
 const fenceBlocksField = StateField.define<DecorationSet>({
