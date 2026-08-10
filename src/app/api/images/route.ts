@@ -9,6 +9,7 @@ import {
   MAX_VIDEO_ANIM_FRAMES,
   MAX_VIDEO_THUMB_BYTES,
   maxUploadBytes,
+  megabytesLabel,
   tooLargeMessage,
 } from '@/lib/uploads'
 
@@ -23,7 +24,7 @@ function errorResponse(status: number, error: string): NextResponse {
 // 共有する)。ここに残すのは HTTP の作法 — 認証・CSRF・大きさ・応答の組み立て。
 export async function POST(request: Request): Promise<NextResponse> {
   // 一番先に見る。ログインしていない相手のために本文を読む理由はない
-  // (12MB まで受け取ってから断るのは、断り方として無駄が大きい)
+  // (31MB まで受け取ってから断るのは、断り方として無駄が大きい)
   const denied = await denyUnlessLoggedIn()
   if (denied) {
     return denied
@@ -49,8 +50,21 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     // 400 を返すが原因はログに残す。multipart の書き方だけでなく、途中で切れた
     // 通信や境界を書き換えるプロキシもここへ来るため (api/import と同じ理由)
+    //
+    // **「書き方が悪い」とだけ言わない。** ここへ来る現実の原因はほとんどが
+    // 「本文が最後まで届かなかった」で、その筆頭が大きすぎるファイルである。
+    // Content-Length を申告する普通の送信は上の checkUploadRequest が 413 で
+    // 断るが、申告しない送信 (chunked) はそこを素通りし、Next.js の proxy が
+    // 複製できる量 (next.config.ts の proxyClientMaxBodySize) で黙って切られて
+    // ここへ落ちてくる。大きさの目安を添えて、次に何を疑えばよいか分かるように
+    // する — かつてこの文言のせいで、上限超えの動画が「multipart の書き方の
+    // 問題」に見えていた
     console.error('アップロードの multipart 解析に失敗しました:', error)
-    return errorResponse(400, 'multipart/form-data で file を送信して下さい')
+    return errorResponse(
+      400,
+      'アップロードに失敗しました (本文が最後まで届きませんでした)。' +
+        `ファイルが大きすぎる可能性があります (最大 ${megabytesLabel(maxUploadBytes())})`,
+    )
   }
 
   if (!(file instanceof File)) {

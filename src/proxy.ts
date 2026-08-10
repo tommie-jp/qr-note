@@ -149,13 +149,15 @@ export const config = {
   // api/import   … ノートの取り込み (docs/28-エクスポート計画.md §3)。
   //                **proxy を通るルートは Next.js が本文をメモリへ丸ごと複製
   //                する** (proxy と route の両方で読めるようにするため。上限は
-  //                experimental.proxyClientMaxBodySize、既定 10MB)。この口は
-  //                500MB を流し読みで受ける設計なので、複製されると 10MB で
-  //                千切れる (上限を上げると今度は 500MB がメモリに載り、
-  //                RAM 2GB の本番が落ちる)。proxy から外して素通しし、認証は
-  //                route handler 側の denyUnlessLoggedIn に任せる — もともと
-  //                ここは楽観的検査で、データに触る入口が正 (冒頭のコメント)。
-  //                実際に本番で「10MB で切られて ZIP が壊れて見える」を踏んだ
+  //                experimental.proxyClientMaxBodySize = 31MB。既定は 10MB
+  //                だが、動画の 30MB が千切れるので next.config.ts で上げた)。
+  //                この口は 500MB を流し読みで受ける設計なので、複製されると
+  //                そこで千切れる (上限を 500MB まで上げると今度は 500MB が
+  //                メモリに載り、RAM 2GB の本番が落ちる)。proxy から外して
+  //                素通しし、認証は route handler 側の denyUnlessLoggedIn に
+  //                任せる — もともとここは楽観的検査で、データに触る入口が正
+  //                (冒頭のコメント)。実際に本番で「10MB で切られて ZIP が
+  //                壊れて見える」を踏んだ
   //
   // 画面と API はここに残す = 既定で門番を通る。ログイン不要なものは
   // publicPaths.ts に明記する

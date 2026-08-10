@@ -574,6 +574,25 @@ test('Content-Length が上限内なら通す', () => {
   expect(checkUploadRequest(request)).toBeNull()
 })
 
+// **この門と Next.js の proxy が本文を複製できる量が同じであること。**
+//
+// proxy (src/proxy.ts) を通るルートは、Next.js が本文をメモリへ複製し、
+// experimental.proxyClientMaxBodySize を超えたぶんは**黙って捨てる**
+// (応答はエラーにならない。next.config.ts の同項の注)。複製の上限がこの門より
+// 小さいと、門を通った本文が route の手前で千切れ、formData() が
+// 「境界の閉じない multipart」として落ちる — ユーザーには大きさの話だと
+// 分からない 400 しか出ない (実際にこれで動画 (10〜30MB) が入らなかった)。
+//
+// 同じ値にしておけば「本文が切られるのは 413 で断った後だけ」になる。
+// 片方だけ動かすとその不具合が戻るので、ここで両者を突き合わせる
+test('proxy の本文複製の上限は checkUploadRequest の門以上である', async () => {
+  delete process.env.DEMO_MODE
+  const nextConfig = (await import('../../next.config')).default
+  expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(
+    maxUploadBytes() + MULTIPART_OVERHEAD_BYTES,
+  )
+})
+
 // --- テキスト系 (docs/12-添付ファイル種類拡張メモ.md) ---
 
 test('テキストの保存名は UUID + txt/csv/md だけ許可する', () => {

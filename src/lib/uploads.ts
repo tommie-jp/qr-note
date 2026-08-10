@@ -732,6 +732,13 @@ function isSameOrigin(origin: string, request: Request): boolean {
   }
 }
 
+// 上限を「30MB」の形にする。断り方は場所によって違う (言い切る / 可能性を言う /
+// 実サイズと並べる) が、**出す数は 1 つの計算から出す** — 同じ上限が画面ごとに
+// 違う数で出ると、どれが本当か分からなくなる
+export function megabytesLabel(maxBytes: number): string {
+  return `${Math.round(maxBytes / 1024 / 1024)}MB`
+}
+
 export function tooLargeMessage(maxBytes: number = MAX_IMAGE_BYTES): string {
-  return `ファイルが大きすぎます (最大 ${Math.round(maxBytes / 1024 / 1024)}MB)`
+  return `ファイルが大きすぎます (最大 ${megabytesLabel(maxBytes)})`
 }

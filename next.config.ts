@@ -8,6 +8,27 @@ const nextConfig: NextConfig = {
   // 外せば元に戻る。非対応ブラウザではアニメーションなしで普通に動く
   experimental: {
     viewTransition: true,
+    // proxy (src/proxy.ts) を通るルートは、Next.js が本文をメモリへ丸ごと
+    // 複製する (proxy と route handler の両方で読めるようにするため)。
+    // **超えたぶんは黙って捨てられる** — 応答はエラーにならず、警告が 1 行
+    // 出るだけで、route handler には途中で切れた本文が届く
+    // (node_modules/next/dist/server/body-streams.js の getCloneableBody)。
+    //
+    // 既定の 10MB のままだと、動画 (最大 30MB) がここで千切れる。route の
+    // formData() は「境界の閉じない multipart」として落ち、ユーザーには
+    // 「multipart/form-data で file を送信して下さい」という見当違いの 400 しか
+    // 出ない — 本当の理由 (本文が途中で捨てられた) がどこにも出ない。
+    //
+    // **値は uploads.ts の checkUploadRequest の門と同じにする** =
+    // maxUploadBytes() (動画 30MB) + MULTIPART_OVERHEAD_BYTES (1MB)。揃えると
+    // 「本文が切られるのは 413 で断った後だけ」になり、切られた本文が route に
+    // 届くことがなくなる。片方だけ動かすと上の不具合が戻るので、
+    // src/lib/uploads.test.ts が両者の一致を見張っている。
+    //
+    // これ以上は上げない。ここはメモリに載る量そのもので、本番 VPS は RAM 2GB
+    // (docs/09-vps振り分け移行手順.md)。500MB を流す ZIP 取り込みは、複製
+    // させないために proxy の matcher から外してある (src/proxy.ts)。
+    proxyClientMaxBodySize: 31 * 1024 * 1024,
   },
   turbopack: {
     // OCR の公式 SDK (@paddleocr/paddleocr-js) には、ブラウザでは通らない分岐が

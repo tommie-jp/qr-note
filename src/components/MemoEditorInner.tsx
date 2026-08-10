@@ -31,6 +31,7 @@ import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoReco
 import { makeVideoThumbs } from "@/lib/video/videoPoster";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
 import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
+import { uploadTooLargeMessage } from "@/lib/uploadSizeCheck";
 import { imageAtCursor, ocrInsertion, ocrPlaceholder } from "@/lib/ocr/ocrQuote";
 import {
   ocrButtonLabel,
@@ -565,6 +566,14 @@ export default function MemoEditorInner({
     setError(null);
     try {
       for (const [index, file] of files.entries()) {
+        // 上限超えは**送る前に**断る。送ってしまうと、エッジ (nginx / Caddy) か
+        // Next.js の proxy が本文を途中で捨て、ブラウザには「通信エラー」や
+        // 見当違いの 400 しか返らない (理由は uploadSizeCheck.ts)。
+        // ここで止めれば「何 MB のファイルが上限何 MB を超えた」まで言える
+        const tooLarge = uploadTooLargeMessage(file, isVideoFile(file));
+        if (tooLarge) {
+          throw new Error(tooLarge);
+        }
         const token = `![アップロード中 ${++uploadSeq}]()`;
         insertText(view, token);
         // 送信が始まるまでは % を出さない (percent: null →「アップロード中…」)。
