@@ -1,7 +1,7 @@
 "use client";
 
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import "@atomic-editor/editor/styles.css";
@@ -636,8 +636,18 @@ export default function MemoEditorInner({
     // markdown() は内部で新しい言語インスタンスを作ってそこに組み込み補完を
     // 登録する。export される markdownLanguage は別インスタンスのため、
     // そちらに登録しても効かない (バンドル環境で languageDataAt に載らない)。
-    // markdown() が返した当のインスタンス (md.language) に登録する
-    const md = markdown();
+    // markdown() が返した当のインスタンス (md.language) に登録する。
+    //
+    // **base に markdownLanguage を渡して GFM を有効にする。**
+    // 既定の base は CommonMark だけで、`- [ ] ` も `~~消し~~` も表 も
+    // 構文木に出ない (TaskMarker / Strikethrough / Table のノードが無い)。
+    // 本文の描画は remark-gfm で GFM として解釈している (markdownPipeline)
+    // ので、エディタ側だけ CommonMark だと食い違う。
+    //
+    // これに気づいたのはライブプレビュー (docs/70) の実機確認 —
+    // チェックボックスがウィジェットにならず、原因が構文木側だった。
+    // 見えるところでは「装飾が付かない」形でしか出ないので気づきにくい
+    const md = markdown({ base: markdownLanguage });
     const extensions = [
       md,
       // ```<言語> の補完 (basicSetup が autocompletion を既定で有効化済み)。
@@ -652,10 +662,17 @@ export default function MemoEditorInner({
       // ライブプレビューの差し込み口。中身の入れ替えは reconfigure で行い、
       // この配列の**参照は変えない** (参照が変わると拡張一式が組み直される)。
       //
-      // ここでは常に空 (= OFF) で始め、覚えてある設定は下の effect が
-      // マウント直後に入れ直す。初期値をここで読まないのは、拡張を組むのが
-      // 描画中で、そこから localStorage を読むと React の作法から外れるため
-      livePreviewCompartment.of(livePreviewContent(false)),
+      // **覚えてある設定はここで読む。** かつては常に OFF で組んでおいて
+      // マウント時の effect で入れ直していたが、それでは効かなかった —
+      // その時点では @uiw/react-codemirror がまだ view を作っておらず
+      // (editorRef.current?.view が undefined)、dispatch が黙って捨てられる。
+      // ボタンは ON の見た目なのに装飾が出ない、という形で出た (実機で確認)。
+      // 拡張を組むこの場で読めば view の有無に関係なく最初から載り、
+      // 一瞬だけ生記法が見える瞬間も無くなる。
+      //
+      // 描画中に localStorage を読むことになるが、この部品は ssr: false で
+      // 読み込まれる (MemoEditor.tsx) ので hydration はずれない
+      livePreviewCompartment.of(livePreviewContent(readLivePreviewPref())),
       EditorView.domEventHandlers({
         paste: (event, view) => {
           const files = pickFiles(event.clipboardData?.files);
@@ -690,21 +707,6 @@ export default function MemoEditorInner({
     ];
     return { extensions, livePreviewCompartment };
     // insertImages は ref と state セッターのみ参照するため再生成不要
-  }, []);
-
-  // 覚えてあるライブプレビューの設定を、エディタが出来た直後に入れ直す。
-  // 拡張は常に OFF で組んである (上) ので、ON のときだけ 1 回入れ替える。
-  // CodeMirror 本体は子なので、この effect の時点で view は出来ている
-  useEffect(() => {
-    // ここでの livePreview はマウント時の値 = localStorage から読んだ設定
-    if (!livePreview) {
-      return;
-    }
-    editorRef.current?.view?.dispatch({
-      effects: livePreviewCompartment.reconfigure(livePreviewContent(true)),
-    });
-    // マウント時に一度だけ (以後の切り替えは toggleLivePreview が行う)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 書式メニューで選んだ記法を選択範囲へ掛ける (docs/70 §6)。
