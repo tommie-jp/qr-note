@@ -1,7 +1,7 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
-import { buildMathBlocks, renderMathHtml } from "./mathBlocks";
+import { blockMathRanges, buildMathBlocks, renderMathHtml } from "./mathBlocks";
 
 // KaTeX の組版そのものは KaTeX の責任。ここで見るのは
 // 「どの $...$ を、いつ数式として畳むか」。
@@ -83,5 +83,62 @@ describe("buildMathBlocks", () => {
 
   test("数式が無ければ何も畳まない", () => {
     expect(foldedCount("ただの本文です。", 0)).toBe(0);
+  });
+});
+
+describe("blockMathRanges", () => {
+  test("1 行で閉じる $$x$$ を取る", () => {
+    const found = blockMathRanges("$$x^2$$");
+    expect(found).toHaveLength(1);
+    expect(found[0].tex).toBe("x^2");
+    expect(found[0].display).toBe(true);
+  });
+
+  test("行を跨ぐ対を 1 つの範囲にする", () => {
+    const doc = "$$\n\\frac{a}{b}\n$$";
+    const found = blockMathRanges(doc);
+    expect(found).toHaveLength(1);
+    expect(found[0].start).toBe(0);
+    expect(found[0].end).toBe(doc.length);
+    expect(found[0].tex).toBe("\\frac{a}{b}");
+  });
+
+  test("開きは行頭の $$ だけ (散文の途中では始めない)", () => {
+    // 途中の $$ まで開きにすると、次の $$ までの本文が丸ごと数式にされる
+    expect(blockMathRanges("代金は 100$$ で\nその後 200$$ です")).toEqual([]);
+  });
+
+  test("閉じないまま終わった対は返さない", () => {
+    // 書きかけの $$ で以降の本文が丸ごと消えないように
+    expect(blockMathRanges("$$\n\\frac{a}{b}\nつづき")).toEqual([]);
+  });
+
+  test("複数のブロックをそれぞれ取る", () => {
+    const doc = "$$a$$\n\nあいだ\n\n$$\nb\n$$";
+    expect(blockMathRanges(doc)).toHaveLength(2);
+  });
+
+  test("$$ が無ければ何も返さない", () => {
+    expect(blockMathRanges("ただの本文\n$x^2$ もある")).toEqual([]);
+  });
+});
+
+describe("ブロック数式の畳み", () => {
+  test("カーソルが外にあれば畳む", () => {
+    const doc = "$$\nx^2\n$$\n\nあとがき";
+    expect(foldedCount(doc, doc.length)).toBe(1);
+  });
+
+  test("カーソルが中にあれば畳まない", () => {
+    const doc = "$$\nx^2\n$$";
+    expect(foldedCount(doc, 4)).toBe(0);
+  });
+
+  test("ブロックの中の $ をインライン数式として二重に畳まない", () => {
+    // `$$ ... $$` の中身に `$` が現れても、ブロックが取った範囲は除く
+    const doc = "$$\na $ b $ c\n$$\n\nあと";
+    // 中身が KaTeX で読めないので畳まれない = 装飾は 0。
+    // 二重に数えていれば 1 以上になる
+    expect(foldedCount(doc, doc.length)).toBe(0);
   });
 });

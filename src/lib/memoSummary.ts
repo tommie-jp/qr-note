@@ -46,7 +46,10 @@ export function inlineMathRanges(
 // hiddenLineSkipper の状態機械が行単位で追う。全文への正規表現 1 発だと、
 // 無関係な $$ 同士 (散文の $$ とブロックの開き、bash フェンスの echo $$ 等)
 // が対になって間の散文ごと消える事故が起きる
-const SINGLE_LINE_BLOCK_MATH = /\$\$.*?\$\$/g
+// 編集画面のライブプレビュー (mathBlocks.ts) も同じ規則で見つけるため export
+// する。判定を書き写すと、一覧では数式なのに編集では生の $$ のまま、という
+// 食い違いが出る
+export const SINGLE_LINE_BLOCK_MATH = /\$\$.*?\$\$/g
 
 // コードフェンスの区切り行 (```lang / ~~~)。中身ではないので飛ばす。
 const FENCE_MARKER = /^\s*(```|~~~)/

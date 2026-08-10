@@ -442,3 +442,11 @@ select,
 .cm-qr-math {
   cursor: pointer;
 }
+
+/* 別行のブロック数式 ($$...$$)。中央に置いて本文と区別する */
+.cm-qr-math-block {
+  display: block;
+  overflow-x: auto;
+  margin: 0.25rem 0;
+  text-align: center;
+}
