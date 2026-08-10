@@ -72,8 +72,15 @@ class FenceWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
+    // 外箱と帯の二重構造。本文との間隔は外箱の padding で取る —
+    // ウィジェット自身に縦 margin を付けると CodeMirror の高さ測定から
+    // 漏れて、下の行のクリックとカーソル縦移動がずれる (globals.css の
+    // .cm-qr-fence-box に経緯)
+    const box = document.createElement("div");
+    box.className = "cm-qr-fence-box";
     const wrap = document.createElement("div");
     wrap.className = "cm-qr-fence";
+    box.appendChild(wrap);
 
     const cached = svgCache.get(this.cacheKey);
     if (cached !== undefined) {
@@ -86,17 +93,17 @@ class FenceWidget extends WidgetType {
     }
 
     // 押したら原文の先頭へカーソルを移す (チップ・表と同じ手)
-    wrap.addEventListener("mousedown", (event) => {
+    box.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const pos = view.posAtDOM(wrap);
+      const pos = view.posAtDOM(box);
       if (pos < 0) {
         return;
       }
       view.focus();
       view.dispatch({ selection: { anchor: pos }, scrollIntoView: false });
     });
-    return wrap;
+    return box;
   }
 
   // 種類ごとに描き分ける。mermaid はブラウザで、circuitikz はサーバに頼む
