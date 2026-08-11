@@ -10,7 +10,7 @@ import {
 import { ItemTags } from "@/components/ItemTags";
 import { ItemTimestamps } from "@/components/ItemTimestamps";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
-import { MarkdownView } from "@/components/MarkdownView";
+import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { MemoEditor } from "@/components/MemoEditor";
 import { OfflinePinToggle } from "@/components/OfflinePinToggle";
@@ -142,8 +142,8 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         key={itemNo}
         defaultMode={memo ? "markdown" : "edit"}
         markdownView={
-          <MarkdownView
-            markdown={memo}
+          <NoteBody
+            memo={memo}
             circuits={circuits}
             allowRotate
             allowSecretEdit

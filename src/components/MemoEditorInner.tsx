@@ -36,6 +36,9 @@ import { makeVideoThumbs } from "@/lib/video/videoPoster";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
 import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
 import { uploadTooLargeMessage } from "@/lib/uploadSizeCheck";
+// 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
+// 止めているのにインポートは通る/その逆のずれ方をする)
+import { MAX_TEXT_LENGTH } from "@/lib/validation";
 import { imageAtCursor, ocrInsertion, ocrPlaceholder } from "@/lib/ocr/ocrQuote";
 import {
   ocrButtonLabel,
@@ -103,8 +106,6 @@ export interface MemoEditorInnerProps {
   autoFocus?: boolean;
   minHeight?: string;
 }
-
-const MAX_TEXT_LENGTH = 10000;
 
 // ファイル選択ダイアログの絞り込み。MIME に加えて拡張子も併記するのは、
 // iOS/一部 OS が HEIC の MIME を空で送ることがあり、MIME だけだと選べないため。
@@ -739,6 +740,33 @@ export default function MemoEditorInner({
     view.focus();
   };
 
+  // ＋ で新しいページを足す (docs/74-ページ計画.md §5)。
+  //
+  // **区切り行を 1 つ挿すだけ**。本文は 1 枚のままなので、undo 履歴も
+  // ライブプレビューもツールバーも今までどおり動く (ページごとに value を
+  // 差し替える作りにしない理由は計画 §5)。
+  //
+  // notePages は remark を引き込むので、押すまで読み込まない (お絵かき・
+  // スキャナと同じ流儀)。本文は **await の後に**読み直す — 読み込みを待つ
+  // 間に打鍵が続いても、位置が古い本文のままにならないように
+  const addPage = async () => {
+    const { newPageInsertion } = await import("@/components/notePages");
+    const view = editorRef.current?.view;
+    if (!view) {
+      return;
+    }
+    const { from, to, insert, cursor } = newPageInsertion(
+      view.state.doc.toString(),
+      view.state.selection.main.head,
+    );
+    view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: cursor },
+      scrollIntoView: true,
+    });
+    view.focus();
+  };
+
   // ライブプレビューの ON/OFF。Compartment の中身だけを入れ替えるので、
   // 拡張一式の組み直しも本文への書き込みも起きない (履歴に 1 手も積まれない)
   const toggleLivePreview = () => {
@@ -1117,6 +1145,7 @@ export default function MemoEditorInner({
             livePreview={livePreview}
             onToggleLivePreview={toggleLivePreview}
             onFormat={applyFormat}
+            onAddPage={() => void addPage()}
             busy={busy}
           />,
           hostEl,

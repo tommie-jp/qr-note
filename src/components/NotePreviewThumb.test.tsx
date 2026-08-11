@@ -175,3 +175,16 @@ test("画像モードはプレビューを作らない (行が無い)", () => {
   const previews = buildNotePreviews([item("1", "文字だけ")], {}, "image");
   expect(previews).toEqual({});
 });
+
+// 一覧の顔は 1 ページ目だけ (docs/74-ページ計画.md §6)。ページを分けた
+// ノートは 1 枚目が表紙になる
+test("ページを分けたノートは 1 ページ目だけをプレビューにする", () => {
+  const previews = buildNotePreviews(
+    [item("1", "表紙の文\n\n---\n\n2ページ目の文")],
+    {},
+    "card",
+  );
+  const html = renderToStaticMarkup(previews["1"]);
+  expect(html).toContain("表紙の文");
+  expect(html).not.toContain("2ページ目の文");
+});

@@ -1,9 +1,14 @@
 export type Mode = 'memo' | 'url'
 
-// memo / url 1 件の文字数上限。フォーム投稿 (actions.ts) と ENEX インポート
-// (lib/enex/importEnex.ts) の両方が同じ上限を見る。片方だけ緩いと、取り込めた
-// のに編集画面から保存し直せないノートができる
-export const MAX_TEXT_LENGTH = 10000
+// memo / url 1 件の文字数上限。フォーム投稿 (actions.ts)・ENEX インポート
+// (lib/enex/importEnex.ts)・ZIP インポート (lib/zip/noteFile.ts)・編集画面の
+// 打ち止め (MemoEditorInner) が**同じ上限を見る**。片方だけ緩いと、取り込めた
+// のに編集画面から保存し直せないノートができる。
+//
+// 10,000 字から上げた (docs/74-ページ計画.md §7)。ページは本文が伸びる前提の
+// 機能で、1 ページ 500 字 × 60 ページを目安にした。上げすぎないのは、この列が
+// pg_dump・git 履歴 (notes/<itemNo>.md)・オフライン同期の全部を通るため
+export const MAX_TEXT_LENGTH = 32000
 
 // Ver1 の実データは 4 桁数字が大半だが、"100x" のような
 // 非数字の itemNo も 1 件存在するため英数字を許容する

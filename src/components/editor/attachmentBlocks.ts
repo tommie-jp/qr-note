@@ -22,8 +22,9 @@ import { attachmentChip } from "@/lib/attachmentChip";
 
 // 構文解析を本文の最後まで進めるときの上限 (ms)。CodeMirror は既定では
 // 画面に見えている範囲までしか解析しないため、これを待たずに組むと
-// 下のほうの添付だけチップにならない。本文上限は 10,000 字 (MemoEditorInner の
-// MAX_TEXT_LENGTH) なので実際は一瞬で終わり、この値まで待つことはまず無い
+// 下のほうの添付だけチップにならない。本文上限は 32,000 字
+// (lib/validation.ts の MAX_TEXT_LENGTH) なので実際は一瞬で終わり、
+// この値まで待つことはまず無い
 const PARSE_BUDGET_MS = 200;
 
 // 画像記法 1 つを丸ごと切り出して alt と url を取る。lezer の木を部品ごとに

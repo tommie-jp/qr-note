@@ -168,14 +168,26 @@ const DIRECTIVE_MARKER = /^\s*:{3,}/
 // 扱う — 捨てると、要約に出るのは折り畳んで隠したはずの 1 行目になる
 const DIRECTIVE_LABEL = /^\s*:{3,}[\w-]*\[(.*)\]\s*$/
 
-// 中身ではなく囲い (フェンス・折りたたみ) の行か。
+// 水平線 (`---` / `***` / `___`)。ページとページの境目 (docs/74-ページ計画.md)
+// であって見出しではないので、要約にもプレビューにも出さない。
+//
+// **段落の直後の罫線 (`赤LED` + `------`) はここに来ない。** CommonMark では
+// setext 見出しの下線として読まれ、要約は上の行を返して先に抜けるため
+// (既存ノートの罫線付きの表がこの形。memoSummary.test.ts で固定してある)
+const THEMATIC_BREAK = /^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/
+
+// 中身ではなく囲い (フェンス・折りたたみ・ページの区切り) の行か。
 // 要約もプレビューも同じ判断を使う — 片方だけ直すと一覧の 1 行目と
 // その下のプレビューで別の行が選ばれる
 export function isStructureLine(line: string): boolean {
   if (DIRECTIVE_LABEL.test(line)) {
     return false
   }
-  return FENCE_MARKER.test(line) || DIRECTIVE_MARKER.test(line)
+  return (
+    FENCE_MARKER.test(line) ||
+    DIRECTIVE_MARKER.test(line) ||
+    THEMATIC_BREAK.test(line)
+  )
 }
 
 // 1 行から Markdown 記法を取り除いて表示用のテキストにする。

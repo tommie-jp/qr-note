@@ -10,8 +10,9 @@ import { attachmentEntryPath, META_ENTRY_PATH, noteEntryPath } from './layout'
 import { buildNoteFile, collectAttachmentNames, type PortableNote } from './noteFile'
 import type { ZipEntry } from './zipStream'
 
-// ノート本文をまとめて引く単位。1 件は最大 10000 文字 (MAX_TEXT_LENGTH) なので、
-// 100 件で数 MB に収まる。全件を 1 回で引くと数千件規模でここだけが重くなる
+// ノート本文をまとめて引く単位。1 件は最大 32,000 文字 (MAX_TEXT_LENGTH) なので、
+// 100 件でも最悪十数 MB に収まる (実データは 1KB 前後なので実際は 100KB 程度)。
+// 全件を 1 回で引くと数千件規模でここだけが重くなる
 const NOTE_BATCH = 100
 
 // ZIP に入れる項目を順に返す。itemNos が null なら全ノート。

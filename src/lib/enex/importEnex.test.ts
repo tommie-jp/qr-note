@@ -1,4 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
+import { MAX_TEXT_LENGTH } from '@/lib/validation'
 
 // DB と添付の保存は差し替える。ここで確かめたいのは繋ぎ役の振る舞い —
 // 「入らなかったものが必ずレポートに出るか」であって、Postgres や sharp ではない
@@ -271,7 +272,7 @@ test('タグとして書けないタグをレポートに載せる', async () =>
 })
 
 test('長すぎるノートは保存せず、保存済みの添付を消す', async () => {
-  const long = 'あ'.repeat(10001)
+  const long = 'あ'.repeat(MAX_TEXT_LENGTH + 1)
   const report = await importEnex(
     enex(
       note(`<title>題名</title><content>${enml(`<div>${long}</div>`)}</content>
@@ -290,7 +291,7 @@ test('長すぎるノートは保存せず、保存済みの添付を消す', as
 // 片付けに失敗しても、利用者に見せる理由は「長すぎる」のままであってほしい
 test('添付の片付けに失敗しても本当の理由を報告する', async () => {
   deleteMany.mockRejectedValue(new Error('DB が落ちている'))
-  const long = 'あ'.repeat(10001)
+  const long = 'あ'.repeat(MAX_TEXT_LENGTH + 1)
 
   const report = await importEnex(
     enex(

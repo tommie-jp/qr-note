@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { EditToolbar } from "./EditToolbar";
 
-// 静的描画で 11 ボタン (更新 + 10 ツール) が出ることを確かめる。ラベルは呼び出し側
+// 静的描画で 12 ボタン (更新 + 11 ツール) が出ることを確かめる。ラベルは呼び出し側
 // (MemoEditorInner) が progressLabels で作った文字列をそのまま受けるので、
 // ここでは代表値を渡す。押下時の挙動 (portal・requestSubmit・録音等) はブラウザで確認。
 const noop = () => {};
@@ -33,17 +33,19 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       livePreview={false}
       onToggleLivePreview={noop}
       onFormat={noop}
+      onAddPage={noop}
       busy={false}
       {...overrides}
     />,
   );
 
-test("更新 と 11 のツールをすべて描く", () => {
+test("更新 と 12 のツールをすべて描く", () => {
   const html = render();
   for (const label of [
     "更新",
     "元に戻す",
     "やり直す",
+    "ページ",
     "画像を挿入",
     "スキャン",
     "録音",
@@ -105,4 +107,11 @@ test("履歴が無いとき 元に戻す/やり直す は disabled", () => {
   const html = render({ canUndo: false, canRedo: false });
   // 更新は pending でないので有効、undo/redo の 2 つだけが disabled
   expect(html.match(/disabled=""/g)?.length).toBe(2);
+});
+
+// ページを足す ＋ (docs/74-ページ計画.md §5)。挿入系のボタンなので帯の前寄り。
+// **書式と違って帯の中でよい** — メニューを開かないので切り取られる物が無い
+test("ページ追加は横スクロール帯の中に置く", () => {
+  const html = render();
+  expect(html.indexOf("overflow-x-auto")).toBeLessThan(html.indexOf("ページ"));
 });

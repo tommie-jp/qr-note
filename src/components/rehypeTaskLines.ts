@@ -38,7 +38,11 @@ function firstCheckbox(node: Element): Element | null {
   return found;
 }
 
-export function rehypeTaskLines() {
+// lineOffset … 描いているのが本文の切れ端のときに足す行数
+// (ページ 2 枚目以降。docs/74-ページ計画.md §4)。刻む番号は**本文全体に
+// 対する行番号**でなければならない — toggleMemoTaskAction が書き換えるのは
+// items.memo で、ページの中の番号を渡すと別の行が反転する
+export function rehypeTaskLines(lineOffset = 0) {
   return (tree: Root): void => {
     visit(tree, "element", (node: Element) => {
       if (node.tagName !== "li" || !hasTaskItemClass(node)) {
@@ -50,7 +54,7 @@ export function rehypeTaskLines() {
       }
       const checkbox = firstCheckbox(node);
       if (checkbox?.properties) {
-        checkbox.properties[TASK_LINE_PROPERTY] = line;
+        checkbox.properties[TASK_LINE_PROPERTY] = line + lineOffset;
       }
     });
   };

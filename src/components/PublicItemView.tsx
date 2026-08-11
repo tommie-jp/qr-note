@@ -3,7 +3,7 @@ import { ItemTags } from "@/components/ItemTags";
 import { ItemTimestamps } from "@/components/ItemTimestamps";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
 import { LoginButton } from "@/components/LoginButton";
-import { MarkdownView } from "@/components/MarkdownView";
+import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { PendingLink } from "@/components/PendingLink";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
@@ -74,7 +74,7 @@ export async function PublicItemView({ itemNo, item }: PublicItemViewProps) {
         // linkTags=false … 本文中の #タグ もリンクにしない。タグ検索は
         // 未ログインに閉じているので、押すと案内に化けるリンクを本文に残さない
         markdownView={
-          <MarkdownView markdown={memo} circuits={circuits} linkTags={false} />
+          <NoteBody memo={memo} circuits={circuits} linkTags={false} />
         }
         textView={
           <pre

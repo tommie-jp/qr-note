@@ -2,7 +2,7 @@
 
 import { ItemTags } from "@/components/ItemTags";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
-import { MarkdownView } from "@/components/MarkdownView";
+import { NoteBody } from "@/components/NoteBody";
 import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import type { CircuitMap } from "@/lib/circuitCache";
 import { formatJstDateTime } from "@/lib/datetime";
@@ -53,7 +53,7 @@ export function OfflineNote({ item, circuits, onBack }: OfflineNoteProps) {
       <ItemTags tags={item.tags} linked={false} />
 
       <div className="rounded border border-gray-200 bg-white px-4 py-3">
-        <MarkdownView markdown={item.memo} circuits={circuits} linkTags={false} />
+        <NoteBody memo={item.memo} circuits={circuits} linkTags={false} />
       </div>
 
       {/* 「いつ時点のノートか」は、圏外で読むときこそ知りたい情報になる */}

@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest'
+import { MAX_TEXT_LENGTH } from '@/lib/validation'
 import {
   buildNoteFile,
   collectAttachmentNames,
@@ -112,7 +113,9 @@ test('任意項目が無くても itemNo だけあれば読める', () => {
 })
 
 test('本文が長すぎるファイルは理由付きで断る', () => {
-  const text = buildNoteFile(note({ memo: 'あ'.repeat(10001) }))
+  // 上限そのものは validation.ts が決める。数を書き写すと、上限を上げた
+  // ときにここだけが古い数を守り続ける (docs/74 §7 で 10,000 → 32,000)
+  const text = buildNoteFile(note({ memo: 'あ'.repeat(MAX_TEXT_LENGTH + 1) }))
   expect(parseNoteFile(text).ok).toBe(false)
 })
 

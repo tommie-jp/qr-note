@@ -9,6 +9,7 @@ import {
   LockIcon,
   MicIcon,
   OcrIcon,
+  PlusIcon,
   RedoIcon,
   SaveIcon,
   ScanIcon,
@@ -107,6 +108,9 @@ export interface EditToolbarProps {
   // 書式メニュー (docs/70 §6)。選択範囲へ記法を付け外しするだけなので
   // busy でも押せる (アップロードにも通信にも触らない)
   onFormat: (action: FormatAction) => void;
+  // 新しいページを足す (docs/74-ページ計画.md §5)。区切り行を 1 つ挿すだけの
+  // 本文編集なので、書式と同じく busy でも押せる
+  onAddPage: () => void;
   // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
   busy: boolean;
 }
@@ -135,6 +139,7 @@ export function EditToolbar({
   livePreview,
   onToggleLivePreview,
   onFormat,
+  onAddPage,
   busy,
 }: EditToolbarProps) {
   return (
@@ -174,6 +179,19 @@ export function EditToolbar({
             <RedoIcon />
           </ToolIcon>
           やり直す
+        </button>
+        {/* 新しいページ (docs/74-ページ計画.md §5)。書式と違いメニューを
+            開かないので、帯の中に置いても切り取られる物が無い。挿入系の
+            前寄りに置くのは、打鍵の合間に使うため */}
+        <button
+          type="button"
+          onClick={onAddPage}
+          className={TOOL_SLOT}
+        >
+          <ToolIcon color="text-emerald-600">
+            <PlusIcon />
+          </ToolIcon>
+          ページ
         </button>
         <button
           type="button"

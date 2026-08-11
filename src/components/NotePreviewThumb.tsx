@@ -39,6 +39,7 @@ import {
   notePreviewSource,
   wantsNotePreview,
 } from "@/lib/notePreview";
+import { firstPageSource } from "@/components/notePages";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
 import { isValidImageName } from "@/lib/uploads";
 import type { ViewMode } from "@/lib/viewMode";
@@ -221,7 +222,13 @@ export function buildNotePreviews(
   return Object.fromEntries(
     targets.map((item) => [
       item.itemNo,
-      <NotePreviewThumb key={item.itemNo} markdown={notePreviewSource(item.memo, maxChars)} />,
+      // 一覧の顔は**1 ページ目**だけ (docs/74-ページ計画.md §6)。ページを
+      // 分けたノートは 1 枚目が表紙になる。切り詰め (notePreviewSource) の
+      // 前に絞るのは、2 ページ目以降の文字で 600 字の予算を使わないため
+      <NotePreviewThumb
+        key={item.itemNo}
+        markdown={notePreviewSource(firstPageSource(item.memo), maxChars)}
+      />,
     ]),
   );
 }

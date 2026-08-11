@@ -567,3 +567,17 @@ test("折りたたみの中の画像も描く", () => {
 test("知らない directive は書いたとおりの文字で残す", () => {
   expect(render("型:int です")).toContain("型:int です");
 });
+
+// ページ 2 枚目以降を描くときの行番号 (docs/74-ページ計画.md §4)。
+// 刻むのは本文全体に対する行番号 — ページの中の番号を渡すと、
+// toggleMemoTaskAction が別の行を反転させる
+test("チェックボックスに本文の行番号を刻む", () => {
+  expect(render("- [ ] やること")).toContain('data-line="1"');
+});
+
+test("lineOffset を足した行番号を刻む", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownView markdown="- [ ] やること" lineOffset={3} />,
+  );
+  expect(html).toContain('data-line="4"');
+});

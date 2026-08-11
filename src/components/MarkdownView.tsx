@@ -71,6 +71,13 @@ interface MarkdownViewProps {
   // **シークレット断片の中でも渡さない** (断片は独立に描かれるので行番号が
   // メモ本文と一致しない)
   onToggleTask?: ToggleTaskHandler;
+  // 描いているのが本文の切れ端のとき、チェックボックスに刻む行番号へ足す数
+  // (ページ 2 枚目以降。docs/74-ページ計画.md §4)。既定の 0 = 本文まるごと。
+  //
+  // シークレット断片が onToggleTask を渡さないのと同じ問題への、別の答え —
+  // 断片は本文のどこから来たか判らないので押せなくするしかないが、ページは
+  // 本文の切れ端で開始行が判るので、足せば押せるままにできる
+  lineOffset?: number;
 }
 
 // フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
@@ -246,6 +253,7 @@ export function MarkdownView({
   allowSecretEdit = false,
   blobKinds = new Map(),
   onToggleTask,
+  lineOffset = 0,
 }: MarkdownViewProps) {
   // プラグイン列の土台は markdownPipeline.tsx (一覧のプレビューと共有)。
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
@@ -258,7 +266,10 @@ export function MarkdownView({
   // rehypeTaskLines は**サニタイズより後**に置く (前だと data-line が落ちる)。
   // 押せない画面でも外さない — 出し分けを増やすと、片方だけ直したときに
   // 「静かに押せないだけ」に戻ってしまう。刻むのは行番号だけで実害はない
-  const rehypePlugins: PluggableList = [...BASE_REHYPE_PLUGINS, rehypeTaskLines];
+  const rehypePlugins: PluggableList = [
+    ...BASE_REHYPE_PLUGINS,
+    [rehypeTaskLines, lineOffset],
+  ];
 
   return (
     // 文字サイズの倍率は root (html) に掛かっているので、ここは何も持たない
