@@ -34,17 +34,19 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       onToggleLivePreview={noop}
       onFormat={noop}
       onAddPage={noop}
+      onFind={noop}
       busy={false}
       {...overrides}
     />,
   );
 
-test("更新 と 12 のツールをすべて描く", () => {
+test("更新 と 13 のツールをすべて描く", () => {
   const html = render();
   for (const label of [
     "更新",
     "元に戻す",
     "やり直す",
+    "検索",
     "ページ",
     "画像を挿入",
     "スキャン",
@@ -114,4 +116,11 @@ test("履歴が無いとき 元に戻す/やり直す は disabled", () => {
 test("ページ追加は横スクロール帯の中に置く", () => {
   const html = render();
   expect(html.indexOf("overflow-x-auto")).toBeLessThan(html.indexOf("ページ"));
+});
+
+// ノート内検索 (docs/76-ノート内検索計画.md §2)。長押しで置換つきで開くので、
+// 押した意味が 2 通りあることを読み上げにも出す
+test("検索は長押しで置換つきで開くことを説明に持つ", () => {
+  const html = render();
+  expect(html).toContain("長押しで置換");
 });

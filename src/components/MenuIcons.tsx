@@ -498,6 +498,48 @@ export function LivePreviewIcon() {
   );
 }
 
+// ノート内検索 (docs/76-ノート内検索計画.md §2)。虫眼鏡は検索画面の
+// SearchIcon と同じ形で、下部バーの寸法 (24px) に拡大したもの — 同じ意味の
+// 絵を 2 通り描かない。柄の向きも揃える (世の中の虫眼鏡がほぼこの向き)
+export function FindIcon() {
+  return (
+    <StrokeIconLarge>
+      <circle {...TINT} cx="11" cy="11" r="6" />
+      <path d="M15.5 15.5L21 21" />
+    </StrokeIconLarge>
+  );
+}
+
+// 以下 3 つは検索バーの中の小さなボタン (20px)。色は持たせない —
+// 押せない間 (0 件) は薄く、押せる間は文字色に従う
+//
+// 前の一致 / 次の一致。∧ ∨ は「上の一致へ / 下の一致へ」で、本文の並び順
+// そのもの。← → にしないのは、横書きの本文で左右が「行の中の移動」に見えるため
+export function ChevronUpIcon() {
+  return (
+    <StrokeIcon>
+      <path d="M6 15l6-6 6 6" />
+    </StrokeIcon>
+  );
+}
+
+export function ChevronDownIcon() {
+  return (
+    <StrokeIcon>
+      <path d="M6 9l6 6 6-6" />
+    </StrokeIcon>
+  );
+}
+
+// 置換行を開く。2 本の矢印が入れ替わる形で「置き換え」を表す
+export function ReplaceIcon() {
+  return (
+    <StrokeIcon>
+      <path d="M4 8h13l-3-3M20 16H7l3 3" />
+    </StrokeIcon>
+  );
+}
+
 // ゴミ箱 (docs/66-行アクション計画.md §6)。
 //
 // **色は持たせず currentColor のまま置く。** 上のメニュー用アイコンと違い、

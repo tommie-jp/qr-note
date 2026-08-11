@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import {
   DrawIcon,
+  FindIcon,
   ImageInsertIcon,
   LivePreviewIcon,
   LockIcon,
@@ -16,6 +17,7 @@ import {
   UndoIcon,
   VideoIcon,
 } from "@/components/MenuIcons";
+import { useLongPress } from "@/components/useLongPress";
 import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
 import type { FormatAction } from "@/components/editor/markdownFormat";
 
@@ -70,6 +72,41 @@ function SubmitBarButton({ onSubmit }: { onSubmit: () => void }) {
   );
 }
 
+// ノート内検索 (docs/76-ノート内検索計画.md §2)。
+//
+// **タップで検索、長押しで置換つき**で開く。下部バーのスロット (docs/62) と
+// 同じ割り当て — 短いタップに既定の動作があり、長押しはその先へ直接行く近道。
+// 置換のためだけにボタンをもう 1 つ帯へ並べると、既に 12 個ある挿入系が
+// さらにスクロールの奥へ押しやられる。
+//
+// 長押しが使えない環境 (キーボードだけ・読み上げ) では、帯を開いてから
+// 中の「置換」ボタンで同じ所へ行ける。ここは近道であって唯一の道ではない
+function FindButton({ onFind }: { onFind: (withReplace: boolean) => void }) {
+  const press = useLongPress(() => onFind(true));
+  return (
+    <button
+      type="button"
+      {...press.handlers}
+      onClick={(event) => {
+        // 長押しが成立していた分の click は握り潰される (戻り値 true)。
+        // そのまま続けると、置換つきで開いた直後に検索だけの状態へ
+        // 上書きしてしまう
+        if (press.handlers.onClick(event)) {
+          return;
+        }
+        onFind(false);
+      }}
+      title="ノート内を検索 (長押しで置換)"
+      className={TOOL_SLOT}
+    >
+      <ToolIcon color="text-blue-600">
+        <FindIcon />
+      </ToolIcon>
+      検索
+    </button>
+  );
+}
+
 export interface EditToolbarProps {
   // 更新: 囲みの form を送信する (MemoEditorInner が requestSubmit を渡す)
   onSubmit: () => void;
@@ -111,6 +148,9 @@ export interface EditToolbarProps {
   // 新しいページを足す (docs/74-ページ計画.md §5)。区切り行を 1 つ挿すだけの
   // 本文編集なので、書式と同じく busy でも押せる
   onAddPage: () => void;
+  // ノート内検索を開く (docs/76 §2)。引数は置換行も開くか (長押し)。
+  // 本文を読むだけなので busy でも押せる
+  onFind: (withReplace: boolean) => void;
   // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
   busy: boolean;
 }
@@ -140,6 +180,7 @@ export function EditToolbar({
   onToggleLivePreview,
   onFormat,
   onAddPage,
+  onFind,
   busy,
 }: EditToolbarProps) {
   return (
@@ -180,6 +221,9 @@ export function EditToolbar({
           </ToolIcon>
           やり直す
         </button>
+        {/* ノート内検索 (docs/76 §2)。打鍵の合間に使うものなので、
+            undo/redo の隣 (帯の前寄り) に置く */}
+        <FindButton onFind={onFind} />
         {/* 新しいページ (docs/74-ページ計画.md §5)。書式と違いメニューを
             開かないので、帯の中に置いても切り取られる物が無い。挿入系の
             前寄りに置くのは、打鍵の合間に使うため */}

@@ -7,6 +7,7 @@ import {
   secretLabel,
   secretNameFromUrl,
   secretNotation,
+  secretNotationRanges,
   secretToolbarLabel,
   secretUrl,
 } from './secrets'
@@ -121,6 +122,22 @@ describe('secretToolbarLabel', () => {
   test('says 秘密 elsewhere (新規挿入になる)', () => {
     expect(secretToolbarLabel(doc, 0)).toBe('秘密')
     expect(secretToolbarLabel('ただの本文', 2)).toBe('秘密')
+  })
+})
+
+describe('secretNotationRanges', () => {
+  test('returns every notation range (置換から守る範囲)', () => {
+    const first = secretNotation('住所', NAME)
+    const second = secretNotation('鍵', OTHER)
+    const doc = `前 ${first} 中 ${second} 後`
+    expect(secretNotationRanges(doc)).toEqual([
+      { from: doc.indexOf(first), to: doc.indexOf(first) + first.length },
+      { from: doc.indexOf(second), to: doc.indexOf(second) + second.length },
+    ])
+  })
+
+  test('ignores plain images (守るのはシークレットだけ)', () => {
+    expect(secretNotationRanges('![写真](/api/images/a.png)')).toEqual([])
   })
 })
 

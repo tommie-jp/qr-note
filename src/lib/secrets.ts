@@ -119,6 +119,20 @@ export function secretToolbarLabel(memo: string, cursor: number): string {
   return secretAtCursor(memo, cursor) === null ? '秘密' : '秘密を編集'
 }
 
+// 本文にあるシークレット記法の範囲をすべて返す (docs/76-ノート内検索計画.md §5-4)。
+//
+// 用途は「置換から守る」こと。`/api/secrets/<名前>` の名前が 1 文字でも
+// 変われば、暗号化された断片への参照が切れて**戻せない** (本文だけを見ても
+// どの断片だったか判らない)。ノート内の全置換はこの範囲に重なる一致を飛ばす。
+//
+// secretAtCursor と同じくコードフェンスは除かない — 除くと「見えている
+// 記法なのに守られない」場所ができる。守る側は広めに取るのが安全。
+export function secretNotationRanges(
+  memo: string,
+): { from: number; to: number }[] {
+  return [...iterNotations(memo)].map(({ from, to }) => ({ from, to }))
+}
+
 // 名前から記法の範囲を引く。編集を保存した後にラベルを差し替えるために使う。
 // **位置ではなく名前で引き直す**のが要点 — ダイアログを開いている間に本文が
 // 動いていても正しい場所を置き換えられる (画像アップロードの replaceToken と

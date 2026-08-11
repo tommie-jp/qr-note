@@ -2,6 +2,12 @@
 
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import {
+  findNext,
+  findPrevious,
+  setSearchQuery,
+  type SearchQuery,
+} from "@codemirror/search";
 import { EditorState } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import "@atomic-editor/editor/styles.css";
@@ -59,6 +65,18 @@ import {
   livePreviewContent,
 } from "./editor/livePreview";
 import { formatSpec, type FormatAction } from "./editor/markdownFormat";
+import { NoteSearchBar } from "./editor/NoteSearchBar";
+import {
+  buildQuery,
+  countMatches,
+  firstMatchFrom,
+  overLimitNote,
+  planReplaceAll,
+  planReplaceCurrent,
+  replaceAllNote,
+  type NoteSearchNote,
+} from "./editor/noteSearch";
+import { createNoteSearch } from "./editor/noteSearchHighlight";
 import { quizLinter } from "./editor/quizLinter";
 import {
   LIVE_PREVIEW_DEFAULT,
@@ -311,11 +329,40 @@ const BASIC_SETUP = {
   lineNumbers: false,
   foldGutter: false,
   highlightActiveLine: false,
+  // 標準の検索キーマップは外す (docs/76-ノート内検索計画.md §3)。
+  // Ctrl+F は自前の帯へ差し替えるが、F3 / Ctrl+G が残っていると、検索語が
+  // 無いときに CodeMirror 標準のパネルが開いてしまう (帯と二重に出る)。
+  // 同じ鍵は noteSearchExtension が全部引き受ける
+  searchKeymap: false,
 } as const;
 
 // プレースホルダの一意性のための連番 (インスタンス間で共有してよい)
 let uploadSeq = 0;
 let ocrSeq = 0;
+
+// ノート内検索の帯が持つ値 (docs/76-ノート内検索計画.md §2)。
+// 閉じても捨てずに残す — 同じ語を続けて探すことが多い
+interface FindState {
+  search: string;
+  replace: string;
+  caseSensitive: boolean;
+  showReplace: boolean;
+}
+
+const EMPTY_FIND: FindState = {
+  search: "",
+  replace: "",
+  caseSensitive: false,
+  showReplace: false,
+};
+
+// 一致へ飛ぶときに、下部バーとソフトキーボードの上に空けておく余白 (px)。
+// 帯の高さは実測 (置換行の有無で変わる) し、これは「その少し上」ぶん
+const FIND_SCROLL_GAP = 16;
+
+// 検索語に引き継ぐ選択範囲の上限。長い範囲や複数行を入れても帯には収まらず、
+// 消してから打ち直す手間が増えるだけ
+const FIND_SEED_MAX = 50;
 
 // ライブプレビューの設定の読み書き (docs/70-編集ライブプレビュー計画.md §4)。
 // **window.localStorage を触ること自体が例外になる**ブラウザがある
@@ -405,9 +452,23 @@ export default function MemoEditorInner({
   // この部品は ssr: false で読み込まれる (MemoEditor.tsx) ので、初期値を
   // localStorage から同期に読んでも hydration はずれない
   const [livePreview, setLivePreview] = useState(readLivePreviewPref);
+  // ノート内検索・置換 (docs/76-ノート内検索計画.md)。開いている間、下部バーは
+  // 編集ツールバーの代わりに検索バーを出す (帯を 2 段にしない)
+  const [findOpen, setFindOpen] = useState(false);
+  const [find, setFind] = useState<FindState>(EMPTY_FIND);
+  const [findCount, setFindCount] = useState({ total: 0, current: 0 });
+  // 置換の結果・断り。次の検索操作か、帯を閉じるまで出したままにする
+  // (タイマーで消さない — 「元に戻す」を押す間に消えては困る)
+  const [findNote, setFindNote] = useState<NoteSearchNote | null>(null);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // いまの検索条件。**参照を固定した onUpdate から読む**ので state ではなく ref
+  // (state にすると onUpdate の参照が変わり、拡張一式が組み直される)
+  const queryRef = useRef<SearchQuery | null>(null);
+  // 打ちながら飛ぶときの起点 (帯を開いた時のカーソル位置)。いまの選択を起点に
+  // すると、1 文字打ち足すたびに前へ前へと飛んで元の場所へ戻れなくなる
+  const findAnchorRef = useRef(0);
 
   // タブパネル (MemoPanel) が hidden で保持する構成では、非表示タブでも
   // このコンポーネントはマウントされたまま。portal は hidden の枠を抜けて
@@ -646,8 +707,11 @@ export default function MemoEditorInner({
   // Compartment をここで作るのは、拡張と寿命を揃えるため — 外で作って
   // 配列の中から参照すると、拡張を組む useMemo の依存に載ってしまう
   // (載せれば切り替えのたびに全再構成、載せなければ lint が鳴る)
-  const { extensions, livePreviewCompartment } = useMemo(() => {
+  const { extensions, livePreviewCompartment, noteSearch } = useMemo(() => {
     const livePreviewCompartment = createLivePreviewCompartment();
+    // 検索の拡張と、その呼び出し先の差し替え口。Compartment と同じ理由で
+    // ここで作る — 拡張と寿命を揃え、中身だけを後から差し替える
+    const noteSearch = createNoteSearch();
     // markdown() は内部で新しい言語インスタンスを作ってそこに組み込み補完を
     // 登録する。export される markdownLanguage は別インスタンスのため、
     // そちらに登録しても効かない (バンドル環境で languageDataAt に載らない)。
@@ -691,6 +755,8 @@ export default function MemoEditorInner({
       // 描画中に localStorage を読むことになるが、この部品は ssr: false で
       // 読み込まれる (MemoEditor.tsx) ので hydration はずれない
       livePreviewCompartment.of(livePreviewContent(readLivePreviewPref())),
+      // ノート内検索 (docs/76 §3, §6)。検索状態・ハイライト・Ctrl+F を足す
+      noteSearch.extension,
       EditorView.domEventHandlers({
         paste: (event, view) => {
           const files = pickFiles(event.clipboardData?.files);
@@ -723,7 +789,7 @@ export default function MemoEditorInner({
         },
       }),
     ];
-    return { extensions, livePreviewCompartment };
+    return { extensions, livePreviewCompartment, noteSearch };
     // insertImages は ref と state セッターのみ参照するため再生成不要
   }, []);
 
@@ -780,6 +846,193 @@ export default function MemoEditorInner({
       });
     }
   };
+
+  // ここからノート内検索・置換 (docs/76-ノート内検索計画.md)。
+  //
+  // 探す計算は noteSearch.ts、帯の見た目は NoteSearchBar.tsx、CodeMirror 側の
+  // ハイライトと鍵は noteSearchHighlight.ts。ここはその 3 つを繋ぐだけ。
+
+  // ライブプレビューを検索中だけ畳む (§4)。記法を隠した範囲は DOM に無く、
+  // そこに当たった一致はハイライトが出ないまま「何も無い所」へ飛ぶ。
+  // **設定 (localStorage) は書き換えない** — 閉じれば元の見え方に戻る
+  const setLivePreviewSuspended = (suspended: boolean) => {
+    const view = editorRef.current?.view;
+    if (!view || !livePreview) {
+      return; // もともと OFF なら触るものがない
+    }
+    view.dispatch({
+      effects: livePreviewCompartment.reconfigure(
+        livePreviewContent(!suspended),
+      ),
+    });
+  };
+
+  // 検索条件を CodeMirror へ渡し、件数を数え直す。
+  // jump … 起点 (帯を開いた位置) から最初の一致へ飛ぶか
+  const applyFind = (next: FindState, jump: boolean) => {
+    setFind(next);
+    setFindNote(null);
+    const view = editorRef.current?.view;
+    if (!view) {
+      return;
+    }
+    const query = buildQuery(next.search, next.replace, next.caseSensitive);
+    queryRef.current = query;
+    // ハイライト (noteSearchHighlight) と findNext/findPrevious が
+    // これを読む。パネルは開かないので、状態だけを差し替える
+    view.dispatch({ effects: setSearchQuery.of(query) });
+    const match = jump
+      ? firstMatchFrom(view.state, query, findAnchorRef.current)
+      : null;
+    if (match) {
+      view.dispatch({
+        selection: { anchor: match.from, head: match.to },
+        scrollIntoView: true,
+      });
+    }
+    // 飛ばなかったとき (一致 0 件) は本文もカーソルも動かず onUpdate が
+    // 呼ばれないので、ここで数える
+    setFindCount(countMatches(view.state, query));
+  };
+
+  const openFind = (withReplace: boolean) => {
+    const view = editorRef.current?.view;
+    // 選んでからボタンを押したなら、その語を初期値にする (短い 1 行のときだけ。
+    // 長い範囲は帯に収まらず、消して打ち直す手間が増える)
+    const selected = view
+      ? view.state.sliceDoc(
+          view.state.selection.main.from,
+          view.state.selection.main.to,
+        )
+      : "";
+    const seed =
+      selected.length > 0 &&
+      selected.length <= FIND_SEED_MAX &&
+      !selected.includes("\n")
+        ? selected
+        : find.search;
+    findAnchorRef.current = view ? view.state.selection.main.from : 0;
+    if (!findOpen) {
+      setFindOpen(true);
+      setLivePreviewSuspended(true);
+    }
+    applyFind(
+      { ...find, search: seed, showReplace: withReplace || find.showReplace },
+      seed !== "",
+    );
+  };
+
+  // 閉じる。閉じるものが無ければ false (Escape を他へ譲る)
+  const closeFind = (): boolean => {
+    if (!findOpen) {
+      return false;
+    }
+    setFindOpen(false);
+    setFindNote(null);
+    queryRef.current = null;
+    const view = editorRef.current?.view;
+    if (view) {
+      // 空のクエリ = valid でない = ハイライトが消える
+      view.dispatch({ effects: setSearchQuery.of(buildQuery("", "", false)) });
+      setLivePreviewSuspended(false);
+      view.focus();
+    }
+    return true;
+  };
+
+  // 次/前の一致へ。**帯が閉じていれば開く** (F3 / Ctrl+G から来る経路)。
+  // 一致が無ければ何もしない — findNext は検索語が無いと標準パネルを
+  // 開こうとするので、valid なときだけ通す
+  const runFind = (command: (view: EditorView) => boolean): boolean => {
+    if (!findOpen) {
+      openFind(false);
+      return true;
+    }
+    const view = editorRef.current?.view;
+    const query = queryRef.current;
+    if (!view || !query?.valid) {
+      return true;
+    }
+    command(view);
+    return true;
+  };
+
+  // 置換 (1 件): いまの一致を置き換えて次へ。一致の上にいなければ進むだけ
+  const replaceOne = () => {
+    const view = editorRef.current?.view;
+    const query = queryRef.current;
+    if (!view || !query?.valid) {
+      return;
+    }
+    const plan = planReplaceCurrent(view.state, query);
+    if (plan.tooLong) {
+      setFindNote(overLimitNote());
+      return;
+    }
+    setFindNote(null);
+    if (plan.change) {
+      view.dispatch({ changes: plan.change, userEvent: "input.replace" });
+    }
+    findNext(view);
+  };
+
+  // すべて置換 (§5)。1 トランザクションにまとめるので、戻すのは undo 1 回
+  const replaceAll = () => {
+    const view = editorRef.current?.view;
+    const query = queryRef.current;
+    if (!view || !query?.valid) {
+      return;
+    }
+    const plan = planReplaceAll(view.state, query);
+    if (plan.count > 0 && !plan.tooLong) {
+      view.dispatch({ changes: plan.changes, userEvent: "input.replace.all" });
+    }
+    setFindNote(replaceAllNote(plan));
+  };
+
+  // 知らせの「元に戻す」。押した後は知らせを畳む (戻した物をもう一度
+  // 戻せるように見えてはいけない)。
+  // **フォーカスは戻さない** — 帯で作業している最中なので、エディタへ
+  // 移すとスマホではキーボードが入れ替わって続きが打てなくなる
+  const undoReplace = () => {
+    setFindNote(null);
+    const view = editorRef.current?.view;
+    if (view) {
+      undo(view);
+    }
+  };
+
+  // 帯とソフトキーボードのぶんだけ、一致の下に余白を空ける (§6)。
+  // **スクロールのたびに呼ばれる**ので、その時々の高さで計算できる
+  const findBottomMargin = (): number => {
+    if (!findOpen) {
+      return 0;
+    }
+    const bar = hostEl?.getBoundingClientRect().height ?? 0;
+    const viewport = window.visualViewport;
+    // iOS はキーボードでレイアウトの高さを変えない (visualViewport だけが縮む)。
+    // その差がキーボードの高さ
+    const keyboard = viewport
+      ? Math.max(0, window.innerHeight - viewport.height)
+      : 0;
+    return bar + keyboard + FIND_SCROLL_GAP;
+  };
+
+  // 鍵 (Ctrl+F / F3 / Escape) とスクロール余白から呼ばれる口を、毎描画で
+  // 今の関数に差し替える。**依存配列は付けない** — 下の関数は毎描画で作り
+  // 直され、掴んでいる state (findOpen・find) もそのつど変わるため。
+  //
+  // 拡張は一度しか組まない (useMemo) ので、ここを通さないと「マウント時の
+  // 関数」を永久に掴んだままになる (押しても閉じた状態のまま動く)
+  useEffect(() => {
+    noteSearch.update({
+      onOpen: openFind,
+      onFindNext: () => runFind(findNext),
+      onFindPrev: () => runFind(findPrevious),
+      onEscape: closeFind,
+      bottomMargin: findBottomMargin,
+    });
+  });
 
   // undo / redo をボタンから呼ぶ。モバイルには Ctrl+Z がないため
   const runHistoryCommand = (command: (view: EditorView) => boolean) => {
@@ -873,6 +1126,20 @@ export default function MemoEditorInner({
         update.state.selection.main.from,
       );
       setSecretLabel((prev) => (prev === label ? prev : label));
+
+      // 検索の件数と「何番目か」(docs/76 §2)。本文を直しても、次の一致へ
+      // 送っても、置換しても必ずここを通る — 数え直す場所を 1 つにしておく。
+      // 検索条件は ref から読む (state にすると、この関数の参照が変わって
+      // 拡張一式が組み直される)
+      const query = queryRef.current;
+      if (query?.valid) {
+        const next = countMatches(update.state, query);
+        setFindCount((prev) =>
+          prev.total === next.total && prev.current === next.current
+            ? prev
+            : next,
+        );
+      }
     }
   }, []);
 
@@ -1114,8 +1381,41 @@ export default function MemoEditorInner({
       {/* 操作ボタンを下部バーの差し込み口へ portal する。差し込み口が出来る
           まで hostEl は null (表向きのタブでない間も null)。portal は React
           ツリーの親子を保つので、更新ボタンの useFormStatus は囲みの form を
-          拾い、各ハンドラは上の state/ref を触れる */}
+          拾い、各ハンドラは上の state/ref を触れる。
+          **検索中はツールバーの代わりに検索バーを出す** (docs/76 §2) —
+          並べると帯が 2 段になり、狭い画面で本文が潰れる */}
       {hostEl &&
+        findOpen &&
+        createPortal(
+          <NoteSearchBar
+            search={find.search}
+            replace={find.replace}
+            caseSensitive={find.caseSensitive}
+            showReplace={find.showReplace}
+            count={findCount}
+            note={findNote}
+            onSearchChange={(search) => applyFind({ ...find, search }, true)}
+            // 置換後の文字を変えても本文は動かない (飛ばない)
+            onReplaceChange={(replace) =>
+              applyFind({ ...find, replace }, false)
+            }
+            onToggleCase={() =>
+              applyFind({ ...find, caseSensitive: !find.caseSensitive }, true)
+            }
+            onToggleReplace={() =>
+              setFind({ ...find, showReplace: !find.showReplace })
+            }
+            onFindNext={() => runFind(findNext)}
+            onFindPrev={() => runFind(findPrevious)}
+            onReplaceOne={replaceOne}
+            onReplaceAll={replaceAll}
+            onUndo={undoReplace}
+            onClose={closeFind}
+          />,
+          hostEl,
+        )}
+      {hostEl &&
+        !findOpen &&
         createPortal(
           <EditToolbar
             onSubmit={submitForm}
@@ -1146,6 +1446,7 @@ export default function MemoEditorInner({
             onToggleLivePreview={toggleLivePreview}
             onFormat={applyFormat}
             onAddPage={() => void addPage()}
+            onFind={openFind}
             busy={busy}
           />,
           hostEl,
