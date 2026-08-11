@@ -237,11 +237,17 @@ function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
 // prose の既定に対する手直し。
 // - タスク項目の中黒は落とす。チェックボックスと二重の目印になって読みにくい
 //   (字下げは残して他の箇条書きと行頭を揃える)
+// - タスク項目の段落の外側の余白を落とす (docs/55-チェックボックス操作計画.md §8)。
+//   **項目の間に空行を 1 つでも置くとリスト全体が loose 扱いになり**、各項目の
+//   中身が <p> で包まれて prose の段落余白 (1.14em ≒ 16px) が付く。空行なしの
+//   4px と並ぶと同じノートの中で行間が食い違うので、外側だけ 0 にして揃える。
+//   :first-child / :last-child に絞るのが要点 — 素の p を全部 0 にすると、
+//   1 項目に段落を 2 つ書いたときに段落どうしまでくっつく
 // - 脚注の塊 (section.footnotes) の上に区切り線を引く。見出し「脚注」は
 //   remark-rehype が sr-only で置くので画面には出ず、線がないと本文の続きに
 //   見える (docs/54-markdown表示拡張計画.md §3)
 const PROSE_TWEAKS =
-  "[&_li.task-list-item]:list-none [&_.footnotes]:mt-6 [&_.footnotes]:border-t [&_.footnotes]:border-gray-300 [&_.footnotes]:pt-2";
+  "[&_li.task-list-item]:list-none [&_li.task-list-item>p:first-child]:mt-0 [&_li.task-list-item>p:last-child]:mb-0 [&_.footnotes]:mt-6 [&_.footnotes]:border-t [&_.footnotes]:border-gray-300 [&_.footnotes]:pt-2";
 
 // memo を Markdown としてレンダリングする Server Component。
 // 生 HTML はデフォルトで無視されるが、保険として rehype-sanitize も通す

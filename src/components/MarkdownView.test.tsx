@@ -581,3 +581,18 @@ test("lineOffset を足した行番号を刻む", () => {
   );
   expect(html).toContain('data-line="4"');
 });
+
+// 空行を挟んだチェックリスト (loose list) は各項目が <p> で包まれ、prose の
+// 段落余白で行間が空行なしの倍以上になる (docs/55-チェックボックス操作計画.md §8)。
+// 同じノートの中で書き方によって行間が食い違うのを止める
+test("空行を挟んだチェックリストは <p> で包まれる", () => {
+  const html = render("- [ ] 高野豆腐\n\n- [ ] レモン汁");
+  expect(html).toContain("<li class=\"task-list-item\">\n<p>");
+});
+
+// class 属性なので > は &gt; に escape されて出る
+test("タスク項目の段落は外側の余白を落とす", () => {
+  const html = render("- [ ] 高野豆腐");
+  expect(html).toContain("[&amp;_li.task-list-item&gt;p:first-child]:mt-0");
+  expect(html).toContain("[&amp;_li.task-list-item&gt;p:last-child]:mb-0");
+});
