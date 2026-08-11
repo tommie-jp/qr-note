@@ -342,7 +342,10 @@ export default async function RootLayout({
             効く。カードの一覧も 2 カラム入る。none にしないのは、PC の縦に
             低いウィンドウ (横 1200px 級) も landscape-phone に該当し、
             そこで行が伸びすぎるのを止めるため (docs/31 §12-4) */}
-        <main className="mx-auto max-w-2xl px-safe pt-6 pb-safe landscape-phone:max-w-4xl">
+        {/* pt-2 … ヘッダーと本文の間はこれだけ。24px 空けていたのをやめた
+            (docs/75-ノート上部圧縮計画.md §5)。スマホの 1 画面に入る本文を
+            増やすのが目的で、ここは全ページに効く */}
+        <main className="mx-auto max-w-2xl px-safe pt-2 pb-safe landscape-phone:max-w-4xl">
           {children}
         </main>
         {/* 下部バー。中身はノート編集中の編集ボタン (portal) だけで、差し込む

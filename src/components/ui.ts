@@ -33,6 +33,19 @@ export const SECONDARY_BUTTON_CLASS = `${SECONDARY_SKIN} min-h-11 px-3`;
 // 操作リンク (編集 / QR / 記法 / ページ送りなど)。素の下線リンクは指で狙いにくい
 export const ACTION_LINK_CLASS = `${ACTION_LINK_SKIN} min-h-11 px-2`;
 
+// 状態を表すトグル (ノート見出し行の 非公開/公開 と オフライン印。docs/75 §2)。
+// 押した後の動作名ではなく**いまの状態**を書くボタンなので、状態ごとに色が
+// 変わる。その色 (border / bg / text) は呼ぶ側が全部足す — SECONDARY_SKIN を
+// 流用すると素の bg-white が状態色 (bg-green-50) と衝突し、勝敗は「クラス属性の
+// 並び順」ではなく「CSS 内の定義順」で決まるため意図した色にならない
+// (BOX_SKIN を py と分けているのと同じ罠)。
+//
+// min-h-11 は隣の ACTION_LINK_CLASS と同じ。見出し行はもともと 44px の
+// リンクを持っているので、この高さでも行は伸びない。文字だけ text-sm で
+// 詰めるのは、見出し + トグル 2 つ + 操作リンク 4 つを 1 行に収めたいため
+export const STATE_TOGGLE_CLASS =
+  "inline-flex min-h-11 items-center gap-1.5 rounded border px-3 text-sm font-medium transition active:scale-95";
+
 // 以下、**検索画面トップ専用**の詰めた版 (高さ 36px / 文字 14px)。
 //
 // 一覧は「並んだ物を見比べる」画面で、操作ボタンは主役ではない。44px の

@@ -1,3 +1,5 @@
+import { STATE_TOGGLE_CLASS } from "@/components/ui";
+
 interface OfflinePinToggleProps {
   itemNo: string;
   pinned: boolean;
@@ -7,61 +9,48 @@ interface OfflinePinToggleProps {
 }
 
 // 「オフラインで常に使う」印 (docs/65-オフライン対応計画.md §7)。
+// 公開トグルと並べて見出し行に畳んだ (docs/75-ノート上部圧縮計画.md §2)。
 //
-// **落とす量を先に出す**のがこの帯の役目。印を付けるのは通信量と端末の
-// 保存容量を払う判断で、押した後に判っても遅い。公開トグルが「押す前に
-// いまの状態を文で書く」のと同じ理由 — 押した結果が読み取れるようにする。
+// 印を付けるのは通信量と端末の保存容量を払う判断なので、**落とす量を押す前に
+// 出す**のがこのトグルの役目。帯をやめた分、量の置き場所は tooltip になった
+// (docs/75 §3) — 画面には出ないので、量が要る人はホバー (PC) で読む。
 //
 // 公開トグルと違い、これは事故っても取り返しがつく (外せば消える) ので、
-// 色は控えめにする。印は青 — 公開の緑 (外から見える) と紛れさせない。
+// 確認は挟まず色も控えめにする。印は青 — 公開の緑 (外から見える) と紛れさせない。
+//
+// ラベルは両状態とも「オフライン」で、違いはアイコンと色だけ。見出し行の
+// 横幅がそれ以上伸ばせないため。色だけの区別にならないよう、絵 (📴/📥) を
+// 変え、読み上げには aria-pressed で状態を渡す。
 export function OfflinePinToggle({
   itemNo,
   pinned,
   attachmentBytes,
   setPinAction,
 }: OfflinePinToggleProps) {
-  const boxClass = pinned
-    ? "border-blue-300 bg-blue-50 text-blue-900"
-    : "border-gray-200 bg-gray-50 text-gray-600";
+  const colorClass = pinned
+    ? "border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
+    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100";
 
-  const buttonClass = pinned
-    ? "border-blue-300 bg-white text-blue-900 hover:bg-blue-100 active:bg-blue-200"
-    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100 active:bg-gray-200";
+  // 押すと何が起きるかを書く (ボタンの文字は状態なので、動作はこちらに残る)。
+  // 添付が無いノートでは括弧ごと出さない — 「（添付 0 B）」は読む値打ちがない
+  const hint = pinned
+    ? "保存をやめる（端末から消す）"
+    : `オフラインで使う${
+        attachmentBytes > 0 ? `（添付 ${formatBytes(attachmentBytes)}）` : ""
+      }`;
 
   return (
-    <div
-      className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded border px-3 py-2 ${boxClass}`}
-    >
-      <p className="flex-1">
-        {pinned ? (
-          <>
-            <span aria-hidden>📥 </span>
-            <span className="font-medium">オフラインで使う</span> —
-            添付の原寸・回路図・シークレットまで端末に保存します。
-          </>
-        ) : (
-          // 印なしは既定の状態なので説明を添えない (PublicToggle の非公開側と
-          // 同じ判断)。付けたときに何が起きるかはボタンの脇の量で伝わる
-          <>
-            <span aria-hidden>📴 </span>
-            <span className="font-medium">オフライン保存なし</span>
-          </>
-        )}
-        {attachmentBytes > 0 && (
-          <span className="text-sm opacity-70">（添付 {formatBytes(attachmentBytes)}）</span>
-        )}
-      </p>
-      <form action={setPinAction}>
-        <input type="hidden" name="itemNo" value={itemNo} />
-        <input type="hidden" name="pin" value={pinned ? "0" : "1"} />
-        <button
-          type="submit"
-          className={`inline-flex min-h-9 items-center rounded border px-3 font-medium transition-colors ${buttonClass}`}
-        >
-          {pinned ? "保存をやめる" : "オフラインで使う"}
-        </button>
-      </form>
-    </div>
+    <form action={setPinAction} title={hint}>
+      <input type="hidden" name="itemNo" value={itemNo} />
+      <input type="hidden" name="pin" value={pinned ? "0" : "1"} />
+      <button
+        type="submit"
+        aria-pressed={pinned}
+        className={`${STATE_TOGGLE_CLASS} ${colorClass}`}
+      >
+        <span aria-hidden>{pinned ? "📥" : "📴"}</span>オフライン
+      </button>
+    </form>
   );
 }
 
