@@ -25,15 +25,8 @@ import { defaultUrlTransform } from "react-markdown";
 import type { PluggableList } from "unified";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema, type Options } from "rehype-sanitize";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import {
-  ALERT_CLASS_PREFIX,
-  alertTypeFromClassName,
-  remarkAlerts,
-} from "./remarkAlerts";
-import { remarkDetails, remarkDetailsSyntax } from "./remarkDetails";
+import { ALERT_CLASS_PREFIX, alertTypeFromClassName } from "./remarkAlerts";
+import { BASE_REMARK_PLUGINS } from "./remarkPlugins";
 import { MarkdownAlert } from "./MarkdownAlert";
 import { KATEX_OPTIONS } from "@/lib/katexOptions";
 
@@ -88,27 +81,19 @@ export const sanitizeSchema = {
 export { KATEX_OPTIONS };
 
 // 本文とプレビューが共有するプラグイン列の土台 (docs/71 §4)。
-// **新しい記法のプラグインはここに足す** — MarkdownView だけに足すと、
-// 一覧のプレビューがその記法を生の文字のまま描く (逆も) ずれ方をする。
 //
-// 並びの約束:
-// - remarkDetails は **remarkBreaks より前** — 知らない directive を原文の
-//   文字に戻すとき、戻した中の改行も他の本文と同じ改行として描かせるため
-//   (後ろに置くと 1 行に潰れて見える)
-// - rehype は sanitize → katex の順 — ユーザー入力は sanitize 済み・KaTeX が
-//   生成した HTML はそのまま残る (remark-math 公式レシピ)
+// **remark 側の正本は remarkPlugins.ts。** ページの区切りを読む notePages.ts が
+// 同じ列を使うため、あちらから import できる葉に置いてある (ここを import
+// させると react-markdown 一式が編集画面の束に降る)。既存の import 元の
+// ためにここから再輸出する。
+//
+// rehype は sanitize → katex の順 — ユーザー入力は sanitize 済み・KaTeX が
+// 生成した HTML はそのまま残る (remark-math 公式レシピ)。
 //
 // 消費側が足すもの: MarkdownView は remarkTagLinks (タグをリンクに) と
 // rehypeTaskLines (チェックボックスの行番号) を後ろに足す。プレビューは
 // 押せる物を作らないので土台のまま使う
-export const BASE_REMARK_PLUGINS: PluggableList = [
-  remarkGfm,
-  remarkDetailsSyntax,
-  remarkDetails,
-  remarkBreaks,
-  remarkMath,
-  remarkAlerts,
-];
+export { BASE_REMARK_PLUGINS };
 export const BASE_REHYPE_PLUGINS: PluggableList = [
   [rehypeSanitize, sanitizeSchema],
   [rehypeKatex, KATEX_OPTIONS],

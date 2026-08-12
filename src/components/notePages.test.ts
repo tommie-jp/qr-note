@@ -170,3 +170,33 @@ describe("firstPageSource", () => {
     expect(firstPageSource("---\n\n---")).toBe("");
   });
 });
+
+// 描画と同じプラグイン列で読む (remarkPlugins.ts)。列が欠けていた頃は、
+// 同じ本文が画面とページ分割で違う形に読まれていた
+describe("描画と同じ解釈にする", () => {
+  test("表の直後の区切りでページが割れる (gfm)", () => {
+    // gfm 無しでは表がただの段落に見え、`---` が setext 見出しの下線として
+    // 吸われて区切りが消えていた
+    const memo = "| a | b |\n| --- | --- |\n| 1 | 2 |\n---\nつぎ";
+    expect(bodies(memo)).toEqual(["| a | b |\n| --- | --- |\n| 1 | 2 |\n", "つぎ"]);
+  });
+
+  test("ブロック数式の中の区切りでは割れない (math)", () => {
+    // math 無しでは水平線に見えて数式の途中で割れ、1 ページ目が閉じていない
+    // `$$` で終わって以降の本文が消えていた
+    const memo = "$$\n\n---\n\n$$\nつぎ";
+    expect(bodies(memo)).toEqual([memo]);
+  });
+
+  test("折りたたみの中の区切りでは割れない (details)", () => {
+    const memo = ":::details[まとめ]\n\n---\n\n:::\nつぎ";
+    expect(bodies(memo)).toEqual([memo]);
+  });
+
+  test("ふつうの区切りは今までどおり割れる", () => {
+    expect(bodies("1ページ\n\n---\n\n2ページ")).toEqual([
+      "1ページ\n\n",
+      "\n2ページ",
+    ]);
+  });
+});
