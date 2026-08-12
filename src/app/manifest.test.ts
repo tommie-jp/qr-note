@@ -85,8 +85,8 @@ describe("PWA manifest", () => {
       const { name, short_name, theme_color, background_color } = manifest();
 
       // Assert
-      expect(name).toBe("QR search");
-      expect(short_name).toBe("QR search");
+      expect(name).toBe("QR Note");
+      expect(short_name).toBe("QR Note");
       expect(theme_color).toBe("#ffffff");
       expect(background_color).toBe("#f9fafb");
     });

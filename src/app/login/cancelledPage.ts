@@ -24,7 +24,7 @@ export function loginCancelledPage(next: string): string {
 <html lang="ja">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ログインを中止しました - QR search</title>
+<title>ログインを中止しました - QR Note</title>
 <style>
 body { margin: 0; padding: 2rem 1rem; font-family: system-ui, sans-serif; color: #1f2937; }
 main { max-width: 32rem; margin: 0 auto; }

@@ -32,7 +32,7 @@ describe('webauthnConfig', () => {
     expect(webauthnConfig()).toEqual({
       rpId: 'qr.tommie.jp',
       origin: 'https://qr.tommie.jp',
-      rpName: 'QR search',
+      rpName: 'QR Note',
     })
   })
 

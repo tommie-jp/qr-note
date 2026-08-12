@@ -41,27 +41,27 @@ test('空文字 (.env に `QR_BASE_URL=` と書いた形) でも既定へ倒す'
 // タブを並べているときは背景色が見えないため、誤認を防げるのはタイトルだけになる
 test('本番のタイトルは素のサイト名', () => {
   process.env.APP_ENV = 'production'
-  expect(siteTitle()).toBe('QR search')
+  expect(siteTitle()).toBe('QR Note')
 })
 
 test('非本番のタイトルは [LOCAL] を冠する', () => {
   delete process.env.APP_ENV
   delete process.env.DEMO_MODE
-  expect(siteTitle()).toBe('[LOCAL] QR search')
+  expect(siteTitle()).toBe('[LOCAL] QR Note')
 })
 
 // docs/38-デモモード計画.md §6。デモは本番相当で立てるので通常は [DEMO] だけ
 test('デモの本番タイトルは [DEMO] を冠する', () => {
   process.env.APP_ENV = 'production'
   process.env.DEMO_MODE = '1'
-  expect(siteTitle()).toBe('[DEMO] QR search')
+  expect(siteTitle()).toBe('[DEMO] QR Note')
 })
 
 // [LOCAL] と [DEMO] は独立軸。ローカルでデモを検証するときは両方付く
 test('ローカルでのデモは [LOCAL] [DEMO] を両方冠する', () => {
   delete process.env.APP_ENV
   process.env.DEMO_MODE = '1'
-  expect(siteTitle()).toBe('[LOCAL] [DEMO] QR search')
+  expect(siteTitle()).toBe('[LOCAL] [DEMO] QR Note')
 })
 
 test('URL として壊れていても投げず、既定へ倒して警告する', () => {

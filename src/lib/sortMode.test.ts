@@ -12,7 +12,7 @@ test('URL の指定は cookie より優先する', () => {
   expect(resolveSort('updated', 'accessed')).toBe('updated')
 })
 
-// ヘッダーの「QR search」・検索フォーム・スキャン・タグリンクから入る経路。
+// ヘッダーの「QR Note」・検索フォーム・スキャン・タグリンクから入る経路。
 // ここで cookie を見るのがこの機能の目的
 test('URL に指定が無ければ cookie を使う', () => {
   expect(resolveSort(undefined, 'accessed')).toBe('accessed')

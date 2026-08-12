@@ -2,7 +2,7 @@ import { isDemoMode, isProductionEnv } from "./appEnv";
 
 // サイト名と説明文は <head> の metadata と PWA manifest の両方が使う。
 // 別々に書くと表示名がじわじわ食い違うため、ここを唯一の出どころにする。
-export const SITE_NAME = "QR search";
+export const SITE_NAME = "QR Note";
 export const SITE_DESCRIPTION = "部品に貼った QR シールから部品情報を表示・管理する";
 
 // タブと PWA のホーム画面に出す表示名。非本番は [LOCAL]、デモは [DEMO] を冠する。
@@ -12,8 +12,8 @@ export const SITE_DESCRIPTION = "部品に貼った QR シールから部品情�
 // 色と対で入れる (src/lib/appEnv.ts)。
 //
 // [DEMO] と [LOCAL] は独立した軸なので合成する (docs/38-デモモード計画.md §6)。
-// デモは本番相当 (APP_ENV=production) で立てるので通常は「[DEMO] QR search」、
-// ローカルでデモを検証するときだけ「[LOCAL] [DEMO] QR search」になる。
+// デモは本番相当 (APP_ENV=production) で立てるので通常は「[DEMO] QR Note」、
+// ローカルでデモを検証するときだけ「[LOCAL] [DEMO] QR Note」になる。
 export function siteTitle(): string {
   const base = isDemoMode() ? `[DEMO] ${SITE_NAME}` : SITE_NAME;
   return isProductionEnv() ? base : `[LOCAL] ${base}`;
