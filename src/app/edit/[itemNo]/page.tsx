@@ -15,7 +15,7 @@ import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS, MEMO_INPUT_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
-import { isValidItemNo } from "@/lib/validation";
+import { isValidItemNo, MAX_TEXT_LENGTH } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -101,10 +101,13 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
             prefill={prefill}
             draftKey={itemNo}
           />
+          {/* 打ち止めは本文と同じ定数を見る (lib/validation.ts)。10,000 を直に
+              書いていた頃は、ZIP / ENEX から取り込んだ 10,000 字超の url が
+              編集画面で黙って切り詰められていた */}
           <textarea
             name="url"
             rows={3}
-            maxLength={10000}
+            maxLength={MAX_TEXT_LENGTH}
             defaultValue={item?.url ?? ""}
             placeholder="URLを入力して下さい。"
             className={MEMO_INPUT_CLASS}
