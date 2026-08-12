@@ -8,6 +8,7 @@ import {
   firstMatchFrom,
   planReplaceAll,
   planReplaceCurrent,
+  replaceOneNote,
   replaceAllNote,
 } from "./noteSearch";
 
@@ -192,5 +193,54 @@ describe("planReplaceCurrent", () => {
     const plan = planReplaceCurrent(stateWith(doc, 0, 2), query);
     expect(plan.tooLong).toBe(true);
     expect(plan.change).toBeNull();
+  });
+
+  // 「置換」は押すたびに findNext で次へ進むので、連打すると自分で狙って
+  // いない一致に当たる。全置換と同じ守りが要る (docs/76 §5-4)
+  test("シークレット記法に重なる一致は置き換えない", () => {
+    const notation = secretNotation("抵抗の在庫", SECRET_NAME);
+    const labelAt = notation.indexOf("抵抗");
+    const plan = planReplaceCurrent(
+      stateWith(notation, labelAt, labelAt + 2),
+      query,
+    );
+    expect(plan.change).toBeNull();
+    expect(plan.secret).toBe(true);
+  });
+
+  test("記法の外の一致はふつうに置き換える", () => {
+    const notation = secretNotation("在庫", SECRET_NAME);
+    const plan = planReplaceCurrent(
+      stateWith(`抵抗\n${notation}`, 0, 2),
+      query,
+    );
+    expect(plan.change).toEqual({ from: 0, to: 2, insert: "レジスタ" });
+    expect(plan.secret).toBe(false);
+  });
+});
+
+describe("replaceOneNote", () => {
+  test("シークレットで飛ばしたときは理由を出す (押しても無反応にしない)", () => {
+    const note = replaceOneNote({ change: null, tooLong: false, secret: true });
+    expect(note?.text).toContain("シークレット");
+    expect(note?.undo).toBe(false);
+  });
+
+  test("上限超えは上限の文", () => {
+    const note = replaceOneNote({ change: null, tooLong: true, secret: false });
+    expect(note?.text).toContain("上限");
+  });
+
+  test("ふつうの置換と空振りには知らせを出さない", () => {
+    expect(
+      replaceOneNote({
+        change: { from: 0, to: 2, insert: "x" },
+        tooLong: false,
+        secret: false,
+      }),
+    ).toBeNull();
+    expect(
+      replaceOneNote({ change: null, tooLong: false, secret: false }),
+    ).toBeNull();
   });
 });

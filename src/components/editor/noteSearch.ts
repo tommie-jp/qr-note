@@ -41,6 +41,8 @@ export interface ReplaceAllPlan {
 export interface ReplaceOnePlan {
   change: ReplaceChange | null;
   tooLong: boolean;
+  // シークレット記法に重なるため置き換えなかった (§5-4)。このとき change は null
+  secret: boolean;
 }
 
 export interface NoteSearchNote {
@@ -192,22 +194,53 @@ export function replaceAllNote(plan: ReplaceAllPlan): NoteSearchNote {
 // 「置換」(1 件): いま選んでいる範囲がちょうど一致なら、それを置き換える。
 // 一致の上にいなければ null (呼ぶ側は置き換えずに次へ進む)。
 //
-// シークレットの守りは掛けない — こちらは目に見える 1 件を狙って押す操作で、
-// 全置換のように気づかないまま巻き込むことがないため
+// **シークレットの守りは全置換と同じに掛ける** (§5-4)。「狙って押す 1 件だから
+// 巻き込まない」と考えて外していたが、押すと呼び側が findNext で次へ進むので、
+// 連打すれば自分で見ていない一致にも当たる — `api` を検索して置換を続けると
+// `![ラベル](secret:<uuid>)` の中に届き、断片の参照が切れる (戻せない)。
 export function planReplaceCurrent(
   state: EditorState,
   query: SearchQuery,
 ): ReplaceOnePlan {
+  const empty: ReplaceOnePlan = {
+    change: null,
+    tooLong: false,
+    secret: false,
+  };
   const { from, to } = state.selection.main;
   if (!query.valid || from === to) {
-    return { change: null, tooLong: false };
+    return empty;
   }
   const match = firstMatchFrom(state, query, from);
   if (!match || match.from !== from || match.to !== to) {
-    return { change: null, tooLong: false };
+    return empty;
+  }
+  const overlapsSecret = secretNotationRanges(state.doc.toString()).some(
+    (range) => from < range.to && to > range.from,
+  );
+  if (overlapsSecret) {
+    return { ...empty, secret: true };
   }
   if (exceedsLimit(state, query.replace.length - (to - from))) {
-    return { change: null, tooLong: true };
+    return { ...empty, tooLong: true };
   }
-  return { change: { from, to, insert: query.replace }, tooLong: false };
+  return { ...empty, change: { from, to, insert: query.replace } };
+}
+
+// 置換 1 件の後に出す知らせ。**置き換えられなかった理由があるときだけ**返す
+// (ふつうに置き換えたときと空振りのときは null = 知らせを畳む)。
+//
+// 理由を出さないと「押したのに何も起きない」になり、壊れているのはこちらだと
+// 疑うことになる — 全置換が飛ばしたシークレットを必ず言うのと同じ理由
+export function replaceOneNote(plan: ReplaceOnePlan): NoteSearchNote | null {
+  if (plan.tooLong) {
+    return overLimitNote();
+  }
+  if (plan.secret) {
+    return {
+      text: "シークレット記法の中なので置換しませんでした",
+      undo: false,
+    };
+  }
+  return null;
 }

@@ -70,9 +70,9 @@ import {
   buildQuery,
   countMatches,
   firstMatchFrom,
-  overLimitNote,
   planReplaceAll,
   planReplaceCurrent,
+  replaceOneNote,
   replaceAllNote,
   type NoteSearchNote,
 } from "./editor/noteSearch";
@@ -965,14 +965,17 @@ export default function MemoEditorInner({
       return;
     }
     const plan = planReplaceCurrent(view.state, query);
+    // 置き換えられなかった理由 (上限超え・シークレット記法) があれば知らせる
+    setFindNote(replaceOneNote(plan));
     if (plan.tooLong) {
-      setFindNote(overLimitNote());
+      // 上限超えは進まない — 何字消せばよいかを読んでもらう場面で、
+      // 選択が次へ動くと知らせがどの一致の話か判らなくなる
       return;
     }
-    setFindNote(null);
     if (plan.change) {
       view.dispatch({ changes: plan.change, userEvent: "input.replace" });
     }
+    // シークレットで飛ばしたときも進む。次を押せば守った一致を通り越せる
     findNext(view);
   };
 
