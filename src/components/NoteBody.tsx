@@ -3,6 +3,7 @@ import { NotePager } from "@/components/NotePager";
 import { splitPages } from "@/components/notePages";
 import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
 import type { CircuitMap } from "@/lib/circuitCache";
+import type { MatrixMap } from "@/lib/matrixData";
 
 // ノート本文をページに分けて描く (docs/74-ページ計画.md §4)。
 //
@@ -20,6 +21,7 @@ import type { CircuitMap } from "@/lib/circuitCache";
 interface NoteBodyProps {
   memo: string;
   circuits?: CircuitMap;
+  matrices?: MatrixMap;
   linkTags?: boolean;
   allowRotate?: boolean;
   allowSecretEdit?: boolean;
@@ -29,6 +31,7 @@ interface NoteBodyProps {
 export function NoteBody({
   memo,
   circuits,
+  matrices,
   linkTags,
   allowRotate,
   allowSecretEdit,
@@ -40,6 +43,7 @@ export function NoteBody({
       <MarkdownView
         markdown={page.body}
         circuits={circuits}
+        matrices={matrices}
         linkTags={linkTags}
         allowRotate={allowRotate}
         allowSecretEdit={allowSecretEdit}

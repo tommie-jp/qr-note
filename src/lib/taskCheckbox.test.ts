@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { countTasks, toggleTaskLine } from './taskCheckbox'
+import { checkStates, countTasks, toggleTaskLine } from './taskCheckbox'
 
 describe('toggleTaskLine', () => {
   test('チェックを付ける (- [ ] → - [x])', () => {
@@ -157,5 +157,67 @@ describe('countTasks', () => {
       todo: 1,
       done: 1,
     })
+  })
+})
+
+describe('checkStates', () => {
+  test('チェック項目の名前と状態を文書順に返す', () => {
+    const memo = ['- [x] 学習済み', '- [ ] 自信あり'].join('\n')
+    expect(checkStates(memo)).toEqual([
+      { label: '学習済み', checked: true },
+      { label: '自信あり', checked: false },
+    ])
+  })
+
+  test('タスクでない箇条書きは拾わない', () => {
+    const memo = ['- ただの項目', '- [ ] 学習済み'].join('\n')
+    expect(checkStates(memo)).toEqual([{ label: '学習済み', checked: false }])
+  })
+
+  // countTasks と同じ物差し (パーサ基準) にする。押せるもの = 数えるもの
+  test('コードフェンスの中の擬似タスクは拾わない', () => {
+    const memo = ['```text', '- [ ] 見た目だけ', '```', '- [x] 学習済み'].join('\n')
+    expect(checkStates(memo)).toEqual([{ label: '学習済み', checked: true }])
+  })
+
+  test('強調やインラインコードは中の文字だけ拾う', () => {
+    expect(checkStates('- [ ] **学習**`済み`')).toEqual([
+      { label: '学習済み', checked: false },
+    ])
+  })
+
+  // 外側の項目のラベルに内側の項目の文字が混ざると、名前が一致しなくなる
+  test('入れ子のタスクは別々の項目として拾う', () => {
+    const memo = ['- [ ] 親', '  - [x] 子'].join('\n')
+    expect(checkStates(memo)).toEqual([
+      { label: '親', checked: false },
+      { label: '子', checked: true },
+    ])
+  })
+
+  test('空行入りのゆるいリストでも拾える', () => {
+    const memo = ['- [x] 学習済み', '', '- [ ] 自信あり'].join('\n')
+    expect(checkStates(memo)).toEqual([
+      { label: '学習済み', checked: true },
+      { label: '自信あり', checked: false },
+    ])
+  })
+
+  test('番号付き・引用の中のタスクも拾う', () => {
+    const memo = ['1. [x] 学習済み', '> - [ ] 自信あり'].join('\n')
+    expect(checkStates(memo)).toEqual([
+      { label: '学習済み', checked: true },
+      { label: '自信あり', checked: false },
+    ])
+  })
+
+  test('名前の前後の空白は落とす', () => {
+    expect(checkStates('- [ ] 学習済み  ')).toEqual([
+      { label: '学習済み', checked: false },
+    ])
+  })
+
+  test('チェックが無ければ空', () => {
+    expect(checkStates('ただの本文')).toEqual([])
   })
 })

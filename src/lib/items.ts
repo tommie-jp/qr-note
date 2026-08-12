@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import type { Item } from '@/generated/prisma/client'
 import { assertDemoItemQuota } from '@/lib/demoQuota'
 import { firstUnusedNo, MIN_ITEM_NO } from '@/lib/itemNo'
+import type { MatrixSourceRow } from '@/lib/matrixTable'
 import { memoSummary } from '@/lib/memoSummary'
 import { replaceImageName } from '@/lib/memoImages'
 import {
@@ -33,6 +34,11 @@ export const PAGE_SIZE = 20
 // ページを開いても表は検索ヒット全体で一定になるようにする。
 // 個人利用で 1 タグに数百件も付かない前提の安全弁。
 export const PROPS_TABLE_LIMIT = 200
+
+// 進捗の表 (docs/77-進捗マトリックス計画.md) に載せるノート数の上限。
+// 特性表と同じ考え方 — 表として読める大きさと、本文をまとめて取ってよい
+// 大きさが同じところにある。
+export const MATRIX_ROW_LIMIT = 200
 
 // ゴミ箱のノートも返す (フィルタしない)。QR シールから開いた /item は
 // ゴミ箱でも本文を見せてバナーと復元を出すため (docs/12-ゴミ箱計画.md §5)。
@@ -385,6 +391,11 @@ function buildPropsWhere(query: string): Prisma.Sql {
   return buildWhereFrom([NOT_TRASHED, buildQueryCondition(query), HAS_PROPS])
 }
 
+// 進捗の表の WHERE 句。検索条件に加えてチェックを持つノートだけへ絞る。
+function buildChecksWhere(query: string): Prisma.Sql {
+  return buildWhereFrom([NOT_TRASHED, buildQueryCondition(query), HAS_TASKS])
+}
+
 // ゴミ箱側の WHERE 句 (ゴミ箱一覧と、0 件検索時の案内)。検索と同じ条件を
 // 裏返すだけ。空クエリのときは「ゴミ箱にある」だけが残り、一覧の全件になる。
 function buildTrashedWhere(query: string): Prisma.Sql {
@@ -496,7 +507,7 @@ export async function searchItemProps(
 
   const omitted =
     rows.length > PROPS_TABLE_LIMIT
-      ? await countItemProps(where) - PROPS_TABLE_LIMIT
+      ? (await countItemsWhere(where)) - PROPS_TABLE_LIMIT
       : 0
 
   return {
@@ -510,11 +521,50 @@ export async function searchItemProps(
 }
 
 // 溢れたときだけ本当の総数を数える (通常の検索では撃たない)。
-async function countItemProps(where: Prisma.Sql): Promise<number> {
+async function countItemsWhere(where: Prisma.Sql): Promise<number> {
   const rows = await prisma.$queryRaw<{ count: number }[]>`
     SELECT count(*)::int AS count FROM items ${where}
   `
   return rows[0]?.count ?? 0
+}
+
+export interface ItemChecksResult {
+  rows: MatrixSourceRow[]
+  // 上限を超えて表に載らなかった件数 (特性表と同じ約束。黙って打ち切らない)
+  omitted: number
+}
+
+// 進捗の表の元データ (docs/77-進捗マトリックス計画.md §4)。
+// **特性表 (searchItemProps) の双子** — 絞りが「プロパティを持つ」から
+// 「チェックを持つ」に変わり、取る列が props から task_todo/task_done に
+// 変わるだけで、上限・溢れ・並びの作法はそのまま。
+//
+// memo を返すのは、行の見出し (要約) とチェックの名前の両方が本文から
+// 決まるため。クライアントへ渡る形へ畳むのは buildMatrixTable の仕事で、
+// そこで memo は捨てられる。
+export async function searchItemChecks(
+  query: string,
+  sort: Sort = 'itemNo',
+): Promise<ItemChecksResult> {
+  const where = buildChecksWhere(query)
+  // 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
+  const rows = await prisma.$queryRaw<MatrixSourceRow[]>`
+    SELECT item_no   AS "itemNo",
+           memo,
+           task_todo AS "taskTodo",
+           task_done AS "taskDone"
+    FROM items
+    ${where}
+    ${buildOrderBy(sort)}
+    LIMIT ${MATRIX_ROW_LIMIT + 1}
+  `
+
+  const omitted =
+    rows.length > MATRIX_ROW_LIMIT
+      ? (await countItemsWhere(where)) - MATRIX_ROW_LIMIT
+      : 0
+
+  return { rows: rows.slice(0, MATRIX_ROW_LIMIT), omitted }
 }
 
 // --- ゴミ箱 (二段階削除。docs/12-ゴミ箱計画.md) ---

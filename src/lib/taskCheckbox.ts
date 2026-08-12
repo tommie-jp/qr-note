@@ -7,6 +7,7 @@
 // そこで「その行が本当にタスク項目か」は remark に確かめさせ、確かめてから
 // その 1 行だけを正規表現で書き換える。
 
+import type { ListItem } from 'mdast'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
@@ -62,6 +63,51 @@ export function countTasks(memo: string): { todo: number; done: number } {
     }
   })
   return { todo, done }
+}
+
+// 名前の付いたチェック 1 つ (docs/77-進捗マトリックス計画.md §4)
+export interface CheckState {
+  // 書かれたままの名前 (前後の空白だけ落とす)。照合は
+  // normalizeCheckLabel (matrixFence.ts) を通してから行う
+  label: string
+  checked: boolean
+}
+
+// 本文が持つチェック項目を、名前付きで文書順に返す。
+//
+// countTasks が個数しか持たないのに対し、こちらは**どのチェックか**を返す。
+// 「学習済みは付いたが自信ありは付いていない」は個数では区別できない
+// (どちらも todo 1 / done 1) ため、進捗の表はこちらを使う。
+//
+// 物差しは countTasks と同じパーサ基準なので、コードフェンスの中の擬似タスクを
+// 拾わないことも、シークレット断片の中を見ないことも自動で揃う。
+export function checkStates(memo: string): CheckState[] {
+  const tree = MEMO_PARSER.parse(memo)
+  const states: CheckState[] = []
+  visit(tree, 'listItem', (node) => {
+    if (node.checked == null) {
+      return
+    }
+    states.push({ label: listItemLabel(node), checked: node.checked })
+  })
+  return states
+}
+
+// 項目の見出しになる文字列。**最初の子 (段落) だけ**から取るのが要点で、
+// 項目まるごとから取ると入れ子のタスクの文字まで混ざり、外側の名前が
+// 一致しなくなる。空行入りのゆるいリストでも最初の子は段落のまま
+function listItemLabel(node: ListItem): string {
+  const first = node.children[0]
+  if (first === undefined || first.type !== 'paragraph') {
+    return ''
+  }
+  let text = ''
+  visit(first, (child) => {
+    if (child.type === 'text' || child.type === 'inlineCode') {
+      text += child.value
+    }
+  })
+  return text.trim()
 }
 
 // line 行目のタスク項目を checked の状態にした本文を返す。

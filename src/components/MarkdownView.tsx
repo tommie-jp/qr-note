@@ -28,8 +28,15 @@ import { BOX_CLASS } from "./ui";
 import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
-import { CIRCUIT_LANG, MERMAID_LANG, QUIZ_LANG } from "@/lib/fenceLanguages";
+import {
+  CIRCUIT_LANG,
+  MATRIX_LANG,
+  MERMAID_LANG,
+  QUIZ_LANG,
+} from "@/lib/fenceLanguages";
 import type { CircuitMap } from "@/lib/circuitCache";
+import type { MatrixMap } from "@/lib/matrixData";
+import { MatrixTable } from "@/components/matrix/MatrixTable";
 import "katex/dist/katex.min.css";
 
 interface MarkdownViewProps {
@@ -39,6 +46,15 @@ interface MarkdownViewProps {
   // ページ側で先に済ませた結果を受け取る。渡さなければ回路図フェンスは
   // ただのコードブロックとして表示される
   circuits?: CircuitMap;
+  // ```matrix の集計結果 (buildMatrices の戻り値)。circuits と同じ作法で、
+  // 非同期の集計はページ側で済ませてから渡す。
+  //
+  // **渡さなければ表は出ない** (コードブロックのまま) のが安全側の既定。
+  // 表の中身はそのノートの外 — 非公開ノートの番号・タイトル・学習状況 —
+  // から作られるので、未ログインの公開ビューでは決して渡さない
+  // (docs/77-進捗マトリックス計画.md §6)。渡し忘れても漏れないよう、
+  // buildMatrices 自身も requireUser() で守っている
+  matrices?: MatrixMap;
   // 本文中の #タグ を検索リンクにするか (docs/22-ノート公開計画.md §4)。
   // 公開ビューでは false にする — 飛び先のタグ検索は未ログインに閉じており、
   // 押すと「ログインが必要です」に化けるため。false でも #タグ の文字は残る
@@ -83,7 +99,7 @@ interface MarkdownViewProps {
 // フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
 // quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
 // する (docs/54 §1、docs/58-CBT問題集計画.md §1)
-function preOrDiagram(circuits: CircuitMap) {
+function preOrDiagram(circuits: CircuitMap, matrices: MatrixMap) {
   return function PreOrDiagram({
     node: _node,
     children,
@@ -110,6 +126,16 @@ function preOrDiagram(circuits: CircuitMap) {
       const circuit = circuits.get(fence.code);
       if (circuit) {
         return <CircuitDiagram result={circuit} code={fence.code} />;
+      }
+    }
+
+    // 同上。集計結果を渡していない画面 (公開ビュー・docs ページ) では
+    // コードブロックのまま出る — フェンスの中身は本文そのものなので、
+    // そこに新しく漏れるものはない (docs/77 §6)
+    if (fence.lang === MATRIX_LANG) {
+      const matrix = matrices.get(fence.code);
+      if (matrix) {
+        return <MatrixTable result={matrix} code={fence.code} />;
       }
     }
 
@@ -254,6 +280,7 @@ const PROSE_TWEAKS =
 export function MarkdownView({
   markdown,
   circuits = new Map(),
+  matrices = new Map(),
   linkTags = true,
   allowRotate = false,
   allowSecretEdit = false,
@@ -290,7 +317,7 @@ export function MarkdownView({
         rehypePlugins={rehypePlugins}
         remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={{
-          pre: preOrDiagram(circuits),
+          pre: preOrDiagram(circuits, matrices),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
           input: taskCheckboxRenderer(onToggleTask),

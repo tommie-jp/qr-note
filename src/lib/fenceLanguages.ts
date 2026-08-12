@@ -11,17 +11,28 @@ export const MERMAID_LANG = 'mermaid'
 // コードブロックになる」性質は同じなので、下の RENDERED_LANGS に含める
 export const QUIZ_LANG = 'quiz'
 
+// 検索ヒットの学習状況を表にして描画するフェンス言語
+// (docs/77-進捗マトリックス計画.md)。中身は検索式と設定だけで、
+// 数字は表示のたびに作る (フェンスは結果ではなく問いを持つ)
+export const MATRIX_LANG = 'matrix'
+
 // 打ち間違えると「図やカードになるはずが黙ってコードブロック」になる言語。
 // linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
-export const RENDERED_LANGS = [CIRCUIT_LANG, MERMAID_LANG, QUIZ_LANG] as const
+export const RENDERED_LANGS = [
+  CIRCUIT_LANG,
+  MERMAID_LANG,
+  QUIZ_LANG,
+  MATRIX_LANG,
+] as const
 
-// 補完に出す言語 (広め)。特別扱いする 3 つ + メモでよく書くコード言語。
+// 補完に出す言語 (広め)。特別扱いする 4 つ + メモでよく書くコード言語。
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
   CIRCUIT_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
+  MATRIX_LANG,
   'text',
   'bash',
   'sh',

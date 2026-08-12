@@ -596,3 +596,52 @@ test("タスク項目の段落は外側の余白を落とす", () => {
   expect(html).toContain("[&amp;_li.task-list-item&gt;p:first-child]:mt-0");
   expect(html).toContain("[&amp;_li.task-list-item&gt;p:last-child]:mb-0");
 });
+
+// ```matrix (docs/77-進捗マトリックス計画.md §6)
+//
+// 表の中身はそのノートの外 — 非公開ノートの番号・タイトル・学習状況 — から
+// 作られる。集計結果を渡さない画面 (未ログインの公開ビュー・docs ページ) では
+// 決して表が出ないことを、ここで固定する
+test("matrix フェンスは集計結果を渡さなければ表にならない", () => {
+  const html = render("```matrix\n#電験三種\n```");
+  expect(html).not.toContain("<table");
+  expect(html).toContain("#電験三種");
+  expect(html).toContain("<pre");
+});
+
+test("matrix フェンスは集計結果を渡すと表になる", () => {
+  const code = "#電験三種";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={"```matrix\n#電験三種\n```"}
+      matrices={
+        new Map([
+          [
+            code,
+            {
+              kind: "table" as const,
+              query: "#電験三種",
+              sort: "itemNo" as const,
+              table: {
+                kind: "checks" as const,
+                columns: ["学習済み"],
+                rows: [
+                  {
+                    itemNo: "4551",
+                    summary: "問1",
+                    cells: ["checked" as const],
+                  },
+                ],
+                total: 1,
+                done: [1],
+                omitted: 0,
+              },
+            },
+          ],
+        ])
+      }
+    />,
+  );
+  expect(html).toContain("<table");
+  expect(html).toContain("#4551");
+});

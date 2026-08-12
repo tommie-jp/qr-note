@@ -11,6 +11,7 @@ import type {
   nextItemNo as NextItemNoFn,
   purgeItems as PurgeItemsFn,
   restoreItems as RestoreItemsFn,
+  searchItemChecks as SearchItemChecksFn,
   searchItemProps as SearchItemPropsFn,
   searchItems as SearchItemsFn,
   setItemPublic as SetItemPublicFn,
@@ -35,6 +36,7 @@ describe.skipIf(!runDbTests)(
   () => {
     let searchItems: typeof SearchItemsFn
     let searchItemProps: typeof SearchItemPropsFn
+    let searchItemChecks: typeof SearchItemChecksFn
     let upsertMemo: typeof UpsertMemoFn
     let listTags: typeof ListTagsFn
     let getItem: typeof GetItemFn
@@ -180,6 +182,7 @@ describe.skipIf(!runDbTests)(
       ;({
         searchItems,
         searchItemProps,
+        searchItemChecks,
         upsertMemo,
         listTags,
         getItem,
@@ -391,6 +394,62 @@ describe.skipIf(!runDbTests)(
           expect(await countTaskProgress('zzftnothinghere is:todo')).toEqual({
             done: 0,
             total: 0,
+          })
+        })
+      })
+
+      // 進捗の表の元データ (docs/77-進捗マトリックス計画.md §4)。
+      describe('searchItemChecks', () => {
+        test('チェックを持つノートだけを返す', async () => {
+          const { rows } = await searchItemChecks('zzftnav')
+          // zzftnav は 4 件ヒットするが、チェックを持つのは 3 件
+          expect(rows.map((r) => r.itemNo).sort()).toEqual([
+            'zzftn1',
+            'zzftn2',
+            'zzftn3',
+          ])
+        })
+
+        test('チェック数を本文と一緒に返す (表の 3 状態の元になる)', async () => {
+          const { rows } = await searchItemChecks('zzftnav')
+          const byNo = new Map(rows.map((r) => [r.itemNo, r]))
+          expect(byNo.get('zzftn1')).toMatchObject({ taskTodo: 2, taskDone: 0 })
+          expect(byNo.get('zzftn2')).toMatchObject({ taskTodo: 1, taskDone: 1 })
+          expect(byNo.get('zzftn3')).toMatchObject({ taskTodo: 0, taskDone: 2 })
+          expect(byNo.get('zzftn1')?.memo).toContain('学習済み')
+        })
+
+        // 既定が番号順なのは、表から開いて前後ナビで順に回すため
+        // (docs/60-学習進捗計画.md §4)。更新順だとチェックを押した瞬間に
+        // ノートが先頭へ移り、前後が狂う
+        test('既定は番号順で返る', async () => {
+          const { rows } = await searchItemChecks('zzftnav')
+          expect(rows.map((r) => r.itemNo)).toEqual([
+            'zzftn1',
+            'zzftn2',
+            'zzftn3',
+          ])
+        })
+
+        test('検索式で絞れる', async () => {
+          const { rows } = await searchItemChecks('zzftnav !is:todo')
+          expect(rows.map((r) => r.itemNo)).toEqual(['zzftn3'])
+        })
+
+        test('ゴミ箱のノートは入らない', async () => {
+          await trashItems(['zzftn1'])
+          try {
+            const { rows } = await searchItemChecks('zzftnav')
+            expect(rows.map((r) => r.itemNo)).not.toContain('zzftn1')
+          } finally {
+            await restoreItems(['zzftn1'])
+          }
+        })
+
+        test('当たらない検索は 0 件 (溢れも 0)', async () => {
+          expect(await searchItemChecks('zzftnothinghere')).toEqual({
+            rows: [],
+            omitted: 0,
           })
         })
       })

@@ -22,6 +22,7 @@ import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { renderCircuits } from "@/lib/circuitCache";
+import { buildMatrices } from "@/lib/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
 
 interface ItemViewProps {
@@ -45,9 +46,13 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
   //
   // 印を付けたときに落ちる量も一緒に数える。どちらも memo だけから決まる
   // 独立な問い合わせなので並べる (直列にすると描画が待つ分だけ遅くなる)
-  const [circuits, attachmentBytes] = await Promise.all([
+  const [circuits, attachmentBytes, matrices] = await Promise.all([
     renderCircuits(memo),
     pinAttachmentBytes(memo),
+    // ```matrix の集計。**ここ (ログイン済みの画面) からしか渡さない** —
+    // 公開ビューは回路図のために renderCircuits を呼んでいるので、
+    // 並べて置くと非公開ノートの一覧が匿名の閲覧者に漏れる (docs/77 §6)
+    buildMatrices(memo),
   ]);
 
   return (
@@ -154,6 +159,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           <NoteBody
             memo={memo}
             circuits={circuits}
+            matrices={matrices}
             allowRotate
             allowSecretEdit
             onToggleTask={toggleMemoTaskAction.bind(null, itemNo)}
