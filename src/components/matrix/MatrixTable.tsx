@@ -76,14 +76,19 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 text-left text-gray-600">
-              <th scope="col" className="px-4 py-1.5 font-normal">
+              {/* w-full + max-w-0 … ノート列が「残り全部」を取って中身を
+                  切る。チェックの列は w-px で**自分の文字ぶんだけ**に縮む。
+                  こうしないと iPhone (幅 375px) で最後の列が帯の外に出て、
+                  横スクロールしないと見えない — 一覧して比べるための表なので、
+                  1 画面に収まることを列の並びより優先する */}
+              <th scope="col" className="w-full max-w-0 px-4 py-1.5 font-normal">
                 ノート
               </th>
               {table.columns.map((column) => (
                 <th
                   key={column}
                   scope="col"
-                  className="px-4 py-1.5 text-center font-normal whitespace-nowrap"
+                  className="w-px px-3 py-1.5 text-center font-normal whitespace-nowrap"
                 >
                   {column}
                 </th>
@@ -93,14 +98,14 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
           <tbody className="divide-y divide-gray-200">
             {table.rows.map((row) => (
               <tr key={row.itemNo} className="hover:bg-gray-50">
-                <td className="px-4 py-1.5">
+                <td className="w-full max-w-0 truncate px-4 py-1.5">
                   {/* 検索式と並びをリンクに載せる。開いた先で前後ナビが出て、
                       表 → 1 問目 → 次 → … と回って戻ってこられる
                       (docs/60-学習進捗計画.md §4)。表は入口であって
                       行き止まりではない */}
                   <Link
                     href={buildItemUrl(row.itemNo, query, sort)}
-                    className="flex max-w-56 items-baseline gap-2"
+                    className="flex items-baseline gap-2"
                     title={row.summary}
                   >
                     <span className="shrink-0 font-mono font-bold">
@@ -114,7 +119,7 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                 {row.cells.map((cell, index) => (
                   <td
                     key={table.columns[index]}
-                    className={`px-4 py-1.5 text-center ${CELL_CLASS[cell] ?? ""}`}
+                    className={`w-px px-3 py-1.5 text-center ${CELL_CLASS[cell] ?? ""}`}
                   >
                     <span aria-hidden>{CELL_MARK[cell].mark}</span>
                     <span className="sr-only">{CELL_MARK[cell].label}</span>
