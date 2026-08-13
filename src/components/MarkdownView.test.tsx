@@ -622,6 +622,7 @@ test("matrix フェンスは集計結果を渡すと表になる", () => {
               kind: "table" as const,
               query: "#電験三種",
               sort: "itemNo" as const,
+              marks: null,
               table: {
                 kind: "checks" as const,
                 columns: ["学習済み"],

@@ -27,6 +27,7 @@ const tableResult = (table: MatrixTableData): MatrixResult => ({
   table,
   query: "#電験三種",
   sort: "itemNo",
+  marks: null,
 });
 
 describe("MatrixTable", () => {
@@ -67,6 +68,30 @@ describe("MatrixTable", () => {
     expect(html).toContain("height:5em");
     // ノートの見出しは寝かせない
     expect(html).toMatch(/<th[^>]*>ノート<\/th>/);
+  });
+
+  // mark= で記号を差し替える。読み上げ文は差し替えない
+  test("mark= の記号に差し替える (読み上げ文は 済/未 のまま)", () => {
+    const html = renderToStaticMarkup(
+      <MatrixTable
+        result={{
+          kind: "table",
+          table: TABLE,
+          query: "#電験三種",
+          sort: "itemNo",
+          marks: { unchecked: "🟥", checked: "✅️", absent: "➖" },
+        }}
+        code="#電験三種"
+      />,
+    );
+    expect(html).toContain("🟥");
+    expect(html).toContain("✅️");
+    expect(html).toContain("➖");
+    expect(html).not.toContain("✓");
+    expect(html).not.toContain("☐");
+    // 読み上げ文は日本語のまま
+    expect(html).toContain("済");
+    expect(html).toContain("項目なし");
   });
 
   test("済みは緑、未は赤、項目なしは薄い灰色", () => {

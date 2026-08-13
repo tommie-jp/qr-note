@@ -20,6 +20,14 @@ export const MAX_MATRIX_COLUMNS = 4
 // 番号順を使う (更新順はチェックを押した瞬間に並びが動いて前後が狂う)
 const DEFAULT_MATRIX_SORT: Sort = 'itemNo'
 
+// セルに出す記号 (計画 §3 の `mark=`)。null なら既定 (✓ / ☐ / —)
+export interface MatrixMarkSet {
+  unchecked: string
+  checked: string
+  // 省略できる (既定の — を使う)
+  absent: string | null
+}
+
 export interface MatrixSpec {
   // 対象を決める検索式 (検索窓と同じ文法)。空なら絞り込みなし
   query: string
@@ -27,6 +35,8 @@ export interface MatrixSpec {
   // 列に出すチェックの名前 (書かれたままの表示用)。
   // **空なら「状態」1 列** — 名前ではなく 3 状態を出す (計画 §3)
   columns: string[]
+  // セルの記号。null なら既定
+  marks: MatrixMarkSet | null
 }
 
 export type MatrixParseResult = MatrixSpec | { error: string }
@@ -38,9 +48,35 @@ export function normalizeCheckLabel(label: string): string {
   return label.normalize('NFKC').trim().toLowerCase()
 }
 
+// `mark=` に書ける記号の数。未・済 の 2 つが必須で、3 つ目は「項目なし」
+const MIN_MARKS = 2
+const MAX_MARKS = 3
+
+// 見た目の 1 文字 (書記素) で割る。
+//
+// **コードポイントで割ってはいけない。** 絵文字は「1 文字」に見えて複数の
+// コードポイントで出来ていることがあり、`✅️` は ✅ (U+2705) + 異体字
+// セレクタ (U+FE0F) の 2 つ。素朴に [...s] で割ると 3 つ目に**見えない文字**が
+// 現れ、それを「項目なし」の記号に割り当てると透明なセルが並ぶ。
+// 家族絵文字 (ZWJ で 8 コードポイント) も書記素なら 1 つと数えられる。
+export function splitGraphemes(text: string): string[] {
+  if (typeof Intl.Segmenter === 'function') {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    return [...segmenter.segment(text)].map((part) => part.segment)
+  }
+  // Intl.Segmenter が無い環境への逃げ道 (コードポイント割り)。異体字
+  // セレクタは分かれてしまうが、記号がまったく出ないよりはよい
+  return [...text]
+}
+
 // 打ち間違いへの助言だけに使う表。**受け付ける綴りではない** —
 // 受け付けた綴りはノートに残ってやめられないので、増やさずに案内する
 const KEY_HINTS: Record<string, string> = {
+  display: 'mark',
+  marks: 'mark',
+  symbol: 'mark',
+  symbols: 'mark',
+  記号: 'mark',
   cols: 'col',
   column: 'col',
   columns: 'col',
@@ -52,7 +88,7 @@ const KEY_HINTS: Record<string, string> = {
   並び順: 'sort',
 }
 
-const OPTION_KEYS = ['sort', 'col'] as const
+const OPTION_KEYS = ['sort', 'col', 'mark'] as const
 const MAX_KEY_EDIT_DISTANCE = 2
 
 function suggestKey(key: string): string | null {
@@ -75,11 +111,23 @@ function unknownKeyError(key: string): string {
     : `知らない設定「${key}」です。${suggestion}= のことですか?`
 }
 
-// 大文字小文字だけの違いは通す (`sort=ItemNo`)。半角に直させるだけの
-// 門番にはしない、という quizParse (全角コロン・全角数字を許す) と同じ作法
+// 大文字小文字と全角の違いは通す (`sort=ItemNo` / `ｓｏｒｔ＝ｕｐｄａｔｅｄ`)。
+// 半角に直させるだけの門番にはしない、という quizParse (全角コロン・全角数字を
+// 許す) と同じ作法。**畳むのはこの値だけ** — 行ごと NFKC すると `mark=` の
+// 絵文字を潰す (囲み文字の 🈚 が素の 無 になる)
 function parseSortValue(value: string): Sort | null {
-  const lower = value.toLowerCase()
-  return SORTS.find((sort) => sort.toLowerCase() === lower) ?? null
+  const folded = value.normalize('NFKC').toLowerCase()
+  return SORTS.find((sort) => sort.toLowerCase() === folded) ?? null
+}
+
+// キー=値 の区切り。全角の ＝ も区切りとして認める
+function separatorIndex(line: string): number {
+  const half = line.indexOf('=')
+  const full = line.indexOf('＝')
+  if (half < 0) {
+    return full
+  }
+  return full < 0 ? half : Math.min(half, full)
 }
 
 function parseColumnsValue(value: string): string[] {
@@ -110,20 +158,23 @@ export function parseMatrixFence(source: string): MatrixParseResult {
 
   let sort: Sort | null = null
   let columns: string[] | null = null
+  let marks: MatrixMarkSet | null = null
 
   for (const raw of lines.slice(1)) {
-    // 設定行は全角も畳む (`ｓｏｒｔ＝ｕｐｄａｔｅｄ`)。値のうちチェックの
-    // 名前は表示に使うが、NFKC は日本語の文字を変えないので害はない
-    const line = raw.normalize('NFKC').trim()
+    const line = raw.trim()
     if (line === '') {
       continue
     }
 
-    const eq = line.indexOf('=')
+    const eq = separatorIndex(line)
     if (eq <= 0) {
       return { error: `設定は「キー=値」の形で書きます: 「${line}」` }
     }
-    const key = line.slice(0, eq).trim().toLowerCase()
+    // **畳むのはキーだけ。** 値は打ったまま持つ — NFKC は一部の絵文字を
+    // 潰すので (`🈚` → `無`)、`mark=` に書いた記号が黙って別の文字になる。
+    // 照合が要る値は使うところで畳む (sort は parseSortValue、列の名前は
+    // normalizeCheckLabel)
+    const key = line.slice(0, eq).normalize('NFKC').trim().toLowerCase()
     const value = line.slice(eq + 1).trim()
 
     if (key === 'sort') {
@@ -164,6 +215,24 @@ export function parseMatrixFence(source: string): MatrixParseResult {
       continue
     }
 
+    if (key === 'mark') {
+      if (marks !== null) {
+        return { error: '設定「mark」が 2 回書かれています' }
+      }
+      const parsed = splitGraphemes(value)
+      if (parsed.length < MIN_MARKS || parsed.length > MAX_MARKS) {
+        return {
+          error: `記号は 未・済 の 2 つ (項目なしを足して 3 つ) で書きます (${parsed.length} つ書かれています)`,
+        }
+      }
+      marks = {
+        unchecked: parsed[0],
+        checked: parsed[1],
+        absent: parsed[2] ?? null,
+      }
+      continue
+    }
+
     return { error: unknownKeyError(key) }
   }
 
@@ -171,5 +240,6 @@ export function parseMatrixFence(source: string): MatrixParseResult {
     query,
     sort: sort ?? DEFAULT_MATRIX_SORT,
     columns: columns ?? [],
+    marks,
   }
 }

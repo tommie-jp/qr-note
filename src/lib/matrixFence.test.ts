@@ -115,6 +115,71 @@ describe('parseMatrixFence', () => {
   })
 })
 
+describe('parseMatrixFence (mark=)', () => {
+  test('省略すると既定 (null)', () => {
+    expect(spec('#電験三種').marks).toBeNull()
+  })
+
+  test('未・済 の 2 つを読む', () => {
+    expect(spec('#電験三種\nmark=☐✓').marks).toEqual({
+      unchecked: '☐',
+      checked: '✓',
+      absent: null,
+    })
+  })
+
+  // `✅️` は ✅ + 異体字セレクタの 2 コードポイント。コードポイントで割ると
+  // 3 つ目に見えない文字が現れる
+  test('絵文字は書記素で数える (異体字セレクタを落とさない)', () => {
+    expect(spec('#電験三種\nmark=🟥✅️').marks).toEqual({
+      unchecked: '🟥',
+      checked: '✅️',
+      absent: null,
+    })
+  })
+
+  test('3 つ目は「項目なし」になる', () => {
+    expect(spec('#電験三種\nmark=🟥✅️➖').marks).toEqual({
+      unchecked: '🟥',
+      checked: '✅️',
+      absent: '➖',
+    })
+  })
+
+  test('漢字も使える', () => {
+    expect(spec('#電験三種\nmark=未済').marks).toMatchObject({
+      unchecked: '未',
+      checked: '済',
+    })
+  })
+
+  test('1 つ・4 つはエラー', () => {
+    expect(error('#電験三種\nmark=✓')).toContain('2 つ')
+    expect(error('#電験三種\nmark=☐✓➖✔')).toContain('4 つ')
+  })
+
+  test('空はエラー', () => {
+    expect(error('#電験三種\nmark=')).toContain('2 つ')
+  })
+
+  test('2 回書いたらエラー', () => {
+    expect(error('#電験三種\nmark=☐✓\nmark=未済')).toContain('mark')
+  })
+
+  // NFKC は囲み文字を素の漢字に潰す (🈚 → 無)。値は打ったまま持つ
+  test('値を NFKC で潰さない', () => {
+    expect(spec('#電験三種\nmark=🈚🈶').marks).toEqual({
+      unchecked: '🈚',
+      checked: '🈶',
+      absent: null,
+    })
+  })
+
+  test('display= と書いたら mark= を教える', () => {
+    expect(error('#電験三種\ndisplay=🟥✅️')).toContain('mark')
+  })
+})
+
 describe('normalizeCheckLabel', () => {
   test('前後の空白を落とす', () => {
     expect(normalizeCheckLabel(' 学習済み ')).toBe('学習済み')

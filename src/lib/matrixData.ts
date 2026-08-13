@@ -11,7 +11,7 @@ import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
 import { MATRIX_LANG } from './fenceLanguages'
 import { searchItemChecks } from './items'
-import { parseMatrixFence } from './matrixFence'
+import { parseMatrixFence, type MatrixMarkSet } from './matrixFence'
 import {
   buildMatrixTable,
   type CheckParseCache,
@@ -33,6 +33,8 @@ export type MatrixResult =
       // 見せているので、リンク先も一覧の行と揃える (PropsTable と同じ理由)
       query: string
       sort: Sort
+      // セルに出す記号 (`mark=`)。null なら既定 (✓ / ☐ / —)
+      marks: MatrixMarkSet | null
     }
   | { kind: 'error'; error: string }
 
@@ -111,6 +113,7 @@ export async function buildMatrices(markdown: string): Promise<MatrixMap> {
             table: buildMatrixTable(rows, spec.columns, omitted, parseCache),
             query: spec.query,
             sort: spec.sort,
+            marks: spec.marks,
           },
         ]
       }),

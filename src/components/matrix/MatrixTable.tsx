@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { MatrixResult } from "@/lib/matrixData";
+import type { MatrixMarkSet } from "@/lib/matrixFence";
 import { donePercent, type MatrixCell } from "@/lib/matrixTable";
 import { buildItemUrl } from "@/lib/searchUrl";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
@@ -22,6 +23,29 @@ const CELL_MARK: Record<MatrixCell, { mark: string; label: string }> = {
   learning: { mark: "◐", label: "学習中" },
   mastered: { mark: "✓", label: "習得" },
 };
+
+// `mark=` で指定された記号に差し替える (計画 §3)。
+//
+// **読み上げ文 (label) は差し替えない。** 絵文字の名前 (「白い太字の
+// チェックマーク」) が読まれても意味が伝わらないので、済 / 未 / 項目なし の
+// ままにする。
+//
+// 状態 1 列 (未着手 / 学習中 / 習得) は差し替えの対象外 — あれは 3 状態 +
+// 言葉で出しており、`mark=` の 2〜3 個とは軸が違う。
+function markOf(cell: MatrixCell, marks: MatrixMarkSet | null): string {
+  if (marks !== null) {
+    if (cell === "checked") {
+      return marks.checked;
+    }
+    if (cell === "unchecked") {
+      return marks.unchecked;
+    }
+    if (cell === "absent" && marks.absent !== null) {
+      return marks.absent;
+    }
+  }
+  return CELL_MARK[cell].mark;
+}
 
 // 済みは緑、未は赤。**記号と併記なので色は補助**だが、9 行の表を縦に見る
 // ときは色のほうが速い (docs/58 §3 の「色だけに頼らない」は守ったまま
@@ -64,7 +88,7 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
     );
   }
 
-  const { table, query, sort } = result;
+  const { table, query, sort, marks } = result;
 
   // 0 件で空の表を出すと「表が壊れている」ように見える。検索式を添えて
   // 「その検索に当たるノートが無い」と言い切る
@@ -136,7 +160,7 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                     key={table.columns[index]}
                     className={`w-px px-1 py-1.5 text-center ${CELL_CLASS[cell]}`}
                   >
-                    <span aria-hidden>{CELL_MARK[cell].mark}</span>
+                    <span aria-hidden>{markOf(cell, marks)}</span>
                     <span className="sr-only">{CELL_MARK[cell].label}</span>
                   </td>
                 ))}
