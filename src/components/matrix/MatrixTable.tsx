@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { MatrixResult } from "@/lib/matrixData";
-import type { MatrixCell } from "@/lib/matrixTable";
+import { donePercent, type MatrixCell } from "@/lib/matrixTable";
 import { buildItemUrl } from "@/lib/searchUrl";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
 
@@ -23,11 +23,28 @@ const CELL_MARK: Record<MatrixCell, { mark: string; label: string }> = {
   mastered: { mark: "✓", label: "習得" },
 };
 
-// 「項目なし」だけ薄く出す。付け忘れは咎めるものではなく気づけばよいもので、
-// 未チェック (これから解く物) と同じ濃さだと表の重心が狂う
-const CELL_CLASS: Partial<Record<MatrixCell, string>> = {
+// 済みは緑、未は赤。**記号と併記なので色は補助**だが、9 行の表を縦に見る
+// ときは色のほうが速い (docs/58 §3 の「色だけに頼らない」は守ったまま
+// 色を足す形)。緑は既存の成功色 (text-emerald-600) に揃える。
+//
+// 「項目なし」だけ薄い灰色にする。付け忘れは咎めるものではなく気づけば
+// よいもので、未チェック (これから解く物) と同じ強さだと表の重心が狂う
+const CELL_CLASS: Record<MatrixCell, string> = {
+  checked: "text-emerald-600",
+  unchecked: "text-red-600",
   absent: "text-gray-300",
+  untouched: "text-red-600",
+  learning: "text-amber-600",
+  mastered: "text-emerald-600",
 };
+
+// 回転させた見出しに要る高さ。transform は**レイアウトの箱を変えない**ので、
+// 自分で確保しないと文字がはみ出す。CJK は 1 文字 ≒ 1em なので、いちばん長い
+// 名前の字数 + 余白で足りる。em で持つのは文字サイズ (docs/61) に追随させるため
+function headerHeight(columns: readonly string[]): string {
+  const longest = Math.max(...columns.map((column) => [...column].length), 1);
+  return `${longest + 1}em`;
+}
 
 // ```matrix フェンスを学習状況の表に差し替える
 // (docs/77-進捗マトリックス計画.md)。
@@ -63,10 +80,13 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
   return (
     <div className="my-4">
       <p className="mb-1 text-sm text-gray-600">
-        {table.total} 件
+        全 {table.total} 件
+        {/* 率を先に、実数を括弧で添える。率だけだと「9 件中の 7」という
+            手応えが消え、実数だけだと列どうしを見比べられない */}
         {table.columns.map((column, index) => (
           <span key={column} className="ml-3 whitespace-nowrap">
-            {column} {table.done[index]}
+            {column} {donePercent(table.done[index], table.total)}% (
+            {table.done[index]})
           </span>
         ))}
       </p>
@@ -83,12 +103,22 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                   w-px … チェックの列は**自分の文字ぶんだけ**に縮む。
                   w-full + max-w-0 … ノート列が「残り全部」を取って中身を切る */}
               {table.columns.map((column) => (
-                <th
-                  key={column}
-                  scope="col"
-                  className="w-px px-3 py-1.5 text-center font-normal whitespace-nowrap"
-                >
-                  {column}
+                <th key={column} scope="col" className="w-px p-0 font-normal">
+                  {/* 名前を 90° 反時計回りに寝かせて、列の幅を**記号 1 文字**まで
+                      狭める (「学習済み」を横書きにすると 1 列で 48px 要る)。
+                      読む向きは下から上。
+                      **絶対配置にするのが要点** — CSS の rotate は見た目を
+                      回すだけでレイアウトの箱を変えないので、流れに置いたまま
+                      では横書きのときと同じ幅 (48px) を占め続け、列が狭くならない。
+                      流れから外して、器の幅 (w-6) が列幅を決めるようにする */}
+                  <div
+                    className="relative w-6"
+                    style={{ height: headerHeight(table.columns) }}
+                  >
+                    <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap">
+                      {column}
+                    </span>
+                  </div>
                 </th>
               ))}
               <th scope="col" className="w-full max-w-0 px-4 py-1.5 font-normal">
@@ -98,11 +128,13 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {table.rows.map((row) => (
-              <tr key={row.itemNo} className="hover:bg-gray-50">
+              // 行を追うための色。灰より青のほうが「いま見ている行」が
+              // はっきりする (触る端末には hover が無いので PC 向けの助け)
+              <tr key={row.itemNo} className="hover:bg-sky-50">
                 {row.cells.map((cell, index) => (
                   <td
                     key={table.columns[index]}
-                    className={`w-px px-3 py-1.5 text-center ${CELL_CLASS[cell] ?? ""}`}
+                    className={`w-px px-1 py-1.5 text-center ${CELL_CLASS[cell]}`}
                   >
                     <span aria-hidden>{CELL_MARK[cell].mark}</span>
                     <span className="sr-only">{CELL_MARK[cell].label}</span>

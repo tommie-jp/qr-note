@@ -51,6 +51,19 @@ export interface MatrixTableData {
   omitted: number
 }
 
+// 済みの率を「小数点 1 桁」の文字列にする。
+//
+// **切り上げない (床関数)。** 四捨五入すると 1999/2000 が「100.0%」になり、
+// 1 件残っているのに終わったように見える — 率は床関数、という既存の作法
+// (docs/60-学習進捗計画.md §2 の TaskProgress) に揃える。
+// 100.0 になるのは本当に全部済んだときだけ。
+export function donePercent(done: number, total: number): string {
+  if (total <= 0) {
+    return '0.0'
+  }
+  return (Math.floor((done / total) * 1000) / 10).toFixed(1)
+}
+
 function statusOf(row: MatrixSourceRow): StatusCell {
   if (row.taskDone === 0) {
     return 'untouched'

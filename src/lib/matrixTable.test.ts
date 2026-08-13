@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { buildMatrixTable, STATUS_COLUMN_LABEL, type MatrixSourceRow } from './matrixTable'
+import {
+  buildMatrixTable,
+  donePercent,
+  STATUS_COLUMN_LABEL,
+  type MatrixSourceRow,
+} from './matrixTable'
 
 function row(
   itemNo: string,
@@ -141,5 +146,29 @@ describe('buildMatrixTable (空)', () => {
     expect(table.rows).toEqual([])
     expect(table.total).toBe(0)
     expect(table.done).toEqual([0])
+  })
+})
+
+describe('donePercent', () => {
+  test('小数点 1 桁まで出す', () => {
+    expect(donePercent(7, 9)).toBe('77.7')
+    expect(donePercent(5, 9)).toBe('55.5')
+  })
+
+  // 切り上げると 999/1000 が「100.0%」になり、終わっていないのに終わって
+  // 見える。率は床関数、という既存の作法 (docs/60 §2) に揃える
+  test('切り上げない (床関数)', () => {
+    expect(donePercent(1, 3)).toBe('33.3')
+    expect(donePercent(2, 3)).toBe('66.6')
+    expect(donePercent(1999, 2000)).toBe('99.9')
+  })
+
+  test('端は 0.0 と 100.0', () => {
+    expect(donePercent(0, 9)).toBe('0.0')
+    expect(donePercent(9, 9)).toBe('100.0')
+  })
+
+  test('分母 0 は 0.0 (0/0 を出さない)', () => {
+    expect(donePercent(0, 0)).toBe('0.0')
   })
 })

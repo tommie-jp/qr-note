@@ -41,19 +41,38 @@ describe("MatrixTable", () => {
   // 真っ先に潰れるはずの名前が場所を先取りする
   test("チェックの列がノートより先に出る", () => {
     const html = render(tableResult(TABLE));
-    const headers = [...html.matchAll(/<th[^>]*>([^<]+)<\/th>/g)].map(
-      (m) => m[1],
+    const headers = [...html.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
+      m[1].replace(/<[^>]+>/g, ""),
     );
     expect(headers).toEqual(["学習済み", "自信あり", "ノート"]);
     // 行の中も同じ並び (セル → リンク)
     expect(html.indexOf("✓")).toBeLessThan(html.indexOf("#4551"));
   });
 
-  test("件数と列ごとの済み数を出す", () => {
+  test("件数と、列ごとの率 + 実数を出す", () => {
     const html = render(tableResult(TABLE));
-    expect(html).toContain("3 件");
-    expect(html).toContain("学習済み 2");
-    expect(html).toContain("自信あり 1");
+    expect(html).toContain("全 3 件");
+    // 2/3 と 1/3。切り上げないので 66.6 / 33.3
+    expect(html).toContain("学習済み 66.6% (2)");
+    expect(html).toContain("自信あり 33.3% (1)");
+  });
+
+  // 列の幅を記号 1 文字まで狭めるため、名前は寝かせる
+  test("チェックの列の見出しは 90° 反時計回りに寝かせる", () => {
+    const html = render(tableResult(TABLE));
+    expect(html).toContain("-rotate-90");
+    // transform はレイアウトの箱を変えないので高さを自分で確保する
+    // (いちばん長い名前 4 文字 + 余白 = 5em)
+    expect(html).toContain("height:5em");
+    // ノートの見出しは寝かせない
+    expect(html).toMatch(/<th[^>]*>ノート<\/th>/);
+  });
+
+  test("済みは緑、未は赤、項目なしは薄い灰色", () => {
+    const html = render(tableResult(TABLE));
+    expect(html).toContain("text-emerald-600");
+    expect(html).toContain("text-red-600");
+    expect(html).toContain("text-gray-300");
   });
 
   // 表から開いた先で前後ナビが出るように、検索式と並びをリンクへ載せる
@@ -90,6 +109,10 @@ describe("MatrixTable", () => {
     expect(html).toContain("習得");
     expect(html).toContain("学習中");
     expect(html).toContain("未着手");
+    // 3 状態も緑 / 黄 / 赤で出し分ける
+    expect(html).toContain("text-emerald-600");
+    expect(html).toContain("text-amber-600");
+    expect(html).toContain("text-red-600");
   });
 
   test("溢れた件数を知らせる (黙って打ち切らない)", () => {
