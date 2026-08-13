@@ -22,6 +22,17 @@
 #   host ネットワークの buildx ビルダーを使うのは、SSH トンネル (127.0.0.1) へ
 #   push させるため (既定の docker-container ビルダーは別 netns でトンネルに届かない)。
 #
+# 第 2 弾の高速化 (docs/80-デプロイ再高速化計画.md)。約 110 秒 → 約 30 秒。
+#   - 依存レイヤーは版を潰した写し (.deps/) から入れる。素の package.json だと
+#     doVersion.sh が版を上げるたびに層が無効化され、依存が変わっていないのに
+#     npm ci が毎回走っていた (20.7 秒)。生成は scripts/writeDepsManifest.mjs。
+#   - Dockerfile 側で public と静的フォントを「毎回変わる層」から追い出した。
+#     毎デプロイの転送が 122.8MB → 約 15MB になる。
+#   - lint / test / ビルドを並列で流し、全部通ってから push する。
+#
+# 最後に**区間ごとの処理時間**を出す。次に「遅い」と感じたとき、どこが遅いのかを
+# 推測しないで済ませるため。
+#
 # 初回のみ: vps2 に私設レジストリを設置する。
 #   ./deploy/setupRegistry.sh
 # 溜まった古いイメージの掃除:
@@ -162,6 +173,35 @@ HEALTH_RETRIES=30
 log() { echo ""; echo "==> $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# 区間ごとの所要時間を控え、最後にまとめて出す (docs/80-デプロイ再高速化計画.md §6)。
+# 「デプロイが遅い」と感じたときに、どこが遅いのかを推測しないで済ませるため。
+# 失敗して落ちたときも (そこまでの分を) 出す — どこで待たされたかは失敗時こそ知りたい。
+DEPLOY_T0="$(date +%s)"
+STEP_T0="$DEPLOY_T0"
+STEP_NAMES=()
+STEP_SECS=()
+
+step_done() {
+  local now
+  now="$(date +%s)"
+  STEP_NAMES+=("$1")
+  STEP_SECS+=("$((now - STEP_T0))")
+  STEP_T0="$now"
+}
+
+# 秒を先に置くのは桁が揃うから。ラベルを %-Ns で揃えると、日本語は 1 文字 3 バイトの
+# ため printf のバイト数勘定とずれて列が崩れる
+print_timing() {
+  [ "${#STEP_NAMES[@]}" -gt 0 ] || return 0
+  local i
+  echo ""
+  echo "==> 処理時間"
+  for i in "${!STEP_NAMES[@]}"; do
+    printf '    %5ds  %s\n' "${STEP_SECS[$i]}" "${STEP_NAMES[$i]}"
+  done
+  printf '    %5ds  %s\n' "$(($(date +%s) - DEPLOY_T0))" "合計"
+}
+
 # レジストリ (トンネル越しの 127.0.0.1:$REGISTRY_PORT) に指定タグの manifest があるか。
 # buildx は --provenance=false で OCI image manifest を push するので Accept に含める。
 registry_has_tag() {
@@ -178,8 +218,12 @@ registry_has_tag() {
 SSH_CTRL="$(mktemp -u "${TMPDIR:-/tmp}/qr-deploy-ssh.XXXXXX")"
 SSH() { ssh -S "$SSH_CTRL" "$@"; }
 SCP() { scp -o "ControlPath=$SSH_CTRL" "$@"; }
+# 3/8 を並列で走らせるあいだ、混ざらないよう各コマンドの出力を退避する置き場
+LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/qr-deploy-logs.XXXXXX")"
 cleanup() {
   ssh -S "$SSH_CTRL" -O exit "$REMOTE" 2>/dev/null || true
+  rm -rf "$LOG_DIR"
+  print_timing
 }
 trap cleanup EXIT
 
@@ -195,6 +239,7 @@ if ! curl -fsS "http://127.0.0.1:${REGISTRY_PORT}/v2/" >/dev/null 2>&1; then
      (DEPLOY_REMOTE 等の環境変数は doDeploy.sh と共通)"
 fi
 echo "OK: レジストリ疎通"
+step_done "0/8 SSH + レジストリ疎通"
 
 # 非本番の画面はピンク + タイトル [LOCAL] になる (src/lib/appEnv.ts)。
 # 判定は「APP_ENV=production を明示したときだけ本番」なので、リモートの .env に
@@ -208,6 +253,7 @@ if [ "$REMOTE_APP_ENV" != "production" ]; then
        ssh $REMOTE \"echo APP_ENV=production >> $REMOTE_DIR/.env\""
 fi
 echo "OK: APP_ENV=production"
+step_done "1/8 APP_ENV 確認"
 
 # 版を先に決める。--no-version-up なら現行版を据え置き、レジストリに同版が
 # あればビルドも lint/test も飛ばして「その版そのもの」を再利用する。
@@ -227,33 +273,73 @@ else
   VERSION="$(node -p "require('./package.json').version")"
   echo "OK: v$VERSION に更新 ($BUMP)"
 fi
+step_done "2/8 バージョン決定"
 log "デプロイ対象: v$VERSION"
 
 if [ "$REUSE" = 1 ]; then
-  log "3/8 lint + test — スキップ (既存イメージを再利用)"
-  log "4/8 イメージビルド + push — スキップ (v$VERSION は既にレジストリにある)"
+  log "3/8 lint + test + ビルド — スキップ (既存イメージを再利用)"
+  log "4/8 レジストリ push — スキップ (v$VERSION は既にレジストリにある)"
   echo "注意: 配るのは v$VERSION を push した時点のイメージ。手元の未コミット変更は含まれない"
 else
-  log "3/8 lint + test"
-  npm run lint
-  npm test
+  # Dockerfile の依存レイヤーが読む .deps/ (版を潰した package.json の写し) を作る。
+  # これがあるおかげで、版を上げても npm ci の層はキャッシュに載ったままになる
+  # (docs/80-デプロイ再高速化計画.md §S1)
+  node scripts/writeDepsManifest.mjs
 
   # host ネットワークの buildx ビルダーを用意する (無ければ作る)。
   # これが無いと push 先の 127.0.0.1 トンネルにビルダーが届かない。
+  # 並列に入る前に済ませておく (ビルダー作成が 2 重に走らないように)。
   if ! docker buildx inspect "$BUILDER" >/dev/null 2>&1; then
     log "buildx ビルダー ($BUILDER) を作成"
     docker buildx create --name "$BUILDER" --driver docker-container \
       --driver-opt network=host >/dev/null
   fi
 
-  # ビルドとレジストリ push を 1 回で行う。rewrite-timestamp で全レイヤーの mtime を
+  # lint / test / ビルドは互いに独立なので同時に流す (docs/80 §S4)。
+  # 直列だと lint 6.6s + test 23.5s がまるまるビルドの前に積まれる。
+  #
+  # **push はここではしない。** 3 つ全部が通ってから改めて push する。
+  # 並列のまま push まで走らせると、テストが落ちた版のイメージがレジストリに
+  # 残り、--no-version-up の再利用経路がそれを拾ってしまう。
+  #
+  # 出力はログへ退避して、待ち合わせた後にまとめて出す (同時に書くと混ざって読めない)。
+  log "3/8 lint + test + イメージビルド (並列)"
+  echo "    3 つ同時に実行中。出力は完了後にまとめて出す..."
+  npm run lint >"$LOG_DIR/lint.log" 2>&1 &
+  LINT_PID=$!
+  npm test >"$LOG_DIR/test.log" 2>&1 &
+  TEST_PID=$!
+  SOURCE_DATE_EPOCH="$BUILD_EPOCH" docker buildx build --builder "$BUILDER" \
+    --provenance=false --sbom=false \
+    --output "type=cacheonly" \
+    . >"$LOG_DIR/build.log" 2>&1 &
+  BUILD_PID=$!
+
+  # **set -e はバックグラウンドジョブの失敗を拾わない。** wait の戻り値を必ず見る。
+  # 1 つ落ちても残りを待ってから報告する (2 つ同時に落ちているときに片方しか
+  # 見えないと、直して再実行してまた落ちる、を繰り返す羽目になる)
+  FAILED=""
+  wait "$LINT_PID"  || FAILED="$FAILED lint"
+  wait "$TEST_PID"  || FAILED="$FAILED test"
+  wait "$BUILD_PID" || FAILED="$FAILED build"
+
+  echo "--- lint";  cat "$LOG_DIR/lint.log"
+  echo "--- test";  cat "$LOG_DIR/test.log"
+  echo "--- build"; cat "$LOG_DIR/build.log"
+
+  [ -z "$FAILED" ] || die "失敗:${FAILED} (上の出力を確認すること)"
+  step_done "3/8 lint + test + ビルド (並列)"
+
+  # 改めて push する。全レイヤーは直前のビルドでキャッシュ済みなので、ここは
+  # export と転送だけで済む。rewrite-timestamp で全レイヤーの mtime を
   # BUILD_EPOCH に固定するため、中身が同じレイヤーは push 時に「既に存在」で飛ぶ。
   # registry.insecure=true は 127.0.0.1 の平文レジストリ (トンネル越し) を許すため。
-  log "4/8 イメージビルド + レジストリ push (${REG_LOCAL}:v${VERSION})"
+  log "4/8 レジストリ push (${REG_LOCAL}:v${VERSION})"
   SOURCE_DATE_EPOCH="$BUILD_EPOCH" docker buildx build --builder "$BUILDER" \
     --provenance=false --sbom=false \
     --output "type=image,name=${REG_LOCAL}:v${VERSION},push=true,rewrite-timestamp=true,registry.insecure=true" \
     .
+  step_done "4/8 push"
 fi
 
 # リモートは自分の localhost のレジストリからダイジェスト一致で pull し、compose が
@@ -261,6 +347,7 @@ fi
 log "5/8 $REMOTE でイメージ取得 + タグ付け"
 SSH "$REMOTE" "docker pull '${REG_REMOTE}:v${VERSION}' \
   && docker tag '${REG_REMOTE}:v${VERSION}' '$IMAGE'"
+step_done "5/8 イメージ取得 + タグ付け"
 
 log "6/8 DB マイグレーション + 派生列の再計算 (SSH トンネル localhost:$TUNNEL_PORT 経由)"
 REMOTE_PW="$(SSH "$REMOTE" "grep '^POSTGRES_PASSWORD=' '$REMOTE_DIR/.env' | cut -d= -f2-")"
@@ -354,6 +441,7 @@ if [ "$DEMO" = 1 ]; then
 fi
 
 SSH -O cancel -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE" 2>/dev/null || true
+step_done "6/8 マイグレーション + 派生列"
 
 # compose.yaml の転送は再作成の**直前**に置く。ここで送っておけば、続く
 # up -d --force-recreate が新しい定義 (environment: など) で作り直す。
@@ -387,6 +475,7 @@ else
 fi
 
 SSH "$REMOTE" "cd '$REMOTE_DIR' && docker compose up -d --no-build --force-recreate app"
+step_done "7/8 app コンテナ再作成"
 
 log "8/8 ヘルスチェック ($REMOTE 上の $HEALTH_URL)"
 for i in $(seq 1 "$HEALTH_RETRIES"); do
@@ -396,7 +485,9 @@ for i in $(seq 1 "$HEALTH_RETRIES"); do
     # 中間タグ (127.0.0.1:5000/...:vX) を外して溜めない。:latest は残るので影響なし。
     # その後 dangling を掃除する (前バージョンの :latest が浮く)。
     SSH "$REMOTE" "docker rmi '${REG_REMOTE}:v${VERSION}' >/dev/null 2>&1 || true; docker image prune -f" >/dev/null
+    step_done "8/8 ヘルスチェック + 後片付け"
     log "デプロイ完了 (v$VERSION)"
+    # 処理時間の内訳は EXIT trap の print_timing がこの後に出す
     exit 0
   fi
   echo "  waiting... ($i/$HEALTH_RETRIES, status=${status:-none})"

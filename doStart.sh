@@ -65,6 +65,9 @@ HEALTH_RETRIES=30
 
 if [ "$DO_BUILD" = 1 ]; then
   log "イメージビルド"
+  # Dockerfile の依存レイヤーが読む .deps/ を作る (git 管理外の生成物)。
+  # 無いと COPY が落ちる (docs/80-デプロイ再高速化計画.md §S1)
+  node scripts/writeDepsManifest.mjs
   docker compose build app
 else
   log "イメージビルドをスキップ (--nobuild)"

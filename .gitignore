@@ -43,6 +43,10 @@ next-env.d.ts
 # Prisma generated client
 /src/generated/
 
+# Docker の依存レイヤー用に版を潰した package.json / package-lock.json の写し。
+# scripts/writeDepsManifest.mjs が生成する派生物 (docs/80-デプロイ再高速化計画.md)
+/.deps/
+
 # .env.example はコミットする
 !.env.example
 
