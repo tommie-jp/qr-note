@@ -646,3 +646,27 @@ test("matrix フェンスは集計結果を渡すと表になる", () => {
   expect(html).toContain("<table");
   expect(html).toContain("#4551");
 });
+
+// 答え隠し `||答え||` (docs/79-答え隠し計画.md)
+test("答え隠しは閉じた状態で描く (答えは DOM に出さない)", () => {
+  const html = render("- [ ] infect ||動 ～に感染させる||");
+  // 押す印だけが出て、答えの文字は無い (ソースからも読めない)
+  expect(html).toContain("▶");
+  expect(html).not.toContain("～に感染させる");
+  expect(html).not.toContain("||");
+  expect(html).toContain('aria-expanded="false"');
+});
+
+test("答え隠しは 1 行の中に収まる (行が割れない)", () => {
+  const html = render("- [ ] infect ||訳||");
+  // チェックボックスと単語と印が同じ <li> の中にある
+  const li = /<li[^>]*>([\s\S]*?)<\/li>/.exec(html)?.[1] ?? "";
+  expect(li).toContain("infect");
+  expect(li).toContain("▶");
+});
+
+test("表の中の `||` は記法にしない (空セルのまま)", () => {
+  const html = render("| a || b |\n| --- | --- | --- |\n| 1 | 2 | 3 |");
+  expect(html).toContain("<table>");
+  expect(html).not.toContain("▶");
+});

@@ -1,7 +1,9 @@
 import { MarkdownView } from "@/components/MarkdownView";
+import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
 import { NotePager } from "@/components/NotePager";
 import { splitPages } from "@/components/notePages";
 import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
+import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
 import type { CircuitMap } from "@/lib/circuitCache";
 import type { MatrixMap } from "@/lib/matrixData";
 
@@ -53,5 +55,14 @@ export function NoteBody({
     ),
   }));
 
+  // 答え隠し (docs/79) を持つノートだけ、まとめて開く口を添える。
+  // 持たないノートに出すと、押しても何も起きないボタンが並ぶ
+  if (hasAnswerSpoiler(memo)) {
+    return (
+      <RevealAllAnswers>
+        <NotePager pages={pages} />
+      </RevealAllAnswers>
+    );
+  }
   return <NotePager pages={pages} />;
 }

@@ -1,6 +1,7 @@
 import type { Element } from "hast";
 import type { PluggableList } from "unified";
 import Markdown from "react-markdown";
+import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
 import { remarkTagLinks } from "./remarkTagLinks";
 import { CodeBlock } from "./CodeBlock";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
@@ -12,6 +13,7 @@ import {
   BASE_REHYPE_PLUGINS,
   BASE_REMARK_PLUGINS,
   blockquoteWithAlert,
+  spanWithAnswer,
   linkWithTarget,
   type MarkdownComponentProps,
   readFence,
@@ -294,6 +296,10 @@ export function MarkdownView({
   const remarkPlugins: PluggableList = [
     ...BASE_REMARK_PLUGINS,
     ...(linkTags ? [remarkTagLinks] : []),
+    // 答え隠し `||答え||` (docs/79)。土台 (BASE) ではなくここに足すのは、
+    // 一覧のプレビューが押せる部品を持たないため — あちらは同じプラグインを
+    // mask で通して ▶ の文字だけにする (NotePreviewThumb)
+    remarkAnswerSpoiler,
   ];
 
   // rehypeTaskLines は**サニタイズより後**に置く (前だと data-line が落ちる)。
@@ -322,6 +328,7 @@ export function MarkdownView({
           a: linkWithTarget,
           input: taskCheckboxRenderer(onToggleTask),
           blockquote: blockquoteWithAlert,
+          span: spanWithAnswer,
         }}
       >
         {markdown}

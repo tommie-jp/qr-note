@@ -18,6 +18,8 @@
 
 import type { ReactNode } from "react";
 import Markdown from "react-markdown";
+import type { PluggableList } from "unified";
+import { remarkAnswerSpoiler } from "@/components/remarkAnswerSpoiler";
 import {
   BASE_REHYPE_PLUGINS,
   BASE_REMARK_PLUGINS,
@@ -165,7 +167,16 @@ function previewImg({
 
 // 本文と同じ解釈 (markdownPipeline.tsx の土台をそのまま使う)。本文が足す
 // 2 つ (remarkTagLinks / rehypeTaskLines) はここでは足さない — タグを
-// リンクにせず、チェックボックスは GFM 既定の disabled のままにするため
+// リンクにせず、チェックボックスは GFM 既定の disabled のままにするため。
+//
+// 答え隠し (docs/79) だけは足す。**mask で通す**ので押せる部品は入らず、
+// ▶ の文字になる — 足さないと `||訳||` の文字がそのまま出て、答えが
+// 一覧のカードに漏れる
+const PREVIEW_REMARK_PLUGINS: PluggableList = [
+  ...BASE_REMARK_PLUGINS,
+  [remarkAnswerSpoiler, { mask: true }],
+];
+
 const PREVIEW_COMPONENTS = {
   pre: previewPre,
   img: previewImg,
@@ -179,7 +190,7 @@ export function NotePreviewThumb({ markdown }: { markdown: string }) {
   return (
     <div className="prose prose-sm max-w-none break-words px-2 py-1 [&_li.task-list-item]:list-none">
       <Markdown
-        remarkPlugins={BASE_REMARK_PLUGINS}
+        remarkPlugins={PREVIEW_REMARK_PLUGINS}
         urlTransform={urlTransform}
         rehypePlugins={BASE_REHYPE_PLUGINS}
         remarkRehypeOptions={REMARK_REHYPE_OPTIONS}

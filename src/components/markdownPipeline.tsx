@@ -29,6 +29,8 @@ import { ALERT_CLASS_PREFIX, alertTypeFromClassName } from "./remarkAlerts";
 import { BASE_REMARK_PLUGINS } from "./remarkPlugins";
 import { MarkdownAlert } from "./MarkdownAlert";
 import { KATEX_OPTIONS } from "@/lib/katexOptions";
+import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
+import { AnswerSpoiler } from "./answer/AnswerSpoiler";
 
 // rehype-katex は code の math-inline / math-display クラスを目印にするため、
 // sanitize で落とされないよう許可する (language-* はデフォルトでも許可)。
@@ -61,6 +63,12 @@ export const sanitizeSchema = {
     blockquote: [
       ...(defaultSchema.attributes?.blockquote ?? []),
       ["className", new RegExp(`^${ALERT_CLASS_PREFIX}`)],
+    ],
+    // 答え隠しの目印 (docs/79)。remarkAnswerSpoiler が刻む class 1 つだけを
+    // 通す。アラートと同じ作法で、値の作り手はプラグイン側
+    span: [
+      ...(defaultSchema.attributes?.span ?? []),
+      ["className", ANSWER_SPOILER_CLASS],
     ],
   },
   protocols: {
@@ -131,7 +139,7 @@ function isExternalLink(href: string | undefined): boolean {
 // DOM 要素へ spread する前に取り除く。カスタムレンダラを持つ描画側
 // (MarkdownView / NotePreviewThumb) が共通に使う props 型
 export type MarkdownComponentProps<
-  T extends "pre" | "a" | "img" | "input" | "blockquote",
+  T extends "pre" | "a" | "img" | "input" | "blockquote" | "span",
 > = ComponentProps<T> & {
   node?: unknown;
 };
@@ -162,6 +170,23 @@ export function readFence(
 // alt の幅記法の解釈 (parseAltWidth) は @/lib/altWidth へ移した。
 // classifyImgSrc と同じく編集画面の添付チップ (client) からも読むためで、
 // 経緯は移設先の冒頭に書いた。ここから re-export はしない
+
+// 答え隠し (docs/79) の span を、押して開く部品に差し替える。
+//
+// **KaTeX が作る span もここを通る** — 数式は sanitize の後に rehype-katex が
+// 作るので class を保ったまま届く。目印を持たない span は素のまま返すこと
+// (props をそのまま流す)。
+export function spanWithAnswer({
+  node: _node,
+  children,
+  ...props
+}: MarkdownComponentProps<"span">) {
+  const className = typeof props.className === "string" ? props.className : "";
+  if (className.split(/\s+/).includes(ANSWER_SPOILER_CLASS)) {
+    return <AnswerSpoiler>{children}</AnswerSpoiler>;
+  }
+  return <span {...props}>{children}</span>;
+}
 
 // remarkAlerts が刻んだ class を読んでアラートの枠に差し替える (docs/54 §2)。
 // 目印の無い引用 (知らない種類の `[!FOO]` を含む) はただの引用のまま
