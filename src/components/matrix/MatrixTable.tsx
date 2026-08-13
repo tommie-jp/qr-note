@@ -76,14 +76,12 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200 text-left text-gray-600">
-              {/* w-full + max-w-0 … ノート列が「残り全部」を取って中身を
-                  切る。チェックの列は w-px で**自分の文字ぶんだけ**に縮む。
-                  こうしないと iPhone (幅 375px) で最後の列が帯の外に出て、
-                  横スクロールしないと見えない — 一覧して比べるための表なので、
-                  1 画面に収まることを列の並びより優先する */}
-              <th scope="col" className="w-full max-w-0 px-4 py-1.5 font-normal">
-                ノート
-              </th>
+              {/* **チェックを先に置く。** 表を開く目的は「どれがまだか」を
+                  一目で見ることで、ノートの名前はその次 — 左端に揃っていれば
+                  横に目を振らずに縦へ読める。名前を先にすると、幅の狭い画面で
+                  真っ先に潰れるはずの名前が場所を先取りしてしまう。
+                  w-px … チェックの列は**自分の文字ぶんだけ**に縮む。
+                  w-full + max-w-0 … ノート列が「残り全部」を取って中身を切る */}
               {table.columns.map((column) => (
                 <th
                   key={column}
@@ -93,11 +91,23 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                   {column}
                 </th>
               ))}
+              <th scope="col" className="w-full max-w-0 px-4 py-1.5 font-normal">
+                ノート
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {table.rows.map((row) => (
               <tr key={row.itemNo} className="hover:bg-gray-50">
+                {row.cells.map((cell, index) => (
+                  <td
+                    key={table.columns[index]}
+                    className={`w-px px-3 py-1.5 text-center ${CELL_CLASS[cell] ?? ""}`}
+                  >
+                    <span aria-hidden>{CELL_MARK[cell].mark}</span>
+                    <span className="sr-only">{CELL_MARK[cell].label}</span>
+                  </td>
+                ))}
                 <td className="w-full max-w-0 truncate px-4 py-1.5">
                   {/* 検索式と並びをリンクに載せる。開いた先で前後ナビが出て、
                       表 → 1 問目 → 次 → … と回って戻ってこられる
@@ -116,15 +126,6 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                     </span>
                   </Link>
                 </td>
-                {row.cells.map((cell, index) => (
-                  <td
-                    key={table.columns[index]}
-                    className={`w-px px-3 py-1.5 text-center ${CELL_CLASS[cell] ?? ""}`}
-                  >
-                    <span aria-hidden>{CELL_MARK[cell].mark}</span>
-                    <span className="sr-only">{CELL_MARK[cell].label}</span>
-                  </td>
-                ))}
               </tr>
             ))}
           </tbody>

@@ -37,6 +37,18 @@ describe("MatrixTable", () => {
     expect(html).toContain("問3");
   });
 
+  // 表を開く目的は「どれがまだか」を一目で見ること。名前が先だと、狭い画面で
+  // 真っ先に潰れるはずの名前が場所を先取りする
+  test("チェックの列がノートより先に出る", () => {
+    const html = render(tableResult(TABLE));
+    const headers = [...html.matchAll(/<th[^>]*>([^<]+)<\/th>/g)].map(
+      (m) => m[1],
+    );
+    expect(headers).toEqual(["学習済み", "自信あり", "ノート"]);
+    // 行の中も同じ並び (セル → リンク)
+    expect(html.indexOf("✓")).toBeLessThan(html.indexOf("#4551"));
+  });
+
   test("件数と列ごとの済み数を出す", () => {
     const html = render(tableResult(TABLE));
     expect(html).toContain("3 件");
