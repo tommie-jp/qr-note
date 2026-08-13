@@ -15,6 +15,7 @@ const TABLE: MatrixTableData = {
   total: 3,
   done: [2, 1],
   omitted: 0,
+  columnsOmitted: 0,
 };
 
 function render(result: MatrixResult, code = "#電験三種"): string {
@@ -104,6 +105,7 @@ describe("MatrixTable", () => {
         total: 3,
         done: [1],
         omitted: 0,
+        columnsOmitted: 0,
       }),
     );
     expect(html).toContain("習得");
@@ -118,6 +120,13 @@ describe("MatrixTable", () => {
   test("溢れた件数を知らせる (黙って打ち切らない)", () => {
     const html = render(tableResult({ ...TABLE, omitted: 7 }));
     expect(html).toContain("他 7 件");
+  });
+
+  // col= を省いて本文から拾ったとき、上限を超えた列があることを言う
+  test("載せなかった列の数も知らせる", () => {
+    const html = render(tableResult({ ...TABLE, columnsOmitted: 2 }));
+    expect(html).toContain("他 2 種類のチェック");
+    expect(html).toContain("col=");
   });
 
   test("0 件のときは空の表ではなく文で出す", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { MAX_MATRIX_COLUMNS } from './matrixFence'
 import {
   buildMatrixTable,
   donePercent,
@@ -108,35 +109,75 @@ describe('buildMatrixTable (名前付きの列)', () => {
   })
 })
 
-describe('buildMatrixTable (列を省いたとき)', () => {
+describe('buildMatrixTable (列を省いたとき = 本文から拾う)', () => {
   const rows = [
-    row('4551', '問1', 0, 2), // 全部チェック = 習得
-    row('4552', '問2', 1, 1), // 一部チェック = 学習中
-    row('4553', '問3', 2, 0), // 未チェック = 未着手
+    row('4551', quizNote('問1', true, true), 0, 2),
+    row('4552', quizNote('問2', true, false), 1, 1),
+    row('4553', quizNote('問3', false, false), 2, 0),
   ]
 
-  test('状態 1 列になる', () => {
+  test('検索結果に出てきたチェックがそのまま列になる', () => {
     const table = buildMatrixTable(rows, [], 0)
-    expect(table.kind).toBe('status')
-    expect(table.columns).toEqual([STATUS_COLUMN_LABEL])
+    expect(table.kind).toBe('checks')
+    expect(table.columns).toEqual(['学習済み', '自信あり'])
+    expect(table.rows[1].cells).toEqual(['checked', 'unchecked'])
   })
 
-  test('3 状態を出し分ける', () => {
-    const table = buildMatrixTable(rows, [], 0)
+  test('列の並びは出現数の多い順 (同数は先に出てきた順)', () => {
+    const stray = row('4554', '問4\n\n- [ ] 学習済み\n- [x] 要復習', 1, 1)
+    const table = buildMatrixTable([...rows, stray], [], 0)
+    // 学習済み 4 件 / 自信あり 3 件 / 要復習 1 件
+    expect(table.columns).toEqual(['学習済み', '自信あり', '要復習'])
+  })
+
+  test('照合すると同じ名前は 1 列にまとめる (表記は初出のまま)', () => {
+    const table = buildMatrixTable(
+      [
+        row('4555', '問5\n\n- [x] ＴＯＤＯ', 0, 1),
+        row('4556', '問6\n\n- [ ] todo', 1, 0),
+      ],
+      [],
+      0,
+    )
+    expect(table.columns).toEqual(['ＴＯＤＯ'])
+    expect(table.rows.map((r) => r.cells[0])).toEqual(['checked', 'unchecked'])
+  })
+
+  test(`列は ${MAX_MATRIX_COLUMNS} つまでで、溢れた数を返す`, () => {
+    const many = Array.from(
+      { length: MAX_MATRIX_COLUMNS + 2 },
+      (_, i) => `- [ ] 印${i}`,
+    ).join('\n')
+    const table = buildMatrixTable([row('4557', `問7\n\n${many}`, 6, 0)], [], 0)
+    expect(table.columns).toHaveLength(MAX_MATRIX_COLUMNS)
+    expect(table.columnsOmitted).toBe(2)
+  })
+
+  test('列を明示したときは溢れを数えない', () => {
+    expect(buildMatrixTable(rows, ['学習済み'], 0).columnsOmitted).toBe(0)
+  })
+
+  // 名前の無いチェック (`- [ ]` だけ) では列が作れないので、3 状態に落とす
+  test('名前のあるチェックが無ければ状態 1 列に落ちる', () => {
+    const table = buildMatrixTable([row('4560', '問8\n\n- [x]', 0, 1)], [], 0)
+    expect(table.kind).toBe('status')
+    expect(table.columns).toEqual([STATUS_COLUMN_LABEL])
+    expect(table.rows[0].cells).toEqual(['mastered'])
+  })
+
+  test('状態 1 列のときは 3 状態を出し分ける', () => {
+    const plain = [
+      row('4561', '問1\n\n- [x]', 0, 2),
+      row('4562', '問2\n\n- [x]', 1, 1),
+      row('4563', '問3\n\n- [ ]', 2, 0),
+    ]
+    const table = buildMatrixTable(plain, [], 0)
     expect(table.rows.map((r) => r.cells[0])).toEqual([
       'mastered',
       'learning',
       'untouched',
     ])
-  })
-
-  test('済み数は習得の件数', () => {
-    expect(buildMatrixTable(rows, [], 0).done).toEqual([1])
-  })
-
-  test('本文を読まないので memo が空でも数えられる', () => {
-    const table = buildMatrixTable([row('4560', '', 0, 1)], [], 0)
-    expect(table.rows[0].cells).toEqual(['mastered'])
+    expect(table.done).toEqual([1])
   })
 })
 
@@ -146,6 +187,12 @@ describe('buildMatrixTable (空)', () => {
     expect(table.rows).toEqual([])
     expect(table.total).toBe(0)
     expect(table.done).toEqual([0])
+  })
+
+  test('行が無く列も省いたときは状態 1 列 (拾う先が無い)', () => {
+    const table = buildMatrixTable([], [], 0)
+    expect(table.kind).toBe('status')
+    expect(table.rows).toEqual([])
   })
 })
 

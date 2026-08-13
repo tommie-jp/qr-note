@@ -162,10 +162,14 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
             ))}
           </tbody>
         </table>
-        {table.omitted > 0 && (
-          // 黙って打ち切ると「これで全部」と読めてしまう
+        {(table.omitted > 0 || table.columnsOmitted > 0) && (
+          // 黙って打ち切ると「これで全部」と読めてしまう。行も列も同じ扱い
           <p className="border-t border-gray-200 px-4 py-1.5 text-sm text-gray-500">
-            他 {table.omitted} 件は表に載せていません(絞り込むと表示されます)
+            {table.omitted > 0 &&
+              `他 ${table.omitted} 件は表に載せていません(絞り込むと表示されます)`}
+            {table.omitted > 0 && table.columnsOmitted > 0 && " / "}
+            {table.columnsOmitted > 0 &&
+              `他 ${table.columnsOmitted} 種類のチェックは列にしていません(col= で選べます)`}
           </p>
         )}
       </div>

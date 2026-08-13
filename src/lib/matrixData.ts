@@ -12,7 +12,11 @@ import { visit } from 'unist-util-visit'
 import { MATRIX_LANG } from './fenceLanguages'
 import { searchItemChecks } from './items'
 import { parseMatrixFence } from './matrixFence'
-import { buildMatrixTable, type MatrixTableData } from './matrixTable'
+import {
+  buildMatrixTable,
+  type CheckParseCache,
+  type MatrixTableData,
+} from './matrixTable'
 import { requireUser } from './session'
 import type { Sort } from './validation'
 
@@ -89,7 +93,7 @@ export async function buildMatrices(markdown: string): Promise<MatrixMap> {
 
   // 本文の解析は表をまたいで使い回す。表が複数あるときは対象のノートが
   // 大きく重なる (`#電験三種` と `#電験三種 #難` など) ため
-  const parseCache = new Map<string, ReadonlyMap<string, boolean>>()
+  const parseCache: CheckParseCache = new Map()
 
   const built = await Promise.all(
     sources
