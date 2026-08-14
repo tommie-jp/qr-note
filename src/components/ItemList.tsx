@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
 // 値の import は不可 — circuitThumbs.ts / mathText.ts / NotePreviewThumb.tsx は
@@ -133,6 +134,15 @@ export function ItemList({
   // だけにするため、ここで一元管理する。小表示・非選択のときだけ効く。
   const [openItemNo, setOpenItemNo] = useState<string | null>(null);
 
+  // プレビューペイン (docs/86 §4) で右下に開いているノート。横取り中は
+  // URL が /item/<番号> になるので、選択のための state は持たず pathname
+  // から導く (URL が正・docs/11 §3)。/item/<番号>/history のような深い
+  // パスは番号と一致せず、素通しになるだけで害はない
+  const pathname = usePathname();
+  const previewItemNo = pathname?.startsWith("/item/")
+    ? decodeURIComponent(pathname.slice("/item/".length))
+    : null;
+
   // 選択モードを抜けたら選択を捨てる。バーから抜けることもあるので、
   // 抜ける操作それぞれに後始末を配らず、モードの変化 1 か所で受ける
   const [wasSelectMode, setWasSelectMode] = useState(selectMode);
@@ -228,6 +238,7 @@ export function ItemList({
             mathTitle={mathTexts?.[item.itemNo]?.title}
             mathPreview={mathTexts?.[item.itemNo]?.preview}
             notePreview={notePreviews?.[item.itemNo]}
+            selected={item.itemNo === previewItemNo}
             swipeTrashAction={swipeEnabled ? trashAction : undefined}
             swipeOpen={openItemNo === item.itemNo}
             onSwipeOpenChange={
@@ -268,6 +279,7 @@ export function ItemList({
             mathTitle={mathTexts?.[item.itemNo]?.title}
             mathPreview={mathTexts?.[item.itemNo]?.preview}
             notePreview={notePreviews?.[item.itemNo]}
+            selected={item.itemNo === previewItemNo}
             checkbox={
               <input
                 type="checkbox"

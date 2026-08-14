@@ -61,6 +61,9 @@ interface ItemRowProps {
   // 描いた ReactNode を受けて NotePreviewFrame で縮める。
   // **画像・回路図があるノートでは使わない** — 優先順位の分岐は下の thumb が持つ
   notePreview?: ReactNode;
+  // プレビューペイン (docs/86 §4) でこのノートが開いているか。ItemList が
+  // usePathname から導いて渡す (URL が正なので、選択のための state は無い)
+  selected?: boolean;
 }
 
 // サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
@@ -94,6 +97,7 @@ export function ItemRow({
   mathTitle,
   mathPreview,
   notePreview,
+  selected = false,
 }: ItemRowProps) {
   const isUrl = item.mode === "url";
   // 見出しが空でも文字を置く。**当たり判定のため**で、飾りではない —
@@ -188,6 +192,12 @@ export function ItemRow({
     <div className="relative z-10 mt-1">{footer}</div>
   );
 
+  // プレビューで開いている行の地色 (docs/86 §4)。選択中は hover ごと青に
+  // 寄せる — hover の灰色に負けると、触れるたびに目印が消える
+  const rowTint = selected
+    ? "bg-blue-50 hover:bg-blue-50 active:bg-blue-100"
+    : "hover:bg-gray-50 active:bg-gray-100";
+
   if (view === "card") {
     // 1 枚ずつが独立したカード。小表示では ul が枠を持ち区切り線で仕切るが、
     // グリッドに並べるときは ul は器でしかないので、枠と地色は各カードが持つ。
@@ -197,7 +207,9 @@ export function ItemRow({
     const cardBody = (
       // relative … タイトルの当たり判定を広げる ::after の基準にする。
       // h-full … グリッドで伸ばされた分を中身にも渡し、隣とサムネの高さを揃える
-      <div className="relative flex h-full gap-3 px-4 py-3 transition-colors hover:bg-gray-50 active:bg-gray-100">
+      <div
+        className={`relative flex h-full gap-3 px-4 py-3 transition-colors ${rowTint}`}
+      >
         {checkbox}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-baseline gap-2">
@@ -211,6 +223,7 @@ export function ItemRow({
             <Link
               href={href}
               transitionTypes={["nav-forward"]}
+              aria-current={selected ? "page" : undefined}
               className={`truncate text-gray-600 ${stretchedLink}`}
             >
               {titleText}
@@ -255,7 +268,9 @@ export function ItemRow({
   // SwipeToTrashRow が li を持つので、中身だけを渡す。
   const compactBody = (
     // relative … タイトルの当たり判定を広げる ::after の基準にする
-    <div className="relative flex items-baseline gap-3 px-4 py-1.5 transition-colors hover:bg-gray-50 active:bg-gray-100">
+    <div
+      className={`relative flex items-baseline gap-3 px-4 py-1.5 transition-colors ${rowTint}`}
+    >
       {checkbox}
       <Link
         href={href}
@@ -268,6 +283,7 @@ export function ItemRow({
         <Link
           href={href}
           transitionTypes={["nav-forward"]}
+          aria-current={selected ? "page" : undefined}
           className={`block truncate text-gray-600 ${stretchedLink}`}
         >
           {titleText}

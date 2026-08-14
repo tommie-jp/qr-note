@@ -534,3 +534,20 @@ select,
   border-left-width: 2px;
   border-left-color: var(--color-gray-900, #111827);
 }
+
+/* 検索 3 ペインのプレビューペイン (docs/86 §4)。
+   ペイン自身の高さ (PreviewPane の lg:h-[…]) と、開いている間の一覧の
+   底上げ padding は**必ずこの変数 1 つで動かす** — 別々の値にすると、
+   片方だけ変えた日に最後の行がペインの下に隠れて掬えなくなる */
+:root {
+  --preview-pane-h: 45dvh;
+}
+
+/* ペインが開いている間だけ、一覧 (main) をペインの高さぶん底上げして、
+   最後の行までペインの上へスクロールできるようにする。64rem は Tailwind の
+   lg と同じ幅 — lg 未満は全画面オーバーレイなので底上げは要らない */
+@media (min-width: 64rem) {
+  body:has([data-preview-pane]) main {
+    padding-bottom: var(--preview-pane-h);
+  }
+}

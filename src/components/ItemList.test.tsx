@@ -1,9 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { Item } from "@/generated/prisma/client";
 import type { ViewMode } from "@/lib/viewMode";
 import { ItemList } from "./ItemList";
 import { SelectModeProvider } from "./SelectModeProvider";
+
+// ItemList がプレビュー中のノート (docs/86 §4) を usePathname から導くため、
+// router の外でも描けるようにモックする。unstable_rethrow は
+// SwipeToTrashRow が import しているので居るだけでよい
+const nav = vi.hoisted(() => ({ pathname: "/" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => nav.pathname,
+  unstable_rethrow: () => {},
+}));
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
@@ -262,4 +271,27 @@ test("画像表示は数式 HTML を masonry へ降ろす", () => {
     { "10": { title: MATH_HTML } },
   );
   expect(html).toContain('class="katex"');
+});
+
+// プレビューペインで開いているノートの行の印 (docs/86 §4)
+
+test("プレビュー中のノートの行にだけ選択の印を付ける", () => {
+  nav.pathname = "/item/4951";
+  try {
+    const html = render([
+      makeItem({ itemNo: "4951", memo: "BJT NPN" }),
+      makeItem({ itemNo: "4502", memo: "BFP420" }),
+    ]);
+    // aria-current は選択行のタイトルリンク 1 か所だけ
+    expect(html.split('aria-current="page"').length - 1).toBe(1);
+    expect(html).toContain("bg-blue-50");
+  } finally {
+    nav.pathname = "/";
+  }
+});
+
+test("プレビューを開いていなければ選択の印は無い", () => {
+  const html = render([makeItem({ itemNo: "4951" })]);
+  expect(html).not.toContain('aria-current="page"');
+  expect(html).not.toContain("bg-blue-50");
 });
