@@ -60,6 +60,9 @@ function matchesTerm(entry: OfflineIndexEntry, term: SearchTerm): boolean {
       return term.value === 'todo'
         ? entry.item.taskTodo > 0
         : entry.item.taskDone > 0
+    // タグの無いノート (docs/86 §5)。termCondition の cardinality(tags) = 0 と対
+    case 'untagged':
+      return entry.item.tags.length === 0
     case 'text': {
       const needle = normalizeTag(term.value)
       return entry.haystack.includes(needle) || entry.itemNoKey.startsWith(needle)

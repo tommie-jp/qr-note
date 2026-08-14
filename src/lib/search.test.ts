@@ -412,6 +412,32 @@ describe('is:todo / is:done', () => {
   })
 })
 
+// --- タグの無いノートの絞り込み (docs/86 §5 未分類フォルダー) ---
+
+const untagged: SearchExpr = { op: 'term', term: { kind: 'untagged' } }
+
+describe('is:untagged', () => {
+  test('is:untagged は untagged 語になる', () => {
+    expect(parseSearchExpr('is:untagged')).toEqual(untagged)
+  })
+
+  test('大小・全角は吸収する (is:todo と同じ正規化)', () => {
+    expect(parseSearchExpr('IS:UNTAGGED')).toEqual(untagged)
+    expect(parseSearchExpr('ｉｓ：ｕｎｔａｇｇｅｄ')).toEqual(untagged)
+  })
+
+  test('既存の演算子と組み合わせられる', () => {
+    expect(parseSearchExpr('抵抗 is:untagged')).toEqual(
+      and(t('抵抗'), untagged),
+    )
+    expect(parseSearchExpr('!is:untagged')).toEqual(not(untagged))
+  })
+
+  test('引用すればリテラルの全文検索になる', () => {
+    expect(parseSearchExpr('"is:untagged"')).toEqual(t('is:untagged'))
+  })
+})
+
 // --- 学習進捗の母数を出すための道具 (docs/60-学習進捗計画.md §2) ---
 
 describe('queryTracksTaskProgress', () => {

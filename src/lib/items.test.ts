@@ -366,6 +366,19 @@ describe.skipIf(!runDbTests)(
         expect(itemNos(r)).toEqual([])
       })
 
+      // タグの無いノートの絞り込み (docs/86 §5 未分類フォルダー)
+      test('is:untagged はタグの無いノートだけ', async () => {
+        const r = await searchItems('zzfttoken is:untagged', 1)
+        expect(itemNos(r)).toEqual(['zzfta1', 'zzfta2', 'zzfta3'])
+      })
+
+      test('!is:untagged はタグのあるノートだけ', async () => {
+        const r = await searchItems('zzfttagmemo !is:untagged', 1)
+        expect(itemNos(r)).toEqual(['zzftt1', 'zzftt2'])
+        const none = await searchItems('zzfttagmemo is:untagged', 1)
+        expect(itemNos(none)).toEqual([])
+      })
+
       // 学習の進捗 (docs/60-学習進捗計画.md §2)。
       // 分母は「検索からチェック語を外し、チェックを持つノートに絞った数」
       describe('countTaskProgress', () => {

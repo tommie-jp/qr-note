@@ -117,6 +117,15 @@ describe('filterOfflineItems', () => {
     expect(hits(items, 'is:todo !is:done')).toEqual(['1'])
   })
 
+  test('is:untagged はタグの無いノートだけに絞る (docs/86 §5)', () => {
+    const items = [
+      item({ itemNo: '1', tags: [] }),
+      item({ itemNo: '2', tags: ['npn'] }),
+    ]
+    expect(hits(items, 'is:untagged')).toEqual(['1'])
+    expect(hits(items, '!is:untagged')).toEqual(['2'])
+  })
+
   test('引用した語は演算子ではなくただの語になる', () => {
     const items = [
       item({ itemNo: '1', memo: 'A or B' }),

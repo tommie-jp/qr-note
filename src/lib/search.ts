@@ -39,11 +39,13 @@ import { normalizeTag, parseTagToken } from '@/lib/tags'
 export type TaskState = 'todo' | 'done'
 
 // 検索語 1 つ。text は全文検索 (memo/url) + itemNo 前方一致、
-// tag は items.tags の完全一致、task は items.task_todo / task_done の個数。
+// tag は items.tags の完全一致、task は items.task_todo / task_done の個数、
+// untagged はタグが 1 つも無いノート (docs/86 §5 未分類フォルダー)。
 export type SearchTerm =
   | { kind: 'text'; value: string }
   | { kind: 'tag'; value: string }
   | { kind: 'task'; value: TaskState }
+  | { kind: 'untagged' }
 
 // 検索式の抽象構文木。items.ts がこれを再帰的に WHERE 句へコンパイルする。
 // DNF (選言標準形) へ展開しないのは、括弧と NOT の組み合わせで項が
@@ -71,6 +73,11 @@ const RPAREN_CHARS = ')）'
 // チェック状態の絞り込み語の接頭辞 (`is:todo` / `is:done`)。
 // 全角 (`ＩＳ：`) も NFKC で畳まれてここに一致する
 const TASK_PREFIX = 'is:'
+
+// タグの無いノートの絞り込み語 (docs/86 §5)。未分類フォルダーのリンク先を
+// 検索語として表現するために足した — 「フォルダーは常に検索のエイリアス」
+// を保つには、URL に書ける語が要る
+const UNTAGGED_TOKEN = 'is:untagged'
 
 function isSpace(ch: string): boolean {
   return /[\s　]/.test(ch)
@@ -111,6 +118,12 @@ function tokenFor(buf: string, quoted: boolean): Token | null {
   // 正規化 (NFKC + 小文字化) はタグ名と共通の規則。`ＯＲ` も OR 演算子になる。
   if (normalizeTag(buf) === OR_KEYWORD) {
     return { type: 'or' }
+  }
+  // is:untagged は task と同じ is: 系の語 (docs/86 §5)。task より先に見るのは
+  // 順序の都合ではなく、parseTaskToken が todo/done 以外を null に落とすため
+  // どちらが先でも同じ — 系の近い判定として並べてある
+  if (normalizeTag(buf) === UNTAGGED_TOKEN) {
+    return { type: 'term', term: { kind: 'untagged' } }
   }
   const taskState = parseTaskToken(buf)
   if (taskState !== null) {
@@ -215,7 +228,10 @@ function balanceParens(tokens: Token[]): Token[] {
 function exprKey(expr: SearchExpr): string {
   switch (expr.op) {
     case 'term':
-      return `${expr.term.kind}:${expr.term.value}`
+      // untagged は値を持たない語。kind だけで一意になる
+      return expr.term.kind === 'untagged'
+        ? 'untagged'
+        : `${expr.term.kind}:${expr.term.value}`
     case 'not':
       return `!(${exprKey(expr.child)})`
     case 'and':

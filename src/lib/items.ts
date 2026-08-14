@@ -327,6 +327,10 @@ function termCondition(term: SearchTerm): Prisma.Sql {
       return term.value === 'todo'
         ? Prisma.sql`task_todo > 0`
         : Prisma.sql`task_done > 0`
+    // タグの無いノート (docs/86 §5 未分類フォルダー)。tags は NOT NULL の
+    // 配列なので cardinality だけで判定できる (NULL の三値論理は出ない)
+    case 'untagged':
+      return Prisma.sql`cardinality(tags) = 0`
     case 'text': {
       const likePrefix = `${escapeLike(term.value)}%`
       return Prisma.sql`(memo &@ ${term.value} OR url &@ ${term.value} OR item_no ILIKE ${likePrefix})`
