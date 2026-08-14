@@ -8,7 +8,7 @@ import {
   setSearchQuery,
   type SearchQuery,
 } from "@codemirror/search";
-import { EditorState } from "@codemirror/state";
+import { EditorState, type Text } from "@codemirror/state";
 import { EditorView, type ViewUpdate } from "@codemirror/view";
 import "@atomic-editor/editor/styles.css";
 // ライブプレビューの数式 (mathBlocks.ts) が KaTeX の組んだ HTML を出すので、
@@ -68,12 +68,14 @@ import { formatSpec, type FormatAction } from "./editor/markdownFormat";
 import { NoteSearchBar } from "./editor/NoteSearchBar";
 import {
   buildQuery,
+  canUndoReplace,
   countMatches,
   firstMatchFrom,
   planReplaceAll,
   planReplaceCurrent,
   replaceOneNote,
   replaceAllNote,
+  staleReplaceUndoNote,
   type NoteSearchNote,
 } from "./editor/noteSearch";
 import { createNoteSearch } from "./editor/noteSearchHighlight";
@@ -469,6 +471,10 @@ export default function MemoEditorInner({
   // 打ちながら飛ぶときの起点 (帯を開いた時のカーソル位置)。いまの選択を起点に
   // すると、1 文字打ち足すたびに前へ前へと飛んで元の場所へ戻れなくなる
   const findAnchorRef = useRef(0);
+  // 「元に戻す」を提げている全置換の控え (docs/76 §5-2)。置換した直後の本文で、
+  // 本文が動いたら捨てる (canUndoReplace の理由)。**state ではなく ref** —
+  // 参照を固定した onUpdate (handleUpdate) から読み書きするため
+  const replacedDocRef = useRef<Text | null>(null);
 
   // タブパネル (MemoPanel) が hidden で保持する構成では、非表示タブでも
   // このコンポーネントはマウントされたまま。portal は hidden の枠を抜けて
@@ -816,21 +822,34 @@ export default function MemoEditorInner({
   // スキャナと同じ流儀)。本文は **await の後に**読み直す — 読み込みを待つ
   // 間に打鍵が続いても、位置が古い本文のままにならないように
   const addPage = async () => {
-    const { newPageInsertion } = await import("@/components/notePages");
-    const view = editorRef.current?.view;
-    if (!view) {
-      return;
+    try {
+      const { newPageInsertion } = await import("@/components/notePages");
+      const view = editorRef.current?.view;
+      if (!view) {
+        return;
+      }
+      const { from, to, insert, cursor } = newPageInsertion(
+        view.state.doc.toString(),
+        view.state.selection.main.head,
+      );
+      view.dispatch({
+        changes: { from, to, insert },
+        selection: { anchor: cursor },
+        scrollIntoView: true,
+      });
+      view.focus();
+    } catch (e) {
+      // **黙って諦めない。** chunk の取得は電波が細いときに落ちるし、再デプロイ
+      // で古い hash の chunk が消えた画面を開いたままでも落ちる。放っておくと
+      // 「押したのに区切りが入らない」だけになり (コンソールの unhandled
+      // rejection しか残らない)、この画面の他の失敗と違って手掛かりが無い。
+      // 生のメッセージは英語で判じ物なので、まず日本語で言って括弧に添える
+      setError(
+        `ページを追加できませんでした。通信を確かめ、画面を再読み込みしてから試して下さい (${
+          e instanceof Error ? e.message : String(e)
+        })`,
+      );
     }
-    const { from, to, insert, cursor } = newPageInsertion(
-      view.state.doc.toString(),
-      view.state.selection.main.head,
-    );
-    view.dispatch({
-      changes: { from, to, insert },
-      selection: { anchor: cursor },
-      scrollIntoView: true,
-    });
-    view.focus();
   };
 
   // ライブプレビューの ON/OFF。Compartment の中身だけを入れ替えるので、
@@ -987,10 +1006,14 @@ export default function MemoEditorInner({
       return;
     }
     const plan = planReplaceAll(view.state, query);
+    const note = replaceAllNote(plan);
     if (plan.count > 0 && !plan.tooLong) {
       view.dispatch({ changes: plan.changes, userEvent: "input.replace.all" });
     }
-    setFindNote(replaceAllNote(plan));
+    // 控えるのは dispatch の**後**。dispatch の中で handleUpdate が走るので、
+    // 先に控えると自分の置換を「本文が動いた」と見て捨ててしまう
+    replacedDocRef.current = note.undo ? view.state.doc : null;
+    setFindNote(note);
   };
 
   // 知らせの「元に戻す」。押した後は知らせを畳む (戻した物をもう一度
@@ -998,11 +1021,21 @@ export default function MemoEditorInner({
   // **フォーカスは戻さない** — 帯で作業している最中なので、エディタへ
   // 移すとスマホではキーボードが入れ替わって続きが打てなくなる
   const undoReplace = () => {
-    setFindNote(null);
     const view = editorRef.current?.view;
-    if (view) {
-      undo(view);
+    const replacedDoc = replacedDocRef.current;
+    replacedDocRef.current = null;
+    if (!view) {
+      setFindNote(null);
+      return;
     }
+    // 本文が動いた後に押された (「元に戻す」を下げるより速く押された取り合い)。
+    // ここで undo すると、置換ではなく直前の手が戻る (docs/76 §5-2)
+    if (!canUndoReplace(replacedDoc, view.state.doc)) {
+      setFindNote(staleReplaceUndoNote());
+      return;
+    }
+    setFindNote(null);
+    undo(view);
   };
 
   // 帯とソフトキーボードのぶんだけ、一致の下に余白を空ける (§6)。
@@ -1118,6 +1151,15 @@ export default function MemoEditorInner({
         ? prev
         : next,
     );
+
+    // 本文が動いたら全置換の「元に戻す」を下げる (docs/76 §5-2)。undo が戻すのは
+    // いちばん新しい手なので、動いた後にも押させると置換ではなく打鍵が戻る。
+    // **知らせの文 (「3 件置換しました」) は残す** — 消すと、押して戻ったのだと
+    // 誤解される形に近づく。何件置換したかは読めたままにしておく
+    if (update.docChanged && replacedDocRef.current) {
+      replacedDocRef.current = null;
+      setFindNote((prev) => (prev?.undo ? { ...prev, undo: false } : prev));
+    }
 
     // シークレットのボタン文字 (docs/52-シークレット編集導線計画.md §1)。
     // **本文かカーソルが動いたときだけ**数える。onUpdate は再描画や

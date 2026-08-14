@@ -1,15 +1,18 @@
+import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
 import { secretNotation } from "@/lib/secrets";
 import {
   buildQuery,
+  canUndoReplace,
   countMatches,
   firstMatchFrom,
   planReplaceAll,
   planReplaceCurrent,
   replaceOneNote,
   replaceAllNote,
+  staleReplaceUndoNote,
 } from "./noteSearch";
 
 // ノート内検索の素の計算 (docs/76-ノート内検索計画.md §8-1)。
@@ -172,6 +175,94 @@ describe("replaceAllNote", () => {
       text: "置換できる一致がありません (シークレット 2 件は対象外)",
       undo: false,
     });
+  });
+});
+
+// 全置換の「元に戻す」(docs/76 §5-2)。
+//
+// **本物の履歴 (@codemirror/commands の history) をそのまま試せる** —
+// undo は StateCommand なので、EditorView (DOM) ではなく
+// { state, dispatch } で呼べる。undo が何を戻すのかを、画面を組まずに
+// ここで確かめられる
+function withHistory(doc: string): EditorState {
+  return EditorState.create({ doc, extensions: [history()] });
+}
+
+function runUndo(state: EditorState): EditorState {
+  let next = state;
+  undo({
+    state,
+    dispatch: (tr) => {
+      next = tr.state;
+    },
+  });
+  return next;
+}
+
+describe("canUndoReplace", () => {
+  const query = buildQuery("抵抗", "レジスタ", false);
+
+  // MemoEditorInner.replaceAll と同じ形 (1 トランザクションにまとめる)
+  const replaceAll = (state: EditorState): EditorState =>
+    state.update({
+      changes: planReplaceAll(state, query).changes,
+      userEvent: "input.replace.all",
+    }).state;
+
+  test("置換した直後の本文なら戻せる", () => {
+    const before = withHistory("抵抗と抵抗");
+    const after = replaceAll(before);
+    expect(canUndoReplace(after.doc, after.doc)).toBe(true);
+    expect(runUndo(after).doc.toString()).toBe("抵抗と抵抗");
+  });
+
+  test("カーソルが動いただけなら戻せる (undo が戻すのは本文の手)", () => {
+    // 本文を変えないトランザクションでは同じ Text がそのまま次の state に
+    // 載る。undo はカーソルが動いていても置換を戻す
+    const after = replaceAll(withHistory("抵抗と抵抗"));
+    const moved = after.update({ selection: { anchor: 1 } }).state;
+    expect(canUndoReplace(after.doc, moved.doc)).toBe(true);
+    expect(runUndo(moved).doc.toString()).toBe("抵抗と抵抗");
+  });
+
+  test("本文が動いたら戻せない (undo が戻すのは置換ではなく直前の打鍵)", () => {
+    // 打鍵は置換した所から離れた末尾で行う (隣接した打鍵は履歴で置換と
+    // 1 手にまとめられ、undo が両方を戻す — どちらにしても
+    // 「2 件置換しました」の話とは違う物が戻る)
+    const after = replaceAll(withHistory(`抵抗と抵抗${"あ".repeat(50)}`));
+    const typed = after.update({
+      changes: { from: after.doc.length, insert: "!" },
+      userEvent: "input.type",
+    }).state;
+    expect(canUndoReplace(after.doc, typed.doc)).toBe(false);
+    // 素の undo では打鍵だけが戻り、置換は残る = 「元に戻す」と言えない状態
+    expect(runUndo(typed).doc.toString()).toContain("レジスタとレジスタ");
+  });
+
+  test("控えが無ければ戻せない (置換していないのに戻さない)", () => {
+    expect(canUndoReplace(null, withHistory("抵抗").doc)).toBe(false);
+  });
+
+  test("直前の打鍵は巻き込まない (戻すのは置換だけ)", () => {
+    // 履歴が 1 手にまとめるのは `input.type` / `delete` の続きだけなので、
+    // 打鍵の直後に全置換 (`input.replace.all`) を当てても別の手になる。
+    // まとめられていたら「2 件置換しました」の undo が打鍵まで戻してしまう
+    const typed = withHistory("抵抗と").update({
+      changes: { from: 3, insert: "抵抗" },
+      userEvent: "input.type",
+    }).state;
+    const after = replaceAll(typed);
+    expect(canUndoReplace(after.doc, after.doc)).toBe(true);
+    expect(runUndo(after).doc.toString()).toBe("抵抗と抵抗");
+  });
+});
+
+describe("staleReplaceUndoNote", () => {
+  test("本文が変わった後に押されたら理由を出す (押して無反応にしない)", () => {
+    const note = staleReplaceUndoNote();
+    expect(note.text).toContain("本文が変わった");
+    // 戻せなかった知らせに「元に戻す」をもう一度提げてはいけない
+    expect(note.undo).toBe(false);
   });
 });
 

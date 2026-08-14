@@ -1,5 +1,5 @@
 import { SearchQuery } from "@codemirror/search";
-import type { EditorState } from "@codemirror/state";
+import type { EditorState, Text } from "@codemirror/state";
 import { secretNotationRanges } from "@/lib/secrets";
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
 
@@ -189,6 +189,39 @@ export function replaceAllNote(plan: ReplaceAllPlan): NoteSearchNote {
     };
   }
   return { text: `${plan.count} 件置換しました${skipped}`, undo: true };
+}
+
+// 「元に戻す」を提げていられるか (docs/76 §5-2)。
+// replacedDoc … 全置換の直後に控えた本文 (提げていなければ null)
+//
+// **undo は履歴のいちばん新しい手を戻す命令**で、「あの全置換だけ」を選んで
+// 戻すことはできない。本文が動いた後にも押させると、戻るのは直前の打鍵で、
+// 置換は残ったまま知らせが消える — 戻ったと信じてしまう形になる。
+// なので置換した直後の本文を控えておき、それがまだ画面の本文であるときだけ
+// 提げる (動いたら知らせの文は残して「元に戻す」だけ下げる)。
+//
+// **逆変更 (changes.invert) を撃つ道は採らない。** 後から打った字を通り越して
+// 当てるには、その間の変更で位置を写し替える必要があり、置換した所に書き足して
+// いれば打った字ごと消える — 「元に戻す」で自分の書いた物が消えるのは、
+// 戻し損なうより悪い。
+//
+// 同一性 (===) で判るのは Text が不変だから。本文を変えないトランザクション
+// (カーソル移動・検索条件の差し替え) では同じ Text がそのまま次の state に
+// 載り、undo はカーソルが動いていても置換を戻す (テストで固定)
+export function canUndoReplace(replacedDoc: Text | null, doc: Text): boolean {
+  return replacedDoc !== null && replacedDoc === doc;
+}
+
+// 本文が動いた後に「元に戻す」が押されたときの断り。提げるのをやめるのと
+// 押すのが競り合ったとき (非同期の OCR や取り込みが本文へ書き込んだ直後) に出る。
+//
+// **黙って何もしない形にはしない** — 押して無反応だと、戻ったのか壊れたのかが
+// 判らない (置換したのに黙る・押しても何も起きないを避けるのと同じ理由)
+export function staleReplaceUndoNote(): NoteSearchNote {
+  return {
+    text: "本文が変わったため、この置換は元に戻せませんでした",
+    undo: false,
+  };
 }
 
 // 「置換」(1 件): いま選んでいる範囲がちょうど一致なら、それを置き換える。
