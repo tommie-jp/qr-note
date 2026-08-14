@@ -57,13 +57,24 @@ const MEASURE_SEPARATOR = /[=＝]/
 // (`℃` は NFKC で `°C` の 2 文字になる)。単位は書いたまま画面に出したい
 const NUMBER_RE = /^([+\-＋－−]?[0-9０-９]+(?:[.．][0-9０-９]+)?)(.*)$/u
 
-// 数値の後ろに残ってよいもの = 単位。**数字と空白と区切りを含まないこと**。
+// 数値の後ろに残ってよいもの = 単位。**数字と空白を含まないこと**。
 // これが `120～200` (範囲) を弾く境目になる — 数値に畳めない値を
-// 「120 に ～200 という単位」として黙って線に載せるとグラフが嘘になる
-const UNIT_RE = /^[^0-9０-９\s　/／]*$/u
+// 「120 に ～200 という単位」として黙って線に載せるとグラフが嘘になる。
+//
+// **`/` は単位に許す。** `mg/dL` `回/分` `km/h` は 1 つの単位で、ここで
+// 弾くと既に書いてある記録が黙って読めなくなる (下の VALUE_SEPARATOR_RE が
+// 「次が数字のときだけ区切り」と見ているので、`118/76` とは食い違わない)
+const UNIT_RE = /^[^0-9０-９\s　]*$/u
 
-// 値の中の区切り (血圧の `118/76`)。全角の ／ も認める
-const VALUE_SEPARATOR = /[/／]/
+// 値の中の区切り (血圧の `118/76`)。全角の ／ も認める。
+//
+// **区切りと見なすのは「次が数字のとき」だけ。** そうしないと `95mg/dL` の
+// `/` まで区切りになり、`dL` を数値として読めずにその記録が丸ごと捨てられる
+// (エラーも出ないので、書いた本人には点が消えた理由が判らない)
+const VALUE_SEPARATOR_RE = /^[/／]([+\-＋－−]?[0-9０-９])/
+
+// 区切りだけの「単位」(`血圧=118/` の `/`)。書きかけの値なので受けない
+const ONLY_SEPARATORS_RE = /^[/／]+$/
 
 // 1 つの項目に書ける値の数。血圧は 2 つ、機種によっては脈拍まで並べて 3 つ。
 // **上限を持つのは、区切りの多い文字列を黙って何本もの線にしないため**
@@ -143,33 +154,38 @@ export function parseMeasureToken(token: string): Measure | null {
     return null
   }
   const label = token.slice(0, sep)
-  const parts = token.slice(sep + 1).split(VALUE_SEPARATOR)
-  if (parts.length > MAX_MEASURE_VALUES) {
-    return null
-  }
 
+  // 頭から数値を読み、`/` の次がまた数値ならもう 1 つ読む。
+  // 数値が続かなくなったところで残りが単位
   const values: number[] = []
-  let unit = ''
-  for (const [index, part] of parts.entries()) {
-    const matched = NUMBER_RE.exec(part)
+  let rest = token.slice(sep + 1)
+  for (;;) {
+    const matched = NUMBER_RE.exec(rest)
     if (matched === null) {
       return null
     }
-    const [, numberPart, rest] = matched
-    // 単位を書けるのは最後の値の後ろだけ
-    if (rest !== '' && (index < parts.length - 1 || !UNIT_RE.test(rest))) {
-      return null
-    }
+    const [, numberPart, tail] = matched
     // 数値だけは畳んでから読む (全角の `６６.４` を受けるため)
     const value = Number(numberPart.normalize('NFKC'))
     if (!Number.isFinite(value)) {
       return null
     }
     values.push(value)
-    unit = index === parts.length - 1 ? rest : unit
+    if (values.length > MAX_MEASURE_VALUES) {
+      return null
+    }
+    if (!VALUE_SEPARATOR_RE.test(tail)) {
+      rest = tail
+      break
+    }
+    rest = tail.slice(1)
   }
 
-  return { label, values, unit }
+  // 区切りだけが残った形 (`118/`) は書きかけ。単位として受けない
+  if (ONLY_SEPARATORS_RE.test(rest)) {
+    return null
+  }
+  return UNIT_RE.test(rest) ? { label, values, unit: rest } : null
 }
 
 // 本文のデータ行を文書順に返す。

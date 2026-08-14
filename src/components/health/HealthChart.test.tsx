@@ -168,6 +168,29 @@ describe("HealthChart", () => {
     expect(html).toContain("-6/-4mmHg");
   });
 
+  test("1 回しか測っていない線があれば増減を出さない (+0 は嘘になる)", () => {
+    const html = chart(
+      [
+        "- 2026-08-01 血圧=124/80mmHg",
+        "- 2026-08-02 血圧=120mmHg",
+        "- 2026-08-03 血圧=118mmHg",
+      ].join("\n"),
+    );
+    expect(html).toContain("最新 118mmHg");
+    expect(html).not.toContain("+0");
+  });
+
+  test("線が 2 本なら丸の総数で上限を数える", () => {
+    // 30 日 × 2 本 = 60 個までは描く
+    const days = (count: number) =>
+      Array.from({ length: count }, (_, i) => {
+        const date = new Date(Date.UTC(2026, 7, 1 + i)).toISOString().slice(0, 10);
+        return `- ${date} 血圧=${118 + (i % 3)}/${76 + (i % 2)}mmHg`;
+      }).join("\n");
+    expect(chart(days(30), null, 400).match(/<circle/g)).toHaveLength(60);
+    expect(chart(days(31), null, 400).match(/<circle/g)).toBeNull();
+  });
+
   test("増減の符号は 1 つずつ付ける (+10/4 では 2 つ目が読めない)", () => {
     const html = chart(
       "- 2026-08-13 血圧=118/80mmHg\n- 2026-08-14 血圧=128/76mmHg",

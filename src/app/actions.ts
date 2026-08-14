@@ -14,6 +14,7 @@ import {
   removeNotes,
 } from '@/lib/git/notesRepo'
 import { recordMeasurement } from '@/lib/healthEdit'
+import { MAX_MEASURE_VALUES } from '@/lib/healthRecords'
 import { backfillAllNotes } from '@/lib/noteHistoryBackfill'
 import {
   emptyTrash,
@@ -168,7 +169,11 @@ export async function recordHealthAction(
     typeof item !== 'string' ||
     typeof unit !== 'string' ||
     !Array.isArray(values) ||
-    values.some((value) => typeof value !== 'number')
+    values.length < 1 ||
+    values.length > MAX_MEASURE_VALUES ||
+    // every は**穴を飛ばす**ので、長さと突き合わせて疎配列を落とす
+    // (`[ ,1]` は typeof の検査を素通りする)
+    values.filter((value) => Number.isFinite(value)).length !== values.length
   ) {
     throw new Error('記録の値が不正です')
   }

@@ -58,9 +58,10 @@ const LINE_COLORS = ["#2563eb", "#38bdf8", "#f59e0b"];
 const GRID_COLOR = "#e5e7eb";
 const LABEL_COLOR = "#6b7280";
 
-// 誤差の付いた引き算 (66.4 - 66.8 = -0.40000000000000568) をそのまま出さない
+// 誤差の付いた引き算 (66.4 - 66.8 = -0.40000000000000568) をそのまま出さない。
+// **-0 は 0 に畳む** (`+ 0`) — そのままだと `-0` という表示になる
 function roundDelta(value: number): number {
-  return Number(value.toFixed(2));
+  return Number(value.toFixed(2)) + 0;
 }
 
 // 値の見せ方。対の値は本文と同じ `/` つなぎで出す (`118/76mmHg`)
@@ -170,7 +171,13 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
       // 日付の既定は JST の今日。**ここで読んで client へ渡す** — 記録欄の
       // 中で現在時刻を読むと、サーバが描いた HTML と食い違う (/item は
       // force-dynamic なので、描くたびに現在の日付になる)
+      // key … 項目や線の数が変わったら記録欄を作り直す。**入力欄の数は
+      // マウント時の props で決まる**ので、key を付けないと本文を編集して
+      // 対の値に変えても入力欄が 1 つのままになる (閲覧タブは MemoPanel が
+      // hidden で保ったまま unmount しない)。数が食い違うと、対の値を
+      // 1 つの値で上書きしようとして記録が断られる
       <HealthRecordForm
+        key={`${series.item}-${series.lines}`}
         item={series.item}
         lines={series.lines}
         unit={unit}
@@ -213,12 +220,19 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
     const to = shown[shown.length - 1]?.values[line];
     return from === undefined || to === undefined ? 0 : roundDelta(to - from);
   });
-  const hasDelta = segments.some((line) => line.flat().length > 1);
+  // **どれか 1 本でも点が 1 つしか無ければ増減を出さない。** 出すと、その線が
+  // `+0` = 「測ったが変わっていない」と読める (1 回しか測っていないだけ)。
+  // 線ごとに出し分けると、今度は `/` の何番目が欠けたのか読めなくなる
+  const hasDelta = lines.every(
+    (line) => segments[line].flat().length > 1,
+  );
   // 丸を描く点。多すぎると線が団子になるので普段は描かないが、**1 点だけの
   // 区間は必ず描く** — 線分が無いので、丸を省くとその記録が画面から消える
-  // (「間隔が空いたら点だけ残す」が 60 点を境に成り立たなくなる)
+  // (「間隔が空いたら点だけ残す」が上限を境に成り立たなくなる)。
+  // **数えるのは丸の総数** — 線が 2 本なら同じ点数で丸は倍になる
+  const allDots = points.length * Math.max(1, series.lines) <= MAX_DOTS;
   const dots = lines.map((line) =>
-    points.length <= MAX_DOTS
+    allDots
       ? segments[line].flat()
       : segments[line].filter((segment) => segment.length === 1).flat(),
   );

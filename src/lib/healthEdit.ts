@@ -89,22 +89,34 @@ function isWritable(entry: HealthEntry): boolean {
 // **同じ項目が 1 行に 2 度書いてあれば、後ろのほうを直す。** 読む側
 // (healthSeries) は文書順に上書きするので後ろが勝つ。前を直すと、保存は
 // 成功しているのにグラフの値が動かない — 何度押しても直らない形になる。
-function withMeasure(line: string, entry: HealthEntry): string {
+function withMeasure(line: string, entry: HealthEntry): string | null {
   const matched = matchDataLine(line)
   if (matched === null) {
     return line
   }
   const key = normalizeMeasureLabel(entry.item)
-  let hit: { start: number; token: string } | null = null
+  let hit: { start: number; token: string; values: number[] } | null = null
   for (const token of matched.rest.matchAll(TOKEN_RE)) {
     const measure = parseMeasureToken(token[0])
     if (measure === null || normalizeMeasureLabel(measure.label) !== key) {
       continue
     }
-    hit = { start: matched.restStart + token.index, token: token[0] }
+    hit = {
+      start: matched.restStart + token.index,
+      token: token[0],
+      values: measure.values,
+    }
   }
   if (hit === null) {
     return `${line} ${tokenOf(entry)}`
+  }
+  // **値の数を減らす書き換えはしない。** 記録欄の入力の数はグラフに出ている
+  // 線の数から決まるので、期間の外に対の値がある日 (`118/76`) を、線が 1 本
+  // だった画面から記録すると、拡張期の 76 が本文から黙って消える。
+  // 数が合わないときは断る (画面には「記録できませんでした」が出る) —
+  // 減らしたいなら本文を直接編集するほうが、消える値が目に見える
+  if (hit.values.length > entry.values.length) {
+    return null
   }
   // **項目名と区切りは本文の綴りを残し、値だけ差し替える**
   // (`ＢＭＩ＝22.1` を `bmi=22.5` に書き換えない)。頼まれたのは値を直す
@@ -139,7 +151,11 @@ export function recordMeasurement(
   const target = sameDate[sameDate.length - 1]
 
   if (target !== undefined) {
-    lines[target.line - 1] = withMeasure(lines[target.line - 1], entry)
+    const rewritten = withMeasure(lines[target.line - 1], entry)
+    if (rewritten === null) {
+      return null
+    }
+    lines[target.line - 1] = rewritten
     return joinLines(lines, memo)
   }
 

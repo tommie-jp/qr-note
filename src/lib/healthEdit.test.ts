@@ -147,6 +147,28 @@ describe('recordMeasurement', () => {
     )
   })
 
+  test('対の値を 1 つの値で上書きしない (拡張期が黙って消える)', () => {
+    expect(
+      recordMeasurement('- 2026-08-14 血圧=118/76mmHg', {
+        date: '2026-08-14',
+        item: '血圧',
+        values: [120],
+        unit: 'mmHg',
+      }),
+    ).toBeNull()
+  })
+
+  test('値を増やす向きは通る', () => {
+    expect(
+      record('- 2026-08-14 血圧=118mmHg', {
+        date: '2026-08-14',
+        item: '血圧',
+        values: [120, 78],
+        unit: 'mmHg',
+      }),
+    ).toBe('- 2026-08-14 血圧=120/78mmHg')
+  })
+
   test('値が空なら書かない', () => {
     expect(recordMeasurement('', { ...ENTRY, values: [] })).toBeNull()
   })

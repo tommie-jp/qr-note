@@ -149,6 +149,21 @@ describe('parseMeasureToken', () => {
     })
   })
 
+  test('単位の中の / は区切りにしない (mg/dL・回/分)', () => {
+    // ここを区切りとして読むと、既に書いてある記録が黙って全部消える
+    expect(parseMeasureToken('血糖=95mg/dL')).toEqual({
+      label: '血糖',
+      values: [95],
+      unit: 'mg/dL',
+    })
+    expect(parseMeasureToken('脈拍=62回/分')).toEqual({
+      label: '脈拍',
+      values: [62],
+      unit: '回/分',
+    })
+    expect(parseMeasureToken('速度=10km/h')?.unit).toBe('km/h')
+  })
+
   test('値は 3 つまで', () => {
     expect(parseMeasureToken('血圧=118/76/62')?.values).toEqual([118, 76, 62])
     expect(parseMeasureToken('血圧=118/76/62/50')).toBeNull()
