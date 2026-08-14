@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { TrashIcon } from "@/components/MenuIcons";
+import { PaneResizer } from "@/components/PaneResizer";
 import type { FolderTotals, TagCount } from "@/lib/items";
 import { UNTAGGED_TOKEN } from "@/lib/search";
 import { normalizeTag, tagSearchHref } from "@/lib/tags";
@@ -88,7 +89,12 @@ export function FolderPane({
     query === "" && (sort === "accessed" || sort === "accessedAsc");
 
   return (
-    // top-12 … sticky ヘッダー (z-20) の下から始める。z-10 は下部バーと同層
+    <>
+    {/* 右端の境界をドラッグして幅を変える (docs/86 §4-2)。ペインの外に
+        置くのは、ペインが overflow-y-auto で中を送るため — 中に入れると
+        帯が本文と一緒に上へ流れてしまう */}
+    <PaneResizer kind="folder" />
+    {/* top-12 … sticky ヘッダー (z-20) の下から始める。z-10 は下部バーと同層 */}
     <aside
       data-folder-pane
       aria-label="検索フォルダー"
@@ -160,5 +166,6 @@ export function FolderPane({
         ))}
       </ul>
     </aside>
+    </>
   );
 }

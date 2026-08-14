@@ -29,6 +29,7 @@ import { RecordTagSearch } from "@/components/RecordTagSearch";
 import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/noteFontScale";
+import { PANE_SIZE_INIT_SCRIPT } from "@/lib/paneSize";
 import {
   isDemoMode,
   isProductionEnv,
@@ -123,6 +124,12 @@ export default async function RootLayout({
             docs/01-app/02-guides/preventing-flash-before-hydration.md と同じ手) */}
         <script
           dangerouslySetInnerHTML={{ __html: NOTE_FONT_SCALE_INIT_SCRIPT }}
+        />
+        {/* 検索 3 ペインの境界を動かした人の寸法 (docs/86 §4-2)。文字サイズと
+            同じ理由で解析中に当てる — useEffect だと既定の寸法でひととおり
+            組まれた後にペインだけ動く。保存が無ければ何も書かない */}
+        <script
+          dangerouslySetInnerHTML={{ __html: PANE_SIZE_INIT_SCRIPT }}
         />
       </head>
       <body

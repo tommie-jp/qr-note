@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { ClearIcon } from "@/components/MenuIcons";
+import { PaneResizer } from "@/components/PaneResizer";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { itemNoFromPathname } from "@/lib/searchUrl";
 
@@ -48,43 +49,49 @@ export function PreviewPane({ bgClass, openHref, children }: PreviewPaneProps) {
   }
 
   return (
-    // data-preview-pane … 一覧 (main) の底上げ padding のフック
-    // (globals.css の body:has)。lg 未満のオーバーレイは z-30 でヘッダー
-    // (z-20)・下部バー (z-10) ごと覆う。lg 以上は z-10 に落として下部バーと
-    // 同層に並べ、バーの高さ (44px + 余白 4px + 枠 1px = 49px) だけ上で
-    // 止めて、スキャン等のボタンを塞がない
-    <section
-      data-preview-pane
-      aria-label="選択したノート"
-      className={`fixed inset-0 z-30 overflow-y-auto overscroll-contain ${bgClass} lg:top-auto lg:bottom-[49px] lg:z-10 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300 xl:left-[var(--folder-pane-w)]`}
-    >
-      {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
-          下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
-          (タグ・補助行) より DOM 順で後にはならないので、同層にして
-          sticky 側を上に出す */}
-      <div className={`sticky top-0 z-10 ${bgClass}`}>
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className={ACTION_LINK_CLASS}
-          >
-            <ClearIcon />
-            閉じる
-          </button>
-          {openHref && (
-            <a href={openHref} className={ACTION_LINK_CLASS}>
-              全画面で開く
-            </a>
-          )}
+    <>
+      {/* 上端の境界をドラッグして高さを変える (docs/86 §4-2)。帯は z-20 で
+          ペイン (lg 以上では z-10) の上に出る。lg 未満は全画面オーバーレイ
+          なので帯そのものを出さない (PaneResizer の hidden lg:block) */}
+      <PaneResizer kind="preview" />
+      {/* data-preview-pane … 一覧 (main) の底上げ padding のフック
+          (globals.css の body:has)。lg 未満のオーバーレイは z-30 でヘッダー
+          (z-20)・下部バー (z-10) ごと覆う。lg 以上は z-10 に落として下部バーと
+          同層に並べ、バーの高さ (--bottom-bar-h) だけ上で止めて、
+          スキャン等のボタンを塞がない */}
+      <section
+        data-preview-pane
+        aria-label="選択したノート"
+        className={`fixed inset-0 z-30 overflow-y-auto overscroll-contain ${bgClass} lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:z-10 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300 xl:left-[var(--folder-pane-w)]`}
+      >
+        {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
+            下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
+            (タグ・補助行) より DOM 順で後にはならないので、同層にして
+            sticky 側を上に出す */}
+        <div className={`sticky top-0 z-10 ${bgClass}`}>
+          <div className="mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className={ACTION_LINK_CLASS}
+            >
+              <ClearIcon />
+              閉じる
+            </button>
+            {openHref && (
+              <a href={openHref} className={ACTION_LINK_CLASS}>
+                全画面で開く
+              </a>
+            )}
+          </div>
         </div>
-      </div>
-      {/* pb-safe … lg 未満の全画面ではホームバーに潜らせない。
-          lg:pb-20 … ペインの下端は下部バーの上で終わるが、テキストサイズ
-          設定でバーが伸びた分やスクロールの余韻も考えて広めに取る */}
-      <div className="mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20">
-        {children}
-      </div>
-    </section>
+        {/* pb-safe … lg 未満の全画面ではホームバーに潜らせない。
+            lg:pb-20 … ペインの下端は下部バーの上で終わるが、テキストサイズ
+            設定でバーが伸びた分やスクロールの余韻も考えて広めに取る */}
+        <div className="mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20">
+          {children}
+        </div>
+      </section>
+    </>
   );
 }
