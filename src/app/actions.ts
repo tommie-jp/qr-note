@@ -178,6 +178,14 @@ export async function recordHealthAction(
   if (next === null) {
     throw new Error('この値は記録できません')
   }
+  // **本文が伸びる経路なので長さも検める。** フォーム経由の保存は readText が
+  // 見ているが、ここは FormData を通らない。項目名を変えながら叩けば同じ日付の
+  // 行にトークンをいくらでも積めてしまい、上限を超えた本文は編集画面から
+  // 保存できなくなる (readText が弾く) うえ、git 履歴・ダンプ・オフライン同期の
+  // 全部に流れる
+  if (next.length > MAX_TEXT_LENGTH) {
+    throw new Error(`本文が長すぎます (最大 ${MAX_TEXT_LENGTH} 文字)`)
+  }
   // 既に同じ値なら書かない (updated_at を動かさない)
   if (next !== existing.memo) {
     await upsertMemo(itemNo, next)

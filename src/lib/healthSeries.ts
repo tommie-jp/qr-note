@@ -10,7 +10,7 @@
 // テストに現在時刻が現れない。
 
 import { normalizeMeasureLabel } from './healthFence'
-import { healthDataLines } from './healthRecords'
+import { healthDataLines, type HealthParseCache } from './healthRecords'
 
 // 線を切る間隔 (日)。これより長く空いた区間は結ばない。
 // 2 週間の空白を直線で結ぶと、測っていない期間を測ったように見せてしまう
@@ -197,9 +197,12 @@ interface RawRecord {
 
 // すべてのノートの本文から記録を文書順に集める。
 // 順が意味を持つ場面が 2 つある — 項目の初出順と、同じ日付の後勝ち
-function collectRecords(rows: readonly HealthSourceRow[]): RawRecord[] {
+function collectRecords(
+  rows: readonly HealthSourceRow[],
+  cache: HealthParseCache,
+): RawRecord[] {
   return rows.flatMap((row) =>
-    healthDataLines(row.memo).flatMap((line) =>
+    healthDataLines(row.memo, cache).flatMap((line) =>
       line.measures.map((measure) => ({
         date: line.date,
         key: normalizeMeasureLabel(measure.label),
@@ -221,8 +224,13 @@ export function buildHealthSeries(
   rows: readonly HealthSourceRow[],
   item: string | null,
   days: number,
+  // 本文の解析結果の控え。**グラフを複数枚描くときは呼び出し側が持ち回る** —
+  // 「検索式は同じで y= だけ違う」(体重と体温を並べる) が典型の使い方で、
+  // 渡さないと同じ 200 ノートを枚数ぶん解析し直すことになる
+  // (matrixData が CheckParseCache を配るのと同じ形)
+  cache: HealthParseCache = new Map(),
 ): HealthSeries {
-  const records = collectRecords(rows)
+  const records = collectRecords(rows, cache)
   const found = countItems(records)
   const ranked = sortedItems(found)
 

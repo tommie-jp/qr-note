@@ -7,6 +7,7 @@
 
 import { extractHealthSources } from './healthFences'
 import { parseHealthFence } from './healthFence'
+import type { HealthParseCache } from './healthRecords'
 import { buildHealthSeries, type HealthSeries } from './healthSeries'
 import { searchItemHealth, type ItemHealthResult } from './items'
 import { requireUser } from './session'
@@ -75,6 +76,10 @@ export async function buildHealthCharts(markdown: string): Promise<HealthMap> {
   // 同じ検索式のフェンスは 1 回のクエリを共有する。**Promise を鍵に入れる**
   // のが要点で、結果を入れる作りだと Promise.all で同時に走る 2 枚が
   // どちらもキャッシュを外し、同じクエリが 2 回飛ぶ
+  // 本文の解析はグラフをまたいで使い回す。同じ検索式なら対象のノートは
+  // まったく同じで、そこを枚数ぶん解析し直すと 200 ノート × 枚数になる
+  const parseCache: HealthParseCache = new Map()
+
   const queryCache = new Map<string, Promise<ItemHealthResult>>()
   const rowsFor = (query: string): Promise<ItemHealthResult> => {
     const pending = queryCache.get(query)
@@ -99,7 +104,7 @@ export async function buildHealthCharts(markdown: string): Promise<HealthMap> {
           source,
           {
             kind: 'chart',
-            series: buildHealthSeries(rows, spec.item, spec.days),
+            series: buildHealthSeries(rows, spec.item, spec.days, parseCache),
             query: spec.query,
             omittedNotes: omitted,
           },

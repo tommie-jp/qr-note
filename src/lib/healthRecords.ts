@@ -9,7 +9,18 @@
 // 行番号 (1 始まり) も返す。読むだけなら要らないが、記録欄からの追記
 // (healthEdit.ts) が「その日の行」を書き換えるのに使う — **読む側と書く側で
 // 同じ物差しを使う**ためにここで一緒に返す。
+//
+// **コードの中かどうかはパーサに聞く** (taskCheckbox.ts と同じ作法)。
+// 記号を数える自前の走査では、番号付きリストの中のフェンス (CommonMark では
+// 4 字下げが正しい書き方) を見落とす。見落とすと記法の説明を書いたノートの
+// 用例が記録として読まれ、しかも**記録欄がその説明文の数字を書き換える**
+// (書く側も同じこの関数で行を探すため)。
 
+import type { Code, Root } from 'mdast'
+import remarkGfm from 'remark-gfm'
+import remarkParse from 'remark-parse'
+import { unified } from 'unified'
+import { visit } from 'unist-util-visit'
 import { splitLines } from './memoLines'
 
 // 1 つの測定値。label は書かれたままの綴り (照合は normalizeMeasureLabel を通す)、
@@ -48,8 +59,30 @@ const NUMBER_RE = /^([+\-＋－−]?[0-9０-９]+(?:[.．][0-9０-９]+)?)(.*)$/
 // 畳めない値を「118 に /76 という単位」として黙って線に載せるとグラフが嘘になる
 const UNIT_RE = /^[^0-9０-９\s　]*$/u
 
-// フェンスの開始・終了行 (``` または ~~~)
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/
+// 解析は毎回同じ構成なので使い回す (taskCheckbox.ts の MEMO_PARSER と同じ)。
+// gfm を入れるのは、表やタスクリストの中の行位置を本文と揃えるため
+const MEMO_PARSER = unified().use(remarkParse).use(remarkGfm).freeze()
+
+// コードが占める行 (1 始まり) の集合。フェンスも字下げコードブロックも
+// `code` ノードなので、記号を自分で数えるより漏れがない
+function codeLines(memo: string): Set<number> {
+  const tree = MEMO_PARSER.parse(memo) as Root
+  const lines = new Set<number>()
+  visit(tree, 'code', (node: Code) => {
+    const position = node.position
+    if (position === undefined) {
+      return
+    }
+    for (let line = position.start.line; line <= position.end.line; line++) {
+      lines.add(line)
+    }
+  })
+  return lines
+}
+
+// 本文の解析結果の控え。同じノートの本文を、グラフの枚数だけ解析し直さない
+// ため呼び出し側が持ち回る (matrixTable.ts の CheckParseCache と同じ形)
+export type HealthParseCache = Map<string, readonly HealthDataLine[]>
 
 // 記録として書ける日付か (ISO の形 + 暦にある日)。
 // 記録欄から来た日付を書く前に検めるのにも使う (healthEdit.ts)
@@ -115,29 +148,28 @@ export function parseMeasureToken(token: string): Measure | null {
 
 // 本文のデータ行を文書順に返す。
 //
-// **コードフェンスの中は読まない。** 記法の説明を書いたノートの用例が
-// 記録として混ざると、グラフに身に覚えのない点が出る (プロパティが
-// stripCode を通すのと同じ判断)。閉じ忘れたフェンスの中も読まない —
-// 書きかけの本文で、まだ本文になっていないため
-export function healthDataLines(memo: string): HealthDataLine[] {
+// **コードの中は読まない。** 記法の説明を書いたノートの用例が記録として
+// 混ざると、グラフに身に覚えのない点が出る (プロパティが stripCode を
+// 通すのと同じ判断)。閉じ忘れたフェンスの中も読まない — 書きかけの本文で、
+// まだ本文になっていないため (remark も EOF までを code と読む)。
+//
+// cache … 同じ本文を何度も解析しないための控え。1 回の描画でグラフを
+// 複数枚作るとき、対象のノートは全部同じ (呼び出し側が持ち回る)
+export function healthDataLines(
+  memo: string,
+  cache?: HealthParseCache,
+): readonly HealthDataLine[] {
+  const cached = cache?.get(memo)
+  if (cached !== undefined) {
+    return cached
+  }
   const lines: HealthDataLine[] = []
-  // 開いているフェンスの記号 (` か ~)。null なら本文の中
-  let fence: string | null = null
+  const inCode = codeLines(memo)
 
   splitLines(memo).forEach((text, index) => {
-    const fenceMark = FENCE_RE.exec(text)
-    if (fence === null) {
-      if (fenceMark !== null) {
-        fence = fenceMark[1][0]
-        return
-      }
-    } else {
-      if (fenceMark !== null && fenceMark[1][0] === fence) {
-        fence = null
-      }
+    if (inCode.has(index + 1)) {
       return
     }
-
     const matched = matchDataLine(text)
     if (matched === null) {
       return
@@ -152,5 +184,6 @@ export function healthDataLines(memo: string): HealthDataLine[] {
     lines.push({ line: index + 1, date, measures })
   })
 
+  cache?.set(memo, lines)
   return lines
 }

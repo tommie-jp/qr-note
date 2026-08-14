@@ -39,6 +39,10 @@ const PLOT_H = VIEW_H - PAD_T - PAD_B;
 // 点の丸を描く上限。これより多いと丸が線を埋めて団子になる
 const MAX_DOTS = 60;
 
+// 「他の項目」を名前で並べる数。これを超えたら数だけ言う
+// (MatrixTable が列を打ち切って件数を言うのと同じ作法)
+const MAX_OTHER_ITEMS = 4;
+
 // 日付ラベルを 3 つ出すのに要る点の数。2 点しかないのに中間を足しても
 // 両端のどちらかと重なるだけ
 const MIN_POINTS_FOR_MIDDLE_LABEL = 5;
@@ -83,6 +87,14 @@ function labelPoints(points: readonly HealthPoint[]): HealthPoint[] {
     return first === last ? [first] : [first, last];
   }
   return [first, points[Math.floor(points.length / 2)], last];
+}
+
+// 選ばなかった項目の並べ方。長いノート (項目が 10 種類ある) で名前を全部
+// 並べると、案内のほうがグラフより高くなる
+function otherItemsLabel(items: readonly string[]): string {
+  const shown = items.slice(0, MAX_OTHER_ITEMS).join(" / ");
+  const rest = items.length - MAX_OTHER_ITEMS;
+  return rest > 0 ? `${shown} 他 ${rest} 種類` : shown;
 }
 
 // 読み上げ用の 1 文。**グラフは目で見る物なので、そのままでは何も伝わらない。**
@@ -150,7 +162,7 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
           {query && <span className="ml-1 font-mono">({query})</span>}
           {series.otherItems.length > 0 && (
             <span className="ml-1">
-              記録がある項目: {series.otherItems.join(" / ")} (y= で選べます)
+              記録がある項目: {otherItemsLabel(series.otherItems)} (y= で選べます)
             </span>
           )}
         </p>
@@ -162,6 +174,13 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
   const last = points[points.length - 1];
   const delta = roundDelta(last.value - first.value);
   const segments = splitSegments(points);
+  // 丸を描く点。多すぎると線が団子になるので普段は描かないが、**1 点だけの
+  // 区間は必ず描く** — 線分が無いので、丸を省くとその記録が画面から消える
+  // (「間隔が空いたら点だけ残す」が 60 点を境に成り立たなくなる)
+  const dots =
+    points.length <= MAX_DOTS
+      ? points
+      : segments.filter((segment) => segment.length === 1).flat();
 
   return (
     <div className="my-4">
@@ -230,16 +249,15 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
               strokeLinejoin="round"
             />
           ))}
-          {points.length <= MAX_DOTS &&
-            points.map((point) => (
-              <circle
-                key={point.date}
-                cx={xOf(point, first.day, last.day)}
-                cy={yOf(point.value, axis)}
-                r={2.5}
-                fill={LINE_COLOR}
-              />
-            ))}
+          {dots.map((point) => (
+            <circle
+              key={point.date}
+              cx={xOf(point, first.day, last.day)}
+              cy={yOf(point.value, axis)}
+              r={2.5}
+              fill={LINE_COLOR}
+            />
+          ))}
           {/* 日付。両端は内側へ寄せる (text-anchor) — 端に置くと図から出る */}
           {labelPoints(points).map((point, index, shown) => (
             <text
@@ -270,7 +288,7 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
             series.omitted > 0 &&
               `他 ${series.omitted} 件は期間の外です(days= で伸ばせます)`,
             series.otherItems.length > 0 &&
-              `他の項目: ${series.otherItems.join(" / ")}(y= で選べます)`,
+              `他の項目: ${otherItemsLabel(series.otherItems)}(y= で選べます)`,
             result.omittedNotes > 0 &&
               `他 ${result.omittedNotes} 件のノートは読んでいません(絞り込むと読みます)`,
           ]

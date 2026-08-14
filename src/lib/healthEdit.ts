@@ -82,31 +82,38 @@ function isWritable(entry: HealthEntry): boolean {
   )
 }
 
-// その日の行の中で、同じ項目のトークンを差し替える。無ければ行末に足す
+// その日の行の中で、同じ項目のトークンを差し替える。無ければ行末に足す。
+//
+// **同じ項目が 1 行に 2 度書いてあれば、後ろのほうを直す。** 読む側
+// (healthSeries) は文書順に上書きするので後ろが勝つ。前を直すと、保存は
+// 成功しているのにグラフの値が動かない — 何度押しても直らない形になる。
 function withMeasure(line: string, entry: HealthEntry): string {
   const matched = matchDataLine(line)
   if (matched === null) {
     return line
   }
   const key = normalizeMeasureLabel(entry.item)
+  let hit: { start: number; token: string } | null = null
   for (const token of matched.rest.matchAll(TOKEN_RE)) {
     const measure = parseMeasureToken(token[0])
     if (measure === null || normalizeMeasureLabel(measure.label) !== key) {
       continue
     }
-    // **項目名と区切りは本文の綴りを残し、値だけ差し替える**
-    // (`ＢＭＩ＝22.1` を `bmi=22.5` に書き換えない)。頼まれたのは値を直す
-    // ことであって、名前や記号を揃えることではない
-    const start = matched.restStart + token.index
-    const separator = token[0].search(MEASURE_SEPARATOR)
-    return (
-      line.slice(0, start) +
-      token[0].slice(0, separator + 1) +
-      valueOf(entry) +
-      line.slice(start + token[0].length)
-    )
+    hit = { start: matched.restStart + token.index, token: token[0] }
   }
-  return `${line} ${tokenOf(entry)}`
+  if (hit === null) {
+    return `${line} ${tokenOf(entry)}`
+  }
+  // **項目名と区切りは本文の綴りを残し、値だけ差し替える**
+  // (`ＢＭＩ＝22.1` を `bmi=22.5` に書き換えない)。頼まれたのは値を直す
+  // ことであって、名前や記号を揃えることではない
+  const separator = hit.token.search(MEASURE_SEPARATOR)
+  return (
+    line.slice(0, hit.start) +
+    hit.token.slice(0, separator + 1) +
+    valueOf(entry) +
+    line.slice(hit.start + hit.token.length)
+  )
 }
 
 // 記録を 1 つ書き込んだ本文を返す。書けない値なら null。

@@ -75,6 +75,44 @@ describe('healthDataLines', () => {
     expect(measures(memo)).toEqual([])
   })
 
+  test('字下げされたフェンスの中も読まない (リストの中の用例)', () => {
+    // 番号付きリストの中では 4 字下げが正しい書き方。記号を自分で数える
+    // 走査だとここを見落とし、記法の説明文が記録として読まれる
+    const memo = [
+      '1. 記録の書き方',
+      '',
+      '    ```text',
+      '    - 2026-08-14 体重=99.9',
+      '    ```',
+    ].join('\n')
+    expect(measures(memo)).toEqual([])
+  })
+
+  test('字下げコードブロック (フェンス無し) も読まない', () => {
+    expect(measures('説明\n\n    - 2026-08-14 体重=99.9')).toEqual([])
+  })
+
+  test('長いフェンスの中の短いフェンスは閉じ扱いにしない', () => {
+    const memo = [
+      '````markdown',
+      '```health',
+      '#健康管理',
+      '```',
+      '- 2026-08-14 体重=99.9',
+      '````',
+    ].join('\n')
+    expect(measures(memo)).toEqual([])
+  })
+
+  test('控えを渡すと同じ本文を 2 度解析しない', () => {
+    const cache = new Map()
+    const memo = '- 2026-08-14 体重=66.4'
+    const first = healthDataLines(memo, cache)
+    expect(cache.size).toBe(1)
+    // 2 度目は控えをそのまま返す (同じ配列)
+    expect(healthDataLines(memo, cache)).toBe(first)
+  })
+
   test('日付だけの行は項目なしで残る', () => {
     // 記録欄が「その日の行」を探せるように、項目が無くても行としては返す
     expect(healthDataLines('- 2026-08-14')).toEqual([

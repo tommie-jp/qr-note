@@ -117,6 +117,37 @@ describe("HealthChart", () => {
     expect(html).toContain("他 12 件のノートは読んでいません");
   });
 
+  // 毎日つけた記録 (丸を描く上限を超える量)
+  function dailyMemo(count: number): string {
+    const start = Date.UTC(2026, 5, 1);
+    return Array.from({ length: count }, (_, index) => {
+      const date = new Date(start + index * 86400000)
+        .toISOString()
+        .slice(0, 10);
+      return `- ${date} 体重=${66 + (index % 3) / 10}`;
+    }).join("\n");
+  }
+
+  test("点が多いときは丸を描かない (線が団子になる)", () => {
+    expect(chart(dailyMemo(60), null, 400).match(/<circle/g)).toHaveLength(60);
+    expect(chart(dailyMemo(61), null, 400).match(/<circle/g)).toBeNull();
+  });
+
+  test("点が多くても、1 点だけ離れた記録には丸を描く", () => {
+    // 線分にならない区間なので、丸が無いとその記録が画面から消える
+    const html = chart(`${dailyMemo(61)}\n- 2026-08-20 体重=65`, null, 400);
+    expect(html.match(/<circle/g)).toHaveLength(1);
+  });
+
+  test("他の項目が多いときは数だけ言う", () => {
+    const html = chart(
+      "- 2026-08-14 体重=66.4 体温=36.5 脈拍=62 歩数=8000 睡眠=7 体脂肪=20",
+      "体重",
+      30,
+    );
+    expect(html).toContain("体温 / 脈拍 / 歩数 / 睡眠 他 1 種類");
+  });
+
   test("記録欄は保存の口を渡したときだけ出る", () => {
     expect(chart(AUGUST)).not.toContain('type="date"');
     expect(chartWithForm(AUGUST)).toContain('type="date"');
