@@ -3,6 +3,7 @@ import { MAX_MATRIX_COLUMNS } from './matrixFence'
 import {
   buildMatrixTable,
   donePercent,
+  matrixCountLabel,
   STATUS_COLUMN_LABEL,
   type MatrixSourceRow,
 } from './matrixTable'
@@ -193,6 +194,90 @@ describe('buildMatrixTable (空)', () => {
     const table = buildMatrixTable([], [], 0)
     expect(table.kind).toBe('status')
     expect(table.rows).toEqual([])
+  })
+})
+
+// 「項目なし」を未チェックと区別するのが設計の要点 (計画 §4) なのに、率の
+// 分母を全行にすると混ぜたのと同じ数字になる。100 件の検索結果のうち
+// 10 件しか `学習済み` を持たず、その 10 件すべてに付けても「10.0% (10)」と
+// 出て、書き忘れの 90 件が未了として率を薄める
+describe('buildMatrixTable (列ごとの率の母数)', () => {
+  test('項目なしの行は母数から外す', () => {
+    const rows = [
+      row('4551', '問1\n\n- [x] 学習済み', 0, 1),
+      row('4552', '買い物\n\n- [x] 牛乳', 0, 1),
+      row('4553', '買い物\n\n- [ ] 牛乳', 1, 0),
+    ]
+    const table = buildMatrixTable(rows, ['学習済み'], 0)
+    expect(table.rows.map((r) => r.cells[0])).toEqual([
+      'checked',
+      'absent',
+      'absent',
+    ])
+    expect(table.done).toEqual([1])
+    expect(table.columnTotals).toEqual([1])
+    expect(donePercent(table.done[0], table.columnTotals[0])).toBe('100.0')
+  })
+
+  test('未チェックの行は母数に入る (項目なしと区別する)', () => {
+    const rows = [
+      row('4551', quizNote('問1', true, true), 0, 2),
+      row('4552', quizNote('問2', true, false), 1, 1),
+      row('4553', '問3\n\n- [ ] 学習済み', 1, 0),
+    ]
+    const table = buildMatrixTable(rows, ['学習済み', '自信あり'], 0)
+    // 学習済み … 3 行すべてが持つ / 自信あり … 問3 だけ持たない
+    expect(table.columnTotals).toEqual([3, 2])
+    expect(table.done).toEqual([2, 1])
+  })
+
+  test('状態 1 列の母数は全行 (「項目なし」という状態が無い)', () => {
+    const table = buildMatrixTable(
+      [row('4561', '問1\n\n- [x]', 0, 1), row('4562', '問2\n\n- [ ]', 1, 0)],
+      [],
+      0,
+    )
+    expect(table.kind).toBe('status')
+    expect(table.columnTotals).toEqual([2])
+  })
+
+  test('全行が項目なしなら母数 0 (0/0 を出さない)', () => {
+    const table = buildMatrixTable(
+      [row('4552', '買い物\n\n- [x] 牛乳', 0, 1)],
+      ['学習済み'],
+      0,
+    )
+    expect(table.columnTotals).toEqual([0])
+    expect(donePercent(table.done[0], table.columnTotals[0])).toBe('0.0')
+  })
+})
+
+// 上限 (200 行) で切った表の率は**載っている行だけ**の率。件数を「全 200 件」と
+// 名乗ると、500 件当たっているうちの 200 件が済みなだけで「全 200 件 100.0%」に
+// 見え、残り 300 件があるのに終わったと読める
+describe('matrixCountLabel', () => {
+  const rows = [
+    row('4551', quizNote('問1', true, true), 0, 2),
+    row('4552', quizNote('問2', true, false), 1, 1),
+    row('4553', quizNote('問3', false, false), 2, 0),
+  ]
+
+  test('打ち切っていなければ「全 N 件」', () => {
+    expect(matrixCountLabel(buildMatrixTable(rows, ['学習済み'], 0))).toBe(
+      '全 3 件',
+    )
+  })
+
+  test('打ち切ったら何件のうち何件かを言う (率の母数を名乗る)', () => {
+    expect(matrixCountLabel(buildMatrixTable(rows, ['学習済み'], 7))).toBe(
+      '全 10 件中 3 件',
+    )
+  })
+
+  test('0 件でも「全 0 件」', () => {
+    expect(matrixCountLabel(buildMatrixTable([], ['学習済み'], 0))).toBe(
+      '全 0 件',
+    )
   })
 })
 

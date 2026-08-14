@@ -17,6 +17,7 @@ import {
   type CheckParseCache,
   type MatrixTableData,
 } from './matrixTable'
+import { narrowToChecks } from './search'
 import { requireUser } from './session'
 import type { Sort } from './validation'
 
@@ -30,7 +31,12 @@ export type MatrixResult =
       kind: 'table'
       table: MatrixTableData
       // 行のリンクに載せる検索状態。表は一覧と同じ検索結果を別の形で
-      // 見せているので、リンク先も一覧の行と揃える (PropsTable と同じ理由)
+      // 見せているので、リンク先も一覧の行と揃える (PropsTable と同じ理由)。
+      //
+      // **フェンスに書いた式そのままではなく、`narrowToChecks` で「チェックを
+      // 持つ」を足した式**を持つ。表の行の絞りは SQL 側 (HAS_TASKS) にしか
+      // 無いので、素の式を渡すと開いた先の前後ナビが表より広い集合を歩く
+      // (計画 §7)
       query: string
       sort: Sort
       // セルに出す記号 (`mark=`)。null なら既定 (✓ / ☐ / —)
@@ -111,7 +117,10 @@ export async function buildMatrices(markdown: string): Promise<MatrixMap> {
           {
             kind: 'table',
             table: buildMatrixTable(rows, spec.columns, omitted, parseCache),
-            query: spec.query,
+            // 検索は素の式で行い (絞りは HAS_TASKS)、**リンクへ載せる式には
+            // その絞りを書き足す**。同じ集合を SQL と検索式の 2 通りで
+            // 表しているので、片方だけ変えないこと (計画 §7)
+            query: narrowToChecks(spec.query),
             sort: spec.sort,
             marks: spec.marks,
           },

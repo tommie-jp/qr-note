@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   MAX_SEARCH_TERMS,
+  narrowToChecks,
   parseSearchExpr,
   queryHasTagTerm,
   queryTracksTaskProgress,
@@ -486,5 +487,65 @@ describe('stripTaskTerms', () => {
   // 引用したら task 語ではなくただの語なので、母数の条件にも残る
   test('引用された "is:todo" は落とさない', () => {
     expect(strip('#a "is:todo"')).toEqual(and(tag('a'), t('is:todo')))
+  })
+})
+
+// 進捗の表 (docs/77-進捗マトリックス計画.md §7) の行リンクが運ぶ検索式。
+// 表の行は「検索ヒットのうちチェックを持つノート」なので、素の検索式を渡すと
+// 開いた先の前後ナビが表より広い集合を歩き、「次」で表に無いノートへ飛ぶ
+describe('narrowToChecks', () => {
+  test('「チェックを持つ」を AND で足す', () => {
+    expect(narrowToChecks('#電験三種')).toBe(
+      '(#電験三種) (is:todo OR is:done)',
+    )
+  })
+
+  test('空の検索式なら条件だけ (空の q に畳まない)', () => {
+    expect(narrowToChecks('')).toBe('is:todo OR is:done')
+    expect(narrowToChecks('  \n ')).toBe('is:todo OR is:done')
+  })
+
+  // 足した式は items.ts の HAS_TASKS (task_todo > 0 OR task_done > 0) と
+  // 同じ条件になる。表の SQL と前後ナビの SQL が同じ集合を指す根拠
+  test('足す条件は is:todo OR is:done', () => {
+    expect(parseSearchExpr(narrowToChecks(''))).toEqual(
+      or(task('todo'), task('done')),
+    )
+  })
+
+  // 優先順位は AND > OR なので、裸で足すと `a OR (b AND チェック)` になり
+  // a 側の絞りが消える。括弧で包む
+  test('OR の式は括ってから足す (AND のほうが強く結合するため)', () => {
+    expect(parseSearchExpr(narrowToChecks('#a OR #b'))).toEqual(
+      and(or(tag('a'), tag('b')), or(task('todo'), task('done'))),
+    )
+  })
+
+  test('既にチェック語がある式にも足す (!is:todo はチェックを持つ保証にならない)', () => {
+    expect(parseSearchExpr(narrowToChecks('#a !is:todo'))).toEqual(
+      and(
+        and(tag('a'), not(task('todo'))),
+        or(task('todo'), task('done')),
+      ),
+    )
+  })
+
+  // 壊れた式でも「それらしく」解釈する流儀は保つ (閉じ忘れの括弧は自動クローズ)
+  test('括弧を閉じ忘れた式を包んでも壊れない', () => {
+    expect(parseSearchExpr(narrowToChecks('(#a'))).toEqual(
+      and(tag('a'), or(task('todo'), task('done'))),
+    )
+  })
+
+  // 閉じ忘れの引用は**行末まで**リテラルなので、そのまま包むと閉じ括弧も
+  // 足した条件も引用の中身に食われる。閉じてから包む (意味は変わらない)
+  test('引用を閉じ忘れた式でも条件が食われない', () => {
+    expect(parseSearchExpr(narrowToChecks('"abc'))).toEqual(
+      and(t('abc'), or(task('todo'), task('done'))),
+    )
+    // 最上位が OR の式でも、閉じたうえで包むので枝が壊れない
+    expect(parseSearchExpr(narrowToChecks('#a OR "b c'))).toEqual(
+      and(or(tag('a'), t('b c')), or(task('todo'), task('done'))),
+    )
   })
 })

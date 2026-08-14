@@ -375,6 +375,56 @@ export function stripTaskTerms(expr: SearchExpr): SearchExpr | null {
   return pruneTerms(expr, (term) => !isTaskTerm(term))
 }
 
+// 「チェックを 1 つ以上持つ」を検索文法で書いた式。items.ts の HAS_TASKS
+// (`task_todo > 0 OR task_done > 0`) と同じ集合を指す (is:todo = task_todo > 0、
+// is:done = task_done > 0)。
+const HAS_CHECKS_QUERY = 'is:todo OR is:done'
+
+// 検索式に「チェックを持つ」条件を AND で足す (docs/77-進捗マトリックス計画.md §7)。
+//
+// 進捗の表の行は「検索ヒットのうちチェックを持つノート」で、その絞りは SQL 側
+// (buildChecksWhere の HAS_TASKS) が掛けている。ところが行のリンクが運ぶ `q` は
+// 素の検索式なので、開いた先の前後ナビ (findListNeighbors) は**表より広い集合**を
+// 歩く。20 件ヒットのうち 9 件がチェックを持つ表で「次」を押すと、表に無い
+// 11 件のどれかへ飛び、「表 → 1 問目 → 次 → … と回って戻ってこられる」
+// (docs/60 §4) という約束が崩れる。
+//
+// **集合は URL の `q` だけで決まる形に畳む。** `checks=1` のような印を別に
+// 足す案は採らない — ノートの「一覧へ」は `q` から一覧の URL を組むので、
+// 印を知らない一覧が表と違う件数を出す。式で書ける絞りは式で書く。
+// findListNeighbors に絞り専用の引数を足す案も同じ理由で採らない。
+//
+// 括弧で包むのは優先順位のため。優先順位は AND > OR なので `#a OR #b` に
+// 裸で足すと `#a OR (#b AND チェック)` になり、#a 側の絞りが消える。
+//
+// 承知しておく限界: 語数の上限 (MAX_SEARCH_TERMS) 近くまで語を書いた式では、
+// 足した 2 語が capTerms に丸められて絞りが効かない (今までどおり広い集合を
+// 歩く) か、`is:todo` だけ残って逆に狭くなる。フェンスの検索式は
+// `#電験三種 !#後回し` 程度なので実際には届かない上限だが、届いたときは
+// 表そのものも同じ capTerms で丸められている。
+export function narrowToChecks(query: string): string {
+  const trimmed = query.trim()
+  // 空の検索式 (絞り込みなし = チェックを持つ全ノート) でも**条件だけは載せる**。
+  // 空に畳むと buildItemUrl が `q` ごと落とし、並び順まで落ちる (`q` が無ければ
+  // 一覧の文脈が無いという約束) ので、前後ナビが cookie の並びで歩き出す
+  if (trimmed === '') {
+    return HAS_CHECKS_QUERY
+  }
+  // 引用を閉じ忘れた式をそのまま包むと、閉じ括弧も足した条件も**引用の中身**に
+  // 食われる (未閉じ引用は行末までリテラル)。絞りが消えるうえ、表とは違う語
+  // (`abc) (is:todo OR is:done)`) を検索することになる。
+  //
+  // **閉じてから包む。** 行末で閉じるのと閉じ忘れは同じ意味なので、これで
+  // 元の式の意味は変わらない (パーサが閉じ忘れの括弧を自動クローズするのと
+  // 同じ手当て。壊れた入力は「それらしく」解釈する)
+  const closed = hasUnclosedQuote(trimmed) ? `${trimmed}${QUOTE}` : trimmed
+  return `(${closed}) (${HAS_CHECKS_QUERY})`
+}
+
+function hasUnclosedQuote(query: string): boolean {
+  return [...query].filter((char) => char === QUOTE).length % 2 === 1
+}
+
 // 最上位の AND に並んでいる項。AND でなければ式そのものが唯一の項。
 function conjuncts(expr: SearchExpr): SearchExpr[] {
   return expr.op === 'and' ? expr.children : [expr]

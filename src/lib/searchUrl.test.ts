@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { narrowToChecks } from './search'
 import { buildItemUrl, buildSearchUrl, buildTrashUrl } from './searchUrl'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {
@@ -44,6 +45,15 @@ describe('buildItemUrl', () => {
   // 空クエリのときは sort も載せない。素の URL に揃える
   test('クエリが空なら sort も載せない', () => {
     expect(buildItemUrl('42', '', 'itemNo')).toBe('/item/42')
+  })
+
+  // 進捗の表の行リンク (docs/77-進捗マトリックス計画.md §7)。フェンスの
+  // 検索式が空でも「チェックを持つ」条件が式として載るので、**並び順が落ちない**
+  // — 落ちるとノート側が cookie の並びで前後を求め、表と順序が食い違う
+  test('表の行リンクは空の検索式でも並び順を保つ', () => {
+    expect(buildItemUrl('42', narrowToChecks(''), 'itemNo')).toBe(
+      '/item/42?q=is%3Atodo+OR+is%3Adone&sort=itemNo',
+    )
   })
 
   test('itemNo は URL エンコードする', () => {

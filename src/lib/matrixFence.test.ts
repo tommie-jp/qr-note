@@ -180,6 +180,56 @@ describe('parseMatrixFence (mark=)', () => {
   })
 })
 
+// 記号をくっつけて書くのは打ちにくいので、間に空白やカンマを入れて書く。
+// **区切りを記号として数えると気づけない壊れ方をする** — `mark=☐ ✓` が
+// 「未=☐ / 済=空白 / 項目なし=✓」に割り当てられ、済みのセルが透明になり、
+// 項目の無いノートが ✓ で「済み」に見える (エラーも出ない)
+describe('parseMatrixFence (mark= の区切り)', () => {
+  test('記号の間の空白は区切りとして読む', () => {
+    expect(spec('#電験三種\nmark=☐ ✓').marks).toEqual({
+      unchecked: '☐',
+      checked: '✓',
+      absent: null,
+    })
+  })
+
+  test('全角の空白も区切り (日本語キーボードの既定)', () => {
+    expect(spec('#電験三種\nmark=☐　✓').marks).toMatchObject({
+      unchecked: '☐',
+      checked: '✓',
+    })
+  })
+
+  test('カンマ区切りでも書ける (col= と同じ見た目)', () => {
+    expect(spec('#電験三種\nmark=☐,✓,—').marks).toEqual({
+      unchecked: '☐',
+      checked: '✓',
+      absent: '—',
+    })
+  })
+
+  test('全角カンマも区切り', () => {
+    expect(spec('#電験三種\nmark=☐，✓').marks).toMatchObject({
+      unchecked: '☐',
+      checked: '✓',
+    })
+  })
+
+  // 区切りを落とすのは記号の間だけ。異体字セレクタ (U+FE0F) は記号の一部
+  test('区切りで並べても絵文字の異体字セレクタは落とさない', () => {
+    expect(spec('#電験三種\nmark=🟥 ✅️ ➖').marks).toEqual({
+      unchecked: '🟥',
+      checked: '✅️',
+      absent: '➖',
+    })
+  })
+
+  test('個数は区切りを除いて数える', () => {
+    expect(error('#電験三種\nmark=☐ ✓ ➖ ✔')).toContain('4 つ')
+    expect(error('#電験三種\nmark=, ,')).toContain('2 つ')
+  })
+})
+
 describe('normalizeCheckLabel', () => {
   test('前後の空白を落とす', () => {
     expect(normalizeCheckLabel(' 学習済み ')).toBe('学習済み')
@@ -191,6 +241,53 @@ describe('normalizeCheckLabel', () => {
 
   test('大文字小文字は同じ', () => {
     expect(normalizeCheckLabel('Done')).toBe(normalizeCheckLabel('done'))
+  })
+})
+
+// 名前の照合は NFKC で畳む (normalizeCheckLabel) のに区切りが半角カンマだけ
+// だと、日本語キーボードの既定である全角カンマが区切りにならない。
+// `col=学習済み，自信あり` が 1 列の長い名前になり、どのチェックにも当たらず
+// 全セルが「項目なし」(0.0%) になる — しかもエラーは出ない
+describe('parseMatrixFence (col= の区切り)', () => {
+  test('全角カンマも区切りとして読む', () => {
+    expect(spec('#電験三種\ncol=学習済み，自信あり').columns).toEqual([
+      '学習済み',
+      '自信あり',
+    ])
+  })
+
+  test('半角と全角が混ざっていても読める', () => {
+    expect(spec('#電験三種\ncol=学習済み，自信あり,要復習').columns).toEqual([
+      '学習済み',
+      '自信あり',
+      '要復習',
+    ])
+  })
+
+  // 区切りの判定は「NFKC で半角カンマに畳まれるか」なので、小字形 (U+FE50) の
+  // ような珍しい打ち方も同じ扱いになる
+  test('NFKC で半角カンマになる文字はどれも区切り', () => {
+    expect(spec('#電験三種\ncol=学習済み﹐自信あり').columns).toEqual([
+      '学習済み',
+      '自信あり',
+    ])
+  })
+
+  // 畳むのは区切りの判定だけ。名前は打ったまま持つ (表示に使う綴り)
+  test('列の名前は畳まない', () => {
+    expect(spec('#電験三種\ncol=ＴＯＤＯ，自信あり').columns).toEqual([
+      'ＴＯＤＯ',
+      '自信あり',
+    ])
+  })
+
+  test('全角カンマ区切りでも重複と上限を見る', () => {
+    expect(error('#電験三種\ncol=TODO，todo')).toContain('todo')
+    const many = Array.from(
+      { length: MAX_MATRIX_COLUMNS + 1 },
+      (_, i) => `列${i}`,
+    ).join('，')
+    expect(error(`#電験三種\ncol=${many}`)).toContain(String(MAX_MATRIX_COLUMNS))
   })
 })
 

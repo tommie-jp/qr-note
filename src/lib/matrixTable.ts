@@ -43,10 +43,18 @@ export interface MatrixTableData {
   kind: 'checks' | 'status'
   columns: string[]
   rows: MatrixTableRow[]
-  // 表に載っている行数。列の数で二重に数えない
+  // 表に載っている行数。列の数で二重に数えない。
+  // **検索に当たった件数ではない** (上限で切った分は omitted) — 件数の見出しは
+  // matrixCountLabel を通して名乗る
   total: number
   // 列ごとの「済み」件数 (状態 1 列のときは習得の件数)
   done: number[]
+  // 列ごとの率の母数 = その列の項目を持つ行数 (absent の行を外したもの)。
+  // done と対で持つ。**total で割ってはいけない** — 「項目なし」を未チェックと
+  // 区別するのがこの表の要点 (計画 §4) なのに、全行を分母にすると書き忘れが
+  // 未了として率を薄め、混ぜたのと同じ数字になる。
+  // 状態 1 列のときは全行 (3 状態に「項目なし」は無い)
+  columnTotals: number[]
   // 上限を超えて表に載らなかった件数。黙って打ち切ると「これで全部」と読める
   omitted: number
   // col= を省いて本文から拾ったとき、上限を超えて載せなかった列の数。
@@ -59,12 +67,33 @@ export interface MatrixTableData {
 // **切り上げない (床関数)。** 四捨五入すると 1999/2000 が「100.0%」になり、
 // 1 件残っているのに終わったように見える — 率は床関数、という既存の作法
 // (docs/60-学習進捗計画.md §2 の TaskProgress) に揃える。
-// 100.0 になるのは本当に全部済んだときだけ。
+// 100.0 になるのは、渡した母数のぶんが本当に全部済んだときだけ。
+//
+// 分母は列ごとに違う (columnTotals)。呼び出し側が total を渡すと、その列の
+// 項目を持たない行まで未了として数えることになる。
 export function donePercent(done: number, total: number): string {
   if (total <= 0) {
     return '0.0'
   }
   return (Math.floor((done / total) * 1000) / 10).toFixed(1)
+}
+
+// 件数の見出し (計画 §10)。
+//
+// **上限で切ったときは「全」と言わない。** 500 件当たって 200 行で切った表に
+// 「全 200 件 学習済み 100.0% (200)」と出すと、300 件残っているのに終わったと
+// 読める (下に「他 300 件は表に載せていません」と出ていても、率のほうが先に
+// 目に入る)。率は表に載っている行だけの率なので、その母数を先に名乗る。
+//
+// 率を「検索に当たった全件」で割り直す案は採らない。載せなかった行の本文は
+// **読んでいない** ので、未了として分母に入れるのは「済んでいない」と
+// 決めつける別の嘘になる (絞り込めば率が跳ね上がる、という説明しにくい
+// 挙動にもなる)。判っている範囲を、判っている範囲だと言って出す。
+export function matrixCountLabel(table: MatrixTableData): string {
+  if (table.omitted <= 0) {
+    return `全 ${table.total} 件`
+  }
+  return `全 ${table.total + table.omitted} 件中 ${table.total} 件`
 }
 
 function statusOf(row: MatrixSourceRow): StatusCell {
@@ -184,6 +213,15 @@ export function buildMatrixTable(
       (row) => row.cells[index] === (isStatus ? 'mastered' : 'checked'),
     ).length,
   )
+  // 率の母数は列ごとに数える。**項目なしの行を分母から外す**のが要点で、
+  // 外さないと「項目を持つ 10 件すべてに付けたのに 10.0%」になる (計画 §4 の
+  // 「項目なしを潰さない」を、率の側でも守る)。
+  // 状態 1 列は 3 状態のどれかに必ず入るので全行が母数
+  const columnTotals = Array.from({ length: width }, (_, index) =>
+    isStatus
+      ? rows.length
+      : rows.filter((row) => row.cells[index] !== 'absent').length,
+  )
 
   return {
     kind: isStatus ? 'status' : 'checks',
@@ -191,6 +229,7 @@ export function buildMatrixTable(
     rows,
     total: rows.length,
     done,
+    columnTotals,
     omitted,
     columnsOmitted: derived?.omitted ?? 0,
   }

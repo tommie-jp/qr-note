@@ -69,6 +69,33 @@ export function splitGraphemes(text: string): string[] {
   return [...text]
 }
 
+// 値の中の区切りに使うカンマ。
+//
+// **区切りは「畳んだ後」で見る。** 照合 (normalizeCheckLabel) が NFKC で
+// 畳むのに区切りだけ半角カンマ限定、という組み合わせだと、日本語キーボードの
+// 既定である全角カンマが区切りにならない — `col=学習済み，自信あり` は 1 列の
+// 長い名前になり、どのチェックにも当たらず全セルが「項目なし」(0.0%) で並ぶ。
+// エラーも出ないので、書いた本人には「表が壊れた」としか見えない。
+//
+// 半角カンマに畳まれる文字はどれも区切りにする (全角 `，`・小字形 `﹐` など)。
+// 表を作れる綴りは 1 つだけ、という門番にはしない (`sort=ItemNo` を通すのと
+// 同じ作法)。読点 `、` は畳んでも読点なので区切りにしない — 名前の一部
+// (`- [ ] 読んだ、解いた`) でありうるほうを立てる
+const COMMA = ','
+
+function isComma(char: string): boolean {
+  return char.normalize('NFKC') === COMMA
+}
+
+// **値そのものは NFKC しない** (絵文字が潰れる)。畳んだ結果で区切りを見分け、
+// 名前や記号は打ったまま持つ
+function splitOnCommas(value: string): string[] {
+  return [...value]
+    .map((char) => (isComma(char) ? COMMA : char))
+    .join('')
+    .split(COMMA)
+}
+
 // 打ち間違いへの助言だけに使う表。**受け付ける綴りではない** —
 // 受け付けた綴りはノートに残ってやめられないので、増やさずに案内する
 const KEY_HINTS: Record<string, string> = {
@@ -131,10 +158,26 @@ function separatorIndex(line: string): number {
 }
 
 function parseColumnsValue(value: string): string[] {
-  return value
-    .split(',')
+  return splitOnCommas(value)
     .map((label) => label.trim())
     .filter((label) => label !== '')
+}
+
+// `mark=` の記号を取り出す。**区切り (空白・カンマ) は記号として数えない。**
+//
+// くっつけて書く (`mark=☐✓`) のは読みにくいので、間に空白やカンマを入れた
+// 書き方が自然に出てくる。ところが素朴に書記素で割ると `mark=☐ ✓` が 3 つに
+// 数えられ、済み = 空白 (透明なセル)・項目なし = ✓ (その項目が無いノートが
+// 済みに見える) へ割り当てられる。**個数は 3 つなのでエラーにもならない** —
+// 未の記号だけが正しく出るぶん、余計に気づけない。
+//
+// 「区切りを書いたらエラー」にする案は採らない。書き直させるだけで、
+// どちらの書き方も同じ表になるほうが説明が短い (絵文字の個数だけを見て
+// 文字種を問わない、という mark= の元の作法にも合う)。
+function parseMarksValue(value: string): string[] {
+  return splitGraphemes(value).filter(
+    (mark) => mark.trim() !== '' && !isComma(mark),
+  )
 }
 
 // 照合すると同じになる列があれば、その 2 つ目を返す (無ければ null)
@@ -219,7 +262,7 @@ export function parseMatrixFence(source: string): MatrixParseResult {
       if (marks !== null) {
         return { error: '設定「mark」が 2 回書かれています' }
       }
-      const parsed = splitGraphemes(value)
+      const parsed = parseMarksValue(value)
       if (parsed.length < MIN_MARKS || parsed.length > MAX_MARKS) {
         return {
           error: `記号は 未・済 の 2 つ (項目なしを足して 3 つ) で書きます (${parsed.length} つ書かれています)`,

@@ -635,6 +635,7 @@ test("matrix フェンスは集計結果を渡すと表になる", () => {
                 ],
                 total: 1,
                 done: [1],
+                columnTotals: [1],
                 omitted: 0,
                 columnsOmitted: 0,
               },

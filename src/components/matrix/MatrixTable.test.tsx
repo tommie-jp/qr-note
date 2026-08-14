@@ -14,6 +14,9 @@ const TABLE: MatrixTableData = {
   ],
   total: 3,
   done: [2, 1],
+  // 自信あり は 問3 が「項目なし」なので母数が 1 つ少ない (率は 1/2)。
+  // **項目なしの行を分母に入れない**のがこの表の約束 (docs/77 §4)
+  columnTotals: [3, 2],
   omitted: 0,
   columnsOmitted: 0,
 };
@@ -54,9 +57,17 @@ describe("MatrixTable", () => {
   test("件数と、列ごとの率 + 実数を出す", () => {
     const html = render(tableResult(TABLE));
     expect(html).toContain("全 3 件");
-    // 2/3 と 1/3。切り上げないので 66.6 / 33.3
+    // 学習済み 2/3、自信あり 1/2 (問3 は項目なしなので母数から外れる)。
+    // 切り上げないので 66.6
     expect(html).toContain("学習済み 66.6% (2)");
-    expect(html).toContain("自信あり 33.3% (1)");
+    expect(html).toContain("自信あり 50.0% (1)");
+  });
+
+  // 打ち切った表で率の母数を名乗る。「全 3 件 学習済み 100.0%」だけを出すと、
+  // 載せていない 7 件が未了でも「全部済んだ」と読めてしまう
+  test("載せ切れなかった表は、率が何件に対するものかを名乗る", () => {
+    const html = render(tableResult({ ...TABLE, omitted: 7 }));
+    expect(html).toContain("全 10 件中 3 件");
   });
 
   // 列の幅を記号 1 文字まで狭めるため、名前は寝かせる
@@ -129,6 +140,8 @@ describe("MatrixTable", () => {
         ],
         total: 3,
         done: [1],
+        // 状態 1 列は 3 状態のどれかに必ず入るので全行が母数
+        columnTotals: [3],
         omitted: 0,
         columnsOmitted: 0,
       }),

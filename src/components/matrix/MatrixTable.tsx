@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { MatrixResult } from "@/lib/matrixData";
 import type { MatrixMarkSet } from "@/lib/matrixFence";
-import { donePercent, type MatrixCell } from "@/lib/matrixTable";
+import { donePercent, matrixCountLabel, type MatrixCell } from "@/lib/matrixTable";
 import { buildItemUrl } from "@/lib/searchUrl";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
 
@@ -104,12 +104,17 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
   return (
     <div className="my-4">
       <p className="mb-1 text-sm text-gray-600">
-        全 {table.total} 件
+        {/* 打ち切ったときは「全 500 件中 200 件」と名乗る (matrixCountLabel)。
+            率が何に対する率かを先に言わないと、下の 100.0% を全件のことだと
+            読んでしまう (載せていない 300 件が残っていても 100% に見える) */}
+        {matrixCountLabel(table)}
         {/* 率を先に、実数を括弧で添える。率だけだと「9 件中の 7」という
-            手応えが消え、実数だけだと列どうしを見比べられない */}
+            手応えが消え、実数だけだと列どうしを見比べられない。
+            母数は列ごと (columnTotals) — 「項目なし」の行を未了に数えると、
+            10 行のうち 10 行とも済んでいても 100 行中の 10% に見える */}
         {table.columns.map((column, index) => (
           <span key={column} className="ml-3 whitespace-nowrap">
-            {column} {donePercent(table.done[index], table.total)}% (
+            {column} {donePercent(table.done[index], table.columnTotals[index])}% (
             {table.done[index]})
           </span>
         ))}
