@@ -40,16 +40,31 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
       return;
     }
 
+    // **控えは効果の入口で 1 度だけ読む。** 下で書き戻すので、send の中で
+    // 読み直すと自分が書いた値を読んでしまい、「版が変わった初回」を自分で
+    // 消してしまう (途中経過を送れなかった回の仕上げが黙って落ちる)
+    const lastReportedVersion = readMark(LAST_BOOT_REPORT_VERSION_KEY);
+
+    // **控えられるかは、書いて読み返すまで判らない。** writeMark は保存を
+    // 塞いだブラウザでも黙って何もしない (schedule.ts) ため、成否が返らない。
+    // 控えられない端末では readMark が常に null で「版が変わった初回」が毎回
+    // 成立し、読み込みのたびに起動行が積まれて 200 件のリングバッファを
+    // 埋めてしまう (shouldReportBoot の canRemember)。
+    //
+    // ここで先に書いても意味は変わらない — 報告するなら結局書く印で、
+    // 報告しない回 (= 同じ版の速い起動) は既にこの版が書かれている
+    writeMark(LAST_BOOT_REPORT_VERSION_KEY, version);
+    const canRemember = readMark(LAST_BOOT_REPORT_VERSION_KEY) === version;
+
     // 送る (送ったら true)。forced は「条件を問わず送る」— 途中経過を送った
     // あとの仕上げに使う
     const send = (timing: BootTiming, forced: boolean): boolean => {
       if (
         !forced &&
-        !shouldReportBoot(timing, readMark(LAST_BOOT_REPORT_VERSION_KEY), version)
+        !shouldReportBoot(timing, lastReportedVersion, version, { canRemember })
       ) {
         return false;
       }
-      writeMark(LAST_BOOT_REPORT_VERSION_KEY, version);
 
       logDiagEvent(
         formatBootTiming(timing, {

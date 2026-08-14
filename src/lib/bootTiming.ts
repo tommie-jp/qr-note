@@ -1,4 +1,4 @@
-// 起動 (最初の画面読み込み) の内訳を測って /logs へ送る (docs/30-ブラウザログ計画.md §6)。
+// 起動 (最初の画面読み込み) の内訳を測って /logs へ送る (docs/30-ブラウザログ計画.md §8)。
 //
 // **なぜ要るか。** iPhone の PWA で「デプロイした直後の起動だけ、画面が白い
 // まま数十秒動かない」という症状が出ている。iOS は Mac 無しでインスペクタを
@@ -174,11 +174,24 @@ export function whiteScreenMs(timing: BootTiming): number {
 
 // 報告すべきか。**版が変わった最初の起動は速くても報告する** — 症状が出るのは
 // まさにそこで、「遅くならなかった」ことも同じくらい知りたいため。
+//
+// canRemember … 「報告した版」を控えられる端末か (localStorage が生きているか)。
+// **控えられないなら「版が変わった初回」の条件は使えない。** 控えが読めない端末
+// では lastReportedVersion が常に null で、この条件が毎回成立してしまい、
+// 読み込みのたびに起動行が 1 本積まれる。200 件のリングバッファ
+// (logEntry.ts) はすぐ起動行で埋まり、この計測が読ませたい警告・エラーを
+// 押し流す — 「毎回送ると埋まる」という冒頭の但し書きが、まさにこの経路で
+// 破れていた。控えが無いときは「遅かった起動」だけに絞る (症状の本命は
+// そちらで、重複しても数十秒の回は必ず残る)
 export function shouldReportBoot(
   timing: BootTiming,
   lastReportedVersion: string | null,
   version: string,
+  { canRemember = true }: { canRemember?: boolean } = {},
 ): boolean {
+  if (!canRemember) {
+    return whiteScreenMs(timing) >= SLOW_BOOT_MS
+  }
   return lastReportedVersion !== version || whiteScreenMs(timing) >= SLOW_BOOT_MS
 }
 

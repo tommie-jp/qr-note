@@ -162,6 +162,18 @@ describe('shouldReportBoot', () => {
   test('reports when no version was recorded yet', () => {
     expect(shouldReportBoot(fast, null, '0.22.59')).toBe(true)
   })
+
+  // 控えを持てない端末 (localStorage を塞いだ iOS Safari のプライベート等)。
+  // readMark が常に null を返すので「版が変わった初回」が毎回成立し、
+  // 起動行だけで 200 件のリングバッファが埋まる — この計測が守ろうとしている
+  // 警告・エラーを押し流してしまう
+  test('stays quiet on a normal launch when the mark cannot be remembered', () => {
+    expect(shouldReportBoot(fast, null, '0.22.59', { canRemember: false })).toBe(false)
+  })
+
+  test('still reports a slow launch when the mark cannot be remembered', () => {
+    expect(shouldReportBoot(slow, null, '0.22.59', { canRemember: false })).toBe(true)
+  })
 })
 
 describe('parseWorkerVersion', () => {

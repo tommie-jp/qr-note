@@ -1,6 +1,7 @@
 // 一覧の要約表示用に、memo の先頭行から Markdown 記法を取り除く。
 // 表示専用の簡易変換 (正確なパースは表示側の react-markdown が担う)
 
+import { stripAnswerSpoilers } from './answerSpoiler'
 import { RENDERED_LANGS } from './fenceLanguages'
 import { readAlertMarker } from './markdownAlerts'
 
@@ -19,9 +20,6 @@ const INLINE_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/~~(.*?)~~/g, '$1'], // 取り消し線
   [/`([^`]*)`/g, '$1'], // インラインコード
   [/\[\^[^\]]+\]/g, ''], // 脚注の参照 (`本文[^1]`) → 番号ごと落とす
-  // 答え隠し (docs/79) は**中身ごと落とす**。一覧のカードに訳が出ていたら
-  // 隠した意味がない。剥がして中身を残す他の記法と向きが違うのは意図的
-  [/\|\|[^|\n]+\|\|/g, ''],
 ]
 
 // インライン数式 ($...$)。remark-math の解釈の行単位近似で、一覧側の数式の
@@ -230,6 +228,13 @@ export function stripLineMarkdown(line: string): string {
   for (const [pattern, replacement] of INLINE_PATTERNS) {
     text = text.replace(pattern, replacement)
   }
+  // 答え隠し (docs/79-答え隠し計画.md §5) は**中身ごと落とす**。一覧のカードに
+  // 訳が出ていたら隠した意味がない。剥がして中身を残す上の記法と向きが違う。
+  //
+  // 走査は answerSpoiler.ts の 1 本に借りる。ここに同じ正規表現を書くと、
+  // 記法の側 (答えに `|` は書けない・改行は跨がない・空は記法と見なさない)
+  // を直したときに片方だけ古いままになり、隠した答えがカードに漏れる
+  text = stripAnswerSpoilers(text)
   if (maskedMath.length > 0) {
     // リンクや画像の剥がしで印ごと消えた数式 (URL の中に居た物) は
     // 戻らないまま — 消えた文脈と一緒に消えるのが正しい
