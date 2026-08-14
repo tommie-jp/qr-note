@@ -65,6 +65,20 @@ const KEYRING_PATH = '/api/secrets/keyring'
 // キャッシュには残るため、放っておくと際限なく太る。古い順に捨てる
 const MEDIA_MAX_ENTRIES = 600
 
+// 何件保存するごとに数え直すか。**毎回数えてはいけない** — cache.keys() は
+// 棚の全件 (最大 600) を Request にして返すので、画像 1 枚ごとにそれをやると
+// 一覧を開いた瞬間に Worker がそれだけで詰まる。上限は「おおよそ」で足りる
+// (溢れても次の保存か暖機で削られる)
+const TRIM_EVERY_PUTS = 50
+let putsSinceTrim = 0
+
+// 暖機で一度に走らせる取得の数。**上限が要る。** 版が変わった起動では殻の
+// チャンクが全て未取得で、素の Promise.all だと数十本を同時に投げる。
+// その裏でページ自身が HTML の続き・CSS・チャンクを待っており、**自分が
+// 起こした通信で自分を飢えさせる** (実測 v0.22.67 の iPhone: ヘッダーだけ
+// 出たまま数十秒 DCL も load も来ない)。細く長く取れば描画を邪魔しない
+const WARM_CONCURRENCY = 4
+
 // HTML から拾うビルド成果物の URL。Turbopack は `/_next/static/...` の形でも
 // (RSC ペイロード内では) `static/chunks/...` の形でも書くので両方受ける。
 // 拾いすぎても取得に失敗して捨てるだけなので、緩めに当てる
@@ -127,12 +141,16 @@ function assetUrlsIn(text, pattern) {
 // 同じ URL なら中身も同じ。ここを毎回落とすと、暖機はページを開くたびに
 // 走るため、殻の分だけ通信が二重になる。
 //
-// 1 本落ちても投げない。他は使えるし、足りなければ次の暖機で取り直される
+// 1 本落ちても投げない。他は使えるし、足りなければ次の暖機で取り直される。
+//
+// **同時に走らせる数を絞る** (WARM_CONCURRENCY)。列を 1 本ずつ引き取る形に
+// して、ページ自身の取得を後ろに追いやらないようにする
 async function cacheMissing(cache, urls) {
-  await Promise.all(
-    urls.map(async (url) => {
+  const queue = [...urls]
+  const take = async () => {
+    for (let url = queue.shift(); url !== undefined; url = queue.shift()) {
       if (await cache.match(url)) {
-        return
+        continue
       }
       try {
         const res = await fetch(url)
@@ -142,7 +160,10 @@ async function cacheMissing(cache, urls) {
       } catch {
         // 次の暖機で取り直す
       }
-    }),
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(WARM_CONCURRENCY, queue.length) }, take),
   )
 }
 
@@ -213,6 +234,13 @@ async function warmShell() {
       await cache.delete(request)
     }
   }
+
+  // 添付の上限もここで見る。**保存のたびに数えるのをやめた** (TRIM_EVERY_PUTS)
+  // ぶん、数える機会をどこかに置く必要がある。Worker は暇になると終了させられ、
+  // 数え上げの回数はそこで 0 に戻るので、「保存 50 件ごと」だけでは一度も
+  // 数えない端末が出る。暖機は版ごとに 1 度必ず走り、しかも load の後 =
+  // 描画を邪魔しない時間帯なので、数えるならここが一番安い
+  await trimCache(MEDIA_CACHE)
   return assets.length + fonts.length
 }
 
@@ -260,7 +288,7 @@ function offlineRedirectUrl(url) {
 // 印付きの棚へ**書くのはここではない** (画面側の pinCache.ts が突き合わせて
 // 出し入れする)。書く側と捨てる側が同じ場所にいないと、印を外したときに
 // 消し残る — 期限で腐らせる棚ではないので、消し残りは永久に残る。
-async function pinnedFirst(request, cacheName) {
+async function pinnedFirst(request, cacheName, event) {
   // **caches.open で開いてから match する。** caches.match({ cacheName }) は
   // その名前の棚がまだ無いと NotFoundError で落ちる仕様で、印を 1 つも
   // 付けていない端末ではそれが常態になる — 落ちれば respondWith ごと失敗し、
@@ -270,10 +298,10 @@ async function pinnedFirst(request, cacheName) {
   if (pinned) {
     return pinned
   }
-  return cacheFirst(request, cacheName)
+  return cacheFirst(request, cacheName, event)
 }
 
-async function cacheFirst(request, cacheName) {
+async function cacheFirst(request, cacheName, event) {
   const cache = await caches.open(cacheName)
   const hit = await cache.match(request)
   if (hit) {
@@ -283,10 +311,33 @@ async function cacheFirst(request, cacheName) {
   // 部分応答 (206) は動画のシーク要求。継ぎ接ぎを保存しても再生できないので
   // 素通しする (httpRange.ts が返す形)
   if (res.ok && res.status === 200) {
-    await cache.put(request, res.clone())
-    await trimCache(cacheName)
+    // **保存を待ってから返さない。** 待つと、描画を止める CSS が
+    // Cache Storage への書き込み待ちになる — 保存は次の起動を速くするための
+    // ものなのに、いまの起動を遅くしていた。waitUntil に預ければ、応答は
+    // 先に返しつつ Worker は書き終わるまで生き延びる
+    const copy = res.clone()
+    const saving = savePut(cacheName, request, copy)
+    if (event) {
+      event.waitUntil(saving)
+    }
   }
   return res
+}
+
+// 保存だけを行う (応答を返した後に走る)。**投げない** — ここで落ちても
+// 表示は済んでおり、次の取得でまた試せばよい。落として respondWith まで
+// 巻き込むと、容量が尽きた端末で画像が割れる
+async function savePut(cacheName, request, response) {
+  try {
+    const cache = await caches.open(cacheName)
+    await cache.put(request, response)
+    if (cacheName === MEDIA_CACHE && ++putsSinceTrim >= TRIM_EVERY_PUTS) {
+      putsSinceTrim = 0
+      await trimCache(cacheName)
+    }
+  } catch {
+    // 次の取得で取り直す
+  }
 }
 
 // 古い順に捨てて上限に収める。Cache Storage の keys() は入れた順に返る
@@ -341,7 +392,7 @@ self.addEventListener('fetch', (event) => {
   // 意味がない**。ここを通さないと圏外では素通しになり、取ってあるのに
   // ヘッダの絵だけ欠ける (実際にそうなっていた)
   if (url.pathname.startsWith(STATIC_PREFIX) || SHELL_EXTRAS.includes(url.pathname)) {
-    event.respondWith(cacheFirst(request, SHELL_CACHE))
+    event.respondWith(cacheFirst(request, SHELL_CACHE, event))
     return
   }
 
@@ -352,7 +403,7 @@ self.addEventListener('fetch', (event) => {
   // 全体 (200) を返してしまい、動画のシークが壊れる (httpRange.ts が
   // 206 を返す前提でプレイヤーが動いている)
   if (url.pathname.startsWith(MEDIA_PREFIX) && !request.headers.has('Range')) {
-    event.respondWith(pinnedFirst(request, MEDIA_CACHE))
+    event.respondWith(pinnedFirst(request, MEDIA_CACHE, event))
     return
   }
 
@@ -362,7 +413,7 @@ self.addEventListener('fetch', (event) => {
   //
   // **鍵束だけは通さない** (KEYRING_PATH の理由を参照)。
   if (url.pathname.startsWith(SECRET_PREFIX) && url.pathname !== KEYRING_PATH) {
-    event.respondWith(pinnedFirst(request, SECRET_CACHE))
+    event.respondWith(pinnedFirst(request, SECRET_CACHE, event))
     return
   }
 

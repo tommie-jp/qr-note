@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { OfflineSyncPayload } from "@/lib/offline/item";
 import { syncPinnedAssets } from "@/lib/offline/pinCache";
 import { registerOfflineWorker, warmOfflineShell } from "@/lib/offline/register";
+import { onPageLoaded } from "@/lib/pageLoad";
 import {
   LAST_SYNC_ATTEMPT_KEY,
   LAST_WARM_VERSION_KEY,
@@ -23,6 +24,9 @@ import { syncOfflineItems } from "@/lib/offline/sync";
 //   2. ノート本文と描画済みの回路図を IndexedDB へ取り込む
 //   3. 印付きノート (offline_pin) の添付を端末へ揃える
 //   4. /offline の殻を保存させる (暖機)
+//
+// **どれも画面の読み込み (load) が終わってから始める。** マウント時に撃つと、
+// ページ自身の残りがこの通信の後ろに並んで白い画面が伸びる (下の onPageLoaded)。
 //
 // **どれが失敗しても画面は止めない。** オフラインで使えないだけで、
 // オンラインの機能は何一つ変わらない。ただし黙って消えると原因が追えないので
@@ -117,12 +121,20 @@ export function OfflineSync({ version }: OfflineSyncProps) {
       }
     };
 
-    void run();
+    // **読み込みが終わるまで始めない** (docs/65-オフライン対応計画.md §5-7)。
+    // マウント時に撃つと、ページ自身の残り (HTML の続き・CSS・チャンク) が
+    // ここの通信の後ろに並ぶ。実測 v0.22.67 の iPhone (PWA): 版が変わった初回
+    // 起動で、ヘッダーだけ出たまま数十秒 DCL も load も来なかった。
+    // 遅れて困る処理ではない — オフライン用の下ごしらえは数秒後でも等価
+    const cancelWait = onPageLoaded(() => {
+      void run();
+    });
     // 圏外から戻ったときに取り直す (docs/65-オフライン対応計画.md §3-3)。開きっぱなしの端末が
     // 電波を掴んだ瞬間に追いつけるようにする
     window.addEventListener("online", run);
     return () => {
       cancelled = true;
+      cancelWait();
       window.removeEventListener("online", run);
     };
   }, [version]);
