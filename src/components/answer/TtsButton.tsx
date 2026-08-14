@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { primeVoices, speakEnglish, stopSpeaking } from "@/lib/ttsSpeech";
+import { ttsSilenceMessage } from "@/lib/ttsSilence";
 
 interface TtsButtonProps {
   // 読み上げる英語 (見出し語 または 例文)
   text: string;
   // 何を読み上げるボタンかの名前。読み上げ (aria-label) に使う
   label: string;
+  // 鳴らなかったときの知らせ。文面を**自分では描かない** — 行の途中に
+  // 長い警告が割り込むと答えが読めなくなるので、行を知っている側
+  // (VocabAnswer) にまとめて出させる。押し直したときは null で消す
+  onSilence: (message: string | null) => void;
 }
 
 // 本文に埋め込む発音ボタン (docs/81-単語TTS発音計画.md)。
@@ -18,9 +23,8 @@ interface TtsButtonProps {
 //
 // **鳴らないときは黙らない。** 読み上げに対応していない端末では、押しても
 // 何も起きないのではなく理由を出す (押し損ねたのかどうかが判らないため)。
-export function TtsButton({ text, label }: TtsButtonProps) {
+export function TtsButton({ text, label, onSilence }: TtsButtonProps) {
   const [speaking, setSpeaking] = useState(false);
-  const [failed, setFailed] = useState(false);
   // 後片付け (アンマウント) の判断に使う。state はクリーンアップ関数が
   // 作られた時点の値で固まるので、いま鳴っているかは ref で見る
   const speakingRef = useRef(false);
@@ -49,39 +53,36 @@ export function TtsButton({ text, label }: TtsButtonProps) {
       markSpeaking(false);
       return;
     }
-    setFailed(false);
+    onSilence(null);
     // 音が出なかったときも知らせが来る (speakEnglish の引数)。押しても何も
-    // 起きない、が最も困る形なので、鳴らなかったことは必ず言葉にする
+    // 起きない、が最も困る形なので、鳴らなかったことは必ず言葉にする。
+    //
+    // **iPhone で消音・着信音量 0 のときはここに落ちる** — 読み上げは始まらず
+    // (onstart が来ない)、声を外して試し直しても同じなので、鳴らなかったと
+    // 判る。設定そのものはブラウザから読めないので、この経路が唯一の手掛かり
     const started = speakEnglish(text, (spoke) => {
       markSpeaking(false);
       if (!spoke) {
-        setFailed(true);
+        onSilence(ttsSilenceMessage());
       }
     });
     if (!started) {
-      setFailed(true);
+      onSilence(ttsSilenceMessage());
       return;
     }
     markSpeaking(true);
   };
 
   return (
-    <>
-      <button
-        type="button"
-        // 押す的を文字より広く取る (AnswerSpoiler の ▶ と同じ)
-        className="px-1 align-baseline text-sky-700 hover:text-sky-900"
-        aria-label={speaking ? `${label}の再生を止める` : `${label}を再生`}
-        onClick={handleClick}
-      >
-        <SpeakerIcon speaking={speaking} />
-      </button>
-      {failed && (
-        <span className="px-1 text-xs text-gray-600">
-          この端末では読み上げできませんでした
-        </span>
-      )}
-    </>
+    <button
+      type="button"
+      // 押す的を文字より広く取る (AnswerSpoiler の ▶ と同じ)
+      className="px-1 align-baseline text-sky-700 hover:text-sky-900"
+      aria-label={speaking ? `${label}の再生を止める` : `${label}を再生`}
+      onClick={handleClick}
+    >
+      <SpeakerIcon speaking={speaking} />
+    </button>
   );
 }
 

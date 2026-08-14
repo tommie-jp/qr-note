@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { parseVocabAnswer } from "@/lib/vocabTts";
 import { TtsButton } from "./TtsButton";
 
@@ -19,6 +20,9 @@ interface VocabAnswerProps {
 // (電験ノートなど) は素の文字のまま返す — 記法を増やしていないので、
 // 単語帳以外のノートの見た目は 1 文字も変わらない。
 export function VocabAnswer({ text, word }: VocabAnswerProps) {
+  // 鳴らなかったときの知らせ。**行に 1 つだけ**、答えの後ろに出す
+  // (ボタンごとに出すと、答えの途中に長い警告が割り込んで読めなくなる)
+  const [silence, setSilence] = useState<string | null>(null);
   const parsed = parseVocabAnswer(text);
   if (parsed === null) {
     return <>{text}</>;
@@ -28,12 +32,29 @@ export function VocabAnswer({ text, word }: VocabAnswerProps) {
   // 文字を落とさないために、切った物をそのまま並べる
   return (
     <>
-      {word !== null && <TtsButton text={word} label={`${word} の発音`} />}
+      {word !== null && (
+        <TtsButton
+          text={word}
+          label={`${word} の発音`}
+          onSilence={setSilence}
+        />
+      )}
       {parsed.head}
       {parsed.example !== null && (
-        <TtsButton text={parsed.example} label="例文" />
+        <TtsButton text={parsed.example} label="例文" onSilence={setSilence} />
       )}
       {parsed.example}
+      {silence !== null && (
+        // block … 答えの行を割らずに下へ落とす。警告なので地味な灰色にはせず、
+        // かといって枠は持たせない (押した本人だけが見る一時的な知らせ)。
+        // role="status" … 読み上げ環境にも「何か出た」ことを伝える
+        <span
+          className="mt-0.5 block text-xs font-medium text-red-700"
+          role="status"
+        >
+          ⚠ {silence}
+        </span>
+      )}
     </>
   );
 }
