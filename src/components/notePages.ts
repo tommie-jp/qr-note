@@ -219,11 +219,29 @@ export interface PageInsertion {
 // 空行が積み上がる
 export function newPageInsertion(memo: string, offset: number): PageInsertion {
   const pages = splitPages(memo);
-  const page = pages[pageIndexAt(pages, offset)];
+  const index = pageIndexAt(pages, offset);
+  const page = pages[index];
   const from = page.start + page.body.trimEnd().length;
   // ノートの先頭に足すときだけ前の空行が要らない
-  const insert = `${from === 0 ? "" : "\n\n"}${PAGE_SEPARATOR}\n\n`;
-  return { from, to: page.end, insert, cursor: from + insert.length };
+  const head = `${from === 0 ? "" : "\n\n"}${PAGE_SEPARATOR}\n`;
+
+  // **途中に足すときは空行が 2 つ要る。** 1 つ目が新しいページの本文の行で、
+  // 2 つ目が**次の区切りの前**の空行。
+  //
+  // 詰めて 1 つにすると、そこに打ち込んだ瞬間に次の `---` が直前の文字の
+  // 下線 (setext 見出し) になり、区切りとして読まれなくなる — 足したはずの
+  // ページが黙って次のページに融合する。書いている本人には、打った 1 文字で
+  // ページが 1 つ消えたようにしか見えない。
+  //
+  // 末尾に足すときは次の区切りが無いので 1 つでよい
+  const isLastPage = index === pages.length - 1;
+  const insert = `${head}${isLastPage ? "\n" : "\n\n"}`;
+
+  // カーソルは新しいページの本文の行に置く。途中に足したときは**手前の
+  // 空行**に置くこと — 奥に置くと、打った文字が次の区切りの直前に来て
+  // 上と同じ壊れ方をする
+  const cursor = isLastPage ? from + insert.length : from + head.length;
+  return { from, to: page.end, insert, cursor };
 }
 
 // 一覧の顔に使う 1 ページ目 (docs/74 §6)。

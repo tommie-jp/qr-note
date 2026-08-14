@@ -176,8 +176,26 @@ describe("pageIndexAt", () => {
 });
 
 describe("newPageInsertion", () => {
+  // 途中に足すときは区切りの間に**空行を 2 つ**置く。1 つ目が新しいページの
+  // 本文で、2 つ目が次の区切りの前の空行 (下のテストがその理由)
   test("今いるページの直後に区切りを足す", () => {
-    expect(applyInsertion("A\n\n---\n\nB", 0)).toBe("A\n\n---\n\n---\n\nB");
+    expect(applyInsertion("A\n\n---\n\nB", 0)).toBe("A\n\n---\n\n\n---\n\nB");
+  });
+
+  test("途中に足したページは、打ち込んでも次の区切りを壊さない", () => {
+    // Arrange — 2 ページのノートの 1 ページ目で ＋ を押す
+    const memo = "A\n\n---\n\nB";
+
+    // Act — 足した直後の位置に 1 文字打つ
+    const { cursor } = newPageInsertion(memo, 0);
+    const inserted = applyInsertion(memo, 0);
+    const typed = `${inserted.slice(0, cursor)}X${inserted.slice(cursor)}`;
+
+    // Assert — 空行を詰めると、打った文字の下の `---` が setext 見出しの
+    // 下線に化けてページが黙って 1 つ減る
+    expect(splitPages(inserted)).toHaveLength(3);
+    expect(splitPages(typed)).toHaveLength(3);
+    expect(bodies(typed)[1]).toContain("X");
   });
 
   test("末尾の空白を畳んでから足す", () => {
