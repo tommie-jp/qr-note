@@ -2,10 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { primeVoices, speakEnglish, stopSpeaking } from "@/lib/ttsSpeech";
-import {
-  closeMediaAudioSession,
-  openMediaAudioSession,
-} from "@/lib/mediaAudioSession";
 
 interface TtsButtonProps {
   // 読み上げる英語 (見出し語 または 例文)
@@ -43,7 +39,6 @@ export function TtsButton({ text, label }: TtsButtonProps) {
       // 無条件に止めると、別の語を鳴らしている途中で黙らせてしまう
       if (speakingRef.current) {
         stopSpeaking();
-        closeMediaAudioSession();
       }
     };
   }, []);
@@ -51,26 +46,19 @@ export function TtsButton({ text, label }: TtsButtonProps) {
   const handleClick = () => {
     if (speakingRef.current) {
       stopSpeaking();
-      closeMediaAudioSession();
       markSpeaking(false);
       return;
     }
     setFailed(false);
-    // iPhone は着信音量で合成が鳴る (docs/81 §6-1-2)。着信音を切っていると
-    // 無音になるので、**この操作の中で**無音の媒体を鳴らし始めて、
-    // 音声セッションをメディア側へ倒せないかを試す
-    openMediaAudioSession();
     // 音が出なかったときも知らせが来る (speakEnglish の引数)。押しても何も
     // 起きない、が最も困る形なので、鳴らなかったことは必ず言葉にする
     const started = speakEnglish(text, (spoke) => {
-      closeMediaAudioSession();
       markSpeaking(false);
       if (!spoke) {
         setFailed(true);
       }
     });
     if (!started) {
-      closeMediaAudioSession();
       setFailed(true);
       return;
     }
