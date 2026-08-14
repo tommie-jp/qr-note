@@ -170,14 +170,35 @@ export type TtsEndHandler = (spoke: boolean) => void
 // 止めたときに飛ぶ error。端末の不調ではないので「鳴らなかった」とは言わない
 const CANCEL_ERRORS = new Set(['canceled', 'interrupted'])
 
-// 1 回ぶんの読み上げ。onNotStarted は「speak したのに鳴り始めない」ときに呼ぶ。
+// 抱えているときだけ止める。**鳴っていないのに cancel() を呼ぶと、直後の
+// speak() が巻き込まれて無音になる端末がある** (iOS。docs/81 §6-2)。
+// 判断を散らさないよう、止める口はこの 1 つにまとめる
+function cancelIfBusy(synth: SpeechSynthesis): void {
+  if (synth.speaking || synth.pending) {
+    synth.cancel()
+  }
+}
+
+// 1 回ぶんの試行 (utterance 1 つ) の取っ手。
+//
+// **やり直す前・終わった後は abandon で畳む。** 見張り (setTimeout) と
+// utterance のハンドラを持ち主のいないまま残すと、声を外したやり直しが
+// 正しく鳴った数秒後に 1 回目の打ち切りが「鳴らなかった」と言い出し、
+// 抱えていた utterance が遅れて鳴れば onend まで二重に飛ぶ
+interface SpeechAttempt {
+  abandon: () => void
+}
+
+// 1 回ぶんの読み上げ。settle は終わり (成功・失敗) を伝える口で、
+// **1 度しか通らないことを呼ぶ側 (speakEnglish) が保証している。**
+// onNotStarted は「speak したのに鳴り始めない」ときに呼ぶ。
 function speakOnce(
   api: SpeechApi,
   text: string,
   voice: SpeechSynthesisVoice | null,
-  onEnd: TtsEndHandler | undefined,
+  settle: TtsEndHandler,
   onNotStarted: () => void,
-): void {
+): SpeechAttempt {
   const { synth, Utterance } = api
   const utterance = new Utterance(text)
   utterance.lang = TTS_LANG
@@ -193,8 +214,24 @@ function speakOnce(
   const startedAt = Date.now()
   const since = () => Date.now() - startedAt
   let started = false
-  const timer = setTimeout(() => {
-    if (started) {
+  // この試行がまだ当てにされているか。やり直し・停止・打ち切りで false になる。
+  // clearTimeout だけでは、いま走っている見張りの中から畳んだ場合を防げない
+  let live = true
+
+  // この試行を畳む。**ハンドラも外す** — 諦めた utterance が後から鳴り出して
+  // onstart / onend を飛ばしてくることがあり (iOS)、そのまま繋がっていると
+  // 鳴っている途中でボタンが idle に戻ってしまう
+  const abandon = () => {
+    live = false
+    clearTimeout(startTimer)
+    clearTimeout(giveUpTimer)
+    utterance.onstart = null
+    utterance.onend = null
+    utterance.onerror = null
+  }
+
+  const startTimer = setTimeout(() => {
+    if (!live || started) {
       return
     }
     const busy = synth.speaking || synth.pending
@@ -212,39 +249,37 @@ function speakOnce(
   // 抱えたまま鳴り始めない場合の打ち切り。ここまで来ても onstart が無ければ
   // 何も起きていないので、押した見た目を戻して理由を出す
   const giveUpTimer = setTimeout(() => {
-    if (started) {
+    if (!live || started) {
       return
     }
-    started = true
-    clearTimeout(timer)
     logDiagEvent(`[発音] ${TTS_GIVEUP_MS}ms 待っても鳴り始めない`)
-    onEnd?.(false)
+    // **抱えたままの utterance を engine から降ろす。** 残すと、諦めて idle に
+    // 戻したボタンの後ろで鳴り出し (そのボタンでは止められない)、onend が
+    // 「読み終えた」と二重に知らせに来る。
+    // 先にハンドラを外してから止める — cancel の error を「中断」として
+    // 拾うと、失敗ではなく成功で畳んでしまう
+    abandon()
+    cancelIfBusy(synth)
+    settle(false)
   }, TTS_GIVEUP_MS)
 
-  const settle = () => {
-    started = true
-    clearTimeout(timer)
-    clearTimeout(giveUpTimer)
-  }
-
   utterance.onstart = () => {
-    settle()
+    started = true
+    clearTimeout(startTimer)
+    clearTimeout(giveUpTimer)
     logDiagEvent(`[発音] 鳴り始めた +${since()}ms 声=${describeVoice(voice)}`)
   }
   utterance.onend = () => {
-    const wasStarted = started
-    settle()
-    logDiagEvent(`[発音] 読み終えた +${since()}ms (始まり検知=${wasStarted})`)
-    onEnd?.(true)
+    logDiagEvent(`[発音] 読み終えた +${since()}ms (始まり検知=${started})`)
+    settle(true)
   }
   utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-    settle()
     // cancel() で止めたときも error ('canceled' / 'interrupted') が飛ぶ。
     // これは利用者が止めただけなので、鳴らなかったとは言わない
     const error = event?.error ?? '不明'
     const stopped = CANCEL_ERRORS.has(error)
     logDiagEvent(`[発音] 中断 (${error}) +${since()}ms 声=${describeVoice(voice)}`)
-    onEnd?.(stopped)
+    settle(stopped)
   }
 
   // **声の代入は投げることがある。** 一覧から取った声でも、ブラウザが
@@ -264,17 +299,22 @@ function speakOnce(
   // 呼ぶことを求めるので、ここに setTimeout を挟むと黙って捨てられる。
   // cancel() との競合を避けて待ちを入れる手もあるが、待ちの害のほうが大きい
   try {
-    if (synth.speaking || synth.pending) {
-      synth.cancel()
-    }
+    cancelIfBusy(synth)
     synth.speak(utterance)
   } catch (e) {
     // speak 自体が投げたら、見張りを待たずにその場で知らせる
-    settle()
+    abandon()
     logDiagEvent(`[発音] speak が失敗した: ${String(e)}`)
     onNotStarted()
   }
+
+  return { abandon }
 }
+
+// いま走らせている読み上げ 1 回ぶんの終わらせ方。停止 (stopSpeaking) と
+// 次の読み上げの開始から、前の回を畳むために持つ。持たないと「押す前の回」の
+// 打ち切りが後から失敗を知らせ、押していない行に警告が出る
+let settleCurrent: TtsEndHandler | null = null
 
 // 英語として読み上げる。対応していない端末では false を返す
 // (呼ぶ側が「この端末では読み上げできません」と出せるように、黙って捨てない)。
@@ -293,6 +333,11 @@ export function speakEnglish(text: string, onEnd?: TtsEndHandler): boolean {
     logDiagEvent('[発音] この端末に speechSynthesis が無い')
     return false
   }
+
+  // 前の回がまだ終わっていなければ、ここで畳む。下の speak() が cancel で
+  // 前の声を止めるので、前の回は「止まった」= 失敗ではない (true) で終える
+  settleCurrent?.(true)
+
   const voices = api.synth.getVoices()
   const voice = skipVoice ? null : pickEnglishVoice(voices)
   if (!choiceLogged) {
@@ -303,24 +348,71 @@ export function speakEnglish(text: string, onEnd?: TtsEndHandler): boolean {
     )
   }
 
-  speakOnce(api, text, voice, onEnd, () => {
+  // **終わりは 1 度だけ (settle once)。** 終わり方は 1.2 秒のやり直し・
+  // 8 秒の打ち切り・onend・onerror・speak の例外・停止と多く、しかも
+  // 試行が 2 つ並ぶので、通り道を 1 本に絞らないと知らせが二重に飛ぶ。
+  // 飛ぶと「正しく鳴ったのに数秒後に失敗と出る」「鳴っている途中で
+  // ボタンが idle に戻り、止められなくなる」になる (どちらも実際に起きた)
+  let attempts: readonly SpeechAttempt[] = []
+  let settled = false
+  const settle: TtsEndHandler = (spoke) => {
+    if (settled) {
+      return
+    }
+    settled = true
+    if (settleCurrent === settle) {
+      settleCurrent = null
+    }
+    for (const attempt of attempts) {
+      attempt.abandon()
+    }
+    onEnd?.(spoke)
+  }
+  settleCurrent = settle
+
+  // 試行を控える。**取っ手を取りこぼさない** — 同期に失敗した試行 (speak が
+  // 投げる端末) は自分の中でやり直しを始めるので、代入の順で上書きすると
+  // やり直しの見張りが誰にも畳まれずに残る
+  const register = (attempt: SpeechAttempt) => {
+    attempts = [...attempts, attempt]
+    if (settled) {
+      attempt.abandon()
+    }
+  }
+
+  // 鳴り始めなかったときのやり直し (声を外す)。
+  const retryWithoutVoice = () => {
     logDiagEvent(
       `[発音] ${TTS_START_TIMEOUT_MS}ms 鳴り始めない (${describeVoice(voice)}) → 声を外して再試行`,
     )
     // 次からは最初から声を外す (毎回 1.2 秒待たせない)
     skipVoice = true
-    speakOnce(api, text, null, onEnd, () => {
-      logDiagEvent('[発音] 声を外しても鳴らなかった')
-      onEnd?.(false)
-    })
-  })
+    // 1 回目はもう当てにしない。見張りとハンドラを外す。
+    // **cancel はしない** — いま何も抱えていないから試し直しているのであり、
+    // 鳴っていないのに cancel すると直後の speak が巻き込まれる (iOS)
+    for (const attempt of attempts) {
+      attempt.abandon()
+    }
+    register(
+      speakOnce(api, text, null, settle, () => {
+        logDiagEvent('[発音] 声を外しても鳴らなかった')
+        settle(false)
+      }),
+    )
+  }
+
+  register(speakOnce(api, text, voice, settle, retryWithoutVoice))
   return true
 }
 
-// 読み上げを止める。鳴っていなければ何もしない
+// 読み上げを止める。鳴っていなければ音は止めない (iOS の作法) が、
+// **走っている回は必ず畳む** — 鳴り始める前に止めたときは cancel も呼べず
+// onerror も飛ばないので、見張りだけが残って数秒後に「鳴らなかった」と
+// 言い出す。止めたのは利用者なので失敗ではない (spoke=true)
 export function stopSpeaking(): void {
   const api = speechApi()
-  if (api !== null && (api.synth.speaking || api.synth.pending)) {
-    api.synth.cancel()
+  if (api !== null) {
+    cancelIfBusy(api.synth)
   }
+  settleCurrent?.(true)
 }

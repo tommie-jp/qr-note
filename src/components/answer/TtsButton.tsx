@@ -24,9 +24,34 @@ interface TtsButtonProps {
 // **鳴らないときは黙らない。** 読み上げに対応していない端末では、押しても
 // 何も起きないのではなく理由を出す (押し損ねたのかどうかが判らないため)。
 export function TtsButton({ text, label, onSilence }: TtsButtonProps) {
-  const [speaking, setSpeaking] = useState(false);
-  // 後片付け (アンマウント) の判断に使う。state はクリーンアップ関数が
-  // 作られた時点の値で固まるので、いま鳴っているかは ref で見る
+  const { isSpeaking, press } = useTtsPress(text, onSilence);
+
+  return (
+    <button
+      type="button"
+      // 押す的を文字より広く取る (AnswerSpoiler の ▶ と同じ)
+      className="px-1 align-baseline text-sky-700 hover:text-sky-900"
+      aria-label={isSpeaking ? `${label}の再生を止める` : `${label}を再生`}
+      onClick={press}
+    >
+      <SpeakerIcon speaking={isSpeaking} />
+    </button>
+  );
+}
+
+// 押下 1 回ぶんの流れ (鳴らす / 止める / 鳴らなかったと知らせる)。
+//
+// **描画から切り離してある。** この土台に jsdom は無いので、ボタンを置いた
+// まま押し心地を確かめる手が無い (TextSizeMenuItem.test.tsx と同じ制約)。
+// フックにしておけば押下の順番だけを固定できる (TtsButton.test.tsx) —
+// 鳴らなかった回にボタンをどう畳むかは、実機でしか出ない争点そのもの
+export function useTtsPress(
+  text: string,
+  onSilence: (message: string | null) => void,
+) {
+  const [isSpeaking, setSpeaking] = useState(false);
+  // 後片付け (アンマウント) と次の 1 押しの判断に使う。state はクリーンアップ
+  // 関数が作られた時点の値で固まるので、いま鳴っているかは ref で見る
   const speakingRef = useRef(false);
 
   const markSpeaking = (value: boolean) => {
@@ -47,13 +72,19 @@ export function TtsButton({ text, label, onSilence }: TtsButtonProps) {
     };
   }, []);
 
-  const handleClick = () => {
+  const press = () => {
     if (speakingRef.current) {
       stopSpeaking();
       markSpeaking(false);
       return;
     }
     onSilence(null);
+    // **押した印は speakEnglish を呼ぶ前に付ける。** 知らせ (onEnd) はその場で
+    // 同期に飛んでくることがある — 声の代入も speak() も投げる端末では、
+    // 失敗までが 1 本の同期の流れで走る。呼んだ後に印を付けると、既に畳んだ
+    // ボタンを鳴っている顔 (点滅 + 「止める」) に戻してしまい、次の 1 押しが
+    // 止めるほうへ行って 2 度押さないと鳴らなくなる
+    markSpeaking(true);
     // 音が出なかったときも知らせが来る (speakEnglish の引数)。押しても何も
     // 起きない、が最も困る形なので、鳴らなかったことは必ず言葉にする。
     //
@@ -67,23 +98,13 @@ export function TtsButton({ text, label, onSilence }: TtsButtonProps) {
       }
     });
     if (!started) {
+      // 対応していない端末。付けた印をここで戻す (点滅したまま残さない)
+      markSpeaking(false);
       onSilence(ttsSilenceMessage());
-      return;
     }
-    markSpeaking(true);
   };
 
-  return (
-    <button
-      type="button"
-      // 押す的を文字より広く取る (AnswerSpoiler の ▶ と同じ)
-      className="px-1 align-baseline text-sky-700 hover:text-sky-900"
-      aria-label={speaking ? `${label}の再生を止める` : `${label}を再生`}
-      onClick={handleClick}
-    >
-      <SpeakerIcon speaking={speaking} />
-    </button>
-  );
+  return { isSpeaking, press };
 }
 
 // スピーカーのアイコン。アイコンライブラリは足さない (MenuIcons.tsx と

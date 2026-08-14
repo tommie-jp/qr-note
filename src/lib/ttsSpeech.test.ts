@@ -377,6 +377,137 @@ describe('speakEnglish', () => {
   })
 })
 
+// 終わり方が多い (1.2 秒のやり直し・8 秒の打ち切り・onend・onerror・
+// speak の例外・停止) ので、**知らせが二重に飛ばないこと**をまとめて固定する。
+// 二重に飛ぶと「鳴ったのに数秒後に失敗と出る」「鳴っている途中でボタンが
+// 止められなくなる」という、実機でしか出ない形の壊れ方になる
+describe('終わりの知らせは 1 度だけ (settle once)', () => {
+  // speakEnglish の describe と同じ作法 — skipVoice の覚え書きを持ち越さない
+  // ように読み込み直し、見張りを進めるために時計も握る
+  let speak: typeof speakEnglish
+  let stop: typeof stopSpeaking
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.resetModules()
+    const tts = await import('./ttsSpeech')
+    speak = tts.speakEnglish
+    stop = tts.stopSpeaking
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  test('声を外したやり直しが鳴ったら、後から失敗を知らせない', () => {
+    // Arrange — 1 回目の 8 秒の打ち切りが生き残ると、正しく鳴り終えた
+    // 数秒後に「この端末では読み上げできませんでした」が出る
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    const onEnd = vi.fn()
+
+    // Act
+    speak('concise', onEnd)
+    vi.advanceTimersByTime(TTS_START_TIMEOUT_MS)
+    const retried = synth.speak.mock.calls[1][0] as FakeUtterance
+    retried.onstart?.()
+    retried.onend?.()
+    vi.advanceTimersByTime(TTS_GIVEUP_MS)
+
+    // Assert
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledWith(true)
+  })
+
+  test('やり直した後に 1 回目が遅れて鳴っても、知らせは増えない', () => {
+    // Arrange — iOS は speaking / pending が false のまま utterance を
+    // 抱えていることがある (この見張りが在る理由)。やり直した後で
+    // 1 回目が鳴り出すと、読み上げ中なのにボタンが idle に戻ってしまう
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    const onEnd = vi.fn()
+
+    // Act
+    speak('concise', onEnd)
+    vi.advanceTimersByTime(TTS_START_TIMEOUT_MS)
+    const first = synth.speak.mock.calls[0][0] as FakeUtterance
+    const retried = synth.speak.mock.calls[1][0] as FakeUtterance
+    retried.onend?.()
+    first.onstart?.()
+    first.onend?.()
+
+    // Assert — 1 回目のハンドラは外してある (勝手に知らせに来させない)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(first.onend).toBeNull()
+  })
+
+  test('鳴り始める前に止めたら、後から「鳴らなかった」と言わない', () => {
+    // Arrange — 鳴っていないので cancel は呼べず (iOS の作法)、onerror も
+    // 飛ばない。見張りだけが残るので、止めた数秒後に警告が出ていた
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    const onEnd = vi.fn()
+
+    // Act
+    speak('concise', onEnd)
+    stop()
+    vi.advanceTimersByTime(TTS_GIVEUP_MS)
+
+    // Assert — 止めたのは利用者なので失敗ではない
+    expect(synth.cancel).not.toHaveBeenCalled()
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledWith(true)
+  })
+
+  test('打ち切ったら engine からも降ろす (後から鳴り出させない)', () => {
+    // Arrange — 抱えたまま鳴り始めない端末。諦めた utterance を残すと、
+    // ボタンが idle に戻った後で鳴り出し、そのボタンでは止められなくなる
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    const onEnd = vi.fn()
+
+    // Act
+    speak('concise', onEnd)
+    synth.speaking = true
+    vi.advanceTimersByTime(TTS_GIVEUP_MS)
+    const utterance = synth.speak.mock.calls[0][0] as FakeUtterance
+    utterance.onend?.()
+
+    // Assert
+    expect(synth.cancel).toHaveBeenCalledOnce()
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledWith(false)
+  })
+
+  test('speak が毎回投げても、知らせは 1 度だけ', () => {
+    // Arrange — 代入も speak も投げる端末では、失敗までが同期に走る
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    synth.speak.mockImplementation(() => {
+      throw new Error('speak failed')
+    })
+    const onEnd = vi.fn()
+
+    // Act
+    speak('concise', onEnd)
+    vi.advanceTimersByTime(TTS_GIVEUP_MS)
+
+    // Assert
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onEnd).toHaveBeenCalledWith(false)
+  })
+
+  test('別の語を鳴らすと、前の回は失敗ではなく「止まった」で終える', () => {
+    // Arrange — 新しい speak() が cancel で前の声を止めるので、前の行に
+    // 警告を出してはいけない (押していない行に警告が残る)
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    const onFirst = vi.fn()
+
+    // Act
+    speak('concise', onFirst)
+    synth.speaking = true
+    speak('subtle', vi.fn())
+    vi.advanceTimersByTime(TTS_GIVEUP_MS)
+
+    // Assert
+    expect(onFirst).toHaveBeenCalledTimes(1)
+    expect(onFirst).toHaveBeenCalledWith(true)
+  })
+})
+
 describe('stopSpeaking', () => {
   test('読み上げ中なら止める', () => {
     // Arrange
