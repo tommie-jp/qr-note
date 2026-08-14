@@ -11,13 +11,21 @@ import { buildHealthSeries, type HealthSeries } from './healthSeries'
 import { searchItemHealth, type ItemHealthResult } from './items'
 import { requireUser } from './session'
 
-// 1 つのメモに置けるグラフの上限 (MAX_MATRICES_PER_MEMO と同じ考え方・同じ数)。
+// 1 つのメモに置けるグラフの上限 (MAX_MATRICES_PER_MEMO と同じ考え方)。
 // 1 枚につき 1 クエリ走るので、上限が無いと 1 ノートで DB を殴れる。
+//
+// **接続プールは進捗の表と分け合う。** ItemView は同じ Promise.all の中で
+// buildMatrices と buildHealthCharts を並べるので、同時に飛びうるクエリは
+// 「表の枚数 + グラフの枚数 + 添付の集計」になる。PrismaPg にプール設定が
+// 無く pg の既定 (max 10、待ち時間は無制限) が効いているため、ここだけ見て
+// 増やすと、表を持つノートを開いたときに**セッションの照会まで待たされる**。
+// 表と同じ数に揃えておけば、片方の上限を動かすときにもう片方も目に入る。
+//
 // ただし**同じ検索式のフェンスはクエリを共有する** (下の queryCache) ため、
 // 実際に飛ぶクエリは「フェンスの数」ではなく「検索式の種類」で決まる。
 // 体重と体温を並べる使い方 (検索式は同じで y= だけ違う) が典型なので、
-// この共有が効く場面のほうが多い
-export const MAX_HEALTH_CHARTS_PER_MEMO = 10
+// 4 枚が 4 クエリになる場面はそう多くない
+export const MAX_HEALTH_CHARTS_PER_MEMO = 4
 
 // 1 つの ```health フェンスの結果。成功か失敗のどちらか
 export type HealthResult =
