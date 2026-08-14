@@ -1,7 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { anchorPageIndex, NotePager, pageIndexFromHash } from "./NotePager";
+import {
+  anchorPageIndex,
+  NotePager,
+  pageFrameClass,
+  pageIndexFromHash,
+} from "./NotePager";
 
+// サーバ描画では設定 (localStorage) を読みようがないので、必ず既定 =
+// ページ送りありで描かれる (lib/notePagerPref.ts の useNotePagerPaged)
 const render = (names: string[]) =>
   renderToStaticMarkup(
     <NotePager
@@ -45,6 +52,42 @@ test("表示していないページはクラスで隠し、印刷では出す",
 
 test("2 ページ目以降は印刷で改ページする", () => {
   expect(render(["A", "B"])).toContain("print:break-before-page");
+});
+
+// 前後は文字ではなくアイコン (docs/82-ノート操作アイコン計画.md §4)。
+// 文字を消したぶん、名前は読み上げと長押しの吹き出しに残す
+test("前後のボタンはアイコンで、名前は aria-label に残る", () => {
+  const html = render(["A", "B"]);
+  expect(html).toContain('aria-label="前のページ"');
+  expect(html).toContain('aria-label="次のページ"');
+  // ボタンの中身は svg だけ (文字は出さない)
+  expect(html).not.toContain(">次のページ<");
+});
+
+// 枠の着せ替え。通し表示 (docs/82 §3) では 1 枚も隠さず、全ページが続けて出る
+describe("pageFrameClass", () => {
+  test("ページ送り中は開いていないページを隠す", () => {
+    expect(pageFrameClass(true, 1, 0)).toContain("hidden print:block");
+    expect(pageFrameClass(true, 0, 0)).not.toContain("hidden");
+  });
+
+  test("通し表示では 1 枚も隠さない", () => {
+    expect(pageFrameClass(false, 1, 0)).not.toContain("hidden");
+    expect(pageFrameClass(false, 2, 0)).not.toContain("hidden");
+  });
+
+  // 通し表示で `#p3` から送られてきたときに、sticky なヘッダーの下へ
+  // 潜らせない (帯と同じ値)
+  test("枠は sticky ヘッダーぶん手前で止まる", () => {
+    expect(pageFrameClass(false, 2, 0)).toContain("scroll-mt-12");
+  });
+
+  // 隠していても紙には出す。画面のページと紙のページを一致させる
+  test("2 ページ目以降はどちらの表示でも改ページする", () => {
+    expect(pageFrameClass(true, 1, 1)).toContain("print:break-before-page");
+    expect(pageFrameClass(false, 1, 0)).toContain("print:break-before-page");
+    expect(pageFrameClass(false, 0, 0)).not.toContain("break-before");
+  });
 });
 
 describe("pageIndexFromHash", () => {

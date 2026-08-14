@@ -3,11 +3,12 @@ import { ItemTags } from "@/components/ItemTags";
 import { ItemTimestamps } from "@/components/ItemTimestamps";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
 import { LoginButton } from "@/components/LoginButton";
+import { QrIcon } from "@/components/MenuIcons";
 import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { PendingLink } from "@/components/PendingLink";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
-import { renderCircuits } from "@/lib/circuitCache";
+import { planCircuits } from "@/lib/circuitCache";
 
 interface PublicItemViewProps {
   itemNo: string;
@@ -30,8 +31,9 @@ interface PublicItemViewProps {
 // /print も同じ公開判定を通してあるので、押せば実際に開く。
 export async function PublicItemView({ itemNo, item }: PublicItemViewProps) {
   const memo = item.memo;
-  // ```circuitikz は TeX (WASM) で描くため非同期 (ItemView と同じ理由)
-  const circuits = await renderCircuits(memo);
+  // ```circuitikz の描画は始めるだけで待たない (ItemView と同じ理由。
+  // docs/85-回路図表示待ち計画.md §3)
+  const circuits = planCircuits(memo);
 
   return (
     <div className="space-y-4">
@@ -40,11 +42,14 @@ export async function PublicItemView({ itemNo, item }: PublicItemViewProps) {
           item <span className="font-mono">#{itemNo}</span>
         </h1>
         <div className="flex gap-1">
+          {/* 持ち主の画面と同じ見た目にする (docs/82 §2)。長押しの吹き出しは
+              付けない — ここは押せる物が 1 つだけで、隣の文字が既に名前になっている */}
           <PendingLink
             href={`/print/${itemNo}`}
             className={ACTION_LINK_CLASS}
             transitionTypes={["nav-forward"]}
           >
+            <QrIcon />
             QR
           </PendingLink>
         </div>

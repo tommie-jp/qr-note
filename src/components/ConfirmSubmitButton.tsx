@@ -8,6 +8,9 @@ interface ConfirmSubmitButtonProps {
   confirmMessage: string;
   formAction: (formData: FormData) => void | Promise<void>;
   className?: string;
+  // 中身がアイコンだけのときの名前 (公開トグル。docs/82 §6)。
+  // 文字を持つ呼び方では要らないので任意
+  ariaLabel?: string;
 }
 
 // 確認を挟む送信ボタン。取り返しのつかない操作 (永久削除・ゴミ箱を空にする)
@@ -21,10 +24,12 @@ export function ConfirmSubmitButton({
   confirmMessage,
   formAction,
   className = "",
+  ariaLabel,
 }: ConfirmSubmitButtonProps) {
   return (
     <button
       type="submit"
+      aria-label={ariaLabel}
       formAction={formAction}
       onClick={(event) => {
         if (!window.confirm(confirmMessage)) {

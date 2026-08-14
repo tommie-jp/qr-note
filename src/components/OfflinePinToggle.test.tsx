@@ -24,10 +24,19 @@ test("印があるときは外す側の値を送る", () => {
   expect(render(true)).toContain('name="pin" value="0"');
 });
 
-// 状態の差はアイコンと色だけになったので、読み上げにも状態を出す
+// 状態の差はアイコンと色だけなので、読み上げにも状態を出す
 test("aria-pressed が印の状態と一致する", () => {
   expect(render(true)).toContain('aria-pressed="true"');
   expect(render(false)).toContain('aria-pressed="false"');
+});
+
+// 文字は落としてアイコンだけにした (docs/82 §6)。もともと両状態とも
+// 「オフライン」で、状態はアイコンと色でしか言えていなかった
+test("ボタンの中身はアイコンだけで、名前は aria-label に残る", () => {
+  const html = render(false);
+  expect(html).toContain('aria-label="オフライン"');
+  expect(html).toContain("<svg");
+  expect(html).not.toContain(">オフライン<");
 });
 
 // 押す前に量を出すのがこのトグルの役目 (docs/65 §7)。帯を畳んだので

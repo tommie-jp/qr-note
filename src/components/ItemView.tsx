@@ -11,18 +11,27 @@ import {
 import { ItemTags } from "@/components/ItemTags";
 import { ItemTimestamps } from "@/components/ItemTimestamps";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
+import {
+  EditIcon,
+  HistoryIcon,
+  NotationIcon,
+  QrIcon,
+} from "@/components/MenuIcons";
 import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { MemoEditor } from "@/components/MemoEditor";
+import { NotePageModeToggle } from "@/components/NotePageModeToggle";
+import { splitPages } from "@/components/notePages";
 import { OfflinePinToggle } from "@/components/OfflinePinToggle";
 import { PendingLink } from "@/components/PendingLink";
+import { PressTip } from "@/components/PressTip";
 import { PublicToggle } from "@/components/PublicToggle";
 import { SavedToast } from "@/components/SavedToast";
 import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
-import { renderCircuits } from "@/lib/circuitCache";
+import { planCircuits } from "@/lib/circuitCache";
 import { buildHealthCharts } from "@/lib/healthData";
 import { buildMatrices } from "@/lib/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
@@ -43,22 +52,34 @@ interface ItemViewProps {
 // (QR シールを先に貼っておける)。
 export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
   const memo = item?.memo ?? "";
-  // ```circuitikz は TeX (WASM) で描くため非同期。MarkdownView は同期に描くので
-  // ここで済ませて結果を渡す (2 回目以降は DB キャッシュを引くだけ)。
+  // ```circuitikz は TeX (WASM) で描くため非同期。**ここでは待たない**
+  // (docs/85-回路図表示待ち計画.md §3)。始めるだけ始めて約束を渡し、
+  // 描き上がるまでの「準備中」は図の場所だけに出す (CircuitDiagram)。
   //
-  // 印を付けたときに落ちる量も一緒に数える。どちらも memo だけから決まる
-  // 独立な問い合わせなので並べる (直列にすると描画が待つ分だけ遅くなる)
-  const [circuits, attachmentBytes, matrices, health] = await Promise.all([
-    renderCircuits(memo),
+  // await すると初回表示 (DB キャッシュミス) で 1 枚 1〜3 秒、見出しも
+  // 問題文も 1 文字も出せないまま止まる — 本番は 3 コア・空き 750MB で、
+  // 描画のピーク 400MB がそのままページの待ち時間になる
+  const circuits = planCircuits(memo);
+
+  // 印を付けたときに落ちる量も一緒に数える。どれも memo だけから決まる
+  // 独立な問い合わせなので並べる (直列にすると待つ分だけ遅くなる)
+  const [attachmentBytes, matrices, health] = await Promise.all([
     pinAttachmentBytes(memo),
     // ```matrix の集計。**ここ (ログイン済みの画面) からしか渡さない** —
-    // 公開ビューは回路図のために renderCircuits を呼んでいるので、
+    // 公開ビューは回路図のために planCircuits を呼んでいるので、
     // 並べて置くと非公開ノートの一覧が匿名の閲覧者に漏れる (docs/77 §6)
     buildMatrices(memo),
     // ```health の集計も同じ (docs/83 §8)。こちらは体重・体温が並ぶので、
     // 漏れたときの取り返しは学習状況よりつかない
     buildHealthCharts(memo),
   ]);
+
+  // 区切りを書いていないノートにはページの切り替えを出さない (押しても
+  // 見た目が変わらないボタンになる)。**ここで数えるのが素直** — 本文を
+  // 描く NoteBody は本文パネルの奥に居て、ページ数を見出し行へ返す道が無い。
+  // 区切りになりうる行が無ければ remark を通さない近道があるので
+  // (notePages.ts)、大多数のノートでは行を舐めるだけで済む
+  const hasPages = splitPages(memo).length > 1;
 
   return (
     // 縦に隙間を持たない (docs/75-ノート上部圧縮計画.md §4)。見出し行・タグ・
@@ -95,41 +116,60 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
             </>
           )}
         </div>
+        {/* 操作リンクは色付きのアイコン + 文字 (docs/82-ノート操作アイコン計画.md §2)。
+            並んだ 4〜5 個を**絵の形より先に色で拾い分ける**ための色なので、
+            行の中で色が重ならないことがこの一群の要件になる。
+            長押しの吹き出し (PressTip) には、文字より少し詳しい説明を入れる —
+            見えているラベルをなぞるだけの tooltip は読む値打ちがない */}
         <div className="flex flex-wrap gap-1">
-          <Link
-            href={`/edit/${itemNo}`}
-            className={ACTION_LINK_CLASS}
-            transitionTypes={["nav-forward"]}
-          >
-            編集
-          </Link>
-          {/* git 履歴 (docs/57-ノートgit履歴計画.md)。デモでは機能ごと閉じる
-              のでリンクも出さない (PublicToggle と同じ判断) */}
-          {!isDemoMode() && (
+          <PressTip label="このノートを編集する">
             <Link
-              href={`/item/${itemNo}/history`}
+              href={`/edit/${itemNo}`}
               className={ACTION_LINK_CLASS}
               transitionTypes={["nav-forward"]}
             >
-              履歴
+              <EditIcon />
+              編集
             </Link>
+          </PressTip>
+          {/* git 履歴 (docs/57-ノートgit履歴計画.md)。デモでは機能ごと閉じる
+              のでリンクも出さない (PublicToggle と同じ判断) */}
+          {!isDemoMode() && (
+            <PressTip label="いつ何を書き換えたかを見る">
+              <Link
+                href={`/item/${itemNo}/history`}
+                className={ACTION_LINK_CLASS}
+                transitionTypes={["nav-forward"]}
+              >
+                <HistoryIcon />
+                履歴
+              </Link>
+            </PressTip>
           )}
           {/* /print は loading.tsx を持たない force-dynamic なページなので、
               押してから画面が変わるまでの間はリンク側でスピナーを出す */}
-          <PendingLink
-            href={`/print/${itemNo}`}
-            className={ACTION_LINK_CLASS}
-            transitionTypes={["nav-forward"]}
-          >
-            QR
-          </PendingLink>
-          <Link
-            href="/docs/memo"
-            className={ACTION_LINK_CLASS}
-            transitionTypes={["nav-forward"]}
-          >
-            記法
-          </Link>
+          <PressTip label="QR シールを印刷する">
+            <PendingLink
+              href={`/print/${itemNo}`}
+              className={ACTION_LINK_CLASS}
+              transitionTypes={["nav-forward"]}
+            >
+              <QrIcon />
+              QR
+            </PendingLink>
+          </PressTip>
+          {/* ページの切り替えは QR の右 (docs/82 §3)。区切りのあるノートだけ */}
+          {hasPages && <NotePageModeToggle />}
+          <PressTip label="メモ記法の書き方を見る">
+            <Link
+              href="/docs/memo"
+              className={ACTION_LINK_CLASS}
+              transitionTypes={["nav-forward"]}
+            >
+              <NotationIcon />
+              記法
+            </Link>
+          </PressTip>
         </div>
       </div>
 

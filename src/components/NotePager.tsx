@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { COMPACT_SECONDARY_BUTTON_CLASS } from "@/components/ui";
+import { PageNextIcon, PagePrevIcon } from "@/components/MenuIcons";
+import { PressTip } from "@/components/PressTip";
+import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
+import { useNotePagerPaged } from "@/lib/notePagerPref";
 
 // ノートのページ送り (docs/74-ページ計画.md §4)。
 //
@@ -12,6 +15,12 @@ import { COMPACT_SECONDARY_BUTTON_CLASS } from "@/components/ui";
 // 隠したページも DOM には置く。ブラウザのページ内検索が全ページに効き、
 // 印刷では全ページが紙に出る。mermaid は body の一時要素で描かれるので
 // (mermaidRender.ts)、隠れた枠の中でも図が壊れることはない。
+//
+// **ページ送りをやめて通しで読むこともできる** (docs/82 §3)。切り替えるのは
+// 見出し行のボタン (NotePageModeToggle) で、設定の正本は localStorage
+// (lib/notePagerPref.ts) — 間に Server Component が挟まるので props では
+// 繋げない。通し表示は「画面が印刷と同じ積み方になる」だけ — 枠も定義の
+// 配り方もそのままで、隠す class を外して区切りの罫線を戻す。
 //
 // URL のフラグメントは 2 種類ある。`#p3` は「3 ページ目を開く」指定で、
 // それ以外は本文の中のアンカー (脚注の番号・「本文に戻る」・手書きの
@@ -100,7 +109,24 @@ function anchorIn(frame: HTMLElement | null, id: string): HTMLElement | null {
   return null;
 }
 
+// 枠に着せる class。**hidden 属性では隠さない** — それだと印刷でも消える
+// (MemoPanel のタブが「開いているタブしか刷れない」のと同じ罠)。
+// 通し表示では 1 枚も隠さないので、隠す class ごと付けない
+export function pageFrameClass(
+  paged: boolean,
+  index: number,
+  current: number,
+): string {
+  const hidden = paged && index !== current ? "hidden print:block" : "";
+  // 画面のページと紙のページを一致させる (2 ページ目以降は改ページ)
+  const breakBefore = index === 0 ? "" : "print:break-before-page";
+  // scroll-mt-12 … 通し表示で `#p3` から送られてきたときに、ヘッダー
+  // (sticky。layout.tsx) の下へ潜らせない。帯の側と同じ値
+  return `scroll-mt-12 ${hidden} ${breakBefore}`;
+}
+
 export function NotePager({ pages }: NotePagerProps) {
+  const paged = useNotePagerPaged();
   const [index, setIndex] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
   // 各ページの枠。アンカーの飛び先がどのページに居るかを探すために持つ
@@ -118,11 +144,32 @@ export function NotePager({ pages }: NotePagerProps) {
       const hash = window.location.hash;
       const page = pageIndexFromHash(hash, pages.length);
       if (page !== null) {
+        if (!paged) {
+          // 通し表示に隠れたページは無いので、開く代わりにそこまで送る。
+          // 共有された `#p3` のリンクが「開いても何も起きない」にならないように。
+          // ページ送りから切り替えた直後も、読んでいたページの位置に留まれる。
+          // 枠には scroll-mt (pageFrameClass) が当ててあるので、start でも
+          // sticky なヘッダーの下に潜らない
+          requestAnimationFrame(() => {
+            frameRefs.current[page]?.scrollIntoView({ block: "start" });
+          });
+          return;
+        }
         setIndex(page);
         return;
       }
       // #pN 以外は本文の中のアンカー (脚注の番号・「本文に戻る」・手書きの
-      // `[x](#id)`)。**ページを変えない**のが既定で、飛び先が別のページに
+      // `[x](#id)`)。
+      //
+      // **通し表示では手を出さない。** 隠れたページが無いので、ブラウザの
+      // ジャンプは必ず実在する要素に着く — 下の細工はページを開くためのもので、
+      // ここでは要らない。定義を全ページに配ってある (NoteBody) ぶん、同じ脚注を
+      // 2 ページから参照していると文書順で最初の写しに着くが、着く先は同じ文章で、
+      // これは docs/74 §9 で承知した割り切りのまま
+      if (!paged) {
+        return;
+      }
+      // ページ送り中は**ページを変えない**のが既定で、飛び先が別のページに
       // 居るときだけそのページを開く
       const id = anchorId(hash);
       if (id === "") {
@@ -153,7 +200,7 @@ export function NotePager({ pages }: NotePagerProps) {
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
-  }, [current, pages.length]);
+  }, [current, pages.length, paged]);
 
   if (pages.length <= 1) {
     // 区切りを書いていないノートは今までどおりの見た目 (「1 / 1」を見せない)
@@ -178,33 +225,47 @@ export function NotePager({ pages }: NotePagerProps) {
     // 文字サイズ設定 (docs/61) で root が伸びても一緒に伸びる
     <div className="space-y-2 scroll-mt-12" ref={topRef}>
       {/* 帯は画面だけ。紙では全ページが続けて出るので、押せない前後ボタンを
-          刷らない */}
-      <div className="flex items-center gap-2 print:hidden">
-        <button
-          type="button"
-          onClick={() => go(current - 1)}
-          disabled={current === 0}
-          className={`${COMPACT_SECONDARY_BUTTON_CLASS} disabled:opacity-40`}
-        >
-          前のページ
-        </button>
-        <span className="shrink-0 text-sm text-gray-500 tabular-nums">
-          {current + 1} / {pages.length}
-        </span>
-        {/* ページ名は先頭行から作った見出し (notePages.ts)。無題のページも
-            あるので、名前の有無で帯の高さが変わらないよう枠は常に置く */}
-        <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-          {currentPage.name}
-        </span>
-        <button
-          type="button"
-          onClick={() => go(current + 1)}
-          disabled={current === pages.length - 1}
-          className={`${COMPACT_SECONDARY_BUTTON_CLASS} disabled:opacity-40`}
-        >
-          次のページ
-        </button>
-      </div>
+          刷らない。通し表示では帯ごと出さない — 送る先が無いのに「1 / 3」と
+          前後ボタンが居ると、押しても何も起きないボタンになる */}
+      {paged && (
+        <div className="flex items-center gap-2 print:hidden">
+          {/* 前後は文字ではなくアイコン (docs/82 §4)。文字を消したぶん、
+              名前は aria-label と長押しの吹き出しが言う。
+              disabled の薄さは SECONDARY_SKIN が持つ (COMPACT_ICON_BUTTON_CLASS)
+              — 同族の opacity を後から足すと、勝敗はクラスの並び順ではなく
+              生成 CSS の並び順で決まって効いたり効かなかったりする */}
+          <PressTip label="前のページ">
+            <button
+              type="button"
+              aria-label="前のページ"
+              onClick={() => go(current - 1)}
+              disabled={current === 0}
+              className={COMPACT_ICON_BUTTON_CLASS}
+            >
+              <PagePrevIcon />
+            </button>
+          </PressTip>
+          <span className="shrink-0 text-sm text-gray-500 tabular-nums">
+            {current + 1} / {pages.length}
+          </span>
+          {/* ページ名は先頭行から作った見出し (notePages.ts)。無題のページも
+              あるので、名前の有無で帯の高さが変わらないよう枠は常に置く */}
+          <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+            {currentPage.name}
+          </span>
+          <PressTip label="次のページ">
+            <button
+              type="button"
+              aria-label="次のページ"
+              onClick={() => go(current + 1)}
+              disabled={current === pages.length - 1}
+              className={COMPACT_ICON_BUTTON_CLASS}
+            >
+              <PageNextIcon />
+            </button>
+          </PressTip>
+        </div>
+      )}
 
       {pages.map((page, i) => (
         <div
@@ -213,12 +274,13 @@ export function NotePager({ pages }: NotePagerProps) {
           ref={(element) => {
             frameRefs.current[i] = element;
           }}
-          // **hidden 属性では隠さない。** それだと印刷でも消える
-          // (MemoPanel のタブが「開いているタブしか刷れない」のと同じ罠)
-          className={`${i === current ? "" : "hidden print:block"} ${
-            i === 0 ? "" : "print:break-before-page"
-          }`}
+          className={pageFrameClass(paged, i, current)}
         >
+          {/* 通し表示の継ぎ目。本文に書いた `---` がもともと引いていた線を
+              戻すだけ。紙では改ページが継ぎ目なので刷らない */}
+          {!paged && i > 0 && (
+            <hr className="my-4 border-gray-200 print:hidden" />
+          )}
           {page.content}
         </div>
       ))}

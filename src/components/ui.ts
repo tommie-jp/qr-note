@@ -41,10 +41,16 @@ export const ACTION_LINK_CLASS = `${ACTION_LINK_SKIN} min-h-11 px-2`;
 // (BOX_SKIN を py と分けているのと同じ罠)。
 //
 // min-h-11 は隣の ACTION_LINK_CLASS と同じ。見出し行はもともと 44px の
-// リンクを持っているので、この高さでも行は伸びない。文字だけ text-sm で
-// 詰めるのは、見出し + トグル 2 つ + 操作リンク 4 つを 1 行に収めたいため
+// リンクを持っているので、この高さでも行は伸びない。
+//
+// **文字を持たないアイコンだけの正方形**にした (docs/82-ノート操作アイコン計画.md §6)。
+// 状態は絵と色で言い、名前は aria-label と長押しの吹き出し (PressTip) が言う。
+// 操作リンクにアイコンが増えたぶんの幅を、既定の状態 (非公開・印なし) を
+// 読み上げるためだけの文字から返してもらう形になる。
+// 幅の下限も高さと同じだけ取る — 文字が無いぶん的が細くなるので
+// (COMPACT_ICON_BUTTON_CLASS と同じ判断)
 export const STATE_TOGGLE_CLASS =
-  "inline-flex min-h-11 items-center gap-1.5 rounded border px-3 text-sm font-medium transition active:scale-95";
+  "inline-flex min-h-11 w-11 items-center justify-center rounded border transition active:scale-95";
 
 // 以下、**検索画面トップ専用**の詰めた版 (高さ 36px / 文字 14px)。
 //
