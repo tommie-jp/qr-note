@@ -22,8 +22,18 @@ import { requireUser } from './session'
 import type { Sort } from './validation'
 
 // 1 つのメモに置ける表の上限。1 つの表につき 1 クエリ走るので、
-// 上限が無いと 1 ノートで DB を殴れる (MAX_CIRCUITS_PER_MEMO と同じ考え方)
-export const MAX_MATRICES_PER_MEMO = 4
+// 上限が無いと 1 ノートで DB を殴れる (MAX_CIRCUITS_PER_MEMO と同じ考え方)。
+//
+// **10 より上げるときは接続プールを見ること。** ここは Promise.all で
+// 表の数だけ同時にクエリを投げるが、PrismaPg にプール設定が無いので
+// pg の既定 (max 10) が効いている。10 枚でちょうど使い切る。
+//
+// 費用の実体は枚数ではなく**表全体でなめる行数**のほう (1 表
+// MATRIX_ROW_LIMIT=200 行まで、本文の解析が行ごとに走る)。実測では
+// 対象が重ならない 10 枚 × 200 行 = 2000 行で 0.6 秒、実データ規模の
+// 10 枚 × 10 行なら 30ms。行数の上限を下げずに枚数だけ増やしている
+// ことを承知の上で 10 にしている
+export const MAX_MATRICES_PER_MEMO = 10
 
 // 1 つの ```matrix フェンスの結果。成功か失敗のどちらか
 export type MatrixResult =
