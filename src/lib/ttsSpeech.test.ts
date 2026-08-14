@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
+  TTS_GIVEUP_MS,
   TTS_LANG,
   TTS_RATE,
   TTS_START_TIMEOUT_MS,
@@ -262,6 +263,33 @@ describe('speakEnglish', () => {
     expect(retried.voice).toBeNull()
     expect(retried.lang).toBe(TTS_LANG)
     expect(retried.text).toBe('concise')
+  })
+
+  test('エンジンが抱えている間は横取りしない (二重に読み上げない)', () => {
+    // Arrange — iOS は最初の 1 回の立ち上がりが遅いことがある
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+
+    // Act — speak は受け付けられ、まだ鳴り始めていない状態
+    speak('concise')
+    synth.speaking = true
+    vi.advanceTimersByTime(TTS_START_TIMEOUT_MS)
+
+    // Assert
+    expect(synth.speak).toHaveBeenCalledOnce()
+  })
+
+  test('抱えたまま鳴り始めなければ打ち切って知らせる', () => {
+    // Arrange
+    const synth = installSpeech([voice('Samantha', 'en-US')])
+    const onEnd = vi.fn()
+
+    // Act
+    speak('concise', onEnd)
+    synth.speaking = true
+    vi.advanceTimersByTime(TTS_GIVEUP_MS)
+
+    // Assert — 押した見た目のまま固まらせない
+    expect(onEnd).toHaveBeenCalledWith(false)
   })
 
   test('鳴り始めていれば試し直さない (二重に読み上げない)', () => {

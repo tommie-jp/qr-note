@@ -28,6 +28,10 @@ export const TTS_RATE = 0.9
 // 短すぎると鳴り始めた声に二重で被せるので、その間を取る
 export const TTS_START_TIMEOUT_MS = 1200
 
+// エンジンが抱えたまま鳴り始めないときの打ち切り。押した見た目を戻して
+// 理由を出すためだけの上限で、ここまで onstart が無ければ何も起きていない
+export const TTS_GIVEUP_MS = 8000
+
 // 優先して選ぶ声。Apple の自然な英語 (US) 音声を先に、その後 PC ブラウザの
 // 標準的な英語音声を並べる。
 //
@@ -181,21 +185,56 @@ function speakOnce(
 
   // **鳴り始めたかを見張る。** speak() が受け付けられても音が出ないこと
   // (使えない声を指定した・OS 側に弾かれた) があり、その場合 onend も
-  // onerror も飛ばないので、待つ以外に気づく手が無い
+  // onerror も飛ばないので、待つ以外に気づく手が無い。
+  //
+  // ただし**エンジンが抱えている (speaking/pending) 間は横取りしない** —
+  // iOS は最初の 1 回の立ち上がりが遅いことがあり、そこで割り込むと
+  // 二重に読み上げる。抱えたまま黙っているときだけ「鳴らなかった」と見なす
+  const startedAt = Date.now()
+  const since = () => Date.now() - startedAt
   let started = false
   const timer = setTimeout(() => {
-    if (!started) {
-      onNotStarted()
+    if (started) {
+      return
     }
+    const busy = synth.speaking || synth.pending
+    logDiagEvent(
+      `[発音] ${TTS_START_TIMEOUT_MS}ms 無反応 (speaking=${synth.speaking} ` +
+        `pending=${synth.pending}) 声=${describeVoice(voice)}`,
+    )
+    if (busy) {
+      // エンジンは持っている。二重読みを避けてこのまま待つ
+      return
+    }
+    onNotStarted()
   }, TTS_START_TIMEOUT_MS)
+
+  // 抱えたまま鳴り始めない場合の打ち切り。ここまで来ても onstart が無ければ
+  // 何も起きていないので、押した見た目を戻して理由を出す
+  const giveUpTimer = setTimeout(() => {
+    if (started) {
+      return
+    }
+    started = true
+    clearTimeout(timer)
+    logDiagEvent(`[発音] ${TTS_GIVEUP_MS}ms 待っても鳴り始めない`)
+    onEnd?.(false)
+  }, TTS_GIVEUP_MS)
+
   const settle = () => {
     started = true
     clearTimeout(timer)
+    clearTimeout(giveUpTimer)
   }
 
-  utterance.onstart = settle
-  utterance.onend = () => {
+  utterance.onstart = () => {
     settle()
+    logDiagEvent(`[発音] 鳴り始めた +${since()}ms 声=${describeVoice(voice)}`)
+  }
+  utterance.onend = () => {
+    const wasStarted = started
+    settle()
+    logDiagEvent(`[発音] 読み終えた +${since()}ms (始まり検知=${wasStarted})`)
     onEnd?.(true)
   }
   utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
@@ -204,9 +243,7 @@ function speakOnce(
     // これは利用者が止めただけなので、鳴らなかったとは言わない
     const error = event?.error ?? '不明'
     const stopped = CANCEL_ERRORS.has(error)
-    if (!stopped) {
-      logDiagEvent(`[発音] 失敗 (${error}) 声=${describeVoice(voice)}`)
-    }
+    logDiagEvent(`[発音] 中断 (${error}) +${since()}ms 声=${describeVoice(voice)}`)
     onEnd?.(stopped)
   }
 
