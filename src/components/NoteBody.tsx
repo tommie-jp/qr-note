@@ -1,7 +1,7 @@
 import { MarkdownView } from "@/components/MarkdownView";
 import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
 import { NotePager } from "@/components/NotePager";
-import { splitPages } from "@/components/notePages";
+import { noteDefinitions, splitPages } from "@/components/notePages";
 import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
 import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
 import type { CircuitMap } from "@/lib/circuitCache";
@@ -19,6 +19,11 @@ import type { MatrixMap } from "@/lib/matrixData";
 // **行番号のずれをここ 1 か所で吸収する。** ページごとに描くと
 // rehypeTaskLines の行番号がページの中で 1 に戻るため、開始行を足して
 // 本文全体に対する番号に戻す (呼ぶ側に足し算を配らない)。
+//
+// **ページを跨ぐ定義 (脚注・参照リンク) もここで吸収する。** ページごとに
+// パースするので、定義と参照が違うページに落ちると参照は生の `[^1]` の文字に、
+// 定義のほうは何も描かれず注釈の文章がノートから消える (notePages.ts の
+// noteDefinitions)。
 
 interface NoteBodyProps {
   memo: string;
@@ -30,6 +35,16 @@ interface NoteBodyProps {
   onToggleTask?: ToggleTaskHandler;
 }
 
+// 定義は**ページの本文の後ろ**に足す。前に足すと、そのページの
+// チェックボックスの行番号 (rehypeTaskLines) が定義の行数だけずれて、
+// 押したときに本文の別の行が反転する。
+//
+// 空行を 1 つ挟むのは、本文が段落の途中で終わっているとき (区切りの直前に
+// 空行が無い形) に、定義が段落の続きとして読まれてしまうため
+function withDefinitions(body: string, definitions: string): string {
+  return definitions === "" ? body : `${body}\n\n${definitions}\n`;
+}
+
 export function NoteBody({
   memo,
   circuits,
@@ -39,11 +54,15 @@ export function NoteBody({
   allowSecretEdit,
   onToggleTask,
 }: NoteBodyProps) {
-  const pages = splitPages(memo).map((page) => ({
+  const notePages = splitPages(memo);
+  // 1 ページのノートは本文まるごとで、定義は元の場所に居る。配る必要が無いので
+  // パースも省く (実データの大多数がこのノート)
+  const definitions = notePages.length > 1 ? noteDefinitions(memo) : "";
+  const pages = notePages.map((page) => ({
     name: page.name,
     content: (
       <MarkdownView
-        markdown={page.body}
+        markdown={withDefinitions(page.body, definitions)}
         circuits={circuits}
         matrices={matrices}
         linkTags={linkTags}

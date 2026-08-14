@@ -12,6 +12,11 @@ import { COMPACT_SECONDARY_BUTTON_CLASS } from "@/components/ui";
 // 隠したページも DOM には置く。ブラウザのページ内検索が全ページに効き、
 // 印刷では全ページが紙に出る。mermaid は body の一時要素で描かれるので
 // (mermaidRender.ts)、隠れた枠の中でも図が壊れることはない。
+//
+// URL のフラグメントは 2 種類ある。`#p3` は「3 ページ目を開く」指定で、
+// それ以外は本文の中のアンカー (脚注の番号・「本文に戻る」・手書きの
+// `[x](#id)`) — **後者でページを動かしてはいけない** (pageIndexFromHash /
+// anchorPageIndex に経緯)。
 
 export interface NotePagerPage {
   name: string;
@@ -29,10 +34,16 @@ function pageHash(index: number): string {
   return `#p${index + 1}`;
 }
 
-export function pageIndexFromHash(hash: string, count: number): number {
+// フラグメントが指すページ。**#pN 以外は null (ページの指定ではない)。**
+//
+// 1 ページ目に丸めていた頃は、本文の中のアンカー — 脚注の番号
+// (`#user-content-fn-1`)・「本文に戻る」(`#user-content-fnref-1`)・手書きの
+// `[x](#id)` — を押すたびに読んでいたページから 1 ページ目へ引き戻され、
+// 飛び先は隠れたページの中なので**何も起きないように見えた**
+export function pageIndexFromHash(hash: string, count: number): number | null {
   const matched = HASH_PATTERN.exec(hash);
   if (matched === null) {
-    return 0;
+    return null;
   }
   const page = Number(matched[1]);
   // 範囲外は 1 ページ目に丸める — 共有したリンクの番号が、ページを減らした
@@ -40,20 +51,109 @@ export function pageIndexFromHash(hash: string, count: number): number {
   return page >= 1 && page <= count ? page - 1 : 0;
 }
 
+// アンカーの飛び先が居るページ (hasAnchor は「その枠に飛び先があるか」の並び)。
+//
+// **開いているページを先に見る。** 脚注の定義は全ページに配ってあるので
+// (NoteBody)、同じ id が何ページにも居る — 素直に先頭から探すと、3 ページ目の
+// 脚注を押した人が 1 ページ目へ飛ばされる。
+//
+// どのページにも無ければ null = ページを変えない (ノートの外を指すリンク・
+// まだ描かれていない飛び先)
+export function anchorPageIndex(
+  hasAnchor: readonly boolean[],
+  current: number,
+): number | null {
+  if (hasAnchor[current]) {
+    return current;
+  }
+  const found = hasAnchor.indexOf(true);
+  return found === -1 ? null : found;
+}
+
+// フラグメントの中身 (`#` を外して %XX を戻したもの)。日本語の id へのリンクは
+// %E3.. の形で URL に載る。壊れた %XX (手で書いたリンク) は戻さずそのまま
+// 照合する — 指す先が無ければ下の探索が空振りするだけ
+function anchorId(hash: string): string {
+  const raw = hash.slice(1);
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+// 枠の中で id を持つ要素。**document.getElementById は使えない** — 定義を
+// 全ページに配ってある (NoteBody) ので同じ id が何ページにも居て、返るのは
+// いつも先頭のページの物になる。
+//
+// querySelector の `#id` も使わない — 本文に書ける id は CSS の識別子として
+// 不正なことがある (数字始まり・記号) ので、id 属性を持つ要素を見て回る
+function anchorIn(frame: HTMLElement | null, id: string): HTMLElement | null {
+  if (frame === null || id === "") {
+    return null;
+  }
+  for (const element of frame.querySelectorAll<HTMLElement>("[id]")) {
+    if (element.id === id) {
+      return element;
+    }
+  }
+  return null;
+}
+
 export function NotePager({ pages }: NotePagerProps) {
   const [index, setIndex] = useState(0);
   const topRef = useRef<HTMLDivElement>(null);
+  // 各ページの枠。アンカーの飛び先がどのページに居るかを探すために持つ
+  const frameRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // 保存でページが減っても、開いていた番号は state に残る (MemoPanel は
+  // パネルを unmount しないため)。描く前に丸めないと pages[index] が
+  // undefined になって画面ごと落ちる
+  const current = Math.min(index, pages.length - 1);
 
   // フラグメントはサーバに届かない (URL の # から先はリクエストに乗らない)。
   // 初期描画は必ず 1 ページ目で、マウント後にここで合わせる
   useEffect(() => {
     const sync = () => {
-      setIndex(pageIndexFromHash(window.location.hash, pages.length));
+      const hash = window.location.hash;
+      const page = pageIndexFromHash(hash, pages.length);
+      if (page !== null) {
+        setIndex(page);
+        return;
+      }
+      // #pN 以外は本文の中のアンカー (脚注の番号・「本文に戻る」・手書きの
+      // `[x](#id)`)。**ページを変えない**のが既定で、飛び先が別のページに
+      // 居るときだけそのページを開く
+      const id = anchorId(hash);
+      if (id === "") {
+        return;
+      }
+      const targets = frameRefs.current.map((frame) => anchorIn(frame, id));
+      const found = anchorPageIndex(
+        targets.map((target) => target !== null),
+        current,
+      );
+      if (found === null) {
+        return;
+      }
+      setIndex(found);
+      // **ブラウザのジャンプには任せられない。** 定義を全ページに配ってある
+      // (NoteBody) ので同じ id が何ページにも居て、ブラウザが選ぶのは文書順で
+      // 最初の物 = 隠れているページの要素。display:none へはスクロールできず、
+      // 押しても何も起きないように見える。
+      //
+      // 送るのは次の描画の枠で。ページを開き直した直後はまだ display:none で、
+      // その場で呼んでも動かない
+      requestAnimationFrame(() => {
+        // ヘッダーが sticky (layout.tsx) なので start だと帯の下に潜る。
+        // 本文の途中の要素に scroll-mt は当てられないため真ん中に置く
+        targets[found]?.scrollIntoView({ block: "center" });
+      });
     };
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
-  }, [pages.length]);
+  }, [current, pages.length]);
 
   if (pages.length <= 1) {
     // 区切りを書いていないノートは今までどおりの見た目 (「1 / 1」を見せない)
@@ -70,10 +170,6 @@ export function NotePager({ pages }: NotePagerProps) {
     topRef.current?.scrollIntoView({ block: "start" });
   };
 
-  // 保存でページが減っても、開いていた番号は state に残る (MemoPanel は
-  // パネルを unmount しないため)。描く前に丸めないと pages[index] が
-  // undefined になって画面ごと落ちる
-  const current = Math.min(index, pages.length - 1);
   const currentPage = pages[current];
 
   return (
@@ -114,6 +210,9 @@ export function NotePager({ pages }: NotePagerProps) {
         <div
           // ページは本文の切れ端で、順番より他に見分ける印が無い
           key={i}
+          ref={(element) => {
+            frameRefs.current[i] = element;
+          }}
           // **hidden 属性では隠さない。** それだと印刷でも消える
           // (MemoPanel のタブが「開いているタブしか刷れない」のと同じ罠)
           className={`${i === current ? "" : "hidden print:block"} ${

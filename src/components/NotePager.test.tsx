@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { NotePager, pageIndexFromHash } from "./NotePager";
+import { anchorPageIndex, NotePager, pageIndexFromHash } from "./NotePager";
 
 const render = (names: string[]) =>
   renderToStaticMarkup(
@@ -52,14 +52,34 @@ describe("pageIndexFromHash", () => {
     expect(pageIndexFromHash("#p3", 5)).toBe(2);
   });
 
-  test("フラグメントが無ければ 1 ページ目", () => {
-    expect(pageIndexFromHash("", 5)).toBe(0);
-    expect(pageIndexFromHash("#other", 5)).toBe(0);
+  // #pN 以外は「ページの指定ではない」印の null。1 ページ目に丸めていた頃は、
+  // 脚注の番号や「本文に戻る」を押すたびに読んでいたページから引き戻され、
+  // 飛び先が隠れたページの中に入って何も起きなかった
+  test("#pN 以外のフラグメントではページを変えない", () => {
+    expect(pageIndexFromHash("#user-content-fn-1", 5)).toBeNull();
+    expect(pageIndexFromHash("#other", 5)).toBeNull();
+    expect(pageIndexFromHash("", 5)).toBeNull();
   });
 
   // 共有されたリンクの番号が、ページを減らした後の本文に合わないことがある
   test("範囲外の番号は 1 ページ目に丸める", () => {
     expect(pageIndexFromHash("#p9", 5)).toBe(0);
     expect(pageIndexFromHash("#p0", 5)).toBe(0);
+  });
+});
+
+// アンカーの飛び先が居るページ (真偽の並びは「この枠に飛び先があるか」)。
+// 脚注の定義は全ページに配ってあるので (NoteBody)、同じ id が何ページにも居る
+describe("anchorPageIndex", () => {
+  test("開いているページに飛び先があればそのページのまま", () => {
+    expect(anchorPageIndex([true, false, true], 2)).toBe(2);
+  });
+
+  test("別のページに飛び先があればそのページへ送る", () => {
+    expect(anchorPageIndex([false, true, false], 0)).toBe(1);
+  });
+
+  test("どのページにも無ければ null (ページを変えない)", () => {
+    expect(anchorPageIndex([false, false], 1)).toBeNull();
   });
 });

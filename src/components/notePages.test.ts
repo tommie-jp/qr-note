@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   firstPageSource,
   newPageInsertion,
+  noteDefinitions,
   pageIndexAt,
   splitPages,
 } from "./notePages";
@@ -33,6 +34,20 @@ describe("splitPages", () => {
   test("段落の直後の罫線 (setext 見出し) では分かれない", () => {
     const memo = "赤LED\n------\n点灯    充電中\n消灯    完了\n";
     expect(splitPages(memo)).toHaveLength(1);
+  });
+
+  // 列を空白で揃えた表の罫線。ダッシュだけの行 (`------`) は setext 見出しの
+  // 下線になるが、空白を挟んだ行 (`----    ----`) は CommonMark では水平線 —
+  // 素通しにすると既存ノートの表が見出しの行と中身で別のページにちぎれる
+  test("空白で列を揃えた表の罫線でも分かれない", () => {
+    const memo = "点灯    充電中\n----    ----\n消灯    完了\n";
+    expect(bodies(memo)).toEqual([memo]);
+  });
+
+  // 段落に食い込む線は区切りにしない (上と同じ規則)。空行を挟めば今までどおり
+  test("段落に食い込む水平線は区切りにならない", () => {
+    expect(splitPages("前\n***\n後")).toHaveLength(1);
+    expect(splitPages("前\n\n***\n\n後")).toHaveLength(2);
   });
 
   test("コードフェンスの中の水平線では分かれない", () => {
@@ -110,6 +125,37 @@ describe("splitPages", () => {
   // 近道の判定は本物の規則より広く拾う。空白入りの `- - -` も水平線
   test("空白を挟んだ `- - -` も水平線として分かれる", () => {
     expect(splitPages("前\n\n- - -\n\n後")).toHaveLength(2);
+  });
+
+  // 改行が CRLF の本文 (Windows で書いた物の貼り付け・ENEX 取り込み)。
+  // 近道の判定 (`$`) は \r の手前でも当たるので remark と読み方が揃う
+  test("CRLF の本文でもページが分かれる", () => {
+    const memo = "前\r\n\r\n---\r\n\r\n後";
+    expect(bodies(memo)).toEqual(["前\r\n\r\n", "\r\n後"]);
+    // 開始行は空行を含めて 4 行目 (中身の `後` は 5 行目)
+    expect(splitPages(memo)[1].line).toBe(4);
+  });
+});
+
+// ページごとに描くと、定義 (脚注・参照リンク) と参照が別のページに落ちた
+// ときに参照は生の文字・定義は何も描かれない (docs/74 §4)。配る材料を作る側
+describe("noteDefinitions", () => {
+  test("脚注と参照リンクの定義を原文のまま集める", () => {
+    const memo =
+      "本文[^1] と [サイト][x]\n\n---\n\n[^1]: 注釈です\n\n[x]: https://example.com\n";
+    expect(noteDefinitions(memo)).toBe(
+      "[^1]: 注釈です\n\n[x]: https://example.com",
+    );
+  });
+
+  // 脚注は字下げで続きを書ける。行ではなく mdast の範囲で切るので付いてくる
+  test("段落の続きを持つ脚注は字下げの行まで含める", () => {
+    const memo = "本文[^1]\n\n[^1]: 一段落目\n\n    二段落目\n";
+    expect(noteDefinitions(memo)).toBe("[^1]: 一段落目\n\n    二段落目");
+  });
+
+  test("定義が無ければ空文字", () => {
+    expect(noteDefinitions("ただのメモ\n\n---\n\nつづき")).toBe("");
   });
 });
 

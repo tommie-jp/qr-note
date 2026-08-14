@@ -1,4 +1,4 @@
-import type { Root } from "mdast";
+import type { Root, RootContent, ThematicBreak } from "mdast";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { memoSummary } from "@/lib/memoSummary";
@@ -67,29 +67,68 @@ function countNewlines(memo: string, from: number, to: number): number {
 // **本物の規則より広く拾う**判定で、これに 1 行も当たらない本文は remark を
 // 通さずに 1 ページとして返す。一覧は 60 件をまとめて描くので、パースを
 // 省ける効果が効く (実データでは 599 件中 11 件しか当たらない)。
-// 迷ったら通す側へ倒すこと — 狭いと区切りを見落とす
+// 迷ったら通す側へ倒すこと — 狭いと区切りを見落とす。
+//
+// CRLF の本文 (Windows で書いた物の貼り付け・ENEX 取り込み) も拾える。
+// ECMAScript の `$` は \n だけでなく \r の手前でも当たる (LineTerminator に
+// CR が入っている) ので、`---\r\n` の行を取りこぼさない
 const MAYBE_THEMATIC_BREAK = /^[ \t]*[-*_][ \t]*[-*_][ \t]*[-*_][-*_ \t]*$/m;
+
+// parse だけで足りる (run は要らない) — 区切りも定義も構文の段階で決まる。
+// ただしプラグインの登録は描画と同じにしておかないと、micromark 拡張を
+// 持つもの (表・数式・折りたたみ) の読み方がずれる
+function parseNote(memo: string): Root {
+  return unified()
+    .use(remarkParse)
+    .use(BASE_REMARK_PLUGINS)
+    .parse(memo) as Root;
+}
+
+// 段落に食い込む罫線か (直前の行が段落の続き)。
+//
+// **ここだけは remark の解釈から意図的に外れる。** ダッシュだけの行
+// (`赤LED` + `------`) は setext 見出しの下線なので remark も区切りと読まないが、
+// 空白を挟んだ行 (`----    ----`) は CommonMark では水平線 — つまり**列を空白で
+// 揃えた表の罫線**が区切りに見える。既存ノートの表がまさにこの形で、割ると
+// 見出しの行と中身が別のページにちぎれる (一覧の顔になる 1 ページ目から
+// 中身が消える)。
+//
+// 案内している区切りの書き方は「前に空行を置いた `---`」(docs/メモ記法.md) で、
+// 段落の直後に書いた人が空行を 1 つ足す手間のほうが、表が黙って割れる損より
+// 軽い。表 (gfm) やリストの直後の `---` は今までどおり区切り — あちらは
+// 段落ではないので、ここには来ない。
+//
+// 割り切り: 描画は CommonMark どおり水平線 (`<hr>`) を出すので、「線は出るのに
+// ページは分かれない」形が 1 つ増える (docs/74 §2)
+function interruptsParagraph(
+  node: ThematicBreak,
+  previous: RootContent | undefined,
+): boolean {
+  if (previous?.type !== "paragraph") {
+    return false;
+  }
+  const above = previous.position?.end.line;
+  const at = node.position?.start.line;
+  return above !== undefined && at !== undefined && above === at - 1;
+}
 
 export function splitPages(memo: string): NotePage[] {
   if (!MAYBE_THEMATIC_BREAK.test(memo)) {
     return [makePage(memo, 0, memo.length, 1)];
   }
 
-  // parse だけで足りる (run は要らない) — 区切りは構文の段階で決まる。
-  // ただしプラグインの登録は描画と同じにしておかないと、micromark 拡張を
-  // 持つもの (表・数式・折りたたみ) の読み方がずれる
-  const tree = unified()
-    .use(remarkParse)
-    .use(BASE_REMARK_PLUGINS)
-    .parse(memo) as Root;
-
+  const children = parseNote(memo).children;
   const pages: NotePage[] = [];
   let start = 0;
   let line = 1;
   // **最上位の子だけを見る**。引用・リスト・折りたたみの中の水平線は
   // その入れ物の一部で、ノートを割る区切りではない
-  for (const node of tree.children) {
+  for (let i = 0; i < children.length; i++) {
+    const node = children[i];
     if (node.type !== "thematicBreak") {
+      continue;
+    }
+    if (interruptsParagraph(node, children[i - 1])) {
       continue;
     }
     const from = node.position?.start.offset;
@@ -110,6 +149,46 @@ export function splitPages(memo: string): NotePage[] {
   // そのもので、畳むと押しても増えていないように見える
   pages.push(makePage(memo, start, memo.length, line));
   return pages;
+}
+
+// 定義行の目印 (`[^1]: 注釈` / `[x]: https://…`)。どちらも `]:` を持つので、
+// 1 つも無い本文は remark を通さずに済む (MAYBE_THEMATIC_BREAK と同じ近道)
+const DEFINITION_MARK = "]:";
+
+// ページを跨ぐ定義 (脚注 `[^1]: …` と参照リンク `[x]: …`) の原文を集める
+// (docs/74-ページ計画.md §4)。
+//
+// **ページは別々にパースされる**ので、定義と参照が違うページに落ちると
+// 両方が壊れる — 参照は生の `[^1]` の文字になり、定義のほうは何も描かれずに
+// 注釈の文章がノートから消える。`---` の下に脚注をまとめて書くのはごく普通の
+// 形なので、集めた定義を全ページの末尾に配って繋ぐ (配るのは NoteBody)。
+//
+// **配っても増えない**のが要点: remark は参照されていない定義を捨てるので、
+// 脚注の一覧に出るのはそのページが実際に使った物だけ。参照リンクの定義は
+// そもそも何も描かない。定義が元から居るページには二重に届くが、同じ名前の
+// 定義は先の 1 つが勝つので出るものは変わらない。
+//
+// **最上位の子だけを見る**のは区切りと同じ理由 — 引用やリストの中の定義は
+// 原文に `> ` や字下げが付いていて、切り出して他のページに貼れない
+export function noteDefinitions(memo: string): string {
+  if (!memo.includes(DEFINITION_MARK)) {
+    return "";
+  }
+  const sources: string[] = [];
+  for (const node of parseNote(memo).children) {
+    if (node.type !== "definition" && node.type !== "footnoteDefinition") {
+      continue;
+    }
+    const from = node.position?.start.offset;
+    const to = node.position?.end.offset;
+    if (from === undefined || to === undefined) {
+      continue;
+    }
+    // 行ではなく mdast の範囲で切る — 脚注は字下げで段落を続けられるので、
+    // 1 行だけ持っていくと続きが落ちる
+    sources.push(memo.slice(from, to));
+  }
+  return sources.join("\n\n");
 }
 
 // offset がどのページに居るか。区切り行の上 (ページとページの隙間) は
