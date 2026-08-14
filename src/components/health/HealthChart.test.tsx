@@ -26,6 +26,22 @@ function chart(
   return renderToStaticMarkup(<HealthChart result={result} code="#健康管理" />);
 }
 
+// 記録欄つき (ノート閲覧と同じ形)
+function chartWithForm(memo: string, item: string | null = null): string {
+  return renderToStaticMarkup(
+    <HealthChart
+      result={{
+        kind: "chart",
+        series: buildHealthSeries([{ itemNo: "4551", memo }], item, 30),
+        query: "#健康管理",
+        omittedNotes: 0,
+      }}
+      code="#健康管理"
+      onRecord={async () => {}}
+    />,
+  );
+}
+
 describe("HealthChart", () => {
   test("項目名・最新値・増減・件数を線の外に出す", () => {
     const html = chart(AUGUST);
@@ -99,6 +115,26 @@ describe("HealthChart", () => {
   test("読まなかったノートがあれば数を言う", () => {
     const html = chart(AUGUST, "体重", 30, { omittedNotes: 12 });
     expect(html).toContain("他 12 件のノートは読んでいません");
+  });
+
+  test("記録欄は保存の口を渡したときだけ出る", () => {
+    expect(chart(AUGUST)).not.toContain('type="date"');
+    expect(chartWithForm(AUGUST)).toContain('type="date"');
+    // 項目名と単位は本文から引き継ぐ (人に選ばせない)
+    expect(chartWithForm(AUGUST)).toContain("kg");
+    expect(chartWithForm(AUGUST)).toContain("記録");
+  });
+
+  test("まだ記録が無くても、項目が判っていれば記録欄を出す", () => {
+    const html = chartWithForm("# 健康管理\n\n#健康管理", "体重");
+    expect(html).toContain('type="date"');
+    expect(html).toContain("「体重」の記録がありません");
+  });
+
+  test("項目が判らないときは記録欄を出さず、書き方を教える", () => {
+    const html = chartWithForm("# 健康管理\n\n#健康管理");
+    expect(html).not.toContain('type="date"');
+    expect(html).toContain("y=体重");
   });
 
   test("書き方のエラーは元のソースを添えて出す", () => {

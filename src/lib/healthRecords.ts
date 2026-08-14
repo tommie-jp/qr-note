@@ -51,6 +51,12 @@ const UNIT_RE = /^[^0-9０-９\s　]*$/u
 // フェンスの開始・終了行 (``` または ~~~)
 const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/
 
+// 記録として書ける日付か (ISO の形 + 暦にある日)。
+// 記録欄から来た日付を書く前に検めるのにも使う (healthEdit.ts)
+export function isRecordDate(text: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) && isRealDate(text)
+}
+
 // 暦にある日付か。2026-02-30 のような行は記録として読まない
 function isRealDate(iso: string): boolean {
   const year = Number(iso.slice(0, 4))
@@ -62,6 +68,25 @@ function isRealDate(iso: string): boolean {
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day
   )
+}
+
+// 1 行を「日付 + その後ろ」に割る。読めなければ null。
+//
+// **読む側 (healthDataLines) と書く側 (healthEdit) が同じ物差しを使う**ための
+// 関数。書く側は行の中の位置が要るので、後ろの部分の開始位置も返す
+// (rest は行末までの捕獲なので、行の末尾から数えれば位置が判る)
+export function matchDataLine(
+  text: string,
+): { date: string; rest: string; restStart: number } | null {
+  const matched = DATA_LINE_RE.exec(text)
+  if (matched === null) {
+    return null
+  }
+  const [, date, rest = ''] = matched
+  if (!isRealDate(date)) {
+    return null
+  }
+  return { date, rest, restStart: text.length - rest.length }
 }
 
 // `体重=66.4kg` を 1 つの測定値にする。読めなければ null
@@ -113,15 +138,12 @@ export function healthDataLines(memo: string): HealthDataLine[] {
       return
     }
 
-    const matched = DATA_LINE_RE.exec(text)
+    const matched = matchDataLine(text)
     if (matched === null) {
       return
     }
-    const [, date, rest] = matched
-    if (!isRealDate(date)) {
-      return
-    }
-    const measures = (rest ?? '')
+    const { date, rest } = matched
+    const measures = rest
       .split(TOKEN_SEPARATOR)
       .flatMap((token) => {
         const measure = parseMeasureToken(token)

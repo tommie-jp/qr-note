@@ -2,6 +2,7 @@ import { MarkdownView } from "@/components/MarkdownView";
 import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
 import { NotePager } from "@/components/NotePager";
 import { noteDefinitions, splitPages } from "@/components/notePages";
+import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
 import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
 import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
 import type { CircuitMap } from "@/lib/circuitCache";
@@ -35,6 +36,7 @@ interface NoteBodyProps {
   allowRotate?: boolean;
   allowSecretEdit?: boolean;
   onToggleTask?: ToggleTaskHandler;
+  onRecordHealth?: RecordHealthHandler;
 }
 
 // 定義は**ページの本文の後ろ**に足す。前に足すと、そのページの
@@ -56,6 +58,7 @@ export function NoteBody({
   allowRotate,
   allowSecretEdit,
   onToggleTask,
+  onRecordHealth,
 }: NoteBodyProps) {
   const notePages = splitPages(memo);
   // 1 ページのノートは本文まるごとで、定義は元の場所に居る。配る必要が無いので
@@ -73,6 +76,7 @@ export function NoteBody({
         allowRotate={allowRotate}
         allowSecretEdit={allowSecretEdit}
         onToggleTask={onToggleTask}
+        onRecordHealth={onRecordHealth}
         lineOffset={page.line - 1}
       />
     ),

@@ -5,12 +5,23 @@ import {
   type HealthAxis,
   type HealthPoint,
 } from "@/lib/healthSeries";
+import {
+  HealthRecordForm,
+  type RecordHealthHandler,
+} from "@/components/health/HealthRecordForm";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
+import { formatJstDate } from "@/lib/datetime";
 
 interface HealthChartProps {
   result: HealthResult;
   // エラー時に「何を書いたか」を出すための元ソース
   code: string;
+  // 記録欄からの保存 (docs/83 §7)。省略すると記録欄そのものを出さない。
+  //
+  // 「許可の真偽値」ではなく処理を受けるのは、この部品に「どのノートか」を
+  // 持ち込まないため (MarkdownView の onToggleTask と同じ作法)。渡すのは
+  // ノート閲覧 (ItemView) だけで、公開ビュー・印刷では渡さない
+  onRecord?: RecordHealthHandler;
 }
 
 // 図の座標系。**幅は viewBox で決めて画面幅には合わせる** (w-full)。
@@ -95,7 +106,7 @@ function chartSummary(
 // 集計はサーバ側で済んでいる (buildHealthCharts) ので、ここは並べるだけ。
 // 状態を持たないので "use client" は要らず、オフラインの閲覧 (クライアント)
 // からも同じ形で描ける (MatrixTable と同じ立ち位置)。
-export function HealthChart({ result, code }: HealthChartProps) {
+export function HealthChart({ result, code, onRecord }: HealthChartProps) {
   // 書き方の誤りは「何が悪いか」と元のソースを添えて出す (MatrixTable /
   // QuizFence と同じ作法)。黙ってコードブロックに落とさない
   if (result.kind === "error") {
@@ -110,21 +121,40 @@ export function HealthChart({ result, code }: HealthChartProps) {
   const { series, query } = result;
   const { points, axis, unit } = series;
 
+  // 記録欄は**項目の名前が判っているときだけ**出す。まだ 1 件も記録が無く、
+  // `y=` も書かれていないノートでは何を記録するか決まらないので、
+  // 下の案内で「y= を書けばここから記録できる」と伝えるほうに寄せる
+  const form =
+    onRecord !== undefined && series.item !== "" ? (
+      // 日付の既定は JST の今日。**ここで読んで client へ渡す** — 記録欄の
+      // 中で現在時刻を読むと、サーバが描いた HTML と食い違う (/item は
+      // force-dynamic なので、描くたびに現在の日付になる)
+      <HealthRecordForm
+        item={series.item}
+        unit={unit}
+        today={formatJstDate(new Date())}
+        onRecord={onRecord}
+      />
+    ) : null;
+
   // 0 件で空の枠を出すと「グラフが壊れている」ように見える。何を探したかと、
   // **代わりに何があるか** (y= で選べる項目) を添えて言い切る
   if (points.length === 0 || axis === null) {
     return (
-      <p className="my-4 rounded border border-gray-200 bg-gray-50 p-3 text-gray-600">
-        {series.item === ""
-          ? "記録がありません"
-          : `「${series.item}」の記録がありません`}
-        {query && <span className="ml-1 font-mono">({query})</span>}
-        {series.otherItems.length > 0 && (
-          <span className="ml-1">
-            記録がある項目: {series.otherItems.join(" / ")} (y= で選べます)
-          </span>
-        )}
-      </p>
+      <div className="my-4">
+        {form}
+        <p className="rounded border border-gray-200 bg-gray-50 p-3 text-gray-600">
+          {series.item === ""
+            ? "記録がありません (y=体重 のように項目を書くと、ここから記録できます)"
+            : `「${series.item}」の記録がありません`}
+          {query && <span className="ml-1 font-mono">({query})</span>}
+          {series.otherItems.length > 0 && (
+            <span className="ml-1">
+              記録がある項目: {series.otherItems.join(" / ")} (y= で選べます)
+            </span>
+          )}
+        </p>
+      </div>
     );
   }
 
@@ -135,6 +165,7 @@ export function HealthChart({ result, code }: HealthChartProps) {
 
   return (
     <div className="my-4">
+      {form}
       <p className="mb-1 text-sm text-gray-600">
         <span className="font-medium text-gray-700">{series.item}</span>
         {/* 最新値を先に出す。グラフを開く目的の半分は「いまいくつか」で、

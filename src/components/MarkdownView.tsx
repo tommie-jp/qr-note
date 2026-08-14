@@ -42,6 +42,7 @@ import type { CircuitMap } from "@/lib/circuitCache";
 import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";
 import { HealthChart } from "@/components/health/HealthChart";
+import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
 import { MatrixTable } from "@/components/matrix/MatrixTable";
 import "katex/dist/katex.min.css";
 
@@ -101,6 +102,9 @@ interface MarkdownViewProps {
   // **シークレット断片の中でも渡さない** (断片は独立に描かれるので行番号が
   // メモ本文と一致しない)
   onToggleTask?: ToggleTaskHandler;
+  // ```health の記録欄からの保存 (docs/83 §7)。省略すると記録欄が出ない。
+  // onToggleTask と同じ理由で処理そのものを受ける (どのノートかを持ち込まない)
+  onRecordHealth?: RecordHealthHandler;
   // 描いているのが本文の切れ端のとき、チェックボックスに刻む行番号へ足す数
   // (ページ 2 枚目以降。docs/74-ページ計画.md §4)。既定の 0 = 本文まるごと。
   //
@@ -117,6 +121,7 @@ function preOrDiagram(
   circuits: CircuitMap,
   matrices: MatrixMap,
   health: HealthMap,
+  onRecordHealth: RecordHealthHandler | undefined,
 ) {
   return function PreOrDiagram({
     node: _node,
@@ -161,7 +166,13 @@ function preOrDiagram(
     if (fence.lang === HEALTH_LANG) {
       const chart = health.get(fence.code);
       if (chart) {
-        return <HealthChart result={chart} code={fence.code} />;
+        return (
+          <HealthChart
+            result={chart}
+            code={fence.code}
+            onRecord={onRecordHealth}
+          />
+        );
       }
     }
 
@@ -313,6 +324,7 @@ export function MarkdownView({
   allowSecretEdit = false,
   blobKinds = new Map(),
   onToggleTask,
+  onRecordHealth,
   lineOffset = 0,
 }: MarkdownViewProps) {
   // プラグイン列の土台は markdownPipeline.tsx (一覧のプレビューと共有)。
@@ -353,7 +365,7 @@ export function MarkdownView({
         rehypePlugins={rehypePlugins}
         remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={{
-          pre: preOrDiagram(circuits, matrices, health),
+          pre: preOrDiagram(circuits, matrices, health, onRecordHealth),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
           input: taskCheckboxRenderer(onToggleTask),

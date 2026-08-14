@@ -13,6 +13,7 @@ import {
   noteHistory,
   removeNotes,
 } from '@/lib/git/notesRepo'
+import { recordMeasurement } from '@/lib/healthEdit'
 import { backfillAllNotes } from '@/lib/noteHistoryBackfill'
 import {
   emptyTrash,
@@ -136,6 +137,54 @@ export async function toggleMemoTaskAction(
   // revalidatePath.md が明示的に一時的な仕様だと書いており、将来
   // 指定パスだけに絞られると、戻ったときに古い一覧が出る。
   // 他のノート更新系アクション (trash/restore/bulkTag) と同じ書き方に揃える
+  revalidatePath('/')
+}
+
+// 閲覧画面の記録欄から健康記録を 1 つ書き込む
+// (docs/83-健康管理フェンス計画.md §7)。
+//
+// toggleMemoTaskAction と同じ形 — フォームではなくクライアントから直接呼び、
+// 「どう変えるか」ではなく**書き込む値そのもの**を受け取る (連打や二重送信で
+// 意図とずれない)。書き込む先はこのフェンスを持つノート自身で、当月ノートを
+// 探して無ければ作る、といった仕掛けは持たない (計画 §7)。
+//
+// 値の検めは recordMeasurement (純関数) が持つ。**書いた行を自分で読み直せる
+// かどうか**が唯一の合格条件で、読めない値なら本文を触らずに投げ返す。
+export async function recordHealthAction(
+  itemNo: string,
+  date: string,
+  item: string,
+  value: number,
+  unit: string,
+): Promise<void> {
+  await requireUser()
+  if (!isValidItemNo(itemNo)) {
+    throw new Error('itemNo が不正です')
+  }
+  // 誰でも叩ける POST の口なので、型も自分で確かめる (画面を通さず呼べる)
+  if (
+    typeof date !== 'string' ||
+    typeof item !== 'string' ||
+    typeof unit !== 'string' ||
+    typeof value !== 'number'
+  ) {
+    throw new Error('記録の値が不正です')
+  }
+  const existing = await getItem(itemNo)
+  if (existing === null) {
+    throw new Error('ノートが見つかりません')
+  }
+  const next = recordMeasurement(existing.memo, { date, item, value, unit })
+  if (next === null) {
+    throw new Error('この値は記録できません')
+  }
+  // 既に同じ値なら書かない (updated_at を動かさない)
+  if (next !== existing.memo) {
+    await upsertMemo(itemNo, next)
+  }
+  revalidatePath(`/item/${itemNo}`)
+  // 一覧も無効にする。記録は本文そのものなので、一覧のプレビューや
+  // 検索結果が古いままになる (toggleMemoTaskAction と同じ判断)
   revalidatePath('/')
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
 import {
+  recordHealthAction,
   restoreItemsAction,
   setItemOfflinePinAction,
   setItemPublicAction,
@@ -168,6 +169,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
             allowRotate
             allowSecretEdit
             onToggleTask={toggleMemoTaskAction.bind(null, itemNo)}
+            onRecordHealth={recordHealthAction.bind(null, itemNo)}
           />
         }
         textView={
