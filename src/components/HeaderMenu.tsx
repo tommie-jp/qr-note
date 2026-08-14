@@ -113,7 +113,7 @@ export function HeaderMenu({
         // **幅を 44px へ広げない。** 広げると線の右に死に幅ができ、アプリ
         // アイコンが逆に遠のく。左端に接しているぶん、幅 35px でも以前
         // (16px 内側から始まる 35px) より当てやすい
-        className="relative z-40 -mb-3 inline-flex min-h-11 items-center rounded pl-[max(0.75rem,env(safe-area-inset-left))] pr-1 text-lg text-gray-500 transition-colors hover:text-gray-900 active:bg-gray-100"
+        className="relative z-40 -mb-3 inline-flex min-h-11 items-center rounded lg:mb-0 lg:min-h-0 pl-[max(0.75rem,env(safe-area-inset-left))] pr-1 text-lg text-gray-500 transition-colors hover:text-gray-900 active:bg-gray-100"
       >
         {/* アイコンは inline SVG で持つ。この 2 本のためにライブラリを
             足さない (currentColor なので文字色にそのまま追従する)。

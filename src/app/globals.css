@@ -545,6 +545,10 @@ select,
      プレビューペインの左端 (PreviewPane の xl:left-[…])・カード一覧の
      広幅補正 (下) の 3 か所で共有するので、必ずこの変数で動かす */
   --folder-pane-w: 14rem;
+  /* ヘッダーの帯の高さ。フォルダーペインの上端・全画面のノートの上端が
+     ここから始まる。**ヘッダーは常に見えている**のがこのアプリの約束で
+     (docs/86 §4-5)、ペインはどれもこの下に置く */
+  --header-h: 3rem;
   /* 下部操作バーの高さ (44px スロット + 余白 4px + 枠 1px)。プレビュー
      ペインの下端と、その境界 (PaneResizer) の位置を決める。
      一覧の底上げは これを足さない — バーのぶんは BOTTOM_BAR_SPACER_CLASS
@@ -568,6 +572,15 @@ select,
    Tailwind の utilities より後勝ちになるのは、この file の素の
    (層に入らない) 規則だから */
 @media (min-width: 64rem) {
+  /* ポインタで狙う画面では帯を 1 行に詰める (docs/86 §4-5)。44px のタップ
+     目標を外すのはヘッダーの各ボタン側 (lg:min-h-0)。
+     **実際の帯より小さめに置くこと** — ペインはどれもヘッダー (z-20) より
+     下の層なので、足りない分は帯の下に潜って見えない。逆に大きいと
+     ペインとの間に隙間が開く */
+  :root {
+    --header-h: 2rem;
+  }
+
   body:has([data-results-pane]) {
     display: flex;
     flex-direction: column;
@@ -580,8 +593,12 @@ select,
      下へ伸びるだけになる)。
      margin-bottom … 下部バーと (開いていれば) プレビューペインのぶんは
      器の**外**に置く。padding で空けるとスクロールバーだけがその下まで
-     伸びてしまい、ペインの中に収まらない */
+     伸びてしまい、ペインの中に収まらない。
+     **main 自身は送らない** (docs/86 §4-6) — 送るのは一覧の器だけで、
+     検索窓・件数・進捗はペインの上に留まる */
   body:has([data-results-pane]) main {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
     max-width: none;
@@ -589,9 +606,46 @@ select,
        auto だと、器は中身の幅までしか広がらず中央に寄る (= スクロールバーも
        画面の中ほどに出る)。ペインの領域いっぱいに広げるには auto を外す */
     margin-inline: 0;
+    overflow: hidden;
+    margin-bottom: var(--bottom-bar-h);
+  }
+
+  /* ペイン 2 の中の積み方 (docs/86 §4-6):
+       検索窓        … 動かない
+       件数・進捗    … 動かない
+       一覧の器      … ここだけが伸び縮みして、内側で送る
+     どの段も min-height:0 を持たせること — flex の子は中身より縮まないので、
+     1 つでも抜けると内側のスクロールが働かず、器が下へ伸びるだけになる */
+  [data-results-pane] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  [data-search-results] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  [data-results-scroll] {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    margin-bottom: var(--bottom-bar-h);
+  }
+
+  /* 下端の空きは器の margin が持っている。文書の流れの中で空けていた分
+     (下部バーぶんの余白と pb-safe) は、そのままだと一覧の下に居座る死んだ
+     余白になるので畳む */
+  body:has([data-results-pane]) main {
+    padding-bottom: 0;
+  }
+
+  body:has([data-results-pane]) [data-bottom-bar-spacer] {
+    display: none;
   }
 
   body:has([data-results-pane]):has([data-preview-pane]) main {

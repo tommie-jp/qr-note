@@ -89,8 +89,11 @@ export function BottomActionBar({
 
   return (
     <>
-      {/* バーぶんの余白。これがないと一覧の最終行とページ送りがバーに隠れる */}
-      <div aria-hidden className={BOTTOM_BAR_SPACER_CLASS} />
+      {/* バーぶんの余白。これがないと一覧の最終行とページ送りがバーに隠れる。
+          3 ペインの器 (lg 以上) では要らない — 器自身が margin でバーのぶんを
+          空けているので、置いたままだと一覧の下に同じ幅の死んだ余白が残る
+          (globals.css が data-bottom-bar-spacer を目印に畳む) */}
+      <div aria-hidden data-bottom-bar-spacer className={BOTTOM_BAR_SPACER_CLASS} />
 
       <nav
         aria-label="操作"

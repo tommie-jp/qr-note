@@ -97,6 +97,9 @@ export function SearchResults({
     // 傍受するだけで、操作はすべて中のリンクが持つ (キーボードの Enter でも
     // リンクが click を出すので、マウス限定にはならない)
     <div
+      // 3 ペインでは器を縦の flex にして、送るのは一覧だけにする
+      // (docs/86 §4-6)。掴み先は globals.css
+      data-search-results
       aria-busy={isPending}
       onClickCapture={recordOnOpen}
       className={`space-y-2 transition-opacity ${isPending ? "opacity-50" : ""} ${className}`}

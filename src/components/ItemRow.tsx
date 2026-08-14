@@ -216,7 +216,7 @@ export function ItemRow({
             <Link
               href={href}
               transitionTypes={["nav-forward"]}
-              className="shrink-0 font-mono font-bold"
+              className="shrink-0 font-mono text-sm font-bold"
             >
               #{item.itemNo}
             </Link>
@@ -224,7 +224,7 @@ export function ItemRow({
               href={href}
               transitionTypes={["nav-forward"]}
               aria-current={selected ? "page" : undefined}
-              className={`truncate text-gray-600 ${stretchedLink}`}
+              className={`truncate text-sm text-gray-600 ${stretchedLink}`}
             >
               {titleText}
             </Link>
@@ -275,7 +275,7 @@ export function ItemRow({
       <Link
         href={href}
         transitionTypes={["nav-forward"]}
-        className="shrink-0 font-mono font-bold"
+        className="shrink-0 font-mono text-sm font-bold"
       >
         #{item.itemNo}
       </Link>
@@ -284,7 +284,7 @@ export function ItemRow({
           href={href}
           transitionTypes={["nav-forward"]}
           aria-current={selected ? "page" : undefined}
-          className={`block truncate text-gray-600 ${stretchedLink}`}
+          className={`block truncate text-sm text-gray-600 ${stretchedLink}`}
         >
           {titleText}
         </Link>

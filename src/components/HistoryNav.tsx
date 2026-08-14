@@ -94,7 +94,7 @@ function TriangleIcon({ direction }: { direction: "back" | "forward" }) {
 // 捨てるので、当たり判定そのものは離しておく。外側の px-1.5 も残す —
 // 詰めるのは 2 つの間だけで、指の当たる幅は減らさない
 const BUTTON_BASE =
-  "flex min-h-11 items-center justify-center rounded text-sky-600 transition-colors active:bg-sky-100 disabled:text-gray-300 disabled:active:bg-transparent";
+  "flex min-h-11 items-center justify-center rounded text-sky-600 lg:min-h-0 transition-colors active:bg-sky-100 disabled:text-gray-300 disabled:active:bg-transparent";
 const BACK_CLASS = `${BUTTON_BASE} pl-1.5 pr-0.5`;
 const FORWARD_CLASS = `${BUTTON_BASE} pl-0.5 pr-1.5`;
 
@@ -118,7 +118,7 @@ export function HistoryNav() {
     // 可能領域になり、帯に縦スクロールバーが出る。下の 6px は器の pb-3 が、
     // 上の 6px は器の pt-safe (4px) + サイト名の行ボックスが作る余り
     // (self-center なのでその半分) が受けている (390px・等倍で実測)
-    <div className="-mx-1 -my-1.5 flex shrink-0 items-center gap-1 self-center">
+    <div className="-mx-1 -my-1.5 flex shrink-0 items-center gap-1 self-center lg:my-0">
       <button
         type="button"
         onClick={() => window.history.back()}

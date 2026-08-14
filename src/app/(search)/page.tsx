@@ -354,6 +354,10 @@ async function HomeResults({
           進んだか) は続けて読む物なので離さない */}
       <TaskProgress done={progress.done} total={progress.total} />
 
+      {/* **送るのはここだけ** (docs/86 §4-6)。検索窓・件数・進捗は動かさず、
+          一覧 (と特性表・ページ送り) だけを内側でスクロールさせる。
+          スクロールバーもこの器に付くので、一覧の右端に沿う */}
+      <div data-results-scroll className="space-y-2">
       <PropsTable
         rows={props.rows}
         omitted={props.omitted}
@@ -388,7 +392,7 @@ async function HomeResults({
           remaining={result.total - result.items.length}
         />
       )}
-
+      </div>
     </SearchResults>
     </>
   );

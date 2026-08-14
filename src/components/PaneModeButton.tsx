@@ -70,7 +70,7 @@ function PaneModeSubmit({ current }: { current: PaneMode }) {
       // 押した先ではなく今の構成を読み上げる。押すと何になるかは title に添える
       aria-label={paneModeLabel(shown)}
       title={`${paneModeLabel(shown)} — 押すと ${paneModeLabel(next)}`}
-      className="inline-flex min-h-11 items-center gap-1 rounded px-1.5 text-gray-600 transition-colors hover:bg-gray-100 active:bg-gray-200"
+      className="inline-flex min-h-11 items-center gap-1 rounded px-1.5 lg:min-h-0 text-gray-600 transition-colors hover:bg-gray-100 active:bg-gray-200"
     >
       <PaneModeIcon mode={shown} />
       <span className="font-mono text-sm">{shown}</span>

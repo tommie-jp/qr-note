@@ -196,7 +196,7 @@ export default async function RootLayout({
               画面の真ん中あたりに集まり、左のフォルダーペインとも右のノートとも
               揃わなかった。左の物 (メニュー・ロゴ・戻る進む) は左端へ、
               右の物 (ペイン構成・ユーザー名) は右端へ置く */}
-          <div className="flex items-baseline gap-1.5 overflow-x-auto overscroll-x-contain pt-safe pr-safe pb-3 -mb-3 [scrollbar-width:none] [&>*]:shrink-0">
+          <div className="flex items-baseline gap-1.5 overflow-x-auto overscroll-x-contain pt-safe pr-safe pb-3 -mb-3 [scrollbar-width:none] lg:pb-1 lg:mb-0 [&>*]:shrink-0">
             {/* 項目はハンバーガーメニューへ畳む (docs/11-アプリ的UIUX計画.md §6)。
                 横に並べていたときは iPhone の幅で 1 文字ずつ折り返れて崩れた。
                 左端に置くのは、片手持ちの親指が届く側だから。帯が横へ動いても

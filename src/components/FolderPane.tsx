@@ -97,8 +97,8 @@ export function FolderPane({
         置くのは、ペインが overflow-y-auto で中を送るため — 中に入れると
         帯が本文と一緒に上へ流れてしまう */}
     <PaneResizer kind="folder" />
-    {/* 縦はヘッダー (top-12) と下部バー (--bottom-bar-h) の間。どちらの帯とも
-        場所を取り合わない。
+    {/* 縦はヘッダー (--header-h) と下部バー (--bottom-bar-h) の間。どちらの
+        帯とも場所を取り合わない。
         地色は**透かさない** — ペインは fixed で場所を取らないので、下には
         一覧が通っている。半透明にすると一覧の行がペイン越しに透けて読める
         (実機で判明)。器として不透明に塗り、一覧との境は枠線 1 本で示す。
@@ -108,7 +108,7 @@ export function FolderPane({
     <aside
       data-folder-pane
       aria-label="検索フォルダー"
-      className="fixed top-12 bottom-[var(--bottom-bar-h)] left-0 z-0 hidden w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white px-2 pt-2 pb-4 xl:block"
+      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 hidden w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white px-2 pt-2 pb-4 xl:block"
     >
       <ul>
         <FolderRow

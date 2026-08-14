@@ -103,17 +103,20 @@ export function PreviewPane({
       {/* data-preview-pane … 一覧 (main) の底を上げるフック (globals.css の
           body:has)。**下部ペインのときだけ付ける** — 全画面のときに付けると、
           隠れている一覧が意味もなく縮む。
-          lg 未満のオーバーレイは z-30 でヘッダー (z-20)・下部バー (z-10) ごと
-          覆う。lg 以上は z-10 に落として下部バーと同層に並べ、バーの高さ
-          (--bottom-bar-h) だけ上で止めて、スキャン等のボタンを塞がない */}
+          **ヘッダーは覆わない** (docs/86 §4-5)。1 ペインや狭い画面ではノートが
+          画面いっぱいに広がるが、上端は必ずヘッダーの下 (--header-h) から。
+          メニュー・ホーム・ペイン構成は、ノートを開いている間も押せる必要が
+          ある。z-10 … 万一ヘッダーが伸びても、ヘッダー (z-20) が上に残る。
+          lg 以上の下部ペインは下部バーの高さ (--bottom-bar-h) だけ上で止めて、
+          スキャン等のボタンを塞がない */}
       <section
         data-preview-pane={isBottomPane ? "" : undefined}
         aria-label="選択したノート"
         // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
         // (ペインが出ている構成のときだけ効かせたいので :has で見る)
-        className={`fixed inset-0 z-30 overflow-y-auto overscroll-contain ${bgClass} ${
+        className={`fixed inset-x-0 top-[var(--header-h)] bottom-0 z-10 overflow-y-auto overscroll-contain ${bgClass} ${
           isBottomPane
-            ? "lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:z-10 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300"
+            ? "lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300"
             : ""
         }`}
       >
