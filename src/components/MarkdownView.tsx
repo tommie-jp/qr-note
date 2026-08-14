@@ -4,6 +4,7 @@ import Markdown from "react-markdown";
 import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
 import { remarkTagLinks } from "./remarkTagLinks";
 import { CodeBlock } from "./CodeBlock";
+import { rehypeAnswerTts } from "./rehypeAnswerTts";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -304,10 +305,15 @@ export function MarkdownView({
 
   // rehypeTaskLines は**サニタイズより後**に置く (前だと data-line が落ちる)。
   // 押せない画面でも外さない — 出し分けを増やすと、片方だけ直したときに
-  // 「静かに押せないだけ」に戻ってしまう。刻むのは行番号だけで実害はない
+  // 「静かに押せないだけ」に戻ってしまう。刻むのは行番号だけで実害はない。
+  //
+  // rehypeAnswerTts (発音ボタンが読む見出し語。docs/81) も同じ理由で後ろに置く。
+  // こちらも土台 (BASE) ではなくここに足す — 一覧のプレビューは答えを ▶ の
+  // 文字に潰すので、刻む先の span がそもそも無い
   const rehypePlugins: PluggableList = [
     ...BASE_REHYPE_PLUGINS,
     [rehypeTaskLines, lineOffset],
+    rehypeAnswerTts,
   ];
 
   return (

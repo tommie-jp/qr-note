@@ -31,6 +31,7 @@ import { MarkdownAlert } from "./MarkdownAlert";
 import { KATEX_OPTIONS } from "@/lib/katexOptions";
 import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
 import { AnswerSpoiler } from "./answer/AnswerSpoiler";
+import { ttsWordOf } from "./rehypeAnswerTts";
 
 // rehype-katex は code の math-inline / math-display クラスを目印にするため、
 // sanitize で落とされないよう許可する (language-* はデフォルトでも許可)。
@@ -176,14 +177,18 @@ export function readFence(
 // **KaTeX が作る span もここを通る** — 数式は sanitize の後に rehype-katex が
 // 作るので class を保ったまま届く。目印を持たない span は素のまま返すこと
 // (props をそのまま流す)。
+//
+// 見出し語 (発音ボタンが読む語。docs/81) は hast の node から読む —
+// rehypeAnswerTts が sanitize の後に刻むので、React の props ではなく
+// node 側に付いている (MarkdownView の taskLineOf と同じ)
 export function spanWithAnswer({
-  node: _node,
+  node,
   children,
   ...props
 }: MarkdownComponentProps<"span">) {
   const className = typeof props.className === "string" ? props.className : "";
   if (className.split(/\s+/).includes(ANSWER_SPOILER_CLASS)) {
-    return <AnswerSpoiler>{children}</AnswerSpoiler>;
+    return <AnswerSpoiler word={ttsWordOf(node)}>{children}</AnswerSpoiler>;
   }
   return <span {...props}>{children}</span>;
 }
