@@ -56,7 +56,7 @@ export function AnswerSpoiler({ children, word = null }: AnswerSpoilerProps) {
           発音ボタンも開いた後にだけ出る — 単語を隠したまま音だけ聞けても
           単語帳としては意味がなく、閉じた行の密度も崩したくない */}
       {shown && (
-        <span className="text-rose-700">
+        <span className="text-black">
           {text === null ? children : <VocabAnswer text={text} word={word} />}
         </span>
       )}
