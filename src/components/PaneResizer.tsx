@@ -29,8 +29,22 @@ const HANDLE_CLASS: Record<PaneKind, string> = {
     "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 h-2 translate-y-1/2 cursor-row-resize touch-none",
 };
 
+// 掴む帯そのものは透明のまま。**境界の線は中の 2px が描く** (docs/86 §4-10) —
+// 帯 (8px) を塗ると太い色帯になって、ペインの枠と二重に見える。
+// 触れている間だけ帯を薄く色付けて「掴める場所」を示す
 const HANDLE_SKIN =
-  "bg-transparent transition-colors hover:bg-blue-400/40 active:bg-blue-500/50 focus-visible:bg-blue-400/60 focus-visible:outline-none";
+  "group flex bg-transparent transition-colors hover:bg-blue-400/30 active:bg-blue-500/40 focus-visible:bg-blue-400/40 focus-visible:outline-none";
+
+// 境界の線。**濃いめのグレイで常に見せる** — ペインの継ぎ目が判らないと、
+// どこを掴めば動かせるのかも判らない。掴んでいる間は青にして、いま動かして
+// いる境界がどれか判るようにする (帯の色付けと対)
+const HANDLE_LINE: Record<PaneKind, string> = {
+  folder: "m-auto h-full w-0.5",
+  preview: "m-auto h-0.5 w-full",
+};
+
+const HANDLE_LINE_SKIN =
+  "bg-gray-400 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600";
 
 function readCssPx(name: string, fallback: number): number {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
@@ -210,6 +224,13 @@ export function PaneResizer({
       onPointerCancel={endDrag}
       onDoubleClick={() => commit(spec.default)}
       onKeyDown={onKeyDown}
-    />
+    >
+      <span
+        aria-hidden
+        className={`${HANDLE_LINE[kind]} ${HANDLE_LINE_SKIN} ${
+          dragging ? "bg-blue-600" : ""
+        }`}
+      />
+    </div>
   );
 }

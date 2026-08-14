@@ -52,3 +52,19 @@ test("サーバ描画は既定の寸法から始める (保存値はマウント
   const html = renderToStaticMarkup(<PaneResizer kind="preview" />);
   expect(html).toContain(`aria-valuenow="${PANE_SIZES.preview.default}"`);
 });
+
+// 境界は掴む前から見えていること (docs/86 §4-10)。継ぎ目が判らないと、
+// どこを掴めば動かせるのかも判らない
+test("境界には濃いめのグレイの線を常に描く", () => {
+  for (const kind of ["folder", "preview"] as const) {
+    const html = renderToStaticMarkup(<PaneResizer kind={kind} />);
+    expect(html).toContain("bg-gray-400");
+    // 掴んでいる間は青 (どの境界を動かしているか判る)
+    expect(html).toContain("group-active:bg-blue-600");
+  }
+});
+
+test("掴む帯そのものは塗らない (太い色帯にしない)", () => {
+  const html = renderToStaticMarkup(<PaneResizer kind="folder" />);
+  expect(html).toContain("bg-transparent");
+});

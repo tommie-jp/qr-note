@@ -4,7 +4,11 @@ import { type ReactNode, useCallback, useRef } from "react";
 import { CycleSlot } from "@/components/CycleSlot";
 import { SlotIcon } from "@/components/SlotIcon";
 import { SlotMenu } from "@/components/SlotMenu";
-import { SLOT_MENU_ITEM_CLASS } from "@/components/ui";
+import {
+  BOTTOM_BAR_SLOT_CLASS,
+  INLINE_SLOT_CLASS,
+  SLOT_MENU_ITEM_CLASS,
+} from "@/components/ui";
 import { useLongPress } from "@/components/useLongPress";
 
 // cookie を書くサーバーアクション。db.ts を巻き込まないよう prop で受ける
@@ -47,6 +51,10 @@ interface BarSlotProps<T extends string> {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  // 置き場所。bar = 画面下端の等幅スロット、inline = 検索結果の見出し行に
+  // 並ぶコンパクトな形 (docs/86 §4-11)。ボタンの見た目とメニューの開く向きが
+  // 変わるだけで、循環・長押し・送信の配線はまったく同じ
+  variant?: "bar" | "inline";
 }
 
 // 長押しメニューの行頭に置く「いまこれ」の印 (docs/62-下部バー長押し計画.md §3)。
@@ -87,6 +95,7 @@ export function BarSlot<T extends string>({
   open,
   onOpen,
   onClose,
+  variant = "bar",
 }: BarSlotProps<T>) {
   const press = useLongPress(onOpen);
   // メニューを開いたボタン。SlotMenu が「外側の押下」からこの的を除くのに使う
@@ -140,6 +149,9 @@ export function BarSlot<T extends string>({
         iconOf={iconOf}
         color={color}
         describe={describe}
+        slotClass={
+          variant === "bar" ? BOTTOM_BAR_SLOT_CLASS : INLINE_SLOT_CLASS
+        }
         expanded={open}
         buttonRef={buttonRef}
         press={press}
@@ -149,7 +161,14 @@ export function BarSlot<T extends string>({
           位置は変わらないが、DOM の並びがそのままタブ順になるため、
           前に置くと開いた項目へ Shift+Tab でしか入れない */}
       {open && (
-        <SlotMenu label={menuLabel} anchorRef={buttonRef} onClose={onClose}>
+        <SlotMenu
+          label={menuLabel}
+          anchorRef={buttonRef}
+          onClose={onClose}
+          // 見出し行のスロットは画面の上側にあるので下向きに開く
+          // (上へ開くと検索窓を覆う)
+          side={variant === "bar" ? "top" : "bottom"}
+        >
           {items.map((item) => (
             <button
               key={item.key}

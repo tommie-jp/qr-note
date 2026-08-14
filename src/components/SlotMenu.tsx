@@ -18,6 +18,10 @@ interface SlotMenuProps {
   // メニューが画面の左外へ 13px はみ出して記法の見本が切れる (実機で確認)。
   // start はボタンの左端を軸にして右へ開く
   align?: "center" | "start";
+  // どちら側へ開くか。既定の top は下部バー用 (帯の上へせり上がる)。
+  // 検索結果の見出し行に置くスロット (docs/86 §4-11) は画面の上側にあり、
+  // 上へ開くと検索窓を覆うので bottom で下向きに開く
+  side?: "top" | "bottom";
   children: React.ReactNode;
 }
 
@@ -48,6 +52,7 @@ export function SlotMenu({
   anchorRef,
   onClose,
   align = "center",
+  side = "top",
   children,
 }: SlotMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,7 +109,9 @@ export function SlotMenu({
       // center … スロットの中心に揃える。スロットは 64px 前後しかないので、
       // 左端に合わせるとメニューが隣のスロットの上に偏って、どれを長押し
       // したのか判らなくなる (端に寄ったボタンで start を使う理由は上の align)
-      className={`absolute bottom-full z-10 mb-1 ${ALIGN_CLASS[align]}`}
+      className={`absolute z-10 ${
+        side === "top" ? "bottom-full mb-1" : "top-full mt-1"
+      } ${ALIGN_CLASS[align]}`}
     >
       <div
         ref={menuRef}
@@ -118,7 +125,11 @@ export function SlotMenu({
         // 超えると、スマホの縦では画面の上へ突き抜けて先頭の項目に届かなく
         // なる。届かない項目は無いのと同じなので、中でスクロールさせる
         // (下部バーの 3 行メニューはここに当たらない)
-        className="flex max-h-[60vh] w-max max-w-[80vw] flex-col overflow-y-auto overscroll-contain rounded-lg border border-gray-300 bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.18)] motion-safe:animate-sheet-up"
+        className={`flex max-h-[60vh] w-max max-w-[80vw] flex-col overflow-y-auto overscroll-contain rounded-lg border border-gray-300 bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.18)] ${
+          // せり上がりは下から開くときだけ。下向きに開くのに下から
+          // せり上がると、出どころと動きの向きが食い違う
+          side === "top" ? "motion-safe:animate-sheet-up" : ""
+        }`}
       >
         {children}
       </div>

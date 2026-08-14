@@ -42,6 +42,8 @@ interface ViewSlotProps {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  // 置き場所 (BarSlot と同じ)。既定は画面下端のバー
+  variant?: "bar" | "inline";
 }
 
 // 下部バーの「表示」スロット。**検索一覧とゴミ箱で同じ物を出す**
@@ -54,6 +56,7 @@ export function ViewSlot({
   open,
   onOpen,
   onClose,
+  variant,
 }: ViewSlotProps) {
   return (
     <BarSlot
@@ -78,6 +81,7 @@ export function ViewSlot({
       open={open}
       onOpen={onOpen}
       onClose={onClose}
+      variant={variant}
     />
   );
 }

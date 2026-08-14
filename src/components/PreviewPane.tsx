@@ -19,9 +19,9 @@ import { itemNoFromPathname } from "@/lib/searchUrl";
 //   全画面 … z-10。バーごと覆う (ノートを読む間は検索の帯を出さない)。
 // どちらもヘッダー (z-20) の下から始める (§4-5)。
 const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
-  pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)] border-t border-gray-300",
+  pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)]",
   "pane-lg":
-    "top-[var(--header-h)] bottom-0 z-10 lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:z-0 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300",
+    "top-[var(--header-h)] bottom-0 z-10 lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:z-0 lg:h-[var(--preview-pane-h)]",
   fullscreen: "top-[var(--header-h)] bottom-0 z-10",
 };
 
@@ -97,6 +97,11 @@ export function PreviewPane({
   const keepOpen = source === "detail" && keepsNoteOpen(mode);
   const visible = source === "auto" || onItemUrl || keepOpen;
 
+  // 2 ペインの狭い画面 (ノートが全画面になる幅) では、出しっぱなしにしない。
+  // 全画面のまま居座ると一覧が覆われて戻れなくなる (docs/86 §4-9)。
+  // 3 ペインは幅に関係なく下部のペインなので、この逃げ道は要らない
+  const keptOpenOffUrl = !onItemUrl && (keepOpen || source === "auto");
+
   // 一覧の行・画像タイルのハイライトはこの番号を見る (docs/86 §4-4)。
   // pathname から決めないのは、3 ペインでは URL が /item から離れても
   // ノートが出たままになるため。**出していない間は null を流す** —
@@ -143,7 +148,7 @@ export function PreviewPane({
         // (ペインが出ている構成のときだけ効かせたいので :has で見る)
         className={`fixed inset-x-0 overflow-y-auto overscroll-contain ${bgClass} ${
           PANE_BOX_CLASS[layout]
-        }`}
+        } ${keptOpenOffUrl && layout === "pane-lg" ? "max-lg:hidden" : ""}`}
       >
         {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
             下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
@@ -153,18 +158,22 @@ export function PreviewPane({
           <div
             className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl ${PANE_WIDTH_CLASS[layout]}`}
           >
-            {/* 3 ペインでは「閉じる」を出さない (docs/86 §4-4)。ノートは常設の
-                面で、押しても閉じられない物をボタンにしても嘘になる。
-                畳みたいときはヘッダーのペイン構成を 2 / 1 にする。
+            {/* 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
+                ペインとして常設されている間は押しても閉じられないので、
+                ボタンにすると嘘になる (畳みたいときはヘッダーの構成を変える)。
+                2 ペインの狭い画面ではノートが全画面 = 閉じられるので、
+                そこだけ CSS で出す。
                 空でも要素は置く — justify-between の右端 (全画面で開く) が
                 左へ寄ってしまうため */}
-            {keepsNoteOpen(mode) ? (
+            {layout === "pane" ? (
               <span />
             ) : (
               <button
                 type="button"
                 onClick={() => router.back()}
-                className={ACTION_LINK_CLASS}
+                className={`${ACTION_LINK_CLASS} ${
+                  layout === "pane-lg" ? "lg:hidden" : ""
+                }`}
               >
                 <ClearIcon />
                 閉じる

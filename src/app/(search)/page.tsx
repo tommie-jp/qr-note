@@ -19,6 +19,7 @@ import { TrashIcon } from "@/components/MenuIcons";
 import { PageTransition } from "@/components/PageTransition";
 import { PropsTable } from "@/components/PropsTable";
 import PullToRefresh from "@/components/PullToRefresh";
+import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { SearchForm } from "@/components/SearchForm";
 import { SearchNavProvider, SearchResults } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
@@ -43,6 +44,7 @@ import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
 import {
   PANE_MODE_COOKIE,
   parsePaneMode,
+  showsAutoNote,
   showsFolderPane,
   type PaneMode,
 } from "@/lib/paneMode";
@@ -149,11 +151,6 @@ export default async function Home({ searchParams }: HomeProps) {
               (スキャン・画像検索は結果と無関係に押せるべき) ため。
               並び順・表示は URL と cookie から決まるので結果も要らない */}
           <BottomActionBar
-            query={query}
-            sort={sort}
-            view={view}
-            viewAction={setViewModeAction}
-            sortAction={setSortAction}
             stickerHost={qrStickerHost()}
             isProd={isProductionEnv()}
           />
@@ -280,15 +277,16 @@ async function HomeResults({
   // buildNotePreviews の中 (circuitThumbs / mathTexts と同じ作法)
   const notePreviews = buildNotePreviews(result.items, circuitThumbs, view);
 
-  // 3 ペインでは**必ずノートを出す** (docs/86 §4-4)。まだ何も選んでいない
-  // ときのために、検索結果の先頭を器ごと用意しておく。
+  // ノートのペインを持つ構成 (3 / 2) では**必ずノートを出す**
+  // (docs/86 §4-4)。まだ何も選んでいないときのために、検索結果の先頭を
+  // 器ごと用意しておく。
   //
   // URL は動かさない — router.replace で /item/<先頭> へ飛ばすと、
   // 再読み込みした瞬間に横取りの外 (全画面のノート) へ着地して 3 ペインが
   // 消える。ここで描けば URL は検索のまま保てる。
   // 中身の重さは一覧のプレビュー (buildNotePreviews は最大 20 ノートぶんの
   // markdown を描く) と同じ桁で、1 ノート増えるだけ
-  const first = showsFolderPane(paneMode) ? result.items[0] : undefined;
+  const first = showsAutoNote(paneMode) ? result.items[0] : undefined;
   const autoNote = first ? await buildAutoNote(first.itemNo, query, sort) : null;
 
   // カード・masonry は広い画面で列を増やしたいので広幅。compact の
@@ -312,7 +310,10 @@ async function HomeResults({
           件数は text-sm、その脇の補助リンクはさらに一段下げて text-xs。
           両方同じ大きさにすると、件数 (常に見る物) と補助リンク
           (たまに押す物) の区別が付かなくなる */}
-      <p className="flex items-baseline gap-2 text-sm text-gray-600">
+      {/* 件数と補助リンクは左、一覧に効く操作 (表示・並び順・選択) は右
+          (docs/86 §4-11)。**p ではなく div**  — 中に form を持つので、
+          段落の中に置くと HTML として不正になる */}
+      <div className="flex items-center gap-2 text-sm text-gray-600">
         <span>
           {query ? `「${query}」の検索結果: ` : "すべて: "}
           {result.total} 件
@@ -341,7 +342,15 @@ async function HomeResults({
             <TrashIcon small />({trashCount})
           </Link>
         )}
-      </p>
+
+        <ResultsToolbar
+          query={query}
+          sort={sort}
+          view={view}
+          viewAction={setViewModeAction}
+          sortAction={setSortAction}
+        />
+      </div>
 
       {/* 件数のすぐ下に進捗。件数 (いま何件出ているか) と進捗 (全体のどこまで
           進んだか) は続けて読む物なので離さない */}

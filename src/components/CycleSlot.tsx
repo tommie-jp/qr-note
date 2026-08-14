@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { SlotIcon } from "@/components/SlotIcon";
-import { BOTTOM_BAR_SLOT_CLASS } from "@/components/ui";
 import type { useLongPress } from "@/components/useLongPress";
 
 interface CycleSlotProps<T extends string> {
@@ -19,6 +18,8 @@ interface CycleSlotProps<T extends string> {
   color: string;
   // 読み上げ用の説明。表示する値が決まってから組み立てる (下の shown 参照)
   describe: (value: T) => string;
+  // ボタンの見た目。下部バーの等幅スロットか、見出し行のコンパクトな形か
+  slotClass: string;
   expanded: boolean;
   buttonRef: React.RefObject<HTMLButtonElement | null>;
   press: ReturnType<typeof useLongPress>;
@@ -50,6 +51,7 @@ export function CycleSlot<T extends string>({
   iconOf,
   color,
   describe,
+  slotClass,
   expanded,
   buttonRef,
   press,
@@ -79,7 +81,7 @@ export function CycleSlot<T extends string>({
       aria-busy={pending}
       {...press.handlers}
       onClick={onClick}
-      className={`${BOTTOM_BAR_SLOT_CLASS} text-gray-700`}
+      className={`${slotClass} text-gray-700`}
     >
       <SlotIcon color={color} busy={pending}>
         {iconOf[shown]}

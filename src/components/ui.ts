@@ -186,6 +186,16 @@ export const BOTTOM_BAR_SLOT_CLASS =
 export const BOTTOM_BAR_SPACER_CLASS =
   "bottom-bar-scale-cap h-[calc(3.25rem+env(safe-area-inset-bottom))] print:hidden landscape-phone:h-[calc(2.5rem+env(safe-area-inset-bottom))]";
 
+// 検索結果の見出し行に並べるスロット (docs/86 §4-11)。表示・並び順・選択は
+// 一覧に効く操作なので、3 ペインでは一覧の頭に置く。
+//
+// 下部バーの等幅スロット (アイコンの下にラベル) とは形が違う — 見出し行は
+// 1 行の帯なので、アイコンとラベルを横に並べて高さを詰める。
+// [&_svg]:size-4 … スロット用のアイコンは 24px で描かれている。見出しの
+// 文字 (14px) の隣では大きすぎるので、この帯の中だけ 16px に縮める
+export const INLINE_SLOT_CLASS =
+  "inline-flex min-h-8 items-center gap-1 rounded px-1.5 text-xs font-medium transition-colors hover:bg-gray-100 active:bg-gray-200 [&_svg]:size-4";
+
 // 下部バーのスロットを長押ししたとき出るメニューの 1 行
 // (docs/62-下部バー長押し計画.md §3)。
 //

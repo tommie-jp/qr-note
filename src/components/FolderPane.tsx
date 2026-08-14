@@ -109,7 +109,7 @@ export function FolderPane({
     <aside
       data-folder-pane
       aria-label="検索フォルダー"
-      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white px-2 pt-2 pb-4"
+      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto bg-white px-2 pt-2 pb-4"
     >
       <ul>
         <FolderRow

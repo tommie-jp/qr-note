@@ -4,6 +4,7 @@ import {
   keepsNoteOpen,
   nextPaneMode,
   parsePaneMode,
+  showsAutoNote,
   showsFolderPane,
 } from "./paneMode";
 
@@ -34,8 +35,16 @@ test("フォルダーを出すのは 3 のときだけ", () => {
   expect(showsFolderPane("1")).toBe(false);
 });
 
-test("ノートを閉じずに出し続けるのは 3 のときだけ", () => {
+// ノートのペインを持つ構成 (3 / 2) は出しっぱなし。1 は全画面なので閉じる
+test("ノートを閉じずに出し続けるのはペインを持つ構成 (3 / 2)", () => {
   expect(keepsNoteOpen("3")).toBe(true);
-  expect(keepsNoteOpen("2")).toBe(false);
+  expect(keepsNoteOpen("2")).toBe(true);
   expect(keepsNoteOpen("1")).toBe(false);
+});
+
+// 何も選んでいないときに先頭を出すのも同じ 2 つ
+test("先頭を自動で選ぶのもペインを持つ構成 (3 / 2)", () => {
+  expect(showsAutoNote("3")).toBe(true);
+  expect(showsAutoNote("2")).toBe(true);
+  expect(showsAutoNote("1")).toBe(false);
 });

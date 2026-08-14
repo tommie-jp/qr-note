@@ -3,8 +3,10 @@
 import type { ReactNode } from "react";
 import { PreviewPane } from "@/components/PreviewPane";
 import { usePaneMode } from "@/components/PaneModeProvider";
+import { showsAutoNote } from "@/lib/paneMode";
 
-// 3 ペインで「まだ何も選んでいないとき」に出るノートのペイン (docs/86 §4-4)。
+// ノートのペインを持つ構成 (3 / 2) で「まだ何も選んでいないとき」に出る
+// 先頭ノートのペイン (docs/86 §4-4)。
 // 中身 (検索結果の先頭ノート) はサーバが描いて children で降ろす。
 //
 // **横取りスロットがノートを持っていたら引っ込む。** あちらは利用者が自分で
@@ -27,7 +29,7 @@ export function AutoNotePane({
 }) {
   const { mode, hasDetail } = usePaneMode();
 
-  if (mode !== "3" || hasDetail) {
+  if (!showsAutoNote(mode) || hasDetail) {
     return null;
   }
 

@@ -43,9 +43,10 @@ test("openHref が無い間 (loading) は「全画面で開く」を出さない
 });
 
 test("/item の外では何も描かない (ロゴや「一覧へ」で戻ったら消える)", () => {
+  // 出しっぱなしにしない構成 (1 ペイン) で確かめる
   nav.pathname = "/?q=BJT";
   try {
-    expect(render("/item/4951")).toBe("");
+    expect(render("/item/4951", "1")).toBe("");
   } finally {
     nav.pathname = "/item/4951";
   }
@@ -54,7 +55,7 @@ test("/item の外では何も描かない (ロゴや「一覧へ」で戻った
 test("/item の深い階層 (履歴など) でも描かない", () => {
   nav.pathname = "/item/4951/history";
   try {
-    expect(render("/item/4951")).toBe("");
+    expect(render("/item/4951", "1")).toBe("");
   } finally {
     nav.pathname = "/item/4951";
   }
@@ -62,22 +63,43 @@ test("/item の深い階層 (履歴など) でも描かない", () => {
 
 // ペイン構成 (docs/86 §4-4)
 
-test("3 ペインでは /item の外でもノートを閉じない", () => {
+test("3 ペインでは /item の外でもノートを閉じない (幅でも畳まない)", () => {
   nav.pathname = "/?q=BJT";
   try {
     const html = render("/item/4951", "3");
     expect(html).toContain("ノート本文");
     // 押しても閉じられない物をボタンにしない
     expect(html).not.toContain("閉じる");
+    expect(html).not.toContain("max-lg:hidden");
   } finally {
     nav.pathname = "/item/4951";
   }
 });
 
-test("2 ペインでは /item の外で閉じる (従来どおり)", () => {
+test("2 ペインの「閉じる」は全画面になる幅でだけ出す", () => {
+  // ペインとして常設されている間 (lg 以上) は押しても閉じられない
+  const html = render("/item/4951", "2");
+  expect(html).toContain("閉じる");
+  expect(html).toContain("lg:hidden");
+});
+
+// 2 ペインもペインとして出ている間 (lg 以上) はノートを閉じない。
+// 狭い画面ではノートが全画面になるので、そこだけ CSS で畳む
+test("2 ペインは /item の外でもノートを残し、狭い画面でだけ畳む", () => {
   nav.pathname = "/?q=BJT";
   try {
-    expect(render("/item/4951", "2")).toBe("");
+    const html = render("/item/4951", "2");
+    expect(html).toContain("ノート本文");
+    expect(html).toContain("max-lg:hidden");
+  } finally {
+    nav.pathname = "/item/4951";
+  }
+});
+
+test("1 ペインは /item の外では出さない", () => {
+  nav.pathname = "/?q=BJT";
+  try {
+    expect(render("/item/4951", "1")).toBe("");
   } finally {
     nav.pathname = "/item/4951";
   }

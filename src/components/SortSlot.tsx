@@ -39,6 +39,8 @@ interface SortSlotProps<S extends string, B extends TrashSortBase & S> {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  // 置き場所 (BarSlot と同じ)。既定は画面下端のバー
+  variant?: "bar" | "inline";
 }
 
 // 下部バーの「並び順」スロット。
@@ -63,6 +65,7 @@ export function SortSlot<S extends string, B extends TrashSortBase & S>({
   open,
   onOpen,
   onClose,
+  variant,
 }: SortSlotProps<S, B>) {
   // 方向の呼び名。基底の値は「その種別の既定の方向」なので、
   // 種別と値が同じかどうかがそのまま逆順かどうかになる
@@ -129,6 +132,7 @@ export function SortSlot<S extends string, B extends TrashSortBase & S>({
       open={open}
       onOpen={onOpen}
       onClose={onClose}
+      variant={variant}
     />
   );
 }
