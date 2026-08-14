@@ -95,8 +95,11 @@ export default async function Home({ searchParams }: HomeProps) {
       <SelectModeProvider>
         <PageTransition>
           {/* 縦の間隔は詰める。検索窓・件数・一覧は 1 つの操作面として続けて
-              読む物で、離すほど 1 画面に入る件数が減る */}
-          <div className="space-y-2">
+              読む物で、離すほど 1 画面に入る件数が減る。
+              data-results-pane … 3 ペインの「ペイン 2」の中身
+              (docs/86 §4-3)。lg 以上では器 (main) がペインの領域いっぱいに
+              広がって自分でスクロールするので、読み幅はこちらが持つ */}
+          <div data-results-pane className="space-y-2">
             <SearchForm
               initialQuery={query}
               tags={tags.map((t) => t.tag)}

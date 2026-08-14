@@ -49,7 +49,10 @@ function FolderRow({
       <Link
         href={href}
         aria-current={active ? "page" : undefined}
-        className={`flex min-h-9 items-center justify-between gap-2 rounded px-2 text-sm ${
+        // 行の高さは本文の 1 行ぶん (py-0.5 + text-sm の行送り ≒ 24px)。
+        // 44px のタップ目標は取らない — このペインは xl 以上、つまり
+        // ポインタで狙う画面にしか出ないので、指の的より一覧性を優先する
+        className={`flex items-center justify-between gap-2 rounded px-2 py-0.5 text-sm ${
           active
             ? "bg-blue-100 font-medium text-blue-800"
             : "text-gray-700 hover:bg-gray-100"
@@ -94,13 +97,20 @@ export function FolderPane({
         置くのは、ペインが overflow-y-auto で中を送るため — 中に入れると
         帯が本文と一緒に上へ流れてしまう */}
     <PaneResizer kind="folder" />
-    {/* top-12 … sticky ヘッダー (z-20) の下から始める。z-10 は下部バーと同層 */}
+    {/* 縦はヘッダー (top-12) と下部バー (--bottom-bar-h) の間。どちらの帯とも
+        場所を取り合わない。
+        地色は**透かさない** — ペインは fixed で場所を取らないので、下には
+        一覧が通っている。半透明にすると一覧の行がペイン越しに透けて読める
+        (実機で判明)。器として不透明に塗り、一覧との境は枠線 1 本で示す。
+        z-0 … 位置指定なので本文の上には出るが、下部バー (z-10) と
+        ヘッダー (z-20) には譲る。テキストサイズを上げて帯が伸びた日に、
+        ペインがボタンの上へかぶらないため */}
     <aside
       data-folder-pane
       aria-label="検索フォルダー"
-      className="fixed top-12 bottom-0 left-0 z-10 hidden w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white/80 px-2 pt-2 pb-16 xl:block"
+      className="fixed top-12 bottom-[var(--bottom-bar-h)] left-0 z-0 hidden w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white px-2 pt-2 pb-4 xl:block"
     >
-      <ul className="space-y-0.5">
+      <ul>
         <FolderRow
           href="/"
           label="すべて"
@@ -138,7 +148,7 @@ export function FolderPane({
           <h2 className="mt-3 px-2 text-xs font-medium text-gray-400">
             登録パターン
           </h2>
-          <ul className="mt-1 space-y-0.5">
+          <ul className="mt-0.5">
             {saved.map((q) => (
               <FolderRow
                 key={q}
@@ -154,7 +164,7 @@ export function FolderPane({
       )}
 
       <h2 className="mt-3 px-2 text-xs font-medium text-gray-400">タグ</h2>
-      <ul className="mt-1 space-y-0.5">
+      <ul className="mt-0.5">
         {tags.map((t) => (
           <FolderRow
             key={t.tag}

@@ -557,23 +557,71 @@ select,
    ドラッグ中は 1 フレームごとに変わるので、変化を transition させないこと
    (追従が遅れて指から取り残される) */
 
-/* フォルダーペインが出ている xl 以上では、カード表示の広幅一覧
-   (WIDE_RESULTS_CLASS の breakout) の中心と上限をペインの分だけ右へ寄せる。
-   これが無いとカードの左端がペインの下に潜る。Tailwind の utilities より
-   後勝ちになるのは、この file の素の (層に入らない) 規則だから */
-@media (min-width: 80rem) {
-  body:has([data-folder-pane]) .search-wide-results {
-    left: calc(50% + (var(--folder-pane-w) + 1rem) / 2);
-    width: calc(100vw - var(--folder-pane-w) - 3rem);
-    max-width: 72rem;
+/* 検索ページの器そのものを「ペイン 2」にする (docs/86 §4-3)。
+   lg 以上では一覧が**自分でスクロールし、スクロールバーもその中に出る**。
+   window を動かしたままだと、ウィンドウのスクロールバーが画面の右端を
+   上から下まで貫き、プレビューペイン自身のバーと 2 本並ぶ (実機で判明)。
+
+   フックが [data-folder-pane] なのは、これが検索ページにだけ在るため
+   (xl 未満では display:none だが DOM には居るので lg でも掴める)。
+   64rem / 80rem は Tailwind の lg / xl と同じ幅。
+   Tailwind の utilities より後勝ちになるのは、この file の素の
+   (層に入らない) 規則だから */
+@media (min-width: 64rem) {
+  body:has([data-folder-pane]) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* min-height:0 … flex の子は中身より縮まないのが既定で、これが無いと
+     器が画面からはみ出し、内側のスクロールが働かない (中身が長いほど
+     下へ伸びるだけになる)。
+     margin-bottom … 下部バーと (開いていれば) プレビューペインのぶんは
+     器の**外**に置く。padding で空けるとスクロールバーだけがその下まで
+     伸びてしまい、ペインの中に収まらない */
+  body:has([data-folder-pane]) main {
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    /* margin-inline:0 … main は mx-auto を持つ。flex の子で左右の margin が
+       auto だと、器は中身の幅までしか広がらず中央に寄る (= スクロールバーも
+       画面の中ほどに出る)。ペインの領域いっぱいに広げるには auto を外す */
+    margin-inline: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-bottom: var(--bottom-bar-h);
+  }
+
+  body:has([data-folder-pane]):has([data-preview-pane]) main {
+    margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
+  }
+
+  /* 読み幅は器ではなく中身が持つ。器はペイン 2 の領域いっぱいに広げた
+     (max-width:none) ので、今までの max-w-2xl はここで保つ */
+  body:has([data-folder-pane]) [data-results-pane] {
+    max-width: 42rem;
+    margin-inline: auto;
   }
 }
 
-/* ペインが開いている間だけ、一覧 (main) をペインの高さぶん底上げして、
-   最後の行までペインの上へスクロールできるようにする。64rem は Tailwind の
-   lg と同じ幅 — lg 未満は全画面オーバーレイなので底上げは要らない */
-@media (min-width: 64rem) {
-  body:has([data-preview-pane]) main {
-    padding-bottom: var(--preview-pane-h);
+/* フォルダーペインが出ている xl 以上では、**ペイン 2 ごと**その幅だけ
+   右へ寄せる。ペインは fixed で場所を取らないので、放っておくと検索窓も
+   一覧も左側がペインの下に潜る (小表示で顕著。テキストサイズを上げるほど
+   器が広がって早く重なる。実機で判明)。
+   足している 1rem は px-safe の左余白 (padding-left ごと上書きするため) */
+@media (min-width: 80rem) {
+  body:has([data-folder-pane]) main {
+    padding-left: calc(var(--folder-pane-w) + 1rem);
+  }
+
+  /* カード・画像表示の広幅一覧 (WIDE_RESULTS_CLASS の breakout) も同じだけ
+     狭める。**ずらすのは幅だけでよい** — 器がペインを避けた時点で
+     中身の中心 = 残りの領域の中心になり、breakout の
+     left:50% / -translate-x-1/2 がその中心に載るため。
+     4rem は左右の余白と、器自身のスクロールバーのぶん */
+  body:has([data-folder-pane]) .search-wide-results {
+    width: calc(100vw - var(--folder-pane-w) - 4rem);
   }
 }

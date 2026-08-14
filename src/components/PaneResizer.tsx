@@ -20,7 +20,7 @@ import {
 // 見た目は普段は透明で、触れている間だけ色を出す (常時見える線は枠が担う)。
 const HANDLE_CLASS: Record<PaneKind, string> = {
   folder:
-    "fixed top-12 bottom-0 left-[var(--folder-pane-w)] z-20 hidden w-2 -translate-x-1/2 cursor-col-resize touch-none xl:block",
+    "fixed top-12 bottom-[var(--bottom-bar-h)] left-[var(--folder-pane-w)] z-20 hidden w-2 -translate-x-1/2 cursor-col-resize touch-none xl:block",
   preview:
     "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 hidden h-2 translate-y-1/2 cursor-row-resize touch-none lg:block xl:left-[var(--folder-pane-w)]",
 };
