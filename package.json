@@ -10,6 +10,7 @@
     "backfill:git": "tsx scripts/backfillGitHistory.ts",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:up": "docker compose up -d db",

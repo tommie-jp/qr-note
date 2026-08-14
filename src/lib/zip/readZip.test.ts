@@ -1,12 +1,15 @@
 import { strToU8, zipSync } from 'fflate'
 import { expect, test } from 'vitest'
 import { chunkedBytes } from '@/lib/bytes'
-import {
-  MAX_ZIP_ENTRIES,
-  MAX_ZIP_FILE_BYTES,
-  MAX_ZIP_TOTAL_BYTES,
-} from './limits'
+import { MAX_ZIP_ENTRIES, MAX_ZIP_FILE_BYTES } from './limits'
 import { type RawZipEntry, readZipStream } from './readZip'
+
+// 展開後の合計 (MAX_ZIP_TOTAL_BYTES = 1GB) の門を試すテストは、それだけで
+// 1GB を deflate する = 1 本 8〜10 秒かかるため別ファイルに出してある。
+// vitest はファイル単位で並列化するので、分けた 2 本は同時に走る
+// (docs/80-デプロイ再高速化計画.md §9):
+//   - readZip.totalLimit.test.ts          … 読む項目の合計
+//   - readZip.totalLimit.skipped.test.ts  … 読まない項目も数えること
 
 // 取り込みは本文を流し読みする。テストからも同じ形 (バイト列の並び) で渡す
 async function readAll(zip: Uint8Array): Promise<RawZipEntry[]> {
@@ -59,19 +62,6 @@ test('読まない項目は 1 項目の大きさの門に掛からない', async
   expect(entries.map((entry) => entry.path)).toEqual(['notes/1042.md'])
 })
 
-// 捨てるにせよ展開はしている。際限なく付き合わないための歯止めは残す
-test('読まない項目も展開後の合計には数える', async () => {
-  const chunk = new Uint8Array(MAX_ZIP_FILE_BYTES - 1)
-  const files: Record<string, Uint8Array> = {}
-  for (let index = 0; index * (MAX_ZIP_FILE_BYTES - 1) <= MAX_ZIP_TOTAL_BYTES; index += 1) {
-    files[`junk/${index}.bin`] = chunk
-  }
-
-  await expect(readAccepted(zipSync(files), () => false)).rejects.toThrow(
-    /展開後の合計が大きすぎます/,
-  )
-}, 60000)
-
 test('項目を名前とバイト列で取り出す', async () => {
   const zip = zipSync({
     'notes/1042.md': strToU8('本文'),
@@ -108,18 +98,6 @@ test('展開後の大きさを名乗っている項目は展開前に断る', as
 
   await expect(readAll(bomb)).rejects.toThrow(/大きすぎ/)
 })
-
-// 名乗らない ZIP (このアプリの書き出しもデータ記述子を使うので名乗らない) は
-// 出てきたバイト数で数えて断つ
-test('合計が上限を超えたら投げる', async () => {
-  const chunk = new Uint8Array(MAX_ZIP_FILE_BYTES - 1)
-  const files: Record<string, Uint8Array> = {}
-  for (let index = 0; index * (MAX_ZIP_FILE_BYTES - 1) <= MAX_ZIP_TOTAL_BYTES; index += 1) {
-    files[`images/${index}.jpg`] = chunk
-  }
-
-  await expect(readAll(zipSync(files))).rejects.toThrow(/合計が大きすぎ/)
-}, 60000)
 
 test('項目数が上限を超えたら投げる', async () => {
   const files: Record<string, Uint8Array> = {}

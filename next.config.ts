@@ -3,6 +3,26 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Docker 用の自己完結ビルド (.next/standalone)
   output: "standalone",
+  // 型検査はビルドから切り離し、`npm run typecheck` が受け持つ
+  // (docs/80-デプロイ再高速化計画.md §9-2)。
+  //
+  // なぜ外すか: next build の中の型検査は**単スレッドで 4.7 秒**あり、
+  // Turbopack のコンパイル (多コアで 4.9 秒) の後に直列で積まれていた。
+  // ./doDeploy.sh の 3/8 は lint / typecheck / test / build を並列に流すので、
+  // ビルドの中から出して 4 本目のレーンに移すと、その 4.7 秒は他のレーンの
+  // 裏に隠れて丸ごと消える (typecheck 自体は約 2.2 秒)。
+  //
+  // **検査を捨てたわけではない。** `npm run typecheck` は
+  // `next typegen && tsc --noEmit` で、next build が使うのと同じ
+  // .next/types/validator.ts (ページ・レイアウト・route handler の
+  // 署名を経路ごとに検査する生成物) を先に作り直してから tsc を回す。
+  // typegen を省くと、経路を足した日に**古い一覧のまま検査が通ってしまう**。
+  //
+  // 注意: これで `npm run build` 単体 (./doStart.sh 経由を含む) は型エラーで
+  // 落ちなくなる。手で建てるときは `npm run typecheck` を別に流すこと。
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // 画面遷移のアニメーション (docs/11-アプリ的UIUX計画.md §4)。
   // experimental なので、壊れたらこの 1 行と layout.tsx の <ViewTransition> を
   // 外せば元に戻る。非対応ブラウザではアニメーションなしで普通に動く

@@ -29,9 +29,21 @@
 #   - Dockerfile 側で public と静的フォントを「毎回変わる層」から追い出した。
 #     毎デプロイの転送が 122.8MB → 約 15MB になる。
 #   - lint / test / ビルドを並列で流し、全部通ってから push する。
-#     push は別の buildx 呼び出しなので**作業ツリーをもう一度読む**。並列の約 30 秒に
-#     手元が動いていたら検査していないコードが出てしまうため、直前に指紋を照合する
-#     (context_fingerprint)。
+#
+# 第 3 弾の高速化 (docs/80-デプロイ再高速化計画.md §9)。約 42 秒 → 約 30 秒。
+#   - **push を並列の窓に畳んだ。** ビルドは 1 回だけ走らせ、その場で
+#     staging タグとしてレジストリへ送る。検査が全部通ったら、staging の
+#     manifest を v$VERSION にも張って公開する (promote_tag)。層の転送は
+#     済んでいるので昇格は manifest 1 枚の PUT = 1 秒未満。
+#     以前は「cacheonly で建てる → 通ったら push 用にもう一度建てる」の
+#     2 回ビルドで、2 回目の export + 転送 7 秒が検査の後ろに直列で付いていた。
+#     ビルドが 1 回になったので、**push されるイメージは検査した木そのもの**に
+#     なる (以前は 2 回目の `COPY . .` が新しい木を拾いうるのが穴だった)。
+#   - 型検査を next build から出し、4 本目のレーンにした (next.config.ts の
+#     typescript.ignoreBuildErrors + `npm run typecheck`)。ビルドの中では
+#     単スレッドの 4.7 秒が直列に積まれていたが、外に出せば他のレーンの裏に隠れる。
+#   - 10 秒級のテストを別ファイルへ分けた。vitest はファイル単位で並列化するので、
+#     1 ファイルに重いものが同居しているとそこがテスト全体の所要になる。
 #
 # 最後に**区間ごとの処理時間**を出す。次に「遅い」と感じたとき、どこが遅いのかを
 # 推測しないで済ませるため。
@@ -170,6 +182,12 @@ BUILDER="qr-host"           # host ネットワークの buildx ビルダー名
 BUILD_EPOCH="1704067200"
 REG_LOCAL="127.0.0.1:${REGISTRY_PORT}/qr-search-app"
 REG_REMOTE="127.0.0.1:${REGISTRY_REMOTE_PORT}/qr-search-app"
+# 検査が通る前のイメージを置いておくタグ。**版タグ (v0.0.0 形式) にしないこと** —
+# --no-version-up の再利用経路と registryGc.sh はどちらも `^v[0-9]` で版を拾うので、
+# 検査に落ちたイメージが「配れる版」として見えてしまう。
+# 毎デプロイ上書きするので溜まらない (本番・デモが同じレジストリを共有するが、
+# 2 つを同時に走らせない限り混ざらない)。
+STAGING_TAG="staging"
 HEALTH_URL="http://127.0.0.1:${APP_PORT}/"
 HEALTH_RETRIES=30
 
@@ -205,25 +223,80 @@ print_timing() {
   printf '    %5ds  %s\n' "$(($(date +%s) - DEPLOY_T0))" "合計"
 }
 
-# レジストリ (トンネル越しの 127.0.0.1:$REGISTRY_PORT) に指定タグの manifest があるか。
-# buildx は --provenance=false で OCI image manifest を push するので Accept に含める。
+# レジストリ (トンネル越しの 127.0.0.1:$REGISTRY_PORT) の API 入口と、
+# manifest を取りに行くときの Accept。buildx は --provenance=false で
+# OCI image manifest を push するので、そちらを先に挙げる (index 系は将来
+# 多プラットフォームにしたときのため。今は返ってこない)。
+REG_API="http://127.0.0.1:${REGISTRY_PORT}/v2/qr-search-app"
+MANIFEST_ACCEPT=(
+  -H 'Accept: application/vnd.oci.image.manifest.v1+json'
+  -H 'Accept: application/vnd.docker.distribution.manifest.v2+json'
+  -H 'Accept: application/vnd.oci.image.index.v1+json'
+  -H 'Accept: application/vnd.docker.distribution.manifest.list.v2+json'
+)
+
+# 指定タグの manifest があるか。
 registry_has_tag() {
   local code
-  code="$(curl -s -o /dev/null -w '%{http_code}' \
-    -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
-    -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
-    "http://127.0.0.1:${REGISTRY_PORT}/v2/qr-search-app/manifests/$1" 2>/dev/null || echo 000)"
+  code="$(curl -s -o /dev/null -w '%{http_code}' "${MANIFEST_ACCEPT[@]}" \
+    "${REG_API}/manifests/$1" 2>/dev/null || echo 000)"
   [ "$code" = "200" ]
 }
 
-# 作業ツリー (= ビルドコンテキスト) の指紋。手順 3/8 の入口と 4/8 の push 直前で採り、
-# **ずれていたら配らずに落とす**ために使う。
+# 指定タグが指す manifest のダイジェスト (無ければ空)。昇格の確認に使う。
+manifest_digest() {
+  curl -fsS -I "${MANIFEST_ACCEPT[@]}" "${REG_API}/manifests/$1" 2>/dev/null \
+    | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}' || true
+}
+
+# staging タグが指す manifest を、別のタグ名からも引けるようにする (= 公開)。
 #
-# なぜ要るか: 3/8 のビルドと 4/8 の push は別々の `docker buildx build .` で、
-# それぞれが**その時点の作業ツリー**を読む。並列の約 30 秒のあいだに保存が入ると、
-# 4/8 の COPY . . だけが新しい内容を拾って作り直し、**lint / test が一度も見ていない
-# 変更を焼いたイメージ**が本番へ出る。しかも版もログも「通った」ように見えるので、
-# 後から気づく手掛かりが残らない。指紋が動いていたら push を諦めるのが唯一安い。
+# **層は 1 バイトも動かない。** レジストリは blob を内容で持ち、タグは manifest への
+# 別名でしかないので、同じ manifest を PUT し直すだけで新しいタグが生える。
+# これがあるおかげで「ビルドと push は検査と並列に済ませ、通ったものだけ公開する」
+# が成り立つ (以前は公開のためだけに 2 回目のビルドと 7 秒の転送をしていた)。
+#
+# GET した本文を**そのまま**送り返すのが肝。整形し直すとダイジェストが変わり、
+# 同じイメージなのに別物として層が再アップロードされる。
+promote_tag() {
+  local from="$1" to="$2" body headers ctype from_digest to_digest
+  body="$LOG_DIR/manifest.json"
+  headers="$LOG_DIR/manifest.headers"
+
+  curl -fsS -o "$body" -D "$headers" "${MANIFEST_ACCEPT[@]}" \
+    "${REG_API}/manifests/${from}" \
+    || die "レジストリから ${from} の manifest を取得できない"
+
+  # PUT の Content-Type は取得したものと同じでなければならない
+  # (registry は manifest の mediaType と突き合わせる)
+  ctype="$(awk -F': ' 'tolower($1)=="content-type"{print $2}' "$headers" | tr -d '\r' | tail -1)"
+  [ -n "$ctype" ] || die "${from} の manifest の Content-Type が取れない"
+
+  curl -fsS -X PUT -H "Content-Type: ${ctype}" --data-binary "@${body}" -o /dev/null \
+    "${REG_API}/manifests/${to}" \
+    || die "manifest を ${to} として登録できない"
+
+  # 同じ manifest を指しているか確かめる。**ここが違うと配るものが変わる**のに、
+  # 後ろの pull は成功してしまう (別のイメージが取れるだけなので)
+  from_digest="$(manifest_digest "$from")"
+  to_digest="$(manifest_digest "$to")"
+  [ -n "$to_digest" ] && [ "$from_digest" = "$to_digest" ] \
+    || die "タグ昇格の結果が一致しない (${from}=${from_digest:-取得不可} / ${to}=${to_digest:-取得不可})"
+}
+
+# 作業ツリー (= ビルドコンテキスト) の指紋。手順 3/8 の入口と、公開 (4/8) の直前で
+# 採り、**ずれていたら配らずに落とす**ために使う。
+#
+# なぜ要るか: 3/8 の 4 本 (lint / typecheck / test / ビルド) は**それぞれが自分の
+# 都合で作業ツリーを読む**。ビルドは入口で 1 度読み切るが、lint と test は約 25 秒
+# かけて少しずつ読む。この間に保存が入ると、「イメージに焼かれた内容」と
+# 「検査が見た内容」が食い違い、**誰も見ていないコードが本番へ出る**。しかも版も
+# ログも「通った」ように見えるので、後から気づく手掛かりが残らない。
+# 指紋が動いていたら公開を諦めるのが唯一安い。
+#
+# 以前は「2 回目のビルドが新しい木を拾う」ほうが主な穴だった (docs/80 §8-3)。
+# ビルドを 1 回に畳んだ今もこの照合は残す — 上のとおり、検査側が動いた木を
+# 読んでしまう筋はそのまま残っているため。
 #
 # 見るもの:
 #   - HEAD          … 途中で checkout / commit されても気づけるように
@@ -308,8 +381,8 @@ step_done "2/8 バージョン決定"
 log "デプロイ対象: v$VERSION"
 
 if [ "$REUSE" = 1 ]; then
-  log "3/8 lint + test + ビルド — スキップ (既存イメージを再利用)"
-  log "4/8 レジストリ push — スキップ (v$VERSION は既にレジストリにある)"
+  log "3/8 lint + typecheck + test + ビルド — スキップ (既存イメージを再利用)"
+  log "4/8 タグ公開 — スキップ (v$VERSION は既にレジストリにある)"
   echo "注意: 配るのは v$VERSION を push した時点のイメージ。手元の未コミット変更は含まれない"
 else
   # Dockerfile の依存レイヤーが読む .deps/ (版を潰した package.json の写し) を作る。
@@ -326,16 +399,27 @@ else
       --driver-opt network=host >/dev/null
   fi
 
-  # lint / test / ビルドは互いに独立なので同時に流す (docs/80 §S4)。
-  # 直列だと lint 6.6s + test 23.5s がまるまるビルドの前に積まれる。
+  # lint / typecheck / test / ビルドは互いに独立なので同時に流す (docs/80 §S4・§9)。
+  # 直列だと lint 8s + typecheck 2s + test 10s がまるまるビルドの前に積まれる。
   #
-  # **push はここではしない。** 3 つ全部が通ってから改めて push する。
-  # 並列のまま push まで走らせると、テストが落ちた版のイメージがレジストリに
-  # 残り、--no-version-up の再利用経路がそれを拾ってしまう。
+  # **ビルドはここで push まで済ませる。ただし staging タグへ。**
+  # 公開用の v$VERSION に張り替えるのは 4 本とも通った後 (promote_tag)。
+  # こうする理由が 2 つある:
+  #   - 転送 (7 秒) が検査の裏に隠れる。以前は「cacheonly で建てて、通ったら
+  #     push 用にもう一度建てる」で、2 回目の export + 転送が後ろに直列で付いていた。
+  #   - **push されるイメージが、検査した木そのものになる。** 2 回建てていた頃は
+  #     2 回目の `COPY . .` が新しい木を拾いえた (docs/80 §8-3)。
+  # いきなり v$VERSION へ push しないのは、テストが落ちた版がレジストリに残ると
+  # --no-version-up の再利用経路がそれを拾ってしまうため。staging タグは
+  # 毎デプロイ上書きされるので溜まらない (中身が同じなら v$VERSION と同一の
+  # manifest を指すだけで、blob も増えない)。
+  # ただし**検査に落ちた回のぶんは層が残る** (約 14.5MB)。上書きで参照されなく
+  # なった manifest を registryGc.sh は消さないため — 気になったら
+  # `registry garbage-collect` に --delete-untagged を足す (docs/80 §9-1)。
   #
   # 出力はログへ退避して、待ち合わせた後にまとめて出す (同時に書くと混ざって読めない)。
   #
-  # 指紋はジョブを起こす**直前**に採る。ここから 4/8 の push までが「検査した木」で
+  # 指紋はジョブを起こす**直前**に採る。ここから公開までが「検査した木」で
   # なければならない区間 (詳細は context_fingerprint の説明)。
   #
   # git 管理下でないと指紋はただの定数になり、照合が**黙って効かなくなる**ので
@@ -344,15 +428,22 @@ else
     || die "git 管理下ではないため、ビルド中に作業ツリーが動いても検出できない。
      このスクリプトは git チェックアウトの中から実行すること"
   CONTEXT_FP="$(context_fingerprint)"
-  log "3/8 lint + test + イメージビルド (並列)"
-  echo "    3 つ同時に実行中。出力は完了後にまとめて出す..."
+  log "3/8 lint + typecheck + test + イメージビルド (並列)"
+  echo "    4 つ同時に実行中。出力は完了後にまとめて出す..."
   npm run lint >"$LOG_DIR/lint.log" 2>&1 &
   LINT_PID=$!
+  # 型検査は next build から外してある (next.config.ts の ignoreBuildErrors)。
+  # ここが唯一の型の門なので、落ちたら配らない
+  npm run typecheck >"$LOG_DIR/typecheck.log" 2>&1 &
+  TYPE_PID=$!
   npm test >"$LOG_DIR/test.log" 2>&1 &
   TEST_PID=$!
+  # rewrite-timestamp で全レイヤーの mtime を BUILD_EPOCH に固定するため、
+  # 中身が同じレイヤーは push 時に「既に存在」で飛ぶ。
+  # registry.insecure=true は 127.0.0.1 の平文レジストリ (トンネル越し) を許すため。
   SOURCE_DATE_EPOCH="$BUILD_EPOCH" docker buildx build --builder "$BUILDER" \
     --provenance=false --sbom=false \
-    --output "type=cacheonly" \
+    --output "type=image,name=${REG_LOCAL}:${STAGING_TAG},push=true,rewrite-timestamp=true,registry.insecure=true" \
     . >"$LOG_DIR/build.log" 2>&1 &
   BUILD_PID=$!
 
@@ -361,43 +452,41 @@ else
   # 見えないと、直して再実行してまた落ちる、を繰り返す羽目になる)
   FAILED=""
   wait "$LINT_PID"  || FAILED="$FAILED lint"
+  wait "$TYPE_PID"  || FAILED="$FAILED typecheck"
   wait "$TEST_PID"  || FAILED="$FAILED test"
   wait "$BUILD_PID" || FAILED="$FAILED build"
 
-  echo "--- lint";  cat "$LOG_DIR/lint.log"
-  echo "--- test";  cat "$LOG_DIR/test.log"
-  echo "--- build"; cat "$LOG_DIR/build.log"
+  echo "--- lint";      cat "$LOG_DIR/lint.log"
+  echo "--- typecheck"; cat "$LOG_DIR/typecheck.log"
+  echo "--- test";      cat "$LOG_DIR/test.log"
+  echo "--- build";     cat "$LOG_DIR/build.log"
 
   [ -z "$FAILED" ] || die "失敗:${FAILED} (上の出力を確認すること)"
 
-  # **3 つが通ったのは「3/8 の入口の木」に対して**。下の push は同じコマンドを
-  # もう一度走らせる = 作業ツリーをもう一度読むので、この間に保存が入っていたら
-  # 検査していない変更が焼かれて出ていく。指紋が動いていたら配らない。
+  # **4 本が通ったのは「3/8 の入口の木」に対して**。lint と test はその後も
+  # 20 秒かけて木を読み続けるので、途中で保存が入っていたら「イメージに焼かれた
+  # 内容」と「検査が見た内容」が食い違う。指紋が動いていたら公開しない。
   CONTEXT_FP_NOW="$(context_fingerprint)"
   if [ "$CONTEXT_FP" != "$CONTEXT_FP_NOW" ]; then
     # 案内する再実行コマンドは呼ばれ方に合わせる。`[ ] && VAR=…` と書くと
     # 偽のとき AND リスト全体が 1 を返し、set -e がここでスクリプトを殺す
     RERUN="./doDeploy.sh --no-version-up"
     if [ "$DEMO" = 1 ]; then RERUN="$RERUN --demo"; fi
-    die "lint + test + ビルド中に作業ツリーが変わった (${CONTEXT_FP:0:12} → ${CONTEXT_FP_NOW:0:12})。
-     このまま push すると、**検査していないコードを焼いたイメージ**が本番へ出る
-     (lint / test が見たのは変更前の木、push 用のビルドが読むのは今の木)。
+    die "lint + typecheck + test + ビルド中に作業ツリーが変わった (${CONTEXT_FP:0:12} → ${CONTEXT_FP_NOW:0:12})。
+     このまま公開すると、**検査と食い違う内容のイメージ**が本番へ出る
+     (イメージは 3/8 入口の木、lint / test が見たのは動いた後の木)。
      配布を中止した。変更を確定させてから、版を据え置いて配り直すこと:
        $RERUN
-     (v$VERSION はまだ push していないので、据え置きでもビルドし直しになる)"
+     (v$VERSION はまだ公開していないので、据え置きでもビルドし直しになる)"
   fi
-  step_done "3/8 lint + test + ビルド (並列)"
+  step_done "3/8 lint + typecheck + test + ビルド (並列)"
 
-  # 改めて push する。全レイヤーは直前のビルドでキャッシュ済みなので、ここは
-  # export と転送だけで済む。rewrite-timestamp で全レイヤーの mtime を
-  # BUILD_EPOCH に固定するため、中身が同じレイヤーは push 時に「既に存在」で飛ぶ。
-  # registry.insecure=true は 127.0.0.1 の平文レジストリ (トンネル越し) を許すため。
-  log "4/8 レジストリ push (${REG_LOCAL}:v${VERSION})"
-  SOURCE_DATE_EPOCH="$BUILD_EPOCH" docker buildx build --builder "$BUILDER" \
-    --provenance=false --sbom=false \
-    --output "type=image,name=${REG_LOCAL}:v${VERSION},push=true,rewrite-timestamp=true,registry.insecure=true" \
-    .
-  step_done "4/8 push"
+  # staging の manifest を v$VERSION からも引けるようにする = 公開。
+  # 層は上の push で着地済みなので、ここは manifest 1 枚の PUT で終わる。
+  log "4/8 v${VERSION} として公開 (${STAGING_TAG} → v${VERSION})"
+  promote_tag "$STAGING_TAG" "v$VERSION"
+  echo "OK: ${REG_LOCAL}:v${VERSION}"
+  step_done "4/8 タグ公開"
 fi
 
 # リモートは自分の localhost のレジストリからダイジェスト一致で pull し、compose が
