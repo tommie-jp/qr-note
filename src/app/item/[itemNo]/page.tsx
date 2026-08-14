@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { ItemListNav } from "@/components/ItemListNav";
 import { ItemView } from "@/components/ItemView";
@@ -8,10 +7,10 @@ import { PageTransition } from "@/components/PageTransition";
 import { PublicItemView } from "@/components/PublicItemView";
 import { RecordAccess } from "@/components/RecordAccess";
 import { recordAccessAction } from "@/app/actions";
-import { findListNeighbors, getItem } from "@/lib/items";
+import { getItem } from "@/lib/items";
+import { resolveItemListContext } from "@/lib/itemListContext";
 import { isPublicItem } from "@/lib/publicItem";
 import { currentUser } from "@/lib/session";
-import { SORT_COOKIE, resolveSort } from "@/lib/sortMode";
 import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -75,21 +74,14 @@ export default async function ItemPage({ params, searchParams }: ItemPageProps) 
     );
   }
 
-  // 一覧の中の前後 (docs/60-学習進捗計画.md §4)。検索状態を持って来ていない
-  // (QR シールから直接開いた) ときは引かない。
-  //
-  // 並び順は検索ページと同じ resolveSort (URL → cookie → 既定) で決める。
-  // cookie だけを見ると `?sort=` 付きの共有リンクから入ったときに一覧と
-  // 順序が食い違い、「次」が一覧の次の行とずれる
-  // 配列で届いた (`?q=a&q=b`) ときは先頭を採る。落として素の URL 扱いにすると
-  // 「一覧から来たのにナビが無い」になるので、値があるなら 1 つ選ぶ
-  const query = (Array.isArray(q) ? (q[0] ?? "") : (q ?? "")).trim();
-  // resolveSort は unknown を受けて parseSort で畳むので、配列はそのまま
-  // 渡してよい (知らない値として既定へ倒れる)
-  const sort = resolveSort(sortParam, (await cookies()).get(SORT_COOKIE)?.value);
-  const neighbors = query
-    ? await findListNeighbors(query, sort, itemNo)
-    : { prev: null, next: null };
+  // 一覧の中の前後 (docs/60-学習進捗計画.md §4)。解決の規則
+  // (配列の畳み方・resolveSort・q が無ければ引かない) は横取りプレビュー
+  // ((search)/@detail) と共有する — 別々に持つと同じ URL で「次」がずれる
+  const { query, sort, neighbors } = await resolveItemListContext(
+    itemNo,
+    q,
+    sortParam,
+  );
 
   return (
     <PageTransition>

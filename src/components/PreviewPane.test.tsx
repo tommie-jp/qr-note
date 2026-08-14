@@ -46,3 +46,12 @@ test("/item の外では何も描かない (ロゴや「一覧へ」で戻った
     nav.pathname = "/item/4951";
   }
 });
+
+test("/item の深い階層 (履歴など) でも描かない", () => {
+  nav.pathname = "/item/4951/history";
+  try {
+    expect(render("/item/4951")).toBe("");
+  } finally {
+    nav.pathname = "/item/4951";
+  }
+});

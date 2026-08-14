@@ -36,6 +36,34 @@ export function buildTrashUrl(sort: TrashSort): string {
 //
 // page は載せない。前後は「一覧の何ページ目まで開いたか」とは無関係で、
 // 検索条件と並び順だけで決まる (docs/60 §4 の SQL)。
+// buildItemUrl の逆。pathname が /item/<番号> (それより深い /history 等は除く)
+// のときだけ番号を返す。
+//
+// 一覧の選択ハイライト (ItemList)・画像タイル (ImageMasonry)・プレビューの
+// 表示ゲート (PreviewPane) が「いまどのノートが開いているか」を**同じ規則で**
+// 読むための 1 か所 (docs/86 §4)。別々に startsWith を書くと、ルートの形を
+// 変えた日に行の印とペインの表示が食い違う。
+export function itemNoFromPathname(
+  pathname: string | null | undefined,
+): string | null {
+  const prefix = '/item/'
+  if (!pathname?.startsWith(prefix)) {
+    return null
+  }
+  const rest = pathname.slice(prefix.length)
+  if (rest === '' || rest.includes('/')) {
+    return null
+  }
+  // usePathname はデコード済みの値を返すことがあり、旧データの itemNo は
+  // `%` そのものを含みうる (validation の英数制限より古い)。二重デコードで
+  // URIError に落ちるくらいなら、デコードできない値は素のまま番号として扱う
+  try {
+    return decodeURIComponent(rest)
+  } catch {
+    return rest
+  }
+}
+
 export function buildItemUrl(itemNo: string, query: string, sort: Sort): string {
   const trimmed = query.trim()
   const path = `/item/${encodeURIComponent(itemNo)}`

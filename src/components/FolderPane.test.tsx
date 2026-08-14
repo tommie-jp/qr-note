@@ -88,3 +88,15 @@ test("登録パターンは検索リンクとして並び、一致中は印が�
 test("登録パターンが無ければ節ごと出さない", () => {
   expect(render()).not.toContain("登録パターン");
 });
+
+test("件数がまだ無くても骨組み (特殊フォルダーとタグ) は描く", () => {
+  // Suspense の fallback に使う形 (docs/86 §5)。ペインの有無で一覧の幅が
+  // 変わるので、件数を待たずに器だけ先に出す
+  const html = renderToStaticMarkup(
+    <FolderPane tags={[{ tag: "npn", count: 3 }]} query="" sort="updated" />,
+  );
+  expect(html).toContain("data-folder-pane");
+  expect(html).toContain("すべて");
+  expect(html).toContain("#npn");
+  expect(html).not.toContain('href="/trash"');
+});

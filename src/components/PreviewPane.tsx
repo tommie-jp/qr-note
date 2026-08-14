@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ClearIcon } from "@/components/MenuIcons";
 import { ACTION_LINK_CLASS } from "@/components/ui";
+import { itemNoFromPathname } from "@/lib/searchUrl";
 
 interface PreviewPaneProps {
   // ペインの地色。本番=灰 / ローカル=ピンクは env から決まるので、サーバ側
@@ -31,38 +32,18 @@ export function PreviewPane({ bgClass, openHref, children }: PreviewPaneProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // 「URL が正」(docs/11 §3) をペインにも通す: /item に居ないなら描かない。
+  // 「URL が正」(docs/11 §3) をペインにも通す: /item/<番号> に居ないなら
+  // 描かない (判定は ItemList の行ハイライトと同じ itemNoFromPathname)。
   // スロットの中身は「合わない URL へのソフト遷移では残る」仕様なので
   // (docs/86 §2)、ロゴや「一覧へ」で / に戻ったときに放っておくと
   // オーバーレイが画面を覆ったまま残ってしまう。ページ送り (replace) で
   // ペインが閉じるのはこの割り切りの裏面 — 選択が URL から消えた以上、
-  // 出し続けるほうが嘘になる
-  const isShown = pathname?.startsWith("/item/") ?? false;
-
-  // Esc でも閉じる (PC 向け)。入力中 (検索窓・エディタ) の Esc は奪わない —
-  // それは入力側の取り消し操作で、ペインを閉じる合図ではない
-  useEffect(() => {
-    if (!isShown) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) {
-        return;
-      }
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest("input, textarea, [contenteditable=true]")
-      ) {
-        return;
-      }
-      router.back();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [router, isShown]);
-
-  if (!isShown) {
+  // 出し続けるほうが嘘になる。
+  //
+  // Esc で閉じる、はあえて持たない。モーダル類 (draw・スキャナ・検索
+  // パネル…) がそれぞれ自前の Esc を持つ流儀で、ペインが window で先に
+  // 拾うと開いているモーダルより先に画面ごと閉じてしまう
+  if (itemNoFromPathname(pathname) === null) {
     return null;
   }
 

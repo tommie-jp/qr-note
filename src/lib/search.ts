@@ -70,30 +70,37 @@ const NOT_CHARS = '!！'
 const LPAREN_CHARS = '(（'
 const RPAREN_CHARS = ')）'
 
-// チェック状態の絞り込み語の接頭辞 (`is:todo` / `is:done`)。
+// `is:` 系の絞り込み語の接頭辞 (`is:todo` / `is:done` / `is:untagged`)。
 // 全角 (`ＩＳ：`) も NFKC で畳まれてここに一致する
-const TASK_PREFIX = 'is:'
+const IS_PREFIX = 'is:'
 
 // タグの無いノートの絞り込み語 (docs/86 §5)。未分類フォルダーのリンク先を
 // 検索語として表現するために足した — 「フォルダーは常に検索のエイリアス」
-// を保つには、URL に書ける語が要る
-const UNTAGGED_TOKEN = 'is:untagged'
+// を保つには、URL に書ける語が要る。リンクを組む側 (FolderPane) も
+// この定数を使い、綴りの正本をここ 1 か所に保つ
+export const UNTAGGED_TOKEN = 'is:untagged'
 
 function isSpace(ch: string): boolean {
   return /[\s　]/.test(ch)
 }
 
-// `is:todo` / `is:done` なら状態を、そうでなければ null を返す。
+// `is:` 系の語なら対応する検索語を、そうでなければ null を返す。
 // **知らない値 (`is:foo`) は null に落とす** — 例外にも 0 件にもせず、
 // ただの語として全文検索へ回す。壊れた入力は「それらしく」解釈する流儀
-// (未閉じ引用と同じ)。本文に is:foo と書いたノートが出るほうが説明できる
-function parseTaskToken(token: string): TaskState | null {
+// (未閉じ引用と同じ)。本文に is:foo と書いたノートが出るほうが説明できる。
+// `is:` の値を増やすときはここへ足す (分岐を tokenFor に散らさない)
+function parseIsToken(token: string): SearchTerm | null {
   const normalized = normalizeTag(token)
-  if (!normalized.startsWith(TASK_PREFIX)) {
+  if (!normalized.startsWith(IS_PREFIX)) {
     return null
   }
-  const value = normalized.slice(TASK_PREFIX.length)
-  return value === 'todo' || value === 'done' ? value : null
+  if (normalized === UNTAGGED_TOKEN) {
+    return { kind: 'untagged' }
+  }
+  const value = normalized.slice(IS_PREFIX.length)
+  return value === 'todo' || value === 'done'
+    ? { kind: 'task', value }
+    : null
 }
 
 type Token =
@@ -119,15 +126,9 @@ function tokenFor(buf: string, quoted: boolean): Token | null {
   if (normalizeTag(buf) === OR_KEYWORD) {
     return { type: 'or' }
   }
-  // is:untagged は task と同じ is: 系の語 (docs/86 §5)。task より先に見るのは
-  // 順序の都合ではなく、parseTaskToken が todo/done 以外を null に落とすため
-  // どちらが先でも同じ — 系の近い判定として並べてある
-  if (normalizeTag(buf) === UNTAGGED_TOKEN) {
-    return { type: 'term', term: { kind: 'untagged' } }
-  }
-  const taskState = parseTaskToken(buf)
-  if (taskState !== null) {
-    return { type: 'term', term: { kind: 'task', value: taskState } }
+  const isTerm = parseIsToken(buf)
+  if (isTerm !== null) {
+    return { type: 'term', term: isTerm }
   }
   const tag = parseTagToken(buf)
   if (tag !== null) {

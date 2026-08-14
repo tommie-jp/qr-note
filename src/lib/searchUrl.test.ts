@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { narrowToChecks } from './search'
-import { buildItemUrl, buildSearchUrl, buildTrashUrl } from './searchUrl'
+import { buildItemUrl, buildSearchUrl, buildTrashUrl, itemNoFromPathname } from './searchUrl'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {
   expect(buildSearchUrl('', 1, 'updated')).toBe('/')
@@ -70,5 +70,26 @@ describe('buildTrashUrl', () => {
   test('既定でない並びは ?sort= に載せる', () => {
     expect(buildTrashUrl('deletedAsc')).toBe('/trash?sort=deletedAsc')
     expect(buildTrashUrl('itemNo')).toBe('/trash?sort=itemNo')
+  })
+})
+
+// どのノートが開いているかの共通の読み取り (docs/86 §4)
+describe('itemNoFromPathname', () => {
+  test('/item/<番号> なら番号を返す (エンコードは戻す)', () => {
+    expect(itemNoFromPathname('/item/4951')).toBe('4951')
+    expect(itemNoFromPathname('/item/a%20b')).toBe('a b')
+  })
+
+  test('デコードできない % はそのまま番号として返す (二重デコードで落とさない)', () => {
+    // usePathname がデコード済みを返す環境で、旧 itemNo が % を含む場合
+    expect(itemNoFromPathname('/item/50%')).toBe('50%')
+  })
+
+  test('/item の深い階層 (履歴など) や別ルートは null', () => {
+    expect(itemNoFromPathname('/item/4951/history')).toBe(null)
+    expect(itemNoFromPathname('/item/')).toBe(null)
+    expect(itemNoFromPathname('/')).toBe(null)
+    expect(itemNoFromPathname('/trash')).toBe(null)
+    expect(itemNoFromPathname(null)).toBe(null)
   })
 })

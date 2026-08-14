@@ -9,7 +9,7 @@ import type { Item } from "@/generated/prisma/client";
 import type { CircuitThumbMap } from "@/lib/circuitThumbs";
 import type { MathTextMap } from "@/lib/mathText";
 import type { NotePreviewMap } from "./NotePreviewThumb";
-import { buildItemUrl } from "@/lib/searchUrl";
+import { buildItemUrl, itemNoFromPathname } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { BulkTagToolbar } from "./BulkTagToolbar";
@@ -136,12 +136,9 @@ export function ItemList({
 
   // プレビューペイン (docs/86 §4) で右下に開いているノート。横取り中は
   // URL が /item/<番号> になるので、選択のための state は持たず pathname
-  // から導く (URL が正・docs/11 §3)。/item/<番号>/history のような深い
-  // パスは番号と一致せず、素通しになるだけで害はない
-  const pathname = usePathname();
-  const previewItemNo = pathname?.startsWith("/item/")
-    ? decodeURIComponent(pathname.slice("/item/".length))
-    : null;
+  // から導く (URL が正・docs/11 §3)。解釈はペインの表示ゲート
+  // (PreviewPane) や画像タイル (ImageMasonry) と itemNoFromPathname で共有する
+  const previewItemNo = itemNoFromPathname(usePathname());
 
   // 選択モードを抜けたら選択を捨てる。バーから抜けることもあるので、
   // 抜ける操作それぞれに後始末を配らず、モードの変化 1 か所で受ける
@@ -217,6 +214,7 @@ export function ItemList({
         itemHref={itemHref}
         circuitThumbs={circuitThumbs}
         mathTexts={mathTexts}
+        previewItemNo={previewItemNo}
       />
     );
   }

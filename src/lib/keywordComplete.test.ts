@@ -80,12 +80,13 @@ describe('keywordContextAtCursor', () => {
 })
 
 describe('matchKeywords', () => {
-  test('offers both is: keywords from a single i', () => {
-    expect(matchKeywords('i')).toEqual(['is:todo', 'is:done'])
+  test('offers all is: keywords from a single i', () => {
+    expect(matchKeywords('i')).toEqual(['is:todo', 'is:done', 'is:untagged'])
   })
 
   test('narrows down as the word grows', () => {
     expect(matchKeywords('is:t')).toEqual(['is:todo'])
+    expect(matchKeywords('is:u')).toEqual(['is:untagged'])
   })
 
   test('returns nothing when the word is already a whole keyword', () => {
@@ -103,5 +104,6 @@ describe('matchKeywords', () => {
   test('every keyword is documented as a search term', () => {
     expect(SEARCH_KEYWORDS).toContain('is:todo')
     expect(SEARCH_KEYWORDS).toContain('is:done')
+    expect(SEARCH_KEYWORDS).toContain('is:untagged')
   })
 })

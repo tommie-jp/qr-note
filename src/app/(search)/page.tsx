@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import {
   bulkTagAction,
   setItemsOfflinePinAction,
@@ -51,6 +51,11 @@ import type { Sort } from "@/lib/validation";
 import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/viewMode";
 
 export const dynamic = "force-dynamic";
+
+// ゴミ箱の件数は HomeResults (0 件時の案内) と SearchFolders (フォルダーの
+// バッジ) の両方が使う。別々の Suspense 枝から呼んでも 1 回の問い合わせに
+// 畳むため、リクエスト単位で memo する (React の cache)
+const countTrashedItemsOnce = cache(countTrashedItems);
 
 interface HomeProps {
   searchParams: Promise<{ q?: string; page?: string; sort?: string }>;
@@ -132,10 +137,12 @@ export default async function Home({ searchParams }: HomeProps) {
           />
 
           {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバーで、
-              フォルダーはすべて既存の検索・並び順へのリンク。件数は DB を
-              引くので Suspense で後送りし、固定部の初回表示を待たせない
-              (ペインは fixed なので、後から現れても本文は動かない) */}
-          <Suspense fallback={null}>
+              フォルダーはすべて既存の検索・並び順へのリンク。件数と登録
+              パターンは DB を引くので Suspense で後送りするが、**fallback は
+              null にせずタグだけのペインを出す** — ペインの有無で一覧の幅が
+              変わる (globals.css の body:has) ので、後から現れると表示済みの
+              カードが横へ跳ねる */}
+          <Suspense fallback={<FolderPane tags={tags} query={query} sort={sort} />}>
             <SearchFolders tags={tags} query={query} sort={sort} />
           </Suspense>
         </PageTransition>
@@ -161,7 +168,7 @@ async function SearchFolders({
   const user = await currentUser();
   const [totals, trashCount, queryLists] = await Promise.all([
     countFolderTotals(),
-    countTrashedItems(),
+    countTrashedItemsOnce(),
     user ? listQueries(user) : Promise.resolve({ saved: [], recent: [] }),
   ]);
   return (
@@ -201,7 +208,7 @@ async function HomeResults({
     showProps
       ? searchItemProps(query, sort)
       : Promise.resolve({ rows: [], omitted: 0 }),
-    countTrashedItems(),
+    countTrashedItemsOnce(),
     showProgress
       ? countTaskProgress(query)
       : Promise.resolve({ done: 0, total: 0 }),

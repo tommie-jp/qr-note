@@ -37,6 +37,10 @@ interface ImageMasonryProps {
   // itemNo → 数式入りタイトルの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
   // キャプションの 1 行目に使う。無いノートはプレーンテキストのまま
   mathTexts?: MathTextMap;
+  // プレビューペイン (docs/86 §4) で右下に開いているノート。ItemList が
+  // pathname から導いて降ろす (ItemRow の selected と同じ印を画像タイルにも
+  // 付ける — 同じノートのタイルが複数あれば全部に付く)
+  previewItemNo?: string | null;
 }
 
 // タイルの中身。画像 (サムネ URL を引く) か回路図 (SVG を直接埋め込む) の
@@ -48,6 +52,7 @@ export function ImageMasonry({
   itemHref,
   circuitThumbs,
   mathTexts,
+  previewItemNo,
 }: ImageMasonryProps) {
   // URL モードのノートは memo が空なので allImageNames("") === [] となり
   // 自然に落ちる (ItemRow のような isUrl 分岐は要らない)。
@@ -99,11 +104,18 @@ export function ImageMasonry({
         ) : (
           memoSummary(item.memo)
         );
+        // プレビューで開いているノートのタイルは枠と地色で示す (ItemRow の
+        // selected と同じ判断: hover 系の色より優先する)
+        const selected = item.itemNo === previewItemNo;
         return (
           // relative … stretched link の基準
           <li
             key={key}
-            className="relative overflow-hidden rounded border border-gray-200 bg-white"
+            className={`relative overflow-hidden rounded border ${
+              selected
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-200 bg-white"
+            }`}
           >
             {/* 画像 + 1 行目 (#番号 タイトル) をノート詳細への 1 本のリンクにし、
                 ::after を枠いっぱいに広げてタイル全体を当たり判定にする
@@ -112,6 +124,7 @@ export function ImageMasonry({
             <Link
               href={itemHref(item.itemNo)}
               transitionTypes={["nav-forward"]}
+              aria-current={selected ? "page" : undefined}
               className="block after:absolute after:inset-0"
             >
               {media.image !== undefined ? (

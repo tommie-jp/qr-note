@@ -12,10 +12,12 @@ import {
   isTokenBoundary,
   type CompleteRange,
 } from '@/lib/queryComplete'
+import { UNTAGGED_TOKEN } from '@/lib/search'
 
 // 補完できる検索キーワード。増えてもここへ足すだけで UI は変わらない。
-// 検索側の実装は search.ts の parseSearchExpr (docs/56-チェック検索計画.md)。
-export const SEARCH_KEYWORDS = ['is:todo', 'is:done'] as const
+// 検索側の実装は search.ts の parseSearchExpr (docs/56-チェック検索計画.md、
+// is:untagged は docs/86 §5)。綴りの正本は search.ts の定数
+export const SEARCH_KEYWORDS = ['is:todo', 'is:done', UNTAGGED_TOKEN] as const
 
 // キーワードを構成する 1 文字。`:` を含むのが要点 —
 // `is:t` まで打った状態を 1 つのトークンとして扱いたい。

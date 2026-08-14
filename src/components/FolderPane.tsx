@@ -2,26 +2,35 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { TrashIcon } from "@/components/MenuIcons";
 import type { FolderTotals, TagCount } from "@/lib/items";
+import { UNTAGGED_TOKEN } from "@/lib/search";
 import { normalizeTag, tagSearchHref } from "@/lib/tags";
 import type { Sort } from "@/lib/validation";
 
 interface FolderPaneProps {
   tags: TagCount[];
-  totals: FolderTotals;
-  trashCount: number;
+  // 件数と登録パターンは DB を引く後追いの情報 (page.tsx の SearchFolders)。
+  // **未指定でも骨組みは描く** — Suspense の fallback にタグだけの
+  // ペインを出し、ペインの現れが遅れて一覧が横へ跳ねないようにするため
+  // (globals.css の body:has がペインの有無で一覧の幅を変える)
+  totals?: FolderTotals;
+  trashCount?: number;
   // ☆ で登録した検索パターン (docs/59-検索候補計画.md §7)。スマート
   // フォルダーとしてそのまま並べる — ピン留めの仕組みを新設しない
   // (docs/86 §6)。登録・解除は従来どおり検索窓のドロップダウンで行う
-  saved: string[];
+  saved?: string[];
   // 現在の検索状態。どのフォルダーを開いているかはこの 2 つから導く
   // (URL が正・docs/11 §3。選択のための state は持たない)
   query: string;
   sort: Sort;
 }
 
-// 未分類フォルダーの検索語 (docs/86 §5)。search.ts の UNTAGGED_TOKEN と
-// 同じ綴りだが、あちらは解析の内部定数なので import はしない
-const UNTAGGED_QUERY = "is:untagged";
+// フォルダーの行き先。検索窓に同じ語を打ったのと同じ `q` 1 つだけの URL に
+// する (tagSearchHref と同じ形)。buildSearchUrl を使わないのは意図的 —
+// sort を載せず cookie に任せるのと、タグ押下の記録 (tagSearchQuery) が
+// 「q 1 つだけの URL」を前提にしているため
+function searchHref(query: string): string {
+  return `/?q=${encodeURIComponent(query)}`;
+}
 
 function FolderRow({
   href,
@@ -67,8 +76,8 @@ function FolderRow({
 export function FolderPane({
   tags,
   totals,
-  trashCount,
-  saved,
+  trashCount = 0,
+  saved = [],
   query,
   sort,
 }: FolderPaneProps) {
@@ -89,15 +98,15 @@ export function FolderPane({
         <FolderRow
           href="/"
           label="すべて"
-          count={totals.total}
+          count={totals?.total}
           active={query === "" && !isRecent}
         />
         <FolderRow href="/?sort=accessed" label="最近" active={isRecent} />
         <FolderRow
-          href={`/?q=${encodeURIComponent(UNTAGGED_QUERY)}`}
+          href={searchHref(UNTAGGED_TOKEN)}
           label="未分類"
-          count={totals.untagged}
-          active={normalizedQuery === UNTAGGED_QUERY}
+          count={totals?.untagged}
+          active={normalizedQuery === UNTAGGED_TOKEN}
         />
         {/* ゴミ箱が空のときは出さない (ヘッダー脇のリンクと同じ判断) */}
         {trashCount > 0 && (
@@ -127,9 +136,11 @@ export function FolderPane({
             {saved.map((q) => (
               <FolderRow
                 key={q}
-                href={`/?q=${encodeURIComponent(q)}`}
+                href={searchHref(q)}
                 label={`★ ${q}`}
-                active={query === q}
+                // タグ行と同じ正規化で比べる。生の一致だと、同じ検索に
+                // 大小・全角違いで辿り着いたときだけ印が付かない
+                active={normalizedQuery === normalizeTag(q)}
               />
             ))}
           </ul>

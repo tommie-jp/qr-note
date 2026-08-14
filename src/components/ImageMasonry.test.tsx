@@ -33,6 +33,7 @@ const render = (
   items: Item[],
   circuitThumbs?: Record<string, string[]>,
   mathTexts?: Record<string, { title?: string; preview?: string }>,
+  previewItemNo?: string | null,
 ) =>
   renderToStaticMarkup(
     <ImageMasonry
@@ -40,6 +41,7 @@ const render = (
       itemHref={(no) => `/item/${no}`}
       circuitThumbs={circuitThumbs}
       mathTexts={mathTexts}
+      previewItemNo={previewItemNo}
     />,
   );
 
@@ -184,4 +186,27 @@ test("mathTexts のタイトルがあればキャプションを KaTeX の HTML 
   );
   expect(html).toContain('class="katex"');
   expect(html).not.toContain("$E=100$");
+});
+
+// プレビューペインで開いているノートの印 (docs/86 §4)
+
+test("プレビュー中のノートのタイルにだけ選択の印を付ける", () => {
+  const html = render(
+    [
+      makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE_1})` }),
+      makeItem({ itemNo: "20", memo: `![](/api/images/${IMAGE_2})` }),
+    ],
+    undefined,
+    undefined,
+    "10",
+  );
+  expect(html.split('aria-current="page"').length - 1).toBe(1);
+  expect(html).toContain("border-blue-400");
+});
+
+test("プレビューを開いていなければ選択の印は無い", () => {
+  const html = render([
+    makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE_1})` }),
+  ]);
+  expect(html).not.toContain('aria-current="page"');
 });
