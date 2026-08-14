@@ -10,6 +10,7 @@ import {
 } from "@/app/actions";
 import { AutoLoadMore } from "@/components/AutoLoadMore";
 import { BottomActionBar } from "@/components/BottomActionBar";
+import { FolderPane } from "@/components/FolderPane";
 import { ItemList } from "@/components/ItemList";
 import { TrashIcon } from "@/components/MenuIcons";
 import { PageTransition } from "@/components/PageTransition";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui";
 import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import {
+  countFolderTotals,
   countTaskProgress,
   countTrashedItems,
   countTrashedMatches,
@@ -33,6 +35,7 @@ import {
   nextItemNo,
   searchItemProps,
   searchItems,
+  type TagCount,
 } from "@/lib/items";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
@@ -125,9 +128,44 @@ export default async function Home({ searchParams }: HomeProps) {
             stickerHost={qrStickerHost()}
             isProd={isProductionEnv()}
           />
+
+          {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバーで、
+              フォルダーはすべて既存の検索・並び順へのリンク。件数は DB を
+              引くので Suspense で後送りし、固定部の初回表示を待たせない
+              (ペインは fixed なので、後から現れても本文は動かない) */}
+          <Suspense fallback={null}>
+            <SearchFolders tags={tags} query={query} sort={sort} />
+          </Suspense>
         </PageTransition>
       </SelectModeProvider>
     </SearchNavProvider>
+  );
+}
+
+// 検索フォルダーの件数を引いて描く (docs/86 §5)。HomeResults と同じ
+// 「重い部分を隔離して後から流す」作り。タグ一覧は Home が補完用に
+// 引いたものを使い回す (同じ表を二度引かない)
+async function SearchFolders({
+  tags,
+  query,
+  sort,
+}: {
+  tags: TagCount[];
+  query: string;
+  sort: Sort;
+}) {
+  const [totals, trashCount] = await Promise.all([
+    countFolderTotals(),
+    countTrashedItems(),
+  ]);
+  return (
+    <FolderPane
+      tags={tags}
+      totals={totals}
+      trashCount={trashCount}
+      query={query}
+      sort={sort}
+    />
   );
 }
 
@@ -205,7 +243,12 @@ async function HomeResults({
   return (
     <SearchResults
       query={query}
-      className={view === "compact" ? "" : WIDE_RESULTS_CLASS}
+      // search-wide-results … フォルダーペイン (docs/86 §5) が出ている xl 以上
+      // では、globals.css がこの印を目当てに広幅の中心と上限をペイン分だけ
+      // 右へ寄せる。Tailwind のクラスでは書けない (:has で body から効かせる)
+      className={
+        view === "compact" ? "" : `${WIDE_RESULTS_CLASS} search-wide-results`
+      }
     >
       {/* 並び順は下部バーへ移したので、この行は件数と補助リンクだけになった
           (docs/31-下部操作バー計画.md §2)。

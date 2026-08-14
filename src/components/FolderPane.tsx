@@ -1,0 +1,127 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { TrashIcon } from "@/components/MenuIcons";
+import type { FolderTotals, TagCount } from "@/lib/items";
+import { normalizeTag, tagSearchHref } from "@/lib/tags";
+import type { Sort } from "@/lib/validation";
+
+interface FolderPaneProps {
+  tags: TagCount[];
+  totals: FolderTotals;
+  trashCount: number;
+  // 現在の検索状態。どのフォルダーを開いているかはこの 2 つから導く
+  // (URL が正・docs/11 §3。選択のための state は持たない)
+  query: string;
+  sort: Sort;
+}
+
+// 未分類フォルダーの検索語 (docs/86 §5)。search.ts の UNTAGGED_TOKEN と
+// 同じ綴りだが、あちらは解析の内部定数なので import はしない
+const UNTAGGED_QUERY = "is:untagged";
+
+function FolderRow({
+  href,
+  label,
+  count,
+  active,
+}: {
+  href: string;
+  label: ReactNode;
+  count?: number;
+  active: boolean;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={`flex min-h-9 items-center justify-between gap-2 rounded px-2 text-sm ${
+          active
+            ? "bg-blue-100 font-medium text-blue-800"
+            : "text-gray-700 hover:bg-gray-100"
+        }`}
+      >
+        <span className="flex min-w-0 items-center gap-1 truncate">{label}</span>
+        {count !== undefined && (
+          <span className="shrink-0 text-xs text-gray-400">{count}</span>
+        )}
+      </Link>
+    </li>
+  );
+}
+
+// 検索 3 ペインの左、仮想フォルダー (docs/86 §5)。
+//
+// フォルダーのテーブルは無い。**どの行もただの検索・並び順へのリンク**で、
+// 押した結果は検索窓に同じ語を打ったのと完全に同じ (フォルダーは常に検索の
+// エイリアス)。だからノートとの所属がずれる同期問題が構造的に起きない。
+//
+// xl 未満では出さない (hidden xl:block)。モバイルにはタグ補完と検索履歴が
+// 既にあり、ドロワー化は重複投資になる。
+// 幅 (--folder-pane-w) はプレビューペインの左端・カード一覧の広幅補正と
+// 共有するので globals.css の変数で動かす。
+export function FolderPane({
+  tags,
+  totals,
+  trashCount,
+  query,
+  sort,
+}: FolderPaneProps) {
+  // タグ検索の判定は正規化して比べる (#ABC と #abc は同じタグ)
+  const normalizedQuery = normalizeTag(query);
+  // 「最近」= 空検索のアクセス順 (逆順も含む)。既定の並びは「すべて」
+  const isRecent =
+    query === "" && (sort === "accessed" || sort === "accessedAsc");
+
+  return (
+    // top-12 … sticky ヘッダー (z-20) の下から始める。z-10 は下部バーと同層
+    <aside
+      data-folder-pane
+      aria-label="検索フォルダー"
+      className="fixed top-12 bottom-0 left-0 z-10 hidden w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white/80 px-2 pt-2 pb-16 xl:block"
+    >
+      <ul className="space-y-0.5">
+        <FolderRow
+          href="/"
+          label="すべて"
+          count={totals.total}
+          active={query === "" && !isRecent}
+        />
+        <FolderRow href="/?sort=accessed" label="最近" active={isRecent} />
+        <FolderRow
+          href={`/?q=${encodeURIComponent(UNTAGGED_QUERY)}`}
+          label="未分類"
+          count={totals.untagged}
+          active={normalizedQuery === UNTAGGED_QUERY}
+        />
+        {/* ゴミ箱が空のときは出さない (ヘッダー脇のリンクと同じ判断) */}
+        {trashCount > 0 && (
+          <FolderRow
+            href="/trash"
+            label={
+              <>
+                <TrashIcon small />
+                ゴミ箱
+              </>
+            }
+            count={trashCount}
+            active={false}
+          />
+        )}
+      </ul>
+
+      <h2 className="mt-3 px-2 text-xs font-medium text-gray-400">タグ</h2>
+      <ul className="mt-1 space-y-0.5">
+        {tags.map((t) => (
+          <FolderRow
+            key={t.tag}
+            href={tagSearchHref(t.tag)}
+            label={`#${t.tag}`}
+            count={t.count}
+            active={normalizedQuery === normalizeTag(`#${t.tag}`)}
+          />
+        ))}
+      </ul>
+    </aside>
+  );
+}

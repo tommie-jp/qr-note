@@ -541,6 +541,22 @@ select,
    片方だけ変えた日に最後の行がペインの下に隠れて掬えなくなる */
 :root {
   --preview-pane-h: 45dvh;
+  /* 検索フォルダーペイン (docs/86 §5) の幅。ペイン自身 (FolderPane)・
+     プレビューペインの左端 (PreviewPane の xl:left-[…])・カード一覧の
+     広幅補正 (下) の 3 か所で共有するので、必ずこの変数で動かす */
+  --folder-pane-w: 14rem;
+}
+
+/* フォルダーペインが出ている xl 以上では、カード表示の広幅一覧
+   (WIDE_RESULTS_CLASS の breakout) の中心と上限をペインの分だけ右へ寄せる。
+   これが無いとカードの左端がペインの下に潜る。Tailwind の utilities より
+   後勝ちになるのは、この file の素の (層に入らない) 規則だから */
+@media (min-width: 80rem) {
+  body:has([data-folder-pane]) .search-wide-results {
+    left: calc(50% + (var(--folder-pane-w) + 1rem) / 2);
+    width: calc(100vw - var(--folder-pane-w) - 3rem);
+    max-width: 72rem;
+  }
 }
 
 /* ペインが開いている間だけ、一覧 (main) をペインの高さぶん底上げして、

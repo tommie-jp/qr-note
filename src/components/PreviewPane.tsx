@@ -75,7 +75,7 @@ export function PreviewPane({ bgClass, openHref, children }: PreviewPaneProps) {
     <section
       data-preview-pane
       aria-label="選択したノート"
-      className={`fixed inset-0 z-30 overflow-y-auto overscroll-contain ${bgClass} lg:top-auto lg:bottom-[49px] lg:z-10 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300`}
+      className={`fixed inset-0 z-30 overflow-y-auto overscroll-contain ${bgClass} lg:top-auto lg:bottom-[49px] lg:z-10 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300 xl:left-[var(--folder-pane-w)]`}
     >
       {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
           下を通る本文を透けさせないため。z-10 … 本文側の relative z-10

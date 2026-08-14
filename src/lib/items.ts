@@ -302,6 +302,24 @@ export async function listTags(): Promise<TagCount[]> {
   `
 }
 
+export interface FolderTotals {
+  total: number
+  untagged: number
+}
+
+// 検索フォルダーの件数 (docs/86 §5)。「すべて」と「未分類」を 1 回の
+// seq scan で数える。未分類の定義は is:untagged (termCondition の
+// cardinality(tags) = 0) と同じ — フォルダーは検索のエイリアスなので、
+// バッジの数字とクリックした結果の件数がずれてはいけない
+export async function countFolderTotals(): Promise<FolderTotals> {
+  const rows = await prisma.$queryRaw<FolderTotals[]>`
+    SELECT count(*)::int AS total,
+           (count(*) FILTER (WHERE cardinality(tags) = 0))::int AS untagged
+    FROM items WHERE deleted_at IS NULL
+  `
+  return rows[0] ?? { total: 0, untagged: 0 }
+}
+
 export interface ItemSearchResult {
   items: Item[]
   total: number

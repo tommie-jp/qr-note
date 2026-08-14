@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import type {
+  countFolderTotals as CountFolderTotalsFn,
   countTaskProgress as CountTaskProgressFn,
   countTrashedItems as CountTrashedItemsFn,
   countTrashedMatches as CountTrashedMatchesFn,
@@ -47,6 +48,7 @@ describe.skipIf(!runDbTests)(
     let countTrashedItems: typeof CountTrashedItemsFn
     let countTrashedMatches: typeof CountTrashedMatchesFn
     let countTaskProgress: typeof CountTaskProgressFn
+    let countFolderTotals: typeof CountFolderTotalsFn
     let findListNeighbors: typeof FindListNeighborsFn
     let nextItemNo: typeof NextItemNoFn
     let setItemPublic: typeof SetItemPublicFn
@@ -193,6 +195,7 @@ describe.skipIf(!runDbTests)(
         countTrashedItems,
         countTrashedMatches,
         countTaskProgress,
+        countFolderTotals,
         findListNeighbors,
         nextItemNo,
         setItemPublic,
@@ -377,6 +380,17 @@ describe.skipIf(!runDbTests)(
         expect(itemNos(r)).toEqual(['zzftt1', 'zzftt2'])
         const none = await searchItems('zzfttagmemo is:untagged', 1)
         expect(itemNos(none)).toEqual([])
+      })
+
+      // 検索フォルダーの件数 (docs/86 §5)
+      test('countFolderTotals は全件と未分類を 1 回で数える', async () => {
+        const totals = await countFolderTotals()
+        expect(totals.total).toBeGreaterThanOrEqual(seed.length)
+        expect(totals.untagged).toBeGreaterThan(0)
+        expect(totals.untagged).toBeLessThanOrEqual(totals.total)
+        // 件数の定義は is:untagged 検索と同じ (フォルダー = 検索のエイリアス)
+        const r = await searchItems('is:untagged', 1)
+        expect(totals.untagged).toBe(r.total)
       })
 
       // 学習の進捗 (docs/60-学習進捗計画.md §2)。
