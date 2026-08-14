@@ -10,6 +10,12 @@
 //
 // SSML も発音記号 (IPA) 指定も Safari は受け付けないため、読ませ方を細かく
 // 指示する手段は無い。渡せるのは綴り・言語・速さだけ。
+//
+// **実機の失敗は /logs から読む** (docs/30-ブラウザログ計画.md)。iPhone は
+// Mac 無しでインスペクタを繋げないので、選んだ声と鳴らなかった事実を
+// 診断ログに残す。console には出さない (失敗ではないものを警告にしない)。
+
+import { logDiagEvent } from './diagLog'
 
 // 単語も例文も US 発音で統一する (英語学習の目標発音)
 export const TTS_LANG = 'en-US'
@@ -17,8 +23,10 @@ export const TTS_LANG = 'en-US'
 // 少しだけ遅くする。既定 (1.0) は単語の聞き取りには速い
 export const TTS_RATE = 0.9
 
-// 鳴っている物を止めてから読み直すまでの待ち (speakEnglish の末尾に理由)
-export const RESPEAK_DELAY_MS = 100
+// speak() してから鳴り始めるまでを待つ上限。過ぎたら声を外して 1 度だけ
+// 試し直す (speakOnce に理由)。長すぎると押してから無反応の時間が伸び、
+// 短すぎると鳴り始めた声に二重で被せるので、その間を取る
+export const TTS_START_TIMEOUT_MS = 1200
 
 // 優先して選ぶ声。Apple の自然な英語 (US) 音声を先に、その後 PC ブラウザの
 // 標準的な英語音声を並べる。
@@ -133,41 +141,142 @@ export function primeVoices(): void {
   speechApi()?.synth.getVoices()
 }
 
-// 英語として読み上げる。対応していない端末では false を返す
-// (呼ぶ側が「この端末では読み上げできません」と出せるように、黙って捨てない)。
-//
-// onEnd は読み終わり・失敗のどちらでも呼ぶ。押した見た目のまま固まらせない
-export function speakEnglish(text: string, onEnd?: () => void): boolean {
-  const api = speechApi()
-  if (api === null) {
-    return false
-  }
+// 声の名前を 1 行にする (診断ログ用)
+function describeVoice(voice: SpeechSynthesisVoice | null): string {
+  return voice === null ? 'なし(langのみ)' : `${voice.name}/${voice.lang}`
+}
+
+// 1 ページにつき 1 度だけ、選んだ声を /logs に残す。毎回送るとログが
+// 発音だけで埋まる (logEnvironmentOnce と同じ判断)
+let choiceLogged = false
+
+// この端末では声を指定すると鳴らない、と判った後は指定をやめる。
+// 一度でも「鳴り始めない → 声を外したら鳴った」を踏んだら立てる。
+// 立てないと、押すたびに 1.2 秒待ってから鳴ることになる
+let skipVoice = false
+
+interface SpeechApi {
+  synth: SpeechSynthesis
+  Utterance: typeof SpeechSynthesisUtterance
+}
+
+// 読み上げが終わったときの知らせ。spoke = 実際に音が出たか
+export type TtsEndHandler = (spoke: boolean) => void
+
+// 止めたときに飛ぶ error。端末の不調ではないので「鳴らなかった」とは言わない
+const CANCEL_ERRORS = new Set(['canceled', 'interrupted'])
+
+// 1 回ぶんの読み上げ。onNotStarted は「speak したのに鳴り始めない」ときに呼ぶ。
+function speakOnce(
+  api: SpeechApi,
+  text: string,
+  voice: SpeechSynthesisVoice | null,
+  onEnd: TtsEndHandler | undefined,
+  onNotStarted: () => void,
+): void {
   const { synth, Utterance } = api
   const utterance = new Utterance(text)
   utterance.lang = TTS_LANG
   utterance.rate = TTS_RATE
-  const voice = pickEnglishVoice(synth.getVoices())
+
+  // **鳴り始めたかを見張る。** speak() が受け付けられても音が出ないこと
+  // (使えない声を指定した・OS 側に弾かれた) があり、その場合 onend も
+  // onerror も飛ばないので、待つ以外に気づく手が無い
+  let started = false
+  const timer = setTimeout(() => {
+    if (!started) {
+      onNotStarted()
+    }
+  }, TTS_START_TIMEOUT_MS)
+  const settle = () => {
+    started = true
+    clearTimeout(timer)
+  }
+
+  utterance.onstart = settle
+  utterance.onend = () => {
+    settle()
+    onEnd?.(true)
+  }
+  utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+    settle()
+    // cancel() で止めたときも error ('canceled' / 'interrupted') が飛ぶ。
+    // これは利用者が止めただけなので、鳴らなかったとは言わない
+    const error = event?.error ?? '不明'
+    const stopped = CANCEL_ERRORS.has(error)
+    if (!stopped) {
+      logDiagEvent(`[発音] 失敗 (${error}) 声=${describeVoice(voice)}`)
+    }
+    onEnd?.(stopped)
+  }
+
+  // **声の代入は投げることがある。** 一覧から取った声でも、ブラウザが
+  // 「変換できない」として TypeError を出す端末がある (実測)。素で書くと
+  // 例外が押下ハンドラまで抜けて、音も出ず・知らせも出ず・見張りも動かない
+  // — 「押しても何も起きない」の正体になる。声だけ諦めて lang で鳴らす
   if (voice !== null) {
-    utterance.voice = voice
-  }
-  if (onEnd !== undefined) {
-    utterance.onend = () => onEnd()
-    utterance.onerror = () => onEnd()
+    try {
+      utterance.voice = voice
+    } catch (e) {
+      skipVoice = true
+      logDiagEvent(`[発音] 声を設定できない (${describeVoice(voice)}): ${String(e)}`)
+    }
   }
 
-  // 鳴っていなければ**同期のまま** speak する。iOS は最初の 1 回を
-  // 「ユーザー操作の中」で呼ぶことを求めるので、ここに待ちを挟まない
-  if (!synth.speaking && !synth.pending) {
+  // **同期で speak すること。** iOS は最初の 1 回を「ユーザー操作の中」で
+  // 呼ぶことを求めるので、ここに setTimeout を挟むと黙って捨てられる。
+  // cancel() との競合を避けて待ちを入れる手もあるが、待ちの害のほうが大きい
+  try {
+    if (synth.speaking || synth.pending) {
+      synth.cancel()
+    }
     synth.speak(utterance)
-    return true
+  } catch (e) {
+    // speak 自体が投げたら、見張りを待たずにその場で知らせる
+    settle()
+    logDiagEvent(`[発音] speak が失敗した: ${String(e)}`)
+    onNotStarted()
+  }
+}
+
+// 英語として読み上げる。対応していない端末では false を返す
+// (呼ぶ側が「この端末では読み上げできません」と出せるように、黙って捨てない)。
+//
+// onEnd は読み終わり・失敗のどちらでも呼ぶ (押した見た目のまま固まらせない)。
+// **引数は「音が出たか」** — 出なかったときに呼ぶ側が理由を画面に出せるように
+// する。押しても何も起きない、が最も困る形なので、そこは必ず言葉にする。
+//
+// **鳴り始めなければ声を外してもう 1 回試す。** 一覧に載っていても実際には
+// 鳴らせない声がある (iPhone だけ無音・iPad と PC は鳴る、という形で出た)。
+// 声を外して lang だけにすると OS が既定の英語音声を選ぶので、そこまで
+// 落ちれば鳴る
+export function speakEnglish(text: string, onEnd?: TtsEndHandler): boolean {
+  const api = speechApi()
+  if (api === null) {
+    logDiagEvent('[発音] この端末に speechSynthesis が無い')
+    return false
+  }
+  const voices = api.synth.getVoices()
+  const voice = skipVoice ? null : pickEnglishVoice(voices)
+  if (!choiceLogged) {
+    choiceLogged = true
+    logDiagEvent(
+      `[発音] 声=${describeVoice(voice)} 候補=${voices.length} ` +
+        `英語=${voices.filter((v) => v.lang.toLowerCase().startsWith('en')).length}`,
+    )
   }
 
-  // 鳴っている物を止めて読み直すときだけ、ひと呼吸置く。cancel() は非同期に
-  // 効くので、直後に渡した utterance が巻き込まれて無音のまま終わる端末が
-  // ある (押した見た目のまま固まる)。ここに来る時点で既に 1 回鳴っており、
-  // 操作の中で呼ぶ制限は満たしているので待ってよい
-  synth.cancel()
-  setTimeout(() => synth.speak(utterance), RESPEAK_DELAY_MS)
+  speakOnce(api, text, voice, onEnd, () => {
+    logDiagEvent(
+      `[発音] ${TTS_START_TIMEOUT_MS}ms 鳴り始めない (${describeVoice(voice)}) → 声を外して再試行`,
+    )
+    // 次からは最初から声を外す (毎回 1.2 秒待たせない)
+    skipVoice = true
+    speakOnce(api, text, null, onEnd, () => {
+      logDiagEvent('[発音] 声を外しても鳴らなかった')
+      onEnd?.(false)
+    })
+  })
   return true
 }
 

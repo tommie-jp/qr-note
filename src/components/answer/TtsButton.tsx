@@ -50,7 +50,15 @@ export function TtsButton({ text, label }: TtsButtonProps) {
       return;
     }
     setFailed(false);
-    if (!speakEnglish(text, () => markSpeaking(false))) {
+    // 音が出なかったときも知らせが来る (speakEnglish の引数)。押しても何も
+    // 起きない、が最も困る形なので、鳴らなかったことは必ず言葉にする
+    const started = speakEnglish(text, (spoke) => {
+      markSpeaking(false);
+      if (!spoke) {
+        setFailed(true);
+      }
+    });
+    if (!started) {
       setFailed(true);
       return;
     }
@@ -70,7 +78,7 @@ export function TtsButton({ text, label }: TtsButtonProps) {
       </button>
       {failed && (
         <span className="px-1 text-xs text-gray-600">
-          この端末は読み上げに対応していません
+          この端末では読み上げできませんでした
         </span>
       )}
     </>
