@@ -96,6 +96,75 @@ export function matrixCountLabel(table: MatrixTableData): string {
   return `全 ${table.total + table.omitted} 件中 ${table.total} 件`
 }
 
+// 空白 1 文字。JS の `\s` は全角空白 (`　`) も含むので、日本語のノート名で
+// 見出しを全角で区切っていても語の切れ目として見つかる。
+// **g フラグは付けない** — 付けると lastIndex が呼び出しをまたいで残り、
+// 同じ文字列を 2 度見たときに結果が変わる
+const SPACE = /\s/
+
+// text の中で最後に空白が現れた「次の位置」。空白が無ければ 0
+function lastSpaceEnd(text: string): number {
+  for (let index = text.length - 1; index >= 0; index--) {
+    if (SPACE.test(text[index])) {
+      return index + 1
+    }
+  }
+  return 0
+}
+
+// 全行に共通する先頭の長さ (文字単位)。
+// **ここで切った位置は使わない** — 使うのは commonTitlePrefix が語の境目まで
+// 後退させた位置なので、サロゲートペアの途中で止まっても実害が出ない
+function sharedPrefixLength(summaries: readonly string[]): number {
+  let shared = summaries[0].length
+  for (const summary of summaries.slice(1)) {
+    let index = 0
+    while (
+      index < shared &&
+      index < summary.length &&
+      summary[index] === summaries[0][index]
+    ) {
+      index++
+    }
+    shared = index
+    if (shared === 0) {
+      break
+    }
+  }
+  return shared
+}
+
+// 表の中でノート名の頭に等しく付く「飾り」を見つける。返すのは**削ってよい
+// 接頭辞**で、空文字なら削らない (docs/84-表タイトル短縮計画.md)。
+//
+// 表は既に検索式で絞り込まれているので、`01電験三種 01理論 01直流回路` は
+// 全行に等しく付いていて 1 行の情報量に寄与しない。狭い画面ではその飾りが、
+// いちばん見たい `問01` 以降を名前の列から押し出す。
+//
+// **フェンスに「削る文字」を書かせる案は採らない** (計画 §5)。1 行目の
+// 検索式とほぼ同じ内容を別の綴りで二重に持つことになり、ノート名を直すと
+// 一致しなくなって黙って効かなくなる (一部の行だけ一致しないのは正常な
+// 状況なので、エラーにもできない)。
+export function commonTitlePrefix(summaries: readonly string[]): string {
+  // 1 行しかない表の「共通する先頭」はその名前そのもの。削ると全部消える
+  if (summaries.length < 2) {
+    return ''
+  }
+
+  // **語の途中では切らない。** 文字単位のまま削ると、問 01〜問 09 だけの表で
+  // 共通部分が `問0` まで伸び、行が `1 (直列と並列の合成抵抗)` になる。
+  // 空白の直後まで戻せば `問0` は空白を含まないので、丸ごと残る
+  const end = lastSpaceEnd(summaries[0].slice(0, sharedPrefixLength(summaries)))
+  if (end === 0) {
+    return ''
+  }
+  // 削ると名前が何も残らない行があるなら、この表では削らない
+  if (summaries.some((summary) => summary.slice(end) === '')) {
+    return ''
+  }
+  return summaries[0].slice(0, end)
+}
+
 function statusOf(row: MatrixSourceRow): StatusCell {
   if (row.taskDone === 0) {
     return 'untouched'

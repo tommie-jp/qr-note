@@ -167,6 +167,58 @@ describe("MatrixTable", () => {
     expect(html).toContain("col=");
   });
 
+  // 表は既に検索式で絞り込まれているので、全行に等しく付いた見出し
+  // (`01電験三種 01理論 01直流回路`) は 1 行の情報量に寄与しない。狭い画面では
+  // それがいちばん見たい `問01` 以降を押し出す (docs/84-表タイトル短縮計画.md)
+  describe("共通する先頭", () => {
+    const LONG_TABLE: MatrixTableData = {
+      ...TABLE,
+      rows: [
+        {
+          itemNo: "7000",
+          summary: "01電験三種 01理論 01直流回路 問01 (合成抵抗)",
+          cells: ["checked", "checked"],
+        },
+        {
+          itemNo: "7001",
+          summary: "01電験三種 01理論 01直流回路 問02 (分圧則)",
+          cells: ["unchecked", "unchecked"],
+        },
+      ],
+      total: 2,
+      done: [1, 1],
+      columnTotals: [2, 2],
+    };
+
+    test("共通する先頭を省いた名前が出る", () => {
+      const html = render(tableResult(LONG_TABLE));
+      expect(html).toContain(">問01 (合成抵抗)<");
+      expect(html).toContain(">問02 (分圧則)<");
+      // リンクの文字としては出ない (残るのは下の見出しと title 属性だけ)
+      expect(html).not.toContain(">01電験三種 01理論 01直流回路 問01");
+    });
+
+    test("省いた語は表の上に出す (黙って消さない)", () => {
+      const html = render(tableResult(LONG_TABLE));
+      expect(html).toContain(">01電験三種 01理論 01直流回路<");
+    });
+
+    // マウスなら行の上で全体が読める。省くのは表示だけで、持っている名前は
+    // 全文のまま
+    test("行の title は全文のまま", () => {
+      const html = render(tableResult(LONG_TABLE));
+      expect(html).toContain(
+        'title="01電験三種 01理論 01直流回路 問01 (合成抵抗)"',
+      );
+    });
+
+    test("共通する先頭が無ければ今までどおり", () => {
+      const html = render(tableResult(TABLE));
+      expect(html).toContain(">問1<");
+      expect(html).toContain(">問3<");
+    });
+  });
+
   test("0 件のときは空の表ではなく文で出す", () => {
     const html = render(tableResult({ ...TABLE, rows: [], total: 0 }));
     expect(html).not.toContain("<table");

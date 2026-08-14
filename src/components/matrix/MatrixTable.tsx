@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type { MatrixResult } from "@/lib/matrixData";
 import type { MatrixMarkSet } from "@/lib/matrixFence";
-import { donePercent, matrixCountLabel, type MatrixCell } from "@/lib/matrixTable";
+import {
+  commonTitlePrefix,
+  donePercent,
+  matrixCountLabel,
+  type MatrixCell,
+} from "@/lib/matrixTable";
 import { buildItemUrl } from "@/lib/searchUrl";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
 
@@ -101,6 +106,13 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
     );
   }
 
+  // 全行の名前に等しく付いた先頭は表示から省く (docs/84-表タイトル短縮計画.md)。
+  // **短くするのは表示だけ** — 集計の側 (MatrixTableData) は全文を持ったまま
+  // なので、リンクの title には元の名前が出るし、オフラインの写しも同じ関数を
+  // 通って同じ表になる
+  const titlePrefix = commonTitlePrefix(table.rows.map((row) => row.summary));
+  const prefixLabel = titlePrefix.trim();
+
   return (
     <div className="my-4">
       <p className="mb-1 text-sm text-gray-600">
@@ -119,10 +131,28 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
           </span>
         ))}
       </p>
+      {/* 省いた語は 1 度だけ出す。**黙って消さない** — 表の行だけを見て
+          「何の問 01 か」が判らなくなるのを防ぐ。溢れたら省略記号で切り、
+          全文は title に持たせる (帯の**外**なので横スクロールは起きない) */}
+      {prefixLabel !== "" && (
+        <p className="mb-1 truncate text-sm text-gray-500" title={prefixLabel}>
+          {prefixLabel}
+        </p>
+      )}
       {/* 横に溢れる表は帯の中だけでスクロールさせる。**帯は縦のはみ出しも
           切る**ので、ポップアップを持つ物はこの中に置かない (docs/11) */}
       <div className="overflow-x-auto rounded border border-gray-200 bg-white">
-        <table className="w-full">
+        {/* text-[length:1em] … 本文と同じ大きさに戻す。prose (Tailwind
+            Typography) は `table` に font-size: 0.857em を当てるので、放って
+            おくと本文 14px に対して表だけ 12px になり、記号もノート名も
+            まわりの文章より一段小さく見える。`1em` にするのは器 (prose) の
+            大きさをそのまま受けるため — rem で書くと文字サイズの倍率
+            (docs/61) は追えるが、prose-sm / prose の別には追随しない。
+            leading-[inherit] … 行の高さも本文の 1 行と同じにする。prose は
+            同じ規則で `table` に line-height: 1.5 を当てており、本文
+            (1.714) より詰まる。セルの上下余白 (py-0) と合わせて、
+            1 行 = 本文 1 行の高さに揃える */}
+        <table className="w-full text-[length:1em] leading-[inherit]">
           <thead>
             <tr className="border-b border-gray-200 text-left text-gray-600">
               {/* **チェックを先に置く。** 表を開く目的は「どれがまだか」を
@@ -150,7 +180,11 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                   </div>
                 </th>
               ))}
-              <th scope="col" className="w-full max-w-0 px-4 py-1.5 font-normal">
+              {/* py-0 … 上下の余白は持たせない (行の高さ = 本文 1 行)。
+                  **クラスを外すのではなく 0 を書くのが要点** — 外すと
+                  prose の `thead th` / `tbody td` の余白 (0.667em) が
+                  表に出てきて、かえって広がる */}
+              <th scope="col" className="w-full max-w-0 px-4 py-0 font-normal">
                 ノート
               </th>
             </tr>
@@ -163,13 +197,13 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                 {row.cells.map((cell, index) => (
                   <td
                     key={table.columns[index]}
-                    className={`w-px px-1 py-1.5 text-center ${CELL_CLASS[cell]}`}
+                    className={`w-px px-1 py-0 text-center ${CELL_CLASS[cell]}`}
                   >
                     <span aria-hidden>{markOf(cell, marks)}</span>
                     <span className="sr-only">{CELL_MARK[cell].label}</span>
                   </td>
                 ))}
-                <td className="w-full max-w-0 truncate px-4 py-1.5">
+                <td className="w-full max-w-0 truncate px-4 py-0">
                   {/* 検索式と並びをリンクに載せる。開いた先で前後ナビが出て、
                       表 → 1 問目 → 次 → … と回って戻ってこられる
                       (docs/60-学習進捗計画.md §4)。表は入口であって
@@ -182,8 +216,10 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                     <span className="shrink-0 font-mono font-bold">
                       #{row.itemNo}
                     </span>
+                    {/* 共通の先頭を省いた残り。title (上の Link) は全文の
+                        まま持っているので、行の上に置けば全体が読める */}
                     <span className="min-w-0 truncate text-gray-600">
-                      {row.summary}
+                      {row.summary.slice(titlePrefix.length)}
                     </span>
                   </Link>
                 </td>

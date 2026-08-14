@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { MAX_MATRIX_COLUMNS } from './matrixFence'
 import {
   buildMatrixTable,
+  commonTitlePrefix,
   donePercent,
   matrixCountLabel,
   STATUS_COLUMN_LABEL,
@@ -302,5 +303,63 @@ describe('donePercent', () => {
 
   test('分母 0 は 0.0 (0/0 を出さない)', () => {
     expect(donePercent(0, 0)).toBe('0.0')
+  })
+})
+
+// 表の中では「01電験三種 01理論 01直流回路」は全行に等しく付いた飾りで、
+// 1 行の情報量に寄与しない。狭い画面ではそれがいちばん見たい「問01」以降を
+// 押し出す (docs/84-表タイトル短縮計画.md)
+describe('commonTitlePrefix', () => {
+  test('共通する先頭の語を返す', () => {
+    // Arrange
+    const summaries = [
+      '01電験三種 01理論 01直流回路 問01 (直列と並列の合成抵抗)',
+      '01電験三種 01理論 01直流回路 問02 (分圧則・直列抵抗の電圧配分)',
+    ]
+
+    // Act
+    const prefix = commonTitlePrefix(summaries)
+
+    // Assert
+    expect(prefix).toBe('01電験三種 01理論 01直流回路 ')
+    expect(summaries[0].slice(prefix.length)).toBe('問01 (直列と並列の合成抵抗)')
+  })
+
+  // 文字単位のまま削ると、問 01〜問 09 だけの表で共通部分が「問0」まで伸び、
+  // 行が「1 (直列と並列の合成抵抗)」になる
+  test('語の途中では切らない', () => {
+    expect(commonTitlePrefix(['問01 直列', '問02 分圧'])).toBe('')
+  })
+
+  test('共通する語が無ければ削らない', () => {
+    expect(commonTitlePrefix(['過渡現象 問1', '静電気 問1'])).toBe('')
+  })
+
+  // 1 行しかない表は共通部分 = その名前そのもの。削ると全部消える
+  test('行が 1 つなら削らない', () => {
+    expect(commonTitlePrefix(['01電験三種 01理論 問01 (合成抵抗)'])).toBe('')
+    expect(commonTitlePrefix([])).toBe('')
+  })
+
+  test('全角空白も区切りとして扱う', () => {
+    expect(commonTitlePrefix(['電験三種　問01', '電験三種　問02'])).toBe(
+      '電験三種　',
+    )
+  })
+
+  // 全行が同じ名前でも最後の語は残す (残りが空の行を作らない)
+  test('名前がまったく同じでも最後の語は残る', () => {
+    expect(commonTitlePrefix(['過渡現象 問1', '過渡現象 問1'])).toBe('過渡現象 ')
+    expect(commonTitlePrefix(['問1', '問1'])).toBe('')
+  })
+
+  // 短い行が長い行の先頭そのものだと、残りが空になる行が出る
+  test('残りが空になる行があれば削らない', () => {
+    expect(commonTitlePrefix(['過渡現象 問1', '過渡現象 問1 補足'])).toBe(
+      '過渡現象 ',
+    )
+    expect(commonTitlePrefix(['過渡現象', '過渡現象 問1'])).toBe('')
+    // 名前の末尾に空白がある形でも、空の行は作らない
+    expect(commonTitlePrefix(['過渡現象 ', '過渡現象 問1'])).toBe('')
   })
 })
