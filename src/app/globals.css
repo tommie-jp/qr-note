@@ -568,7 +568,7 @@ select,
    Tailwind の utilities より後勝ちになるのは、この file の素の
    (層に入らない) 規則だから */
 @media (min-width: 64rem) {
-  body:has([data-folder-pane]) {
+  body:has([data-results-pane]) {
     display: flex;
     flex-direction: column;
     height: 100dvh;
@@ -581,7 +581,7 @@ select,
      margin-bottom … 下部バーと (開いていれば) プレビューペインのぶんは
      器の**外**に置く。padding で空けるとスクロールバーだけがその下まで
      伸びてしまい、ペインの中に収まらない */
-  body:has([data-folder-pane]) main {
+  body:has([data-results-pane]) main {
     flex: 1;
     min-height: 0;
     max-width: none;
@@ -594,13 +594,13 @@ select,
     margin-bottom: var(--bottom-bar-h);
   }
 
-  body:has([data-folder-pane]):has([data-preview-pane]) main {
+  body:has([data-results-pane]):has([data-preview-pane]) main {
     margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
   }
 
   /* 読み幅は器ではなく中身が持つ。器はペイン 2 の領域いっぱいに広げた
      (max-width:none) ので、今までの max-w-2xl はここで保つ */
-  body:has([data-folder-pane]) [data-results-pane] {
+  [data-results-pane] {
     max-width: 42rem;
     margin-inline: auto;
   }
@@ -623,5 +623,14 @@ select,
      4rem は左右の余白と、器自身のスクロールバーのぶん */
   body:has([data-folder-pane]) .search-wide-results {
     width: calc(100vw - var(--folder-pane-w) - 4rem);
+  }
+
+  /* ノートのペインとその境界も同じだけ右へ寄せる。**Tailwind の
+     xl:left-… ではなくここで持つ** — ペインを出すかどうかはペイン構成
+     (docs/86 §4-4) が決めるので、フォルダーが居ない構成 (2 / 1 ペイン) では
+     寄せてはいけない。:has なら「居るときだけ」が 1 行で書ける */
+  body:has([data-folder-pane]) [data-preview-pane],
+  body:has([data-folder-pane]) [role="separator"][aria-orientation="horizontal"] {
+    left: var(--folder-pane-w);
   }
 }

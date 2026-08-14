@@ -9,7 +9,10 @@ import {
   trashItemsAction,
 } from "@/app/actions";
 import { AutoLoadMore } from "@/components/AutoLoadMore";
+import { AutoNotePane } from "@/components/AutoNotePane";
 import { BottomActionBar } from "@/components/BottomActionBar";
+import { ItemListNav } from "@/components/ItemListNav";
+import { ItemView } from "@/components/ItemView";
 import { FolderPane } from "@/components/FolderPane";
 import { ItemList } from "@/components/ItemList";
 import { TrashIcon } from "@/components/MenuIcons";
@@ -41,10 +44,18 @@ import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
+import {
+  PANE_MODE_COOKIE,
+  parsePaneMode,
+  showsFolderPane,
+  type PaneMode,
+} from "@/lib/paneMode";
+import { resolveItemListContext } from "@/lib/itemListContext";
+import { getItem } from "@/lib/items";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { listQueries } from "@/lib/searchQueryStore";
 import { currentUser } from "@/lib/session";
-import { buildSearchUrl } from "@/lib/searchUrl";
+import { buildItemUrl, buildSearchUrl } from "@/lib/searchUrl";
 import { qrStickerHost } from "@/lib/site";
 import { SORT_COOKIE, resolveSort } from "@/lib/sortMode";
 import type { Sort } from "@/lib/validation";
@@ -73,6 +84,10 @@ export default async function Home({ searchParams }: HomeProps) {
   // ここ (サーバ) で読めるから初回描画から正しい見た目で出る
   // (docs/23-検索結果表示モード計画.md §5)
   const view = parseViewMode(cookieStore.get(VIEW_MODE_COOKIE)?.value);
+  // ペイン構成 (docs/86 §4-4)。フォルダーを出すか、先頭のノートを自動で
+  // 選ぶかがここで決まる。**サーバで決めるのが要点** — クライアントで
+  // 隠すだけだと、出さない構成でもタグの集計を引いてしまう
+  const paneMode = parsePaneMode(cookieStore.get(PANE_MODE_COOKIE)?.value);
   // 検索窓のタグ補完だけは固定部と一緒に引く (小さな表 1 つで速い)。
   // 重い検索本体は HomeResults に隔離して Suspense で後から流す —
   // ログイン直後や直リンクの初回表示で、固定部 (検索窓) を先に出すため
@@ -122,7 +137,13 @@ export default async function Home({ searchParams }: HomeProps) {
                 </p>
               }
             >
-              <HomeResults query={query} page={page} sort={sort} view={view} />
+              <HomeResults
+                query={query}
+                page={page}
+                sort={sort}
+                view={view}
+                paneMode={paneMode}
+              />
             </Suspense>
           </div>
 
@@ -145,9 +166,13 @@ export default async function Home({ searchParams }: HomeProps) {
               null にせずタグだけのペインを出す** — ペインの有無で一覧の幅が
               変わる (globals.css の body:has) ので、後から現れると表示済みの
               カードが横へ跳ねる */}
-          <Suspense fallback={<FolderPane tags={tags} query={query} sort={sort} />}>
-            <SearchFolders tags={tags} query={query} sort={sort} />
-          </Suspense>
+          {showsFolderPane(paneMode) && (
+            <Suspense
+              fallback={<FolderPane tags={tags} query={query} sort={sort} />}
+            >
+              <SearchFolders tags={tags} query={query} sort={sort} />
+            </Suspense>
+          )}
         </PageTransition>
       </SelectModeProvider>
     </SearchNavProvider>
@@ -193,11 +218,13 @@ async function HomeResults({
   page,
   sort,
   view,
+  paneMode,
 }: {
   query: string;
   page: string;
   sort: Sort;
   view: ReturnType<typeof parseViewMode>;
+  paneMode: PaneMode;
 }) {
   // 特性表はタグ検索のときだけ出す。表は「同族の部品を並べて比べる」ビューで、
   // タグ検索がまさにその族の指定だから (docs/08-プロパティ計画.md §4)。
@@ -255,9 +282,29 @@ async function HomeResults({
   // buildNotePreviews の中 (circuitThumbs / mathTexts と同じ作法)
   const notePreviews = buildNotePreviews(result.items, circuitThumbs, view);
 
+  // 3 ペインでは**必ずノートを出す** (docs/86 §4-4)。まだ何も選んでいない
+  // ときのために、検索結果の先頭を器ごと用意しておく。
+  //
+  // URL は動かさない — router.replace で /item/<先頭> へ飛ばすと、
+  // 再読み込みした瞬間に横取りの外 (全画面のノート) へ着地して 3 ペインが
+  // 消える。ここで描けば URL は検索のまま保てる。
+  // 中身の重さは一覧のプレビュー (buildNotePreviews は最大 20 ノートぶんの
+  // markdown を描く) と同じ桁で、1 ノート増えるだけ
+  const first = showsFolderPane(paneMode) ? result.items[0] : undefined;
+  const autoNote = first ? await buildAutoNote(first.itemNo, query, sort) : null;
+
   // カード・masonry は広い画面で列を増やしたいので広幅。compact の
   // 1 カラムだけは読み幅を保つ (docs/23 §1, docs/32 §1)
   return (
+    <>
+    {/* 3 ペインでまだ何も選んでいないときに出す、先頭ノートのペイン
+        (docs/86 §4-4)。**SearchResults の外に置く** — あちらはカード表示で
+        breakout の transform を持ち、transform のある要素は position:fixed の
+        包含ブロックになる (下部バーを nav の外へ出しているのと同じ罠)。
+        中に入れるとペインが一覧の幅の中へ縮んで浮く。
+        出すかどうかの最終判断はクライアント側 (AutoNotePane) —
+        横取りスロットが既にノートを持っていたら引っ込む */}
+    {autoNote}
     <SearchResults
       query={query}
       // search-wide-results … フォルダーペイン (docs/86 §5) が出ている xl 以上
@@ -341,6 +388,34 @@ async function HomeResults({
           remaining={result.total - result.items.length}
         />
       )}
+
     </SearchResults>
+    </>
+  );
+}
+
+// 自動で選んだ先頭ノートの中身。横取りしたペイン
+// ((search)/@detail/(.)item/[itemNo]/page.tsx) と同じ組み合わせを、
+// 同じ道具 (resolveItemListContext) で組み立てる
+async function buildAutoNote(itemNo: string, query: string, sort: Sort) {
+  const [item, ctx] = await Promise.all([
+    getItem(itemNo),
+    resolveItemListContext(itemNo, query, sort),
+  ]);
+  return (
+    <AutoNotePane
+      key={itemNo}
+      bgClass={isProductionEnv() ? "bg-gray-50" : "bg-pink-50"}
+      itemNo={itemNo}
+      openHref={buildItemUrl(itemNo, ctx.query, ctx.sort)}
+    >
+      <ItemView itemNo={itemNo} item={item} />
+      <ItemListNav
+        prev={ctx.neighbors.prev}
+        next={ctx.neighbors.next}
+        query={ctx.query}
+        sort={ctx.sort}
+      />
+    </AutoNotePane>
   );
 }

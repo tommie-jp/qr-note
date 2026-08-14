@@ -21,8 +21,10 @@ import {
 const HANDLE_CLASS: Record<PaneKind, string> = {
   folder:
     "fixed top-12 bottom-[var(--bottom-bar-h)] left-[var(--folder-pane-w)] z-20 hidden w-2 -translate-x-1/2 cursor-col-resize touch-none xl:block",
+  // 左端をフォルダーペインの右へ寄せるのは globals.css (ペインが出ている
+  // 構成のときだけ効かせたいので :has で見る)
   preview:
-    "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 hidden h-2 translate-y-1/2 cursor-row-resize touch-none lg:block xl:left-[var(--folder-pane-w)]",
+    "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 hidden h-2 translate-y-1/2 cursor-row-resize touch-none lg:block",
 };
 
 const HANDLE_SKIN =

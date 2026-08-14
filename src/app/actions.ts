@@ -47,6 +47,11 @@ import {
   parseTrashSort,
 } from '@/lib/validation'
 import {
+  parsePaneMode,
+  PANE_MODE_COOKIE,
+  PANE_MODE_COOKIE_MAX_AGE,
+} from '@/lib/paneMode'
+import {
   parseViewMode,
   VIEW_MODE_COOKIE,
   VIEW_MODE_COOKIE_MAX_AGE,
@@ -430,6 +435,31 @@ async function tombstoneNotes(itemNos: string[]): Promise<void> {
   } catch (error) {
     console.error(`git 履歴の墓石コミットに失敗しました (${itemNos.join(', ')}):`, error)
   }
+}
+
+// 検索画面のペイン構成 (3 → 2 → 1) を切り替える (docs/86 §4-4)。
+//
+// 置き場と作法は表示モード (下の setViewModeAction) と同じ — cookie に持ち、
+// サーバが描画前に読む。フォルダーペインを出すかどうかがサーバの判断に
+// なるので、クライアントで隠す方式は採らない (出さない構成でもタグの集計を
+// 引いてしまう)。requireUser() を呼ばないのも同じ理由 (見た目の好みだけ)。
+export async function setPaneModeAction(formData: FormData): Promise<void> {
+  const mode = parsePaneMode(formData.get(PANE_MODE_COOKIE))
+
+  const store = await cookies()
+  store.set(PANE_MODE_COOKIE, mode, {
+    // 中身の作法は表示モードの cookie と同じ (理由はそちらのコメント)
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: PANE_MODE_COOKIE_MAX_AGE,
+  })
+
+  // revalidatePath は呼ばない (setViewModeAction と同じ理由)。ただしこの
+  // ボタンはヘッダー = どのページにも居るので、検索画面以外から押された
+  // ときは「その場のページ」が描き直されるだけで一覧には効かない。
+  // 効くのは次に検索画面を開いたときで、cookie は既に新しい
 }
 
 // 検索結果の表示モード (小/大) を切り替える (docs/23-検索結果表示モード計画.md §5)。

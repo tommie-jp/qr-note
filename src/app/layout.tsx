@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import QRCode from "qrcode";
 import pkg from "../../package.json";
@@ -24,11 +25,14 @@ import {
   LogIcon,
 } from "@/components/MenuIcons";
 import { OfflineSync } from "@/components/OfflineSync";
+import { PaneModeButton } from "@/components/PaneModeButton";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { RecordTagSearch } from "@/components/RecordTagSearch";
 import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
+import { setPaneModeAction } from "@/app/actions";
 import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/noteFontScale";
+import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/paneMode";
 import { PANE_SIZE_INIT_SCRIPT } from "@/lib/paneSize";
 import {
   isDemoMode,
@@ -97,6 +101,13 @@ export default async function RootLayout({
   // ログイン手段 (パスワード / パスキー) によらず必ずセッションを持つので
   // (docs/18 §11)、ログイン中なら常にログアウトを出してよい
   const user = await currentUser();
+
+  // 検索画面のペイン構成 (docs/86 §4-4)。ヘッダーはどのページにも出るので
+  // ここで読む。cookies() は currentUser() が既に呼んでいるので、これで
+  // ルートが動的になるわけではない
+  const paneMode = parsePaneMode(
+    (await cookies()).get(PANE_MODE_COOKIE)?.value,
+  );
 
   // 非本番は画面全体をピンクに塗る。Tailwind はソース中のクラス名を文字列として
   // 探すため、`bg-${color}-50` のような組み立てをすると CSS が生成されない。
@@ -180,7 +191,12 @@ export default async function RootLayout({
               左パディングが無いのは、ハンバーガーが sticky left-0 で貼り付く
               ため — 器に左余白が残ると、スクロール開始の瞬間にボタンだけ
               その幅ぶん左へ飛ぶ。左の safe-area はボタン自身が padding で持つ */}
-          <div className="mx-auto flex max-w-2xl items-baseline gap-1.5 overflow-x-auto overscroll-x-contain pt-safe pr-safe pb-3 -mb-3 [scrollbar-width:none] landscape-phone:max-w-4xl [&>*]:shrink-0">
+          {/* **帯は画面いっぱいに使う** (docs/86 §4-4)。器を max-w-2xl で
+              中央に寄せていた頃は、3 ペインにするとハンバーガーもユーザー名も
+              画面の真ん中あたりに集まり、左のフォルダーペインとも右のノートとも
+              揃わなかった。左の物 (メニュー・ロゴ・戻る進む) は左端へ、
+              右の物 (ペイン構成・ユーザー名) は右端へ置く */}
+          <div className="flex items-baseline gap-1.5 overflow-x-auto overscroll-x-contain pt-safe pr-safe pb-3 -mb-3 [scrollbar-width:none] [&>*]:shrink-0">
             {/* 項目はハンバーガーメニューへ畳む (docs/11-アプリ的UIUX計画.md §6)。
                 横に並べていたときは iPhone の幅で 1 文字ずつ折り返れて崩れた。
                 左端に置くのは、片手持ちの親指が届く側だから。帯が横へ動いても
@@ -325,14 +341,21 @@ export default async function RootLayout({
                 DEMO
               </span>
             )}
-            {/* ユーザー名だけはメニューの外に残す — 「誰で入っているか」は
-                一目で確かめたい情報で、押す物でもないため */}
+            {/* 右端の一群。ml-auto がここまでの左寄せと切り離す */}
             {user && (
-              <span
-                className="ml-auto max-w-24 truncate text-gray-500"
-                title={`${user} でログイン中`}
-              >
-                {user}
+              <span className="ml-auto flex items-center gap-1.5">
+                {/* 検索画面のペイン構成 (docs/86 §4-4)。ヘッダーに置くのは、
+                    どのペインにも属さない「画面全体の畳み方」だから。
+                    lg 未満では出さない (PaneModeButton の中で畳む) */}
+                <PaneModeButton mode={paneMode} action={setPaneModeAction} />
+                {/* ユーザー名だけはメニューの外に残す — 「誰で入っているか」は
+                    一目で確かめたい情報で、押す物でもないため */}
+                <span
+                  className="max-w-24 truncate text-gray-500"
+                  title={`${user} でログイン中`}
+                >
+                  {user}
+                </span>
               </span>
             )}
           </div>

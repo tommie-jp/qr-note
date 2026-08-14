@@ -85,6 +85,7 @@ export default async function ItemPreviewPage({
     <PreviewPane
       key={itemNo}
       bgClass={paneBg()}
+      itemNo={itemNo}
       openHref={buildItemUrl(itemNo, ctx.query, ctx.sort)}
     >
       <ItemView itemNo={itemNo} item={item} saved={saved} />

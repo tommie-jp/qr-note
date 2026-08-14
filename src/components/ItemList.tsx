@@ -15,6 +15,7 @@ import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
 import { BulkTagToolbar } from "./BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";
+import { usePaneMode } from "./PaneModeProvider";
 import { TrashIcon } from "./MenuIcons";
 import { useSelectMode } from "./SelectModeProvider";
 import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "./ui";
@@ -134,11 +135,13 @@ export function ItemList({
   // だけにするため、ここで一元管理する。小表示・非選択のときだけ効く。
   const [openItemNo, setOpenItemNo] = useState<string | null>(null);
 
-  // プレビューペイン (docs/86 §4) で右下に開いているノート。横取り中は
-  // URL が /item/<番号> になるので、選択のための state は持たず pathname
-  // から導く (URL が正・docs/11 §3)。解釈はペインの表示ゲート
-  // (PreviewPane) や画像タイル (ImageMasonry) と itemNoFromPathname で共有する
-  const previewItemNo = itemNoFromPathname(usePathname());
+  // ノートのペイン (docs/86 §4) に出ている番号。ペイン自身が context へ
+  // 流したものを見る (docs/86 §4-4) — 3 ペインでは URL が /item から
+  // 離れてもノートが出たままなので、pathname だけでは決まらない。
+  // provider の外 (ペインのない画面) では pathname に落とす
+  const pathname = usePathname();
+  const { shownItemNo } = usePaneMode();
+  const previewItemNo = shownItemNo ?? itemNoFromPathname(pathname);
 
   // 選択モードを抜けたら選択を捨てる。バーから抜けることもあるので、
   // 抜ける操作それぞれに後始末を配らず、モードの変化 1 か所で受ける
