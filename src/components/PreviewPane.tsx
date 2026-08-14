@@ -6,8 +6,32 @@ import { ClearIcon } from "@/components/MenuIcons";
 import { PaneResizer } from "@/components/PaneResizer";
 import { usePaneMode } from "@/components/PaneModeProvider";
 import { ACTION_LINK_CLASS } from "@/components/ui";
-import { keepsNoteOpen } from "@/lib/paneMode";
+import {
+  keepsNoteOpen,
+  notePaneLayout,
+  type NotePaneLayout,
+} from "@/lib/paneMode";
 import { itemNoFromPathname } from "@/lib/searchUrl";
+
+// 器の置き方。**z の高さが要点** (docs/86 §4-9):
+//   下部ペイン … z-0。下部バー (z-10) より下に置く — 長押しメニューは
+//     バーの上へせり上がるので、ペインと同層だと DOM 順で負けて隠れる。
+//   全画面 … z-10。バーごと覆う (ノートを読む間は検索の帯を出さない)。
+// どちらもヘッダー (z-20) の下から始める (§4-5)。
+const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
+  pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)] border-t border-gray-300",
+  "pane-lg":
+    "top-[var(--header-h)] bottom-0 z-10 lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:z-0 lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300",
+  fullscreen: "top-[var(--header-h)] bottom-0 z-10",
+};
+
+// ペインとして出ているときは幅いっぱいに使う (docs/86 §4-8)。全画面では
+// 読み幅に収めたまま — 画面の端から端まで続く行は目で追えない
+const PANE_WIDTH_CLASS: Record<NotePaneLayout, string> = {
+  pane: "max-w-none",
+  "pane-lg": "lg:max-w-none",
+  fullscreen: "",
+};
 
 interface PreviewPaneProps {
   // ペインの地色。本番=灰 / ローカル=ピンクは env から決まるので、サーバ側
@@ -73,13 +97,6 @@ export function PreviewPane({
   const keepOpen = source === "detail" && keepsNoteOpen(mode);
   const visible = source === "auto" || onItemUrl || keepOpen;
 
-  // **「閉じない」はペインのときだけ** (docs/86 §4-4)。lg 未満ではノートは
-  // ペインではなく全画面なので、URL が /item を離れても出し続けると
-  // 画面を覆ったまま戻れなくなる — ロゴを押しても一覧に帰れない、が実際に
-  // 起きた。幅で分けるのは CSS の仕事にする (JS で幅を見ると、サーバの
-  // 描画と食い違って hydration が壊れる)
-  const keptOpenOffUrl = !onItemUrl && (keepOpen || source === "auto");
-
   // 一覧の行・画像タイルのハイライトはこの番号を見る (docs/86 §4-4)。
   // pathname から決めないのは、3 ペインでは URL が /item から離れても
   // ノートが出たままになるため。**出していない間は null を流す** —
@@ -97,16 +114,19 @@ export function PreviewPane({
     return null;
   }
 
-  // 1 ペインではノートも全画面で開く (スマホと同じ畳み方)。3 / 2 では
-  // lg 以上で画面下部のペインになり、lg 未満は今までどおり全画面
-  const isBottomPane = mode !== "1";
+  // 器の畳み方は構成が決める (docs/86 §4-9)。3 ペインは幅に関係なくペイン、
+  // 2 ペインは lg 以上だけペイン、1 ペインは常に全画面
+  const layout = notePaneLayout(mode);
+  const isBottomPane = layout !== "fullscreen";
 
   return (
     <>
       {/* 上端の境界をドラッグして高さを変える (docs/86 §4-2)。帯は z-20 で
           ペイン (lg 以上では z-10) の上に出る。lg 未満は全画面オーバーレイ
           なので帯そのものを出さない (PaneResizer の hidden lg:block) */}
-      {isBottomPane && <PaneResizer kind="preview" />}
+      {isBottomPane && (
+        <PaneResizer kind="preview" atAnyWidth={layout === "pane"} />
+      )}
       {/* data-preview-pane … 一覧 (main) の底を上げるフック (globals.css の
           body:has)。**下部ペインのときだけ付ける** — 全画面のときに付けると、
           隠れている一覧が意味もなく縮む。
@@ -121,11 +141,9 @@ export function PreviewPane({
         aria-label="選択したノート"
         // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
         // (ペインが出ている構成のときだけ効かせたいので :has で見る)
-        className={`fixed inset-x-0 top-[var(--header-h)] bottom-0 z-10 overflow-y-auto overscroll-contain ${bgClass} ${
-          isBottomPane
-            ? "lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300"
-            : ""
-        } ${keptOpenOffUrl ? "max-lg:hidden" : ""}`}
+        className={`fixed inset-x-0 overflow-y-auto overscroll-contain ${bgClass} ${
+          PANE_BOX_CLASS[layout]
+        }`}
       >
         {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
             下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
@@ -133,9 +151,7 @@ export function PreviewPane({
             sticky 側を上に出す */}
         <div className={`sticky top-0 z-10 ${bgClass}`}>
           <div
-            className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl ${
-              isBottomPane ? "lg:max-w-none" : ""
-            }`}
+            className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl ${PANE_WIDTH_CLASS[layout]}`}
           >
             {/* 3 ペインでは「閉じる」を出さない (docs/86 §4-4)。ノートは常設の
                 面で、押しても閉じられない物をボタンにしても嘘になる。
@@ -168,9 +184,7 @@ export function PreviewPane({
             狭い画面) では今までどおり読み幅に収める — 画面の端から端まで
             続く行は目で追えない */}
         <div
-          className={`mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20 ${
-            isBottomPane ? "lg:max-w-none" : ""
-          }`}
+          className={`mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20 ${PANE_WIDTH_CLASS[layout]}`}
         >
           {children}
         </div>

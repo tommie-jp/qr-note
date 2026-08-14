@@ -652,24 +652,74 @@ select,
     margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
   }
 
+
+
 }
+
+/* --- ここから下は上のブロックと**対**。同じ宣言を、幅ではなく「3 ペインを
+   選んだかどうか」で効かせる (docs/86 §4-9)。CSS には「幅 or クラス」の or が
+   書けないので 2 か所に置いてある。**必ず両方を直すこと。**
+   3 ペインは選んだ以上どの幅でもペインの積み方で通す — 一方 1 / 2 ペインの
+   狭い画面は従来どおり文書スクロールのまま (引っ張って更新は内側スクローラ
+   では出せないため。docs/47) --- */
+body:has([data-panes="3"]) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body:has([data-panes="3"]) main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  margin-inline: 0;
+  overflow: hidden;
+  margin-bottom: var(--bottom-bar-h);
+  padding-bottom: 0;
+}
+
+body:has([data-panes="3"]) [data-results-pane],
+body:has([data-panes="3"]) [data-search-results] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+body:has([data-panes="3"]) [data-results-scroll] {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body:has([data-panes="3"]) [data-bottom-bar-spacer] {
+  display: none;
+}
+
+body:has([data-panes="3"]):has([data-preview-pane]) main {
+  margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
+}
+
 
 /* フォルダーペインが出ている xl 以上では、**ペイン 2 ごと**その幅だけ
    右へ寄せる。ペインは fixed で場所を取らないので、放っておくと検索窓も
    一覧も左側がペインの下に潜る (小表示で顕著。テキストサイズを上げるほど
    器が広がって早く重なる。実機で判明)。
    足している 1rem は px-safe の左余白 (padding-left ごと上書きするため) */
-@media (min-width: 80rem) {
-  body:has([data-folder-pane]) main {
-    padding-left: calc(var(--folder-pane-w) + 1rem);
-  }
+/* フォルダーペインが居るときは、ペイン 2 とノートをその幅だけ右へ寄せる。
+   **幅では畳まない** (docs/86 §4-9) — フォルダーは 3 ペインを選んだときしか
+   描かれず、選んだ以上は狭いウィンドウでも 3 ペインで通すため。
+   Tailwind の xl:left-… ではなくここで持つのは、「フォルダーが居るときだけ」を
+   :has で 1 行に書けるから */
+body:has([data-folder-pane]) main {
+  padding-left: calc(var(--folder-pane-w) + 1rem);
+}
 
-  /* ノートのペインとその境界も同じだけ右へ寄せる。**Tailwind の
-     xl:left-… ではなくここで持つ** — ペインを出すかどうかはペイン構成
-     (docs/86 §4-4) が決めるので、フォルダーが居ない構成 (2 / 1 ペイン) では
-     寄せてはいけない。:has なら「居るときだけ」が 1 行で書ける */
-  body:has([data-folder-pane]) [data-preview-pane],
-  body:has([data-folder-pane]) [role="separator"][aria-orientation="horizontal"] {
-    left: var(--folder-pane-w);
-  }
+body:has([data-folder-pane]) [data-preview-pane],
+body:has([data-folder-pane]) [role="separator"][aria-orientation="horizontal"] {
+  left: var(--folder-pane-w);
 }

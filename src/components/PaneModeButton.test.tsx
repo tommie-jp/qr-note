@@ -26,7 +26,8 @@ test("読み上げは今の構成、押した先は title に添える", () => {
   expect(html).toContain("押すと 1 ペイン");
 });
 
-test("ペインの無いスマホでは出さない", () => {
-  // ペインは lg 以上でしか出ないので、押しても何も変わらない
-  expect(render("3")).toContain("hidden lg:block");
+test("どの幅でも出す (構成から抜ける手段を残す)", () => {
+  // 3 ペインは幅に関係なく 3 ペイン (docs/86 §4-9)。狭い画面でボタンを
+  // 隠すと、選んだ構成から抜けられなくなる
+  expect(render("3")).not.toContain("hidden lg:block");
 });

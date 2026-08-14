@@ -73,8 +73,9 @@ function FolderRow({
 // 押した結果は検索窓に同じ語を打ったのと完全に同じ (フォルダーは常に検索の
 // エイリアス)。だからノートとの所属がずれる同期問題が構造的に起きない。
 //
-// xl 未満では出さない (hidden xl:block)。モバイルにはタグ補完と検索履歴が
-// 既にあり、ドロワー化は重複投資になる。
+// **出すかどうかは構成が決める** (docs/86 §4-9)。3 ペインを選んだ端末では
+// 幅に関係なく出る (サーバが showsFolderPane で描くかどうかを決めており、
+// ここには「出す」と決まった場合しか来ない)。
 // 幅 (--folder-pane-w) はプレビューペインの左端・カード一覧の広幅補正と
 // 共有するので globals.css の変数で動かす。
 export function FolderPane({
@@ -108,7 +109,7 @@ export function FolderPane({
     <aside
       data-folder-pane
       aria-label="検索フォルダー"
-      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 hidden w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white px-2 pt-2 pb-4 xl:block"
+      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto border-r border-gray-200 bg-white px-2 pt-2 pb-4"
     >
       <ul>
         <FolderRow

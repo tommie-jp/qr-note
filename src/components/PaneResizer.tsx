@@ -19,12 +19,14 @@ import {
 // touch-none … 指でなぞったときに画面ごとスクロールさせない。
 // 見た目は普段は透明で、触れている間だけ色を出す (常時見える線は枠が担う)。
 const HANDLE_CLASS: Record<PaneKind, string> = {
+  // フォルダーの境界はペインと同じ寿命 (3 ペインのときだけ描かれる) なので、
+  // 幅では畳まない (docs/86 §4-9)
   folder:
-    "fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-[var(--folder-pane-w)] z-20 hidden w-2 -translate-x-1/2 cursor-col-resize touch-none xl:block",
+    "fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-[var(--folder-pane-w)] z-20 block w-2 -translate-x-1/2 cursor-col-resize touch-none",
   // 左端をフォルダーペインの右へ寄せるのは globals.css (ペインが出ている
   // 構成のときだけ効かせたいので :has で見る)
   preview:
-    "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 hidden h-2 translate-y-1/2 cursor-row-resize touch-none lg:block",
+    "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 h-2 translate-y-1/2 cursor-row-resize touch-none",
 };
 
 const HANDLE_SKIN =
@@ -85,7 +87,15 @@ function storePaneSize(kind: PaneKind, size: number): void {
 // **React の state では動かさない** — 1 フレームごとに再描画すると、
 // 一覧に数百行ある状態でドラッグが引っかかる。state は読み上げ (aria) と
 // キー操作の起点のためだけに持つ。
-export function PaneResizer({ kind }: { kind: PaneKind }) {
+export function PaneResizer({
+  kind,
+  // ノートの境界だけ: 幅に関係なく出すか (3 ペイン) / lg 以上だけか (2 ペイン)。
+  // ノートが全画面のときは呼ぶ側が描かない
+  atAnyWidth = true,
+}: {
+  kind: PaneKind;
+  atAnyWidth?: boolean;
+}) {
   const spec = PANE_SIZES[kind];
   // サーバは寸法を知らないので既定を返す。見た目が跳ねることはない —
   // 実際の寸法は <head> の先回りスクリプトが当て済みで、ここが追いつくのは
@@ -176,8 +186,8 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       tabIndex={0}
       title={`${spec.label} (ドラッグか矢印キーで調整、ダブルクリックで既定に戻す)`}
       className={`${HANDLE_CLASS[kind]} ${HANDLE_SKIN} ${
-        dragging ? "bg-blue-500/50" : ""
-      }`}
+        atAnyWidth ? "" : "hidden lg:block"
+      } ${dragging ? "bg-blue-500/50" : ""}`}
       onPointerDown={(event) => {
         // 掴んだ瞬間は動かさない (押しただけで寸法が飛ばないように)。
         // 主ボタン以外は無視する

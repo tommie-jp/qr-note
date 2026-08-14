@@ -89,6 +89,8 @@ test("1 ペインのノートは全画面 (下部ペインの寸法を持たな�
   // 一覧の底を上げるフックも、下部ペインの高さも持たない
   expect(html).not.toContain("data-preview-pane");
   expect(html).not.toContain("--preview-pane-h");
+  // ヘッダーは覆わない (§4-5)
+  expect(html).toContain("top-[var(--header-h)]");
 });
 
 test("3 / 2 ペインのノートは下部ペイン (一覧の底を上げるフックを持つ)", () => {
@@ -97,17 +99,17 @@ test("3 / 2 ペインのノートは下部ペイン (一覧の底を上げるフ
   expect(html).toContain("var(--preview-pane-h)");
 });
 
-test("3 ペインの「閉じない」はペインのときだけ (lg 未満は全画面なので畳む)", () => {
-  // lg 未満ではノートはペインではなく全画面。URL を離れても出し続けると
-  // 画面を覆ったまま戻れず、ロゴを押しても一覧に帰れない (実機で判明)
-  nav.pathname = "/?q=BJT";
-  try {
-    expect(render("/item/4951", "3")).toContain("max-lg:hidden");
-  } finally {
-    nav.pathname = "/item/4951";
-  }
+// 3 ペインは幅に関係なく下部のペイン (docs/86 §4-9)。全画面にならないので、
+// URL を離れても出し続けて画面を覆う心配がない
+test("3 ペインのノートは幅に関係なく下部のペイン", () => {
+  const html = render("/item/4951", "3");
+  expect(html).toContain("bottom-[var(--bottom-bar-h)]");
+  expect(html).toContain("h-[var(--preview-pane-h)]");
+  expect(html).not.toContain("max-lg:hidden");
 });
 
-test("/item に居る間は幅で畳まない", () => {
-  expect(render("/item/4951", "3")).not.toContain("max-lg:hidden");
+test("2 ペインのノートは lg 以上でだけペイン (狭い画面は全画面)", () => {
+  const html = render("/item/4951", "2");
+  expect(html).toContain("top-[var(--header-h)]");
+  expect(html).toContain("lg:bottom-[var(--bottom-bar-h)]");
 });

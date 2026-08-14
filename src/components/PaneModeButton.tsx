@@ -78,9 +78,8 @@ function PaneModeSubmit({ current }: { current: PaneMode }) {
   );
 }
 
-// ペインはもともと広い画面にしか出ない (フォルダーは xl 以上、ノートの
-// ペインは lg 以上) ので、スマホではボタンごと出さない — 押しても何も
-// 変わらない物を、いちばん狭い画面の帯に置かない
+// **どの幅でも出す** (docs/86 §4-9)。3 ペインは幅に関係なく 3 ペインなので、
+// 狭い画面でボタンを隠すと、選んだ構成から抜ける手段が無くなる
 export function PaneModeButton({
   mode,
   action,
@@ -89,7 +88,7 @@ export function PaneModeButton({
   action: (formData: FormData) => void | Promise<void>;
 }) {
   return (
-    <form action={action} className="hidden lg:block">
+    <form action={action}>
       <PaneModeSubmit current={mode} />
     </form>
   );

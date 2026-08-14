@@ -19,23 +19,31 @@ test("動かせる境界として読み上げられる (window splitter)", () =>
   expect(html).toContain(PANE_SIZES.folder.label);
 });
 
-test("フォルダーの境界はペインの幅の変数に貼り付く (xl 以上だけ)", () => {
+test("フォルダーの境界はペインの幅の変数に貼り付く (幅では畳まない)", () => {
   const html = renderToStaticMarkup(<PaneResizer kind="folder" />);
   expect(html).toContain("left-[var(--folder-pane-w)]");
-  expect(html).toContain("xl:block");
+  // フォルダーは 3 ペインのときしか描かれないので、幅で隠す必要がない
+  expect(html).not.toContain("xl:block");
   expect(html).toContain("cursor-col-resize");
   // 指でなぞって画面ごとスクロールさせない
   expect(html).toContain("touch-none");
 });
 
-test("プレビューの境界は下部バーとペインの高さの和に貼り付く (lg 以上だけ)", () => {
+test("プレビューの境界は下部バーとペインの高さの和に貼り付く", () => {
   const html = renderToStaticMarkup(<PaneResizer kind="preview" />);
   expect(html).toContain(
     "bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))]",
   );
-  expect(html).toContain("lg:block");
   expect(html).toContain("cursor-row-resize");
   expect(html).toContain('aria-orientation="horizontal"');
+});
+
+// 2 ペイン (lg 以上だけペイン) では境界も幅で畳む
+test("幅で畳む指定を受けたら lg 未満では出さない", () => {
+  const html = renderToStaticMarkup(
+    <PaneResizer kind="preview" atAnyWidth={false} />,
+  );
+  expect(html).toContain("hidden lg:block");
 });
 
 test("サーバ描画は既定の寸法から始める (保存値はマウント後に読む)", () => {
