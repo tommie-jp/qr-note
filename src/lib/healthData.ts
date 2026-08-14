@@ -5,11 +5,7 @@
 // 渡す。鍵はフェンスの中身 (trim 済み) で、同じ内容のフェンスが 2 つあれば
 // 1 回の集計を共有する。
 
-import type { Code, Root } from 'mdast'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
-import { visit } from 'unist-util-visit'
-import { HEALTH_LANG } from './fenceLanguages'
+import { extractHealthSources } from './healthFences'
 import { parseHealthFence } from './healthFence'
 import { buildHealthSeries, type HealthSeries } from './healthSeries'
 import { searchItemHealth, type ItemHealthResult } from './items'
@@ -38,27 +34,9 @@ export type HealthResult =
 // フェンスの中身 (trim 済み) → グラフ
 export type HealthMap = ReadonlyMap<string, HealthResult>
 
-// 本文から ```health フェンスの中身を重複なしで取り出す。
-// 正規表現ではなく remark で解析するのは extractMatrixSources と同じ理由
-// (react-markdown 側の解釈とズレると、集計済みのグラフを引けない)
-export function extractHealthSources(markdown: string): string[] {
-  const tree = unified().use(remarkParse).parse(markdown) as Root
-  const sources: string[] = []
-
-  visit(tree, 'code', (node: Code) => {
-    if (node.lang !== HEALTH_LANG) {
-      return
-    }
-    // 中身が空でもグラフは作れる (検索式なし = 全ノートから記録を拾う) ので、
-    // 回路図と違い空を捨てない。鍵は '' になる
-    const source = node.value.trim()
-    if (!sources.includes(source)) {
-      sources.push(source)
-    }
-  })
-
-  return sources
-}
+// フェンスの取り出しは葉モジュール (healthFences.ts) が持つ。
+// ここから re-export はしない — 消費側が置き場を直に指すほうが、
+// 「集計は DB を要る側、取り出しは要らない側」という境界が保たれる
 
 // 本文中のすべての ```health フェンスを集計してマップにする。
 //

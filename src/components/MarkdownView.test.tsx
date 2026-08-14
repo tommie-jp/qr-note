@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 import { MarkdownView } from "./MarkdownView";
+import { extractHealthSources } from "@/lib/healthFences";
+import { buildHealthSeries } from "@/lib/healthSeries";
 
 // 画像 (ZoomableImage) が回転確定後の router.refresh() のために useRouter を
 // 呼ぶ。renderToStaticMarkup には App Router のコンテキストが無く useRouter が
@@ -647,6 +649,55 @@ test("matrix フェンスは集計結果を渡すと表になる", () => {
   );
   expect(html).toContain("<table");
   expect(html).toContain("#4551");
+});
+
+// ```health (docs/83-健康管理フェンス計画.md §8)
+//
+// 線の元になる数値もそのノートの外から集まる。matrix と同じく、集計結果を
+// 渡さない画面 (未ログインの公開ビュー・docs ページ) では決してグラフが
+// 出ないことをここで固定する
+test("health フェンスは集計結果を渡さなければグラフにならない", () => {
+  const html = render("```health\n#健康管理\n```");
+  expect(html).not.toContain("<svg");
+  expect(html).toContain("#健康管理");
+  expect(html).toContain("<pre");
+});
+
+test("health フェンスは集計結果を渡すとグラフになる", () => {
+  const markdown = "```health\n#健康管理\ny=体重\n```";
+  // **鍵は集計側 (extractHealthSources) が作ったものをそのまま使う。**
+  // 描く側は readFence が読んだ中身で引くので、両者の畳み方 (trim) が
+  // 食い違うと、集計してあるのに静かにコードブロックへ落ちる
+  const [source] = extractHealthSources(markdown);
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={markdown}
+      health={
+        new Map([
+          [
+            source,
+            {
+              kind: "chart" as const,
+              query: "#健康管理",
+              omittedNotes: 0,
+              series: buildHealthSeries(
+                [
+                  {
+                    itemNo: "4551",
+                    memo: "- 2026-08-13 体重=66.6\n- 2026-08-14 体重=66.4",
+                  },
+                ],
+                "体重",
+                30,
+              ),
+            },
+          ],
+        ])
+      }
+    />,
+  );
+  expect(html).toContain("<svg");
+  expect(html).toContain("最新 66.4 (8/14)");
 });
 
 // 答え隠し `||答え||` (docs/79-答え隠し計画.md)
