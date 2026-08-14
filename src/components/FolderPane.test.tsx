@@ -3,7 +3,12 @@ import { expect, test } from "vitest";
 import type { Sort } from "@/lib/validation";
 import { FolderPane } from "./FolderPane";
 
-const render = (query = "", sort: Sort = "updated", trashCount = 2) =>
+const render = (
+  query = "",
+  sort: Sort = "updated",
+  trashCount = 2,
+  saved: string[] = [],
+) =>
   renderToStaticMarkup(
     <FolderPane
       tags={[
@@ -12,6 +17,7 @@ const render = (query = "", sort: Sort = "updated", trashCount = 2) =>
       ]}
       totals={{ total: 578, untagged: 41 }}
       trashCount={trashCount}
+      saved={saved}
       query={query}
       sort={sort}
     />,
@@ -62,4 +68,23 @@ test("is:untagged は「未分類」が開いている印になる", () => {
 test("ゴミ箱が空なら行ごと出さない", () => {
   const html = render("", "updated", 0);
   expect(html).not.toContain('href="/trash"');
+});
+
+// ☆ 登録パターン (docs/59 §7) をスマートフォルダーとして並べる (docs/86 §6)
+
+test("登録パターンは検索リンクとして並び、一致中は印が付く", () => {
+  const html = render("#英単語 is:todo", "updated", 0, [
+    "#英単語 is:todo",
+    "#理論 #易",
+  ]);
+  expect(html).toContain("登録パターン");
+  expect(html).toContain(
+    `href="${`/?q=${encodeURIComponent("#理論 #易")}`}"`,
+  );
+  expect(html.split('aria-current="page"').length - 1).toBe(1);
+  expect(html).toMatch(/aria-current="page"[^>]*>[^<]*<[^>]*>★ #英単語 is:todo/);
+});
+
+test("登録パターンが無ければ節ごと出さない", () => {
+  expect(render()).not.toContain("登録パターン");
 });

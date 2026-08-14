@@ -9,6 +9,10 @@ interface FolderPaneProps {
   tags: TagCount[];
   totals: FolderTotals;
   trashCount: number;
+  // ☆ で登録した検索パターン (docs/59-検索候補計画.md §7)。スマート
+  // フォルダーとしてそのまま並べる — ピン留めの仕組みを新設しない
+  // (docs/86 §6)。登録・解除は従来どおり検索窓のドロップダウンで行う
+  saved: string[];
   // 現在の検索状態。どのフォルダーを開いているかはこの 2 つから導く
   // (URL が正・docs/11 §3。選択のための state は持たない)
   query: string;
@@ -64,6 +68,7 @@ export function FolderPane({
   tags,
   totals,
   trashCount,
+  saved,
   query,
   sort,
 }: FolderPaneProps) {
@@ -109,6 +114,27 @@ export function FolderPane({
           />
         )}
       </ul>
+
+      {/* ★ の付いた語は検索窓のドロップダウンと同じ物 (最近使った順)。
+          タグ検索と重なる登録 (#npn だけ等) では両方の行に印が付くが、
+          どちらも同じ検索を指しているので嘘にはならない */}
+      {saved.length > 0 && (
+        <>
+          <h2 className="mt-3 px-2 text-xs font-medium text-gray-400">
+            登録パターン
+          </h2>
+          <ul className="mt-1 space-y-0.5">
+            {saved.map((q) => (
+              <FolderRow
+                key={q}
+                href={`/?q=${encodeURIComponent(q)}`}
+                label={`★ ${q}`}
+                active={query === q}
+              />
+            ))}
+          </ul>
+        </>
+      )}
 
       <h2 className="mt-3 px-2 text-xs font-medium text-gray-400">タグ</h2>
       <ul className="mt-1 space-y-0.5">

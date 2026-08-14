@@ -42,6 +42,8 @@ import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
+import { listQueries } from "@/lib/searchQueryStore";
+import { currentUser } from "@/lib/session";
 import { buildSearchUrl } from "@/lib/searchUrl";
 import { qrStickerHost } from "@/lib/site";
 import { SORT_COOKIE, resolveSort } from "@/lib/sortMode";
@@ -154,15 +156,20 @@ async function SearchFolders({
   query: string;
   sort: Sort;
 }) {
-  const [totals, trashCount] = await Promise.all([
+  // ☆ 登録パターン (docs/59 §7) はユーザーごと。この画面は門番 (proxy) の
+  // 内側だが、万一の未ログインは空で受ける (ペインの他の節は個人情報でない)
+  const user = await currentUser();
+  const [totals, trashCount, queryLists] = await Promise.all([
     countFolderTotals(),
     countTrashedItems(),
+    user ? listQueries(user) : Promise.resolve({ saved: [], recent: [] }),
   ]);
   return (
     <FolderPane
       tags={tags}
       totals={totals}
       trashCount={trashCount}
+      saved={queryLists.saved}
       query={query}
       sort={sort}
     />
