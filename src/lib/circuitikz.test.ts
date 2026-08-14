@@ -29,6 +29,14 @@ describe('circuitHash', () => {
     expect(circuitHash(SIMPLE)).toMatch(/^[0-9a-f]{64}$/)
   })
 
+  // 同じ図が閲覧 (DB の本文 = CRLF のことがある) と編集のライブプレビュー
+  // (CodeMirror が LF に揃える) で別々に届く。TeX の出力は同じなのに
+  // 鍵が分かれると、いちばん高い処理を二重に払う
+  test('ignores the line ending so one figure keeps one key', () => {
+    expect(circuitHash(SIMPLE.replace(/\n/g, '\r\n'))).toBe(circuitHash(SIMPLE))
+    expect(circuitHash(SIMPLE.replace(/\n/g, '\r'))).toBe(circuitHash(SIMPLE))
+  })
+
   // Wikimedia の Math 拡張はレンダラ版をキーに含めておらず、
   // レンダラ更新時にキャッシュが無効化されない。同じ轍を踏まない
   test('changes when the renderer version changes', () => {

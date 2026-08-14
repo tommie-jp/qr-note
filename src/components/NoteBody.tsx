@@ -5,7 +5,7 @@ import { noteDefinitions, splitPages } from "@/components/notePages";
 import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
 import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
 import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
-import type { CircuitMap } from "@/lib/circuitCache";
+import type { PendingCircuitMap } from "@/lib/circuitCache";
 import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";
 
@@ -29,7 +29,7 @@ import type { MatrixMap } from "@/lib/matrixData";
 
 interface NoteBodyProps {
   memo: string;
-  circuits?: CircuitMap;
+  circuits?: PendingCircuitMap;
   matrices?: MatrixMap;
   health?: HealthMap;
   linkTags?: boolean;

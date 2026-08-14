@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { isDemoMode } from '@/lib/appEnv'
 import { parseBulkTagForm } from '@/lib/bulkTags'
@@ -70,6 +71,29 @@ function readItemNo(formData: FormData): string {
   return itemNo
 }
 
+// 保存したノートの回路図を**応答を返した後に**描いておく
+// (docs/85-回路図表示待ち計画.md §4)。
+//
+// 図の描画は 1 枚 1〜3 秒かかり、結果は DB に溜まる (circuit_svgs)。
+// 描かずに終わると「保存 → 表示」の**表示のほうが**その分待たされる —
+// 書いた本人がいちばん先に開く画面なので、待ちはそこに出る。
+//
+// after() なので保存の応答は待たせない (redirect の後でも走る)。
+// この直後の表示 (planCircuits) と同じ図を二重に描かないよう、
+// getOrRenderCircuit が進行中の描画を共有する。
+//
+// 失敗しても保存は成功のまま — 図はキャッシュ (派生データ) でしかなく、
+// TeX の書き間違いで本文が保存できなくなるほうがずっと困る
+function warmCircuitsAfterResponse(itemNo: string, memo: string): void {
+  after(async () => {
+    try {
+      await renderCircuits(memo)
+    } catch (error) {
+      console.warn(`保存後の回路図を描けませんでした (${itemNo})`, error)
+    }
+  })
+}
+
 // 保存後の「保存しました」トースト用の戻り先 (docs/11-アプリ的UIUX計画.md §2-3)。
 // 値を時刻にするのは、連続保存でも毎回トーストを出すため (SavedToast の key に
 // 使う)。印はトーストを出した直後にクライアントが URL から消す
@@ -88,6 +112,7 @@ export async function updateMemoAction(formData: FormData): Promise<void> {
   const itemNo = readItemNo(formData)
   const memo = readText(formData, 'memo')
   await upsertMemo(itemNo, memo)
+  warmCircuitsAfterResponse(itemNo, memo)
   revalidatePath(`/item/${itemNo}`)
   redirect(savedHref(itemNo))
 }
@@ -211,6 +236,9 @@ export async function updateItemAction(formData: FormData): Promise<void> {
   const url = readText(formData, 'url')
   const mode = parseMode(formData.get('mode'))
   await upsertItem(itemNo, { memo, url, mode })
+  // 編集画面からの保存も同じ (updateMemoAction と揃える)。
+  // 図を書いてくるのはむしろこちらの画面
+  warmCircuitsAfterResponse(itemNo, memo)
   revalidatePath(`/item/${itemNo}`)
   redirect(savedHref(itemNo))
 }

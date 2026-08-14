@@ -15,7 +15,7 @@ vi.mock('./circuitikz', async (importOriginal) => {
   return { ...actual, renderCircuit: (...a: unknown[]) => renderCircuit(...a) }
 })
 
-const { getOrRenderCircuit, renderCircuits } = await import('./circuitCache')
+const { getOrRenderCircuit, planCircuits, renderCircuits } = await import('./circuitCache')
 
 const SOURCE = String.raw`\begin{circuitikz}\draw (0,0) to[R=$R_1$] (2,0);\end{circuitikz}`
 const SVG = '<svg><path/></svg>'
@@ -86,6 +86,78 @@ describe('getOrRenderCircuit', () => {
     findUnique.mockResolvedValue({ svg: '<svg><script>alert(1)</script></svg>' })
 
     await expect(getOrRenderCircuit(SOURCE)).rejects.toThrow(/想定外/)
+  })
+
+  // DB キャッシュは描き終わってから書かれるので、進行中を覚えていないと
+  // 「保存後の先読み」と「その直後に開いた閲覧画面」が同じ図を 2 度描く
+  test('shares one render between callers that ask at the same time', async () => {
+    findUnique.mockResolvedValue(null)
+    create.mockResolvedValue({})
+    renderCircuit.mockResolvedValue(SVG)
+
+    const [a, b] = await Promise.all([
+      getOrRenderCircuit(SOURCE),
+      getOrRenderCircuit(SOURCE),
+    ])
+
+    expect(a).toBe(SVG)
+    expect(b).toBe(SVG)
+    expect(renderCircuit).toHaveBeenCalledTimes(1)
+  })
+
+  // 失敗を覚えたままにすると、TeX を直した後も同じ失敗が返り続ける
+  test('forgets a failed render so the next attempt runs again', async () => {
+    findUnique.mockResolvedValue(null)
+    renderCircuit.mockRejectedValue(new Error('TeX error'))
+
+    await expect(getOrRenderCircuit(SOURCE)).rejects.toThrow('TeX error')
+    await expect(getOrRenderCircuit(SOURCE)).rejects.toThrow('TeX error')
+    expect(renderCircuit).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('planCircuits', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    findUnique.mockResolvedValue(null)
+    create.mockResolvedValue({})
+    renderCircuit.mockResolvedValue(SVG)
+  })
+
+  // 待たずに返るのがこの関数の存在理由。await してしまうと本文が
+  // 図の描き上がりまで 1 文字も出せない
+  test('returns the map without waiting for the render', () => {
+    const map = planCircuits('```circuitikz\nA\n```')
+
+    expect(map.get('A')).toBeInstanceOf(Promise)
+  })
+
+  test('resolves each fence to its rendered SVG', async () => {
+    const map = planCircuits('```circuitikz\nA\n```\n\n```circuitikz\nB\n```\n')
+
+    expect(await map.get('A')).toEqual({ svg: SVG })
+    expect(await map.get('B')).toEqual({ svg: SVG })
+  })
+
+  // 誰も await しないまま解ける約束があるので (読者が描き上がる前に
+  // ページを離れたとき)、reject させると unhandled rejection になる
+  test('folds a failed render into the result instead of rejecting', async () => {
+    renderCircuit.mockRejectedValue(new Error('TeX error'))
+
+    const map = planCircuits('```circuitikz\nA\n```')
+
+    expect(await map.get('A')).toEqual({ error: 'TeX error', texLog: '' })
+  })
+
+  // 上限を超えた図は約束ですらない (描きにも行かない)
+  test('caps the memo without starting the extra renders', async () => {
+    const md = Array.from({ length: 12 }, (_, i) => `\`\`\`circuitikz\nC${i}\n\`\`\``).join('\n\n')
+
+    const map = planCircuits(md)
+    await Promise.all([...map.values()])
+
+    expect(renderCircuit).toHaveBeenCalledTimes(8)
+    expect(map.get('C8')).toMatchObject({ error: expect.stringContaining('8 個まで') })
   })
 })
 

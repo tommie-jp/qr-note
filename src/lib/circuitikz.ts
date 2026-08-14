@@ -83,9 +83,18 @@ export class CircuitRenderError extends Error {
   }
 }
 
-// 本文 + レンダラ版から決まる、キャッシュの主キー
+// 本文 + レンダラ版から決まる、キャッシュの主キー。
+//
+// **改行コードは揃えてから混ぜる** (docs/85-回路図表示待ち計画.md §6)。
+// 同じ図の同じソースが、経路によって CRLF と LF の 2 通りで届く:
+//   - 閲覧 … DB の本文そのまま (取り込んだファイルが CRLF ならそのまま残る)
+//   - 編集のライブプレビュー … CodeMirror が読み書きする時点で LF に揃う
+// TeX の出力は改行コードに依らず 1 バイトも変わらない (実測: 同じ SVG の
+// md5 が一致) のに、混ぜると別の鍵になり同じ図を 2 度描いて 2 行溜める。
+// いちばん高い処理を丸ごと二重に払っていた
 export function circuitHash(source: string, version = RENDERER_VERSION): string {
-  return createHash('sha256').update(`${version}\n${source}`).digest('hex')
+  const normalized = source.replace(/\r\n?/g, '\n')
+  return createHash('sha256').update(`${version}\n${normalized}`).digest('hex')
 }
 
 // TikZJax が実際に出力する要素。多様な回路 (抵抗・トランジスタ・op-amp・

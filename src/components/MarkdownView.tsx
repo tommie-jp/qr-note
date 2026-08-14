@@ -38,7 +38,7 @@ import {
   MERMAID_LANG,
   QUIZ_LANG,
 } from "@/lib/fenceLanguages";
-import type { CircuitMap } from "@/lib/circuitCache";
+import type { PendingCircuitMap } from "@/lib/circuitCache";
 import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";
 import { HealthChart } from "@/components/health/HealthChart";
@@ -48,11 +48,14 @@ import "katex/dist/katex.min.css";
 
 interface MarkdownViewProps {
   markdown: string;
-  // ```circuitikz の描画結果 (renderCircuits の戻り値)。
+  // ```circuitikz の描画結果 (planCircuits / renderCircuits の戻り値)。
   // TeX の描画は非同期なのにこのコンポーネントは同期に描くため、
-  // ページ側で先に済ませた結果を受け取る。渡さなければ回路図フェンスは
-  // ただのコードブロックとして表示される
-  circuits?: CircuitMap;
+  // ページ側で始めた描画をここへ渡す。渡さなければ回路図フェンスは
+  // ただのコードブロックとして表示される。
+  //
+  // **描き上がっていない約束も受け取る** (docs/85-回路図表示待ち計画.md §3)。
+  // 待つのは CircuitDiagram の中の Suspense で、本文の他の部分は先に出る
+  circuits?: PendingCircuitMap;
   // ```matrix の集計結果 (buildMatrices の戻り値)。circuits と同じ作法で、
   // 非同期の集計はページ側で済ませてから渡す。
   //
@@ -118,7 +121,7 @@ interface MarkdownViewProps {
 // quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
 // する (docs/54 §1、docs/58-CBT問題集計画.md §1)
 function preOrDiagram(
-  circuits: CircuitMap,
+  circuits: PendingCircuitMap,
   matrices: MatrixMap,
   health: HealthMap,
   onRecordHealth: RecordHealthHandler | undefined,
