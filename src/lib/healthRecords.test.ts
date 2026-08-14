@@ -11,14 +11,14 @@ describe('healthDataLines', () => {
       {
         line: 1,
         date: '2026-08-14',
-        measures: [{ label: '体重', value: 66.4, unit: '' }],
+        measures: [{ label: '体重', values: [66.4], unit: '' }],
       },
     ])
   })
 
   test('箇条書き記号は無くてもよい', () => {
     expect(measures('2026-08-14 体重=66.4')).toEqual([
-      { label: '体重', value: 66.4, unit: '' },
+      { label: '体重', values: [66.4], unit: '' },
     ])
     expect(measures('* 2026-08-14 体重=66.4')).toHaveLength(1)
     expect(measures('  + 2026-08-14 体重=66.4')).toHaveLength(1)
@@ -26,21 +26,21 @@ describe('healthDataLines', () => {
 
   test('1 行に複数の項目を書ける', () => {
     expect(measures('- 2026-08-14 体重=66.4 体温=36.5')).toEqual([
-      { label: '体重', value: 66.4, unit: '' },
-      { label: '体温', value: 36.5, unit: '' },
+      { label: '体重', values: [66.4], unit: '' },
+      { label: '体温', values: [36.5], unit: '' },
     ])
   })
 
   test('単位を付けて書ける', () => {
     expect(measures('- 2026-08-14 体重=66.4kg 体温=36.5℃')).toEqual([
-      { label: '体重', value: 66.4, unit: 'kg' },
-      { label: '体温', value: 36.5, unit: '℃' },
+      { label: '体重', values: [66.4], unit: 'kg' },
+      { label: '体温', values: [36.5], unit: '℃' },
     ])
   })
 
   test('全角の数字・全角空白でも読む', () => {
     expect(measures('- 2026-08-14　体重＝６６.４')).toEqual([
-      { label: '体重', value: 66.4, unit: '' },
+      { label: '体重', values: [66.4], unit: '' },
     ])
   })
 
@@ -67,7 +67,7 @@ describe('healthDataLines', () => {
       '```',
       '- 2026-08-15 体重=66.4',
     ].join('\n')
-    expect(measures(memo)).toEqual([{ label: '体重', value: 66.4, unit: '' }])
+    expect(measures(memo)).toEqual([{ label: '体重', values: [66.4], unit: '' }])
   })
 
   test('閉じていないフェンスの中も読まない (書きかけの本文)', () => {
@@ -122,17 +122,45 @@ describe('healthDataLines', () => {
 
   test('キー=値 でないトークンは読み飛ばす', () => {
     expect(measures('- 2026-08-14 体重=66.4 まあまあ')).toEqual([
-      { label: '体重', value: 66.4, unit: '' },
+      { label: '体重', values: [66.4], unit: '' },
     ])
   })
 })
 
 describe('parseMeasureToken', () => {
+  test('/ 区切りの対の値を 1 つの項目として読む (血圧。計画 §9)', () => {
+    expect(parseMeasureToken('血圧=118/76')).toEqual({
+      label: '血圧',
+      values: [118, 76],
+      unit: '',
+    })
+    expect(parseMeasureToken('血圧=118/76mmHg')).toEqual({
+      label: '血圧',
+      values: [118, 76],
+      unit: 'mmHg',
+    })
+  })
+
+  test('全角のスラッシュ・数字でも読む', () => {
+    expect(parseMeasureToken('血圧＝１１８／７６')).toEqual({
+      label: '血圧',
+      values: [118, 76],
+      unit: '',
+    })
+  })
+
+  test('値は 3 つまで', () => {
+    expect(parseMeasureToken('血圧=118/76/62')?.values).toEqual([118, 76, 62])
+    expect(parseMeasureToken('血圧=118/76/62/50')).toBeNull()
+  })
+
   test('数値として読めない値は捨てる', () => {
-    // 血圧の 118/76 は「118 に /76 という単位」ではない (計画 §3)。
-    // 数値 1 つに畳めない値を黙って線に載せるとグラフが嘘になる
-    expect(parseMeasureToken('血圧=118/76')).toBeNull()
+    // 数値に畳めない値を黙って線に載せるとグラフが嘘になる
     expect(parseMeasureToken('体重=120～200')).toBeNull()
+    expect(parseMeasureToken('血圧=118/')).toBeNull()
+    expect(parseMeasureToken('血圧=/76')).toBeNull()
+    expect(parseMeasureToken('血圧=118//76')).toBeNull()
+    expect(parseMeasureToken('血圧=118/上76')).toBeNull()
     expect(parseMeasureToken('服薬=済')).toBeNull()
     expect(parseMeasureToken('体重=')).toBeNull()
     expect(parseMeasureToken('=66.4')).toBeNull()
@@ -142,12 +170,12 @@ describe('parseMeasureToken', () => {
   test('符号付き・整数の値も読む', () => {
     expect(parseMeasureToken('気温=-1.5')).toEqual({
       label: '気温',
-      value: -1.5,
+      values: [-1.5],
       unit: '',
     })
     expect(parseMeasureToken('歩数=8000歩')).toEqual({
       label: '歩数',
-      value: 8000,
+      values: [8000],
       unit: '歩',
     })
   })

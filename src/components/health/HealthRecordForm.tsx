@@ -10,13 +10,16 @@ import { BOX_CLASS, PRIMARY_BUTTON_CLASS } from "@/components/ui";
 export type RecordHealthHandler = (
   date: string,
   item: string,
-  value: number,
+  values: number[],
   unit: string,
 ) => Promise<void>;
 
 interface HealthRecordFormProps {
   // 記録する項目 (グラフの縦軸と同じもの)
   item: string;
+  // 入れる値の数 (血圧なら 2)。**本文にある記録の書き方に合わせる** —
+  // 何を対で書く項目かはアプリが決めることではない (計画 §9)
+  lines: number;
   // 値に付ける単位 (無ければ空文字)。既にある記録に揃えるため、
   // 人に選ばせず本文から引き継ぐ
   unit: string;
@@ -34,19 +37,31 @@ const FIELD_CLASS = `${BOX_CLASS} min-h-11 text-base`;
 // BPNote の入力画面に当たるもので、**書き込む先はこのフェンスがあるノート**。
 export function HealthRecordForm({
   item,
+  lines,
   unit,
   today,
   onRecord,
 }: HealthRecordFormProps) {
   const [date, setDate] = useState(today);
-  const [value, setValue] = useState("");
+  const [values, setValues] = useState<string[]>(() =>
+    Array.from({ length: Math.max(1, lines) }, () => ""),
+  );
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
+  const setValueAt = (index: number, next: string): void => {
+    // 配列は作り直す (その場で書き換えると React が変化に気づかない)
+    setValues(values.map((value, at) => (at === index ? next : value)));
+    setSaved(false);
+  };
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const measured = Number(value);
-    if (value.trim() === "" || !Number.isFinite(measured)) {
+    const measured = values.map((value) => Number(value));
+    if (
+      values.some((value) => value.trim() === "") ||
+      measured.some((value) => !Number.isFinite(value))
+    ) {
       setError("数値を入れてください");
       return;
     }
@@ -58,7 +73,7 @@ export function HealthRecordForm({
         await onRecord(date, item, measured, unit);
         // 入れた値は消す。**残すと「押したのに何も起きていない」に見える** —
         // グラフ側の最新値が入れ替わるのが成功の合図になる
-        setValue("");
+        setValues(values.map(() => ""));
         setSaved(true);
       } catch {
         setError("記録できませんでした");
@@ -76,26 +91,33 @@ export function HealthRecordForm({
         aria-label="記録する日"
         required
       />
-      <label className="flex items-center gap-1">
+      <div className="flex items-center gap-1">
         <span className="font-medium text-gray-700">{item}</span>
-        {/* inputMode … iPhone で数字のキーボードを先に出す。
+        {/* 値が 2 つ以上なら本文と同じ `/` でつないで並べる (血圧の 118/76)。
+            inputMode … iPhone で数字のキーボードを先に出す。
             step=any … 体重の 66.4 のような小数を刻み幅で弾かせない。
             text-base (16px) … これを割ると iOS Safari が画面を勝手に拡大する */}
-        <input
-          type="number"
-          inputMode="decimal"
-          step="any"
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value);
-            setSaved(false);
-          }}
-          className={`${FIELD_CLASS} w-24`}
-          aria-label={`${item}の値`}
-          required
-        />
+        {values.map((value, index) => (
+          <span key={index} className="flex items-center gap-1">
+            {index > 0 && <span className="text-gray-600">/</span>}
+            <input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              value={value}
+              onChange={(event) => setValueAt(index, event.target.value)}
+              className={`${FIELD_CLASS} w-24`}
+              aria-label={
+                values.length === 1
+                  ? `${item}の値`
+                  : `${item}の値 ${index + 1} つ目`
+              }
+              required
+            />
+          </span>
+        ))}
         {unit && <span className="text-gray-600">{unit}</span>}
-      </label>
+      </div>
       <button type="submit" className={PRIMARY_BUTTON_CLASS}>
         記録
       </button>

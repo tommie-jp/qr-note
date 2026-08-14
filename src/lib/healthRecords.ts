@@ -24,10 +24,13 @@ import { visit } from 'unist-util-visit'
 import { splitLines } from './memoLines'
 
 // 1 つの測定値。label は書かれたままの綴り (照合は normalizeMeasureLabel を通す)、
-// unit は数値の後ろに書かれた単位 (`66.4kg` の `kg`。無ければ空文字)
+// unit は数値の後ろに書かれた単位 (`66.4kg` の `kg`。無ければ空文字)。
+//
+// **値は配列**。血圧のように対で書く値 (`118/76`) を 1 つの項目として持つため
+// (計画 §9)。ふつうの項目は要素 1 つ
 export interface Measure {
   label: string
-  value: number
+  values: number[]
   unit: string
 }
 
@@ -54,10 +57,17 @@ const MEASURE_SEPARATOR = /[=＝]/
 // (`℃` は NFKC で `°C` の 2 文字になる)。単位は書いたまま画面に出したい
 const NUMBER_RE = /^([+\-＋－−]?[0-9０-９]+(?:[.．][0-9０-９]+)?)(.*)$/u
 
-// 数値の後ろに残ってよいもの = 単位。**数字と空白を含まないこと**。
-// これが `118/76` (血圧) や `120～200` (範囲) を弾く境目になる — 数値 1 つに
-// 畳めない値を「118 に /76 という単位」として黙って線に載せるとグラフが嘘になる
-const UNIT_RE = /^[^0-9０-９\s　]*$/u
+// 数値の後ろに残ってよいもの = 単位。**数字と空白と区切りを含まないこと**。
+// これが `120～200` (範囲) を弾く境目になる — 数値に畳めない値を
+// 「120 に ～200 という単位」として黙って線に載せるとグラフが嘘になる
+const UNIT_RE = /^[^0-9０-９\s　/／]*$/u
+
+// 値の中の区切り (血圧の `118/76`)。全角の ／ も認める
+const VALUE_SEPARATOR = /[/／]/
+
+// 1 つの項目に書ける値の数。血圧は 2 つ、機種によっては脈拍まで並べて 3 つ。
+// **上限を持つのは、区切りの多い文字列を黙って何本もの線にしないため**
+export const MAX_MEASURE_VALUES = 3
 
 // 解析は毎回同じ構成なので使い回す (taskCheckbox.ts の MEMO_PARSER と同じ)。
 // gfm を入れるのは、表やタスクリストの中の行位置を本文と揃えるため
@@ -122,28 +132,44 @@ export function matchDataLine(
   return { date, rest, restStart: text.length - rest.length }
 }
 
-// `体重=66.4kg` を 1 つの測定値にする。読めなければ null
+// `体重=66.4kg` / `血圧=118/76mmHg` を 1 つの測定値にする。読めなければ null。
+//
+// **区切りの前の値には単位を許さない。** `118/76mmHg` の単位は末尾に 1 つで、
+// 途中に文字が挟まる `118/上76` のような書き方は、読み違えるくらいなら
+// 受けないほうがよい (数値に畳めない値を線にしない、という §3 の判断と同じ)
 export function parseMeasureToken(token: string): Measure | null {
   const sep = token.search(MEASURE_SEPARATOR)
   if (sep <= 0) {
     return null
   }
   const label = token.slice(0, sep)
-  const rest = token.slice(sep + 1)
-  const matched = NUMBER_RE.exec(rest)
-  if (matched === null) {
+  const parts = token.slice(sep + 1).split(VALUE_SEPARATOR)
+  if (parts.length > MAX_MEASURE_VALUES) {
     return null
   }
-  const [, numberPart, unit] = matched
-  if (!UNIT_RE.test(unit)) {
-    return null
+
+  const values: number[] = []
+  let unit = ''
+  for (const [index, part] of parts.entries()) {
+    const matched = NUMBER_RE.exec(part)
+    if (matched === null) {
+      return null
+    }
+    const [, numberPart, rest] = matched
+    // 単位を書けるのは最後の値の後ろだけ
+    if (rest !== '' && (index < parts.length - 1 || !UNIT_RE.test(rest))) {
+      return null
+    }
+    // 数値だけは畳んでから読む (全角の `６６.４` を受けるため)
+    const value = Number(numberPart.normalize('NFKC'))
+    if (!Number.isFinite(value)) {
+      return null
+    }
+    values.push(value)
+    unit = index === parts.length - 1 ? rest : unit
   }
-  // 数値だけは畳んでから読む (全角の `６６.４` を受けるため)
-  const value = Number(numberPart.normalize('NFKC'))
-  if (!Number.isFinite(value)) {
-    return null
-  }
-  return { label, value, unit }
+
+  return { label, values, unit }
 }
 
 // 本文のデータ行を文書順に返す。

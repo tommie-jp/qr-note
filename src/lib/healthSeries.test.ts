@@ -27,7 +27,7 @@ describe('buildHealthSeries', () => {
   test('記録が最多の項目を既定で選ぶ', () => {
     const series = buildHealthSeries(AUGUST, null, 30)
     expect(series.item).toBe('体重')
-    expect(series.points.map((point) => point.value)).toEqual([66.8, 66.6, 66.4])
+    expect(series.points.map((point) => point.values[0])).toEqual([66.8, 66.6, 66.4])
   })
 
   test('同数なら本文に先に出てきた項目を選ぶ', () => {
@@ -38,7 +38,7 @@ describe('buildHealthSeries', () => {
   test('y= で選んだ項目を出す (綴りは指定どおり)', () => {
     const series = buildHealthSeries(AUGUST, '体温', 30)
     expect(series.item).toBe('体温')
-    expect(series.points.map((point) => point.value)).toEqual([36.4, 36.5])
+    expect(series.points.map((point) => point.values[0])).toEqual([36.4, 36.5])
   })
 
   test('項目の照合は全角・大文字小文字を吸収する', () => {
@@ -64,7 +64,7 @@ describe('buildHealthSeries', () => {
       null,
       30,
     )
-    expect(series.points.map((point) => point.value)).toEqual([65.9])
+    expect(series.points.map((point) => point.values[0])).toEqual([65.9])
   })
 
   test('期間は「いちばん新しい記録」から遡って切る', () => {
@@ -120,6 +120,36 @@ describe('buildHealthSeries', () => {
     expect(series.unit).toBe('kg')
   })
 
+  test('対の値 (血圧) は 2 本の線になる', () => {
+    const series = buildHealthSeries(
+      rows('- 2026-08-13 血圧=120/78mmHg\n- 2026-08-14 血圧=118/76mmHg'),
+      null,
+      30,
+    )
+    expect(series.lines).toBe(2)
+    expect(series.points.map((point) => point.values)).toEqual([
+      [120, 78],
+      [118, 76],
+    ])
+    expect(series.unit).toBe('mmHg')
+  })
+
+  test('軸は全部の線をまたいだ範囲にする', () => {
+    const series = buildHealthSeries(rows('- 2026-08-14 血圧=118/76'), null, 30)
+    expect(series.axis?.lo).toBeLessThanOrEqual(76)
+    expect(series.axis?.hi).toBeGreaterThanOrEqual(118)
+  })
+
+  test('日によって値の数が違えば、多いほうが線の本数になる', () => {
+    const series = buildHealthSeries(
+      rows('- 2026-08-13 血圧=120\n- 2026-08-14 血圧=118/76'),
+      null,
+      30,
+    )
+    expect(series.lines).toBe(2)
+    expect(series.points.map((point) => point.values.length)).toEqual([1, 2])
+  })
+
   test('日番号は日付の差になる (グラフの横位置に使う)', () => {
     const series = buildHealthSeries(
       rows('- 2026-08-12 体重=66.8\n- 2026-08-14 体重=66.4'),
@@ -170,7 +200,7 @@ describe('buildAxis', () => {
 })
 
 describe('splitSegments', () => {
-  const point = (day: number) => ({ date: '2026-08-14', value: 1, day })
+  const point = (day: number) => ({ date: '2026-08-14', values: [1], day })
 
   test('間隔が空いていなければ 1 本の線になる', () => {
     expect(splitSegments([point(0), point(1), point(3)])).toHaveLength(1)
@@ -188,6 +218,27 @@ describe('splitSegments', () => {
 
   test('点が無ければ線も無い', () => {
     expect(splitSegments([])).toEqual([])
+  })
+
+  test('2 本目は 2 本目の値だけを拾う', () => {
+    const points = [
+      { date: '2026-08-12', values: [120, 78], day: 0 },
+      { date: '2026-08-13', values: [118, 76], day: 1 },
+    ]
+    expect(splitSegments(points, 1).flat().map((p) => p.values[1])).toEqual([
+      78, 76,
+    ])
+  })
+
+  test('その値が無い日は飛ばすだけで、線は切らない', () => {
+    // 血圧は毎日、脈拍は時々しか書かない使い方で線が 1 点ずつに割れないこと
+    const points = [
+      { date: '2026-08-12', values: [120, 78], day: 0 },
+      { date: '2026-08-13', values: [118], day: 1 },
+      { date: '2026-08-14', values: [116, 74], day: 2 },
+    ]
+    expect(splitSegments(points, 1)).toHaveLength(1)
+    expect(splitSegments(points, 1)[0]).toHaveLength(2)
   })
 })
 

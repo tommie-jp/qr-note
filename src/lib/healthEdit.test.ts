@@ -5,7 +5,7 @@ import {
   recordMeasurement,
 } from './healthEdit'
 
-const ENTRY = { date: '2026-08-14', item: '体重', value: 66.4, unit: '' }
+const ENTRY = { date: '2026-08-14', item: '体重', values: [66.4], unit: '' }
 
 function record(memo: string, entry = ENTRY): string {
   const next = recordMeasurement(memo, entry)
@@ -48,7 +48,7 @@ describe('recordMeasurement', () => {
       record('- 2026-08-14 ＢＭＩ=22.1', {
         date: '2026-08-14',
         item: 'bmi',
-        value: 22.5,
+        values: [22.5],
         unit: '',
       }),
     ).toBe('- 2026-08-14 ＢＭＩ=22.5')
@@ -139,14 +139,32 @@ describe('recordMeasurement', () => {
     )
   })
 
+  test('対の値 (血圧) は / でつないで書く', () => {
+    const entry = { date: '2026-08-14', item: '血圧', values: [118, 76], unit: 'mmHg' }
+    expect(record('', entry)).toBe('- 2026-08-14 血圧=118/76mmHg\n')
+    expect(record('- 2026-08-14 血圧=120/78mmHg', entry)).toBe(
+      '- 2026-08-14 血圧=118/76mmHg',
+    )
+  })
+
+  test('値が空なら書かない', () => {
+    expect(recordMeasurement('', { ...ENTRY, values: [] })).toBeNull()
+  })
+
+  test('値が多すぎれば書かない', () => {
+    expect(
+      recordMeasurement('', { ...ENTRY, values: [118, 76, 62, 50] }),
+    ).toBeNull()
+  })
+
   test('読み直せない書き方は書かずに断る', () => {
     // 書いた結果を自分で読み直せない = ノートに壊れた行が残るということ
     expect(recordMeasurement('', { ...ENTRY, item: '体 重' })).toBeNull()
     expect(recordMeasurement('', { ...ENTRY, item: '体=重' })).toBeNull()
     expect(recordMeasurement('', { ...ENTRY, item: '' })).toBeNull()
-    expect(recordMeasurement('', { ...ENTRY, value: Number.NaN })).toBeNull()
-    expect(recordMeasurement('', { ...ENTRY, value: Infinity })).toBeNull()
-    expect(recordMeasurement('', { ...ENTRY, value: 1e21 })).toBeNull()
+    expect(recordMeasurement('', { ...ENTRY, values: [Number.NaN] })).toBeNull()
+    expect(recordMeasurement('', { ...ENTRY, values: [Infinity] })).toBeNull()
+    expect(recordMeasurement('', { ...ENTRY, values: [1e21] })).toBeNull()
     expect(recordMeasurement('', { ...ENTRY, unit: 'k g' })).toBeNull()
     expect(recordMeasurement('', { ...ENTRY, unit: 'm2' })).toBeNull()
   })

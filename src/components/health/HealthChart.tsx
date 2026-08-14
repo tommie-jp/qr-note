@@ -48,8 +48,13 @@ const MAX_OTHER_ITEMS = 4;
 const MIN_POINTS_FOR_MIDDLE_LABEL = 5;
 
 // 色は Tailwind の値をそのまま数値で持つ (SVG の属性はクラスを解さない)。
-// 線は主ボタンと同じ blue-600、目盛りは gray-200、文字は gray-500
-const LINE_COLOR = "#2563eb";
+// 目盛りは gray-200、文字は gray-500。
+//
+// 線の色は**同じ青の濃淡から先に使う** (blue-600 → sky-400)。複数の線は
+// 血圧の上と下のように**同じ物を測った対**であることがほとんどで、
+// 別々の色を当てると無関係な 2 つの量に見える。3 本目だけは別系統
+// (amber-500) — 脈拍まで 1 つの項目に書いた形で、対ではないため
+const LINE_COLORS = ["#2563eb", "#38bdf8", "#f59e0b"];
 const GRID_COLOR = "#e5e7eb";
 const LABEL_COLOR = "#6b7280";
 
@@ -58,8 +63,16 @@ function roundDelta(value: number): number {
   return Number(value.toFixed(2));
 }
 
-function formatValue(value: number, unit: string): string {
-  return `${value}${unit}`;
+// 値の見せ方。対の値は本文と同じ `/` つなぎで出す (`118/76mmHg`)
+function formatValues(values: readonly number[], unit: string): string {
+  return `${values.join("/")}${unit}`;
+}
+
+// 増減の見せ方。**符号は 1 つずつ付ける。** 先頭にだけ付けると `+10/4` に
+// なり、2 つ目が増えたのか減ったのか読めない (`+10/+4` なら判る)
+function formatDeltas(deltas: readonly number[], unit: string): string {
+  const signed = deltas.map((delta) => (delta >= 0 ? `+${delta}` : `${delta}`));
+  return `${signed.join("/")}${unit}`;
 }
 
 // 横位置。**日付の間隔をそのまま距離にする** (点の個数で割らない) ので、
@@ -100,17 +113,33 @@ function otherItemsLabel(items: readonly string[]): string {
 // 読み上げ用の 1 文。**グラフは目で見る物なので、そのままでは何も伝わらない。**
 // 期間・件数・最小最大を文にして持たせる (表がセルごとに読み上げ文を持つのと
 // 同じ考え方。docs/77 の MatrixTable と揃える)
+// **線が複数あるときは 1 本ずつ言う。** 色と並び順は音にならないので、
+// 「上の線が 1 つ目」という見た目の約束 (計画 §9) がそのままでは伝わらない
 function chartSummary(
   item: string,
   unit: string,
   points: readonly HealthPoint[],
+  lines: number,
 ): string {
-  const values = points.map((point) => point.value);
   const from = formatMonthDay(points[0].date);
   const to = formatMonthDay(points[points.length - 1].date);
-  const min = formatValue(Math.min(...values), unit);
-  const max = formatValue(Math.max(...values), unit);
-  return `${item}の折れ線グラフ。${from} から ${to} まで ${points.length} 件、最小 ${min}、最大 ${max}`;
+  const head = `${item}の折れ線グラフ。${from} から ${to} まで ${points.length} 件`;
+  const range = (line: number): string => {
+    const values = points.flatMap((point) =>
+      point.values[line] === undefined ? [] : [point.values[line]],
+    );
+    const min = formatValues([Math.min(...values)], unit);
+    const max = formatValues([Math.max(...values)], unit);
+    return `最小 ${min}、最大 ${max}`;
+  };
+  if (lines <= 1) {
+    return `${head}、${range(0)}`;
+  }
+  const each = Array.from(
+    { length: lines },
+    (_, line) => `${line + 1} 本目 ${range(line)}`,
+  );
+  return `${head}。${each.join("、")}`;
 }
 
 // ```health フェンスを折れ線に差し替える (docs/83-健康管理フェンス計画.md)。
@@ -143,6 +172,7 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
       // force-dynamic なので、描くたびに現在の日付になる)
       <HealthRecordForm
         item={series.item}
+        lines={series.lines}
         unit={unit}
         today={formatJstDate(new Date())}
         onRecord={onRecord}
@@ -172,15 +202,26 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
 
   const first = points[0];
   const last = points[points.length - 1];
-  const delta = roundDelta(last.value - first.value);
-  const segments = splitSegments(points);
+  const lines = Array.from({ length: series.lines }, (_, line) => line);
+  // 線ごとの区間。**その値が書かれていない日は線から外れる**ので、
+  // 対の値を書いたり書かなかったりしても 2 本目だけが飛び飛びになる
+  const segments = lines.map((line) => splitSegments(points, line));
+  // 期間内の増減は線ごとに数え、値と同じ `/` つなぎで出す
+  const deltas = lines.map((line) => {
+    const shown = segments[line].flat();
+    const from = shown[0]?.values[line];
+    const to = shown[shown.length - 1]?.values[line];
+    return from === undefined || to === undefined ? 0 : roundDelta(to - from);
+  });
+  const hasDelta = segments.some((line) => line.flat().length > 1);
   // 丸を描く点。多すぎると線が団子になるので普段は描かないが、**1 点だけの
   // 区間は必ず描く** — 線分が無いので、丸を省くとその記録が画面から消える
   // (「間隔が空いたら点だけ残す」が 60 点を境に成り立たなくなる)
-  const dots =
+  const dots = lines.map((line) =>
     points.length <= MAX_DOTS
-      ? points
-      : segments.filter((segment) => segment.length === 1).flat();
+      ? segments[line].flat()
+      : segments[line].filter((segment) => segment.length === 1).flat(),
+  );
 
   return (
     <div className="my-4">
@@ -190,13 +231,13 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
         {/* 最新値を先に出す。グラフを開く目的の半分は「いまいくつか」で、
             それは線を目で追わなくても読める場所に置く */}
         <span className="ml-3 whitespace-nowrap">
-          最新 {formatValue(last.value, unit)} ({formatMonthDay(last.date)})
+          最新 {formatValues(last.values, unit)} ({formatMonthDay(last.date)})
         </span>
-        {/* 期間内の増減。符号を必ず付ける (「-0.4」と「0.4」を見間違えない) */}
-        {points.length > 1 && (
+        {/* 期間内の増減。符号を必ず付ける (「-0.4」と「0.4」を見間違えない)。
+            線が 2 本なら増減も 2 つ、値と同じ並びで出す (`-2/-1mmHg`) */}
+        {hasDelta && (
           <span className="ml-3 whitespace-nowrap">
-            {delta >= 0 ? "+" : ""}
-            {formatValue(delta, unit)}
+            {formatDeltas(deltas, unit)}
           </span>
         )}
         <span className="ml-3 whitespace-nowrap">{points.length} 件</span>
@@ -206,7 +247,7 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           className="h-auto w-full"
           role="img"
-          aria-label={chartSummary(series.item, unit, points)}
+          aria-label={chartSummary(series.item, unit, points, series.lines)}
         >
           {/* 目盛り線と数字。0 起点ではなくデータの範囲に合わせた軸なので、
               数字が無いと「上がった / 下がった」の幅が読めない */}
@@ -232,32 +273,37 @@ export function HealthChart({ result, code, onRecord }: HealthChartProps) {
             </g>
           ))}
           {/* 線。**間隔が空いた区間はつながない** (splitSegments)。
-              測っていない 2 週間を直線で結ぶと、測ったように見えてしまう */}
-          {segments.map((segment) => (
-            <polyline
-              key={segment[0].date}
-              points={segment
-                .map(
-                  (point) =>
-                    `${xOf(point, first.day, last.day)},${yOf(point.value, axis)}`,
-                )
-                .join(" ")}
-              fill="none"
-              stroke={LINE_COLOR}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-          {dots.map((point) => (
-            <circle
-              key={point.date}
-              cx={xOf(point, first.day, last.day)}
-              cy={yOf(point.value, axis)}
-              r={2.5}
-              fill={LINE_COLOR}
-            />
-          ))}
+              測っていない 2 週間を直線で結ぶと、測ったように見えてしまう。
+              対の値 (血圧) は線が 2 本になり、上の線が 1 つ目 (計画 §9) */}
+          {lines.map((line) =>
+            segments[line].map((segment) => (
+              <polyline
+                key={`${line}-${segment[0].date}`}
+                points={segment
+                  .map(
+                    (point) =>
+                      `${xOf(point, first.day, last.day)},${yOf(point.values[line], axis)}`,
+                  )
+                  .join(" ")}
+                fill="none"
+                stroke={LINE_COLORS[line % LINE_COLORS.length]}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )),
+          )}
+          {lines.map((line) =>
+            dots[line].map((point) => (
+              <circle
+                key={`${line}-${point.date}`}
+                cx={xOf(point, first.day, last.day)}
+                cy={yOf(point.values[line], axis)}
+                r={2.5}
+                fill={LINE_COLORS[line % LINE_COLORS.length]}
+              />
+            )),
+          )}
           {/* 日付。両端は内側へ寄せる (text-anchor) — 端に置くと図から出る */}
           {labelPoints(points).map((point, index, shown) => (
             <text

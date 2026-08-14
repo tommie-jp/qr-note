@@ -154,19 +154,21 @@ export async function recordHealthAction(
   itemNo: string,
   date: string,
   item: string,
-  value: number,
+  values: number[],
   unit: string,
 ): Promise<void> {
   await requireUser()
   if (!isValidItemNo(itemNo)) {
     throw new Error('itemNo が不正です')
   }
-  // 誰でも叩ける POST の口なので、型も自分で確かめる (画面を通さず呼べる)
+  // 誰でも叩ける POST の口なので、型も自分で確かめる (画面を通さず呼べる)。
+  // 値は配列 (血圧のような対の値。docs/83 §9) なので、中身まで見る
   if (
     typeof date !== 'string' ||
     typeof item !== 'string' ||
     typeof unit !== 'string' ||
-    typeof value !== 'number'
+    !Array.isArray(values) ||
+    values.some((value) => typeof value !== 'number')
   ) {
     throw new Error('記録の値が不正です')
   }
@@ -174,7 +176,7 @@ export async function recordHealthAction(
   if (existing === null) {
     throw new Error('ノートが見つかりません')
   }
-  const next = recordMeasurement(existing.memo, { date, item, value, unit })
+  const next = recordMeasurement(existing.memo, { date, item, values, unit })
   if (next === null) {
     throw new Error('この値は記録できません')
   }

@@ -33,7 +33,9 @@ export interface HealthSourceRow {
 
 export interface HealthPoint {
   date: string
-  value: number
+  // その日の値。血圧のような対の値は 2 つ入る (計画 §9)。
+  // **日によって数が違いうる** (ある日は `118/76`、別の日は `118` だけ)
+  values: number[]
   // 日付の通し番号 (グラフの横位置と、線を切る判定に使う)
   day: number
 }
@@ -53,6 +55,9 @@ export interface HealthSeries {
   unit: string
   // 日付の昇順。1 日 1 点
   points: HealthPoint[]
+  // 線の本数 (= 値の数がいちばん多い点の値の数)。ふつうの項目は 1、
+  // 血圧のような対の値なら 2 (計画 §9)
+  lines: number
   // 期間の外なので描かなかった点の数。黙って切ると「これで全部」に読める
   omitted: number
   // 選ばなかった項目 (多い順)。`y=` で選べることを画面で案内するのに使う
@@ -137,15 +142,23 @@ export function buildAxis(min: number, max: number): HealthAxis {
   return { lo: paddedLo, hi: paddedHi, ticks: [paddedLo, paddedHi], decimals: 1 }
 }
 
-// 線を切る区間で分ける。**点はどの区間にも 1 度だけ入る** (切れ目の点を
-// 両方に入れると、切ったはずの場所に短い線が残る)
+// line 本目の線を、切れ目で区間に分ける。**点はどの区間にも 1 度だけ入る**
+// (切れ目の点を両方に入れると、切ったはずの場所に短い線が残る)。
+//
+// その日にその値が書かれていない点は**線から外す**だけで、切れ目にはしない。
+// 血圧を毎日、脈拍を時々しか書かない使い方で、脈拍の線が 1 点ずつに割れて
+// しまうため — 間が空きすぎたかどうかは日数 (gapDays) だけで決める
 export function splitSegments(
   points: readonly HealthPoint[],
+  line = 0,
   gapDays: number = HEALTH_GAP_DAYS,
 ): HealthPoint[][] {
   const segments: HealthPoint[][] = []
   let current: HealthPoint[] = []
   for (const point of points) {
+    if (point.values[line] === undefined) {
+      continue
+    }
     const previous = current[current.length - 1]
     if (previous !== undefined && point.day - previous.day > gapDays) {
       segments.push(current)
@@ -191,7 +204,7 @@ interface RawRecord {
   date: string
   key: string
   label: string
-  value: number
+  values: number[]
   unit: string
 }
 
@@ -207,7 +220,7 @@ function collectRecords(
         date: line.date,
         key: normalizeMeasureLabel(measure.label),
         label: measure.label,
-        value: measure.value,
+        values: measure.values,
         unit: measure.unit,
       })),
     ),
@@ -241,7 +254,15 @@ export function buildHealthSeries(
     .map(([, entry]) => entry.label)
 
   if (key === undefined) {
-    return { item: label, unit: '', points: [], omitted: 0, otherItems, axis: null }
+    return {
+      item: label,
+      unit: '',
+      points: [],
+      lines: 0,
+      omitted: 0,
+      otherItems,
+      axis: null,
+    }
   }
 
   // 同じ日付は後に読んだほうを採る (計画 §3)。Map は最後の set が残る
@@ -261,15 +282,18 @@ export function buildHealthSeries(
 
   const points = kept.map((record) => ({
     date: record.date,
-    value: record.value,
+    values: record.values,
     day: dayNumber(record.date),
   }))
-  const values = points.map((point) => point.value)
+  // 軸は**全部の線をまたいだ範囲**にする。血圧の上と下を別々の軸に置くと、
+  // 同じ高さが違う値を指す 2 本の線が 1 枚に並ぶ
+  const values = points.flatMap((point) => point.values)
 
   return {
     item: label,
     unit: kept.find((record) => record.unit !== '')?.unit ?? '',
     points,
+    lines: Math.max(0, ...points.map((point) => point.values.length)),
     omitted: sorted.length - kept.length,
     otherItems,
     axis:

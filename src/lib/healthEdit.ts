@@ -24,7 +24,8 @@ export interface HealthEntry {
   date: string
   // 項目名 (書かれたままの綴り)
   item: string
-  value: number
+  // 値。血圧のような対の値は 2 つ (計画 §9)。本文には `/` でつないで書く
+  values: number[]
   // 単位 (無ければ空文字)
   unit: string
 }
@@ -46,13 +47,13 @@ const TOKEN_RE = /[^\s　]+/g
 const MEASURE_SEPARATOR = /[=＝]/
 
 function tokenOf(entry: HealthEntry): string {
-  return `${entry.item}=${entry.value}${entry.unit}`
+  return `${entry.item}=${valueOf(entry)}`
 }
 
-// 値の部分だけの文字列 (`66.4kg`)。本文にある綴りの項目名を残して
-// 差し替えるときに使う
+// 値の部分だけの文字列 (`66.4kg` / `118/76mmHg`)。本文にある綴りの項目名を
+// 残して差し替えるときに使う
 function valueOf(entry: HealthEntry): string {
-  return `${entry.value}${entry.unit}`
+  return `${entry.values.join('/')}${entry.unit}`
 }
 
 // 書いた行を読み直せるか。**組み立てた 1 行そのものを読む側に通す**のが要点。
@@ -77,7 +78,8 @@ function isWritable(entry: HealthEntry): boolean {
     read?.date === entry.date &&
     read.measures.length === 1 &&
     measure?.label === entry.item &&
-    measure.value === entry.value &&
+    measure.values.length === entry.values.length &&
+    measure.values.every((value, index) => value === entry.values[index]) &&
     measure.unit === entry.unit
   )
 }

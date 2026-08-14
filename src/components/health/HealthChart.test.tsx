@@ -148,6 +148,45 @@ describe("HealthChart", () => {
     expect(html).toContain("体温 / 脈拍 / 歩数 / 睡眠 他 1 種類");
   });
 
+  const BLOOD_PRESSURE = [
+    "- 2026-08-12 血圧=124/80mmHg",
+    "- 2026-08-13 血圧=120/78mmHg",
+    "- 2026-08-14 血圧=118/76mmHg",
+  ].join("\n");
+
+  test("対の値 (血圧) は 2 本の線になる", () => {
+    const html = chart(BLOOD_PRESSURE);
+    expect(html.match(/<polyline/g)).toHaveLength(2);
+    // 上の線が 1 つ目 (計画 §9)。同じ青の濃淡を使う
+    expect(html).toContain('stroke="#2563eb"');
+    expect(html).toContain('stroke="#38bdf8"');
+  });
+
+  test("最新値と増減は本文と同じ / つなぎで出す", () => {
+    const html = chart(BLOOD_PRESSURE);
+    expect(html).toContain("最新 118/76mmHg (8/14)");
+    expect(html).toContain("-6/-4mmHg");
+  });
+
+  test("増減の符号は 1 つずつ付ける (+10/4 では 2 つ目が読めない)", () => {
+    const html = chart(
+      "- 2026-08-13 血圧=118/80mmHg\n- 2026-08-14 血圧=128/76mmHg",
+    );
+    expect(html).toContain("+10/-4mmHg");
+  });
+
+  test("読み上げは線を 1 本ずつ言う (色と並びは音にならない)", () => {
+    const html = chart(BLOOD_PRESSURE);
+    expect(html).toContain("1 本目 最小 118mmHg、最大 124mmHg");
+    expect(html).toContain("2 本目 最小 76mmHg、最大 80mmHg");
+  });
+
+  test("対の値の記録欄は入力を 2 つ出す", () => {
+    const html = chartWithForm(BLOOD_PRESSURE);
+    expect(html).toContain('aria-label="血圧の値 1 つ目"');
+    expect(html).toContain('aria-label="血圧の値 2 つ目"');
+  });
+
   test("記録欄は保存の口を渡したときだけ出る", () => {
     expect(chart(AUGUST)).not.toContain('type="date"');
     expect(chartWithForm(AUGUST)).toContain('type="date"');
