@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
   CIRCUIT_LANG,
   FENCE_LANGUAGES,
+  HEALTH_LANG,
   MATRIX_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
@@ -11,29 +12,31 @@ import {
 } from './fenceLanguages'
 
 describe('language lists', () => {
-  test('補完候補に特別扱いの 4 言語を含む', () => {
+  test('補完候補に特別扱いの 5 言語を含む', () => {
     expect(FENCE_LANGUAGES).toContain(CIRCUIT_LANG)
     expect(FENCE_LANGUAGES).toContain(MERMAID_LANG)
     expect(FENCE_LANGUAGES).toContain(QUIZ_LANG)
     expect(FENCE_LANGUAGES).toContain(MATRIX_LANG)
+    expect(FENCE_LANGUAGES).toContain(HEALTH_LANG)
   })
 
   test('候補は重複なし', () => {
     expect(new Set(FENCE_LANGUAGES).size).toBe(FENCE_LANGUAGES.length)
   })
 
-  test('描画対象は circuitikz と mermaid と quiz と matrix のみ', () => {
+  test('描画対象は circuitikz と mermaid と quiz と matrix と health のみ', () => {
     expect([...RENDERED_LANGS]).toEqual([
       CIRCUIT_LANG,
       MERMAID_LANG,
       QUIZ_LANG,
       MATRIX_LANG,
+      HEALTH_LANG,
     ])
   })
 
   test('補完候補の他の言語を打ち間違い扱いしない', () => {
-    // quiz / matrix を描画対象に足したことで、既存の候補語 (sql / lua など)
-    // が「quiz の間違いでは?」と叱られないことを確かめる
+    // quiz / matrix / health を描画対象に足したことで、既存の候補語
+    // (sql / lua / html など) が「quiz の間違いでは?」と叱られないことを確かめる
     for (const lang of FENCE_LANGUAGES) {
       expect(suggestFenceLang(lang)).toBeNull()
     }

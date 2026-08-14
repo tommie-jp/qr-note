@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 import type { Item } from '@/generated/prisma/client'
 import { assertDemoItemQuota } from '@/lib/demoQuota'
+import type { HealthSourceRow } from '@/lib/healthSeries'
 import { firstUnusedNo, MIN_ITEM_NO } from '@/lib/itemNo'
 import type { MatrixSourceRow } from '@/lib/matrixTable'
 import { memoSummary } from '@/lib/memoSummary'
@@ -39,6 +40,12 @@ export const PROPS_TABLE_LIMIT = 200
 // 特性表と同じ考え方 — 表として読める大きさと、本文をまとめて取ってよい
 // 大きさが同じところにある。
 export const MATRIX_ROW_LIMIT = 200
+
+// 健康グラフ (docs/83-健康管理フェンス計画.md) が本文を読むノート数の上限。
+// 上の 2 つと同じ 200。**こちらは SQL 側の絞りを持たない**のが違いで
+// (「チェックを持つ」に当たる派生列が無い)、絞りは検索式だけが担う。
+// タグを書かずに置かれたフェンスが全ノートを舐めないための止め弁でもある。
+export const HEALTH_ROW_LIMIT = 200
 
 // ゴミ箱のノートも返す (フィルタしない)。QR シールから開いた /item は
 // ゴミ箱でも本文を見せてバナーと復元を出すため (docs/12-ゴミ箱計画.md §5)。
@@ -565,6 +572,42 @@ export async function searchItemChecks(
       : 0
 
   return { rows: rows.slice(0, MATRIX_ROW_LIMIT), omitted }
+}
+
+export interface ItemHealthResult {
+  rows: HealthSourceRow[]
+  // 上限を超えて読まなかったノート数 (特性表・進捗の表と同じ約束)
+  omitted: number
+}
+
+// 健康グラフの元データ (docs/83-健康管理フェンス計画.md §5)。
+// 進捗の表 (searchItemChecks) の三つ子だが、違いが 2 つある。
+//
+// **絞りが検索式しかない。** 「チェックを持つ」(HAS_TASKS) に当たる派生列が
+// 無いので、記録を持たないノートも上限の 200 件に数えられる。だから
+// フェンスにはタグを書く前提で、そのぶん LIMIT が実質的な安全弁になる。
+//
+// **並び順を選ばせない。** 健康の記録は日付を本文に持っており、並べ替えは
+// 集計 (healthSeries) が日付で行う。ここでの順が意味を持つのは「同じ日付が
+// 2 つあったらどちらを採るか」だけなので、毎回同じ答えになる番号順で固定する。
+export async function searchItemHealth(query: string): Promise<ItemHealthResult> {
+  const where = buildWhere(query)
+  // 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
+  const rows = await prisma.$queryRaw<HealthSourceRow[]>`
+    SELECT item_no AS "itemNo",
+           memo
+    FROM items
+    ${where}
+    ${buildOrderBy('itemNo')}
+    LIMIT ${HEALTH_ROW_LIMIT + 1}
+  `
+
+  const omitted =
+    rows.length > HEALTH_ROW_LIMIT
+      ? (await countItemsWhere(where)) - HEALTH_ROW_LIMIT
+      : 0
+
+  return { rows: rows.slice(0, HEALTH_ROW_LIMIT), omitted }
 }
 
 // --- ゴミ箱 (二段階削除。docs/12-ゴミ箱計画.md) ---

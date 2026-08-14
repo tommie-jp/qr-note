@@ -16,6 +16,11 @@ export const QUIZ_LANG = 'quiz'
 // 数字は表示のたびに作る (フェンスは結果ではなく問いを持つ)
 export const MATRIX_LANG = 'matrix'
 
+// 日々の記録 (体重など) を折れ線にして描画するフェンス言語
+// (docs/83-健康管理フェンス計画.md)。matrix と同じく中身は検索式と設定だけで、
+// 線は表示のたびに引き直す
+export const HEALTH_LANG = 'health'
+
 // 打ち間違えると「図やカードになるはずが黙ってコードブロック」になる言語。
 // linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
 export const RENDERED_LANGS = [
@@ -23,9 +28,10 @@ export const RENDERED_LANGS = [
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
+  HEALTH_LANG,
 ] as const
 
-// 補完に出す言語 (広め)。特別扱いする 4 つ + メモでよく書くコード言語。
+// 補完に出す言語 (広め)。特別扱いする 5 つ + メモでよく書くコード言語。
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
@@ -33,6 +39,7 @@ export const FENCE_LANGUAGES: readonly string[] = [
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
+  HEALTH_LANG,
   'text',
   'bash',
   'sh',

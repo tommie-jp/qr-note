@@ -33,12 +33,15 @@ import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
 import {
   CIRCUIT_LANG,
+  HEALTH_LANG,
   MATRIX_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
 } from "@/lib/fenceLanguages";
 import type { CircuitMap } from "@/lib/circuitCache";
+import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";
+import { HealthChart } from "@/components/health/HealthChart";
 import { MatrixTable } from "@/components/matrix/MatrixTable";
 import "katex/dist/katex.min.css";
 
@@ -58,6 +61,14 @@ interface MarkdownViewProps {
   // (docs/77-進捗マトリックス計画.md §6)。渡し忘れても漏れないよう、
   // buildMatrices 自身も requireUser() で守っている
   matrices?: MatrixMap;
+  // ```health の集計結果 (buildHealthCharts の戻り値)。matrices と同じ作法。
+  //
+  // **渡さなければグラフは出ない** (コードブロックのまま) のが安全側の既定。
+  // 線の元になる数値はそのノートの外 — 体重・体温のような、公開したノートに
+  // 書いた覚えのない数字 — から集まるので、未ログインの公開ビューでは決して
+  // 渡さない (docs/83-健康管理フェンス計画.md §8)。渡し忘れても漏れないよう、
+  // buildHealthCharts 自身も requireUser() で守っている
+  health?: HealthMap;
   // 本文中の #タグ を検索リンクにするか (docs/22-ノート公開計画.md §4)。
   // 公開ビューでは false にする — 飛び先のタグ検索は未ログインに閉じており、
   // 押すと「ログインが必要です」に化けるため。false でも #タグ の文字は残る
@@ -102,7 +113,11 @@ interface MarkdownViewProps {
 // フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
 // quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
 // する (docs/54 §1、docs/58-CBT問題集計画.md §1)
-function preOrDiagram(circuits: CircuitMap, matrices: MatrixMap) {
+function preOrDiagram(
+  circuits: CircuitMap,
+  matrices: MatrixMap,
+  health: HealthMap,
+) {
   return function PreOrDiagram({
     node: _node,
     children,
@@ -139,6 +154,14 @@ function preOrDiagram(circuits: CircuitMap, matrices: MatrixMap) {
       const matrix = matrices.get(fence.code);
       if (matrix) {
         return <MatrixTable result={matrix} code={fence.code} />;
+      }
+    }
+
+    // 同上 (docs/83 §8)
+    if (fence.lang === HEALTH_LANG) {
+      const chart = health.get(fence.code);
+      if (chart) {
+        return <HealthChart result={chart} code={fence.code} />;
       }
     }
 
@@ -284,6 +307,7 @@ export function MarkdownView({
   markdown,
   circuits = new Map(),
   matrices = new Map(),
+  health = new Map(),
   linkTags = true,
   allowRotate = false,
   allowSecretEdit = false,
@@ -329,7 +353,7 @@ export function MarkdownView({
         rehypePlugins={rehypePlugins}
         remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={{
-          pre: preOrDiagram(circuits, matrices),
+          pre: preOrDiagram(circuits, matrices, health),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
           input: taskCheckboxRenderer(onToggleTask),
