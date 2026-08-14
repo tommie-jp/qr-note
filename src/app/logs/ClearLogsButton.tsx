@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { COMPACT_SECONDARY_BUTTON_CLASS } from "@/components/ui";
+import { TrashIcon } from "@/components/MenuIcons";
+import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 
 // ログの控えを消すボタン (docs/30-ブラウザログ計画.md §7)。
 // 実機調査では「一度消してから再現操作をする」と、/logs に並ぶのが今回の
@@ -44,9 +45,22 @@ export function ClearLogsButton() {
         type="button"
         onClick={clear}
         disabled={busy}
-        className={COMPACT_SECONDARY_BUTTON_CLASS}
+        // 文字を置かないので意味は名前で名乗る。消去中は文字 (「消去中…」) の
+        // 代わりに aria-busy と disabled で伝える — ラベルの文字数でボタンの幅が
+        // 動くと、隣のコピーの位置までずれる
+        aria-label="ログをクリア"
+        aria-busy={busy}
+        title="ログをクリア"
+        className={COMPACT_ICON_BUTTON_CLASS}
       >
-        {busy ? "消去中…" : "ログをクリア"}
+        {/* 色は中の span で与える。TrashIcon は色を持たず currentColor で
+            描くうえ、ボタン側のクラス (COMPACT_ICON_BUTTON_CLASS) が
+            text-gray-700 を含むため (RowActions.tsx と同じ事情)。
+            red-700 は使わない — ノートを消す DANGER_BUTTON_CLASS と同格に
+            見せると、控えを捨てるだけの操作を取り違える (LogoutIcon と同じ判断) */}
+        <span className="text-rose-600">
+          <TrashIcon />
+        </span>
       </button>
     </span>
   );

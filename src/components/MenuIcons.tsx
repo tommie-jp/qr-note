@@ -567,6 +567,33 @@ export function TrashIcon({ small = false }: { small?: boolean } = {}) {
   );
 }
 
+// コピー (docs/21-ログ表示計画.md §6)。重ねた 2 枚の紙で「同じ物が 2 つに
+// なる」を描く。クリップボードの絵にはしない — バインダーの留め具は 20px では
+// ただの突起に潰れ、SaveIcon (フロッピー) と見分けが付かなくなる。
+//
+// 色はここで持つ (置かれるのは /logs の 1 箇所だけで、押下で反転しない)。
+// 隣に並ぶ TrashIcon が赤なので、青系にして絵より先に色で拾い分けられるようにする
+export function CopyIcon() {
+  return (
+    <StrokeIcon className="text-sky-600">
+      <rect {...TINT} x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M15 5.5A1.5 1.5 0 0 0 13.5 4H5.5A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15" />
+    </StrokeIcon>
+  );
+}
+
+// 済んだ印 (コピーできた合図)。CopyIcon と入れ替えて出すので、
+// 同じ 20px の枠で形がはっきり違う裸のチェックにする (SelectIcon の
+// 囲み付きチェックは「選ぶ」の意味を持つので流用しない)。
+// 色は成否の合図そのものなのでここで持つ
+export function CheckIcon() {
+  return (
+    <StrokeIcon className="text-emerald-600">
+      <path d="M4.5 12.5l5 5 10-11" />
+    </StrokeIcon>
+  );
+}
+
 // オフラインで使う印 (docs/65-オフライン対応計画.md §7)。
 // 「端末へ落とす」を下向きの矢印と受け皿で描く。
 //

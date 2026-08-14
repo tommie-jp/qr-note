@@ -6,6 +6,8 @@ import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs } from "@/lib/logBuffer";
 import { ClearLogsButton } from "./ClearLogsButton";
+import { CopyLogsButton } from "./CopyLogsButton";
+import { formatLogsForCopy, LOG_TIME_FORMAT } from "./formatLogsForCopy";
 
 export const dynamic = "force-dynamic";
 
@@ -20,16 +22,6 @@ export const metadata: Metadata = {
 // 門番 (publicPaths に無いパスは既定で閉じる)。
 //
 // 読み直しはブラウザの再読み込みで足りる (ポーリングはしない。docs/21 §4)。
-
-// サーバの TZ (コンテナは UTC) に依存させず、常に日本時間で出す
-const TIME_FORMAT = new Intl.DateTimeFormat("ja-JP", {
-  timeZone: "Asia/Tokyo",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
 
 const LEVEL_BADGE: Record<string, string> = {
   // info は診断イベント (diagLog.ts)。失敗ではないので警告色にしない
@@ -69,7 +61,12 @@ export default function LogsPage() {
             直近のログ (新しい順、サーバ・ブラウザ各 200 件)。warn/error
             は警告・エラー、info は診断イベント。サーバが再起動すると消えます。
           </p>
-          <ClearLogsButton />
+          {/* 調査は「コピーして手元で読む」→「消してから再現し直す」の順に
+              なるので、コピーを先に置く */}
+          <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <CopyLogsButton text={formatLogsForCopy(logs)} />
+            <ClearLogsButton />
+          </span>
         </div>
         {logs.length === 0 ? (
           // 「壊れて出ない」と見分けが付く文言にする (docs/21 §3)
@@ -96,7 +93,7 @@ export default function LogsPage() {
                       ? `ブラウザ${log.device ? ` (${log.device})` : ""}`
                       : "サーバ"}
                   </span>
-                  <time>{TIME_FORMAT.format(log.at)}</time>
+                  <time>{LOG_TIME_FORMAT.format(log.at)}</time>
                 </div>
                 <pre className="whitespace-pre-wrap break-all font-mono text-sm">
                   {log.text}

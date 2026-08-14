@@ -52,6 +52,33 @@ test("空のときは「壊れて出ない」と見分けの付く文言を出�
   expect(html).toContain("まだ発生していません");
 });
 
+// --- コピー (docs/21-ログ表示計画.md §6) ---
+
+// コピーする文字列そのものの検証は formatLogsForCopy.test.ts。ここは
+// 「ボタンが出るか」「押せる状態か」だけを見る (prop は静的 HTML に出ない)。
+//
+// アイコンだけのボタンなので、名前は aria-label で探す — 文字が無い分、
+// これが読み上げと自動テストの両方の手がかりになる
+test("ログがあるならコピーボタンを押せる", () => {
+  console.error("書影を保存できませんでした (isbn=9784873115658)");
+
+  const html = renderToStaticMarkup(<LogsPage />);
+  expect(html).toContain('aria-label="ログをコピー"');
+  // 属性で見る ("disabled" だけだと Tailwind の disabled: クラスに当たる)
+  expect(html).not.toContain('disabled=""');
+});
+
+test("ログが無いときはコピーを押せない", () => {
+  const html = renderToStaticMarkup(<LogsPage />);
+  expect(html).toContain('aria-label="ログをコピー"');
+  expect(html).toContain('disabled=""');
+});
+
+test("クリアもアイコンで、名前を読み上げに残す", () => {
+  const html = renderToStaticMarkup(<LogsPage />);
+  expect(html).toContain('aria-label="ログをクリア"');
+});
+
 // --- ブラウザから届いたログ (docs/30-ブラウザログ計画.md §1) ---
 
 test("ブラウザのログは端末の印を添えて出る", () => {
