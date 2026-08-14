@@ -29,6 +29,9 @@
 #   - Dockerfile 側で public と静的フォントを「毎回変わる層」から追い出した。
 #     毎デプロイの転送が 122.8MB → 約 15MB になる。
 #   - lint / test / ビルドを並列で流し、全部通ってから push する。
+#     push は別の buildx 呼び出しなので**作業ツリーをもう一度読む**。並列の約 30 秒に
+#     手元が動いていたら検査していないコードが出てしまうため、直前に指紋を照合する
+#     (context_fingerprint)。
 #
 # 最後に**区間ごとの処理時間**を出す。次に「遅い」と感じたとき、どこが遅いのかを
 # 推測しないで済ませるため。
@@ -213,6 +216,34 @@ registry_has_tag() {
   [ "$code" = "200" ]
 }
 
+# 作業ツリー (= ビルドコンテキスト) の指紋。手順 3/8 の入口と 4/8 の push 直前で採り、
+# **ずれていたら配らずに落とす**ために使う。
+#
+# なぜ要るか: 3/8 のビルドと 4/8 の push は別々の `docker buildx build .` で、
+# それぞれが**その時点の作業ツリー**を読む。並列の約 30 秒のあいだに保存が入ると、
+# 4/8 の COPY . . だけが新しい内容を拾って作り直し、**lint / test が一度も見ていない
+# 変更を焼いたイメージ**が本番へ出る。しかも版もログも「通った」ように見えるので、
+# 後から気づく手掛かりが残らない。指紋が動いていたら push を諦めるのが唯一安い。
+#
+# 見るもの:
+#   - HEAD          … 途中で checkout / commit されても気づけるように
+#   - git status    … 追加・削除・改名 (中身が同じでも並びが変わる)
+#   - 変更・未追跡ファイルの中身 … 名前だけでは「保存し直し」を拾えない
+# gitignore された生成物 (.deps/ や copy:assets が作る public/ の wasm・モデル群) は
+# 見ていない。あれらはこのスクリプト自身かビルドが作るもので、デプロイ中に人が
+# 書き換える類ではない (そこまで見ると 188MB を毎回ハッシュする羽目になる)。
+context_fingerprint() {
+  {
+    git rev-parse HEAD
+    git status --porcelain
+    # ハッシュ中に消えたファイル (エディタの一時ファイル等) で sha256sum が
+    # 落ちても指紋は採り続ける。ここで死ぬ理由はない — 中身が動いたなら
+    # 呼び出し側の比較が弾く
+    git ls-files --modified --others --exclude-standard -z \
+      | xargs -0 --no-run-if-empty sha256sum 2>/dev/null || true
+  } | sha256sum | cut -d' ' -f1
+}
+
 # SSH は ControlMaster で 1 本に束ね、全 ssh/scp で使い回す (毎回のハンドシェイクを省く)。
 # レジストリ転送トンネルも同じ master に載せ、終了時にまとめて閉じる。
 SSH_CTRL="$(mktemp -u "${TMPDIR:-/tmp}/qr-deploy-ssh.XXXXXX")"
@@ -303,6 +334,16 @@ else
   # 残り、--no-version-up の再利用経路がそれを拾ってしまう。
   #
   # 出力はログへ退避して、待ち合わせた後にまとめて出す (同時に書くと混ざって読めない)。
+  #
+  # 指紋はジョブを起こす**直前**に採る。ここから 4/8 の push までが「検査した木」で
+  # なければならない区間 (詳細は context_fingerprint の説明)。
+  #
+  # git 管理下でないと指紋はただの定数になり、照合が**黙って効かなくなる**ので
+  # 先に確かめる。デプロイは doVersion.sh も git を前提にしているため制約は増えない
+  git rev-parse --git-dir >/dev/null 2>&1 \
+    || die "git 管理下ではないため、ビルド中に作業ツリーが動いても検出できない。
+     このスクリプトは git チェックアウトの中から実行すること"
+  CONTEXT_FP="$(context_fingerprint)"
   log "3/8 lint + test + イメージビルド (並列)"
   echo "    3 つ同時に実行中。出力は完了後にまとめて出す..."
   npm run lint >"$LOG_DIR/lint.log" 2>&1 &
@@ -328,6 +369,23 @@ else
   echo "--- build"; cat "$LOG_DIR/build.log"
 
   [ -z "$FAILED" ] || die "失敗:${FAILED} (上の出力を確認すること)"
+
+  # **3 つが通ったのは「3/8 の入口の木」に対して**。下の push は同じコマンドを
+  # もう一度走らせる = 作業ツリーをもう一度読むので、この間に保存が入っていたら
+  # 検査していない変更が焼かれて出ていく。指紋が動いていたら配らない。
+  CONTEXT_FP_NOW="$(context_fingerprint)"
+  if [ "$CONTEXT_FP" != "$CONTEXT_FP_NOW" ]; then
+    # 案内する再実行コマンドは呼ばれ方に合わせる。`[ ] && VAR=…` と書くと
+    # 偽のとき AND リスト全体が 1 を返し、set -e がここでスクリプトを殺す
+    RERUN="./doDeploy.sh --no-version-up"
+    if [ "$DEMO" = 1 ]; then RERUN="$RERUN --demo"; fi
+    die "lint + test + ビルド中に作業ツリーが変わった (${CONTEXT_FP:0:12} → ${CONTEXT_FP_NOW:0:12})。
+     このまま push すると、**検査していないコードを焼いたイメージ**が本番へ出る
+     (lint / test が見たのは変更前の木、push 用のビルドが読むのは今の木)。
+     配布を中止した。変更を確定させてから、版を据え置いて配り直すこと:
+       $RERUN
+     (v$VERSION はまだ push していないので、据え置きでもビルドし直しになる)"
+  fi
   step_done "3/8 lint + test + ビルド (並列)"
 
   # 改めて push する。全レイヤーは直前のビルドでキャッシュ済みなので、ここは

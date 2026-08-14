@@ -17,15 +17,51 @@ WORKDIR /app
 # .deps/ は git 管理外の生成物。doDeploy.sh と doStart.sh がビルド前に必ず作る。
 # 手で `docker compose build` する場合は先に次を実行すること:
 #   node scripts/writeDepsManifest.mjs
+# 忘れても黙って古い依存が載ることはない — COPY . . の後で照合して落とす (後述)。
+#
+# **この層に他のファイルを足さないこと。** ここに置いたものが変わると npm ci が
+# 走り直し、.deps/ で稼いだ 20.7 秒がそのまま消える。
+# 以前は prisma.config.ts と prisma/ もここで COPY していたが、
+# `--ignore-scripts` で postinstall (prisma generate) を止めている以上
+# **この層は prisma を一度も読まない**。マイグレーションを 1 本足しただけで
+# npm ci が復活する、純粋なキャッシュ負債だった (初期実装からの居残り)。
+# prisma generate は下の `npm run build` の中で走り、prisma/ と prisma.config.ts は
+# 続く COPY . . が運ぶ (どちらも .dockerignore に無い)。
 COPY .deps/package.json .deps/package-lock.json ./
-COPY prisma.config.ts ./
-COPY prisma ./prisma
-# postinstall (prisma generate) はソースコピー後に明示実行するためスキップ
+# postinstall (prisma generate) は npm run build の中で走らせるためここではスキップ
 RUN npm ci --ignore-scripts
 
 # ここで実体の package.json (正しい版) が上書きされる。フッターへ焼き込まれる
 # 版はこちらなので、依存レイヤーの 0.0.0 が外へ出ることはない
 COPY . .
+
+# 依存レイヤーが読んだ写し (.deps/) が、**この木の package.json と揃っているか**を
+# 照合する。ずれていたらここで落とす。
+#
+# なぜ要るか: .deps/ は git 管理外の生成物で、作り直すのは doDeploy.sh と
+# doStart.sh だけ。手で `docker compose build app` / `docker compose up --build`
+# したときは古い写しが残っていても誰も気づけない。すると
+#   npm ci が**古い依存**を入れる → COPY . . が新しい package.json で上書きする
+#   → 依存自体は解決できるので next build は通る
+# となり、**古い依存を積んだイメージが、どこにも警告を出さないまま出来上がる**。
+# 「上げたのに直らない / 下げたのに再現しない」という形でしか表に出ないずれなので、
+# 黙って通すより落とすほうが安い。
+#
+# 照合は「生成器をもう一度走らせて、写しと 1 バイトも違わないこと」で見る。
+# 正規化の規則 (版を 0.0.0 に潰す・lock は 2 箇所) を Dockerfile に書き写すと
+# 生成器と二重管理になり、片方だけ直したときに嘘の合格を出すため。
+# 揃っていれば書き出す内容は元と同一なので、この RUN はイメージに何も足さない。
+RUN sha256sum .deps/package.json .deps/package-lock.json > /tmp/deps-used.sha256 \
+ && node scripts/writeDepsManifest.mjs >/dev/null \
+ && if ! sha256sum -c --status /tmp/deps-used.sha256; then \
+      echo "ERROR: .deps/ が package.json / package-lock.json と揃っていない。" >&2; \
+      echo "       依存レイヤーは古い写しで npm ci しており、このイメージの依存は当てにならない。" >&2; \
+      echo "       次を実行してからビルドし直すこと: node scripts/writeDepsManifest.mjs" >&2; \
+      echo "       (doDeploy.sh / doStart.sh 経由なら自動で作り直されるので不要)" >&2; \
+      exit 1; \
+    fi \
+ && rm -f /tmp/deps-used.sha256
+
 # ビルド時のページデータ収集で db.ts が import されるためダミー URL を渡す
 # (全ページ force-dynamic なので実際の接続は起きない。実行時は compose が上書き)
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
@@ -53,6 +89,15 @@ ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 #      **不変**なのに、毎ビルド変わる chunks と同じ層にいて毎回送られていた。
 #      別ディレクトリへ退避し、runner 側で別々の COPY にして層を分ける。
 #
+#      存在検査を挟んでいるのは、media/ が **Next の emit 結果次第で消えうる**ため。
+#      今そこに居るのは KaTeX の webfont・app icon (src/app/icon.svg,
+#      apple-icon.png)・Worker のチャンクで、いずれも「CSS や import から辿られた
+#      からたまたま media/ に出た」もの — next/font は 1 箇所も使っていない。
+#      裸の mv だと、これらが出なくなった日に `mv: cannot stat
+#      '.next/static/media'` で**デプロイ全体が止まる**。層を分けるための都合で
+#      本筋とは関係ないのに、原因の見当も付かない止まり方をする。
+#      無ければ空のまま進める (runner 側の COPY は空ディレクトリでも通る)。
+#
 #   3. standalone/node_modules を切り出す
 #      トレースされた依存 (74MB / gzip 33MB)。**依存を変えない限り不変**なのに、
 #      毎ビルド変わる .next/server と同じ層にいて毎回送られていた。同じ手で分ける。
@@ -60,7 +105,12 @@ ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN npm run build \
  && rm -rf .next/standalone/public \
  && mkdir -p /static-media \
- && mv .next/static/media /static-media/media \
+ && if [ -d .next/static/media ]; then \
+      mv .next/static/media /static-media/media; \
+    else \
+      echo "note: .next/static/media が無い (Next が emit しなかった)。フォント層は空で続行する"; \
+      mkdir -p /static-media/media; \
+    fi \
  && mkdir -p /standalone-nm \
  && mv .next/standalone/node_modules /standalone-nm/node_modules
 
