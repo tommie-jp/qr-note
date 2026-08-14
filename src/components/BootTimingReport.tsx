@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import {
+  BOOT_REPORT_FALLBACK_MS,
+  type BootTiming,
   formatBootTiming,
   LAST_BOOT_REPORT_VERSION_KEY,
   parseWorkerVersion,
@@ -22,6 +24,9 @@ import { readMark, writeMark } from "@/lib/offline/schedule";
 // 再マウントされないが、StrictMode の二重実行と戻る/進むの再マウントがある
 // (diagLog.ts の logEnvironmentOnce と同じ守り)
 let reported = false;
+// 途中経過を送ったか。送っていれば、揃ったあとの行は**条件を問わず送る** —
+// 右側が欠けた行だけが残ると、load まで含めて遅かったのかが判らない
+let partialReported = false;
 
 interface BootTimingReportProps {
   // アプリの版 (package.json)。管理している Worker の版と食い違っていれば、
@@ -35,16 +40,14 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
       return;
     }
 
-    const report = () => {
-      reported = true;
-      // **load の後で読む。** loadEventEnd は load が終わるまで 0 で、
-      // 早く読むと内訳の右端だけ欠けた行になる
-      const timing = readBootTiming();
-      if (timing === null) {
-        return;
-      }
-      if (!shouldReportBoot(timing, readMark(LAST_BOOT_REPORT_VERSION_KEY), version)) {
-        return;
+    // 送る (送ったら true)。forced は「条件を問わず送る」— 途中経過を送った
+    // あとの仕上げに使う
+    const send = (timing: BootTiming, forced: boolean): boolean => {
+      if (
+        !forced &&
+        !shouldReportBoot(timing, readMark(LAST_BOOT_REPORT_VERSION_KEY), version)
+      ) {
+        return false;
       }
       writeMark(LAST_BOOT_REPORT_VERSION_KEY, version);
 
@@ -62,24 +65,47 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
           online: navigator.onLine,
         }),
       );
+      return true;
     };
 
-    let timer: number | undefined;
-    // load イベントの中では loadEventEnd がまだ確定していないため 1 tick 遅らせる
+    // load 後の本番。**loadEventEnd は load が終わるまで 0** なので 1 tick 遅らせて読む
+    const reportComplete = () => {
+      reported = true;
+      const timing = readBootTiming();
+      if (timing !== null) {
+        send(timing, partialReported);
+      }
+    };
+
+    // load を待てなかったときの途中経過 (bootTiming.ts の BOOT_REPORT_FALLBACK_MS)。
+    // ここまで来ていれば responseStart / responseEnd / FCP は確定しており、
+    // 白い時間がサーバ側か Worker 側かはこれだけで切り分けられる
+    const reportPartial = () => {
+      const timing = readBootTiming();
+      if (timing === null || timing.loadMs > 0) {
+        // 既に load 済み: 欠けの無い行を reportComplete が送る
+        return;
+      }
+      partialReported = send(timing, false);
+    };
+
+    let loadTimer: number | undefined;
+    let fallbackTimer: number | undefined;
     const onLoad = () => {
-      timer = window.setTimeout(report, 0);
+      window.clearTimeout(fallbackTimer);
+      loadTimer = window.setTimeout(reportComplete, 0);
     };
 
     if (document.readyState === "complete") {
       onLoad();
     } else {
       window.addEventListener("load", onLoad, { once: true });
+      fallbackTimer = window.setTimeout(reportPartial, BOOT_REPORT_FALLBACK_MS);
     }
     return () => {
       window.removeEventListener("load", onLoad);
-      if (timer !== undefined) {
-        window.clearTimeout(timer);
-      }
+      window.clearTimeout(loadTimer);
+      window.clearTimeout(fallbackTimer);
     };
   }, [version]);
 

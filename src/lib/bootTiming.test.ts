@@ -209,6 +209,7 @@ describe('formatBootTiming', () => {
     })
 
     // Assert
+    expect(line).toContain('[起動]')
     expect(line).toContain('v0.22.59')
     expect(line).toContain('SW v0.22.58')
     expect(line).toContain('PWA')
@@ -216,6 +217,31 @@ describe('formatBootTiming', () => {
     expect(line).toContain('FCP 13400ms')
     expect(line).toContain('SW起動 40ms')
     expect(line).toContain('css/a1b2.css 8200ms(SW)')
+  })
+
+  test('marks a report sent before load and says which marks are still missing', () => {
+    // Arrange: load を待たずに送る途中経過。まだ立っていない印は 0 で届く
+    const timing = readBootTiming(
+      fakePerformance({
+        navigation: [
+          { ...NAVIGATION, domContentLoadedEventEnd: 0, loadEventEnd: 0 },
+        ],
+      }),
+    )!
+
+    // Act
+    const line = formatBootTiming(timing, {
+      version: '0.22.63',
+      workerVersion: '0.22.62',
+      standalone: true,
+      online: true,
+    })
+
+    // Assert: 0ms と読み違えると「一瞬で終わった」に見えるので、未了と書く
+    expect(line).toContain('[起動(途中)]')
+    expect(line).toContain('DCL 未了')
+    expect(line).toContain('load 未了')
+    expect(line).toContain('受信 13100ms')
   })
 
   test('says so when the page is not controlled by a worker', () => {

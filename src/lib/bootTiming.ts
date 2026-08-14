@@ -24,6 +24,14 @@
 // 「体感で明らかに遅い」線に置く (通常の 4G なら 1〜2 秒で描画が始まる)
 export const SLOW_BOOT_MS = 4000
 
+// load を待たずに途中経過を送るまでの猶予。
+//
+// **白い間にアプリを終了されると load が来ない**。計測を load の後だけに置くと、
+// 一番知りたい回だけが記録に残らない (実際に取りこぼした)。ハイドレーション
+// (= この計測が動き出す時点) では responseStart / responseEnd / FCP は既に
+// 確定しているので、白い時間の切り分けは途中経過だけでもできる。
+export const BOOT_REPORT_FALLBACK_MS = 5000
+
 // 遅い資源として挙げる下限と件数。全部並べると 1 行が読めなくなるし、
 // 速い物は診断に効かない
 const SLOW_RESOURCE_FLOOR_MS = 200
@@ -191,11 +199,20 @@ function ms(value: number): string {
   return `${Math.round(value)}ms`
 }
 
+// **まだ立っていない印 (0) を 0ms と書かない。** 途中経過の行で「load 0ms」と
+// 出ると「一瞬で終わった」に読めてしまい、意味が正反対になる
+function msOrPending(value: number): string {
+  return value > 0 ? ms(value) : '未了'
+}
+
 // /logs に 1 行で並べる。左から右へ時間の流れ順にする — どこで止まったかは、
 // 数字を読み比べるより「どこで急に増えたか」で判るため。
+//
+// load 前に送った行は [起動(途中)] と書く。右側が欠けているのは「そこで
+// 止まった」ではなく「まだ待っている」の意で、混ぜると読み違える。
 export function formatBootTiming(timing: BootTiming, env: BootEnv): string {
   const head = [
-    `[起動] v${env.version}`,
+    `${timing.loadMs > 0 ? '[起動]' : '[起動(途中)]'} v${env.version}`,
     env.workerVersion === null ? 'SW無し' : `SW v${env.workerVersion}`,
     env.standalone ? 'PWA' : 'ブラウザ',
     env.online ? 'オンライン' : '圏外',
@@ -203,14 +220,14 @@ export function formatBootTiming(timing: BootTiming, env: BootEnv): string {
   ].join(' / ')
 
   const flow = [
-    `要求 ${ms(timing.requestStartMs)}`,
-    `応答待ち ${ms(timing.responseStartMs)}`,
-    `受信 ${ms(timing.responseEndMs)}`,
+    `要求 ${msOrPending(timing.requestStartMs)}`,
+    `応答待ち ${msOrPending(timing.responseStartMs)}`,
+    `受信 ${msOrPending(timing.responseEndMs)}`,
     timing.firstContentfulPaintMs === null
       ? 'FCP不明'
       : `FCP ${ms(timing.firstContentfulPaintMs)}`,
-    `DCL ${ms(timing.domContentLoadedMs)}`,
-    `load ${ms(timing.loadMs)}`,
+    `DCL ${msOrPending(timing.domContentLoadedMs)}`,
+    `load ${msOrPending(timing.loadMs)}`,
   ].join(' → ')
 
   const worker =
