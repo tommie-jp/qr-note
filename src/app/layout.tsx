@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import QRCode from "qrcode";
 import pkg from "../../package.json";
+import { BootTimingReport } from "@/components/BootTimingReport";
 import { ClientLogCapture } from "@/components/ClientLogCapture";
 import { DebugConsole } from "@/components/DebugConsole";
 import { DebugConsoleButton } from "@/components/DebugConsoleButton";
@@ -370,6 +371,11 @@ export default async function RootLayout({
             消えるデータを端末へ溜める意味が無く、共有アカウントなので
             他人のノートが端末に残る (docs/38-デモモード計画.md §4) */}
         {user && !isDemo && <OfflineSync version={pkg.version} />}
+        {/* 起動にかかった時間の内訳を /logs へ送る (src/lib/bootTiming.ts)。
+            何も描かない。「デプロイ直後の起動だけ数十秒白い」の切り分け用で、
+            原因が判ったら消してよい。仕掛ける条件は ClientLogCapture と同じ
+            (転送の受け口が同じなので、ログイン中・デモ以外) */}
+        {user && !isDemo && <BootTimingReport version={pkg.version} />}
         <DebugConsole />
         </BottomBarProvider>
       </body>
