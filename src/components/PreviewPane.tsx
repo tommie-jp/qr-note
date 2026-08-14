@@ -73,6 +73,13 @@ export function PreviewPane({
   const keepOpen = source === "detail" && keepsNoteOpen(mode);
   const visible = source === "auto" || onItemUrl || keepOpen;
 
+  // **「閉じない」はペインのときだけ** (docs/86 §4-4)。lg 未満ではノートは
+  // ペインではなく全画面なので、URL が /item を離れても出し続けると
+  // 画面を覆ったまま戻れなくなる — ロゴを押しても一覧に帰れない、が実際に
+  // 起きた。幅で分けるのは CSS の仕事にする (JS で幅を見ると、サーバの
+  // 描画と食い違って hydration が壊れる)
+  const keptOpenOffUrl = !onItemUrl && (keepOpen || source === "auto");
+
   // 一覧の行・画像タイルのハイライトはこの番号を見る (docs/86 §4-4)。
   // pathname から決めないのは、3 ペインでは URL が /item から離れても
   // ノートが出たままになるため。**出していない間は null を流す** —
@@ -118,14 +125,18 @@ export function PreviewPane({
           isBottomPane
             ? "lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:h-[var(--preview-pane-h)] lg:border-t lg:border-gray-300"
             : ""
-        }`}
+        } ${keptOpenOffUrl ? "max-lg:hidden" : ""}`}
       >
         {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
             下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
             (タグ・補助行) より DOM 順で後にはならないので、同層にして
             sticky 側を上に出す */}
         <div className={`sticky top-0 z-10 ${bgClass}`}>
-          <div className="mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl">
+          <div
+            className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl ${
+              isBottomPane ? "lg:max-w-none" : ""
+            }`}
+          >
             {/* 3 ペインでは「閉じる」を出さない (docs/86 §4-4)。ノートは常設の
                 面で、押しても閉じられない物をボタンにしても嘘になる。
                 畳みたいときはヘッダーのペイン構成を 2 / 1 にする。
@@ -153,7 +164,14 @@ export function PreviewPane({
         {/* pb-safe … lg 未満の全画面ではホームバーに潜らせない。
             lg:pb-20 … ペインの下端は下部バーの上で終わるが、テキストサイズ
             設定でバーが伸びた分やスクロールの余韻も考えて広めに取る */}
-        <div className="mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20">
+        {/* ペインのときは幅いっぱいに使う (docs/86 §4-8)。全画面 (1 ペイン・
+            狭い画面) では今までどおり読み幅に収める — 画面の端から端まで
+            続く行は目で追えない */}
+        <div
+          className={`mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20 ${
+            isBottomPane ? "lg:max-w-none" : ""
+          }`}
+        >
           {children}
         </div>
       </section>

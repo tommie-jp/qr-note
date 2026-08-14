@@ -23,11 +23,7 @@ import { SearchForm } from "@/components/SearchForm";
 import { SearchNavProvider, SearchResults } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
 import { TaskProgress } from "@/components/TaskProgress";
-import {
-  BUSY_NOTICE_CLASS,
-  BUSY_SPINNER_CLASS,
-  WIDE_RESULTS_CLASS,
-} from "@/components/ui";
+import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "@/components/ui";
 import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import {
   countFolderTotals,
@@ -305,15 +301,10 @@ async function HomeResults({
         出すかどうかの最終判断はクライアント側 (AutoNotePane) —
         横取りスロットが既にノートを持っていたら引っ込む */}
     {autoNote}
-    <SearchResults
-      query={query}
-      // search-wide-results … フォルダーペイン (docs/86 §5) が出ている xl 以上
-      // では、globals.css がこの印を目当てに広幅の中心と上限をペイン分だけ
-      // 右へ寄せる。Tailwind のクラスでは書けない (:has で body から効かせる)
-      className={
-        view === "compact" ? "" : `${WIDE_RESULTS_CLASS} search-wide-results`
-      }
-    >
+    {/* 幅の指定は持たない。ペイン 2 の器いっぱいに広げる (docs/86 §4-8) —
+        広幅 breakout (WIDE_RESULTS_CLASS) は「中央 max-w-2xl の器から
+        はみ出す」ための道具で、器がもうペイン幅いっぱいなら要らない */}
+    <SearchResults query={query}>
       {/* 並び順は下部バーへ移したので、この行は件数と補助リンクだけになった
           (docs/31-下部操作バー計画.md §2)。
           件数は text-sm、その脇の補助リンクはさらに一段下げて text-xs。

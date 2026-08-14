@@ -5,6 +5,7 @@ import { BarSlot } from "@/components/BarSlot";
 import {
   GridViewIcon,
   ImageViewIcon,
+  ListDetailViewIcon,
   ListViewIcon,
 } from "@/components/MenuIcons";
 import { cycleOf } from "@/lib/cycle";
@@ -16,12 +17,14 @@ import { VIEW_MODES, VIEW_MODE_COOKIE, type ViewMode } from "@/lib/viewMode";
 // ラベルに出すことで保たれる (docs/31 §3-4)
 const VIEW_LABEL: Record<ViewMode, string> = {
   compact: "小",
+  medium: "中",
   card: "大",
   image: "画像",
 };
 
 const VIEW_ICON: Record<ViewMode, ReactNode> = {
   compact: <ListViewIcon />,
+  medium: <ListDetailViewIcon />,
   card: <GridViewIcon />,
   image: <ImageViewIcon />,
 };

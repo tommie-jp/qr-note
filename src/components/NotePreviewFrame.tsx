@@ -16,15 +16,16 @@ import type { ReactNode } from "react";
 //             キャンバスを小さくしたほうが「何かが書いてある」感が残る
 //   card    … 20rem × 0.3  = 6rem   (size-24)。見出しや図の形が判る
 const FRAME: Record<
-  "compact" | "card",
+  "compact" | "medium" | "card",
   { canvas: string; scale: string; frame: string }
 > = {
-  compact: { canvas: "h-40 w-40", scale: "scale-[0.25]", frame: "size-10" },
+  compact: { canvas: "h-40 w-40", scale: "scale-[0.15]", frame: "size-6" },
+  medium: { canvas: "h-40 w-40", scale: "scale-[0.25]", frame: "size-10" },
   card: { canvas: "h-80 w-80", scale: "scale-[0.3]", frame: "size-24" },
 };
 
 interface NotePreviewFrameProps {
-  view: "compact" | "card";
+  view: "compact" | "medium" | "card";
   children: ReactNode;
 }
 

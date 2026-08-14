@@ -1,7 +1,10 @@
 // 検索結果の表示モード (docs/23-検索結果表示モード計画.md §1)。
 //
-//   compact (小) … 1 カラム。1 ノート 2 行 (タイトル / タグ) + 小さなサムネ。
-//                  一覧して番号を拾う・ざっと眺めるための密な表示。
+//   compact (小) … 1 カラム。**1 ノート 1 行** (#番号 + タイトル) + 1 行ぶんの
+//                  サムネ。番号や見出しを拾うためのいちばん密な表示で、
+//                  タグは出さない (タグは中・大とノート本体で見る)。
+//   medium  (中) … 1 カラム。1 ノート 2 行 (タイトル / タグ) + 小さなサムネ。
+//                  タグまで見ながら眺めるための表示。
 //   card    (大) … タイトル / タグ / 本文 3 行 + 大きめのサムネ。
 //                  カラム数は画面幅が決める (スマホ 1 列 / PC 2 列以上)。
 //   image (画像) … 本文に貼られた画像だけを masonry で敷き詰める
@@ -22,7 +25,7 @@
 // 優先する二段構えで、ここ (表示モード) は cookie だけ — 表示モードは
 // 共有リンクで指定したいものではないので、URL に出す理由がない。
 
-export type ViewMode = 'compact' | 'card' | 'image'
+export type ViewMode = 'compact' | 'medium' | 'card' | 'image'
 
 export const VIEW_MODE_COOKIE = 'view'
 
@@ -35,7 +38,20 @@ export const DEFAULT_VIEW_MODE = 'compact' satisfies ViewMode
 // 妥当なモードをすべて並べた表。**この並びがそのまま UI の順になる** —
 // 下部バーの短いタップの循環 (小 → 大 → 画像) と長押しメニューの上下を、
 // どちらも cycleOf でここから作る (SORTS と lib/sortDirection.ts の関係と同じ)。
-export const VIEW_MODES: readonly ViewMode[] = ['compact', 'card', 'image']
+export const VIEW_MODES: readonly ViewMode[] = [
+  'compact',
+  'medium',
+  'card',
+  'image',
+]
+
+// 器を画面いっぱいに広げる表示か (docs/23 §1, docs/32 §1)。
+// カードと画像は列を増やしたいので広げ、1 カラムの小・中は読み幅を保つ。
+// **判定をここに置く**のが要点 — 検索とゴミ箱の 2 か所で同じ式を書くと、
+// 表示を足した日に片方だけ広いままになる
+export function usesWideResults(view: ViewMode): boolean {
+  return view === 'card' || view === 'image'
+}
 
 // cookie は利用者が自由に書き換えられる外部入力なので、素通しせず畳む
 // (parseSort と同じ流儀)。

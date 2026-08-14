@@ -247,6 +247,20 @@ export function ListViewIcon() {
   );
 }
 
+// 表示切替: 見出し + 副題の 2 行 (中表示用)。ListViewIcon (1 行) との差を
+// 「行の下に細い 2 行目が付く」だけに抑えて、同じ表示スロットの仲間だと
+// 判るようにする (ImageViewIcon が GridViewIcon と揃えているのと同じ判断)
+export function ListDetailViewIcon() {
+  return (
+    <StrokeIconLarge>
+      <path d="M8 5h12M8 13h12" />
+      <path d="M8 8.5h7M8 16.5h7" opacity="0.5" />
+      <rect {...TINT} x="3" y="4" width="2" height="2" rx="0.5" />
+      <rect {...TINT} x="3" y="12" width="2" height="2" rx="0.5" />
+    </StrokeIconLarge>
+  );
+}
+
 // 表示切替: グリッド (カード表示用)
 export function GridViewIcon() {
   return (

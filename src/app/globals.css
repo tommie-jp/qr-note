@@ -652,12 +652,6 @@ select,
     margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
   }
 
-  /* 読み幅は器ではなく中身が持つ。器はペイン 2 の領域いっぱいに広げた
-     (max-width:none) ので、今までの max-w-2xl はここで保つ */
-  [data-results-pane] {
-    max-width: 42rem;
-    margin-inline: auto;
-  }
 }
 
 /* フォルダーペインが出ている xl 以上では、**ペイン 2 ごと**その幅だけ
@@ -668,15 +662,6 @@ select,
 @media (min-width: 80rem) {
   body:has([data-folder-pane]) main {
     padding-left: calc(var(--folder-pane-w) + 1rem);
-  }
-
-  /* カード・画像表示の広幅一覧 (WIDE_RESULTS_CLASS の breakout) も同じだけ
-     狭める。**ずらすのは幅だけでよい** — 器がペインを避けた時点で
-     中身の中心 = 残りの領域の中心になり、breakout の
-     left:50% / -translate-x-1/2 がその中心に載るため。
-     4rem は左右の余白と、器自身のスクロールバーのぶん */
-  body:has([data-folder-pane]) .search-wide-results {
-    width: calc(100vw - var(--folder-pane-w) - 4rem);
   }
 
   /* ノートのペインとその境界も同じだけ右へ寄せる。**Tailwind の

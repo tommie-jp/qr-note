@@ -34,7 +34,9 @@ test("表示と並び順の 2 つだけを出す", () => {
 
 // 表示の循環は検索画面とまったく同じ (同じ ViewSlot を使う)
 test("表示トグルは現在のモードを見せ、送信値は次のモードになる", () => {
-  expect(render("compact")).toContain('value="card"');
+  // 小 → 中 → 大 → 画像 → 小 の循環 (検索一覧と同じ並び)
+  expect(render("compact")).toContain('value="medium"');
+  expect(render("medium")).toContain('value="card"');
   expect(render("card")).toContain('value="image"');
   expect(render("image")).toContain('value="compact"');
 });

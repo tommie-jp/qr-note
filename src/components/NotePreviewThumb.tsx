@@ -208,7 +208,8 @@ export function NotePreviewThumb({ markdown }: { markdown: string }) {
 //
 // view を受けるのは buildMathTexts / loadCircuitThumbs と同じ作法:
 //   image … 行が無い (ImageMasonry がタイルを描く) ので作らない
-//   compact … 40px では文字が模様にしかならないので、ソースをさらに足切り
+//   compact / medium … 24px・40px では文字が模様にしかならないので、
+//     ソースをさらに足切り
 export function buildNotePreviews(
   items: readonly { itemNo: string; memo: string; mode: string }[],
   circuitThumbs: CircuitThumbMap,
@@ -217,10 +218,12 @@ export function buildNotePreviews(
   if (view === "image") {
     return {};
   }
+  // 小・中の枠 (24px / 40px) では文字が模様にしかならないので、元の本文を
+  // さらに足切りする。読める大きさになるのはカードの 96px から
   const maxChars =
-    view === "compact"
-      ? NOTE_PREVIEW_COMPACT_SOURCE_CHARS
-      : NOTE_PREVIEW_MAX_SOURCE_CHARS;
+    view === "card"
+      ? NOTE_PREVIEW_MAX_SOURCE_CHARS
+      : NOTE_PREVIEW_COMPACT_SOURCE_CHARS;
   // 上限から先は黙って作らない (一覧の後ろのページほど文字だけに戻る。
   // CIRCUIT_THUMB_BUDGET と同じ「先頭から詰める」約束)。
   // 回路図の判定は ItemRow の分岐 (?.[0]) と同じ形にする — 片方が

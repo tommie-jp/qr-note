@@ -17,7 +17,11 @@ import { listTrashedItems } from "@/lib/items";
 import { buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { resolveTrashSort, TRASH_SORT_COOKIE } from "@/lib/sortMode";
-import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/viewMode";
+import {
+  parseViewMode,
+  usesWideResults,
+  VIEW_MODE_COOKIE,
+} from "@/lib/viewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +77,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
         {/* カード・masonry は広い画面で列を増やしたいので広幅。compact の
             1 カラムだけは読み幅を保つ (検索一覧と同じ。docs/23 §1、docs/32 §1) */}
-        <div className={view === "compact" ? "" : WIDE_RESULTS_CLASS}>
+        <div className={usesWideResults(view) ? WIDE_RESULTS_CLASS : ""}>
           <TrashList
             items={items}
             view={view}

@@ -41,8 +41,8 @@ test("表示トグルは現在のモードを見せ、送信値は次のモー�
   const html = render("compact");
   // いま何が選ばれているかが押さなくても判る
   expect(html).toContain(">小<");
-  // 押したら切り替わる先
-  expect(html).toContain('value="card"');
+  // 押したら切り替わる先 (小 → 中 → 大 → 画像 の循環)
+  expect(html).toContain('value="medium"');
   expect(html).not.toContain('value="compact"');
 });
 

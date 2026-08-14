@@ -56,17 +56,32 @@ test("番号と要約をアイテム詳細へのリンクにする", () => {
   expect(html).toContain("BJT NPN 2SC2712-Y LY SMD");
 });
 
-test("タグを青いタグ検索リンクとして表示する", () => {
+test("大表示はタグを青いタグ検索リンクとして表示する", () => {
   const html = renderRow(
     makeItem({ itemNo: "4951", memo: "2SC2712 #bjt #npn", tags: ["bjt", "npn"] }),
+    undefined,
+    "card",
   );
   expect(html).toContain('href="/?q=%23bjt"');
   expect(html).toContain('href="/?q=%23npn"');
   expect(html).toContain("text-blue-700");
 });
 
+// 小は 1 ノート 1 行に詰める (docs/86 §4-7)。タグは大表示・ノート本体・
+// フォルダーペインで見られるので、いちばん密な表示からは落とす
+test("小表示はタグを出さない (1 行に詰める)", () => {
+  const html = renderRow(
+    makeItem({ itemNo: "4951", memo: "2SC2712 #bjt", tags: ["bjt"] }),
+  );
+  expect(html).not.toContain("/?q=%23");
+});
+
 test("タグのないアイテムはタグ行を出さない", () => {
-  const html = renderRow(makeItem({ itemNo: "100", memo: "メモだけ", tags: [] }));
+  const html = renderRow(
+    makeItem({ itemNo: "100", memo: "メモだけ", tags: [] }),
+    undefined,
+    "card",
+  );
   expect(html).not.toContain("/?q=%23");
 });
 
@@ -109,7 +124,11 @@ test("当たり判定はリンクのまま広げる (中クリック・URL コ�
 
 test("タグは枠の当たり判定より前に出す (タグ検索へ行ける)", () => {
   // z-10 が無いと、タグを押してもノートが開いてしまう
-  const html = renderRow(makeItem({ itemNo: "4951", memo: "#bjt", tags: ["bjt"] }));
+  const html = renderRow(
+    makeItem({ itemNo: "4951", memo: "#bjt", tags: ["bjt"] }),
+    undefined,
+    "card",
+  );
   expect(html).toContain("relative z-10");
   expect(html).toContain('href="/?q=%23bjt"');
 });
@@ -141,7 +160,18 @@ test("サムネは遅延読み込みし、届く前から場所を取る", () =>
   // width/height が無いと、画像が届いた瞬間に行が飛び跳ねる
   const html = renderRow(makeItem({ memo: `写真\n![](/api/images/${IMAGE})` }));
   expect(html).toContain('loading="lazy"');
+  // 小は 1 行ぶんの高さ (中は 2 行ぶんの 40px)
+  expect(html).toContain('width="24"');
+});
+
+test("中表示のサムネは 2 行分の大きさで出す", () => {
+  const html = renderRow(
+    makeItem({ memo: `写真\n![](/api/images/${IMAGE})` }),
+    undefined,
+    "medium",
+  );
   expect(html).toContain('width="40"');
+  expect(html).toContain("size-10");
 });
 
 test("カード表示のサムネは 5 行分の大きさで出す", () => {
@@ -185,8 +215,8 @@ test("画像が無ければ回路図の SVG をサムネに出す", () => {
   expect(html).toContain("circuit-thumb");
   // SVG は文字列のまま埋め込まれる (dangerouslySetInnerHTML)
   expect(html).toContain('<path d="M0 0h10"/>');
-  // 小表示は画像サムネと同じ 2 行分の枠
-  expect(html).toContain("size-10");
+  // 小表示は画像サムネと同じ 1 行分の枠
+  expect(html).toContain("size-6");
 });
 
 test("カード表示の回路図サムネは 5 行分の枠で出す", () => {
@@ -234,9 +264,15 @@ test("画像も回路図も無ければノート全体プレビューを縮小�
   const html = renderPreviewRow(makeItem({ memo: "文字だけのノート" }));
   expect(html).toContain("note-preview");
   expect(html).toContain("縮小した本文");
-  // 小表示は画像サムネと同じ 2 行分の枠。キャンバス 10rem × 0.25 = 2.5rem
-  expect(html).toContain("size-10");
+  // 小表示は画像サムネと同じ 1 行分の枠。キャンバス 10rem × 0.15 = 1.5rem
+  expect(html).toContain("size-6");
   expect(html).toContain("h-40 w-40");
+  expect(html).toContain("scale-[0.15]");
+});
+
+test("中表示のプレビューは 2 行分の枠 (10rem × 0.25 = 2.5rem)", () => {
+  const html = renderPreviewRow(makeItem({ memo: "文字だけ" }), "medium");
+  expect(html).toContain("size-10");
   expect(html).toContain("scale-[0.25]");
 });
 

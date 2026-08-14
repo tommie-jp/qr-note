@@ -66,18 +66,24 @@ interface ItemRowProps {
   selected?: boolean;
 }
 
-// サムネの一辺 (px)。行の高さに合わせる: 小は 2 行分、大は 5 行分。
-// width/height 属性にも渡して、読み込み前から場所を取らせる (画像が届いた
-// 瞬間に行が飛び跳ねないように)。
-const THUMB_PX: Record<RowViewMode, number> = { compact: 40, card: 96 };
+// サムネの一辺 (px)。**行の高さに合わせる**: 小は 1 行分、中は 2 行分、
+// 大は 5 行分。width/height 属性にも渡して、読み込み前から場所を取らせる
+// (画像が届いた瞬間に行が飛び跳ねないように)。
+const THUMB_PX: Record<RowViewMode, number> = {
+  compact: 24,
+  medium: 40,
+  card: 96,
+};
 const THUMB_SIZE_CLASS: Record<RowViewMode, string> = {
-  compact: "size-10",
+  compact: "size-6",
+  medium: "size-10",
   card: "size-24",
 };
 
 // 検索結果 / 一覧の 1 件。
 //
-//   compact … 1 行目「#番号 タイトル」/ 2 行目タグ + 右端に小さなサムネ。
+//   compact … 「#番号 タイトル」の 1 行 + 右端に 1 行ぶんのサムネ。
+//   medium  … + 2 行目にタグ + 少し大きいサムネ。
 //   card    … + 本文プレビュー 3 行 + 大きめのサムネ。
 //
 // タイトル (memoSummary) と本文 (memoPreview) は同じ規則で切り分けてあり、
@@ -149,7 +155,10 @@ export function ItemRow({
     <NotePreviewFrame view={view}>{notePreview}</NotePreviewFrame>
   ) : null;
 
-  const tags = item.tags.length > 0 && (
+  // **小 (compact) ではタグを出さない。** 1 ノート 1 行に詰めて一覧性を
+  // 優先する — 小は「並べて番号や見出しを拾う」ための表示で、タグは中・大と
+  // ノート本体、それにフォルダーペイン (docs/86 §5) で見られる
+  const tags = view !== "compact" && item.tags.length > 0 && (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
       {item.tags.map((tag) => (
         <Link

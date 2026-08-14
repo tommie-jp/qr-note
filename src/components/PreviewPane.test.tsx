@@ -96,3 +96,18 @@ test("3 / 2 ペインのノートは下部ペイン (一覧の底を上げるフ
   expect(html).toContain("data-preview-pane");
   expect(html).toContain("var(--preview-pane-h)");
 });
+
+test("3 ペインの「閉じない」はペインのときだけ (lg 未満は全画面なので畳む)", () => {
+  // lg 未満ではノートはペインではなく全画面。URL を離れても出し続けると
+  // 画面を覆ったまま戻れず、ロゴを押しても一覧に帰れない (実機で判明)
+  nav.pathname = "/?q=BJT";
+  try {
+    expect(render("/item/4951", "3")).toContain("max-lg:hidden");
+  } finally {
+    nav.pathname = "/item/4951";
+  }
+});
+
+test("/item に居る間は幅で畳まない", () => {
+  expect(render("/item/4951", "3")).not.toContain("max-lg:hidden");
+});
