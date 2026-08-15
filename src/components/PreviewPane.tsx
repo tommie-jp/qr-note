@@ -146,7 +146,12 @@ export function PreviewPane({
         aria-label="選択したノート"
         // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
         // (ペインが出ている構成のときだけ効かせたいので :has で見る)
-        className={`fixed inset-x-0 overflow-y-auto overscroll-contain ${bgClass} ${
+        // m-0 … **親の余白ユーティリティを打ち消す** (docs/86 §4-12)。
+        // 自動で選ぶノートは検索結果の器 (space-y-2) の子として描かれるので、
+        // 放っておくと 8px の margin-top が付く。fixed の位置は
+        // 「上端 + margin + 高さ + margin + 下端 = 画面の高さ」で解かれるため、
+        // margin のぶんだけ上へずれて一覧の最下部に重なった (実機で判明)
+        className={`fixed inset-x-0 m-0 overflow-y-auto overscroll-contain ${bgClass} ${
           PANE_BOX_CLASS[layout]
         } ${keptOpenOffUrl && layout === "pane-lg" ? "max-lg:hidden" : ""}`}
       >

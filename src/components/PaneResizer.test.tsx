@@ -68,3 +68,9 @@ test("掴む帯そのものは塗らない (太い色帯にしない)", () => {
   const html = renderToStaticMarkup(<PaneResizer kind="folder" />);
   expect(html).toContain("bg-transparent");
 });
+
+test("境界の帯も親の余白を打ち消す (docs/86 §4-12)", () => {
+  for (const kind of ["folder", "preview"] as const) {
+    expect(renderToStaticMarkup(<PaneResizer kind={kind} />)).toContain("m-0");
+  }
+});

@@ -22,11 +22,12 @@ const HANDLE_CLASS: Record<PaneKind, string> = {
   // フォルダーの境界はペインと同じ寿命 (3 ペインのときだけ描かれる) なので、
   // 幅では畳まない (docs/86 §4-9)
   folder:
-    "fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-[var(--folder-pane-w)] z-20 block w-2 -translate-x-1/2 cursor-col-resize touch-none",
+    "fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-[var(--folder-pane-w)] z-20 m-0 block w-2 -translate-x-1/2 cursor-col-resize touch-none",
   // 左端をフォルダーペインの右へ寄せるのは globals.css (ペインが出ている
   // 構成のときだけ効かせたいので :has で見る)
+  // m-0 … 境界の帯もペインと同じ理由で親の余白を打ち消す (docs/86 §4-12)
   preview:
-    "fixed inset-x-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 h-2 translate-y-1/2 cursor-row-resize touch-none",
+    "fixed inset-x-0 m-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 h-2 translate-y-1/2 cursor-row-resize touch-none",
 };
 
 // 掴む帯そのものは透明のまま。**境界の線は中の 2px が描く** (docs/86 §4-10) —

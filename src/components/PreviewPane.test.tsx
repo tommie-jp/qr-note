@@ -135,3 +135,10 @@ test("2 ペインのノートは lg 以上でだけペイン (狭い画面は全
   expect(html).toContain("top-[var(--header-h)]");
   expect(html).toContain("lg:bottom-[var(--bottom-bar-h)]");
 });
+
+// fixed のペインは親の余白ユーティリティに位置をずらされる (docs/86 §4-12)。
+// 自動で選ぶノートは検索結果の器 (space-y-2) の子なので、実機では 8px 上へ
+// 浮いて一覧の最下部に重なっていた
+test("親の余白を打ち消す (fixed の位置が margin でずれないように)", () => {
+  expect(render("/item/4951", "3")).toContain("m-0");
+});
