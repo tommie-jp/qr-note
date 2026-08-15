@@ -111,6 +111,7 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
   // Escape で候補を閉じたか。閉じた後にサーバの取得が届いても開き直さない
   const [dismissed, setDismissed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   // 補完適用後にキャレット位置を復元するための保留値。
   const pendingCaret = useRef<number | null>(null);
@@ -478,6 +479,39 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
     inputRef.current?.blur();
   };
 
+  // 候補一覧の置き場所 (docs/86 §4-13)。**fixed で出すために窓を実測する。**
+  // absolute のままだと 3 ペインの器 (main は overflow:hidden) に切られて
+  // 下半分が見えなくなる — 候補はペインの境界に関係なく全部見せたい。
+  // fixed は祖先の overflow に切られない (包含ブロックを作る祖先が無いことは
+  // 実測で確認済み) ので、窓の真下へ置き直せば足りる。
+  //
+  // **state ではなく DOM を直に置く。** 位置は React の外にある値 (窓の
+  // 実座標) で、state にすると測る → 描き直す → また測る の往復になる。
+  // ref コールバックは DOM に入った直後・描画の前に走るので、初期位置も
+  // ここで決まる (ちらつかない)
+  const placeList = (el: HTMLUListElement | null) => {
+    const box = inputRef.current?.getBoundingClientRect();
+    if (!el || !box) return;
+    // mt-1 相当の 4px を空ける。左右と幅は窓に揃える
+    el.style.left = `${box.left}px`;
+    el.style.top = `${box.bottom + 4}px`;
+    el.style.width = `${box.width}px`;
+  };
+
+  // 開いている間は窓を追う。スクロール (capture で祖先の内側スクロールも
+  // 拾う) と大きさの変化で窓が動くため
+  const isOpen = dropdown !== null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const update = () => placeList(listRef.current);
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [isOpen]);
+
   const savedFull = dropdown?.list?.savedFull ?? false;
 
   return (
@@ -571,7 +605,17 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
           <ul
             id="search-suggestions"
             role="listbox"
-            className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded border border-gray-300 bg-white shadow-lg"
+            // **fixed で器の外へ出す** (docs/86 §4-13)。3 ペインでは器が
+            // overflow:hidden なので、absolute のままだと候補の下半分が
+            // 切られる。位置は上の effect が窓から実測して入れる。
+            // z-30 … ノートのペイン (z-0) と下部バー (z-10) より上。
+            // max-h + overflow-y-auto … 候補が多いときに画面の外へ
+            // 突き抜けないための保険 (SlotMenu と同じ作法)
+            ref={(el) => {
+              listRef.current = el;
+              placeList(el);
+            }}
+            className="fixed z-30 max-h-[60vh] overflow-y-auto overscroll-contain rounded border border-gray-300 bg-white shadow-lg"
           >
             {dropdown.items.map((s, i) => (
               // key は値だけ。★/☆ を押すと kind が入れ替わるので、kind を
@@ -587,7 +631,11 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
                 }}
                 // 登録パターンと最近の検索の境目に線を引く。同じ見た目で
                 // 続けると、固定の 3 件と入れ替わる 3 件が地続きに見える
-                className={`flex min-h-10 cursor-pointer items-center gap-2 px-3 ${
+                // 行の高さは本文の 1 行ぶん (py-0.5 + text-sm の行送り ≒ 24px。
+                // docs/86 §4-13)。40px のタップ目標は取らない — 候補は
+                // 1 画面にいくつ並ぶかがそのまま使い勝手になる場所で、
+                // フォルダーペインの行と同じ判断
+                className={`flex cursor-pointer items-center gap-2 px-3 py-0.5 text-sm ${
                   s.kind === "recent" &&
                   dropdown.items[i - 1]?.kind === "saved"
                     ? "border-t border-gray-200"
@@ -636,7 +684,7 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
                       e.stopPropagation();
                       toggleSaved(s, dropdown);
                     }}
-                    className="-mr-1 flex size-8 shrink-0 items-center justify-center rounded text-amber-500 hover:bg-black/10 disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="-mr-1 flex size-6 shrink-0 items-center justify-center rounded text-amber-500 hover:bg-black/10 disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     {s.kind === "saved" ? "★" : "☆"}
                   </button>
@@ -657,7 +705,7 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
                     setDropdown(openList(lists, true));
                     inputRef.current?.focus();
                   }}
-                  className="flex min-h-10 w-full items-center justify-center px-3 text-sm text-blue-600 hover:bg-gray-100"
+                  className="flex w-full items-center justify-center px-3 py-1 text-sm text-blue-600 hover:bg-gray-100"
                 >
                   もっと表示
                 </button>
