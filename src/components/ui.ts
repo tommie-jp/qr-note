@@ -202,9 +202,34 @@ export const BOTTOM_BAR_SPACER_CLASS =
 // 下部バーの等幅スロット (アイコンの下にラベル) とは形が違う — 見出し行は
 // 1 行の帯なので、アイコンとラベルを横に並べて高さを詰める。
 // [&_svg]:size-4 … スロット用のアイコンは 24px で描かれている。見出しの
-// 文字 (14px) の隣では大きすぎるので、この帯の中だけ 16px に縮める
+// 文字 (14px) の隣では大きすぎるので、この帯の中だけ 16px に縮める。
+//
+// whitespace-nowrap … **必須** (docs/86 §4-14)。無いと「タイトル順」の
+// ような 4 文字以上のラベルが 2 行に折り返れ、スロットだけ背が高くなって
+// 見出し行が 2 行に割れる。狭いときに溢れるぶんは、ラベル側 (下の
+// SLOT_LABEL_CLASS) が文字数を削って吸収する
 export const INLINE_SLOT_CLASS =
-  "inline-flex min-h-8 items-center gap-1 rounded px-1.5 text-xs font-medium transition-colors hover:bg-gray-100 active:bg-gray-200 [&_svg]:size-4";
+  "inline-flex min-h-8 shrink-0 items-center gap-1 rounded px-1.5 text-xs font-medium whitespace-nowrap transition-colors hover:bg-gray-100 active:bg-gray-200 [&_svg]:size-4";
+
+// 見出し行のスロットのラベル (docs/86 §4-14)。
+//
+// **ペインが狭いほど文字を削る。** 3 ペインでは一覧の幅が境界のドラッグで
+// 変わり、狭くすると「アクセス順」の 5 文字が入らない。折り返しは
+// whitespace-nowrap で禁じてあるので、放っておくと溢れて件数を押し出す。
+//
+// 削り方は max-width と overflow:hidden。**1 文字ずつ span に割らない** —
+// 割ると鍵の付け方も読み上げも面倒になるうえ、Tailwind に文字数ぶんの
+// クラスを並べることになる。単位は em … 全角 1 文字がちょうど 1em なので、
+// max-w-[2em] が「2 文字まで」の意味になる (ch は半角基準なのでずれる)。
+//
+// 判定は**画面幅ではなくペインの幅** (container query)。見出し行を包む器に
+// @container を置き、その器の幅で切り替える (globals.css / page.tsx)。
+// 画面幅で切ると、フォルダーペインを広げて一覧を細くしたときに効かない。
+//
+// 読み上げは削らない。ボタンには aria-label で完全な説明が付いており
+// (CycleSlot の describe)、視覚的に切れているだけ。
+export const SLOT_LABEL_CLASS =
+  "overflow-hidden max-w-[1em] @xs:max-w-[2em] @sm:max-w-[3em] @md:max-w-[4em] @lg:max-w-none";
 
 // 下部バーのスロットを長押ししたとき出るメニューの 1 行
 // (docs/62-下部バー長押し計画.md §3)。

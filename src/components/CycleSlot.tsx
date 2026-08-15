@@ -20,6 +20,9 @@ interface CycleSlotProps<T extends string> {
   describe: (value: T) => string;
   // ボタンの見た目。下部バーの等幅スロットか、見出し行のコンパクトな形か
   slotClass: string;
+  // ラベルの器のクラス。見出し行 (inline) では狭いペインで文字を削る
+  // (SLOT_LABEL_CLASS)。下部バーは等幅で溢れようがないので空
+  labelClass?: string;
   expanded: boolean;
   buttonRef: React.RefObject<HTMLButtonElement | null>;
   press: ReturnType<typeof useLongPress>;
@@ -52,6 +55,7 @@ export function CycleSlot<T extends string>({
   color,
   describe,
   slotClass,
+  labelClass,
   expanded,
   buttonRef,
   press,
@@ -86,7 +90,9 @@ export function CycleSlot<T extends string>({
       <SlotIcon color={color} busy={pending}>
         {iconOf[shown]}
       </SlotIcon>
-      {labelOf[shown]}
+      {/* ラベルは必ず span で包む。**裸のテキストのままでは削れない** —
+          max-width を当てる相手が要る (SLOT_LABEL_CLASS) */}
+      <span className={labelClass}>{labelOf[shown]}</span>
     </button>
   );
 }

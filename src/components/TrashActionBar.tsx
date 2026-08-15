@@ -51,8 +51,11 @@ export function TrashActionBar({
       {/* バーぶんの余白。これがないと一覧の最終行がバーに隠れる */}
       <div aria-hidden className={BOTTOM_BAR_SPACER_CLASS} />
 
+      {/* data-bottom-bar … 「帯が出ている」の目印 (PageBottomBar と同じ。
+          globals.css の body:has が --bottom-bar-h を 49px にする) */}
       <nav
         aria-label="ゴミ箱の操作"
+        data-bottom-bar
         className={`${BOTTOM_BAR_CLASS} ${
           isProd ? "border-gray-200 bg-white/95" : "border-pink-300 bg-pink-100/95"
         }`}

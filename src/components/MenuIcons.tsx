@@ -216,12 +216,23 @@ export function GithubIcon() {
 
 const BOTTOM_BAR_ICON_CLASS = "size-6 shrink-0";
 
-function StrokeIconLarge({ children }: { children: React.ReactNode }) {
+// sizeClass … 既定 (24px) を**差し替える**ための口 (StrokeIcon と同じ理由)。
+// className に size-5 を足す形では効かない — 同種のユーティリティは class 属性の
+// 並び順ではなく生成 CSS の並び順で勝敗が決まるので、size-6 が残ることがある。
+// 検索窓の行に置くスキャン・画像検索 (SearchTools) が 20px を要求する —
+// 隣の虫眼鏡・＋ (StrokeIcon = 20px) と大きさを揃えるため
+function StrokeIconLarge({
+  children,
+  sizeClass = BOTTOM_BAR_ICON_CLASS,
+}: {
+  children: React.ReactNode;
+  sizeClass?: string;
+}) {
   return (
     <svg
       aria-hidden
       viewBox="0 0 24 24"
-      className={BOTTOM_BAR_ICON_CLASS}
+      className={sizeClass}
       fill="none"
       stroke="currentColor"
       strokeWidth={1.8}
@@ -233,10 +244,11 @@ function StrokeIconLarge({ children }: { children: React.ReactNode }) {
   );
 }
 
-// スキャン: QR コードの枠 (メニューの QrIcon と同形、24px で拡大)
-export function ScanIcon() {
+// スキャン: QR コードの枠 (メニューの QrIcon と同形、24px で拡大)。
+// sizeClass … 検索窓の行 (SearchTools) だけ 20px に縮める
+export function ScanIcon({ sizeClass }: { sizeClass?: string }) {
   return (
-    <StrokeIconLarge>
+    <StrokeIconLarge sizeClass={sizeClass}>
       <rect {...TINT} x="2" y="2" width="9" height="9" rx="1" />
       <rect {...TINT} x="13" y="2" width="9" height="9" rx="1" />
       <rect {...TINT} x="2" y="13" width="9" height="9" rx="1" />
@@ -246,9 +258,9 @@ export function ScanIcon() {
 }
 
 // 画像検索: 写真フレーム + 虫眼鏡
-export function ImageSearchIcon() {
+export function ImageSearchIcon({ sizeClass }: { sizeClass?: string }) {
   return (
-    <StrokeIconLarge>
+    <StrokeIconLarge sizeClass={sizeClass}>
       <rect {...TINT} x="3" y="3" width="12" height="12" rx="1" />
       <circle cx="8" cy="8" r="2" />
       <path d="M18 18l3.5 3.5M18 14a4 4 0 0 1 4 4" />

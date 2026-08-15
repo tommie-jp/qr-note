@@ -7,6 +7,7 @@ import { SlotMenu } from "@/components/SlotMenu";
 import {
   BOTTOM_BAR_SLOT_CLASS,
   INLINE_SLOT_CLASS,
+  SLOT_LABEL_CLASS,
   SLOT_MENU_ITEM_CLASS,
 } from "@/components/ui";
 import { useLongPress } from "@/components/useLongPress";
@@ -138,8 +139,14 @@ export function BarSlot<T extends string>({
   };
 
   return (
-    // relative … メニュー (absolute) の基準になる
-    <form action={action} className="relative flex flex-1">
+    // relative … メニュー (absolute) の基準になる。
+    // flex-1 は帯のときだけ — 帯は等幅に割るための指定で、見出し行では
+    // 逆に働く。あちらは器が中身なりの幅なので、flex-basis:0 を持ったまま
+    // 親が詰まるとスロットが 0 幅へ潰れてボタンが器から溢れる
+    <form
+      action={action}
+      className={`relative flex ${variant === "bar" ? "flex-1" : "shrink-0"}`}
+    >
       {hidden}
       <CycleSlot
         cookieName={cookieName}
@@ -152,6 +159,9 @@ export function BarSlot<T extends string>({
         slotClass={
           variant === "bar" ? BOTTOM_BAR_SLOT_CLASS : INLINE_SLOT_CLASS
         }
+        // 見出し行だけラベルを削る (docs/86 §4-14)。下部バーは等幅の
+        // スロットが 2〜5 個並ぶだけで、幅は器が保証するので削る必要がない
+        labelClass={variant === "bar" ? undefined : SLOT_LABEL_CLASS}
         expanded={open}
         buttonRef={buttonRef}
         press={press}

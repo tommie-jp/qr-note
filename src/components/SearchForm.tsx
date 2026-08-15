@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ClearIcon, PlusIcon, SearchIcon } from "@/components/MenuIcons";
 import { PendingLink } from "@/components/PendingLink";
 import { useSearchNav } from "@/components/SearchNav";
@@ -44,8 +44,14 @@ interface SearchFormProps {
   initialQuery: string;
   tags: string[];
   // デモかどうか。process.env はクライアントに渡らないのでサーバから降ろす
-  // (BottomActionBar の isProd と同じ判断)。localStorage の引き取りだけが使う
+  // (SearchTools の stickerHost と同じ判断)。localStorage の引き取りだけが使う
   isDemo: boolean;
+  // 窓の**左**に並べる別入口 (スキャン・画像検索。docs/86 §4-15)。
+  // ここで受けるのは、行を 1 本の flex に保つため — 外で
+  // `<div class=flex>{tools}<SearchForm/></div>` と包むと、窓の flex-1 が
+  // 内側の form に閉じてしまい、伸び縮みの基準が 2 段に割れる。
+  // 中身を知らずに受け取るので、SearchForm 側にカメラ系の import は増えない
+  leading?: ReactNode;
 }
 
 // ドロップダウンに並ぶ 1 行 (docs/59-検索候補計画.md §1)。
@@ -96,9 +102,16 @@ const SEARCH_DEBOUNCE_MS = 300;
 //   `#…` を打ちかけ … タグ候補
 //   その他の語      … キーワード候補 (is:todo / is:done)
 //
-// スキャナと画像検索のモーダルは以前ここが持っていたが、ボタンが下部バーへ
-// 移ったので所有権も BottomActionBar へ渡した (docs/31-下部操作バー計画.md §5-1)。
-export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
+// スキャナと画像検索は所有しない。ボタンが下部バーへ抜けた時点で所有権も
+// 渡し (docs/31 §5-1)、バーを畳んだいまは SearchTools が持っている
+// (docs/86 §4-15)。この行に**置き場所として**戻ってきただけなので、
+// 重いモーダルの dynamic import はここには来ない — leading で受け取る。
+export function SearchForm({
+  initialQuery,
+  tags,
+  isDemo,
+  leading,
+}: SearchFormProps) {
   const { navigate } = useSearchNav();
   const [query, setQuery] = useState(initialQuery);
   const [dropdown, setDropdown] = useState<Dropdown | null>(null);
@@ -515,8 +528,8 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
   const savedFull = dropdown?.list?.savedFull ?? false;
 
   return (
-    // スキャン・画像検索が下部バーへ抜けてボタンは 2 つ (検索・+) になったので、
-    // 320px でも 1 行に収まり折り返しは要らなくなった。入力窓の min-w だけは
+    // ボタンは 4 つ (スキャン・画像検索・検索・+)。すべて 36px 角なので
+    // 320px でも 1 行に収まり、折り返しは要らない。入力窓の min-w だけは
     // 残す (これが無いと窓が潰れて横スクロールが出る)
     <form
       ref={formRef}
@@ -525,6 +538,10 @@ export function SearchForm({ initialQuery, tags, isDemo }: SearchFormProps) {
       onSubmit={handleSubmit}
       className="relative flex items-start gap-1.5"
     >
+      {/* 窓の左に置く別入口 (docs/86 §4-15)。**form の中でよい** —
+          中身は type="button" なので送信を起こさない。外に出すと
+          窓の flex-1 の基準が 2 段に割れる (SearchFormProps の leading 参照) */}
+      {leading}
       {/* min-w-[10rem] ではなく px で持つ。テキストサイズ (docs/61) は root の
           font-size を動かすので、rem の下限は倍率ぶん広がり、200% では窓だけで
           320px を要求して画面ごと横スクロールになる。窓の中の文字は倍率どおり

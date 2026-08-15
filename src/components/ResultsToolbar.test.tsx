@@ -173,3 +173,37 @@ test("表示と並び順は長押しでメニューが開くことを読み上�
   // aria-haspopup が無いと、押したら値が変わるだけのボタンに見える
   expect(html.match(/aria-haspopup="menu"/g)).toHaveLength(2);
 });
+
+// 見出し行を 1 行に保つ (docs/86 §4-14)。
+//
+// ここで固定できるのは「折り返さない指定と、削るための入れ物があるか」まで。
+// 実際に何文字出るかは container query が決めるので、静的描画では測れない
+// (ブラウザで実測済み: 器 260px で「ア」、512px で「アクセス順」)。
+
+test("スロットは折り返さず縮まない", () => {
+  const html = render();
+  // whitespace-nowrap が無いと「タイトル順」がスロットの中で 2 行になり、
+  // その行だけ背が高くなって見出し行が割れる (これが直したかった不具合)
+  expect(html).toContain("whitespace-nowrap");
+  // shrink-0 が無いと、詰まったときに件数ではなくスロットが潰れる
+  expect(html).toContain("shrink-0");
+});
+
+test("ラベルは削れるよう span で包み、幅の上限を段で持つ", () => {
+  const html = render();
+  // 裸のテキストのままでは max-width を当てる相手がいない。
+  // 3 つ (表示・並び順・選択) すべてに要る
+  expect(html.match(/max-w-\[1em\]/g)).toHaveLength(3);
+  // 段は container query。画面幅 (sm: など) で切ると、フォルダーペインを
+  // 広げて一覧を細くしたときに効かない
+  expect(html).toContain("@xs:max-w-[2em]");
+  expect(html).toContain("@lg:max-w-none");
+});
+
+test("ラベルを削っても読み上げは完全なまま", () => {
+  const html = render();
+  // 見えている文字は 1 文字まで減りうるので、意味は aria-label が持つ。
+  // 「並び順: 更新順・新しい順 (押すと…)」のような完全な説明
+  expect(html).toContain('aria-label="並び順:');
+  expect(html).toContain('aria-label="表示:');
+});

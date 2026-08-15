@@ -10,7 +10,6 @@ import {
 } from "@/app/actions";
 import { AutoLoadMore } from "@/components/AutoLoadMore";
 import { AutoNotePane } from "@/components/AutoNotePane";
-import { BottomActionBar } from "@/components/BottomActionBar";
 import { ItemListNav } from "@/components/ItemListNav";
 import { ItemView } from "@/components/ItemView";
 import { FolderPane } from "@/components/FolderPane";
@@ -21,6 +20,7 @@ import { PropsTable } from "@/components/PropsTable";
 import PullToRefresh from "@/components/PullToRefresh";
 import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { SearchForm } from "@/components/SearchForm";
+import { SearchTools } from "@/components/SearchTools";
 import { SearchNavProvider, SearchResults } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
 import { TaskProgress } from "@/components/TaskProgress";
@@ -115,10 +115,17 @@ export default async function Home({ searchParams }: HomeProps) {
               data-panes … 選ばれている構成 (§4-9)。globals.css が
               「3 なら幅に関係なくペインの積み方」を決めるのに使う */}
           <div data-results-pane data-panes={paneMode} className="space-y-2">
+            {/* スキャン・画像検索は窓の左 (docs/86 §4-15)。**下部バーを
+                畳んだ** — 表示・並び順・選択が見出し行へ抜けた後 (§4-11)、
+                帯に残るのはこの 2 つだけで、そのために画面の下端を 49px
+                使い続けていた。どちらも「検索語の代わりにカメラで探す」
+                入口なので、検索窓の隣が本来の居場所になる。
+                結果を待たずに出せる点も変わらない (Suspense の外側) */}
             <SearchForm
               initialQuery={query}
               tags={tags.map((t) => t.tag)}
               isDemo={isDemoMode()}
+              leading={<SearchTools stickerHost={qrStickerHost()} />}
             />
 
             {/* 検索本体は Suspense で後送り。初回のドキュメント読み込み
@@ -146,14 +153,6 @@ export default async function Home({ searchParams }: HomeProps) {
               />
             </Suspense>
           </div>
-
-          {/* 下部バーは Suspense の外に置く。検索結果を待たずに出したい
-              (スキャン・画像検索は結果と無関係に押せるべき) ため。
-              並び順・表示は URL と cookie から決まるので結果も要らない */}
-          <BottomActionBar
-            stickerHost={qrStickerHost()}
-            isProd={isProductionEnv()}
-          />
 
           {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバーで、
               フォルダーはすべて既存の検索・並び順へのリンク。件数と登録
@@ -313,8 +312,30 @@ async function HomeResults({
       {/* 件数と補助リンクは左、一覧に効く操作 (表示・並び順・選択) は右
           (docs/86 §4-11)。**p ではなく div**  — 中に form を持つので、
           段落の中に置くと HTML として不正になる */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <span>
+      {/* @container … 中のスロットが「ペインの幅」で文字数を決める基準
+          (docs/86 §4-14)。**画面幅ではなくここを見るのが要点** —
+          3 ペインの一覧は境界のドラッグで細くなるので、画面幅で切ると
+          フォルダーを広げたときに効かない。
+          この器に fixed の子孫は居ない (スロットのメニューは absolute) ので、
+          container が包含ブロックになる副作用は踏まない。
+          **1 行に保つ** … スロット側は whitespace-nowrap + shrink-0 で
+          折り返さないので、詰まったときに譲るのは件数の側。
+
+          件数は flex-1 (= flex-basis:0)。**0 にするのが要点** — flex-wrap の
+          折り返しは「縮める前の大きさ」で決まるので、既定の basis:auto だと
+          件数の全文が入らない時点でスロットが 2 行目へ落ちる。基準を 0 に
+          すれば、まず件数が truncate で詰まり、**スロットまで入らなくなって
+          初めて**折り返す。min-w-0 が無いと flex の子は中身より縮まないので
+          truncate も効かない。
+
+          flex-wrap は最後の逃げ道。3 ペインを 390px の画面で選ぶと一覧は
+          134px まで細り、どう削ってもこの行は入らない (実測)。そこで
+          nowrap のままだと選択ボタンが器の外へ出て押せなくなる —
+          2 行になるほうがまだ使える。**横スクロールにはしない**:
+          overflow-x は overflow-y も殺すので、長押しメニューが切られる
+          (docs/74 と同じ罠) */}
+      <div className="@container flex flex-wrap items-center gap-2 text-sm text-gray-600">
+        <span className="min-w-0 flex-1 truncate">
           {query ? `「${query}」の検索結果: ` : "すべて: "}
           {result.total} 件
         </span>

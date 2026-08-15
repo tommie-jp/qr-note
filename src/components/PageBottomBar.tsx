@@ -30,8 +30,12 @@ export function BottomBarShell({
           高さは同じなので、余白は 1 種類で足りる */}
       <div aria-hidden className={BOTTOM_BAR_SPACER_CLASS} />
 
+      {/* data-bottom-bar … 「帯が出ている」の目印 (globals.css の body:has)。
+          これがある間だけ --bottom-bar-h が 49px になり、プレビューペインが
+          そのぶん上で止まる。付け忘れると、編集中の帯がペインの下端を覆う */}
       <nav
         aria-label="編集操作"
+        data-bottom-bar
         className={`${BOTTOM_BAR_CLASS} ${
           isProd ? "border-gray-200 bg-white/95" : "border-pink-300 bg-pink-100/95"
         }`}

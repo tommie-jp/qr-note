@@ -5,7 +5,7 @@ import { SelectIcon } from "@/components/MenuIcons";
 import { useSelectMode } from "@/components/SelectModeProvider";
 import { SlotIcon } from "@/components/SlotIcon";
 import { SortSlot } from "@/components/SortSlot";
-import { INLINE_SLOT_CLASS } from "@/components/ui";
+import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
 import { ViewSlot } from "@/components/ViewSlot";
 import { SEARCH_SORT_SPEC } from "@/lib/sortDirection";
 import { SORT_COOKIE } from "@/lib/sortMode";
@@ -50,8 +50,10 @@ export function ResultsToolbar({
 
   return (
     // ml-auto … 件数と補助リンクは左、操作は右。間が空くので、読む物と
-    // 押す物が混ざらない
-    <span className="ml-auto flex items-center gap-1">
+    // 押す物が混ざらない。
+    // shrink-0 … 詰まったときに譲るのは件数の側 (あちらは truncate する)。
+    // ここが縮むと、狭いペインで操作そのものが読めなくなる
+    <span className="ml-auto flex shrink-0 items-center gap-1">
       <ViewSlot
         view={view}
         action={viewAction}
@@ -87,7 +89,10 @@ export function ResultsToolbar({
         <SlotIcon color={selectMode ? "" : "text-blue-600"}>
           <SelectIcon />
         </SlotIcon>
-        選択
+        {/* 狭いペインでは「選」まで削る (表示・並び順と同じ。ui.ts の
+            SLOT_LABEL_CLASS)。読み上げは aria-pressed 付きのボタン名が
+            そのまま残るので、削っても意味は失われない */}
+        <span className={SLOT_LABEL_CLASS}>選択</span>
       </button>
     </span>
   );
