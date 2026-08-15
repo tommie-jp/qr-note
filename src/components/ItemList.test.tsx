@@ -284,7 +284,9 @@ test("プレビュー中のノートの行にだけ選択の印を付ける", ()
     ]);
     // aria-current は選択行のタイトルリンク 1 か所だけ
     expect(html.split('aria-current="page"').length - 1).toBe(1);
-    expect(html).toContain("bg-blue-50");
+    // 地色は CSS 変数で受ける (docs/88-選択行の色計画.md)。色そのものは
+    // layout が html に立てるので、ここで確かめられるのは「印が付くか」だけ
+    expect(html).toContain("bg-[var(--row-tint-bg)]");
   } finally {
     nav.pathname = "/";
   }
@@ -293,5 +295,5 @@ test("プレビュー中のノートの行にだけ選択の印を付ける", ()
 test("プレビューを開いていなければ選択の印は無い", () => {
   const html = render([makeItem({ itemNo: "4951" })]);
   expect(html).not.toContain('aria-current="page"');
-  expect(html).not.toContain("bg-blue-50");
+  expect(html).not.toContain("bg-[var(--row-tint-bg)]");
 });

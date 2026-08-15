@@ -262,3 +262,33 @@ model SearchQuery {
   @@index([userName, usedAt])
   @@map("search_queries")
 }
+
+// 利用者ごとの小さな設定 (docs/88-選択行の色計画.md)。
+//
+// **端末ごとの好み (cookie / localStorage) との違いが要点。** 表示モード・
+// ペイン構成・文字サイズは「その端末でどう見たいか」なので端末に置いているが、
+// 選択行の色のように「自分にとって見やすい色」は iPhone でも PC でも同じで
+// あってほしい。同じ判断で localStorage から DB へ移したのが SearchQuery で、
+// 置き方もそちらに倣う。
+//
+// **1 設定 = 1 行**。JSON を 1 列に持つと、2 台から別の設定を変えたときに
+// 後から書いたほうが相手の変更を消してしまう。行に割れば衝突はその設定だけ。
+//
+// key / value は文字列で持ち、意味づけは持たない。列を足さずに設定を増やせる
+// 代わりに、値の妥当性は読む側 (rowTint.ts の parseRowTintId など) が畳む —
+// 手で書き換えた値や、選択肢を後から変えた後の古い値が必ず残るため。
+//
+// userName で仕切る。Session / WebAuthnCredential / SearchQuery と同じく
+// User 表は作らず名前の文字列で持つ (docs/29 §11)
+model UserSetting {
+  userName String @map("user_name")
+  key      String
+  value    String
+  // いつ変えたか。設定は上書きしかないので @updatedAt でよい
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 同じ人の同じ設定は 1 行だけ。upsert の当て先でもある。
+  // 代理キー (id) を持たないのは、この 2 列以外に行を指す手段が要らないため
+  @@id([userName, key])
+  @@map("user_settings")
+}

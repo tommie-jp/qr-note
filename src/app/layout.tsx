@@ -24,6 +24,7 @@ import {
   LockIcon,
   LogIcon,
 } from "@/components/MenuIcons";
+import { RowTintMenuItem } from "@/components/RowTintMenuItem";
 import { OfflineSync } from "@/components/OfflineSync";
 import { PaneModeButton } from "@/components/PaneModeButton";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
@@ -33,6 +34,8 @@ import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { setPaneModeAction } from "@/app/actions";
 import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/noteFontScale";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/paneMode";
+import { rowTintVars } from "@/lib/rowTint";
+import { loadRowTintId } from "@/lib/rowTintStore";
 import { PANE_SIZE_INIT_SCRIPT } from "@/lib/paneSize";
 import {
   isDemoMode,
@@ -109,6 +112,16 @@ export default async function RootLayout({
     (await cookies()).get(PANE_MODE_COOKIE)?.value,
   );
 
+  // 検索結果で選択中の行の地色 (docs/88-選択行の色計画.md)。
+  //
+  // **サーバで読んでサーバが当てる。** 端末に置いた好み (文字サイズ・ペイン
+  // 構成) と違い、これは DB にあるので初回描画前に走るインラインスクリプトでは
+  // 読めない。逆に言えば html の style に直接書けるので、ちらつきは起きない。
+  //
+  // 未ログインなら既定 (DB を引かない)。1 クエリ増えるが、この layout は
+  // 既に currentUser() でセッションを引いており、同じ 1 往復に収まる
+  const rowTintId = await loadRowTintId(user);
+
   // 非本番は画面全体をピンクに塗る。Tailwind はソース中のクラス名を文字列として
   // 探すため、`bg-${color}-50` のような組み立てをすると CSS が生成されない。
   // 完全なクラス名を両方書いて選ぶこと
@@ -127,7 +140,18 @@ export default async function RootLayout({
     // suppressHydrationWarning … 下のインラインスクリプトが hydration より前に
     // この html へ style (--note-font-scale) を書き足すため。付けないと React が
     // 差分を「不整合」と見なし、境界ごと描き直して倍率が失われる
-    <html lang="ja" className="h-full antialiased" suppressHydrationWarning>
+    // style で CSS 変数を立てるのが要点 (docs/88 §2)。色ごとにクラスを
+    // 用意すると、Tailwind はソース中の完全なクラス名しか拾わないので
+    // 6 色 × 3 用途を全部書き並べることになる。変数なら使う側 (ItemRow /
+    // ImageMasonry) の指定は 1 通りで済む。
+    // 既定値は globals.css の :root が持つ — この layout の外で描かれる
+    // 場面 (単体テスト) でも色が消えないようにするため
+    <html
+      lang="ja"
+      className="h-full antialiased"
+      style={rowTintVars(rowTintId) as React.CSSProperties}
+      suppressHydrationWarning
+    >
       <head>
         {/* 本文の文字サイズを初回描画の前に当てる (docs/61-テキストサイズ計画.md)。
             useEffect で当てると等倍の本文が一度見えてから大きくなるので、
@@ -234,6 +258,13 @@ export default async function RootLayout({
                       塞いでいるが、押せない物を見せない */}
                   {!isDemo && (
                     <>
+                      {/* 検索結果で選択中の行の色 (docs/88-選択行の色計画.md)。
+                          テキストサイズのすぐ下に置く — どちらも「どう見えるか」
+                          の設定で、探す場所は同じであってほしい。
+                          **ログイン中の非デモだけ**: 保存先が user_settings なので
+                          未ログインでは保存する相手がおらず、デモは共有アカウント
+                          なので 1 人が変えると同時に見ている全員の色が変わる */}
+                      <RowTintMenuItem value={rowTintId} />
                       {/* サーバログ (docs/21)。未ログインではリンク自体を出さない —
                           見えても 401 だが、押せない物を見せない */}
                       <Link href="/logs" className={HEADER_MENU_ITEM_CLASS}>

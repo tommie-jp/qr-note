@@ -201,7 +201,9 @@ test("プレビュー中のノートのタイルにだけ選択の印を付け�
     "10",
   );
   expect(html.split('aria-current="page"').length - 1).toBe(1);
-  expect(html).toContain("border-blue-400");
+  // 枠色は CSS 変数で受ける (docs/88-選択行の色計画.md)。色そのものは
+  // layout が html に立てるので、ここで確かめられるのは「印が付くか」だけ
+  expect(html).toContain("border-[var(--row-tint-border)]");
 });
 
 test("プレビューを開いていなければ選択の印は無い", () => {

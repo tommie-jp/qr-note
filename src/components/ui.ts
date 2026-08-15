@@ -96,13 +96,23 @@ export const BUSY_SPINNER_CLASS =
 // メニューという「狙って押す場所」で指を外しやすい。
 // リンクもボタンも同じ見た目にするため、両方からこれを使う。
 //
-// gap-2 は行頭のアイコン (MenuIcons.tsx) との間隔。高さは 44px のまま —
-// メニューは「狙って押す」場所なので、検索画面のように詰めない
-// 押せない行 (中に自前のボタンを持つ TextSizeMenuItem など) はこちらを使う。
+// gap-2 は行頭のアイコン (MenuIcons.tsx) との間隔。
+//
+// **高さは 36px** (検索画面の詰めた操作と同じ COMPACT_SIZE の寸法)。
+// もとは 44px だったが、項目が 11 個まで増えた今は間延びして見え、iPhone の
+// 縦画面ではシートが画面の半分以上を占める。ここは「一覧から 1 つ選ぶ」場所で、
+// 隣の行との距離ではなく**行そのものの当たり判定**が押しやすさを決める —
+// 幅いっぱい (w-full) の 36px は指で十分に狙える。文字は text-base のまま
+// 下げない (検索画面の COMPACT_SIZE と違い、詰める理由は密度ではなく
+// 「1 画面に収める」ことなので、読みにくくしてまで縮める必要がない)。
+//
+// 押せない行 (中に自前のボタンを持つ TextSizeMenuItem / RowTintMenuItem) も
+// こちらを使う。**中のボタンも同じ 36px に揃えること** — 揃えないと、その行
+// だけ 44px のまま残って行の間隔がガタつく。
 // 押せる行と寸法だけを共有し、押した感じの色は持たない — 行のどこを押しても
 // 何も起きないのに反応が返ると、押し損ねたように見えるため
 export const HEADER_MENU_ROW_CLASS =
-  "flex min-h-11 w-full items-center gap-2 rounded px-3 text-left font-medium text-gray-700";
+  "flex min-h-9 w-full items-center gap-2 rounded px-3 text-left font-medium text-gray-700";
 
 export const HEADER_MENU_ITEM_CLASS = `${HEADER_MENU_ROW_CLASS} transition-colors hover:bg-gray-100 active:bg-gray-200`;
 

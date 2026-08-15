@@ -21,8 +21,11 @@ import {
 // 読み込み時の反映は layout.tsx の <head> に置いたインラインスクリプトが
 // 先回りして済ませており、ここはその続きから始める
 // (useState の遅延初期化で同じ値を読むので、両者は必ず一致する)。
+//
+// size-9 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-9) と揃える。ここだけ
+// 44px を残すと、メニューの中でこの行だけ背が高くなり間隔がガタつく
 const STEP_BUTTON_CLASS =
-  "inline-flex size-11 items-center justify-center rounded text-xl text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
+  "inline-flex size-9 items-center justify-center rounded text-xl text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
 
 function readStoredScale(): number {
   try {
@@ -79,7 +82,7 @@ export function TextSizeMenuItem() {
         <TextSizeIcon />
         テキストサイズ
       </span>
-      {/* -mr-3 … ボタンの 44px の的を行の px-3 の外へはみ出させて、
+      {/* -mr-3 … ボタンの的を行の px-3 の外へはみ出させて、
           右端の余白を他の行と揃える (ヘッダーの開閉ボタンと同じ手) */}
       <span className="-mr-3 flex shrink-0 items-center">
         <button
@@ -99,7 +102,7 @@ export function TextSizeMenuItem() {
           type="button"
           aria-label={`${noteFontScaleLabel(scale)}。押すと等倍に戻す`}
           onClick={() => apply(DEFAULT_NOTE_FONT_SCALE)}
-          className="inline-flex min-h-11 min-w-14 items-center justify-center rounded text-center tabular-nums transition-colors hover:bg-gray-100 active:bg-gray-200"
+          className="inline-flex min-h-9 min-w-14 items-center justify-center rounded text-center tabular-nums transition-colors hover:bg-gray-100 active:bg-gray-200"
         >
           {noteFontScaleLabel(scale)}
         </button>

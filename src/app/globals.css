@@ -41,6 +41,21 @@ html {
   font-size: calc(100% * var(--note-font-scale, 1));
 }
 
+/* 検索結果でいま開いている行の地色 (docs/88-選択行の色計画.md)。
+   利用者が選んだ色は layout.tsx が html の style に立てて上書きする
+   (style 属性はこの :root 規則より強いので、そのまま勝つ)。
+
+   **ここに既定を持たせるのが要点。** 変数が立っていない場面 —
+   layout を通さない単体テストや、色を選ぶ前の利用者 — でも
+   bg-[var(--row-tint-bg)] が透明にならないようにする。
+   値は rowTint.ts の blue と同じ (Tailwind の blue-50 / 100 / 400)。
+   **片方だけ変えないこと** — ずれると、色を選ぶ前と選んだ後で違う青になる */
+:root {
+  --row-tint-bg: #eff6ff;
+  --row-tint-active: #dbeafe;
+  --row-tint-border: #60a5fa;
+}
+
 /* 印刷は等倍に戻す。紙の大きさは画面の設定と関係がなく、200% のまま刷ると
    1 ページに数行しか載らない */
 @media print {
@@ -161,12 +176,22 @@ select,
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
-/* ヘッダ用。standalone はステータスバーの下から始まる (viewport-fit=cover) ため
-   その分を空ける。ブラウザで開いているときは inset が 0 で pt-1 と同じ。
+/* ヘッダの帯が上に空ける余白。standalone はステータスバーの下から始まる
+   (viewport-fit=cover) ためその分を空ける。ブラウザで開いているときは
+   inset が 0 で pt-1 と同じ。
    下限を詰めてあるのは帯を低く保つため — 帯の見た目の高さはここと
-   ボタンの min-h-11 (負マージンで詰めている) でほぼ決まる */
+   ボタンの min-h-11 (負マージンで詰めている) でほぼ決まる。
+
+   **変数に出してあるのは --header-h と分け合うため** (下の :root)。
+   帯の高さを表す変数がこの余白を含まないと、ノッチのある端末で
+   「帯は伸びたのにペインの上端は元のまま」になる。2 か所に数式を
+   書くと必ず片方だけ直す日が来るので、実体は 1 つに保つ */
+:root {
+  --header-safe-top: max(0.25rem, env(safe-area-inset-top));
+}
+
 @utility pt-safe {
-  padding-top: max(0.25rem, env(safe-area-inset-top));
+  padding-top: var(--header-safe-top);
 }
 
 /* ハンバーガーメニューのボトムシート (docs/11-アプリ的UIUX計画.md §6)。
@@ -547,8 +572,21 @@ select,
   --folder-pane-w: 14rem;
   /* ヘッダーの帯の高さ。フォルダーペインの上端・全画面のノートの上端が
      ここから始まる。**ヘッダーは常に見えている**のがこのアプリの約束で
-     (docs/86 §4-5)、ペインはどれもこの下に置く */
-  --header-h: 3rem;
+     (docs/86 §4-5)、ペインはどれもこの下に置く。
+
+     **safe-area を必ず足すこと。** 帯の実測は
+     `pt-safe + 2.75rem + 1px(枠)` で、pt-safe は standalone の iPhone では
+     ステータスバーぶん (47〜59px) に膨らむ。3rem 固定にしていた頃は
+     ノッチのある端末で帯が 92px になるのにペインは 48px から始まり、
+     ノートの器の頭 40px 以上が帯の下へ潜って「閉じる / 全画面で開く」の
+     行を押せなかった (ブラウザでは inset が 0 なので気づけない)。
+
+     2.75rem は帯の中身 (ハンバーガーの min-h-11 = 44px を -mb-3 で
+     詰めた分)。**枠の 1px は足さない** — ペインはヘッダー (z-20) より
+     下の層なので、足りない分は帯の下に潜って見えないが、多いと隙間が
+     開く。1px 足りない側に倒しておく。
+     rem なのでテキストサイズ (docs/61) にも自動で追随する */
+  --header-h: calc(var(--header-safe-top) + 2.75rem);
   /* 下部操作バーの高さ (44px スロット + 余白 4px + 枠 1px)。プレビュー
      ペインの下端と、その境界 (PaneResizer) の位置を決める。
      一覧の底上げは これを足さない — バーのぶんは BOTTOM_BAR_SPACER_CLASS
@@ -576,9 +614,11 @@ select,
      目標を外すのはヘッダーの各ボタン側 (lg:min-h-0)。
      **実際の帯より小さめに置くこと** — ペインはどれもヘッダー (z-20) より
      下の層なので、足りない分は帯の下に潜って見えない。逆に大きいと
-     ペインとの間に隙間が開く */
+     ペインとの間に隙間が開く。
+     帯の中身が 2rem に縮むだけで、safe-area を足す話は狭い画面と同じ
+     (この幅でも iPad の standalone は inset を持つ) */
   :root {
-    --header-h: 2rem;
+    --header-h: calc(var(--header-safe-top) + 2rem);
   }
 
   body:has([data-results-pane]) {

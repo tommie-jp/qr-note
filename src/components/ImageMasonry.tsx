@@ -113,7 +113,7 @@ export function ImageMasonry({
             key={key}
             className={`relative overflow-hidden rounded border ${
               selected
-                ? "border-blue-400 bg-blue-50"
+                ? "border-[var(--row-tint-border)] bg-[var(--row-tint-bg)]"
                 : "border-gray-200 bg-white"
             }`}
           >

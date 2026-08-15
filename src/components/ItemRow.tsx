@@ -201,10 +201,15 @@ export function ItemRow({
     <div className="relative z-10 mt-1">{footer}</div>
   );
 
-  // プレビューで開いている行の地色 (docs/86 §4)。選択中は hover ごと青に
-  // 寄せる — hover の灰色に負けると、触れるたびに目印が消える
+  // プレビューで開いている行の地色 (docs/86 §4)。選択中は hover ごと選択色に
+  // 寄せる — hover の灰色に負けると、触れるたびに目印が消える。
+  //
+  // 色は CSS 変数で受ける (docs/88-選択行の色計画.md)。利用者が選んだ色を
+  // layout.tsx が html に立て、既定は globals.css の :root が持つ。
+  // クラス名を色ごとに書き分けない — Tailwind はソース中の完全なクラス名しか
+  // 拾わないので、6 色ぶんを全部並べることになる
   const rowTint = selected
-    ? "bg-blue-50 hover:bg-blue-50 active:bg-blue-100"
+    ? "bg-[var(--row-tint-bg)] hover:bg-[var(--row-tint-bg)] active:bg-[var(--row-tint-active)]"
     : "hover:bg-gray-50 active:bg-gray-100";
 
   if (view === "card") {
