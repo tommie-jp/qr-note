@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { MEMO_BASELINE_EVENT } from "@/lib/editorEvents";
 
 // フォームの内容を比較用の文字列にする。File は編集対象でないので捨てる
 // (MemoEditorInner の画像選択 input は name を持たず、そもそも入ってこない)
@@ -29,7 +30,14 @@ export function UnsavedGuard() {
     if (!form) {
       return;
     }
-    const saved = snapshot(form);
+    let saved = snapshot(form);
+
+    // 競合バナーで本文をサーバ値へ揃え直したら、比較の基準も取り直す
+    // (docs/87-編集競合対策計画.md §2-3)。取り直さないと、揃えただけで
+    // 「未保存の変更がある」と引き止めてしまう
+    const handleBaseline = () => {
+      saved = snapshot(form);
+    };
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (snapshot(form) === saved) {
@@ -43,7 +51,11 @@ export function UnsavedGuard() {
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    form.addEventListener(MEMO_BASELINE_EVENT, handleBaseline);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      form.removeEventListener(MEMO_BASELINE_EVENT, handleBaseline);
+    };
   }, []);
 
   return <span ref={markerRef} hidden />;

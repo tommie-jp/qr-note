@@ -8,9 +8,23 @@
 // ここは純粋なロジックだけを持つ (Storage は引数で受ける)。debounce や
 // effect の結線は MemoEditor 側。
 
+import { BASE_STALE } from './saveBase'
+
 export interface MemoDraft {
   value: string
   savedAt: number
+  // この本文が載っていた版 (docs/87-編集競合対策計画.md §2-6)。
+  // **本文と対で持つ**のが要点 — 基点を持たずに復元すると、古い本文を
+  // 「いまの版」の顔で保存でき、別の端末の保存を黙って潰せてしまう。
+  // 古い下書き (この列を持たない頃のもの) だけ undefined になる
+  base?: string
+}
+
+// 復元する下書き。基点を持たない古い下書きは BASE_STALE で返し、
+// 保存時に必ず競合として見せる (いまの版を当ててしまわない)
+export interface RestoredDraft {
+  value: string
+  base: string
 }
 
 // localStorage を全部は要らないので、使う分だけの形で受ける (テスト容易性)
@@ -33,7 +47,13 @@ export function parseDraft(raw: string | null): MemoDraft | null {
       typeof (parsed as MemoDraft).value === 'string' &&
       typeof (parsed as MemoDraft).savedAt === 'number'
     ) {
-      return { value: (parsed as MemoDraft).value, savedAt: (parsed as MemoDraft).savedAt }
+      const draft = parsed as MemoDraft
+      return {
+        value: draft.value,
+        savedAt: draft.savedAt,
+        // 形の違う base は無かったことにする (古い下書きと同じ扱い = stale)
+        ...(typeof draft.base === 'string' ? { base: draft.base } : {}),
+      }
     }
     return null
   } catch {
@@ -48,6 +68,7 @@ export function persistDraft(
   draftKey: string,
   value: string,
   initialValue: string,
+  base: string,
   savedAt: number,
 ): void {
   const key = draftStorageKey(draftKey)
@@ -55,7 +76,7 @@ export function persistDraft(
     storage.removeItem(key)
     return
   }
-  const draft: MemoDraft = { value, savedAt }
+  const draft: MemoDraft = { value, savedAt, base }
   storage.setItem(key, JSON.stringify(draft))
 }
 
@@ -65,12 +86,12 @@ export function loadDraft(
   storage: DraftStorage,
   draftKey: string,
   initialValue: string,
-): string | null {
+): RestoredDraft | null {
   const key = draftStorageKey(draftKey)
   const draft = parseDraft(storage.getItem(key))
   if (draft === null || draft.value === initialValue) {
     storage.removeItem(key)
     return null
   }
-  return draft.value
+  return { value: draft.value, base: draft.base ?? BASE_STALE }
 }

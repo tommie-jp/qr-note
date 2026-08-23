@@ -20,6 +20,7 @@ import {
 import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { MemoEditor } from "@/components/MemoEditor";
+import { NoteSaveForm } from "@/components/NoteSaveForm";
 import { NotePageModeToggle } from "@/components/NotePageModeToggle";
 import { splitPages } from "@/components/notePages";
 import { OfflinePinToggle } from "@/components/OfflinePinToggle";
@@ -35,6 +36,7 @@ import { planCircuits } from "@/lib/circuitCache";
 import { buildHealthCharts } from "@/lib/healthData";
 import { buildMatrices } from "@/lib/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
+import { formatBase } from "@/lib/saveBase";
 
 interface ItemViewProps {
   itemNo: string;
@@ -220,17 +222,25 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           </pre>
         }
         editForm={
-          <form action={updateMemoAction} className="space-y-3">
+          <NoteSaveForm
+            action={updateMemoAction}
+            itemNo={itemNo}
+            className="space-y-3"
+          >
             <UnsavedGuard />
-            <input type="hidden" name="itemNo" value={itemNo} />
             <MemoEditor
               defaultValue={memo}
+              // 開いた時点の版。競合したらバナーで差分を見て選べる
+              // (docs/87-編集競合対策計画.md)
+              base={formatBase(item?.updatedAt ?? null)}
               minHeight="18rem"
               autoFocus={memo === ""}
+              // 下書きにも基点が乗るようになったので、この画面でも安全に残せる
+              draftKey={itemNo}
             />
             {/* 「更新」は画面下部の操作バーへ移した (MemoEditorInner が portal で
                 差し込む)。この form の子孫のまま送信される */}
-          </form>
+          </NoteSaveForm>
         }
       />
 

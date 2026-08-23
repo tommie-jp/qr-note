@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { checkStates, countTasks, toggleTaskLine } from './taskCheckbox'
+import {
+  checkStates,
+  countTasks,
+  differsOnlyInTaskMarks,
+  toggleTaskLine,
+} from './taskCheckbox'
 
 describe('toggleTaskLine', () => {
   test('チェックを付ける (- [ ] → - [x])', () => {
@@ -219,5 +224,50 @@ describe('checkStates', () => {
 
   test('チェックが無ければ空', () => {
     expect(checkStates('ただの本文')).toEqual([])
+  })
+})
+
+describe('differsOnlyInTaskMarks', () => {
+  test('チェック印だけが違う本文どうしは true (再適用してよい)', () => {
+    // Arrange — 別の端末がチェックを 1 つ裏返しただけ
+    const first = ['- [ ] 学習済み', '- [ ] 自信あり'].join('\n')
+    const current = ['- [x] 学習済み', '- [ ] 自信あり'].join('\n')
+
+    // Act & Assert
+    expect(differsOnlyInTaskMarks(first, current)).toBe(true)
+  })
+
+  test('同じ本文も true', () => {
+    const memo = '- [x] 学習済み'
+    expect(differsOnlyInTaskMarks(memo, memo)).toBe(true)
+  })
+
+  test('行が増えていれば false (行番号がずれるので再適用しない)', () => {
+    // Arrange — 押している間に別の端末が 1 行足した。行番号で指す操作は
+    // ずれた先が偶然タスク行だと、別の項目を裏返してしまう
+    const first = ['- [ ] 学習済み', '- [ ] 自信あり'].join('\n')
+    const current = ['新しい見出し', '- [ ] 学習済み', '- [ ] 自信あり'].join('\n')
+
+    // Act & Assert
+    expect(differsOnlyInTaskMarks(first, current)).toBe(false)
+  })
+
+  test('本文が書き換わっていれば false', () => {
+    const first = '- [ ] 学習済み'
+    const current = '- [ ] 学習ずみ'
+    expect(differsOnlyInTaskMarks(first, current)).toBe(false)
+  })
+
+  test('行末の違い (CRLF / LF) は同じと見なさない', () => {
+    // 保存経路が本文を LF に正規化するので、行末が違えば「本文が変わった」
+    expect(differsOnlyInTaskMarks('- [ ] a\r\n- [ ] b', '- [ ] a\n- [ ] b')).toBe(false)
+  })
+
+  test('コードフェンスの中の擬似タスクも印として揃える (安全側)', () => {
+    // ここは行番号のずれを見る門番であって、押せるかどうかの判定ではない。
+    // 見た目がタスク行なら揃えておく方が、誤って再適用を許すより安全側に倒れる
+    const first = ['```text', '- [ ] 見た目だけ', '```'].join('\n')
+    const current = ['```text', '- [x] 見た目だけ', '```'].join('\n')
+    expect(differsOnlyInTaskMarks(first, current)).toBe(true)
   })
 })

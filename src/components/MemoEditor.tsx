@@ -1,8 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import {
+  ADOPT_SERVER_EVENT,
+  MEMO_BASELINE_EVENT,
+  type AdoptServerDetail,
+} from "@/lib/editorEvents";
 import { draftStorageKey, loadDraft, persistDraft } from "@/lib/memoDraft";
+import { BASE_NEW } from "@/lib/saveBase";
+import type { ConflictServerNote } from "@/lib/saveState";
+import { SaveFormContext } from "./NoteSaveForm";
+import { SaveConflictBanner } from "./SaveConflictBanner";
 import {
   BUSY_NOTICE_CLASS,
   BUSY_SPINNER_CLASS,
@@ -86,6 +96,13 @@ function PrefillNotice({ kind, status }: { kind: PrefillKind; status: PrefillSta
 
 interface MemoEditorProps {
   defaultValue: string;
+  // この本文が載っている版 (docs/87-編集競合対策計画.md §2-2)。
+  // formatBase(item?.updatedAt ?? null) をサーバ側で作って渡す。
+  //
+  // **本文と対でここが持つ**のが要点。フォーム側の hidden に置くと、
+  // 同じ画面の markdown タブでチェックを押したときに基点だけが新しくなり、
+  // 古い本文の保存が検査を素通りしてチェックを黙って戻してしまう
+  base: string;
   autoFocus?: boolean;
   minHeight?: string;
   // 新規登録するコードが ISBN / JAN のときだけ渡す。書誌・商品情報を引いて
@@ -105,6 +122,7 @@ const DRAFT_SAVE_DELAY_MS = 400;
 // (読み込み中に memo フィールドが欠けてデータが消えることはない)
 export function MemoEditor({
   defaultValue,
+  base: baseProp,
   autoFocus = false,
   minHeight = "14rem",
   prefill,
@@ -118,12 +136,71 @@ export function MemoEditor({
   // どのみち 1 文字でも打てば LF に正規化されて保存されるので、最初から揃える
   const initialValue = useMemo(() => defaultValue.replace(/\r\n/g, "\n"), [defaultValue]);
   const [value, setValue] = useState(initialValue);
+  const [base, setBase] = useState(baseProp);
   const [isEditorReady, setIsEditorReady] = useState(false);
   // 未保存の下書きを復元したことの知らせ (黙って差し替えない)
   const [restoredDraft, setRestoredDraft] = useState(false);
   // 復元の判定が済むまで保存側を止める (先に保存が走ると、これから読む
   // 下書きを「初期値と同じ」として消しかねない)
   const draftReady = useRef(false);
+  // 「このまま上書き」で送るときだけ立てる印 (消える版を先に履歴へ刻ませる)
+  const [checkpoint, setCheckpoint] = useState(false);
+  // 打っている最中にサーバ側の本文が動いた (保持したまま保存時に確かめる)
+  const [serverMoved, setServerMoved] = useState(false);
+  // 既に見せた競合の印。同じ結果に 2 度反応しない
+  const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
+  // 本文を外から差し替えたら CodeMirror を作り直す番号。
+  // **undo 履歴を切るため**で、差し替えを 1 手として履歴に残すと
+  // 「元に戻す」で古い本文 + 新しい基点の対ができ、検査を素通りしてしまう
+  const [editorKey, setEditorKey] = useState(0);
+  // 最後にサーバと揃えた (本文, 基点) の対。追随の判断に使う
+  const syncedRef = useRef({ text: initialValue, base: baseProp });
+  // フォームを辿るための目印 (UnsavedGuard と同じやり方)
+  const markerRef = useRef<HTMLSpanElement>(null);
+  const saveState = useContext(SaveFormContext);
+  const conflict =
+    saveState !== null && saveState.seq !== dismissedSeq ? saveState : null;
+
+  const formOf = () => markerRef.current?.closest("form") ?? null;
+
+  // 本文をサーバ値へ揃え直したことを、同じフォームの中へ知らせる
+  // (UnsavedGuard が比較の基準を取り直す)
+  const notifyBaseline = () => {
+    formOf()?.dispatchEvent(new CustomEvent(MEMO_BASELINE_EVENT));
+  };
+
+  // サーバ再描画で (本文, 基点) が動いたときの追随 (docs/87 §2-3)。
+  //
+  //   打っていない        → 本文・基点とも黙って追随 (失うものが無い)
+  //   もう同じ            → 基点だけ追随 (保存直後など)
+  //   打っている最中      → どちらも保持 → 保存で競合になり、選ばせる
+  //
+  // value を依存に入れているのは「動いた瞬間の本文」を見るため。打鍵のたびに
+  // 走るが、対が揃っていれば即 return する
+  useEffect(() => {
+    const synced = syncedRef.current;
+    if (synced.text === initialValue && synced.base === baseProp) {
+      return;
+    }
+    const pristine = value === synced.text;
+    const sameAsIncoming = value === initialValue;
+    syncedRef.current = { text: initialValue, base: baseProp };
+
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (!pristine && !sameAsIncoming) {
+      setServerMoved(true);
+      return;
+    }
+    setBase(baseProp);
+    if (!sameAsIncoming) {
+      setValue(initialValue);
+      setEditorKey((key) => key + 1);
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    notifyBaseline();
+    // notifyBaseline は描画に依らない (DOM を辿るだけ)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValue, baseProp, value]);
 
   // マウント時に一度だけ、未保存の下書きがあれば復元する。
   // localStorage が使えない環境 (プライベートモード等) では下書き保護なしで
@@ -137,7 +214,11 @@ export function MemoEditor({
           // 「hydration 後に localStorage と一度だけ同期する」ためのマウント時
           // effect であり、連鎖レンダリングは起きない (依存なしで再実行されない)
           /* eslint-disable react-hooks/set-state-in-effect */
-          setValue(restored);
+          setValue(restored.value);
+          // **本文と対で基点も戻す** (docs/87 §2-6)。いまの版を当てると、
+          // タブが落ちている間に別の端末が保存した分を黙って潰せてしまう。
+          // 基点を持たない古い下書きは stale = 必ず競合になる
+          setBase(restored.base);
           setRestoredDraft(true);
           /* eslint-enable react-hooks/set-state-in-effect */
         }
@@ -157,17 +238,63 @@ export function MemoEditor({
     }
     const timer = setTimeout(() => {
       try {
-        persistDraft(window.localStorage, draftKey, value, initialValue, Date.now());
+        // 比較の基準は「最後にサーバと揃えた本文」。揃え直した本文に
+        // 戻ったら下書きは要らない
+        persistDraft(
+          window.localStorage,
+          draftKey,
+          value,
+          syncedRef.current.text,
+          base,
+          Date.now(),
+        );
       } catch {
         // 書けない環境 (容量・プライベートモード) では諦める
       }
     }, DRAFT_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [draftKey, value, initialValue]);
+  }, [draftKey, value, base, initialValue]);
+
+  // 別の版を本文として読み込む (自分の変更は捨てる)。
+  // 基点も一緒に差し替え、CodeMirror は作り直して undo 履歴を切る
+  const adoptServer = (server: ConflictServerNote) => {
+    const nextBase = String(server.updatedAt);
+    setValue(server.memo);
+    setBase(nextBase);
+    setEditorKey((key) => key + 1);
+    setServerMoved(false);
+    syncedRef.current = { text: server.memo, base: nextBase };
+    // /edit の url / mode も揃える (この画面には無いこともある)
+    formOf()?.dispatchEvent(
+      new CustomEvent<AdoptServerDetail>(ADOPT_SERVER_EVENT, {
+        detail: { url: server.url, mode: server.mode },
+      }),
+    );
+    notifyBaseline();
+  };
+
+  // いま見せた版の上に自分の本文を載せて送り直す。
+  //
+  // hidden は state 制御なので flushSync で DOM へ反映してから送る
+  // (同期に requestSubmit すると古い基点のまま送られる)。checkpoint は
+  // 一発もの — 残すと次の普通の保存が自分の直前版を conflict として刻む
+  const resubmit = (nextBase: string, withCheckpoint: boolean) => {
+    const form = formOf();
+    if (!form) {
+      return;
+    }
+    flushSync(() => {
+      setBase(nextBase);
+      setCheckpoint(withCheckpoint);
+    });
+    form.requestSubmit();
+    setCheckpoint(false);
+  };
 
   // 復元した下書きを捨てて、保存済みの本文に戻す
   const discardDraft = () => {
     setValue(initialValue);
+    setEditorKey((key) => key + 1);
     setRestoredDraft(false);
     if (draftKey) {
       try {
@@ -190,7 +317,39 @@ export function MemoEditor({
 
   return (
     <div className="space-y-2">
+      <span ref={markerRef} hidden />
       <input type="hidden" name="memo" value={value} />
+      <input type="hidden" name="base" value={base} />
+      {checkpoint && <input type="hidden" name="checkpoint" value="1" />}
+      {conflict && (
+        <SaveConflictBanner
+          state={conflict}
+          value={value}
+          onAdoptServer={() => {
+            if (conflict.server) {
+              adoptServer(conflict.server);
+            }
+            setDismissedSeq(conflict.seq);
+          }}
+          onOverwrite={() => {
+            setDismissedSeq(conflict.seq);
+            resubmit(
+              conflict.server === null ? BASE_NEW : String(conflict.server.updatedAt),
+              true,
+            );
+          }}
+          onSaveAsNew={() => {
+            setDismissedSeq(conflict.seq);
+            resubmit(BASE_NEW, false);
+          }}
+          onDismiss={() => setDismissedSeq(conflict.seq)}
+        />
+      )}
+      {serverMoved && !conflict && (
+        <p aria-live="polite" className="text-sm text-gray-500">
+          別の操作で本文が変わりました (保存するときに確かめます)
+        </p>
+      )}
       {/* エディタの上に置く。スキャン直後に目が行くのは本文の先頭で、
           下に置くと見落とす */}
       {prefill && <PrefillNotice kind={prefill.kind} status={prefillStatus} />}
@@ -219,6 +378,7 @@ export function MemoEditor({
         />
       )}
       <MemoEditorInner
+        key={editorKey}
         value={value}
         onChange={setValue}
         onReady={() => setIsEditorReady(true)}

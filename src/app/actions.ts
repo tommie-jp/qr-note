@@ -17,19 +17,23 @@ import {
 import { recordMeasurement } from '@/lib/healthEdit'
 import { MAX_MEASURE_VALUES } from '@/lib/healthRecords'
 import { backfillAllNotes } from '@/lib/noteHistoryBackfill'
+import type { Item } from '@/generated/prisma/client'
 import {
   emptyTrash,
   getItem,
+  modifyMemo,
   purgeItems,
   recordItemAccess,
   restoreItems,
+  saveItemIfUnchanged,
   setItemOfflinePin,
   setItemPublic,
   trashItems,
-  upsertItem,
   upsertMemo,
 } from '@/lib/items'
 import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'
+import { parseBase, type SaveBase } from '@/lib/saveBase'
+import { noteSnapshot, type SaveState } from '@/lib/saveState'
 import { buildSearchUrl, buildTrashUrl } from '@/lib/searchUrl'
 import {
   SORT_COOKIE,
@@ -38,7 +42,7 @@ import {
 } from '@/lib/sortMode'
 import { currentUser, requireUser } from '@/lib/session'
 import { addTagsToMemo, removeTagsFromMemo } from '@/lib/tagEdit'
-import { toggleTaskLine } from '@/lib/taskCheckbox'
+import { differsOnlyInTaskMarks, toggleTaskLine } from '@/lib/taskCheckbox'
 import {
   isValidItemNo,
   MAX_TEXT_LENGTH,
@@ -76,6 +80,64 @@ function readItemNo(formData: FormData): string {
   return itemNo
 }
 
+// 画面が見ていた版 (docs/87-編集競合対策計画.md §2-1)。
+// **不正なら投げる** — 基点が読めない保存を「新規」や「いまの版」に丸めると、
+// この仕組みが守ろうとしている上書きをそのまま許すことになる
+function readBase(formData: FormData): SaveBase {
+  const base = parseBase(formData.get('base'))
+  if (base === null) {
+    throw new Error('保存の基点が不正です')
+  }
+  return base
+}
+
+// 競合の知らせ。成功はリダイレクトして終わるので、戻り値が要るのはここだけ
+function conflictState(
+  kind: 'conflict' | 'exists' | 'missing' | 'checkpointFailed',
+  current: Item | null,
+): SaveState {
+  return {
+    // 同じ結果に 2 度反応しないための印 (?saved= と同じ流儀)
+    seq: Date.now(),
+    kind,
+    server: current === null ? null : noteSnapshot(current),
+  }
+}
+
+// 「このまま上書き」で消える版を、履歴へ 1 版だけ残す (docs/87 §4)。
+//
+// **保存のたびには刻まない** (docs/57 §8 の判断)。刻むのは競合を見せたうえで
+// 利用者が上書きを選んだときだけで、稀・かつ意味のある版になる。
+//
+// after() は使わず await する。after() は redirect でもエラーでも走るうえ、
+// notesRepo のキューは reject を先に処理済みにするので失敗が見えない。
+//
+// **刻めなければ false を返し、呼び手は上書きしない** (fail closed)。
+// 「保存が git の失敗に巻き込まれてはいけない」(docs/57 §1) は普段の保存の
+// 原則で、ここは利用者が「消してよい」と選んだ経路。消える版を残せないなら
+// 消さないほうが約束に合う
+async function checkpointBeforeOverwrite(
+  itemNo: string,
+  incoming: string,
+): Promise<boolean> {
+  // デモは履歴機能ごと閉じている (docs/57 §4)。刻めないのが正常なので通す
+  if (isDemoMode()) {
+    return true
+  }
+  const current = await getItem(itemNo)
+  if (current === null || current.memo === incoming) {
+    return true
+  }
+  try {
+    // HEAD と同じ内容なら commitNote は null を返すだけ (履歴は汚れない)
+    await commitNote(itemNo, current.memo, `conflict ${itemNo}`)
+    return true
+  } catch (error) {
+    console.error(`競合チェックポイントのコミットに失敗しました (${itemNo})`, error)
+    return false
+  }
+}
+
 // 保存したノートの回路図を**応答を返した後に**描いておく
 // (docs/85-回路図表示待ち計画.md §4)。
 //
@@ -111,12 +173,38 @@ function savedHref(itemNo: string): string {
 // するが、それは楽観的な検査でしかないので、書き込む側でも必ず確かめる
 // (docs/18-ログイン計画.md)。
 
-// Ver1 の /item/:itemNo POST 相当: memo だけをその場で更新 (未登録なら作成)
-export async function updateMemoAction(formData: FormData): Promise<void> {
+// Ver1 の /item/:itemNo POST 相当: memo だけをその場で更新 (未登録なら作成)。
+//
+// **画面が見ていた版のままなら書く** (docs/87-編集競合対策計画.md §2-4)。
+// 食い違っていたら書かずに戻り値で知らせる — useActionState が受け取り、
+// エディタの本文はそのままにバナーだけ出す (redirect も revalidatePath も
+// 呼ばないので、この応答では画面が描き直されない)。
+//
+// 引数が (prev, formData) の 2 つなのは useActionState の作法
+export async function updateMemoAction(
+  _prev: SaveState,
+  formData: FormData,
+): Promise<SaveState> {
   await requireUser()
   const itemNo = readItemNo(formData)
   const memo = readText(formData, 'memo')
-  await upsertMemo(itemNo, memo)
+  const base = readBase(formData)
+
+  // 「このまま上書き」を選んだ送信だけが立てる印。消える版を先に刻む
+  if (formData.get('checkpoint') === '1') {
+    if (!(await checkpointBeforeOverwrite(itemNo, memo))) {
+      return conflictState('checkpointFailed', await getItem(itemNo))
+    }
+  }
+
+  const result = await saveItemIfUnchanged(itemNo, { memo }, base)
+  if (!result.ok) {
+    return conflictState(
+      result.reason,
+      result.reason === 'missing' ? null : result.current,
+    )
+  }
+
   warmCircuitsAfterResponse(itemNo, memo)
   revalidatePath(`/item/${itemNo}`)
   redirect(savedHref(itemNo))
@@ -141,17 +229,21 @@ export async function toggleMemoTaskAction(
   if (!isValidItemNo(itemNo)) {
     throw new Error('itemNo が不正です')
   }
-  const item = await getItem(itemNo)
-  if (item === null) {
+  // 読んで書くまでの間に別の端末の保存が入ると、それを丸ごと消してしまう。
+  // modifyMemo は「基点が同じなら書く」で、負けたら読み直して当て直す
+  // (docs/87-編集競合対策計画.md §2-5)。**行番号で対象を指す書き換えなので、
+  // 行がずれていたら当て直さない** — ずれた先が偶然タスク行だと、別の項目を
+  // 裏返してしまう
+  const result = await modifyMemo(
+    itemNo,
+    (memo) => toggleTaskLine(memo, line, checked),
+    { canRetry: differsOnlyInTaskMarks },
+  )
+  if (result === 'missing') {
     throw new Error('ノートが見つかりません')
   }
-  const next = toggleTaskLine(item.memo, line, checked)
-  if (next === null) {
+  if (result === 'rejected') {
     throw new Error('本文が変わっています。画面を更新してください')
-  }
-  // 既に望む状態なら書かない (updated_at を動かさない)
-  if (next !== item.memo) {
-    await upsertMemo(itemNo, next)
   }
   // これで Next.js が同じ応答の中でこのルートを描き直す (server-actions.md)。
   // 画像回転と違い router.refresh() は要らない。
@@ -207,25 +299,29 @@ export async function recordHealthAction(
   ) {
     throw new Error('記録の値が不正です')
   }
-  const existing = await getItem(itemNo)
-  if (existing === null) {
+  // 書き換えは modifyMemo に任せる (docs/87 §2-5)。**canRetry は渡さない** —
+  // 記録の位置は本文 (フェンスと日付) で決まり、行番号に依らないので、
+  // 読み直して当て直しても同じ場所に着く
+  const result = await modifyMemo(itemNo, (memo) => {
+    const next = recordMeasurement(memo, { date, item, values, unit })
+    if (next === null) {
+      return null
+    }
+    // **本文が伸びる経路なので長さも検める。** フォーム経由の保存は readText が
+    // 見ているが、ここは FormData を通らない。項目名を変えながら叩けば同じ日付の
+    // 行にトークンをいくらでも積めてしまい、上限を超えた本文は編集画面から
+    // 保存できなくなる (readText が弾く) うえ、git 履歴・ダンプ・オフライン同期の
+    // 全部に流れる
+    if (next.length > MAX_TEXT_LENGTH) {
+      throw new Error(`本文が長すぎます (最大 ${MAX_TEXT_LENGTH} 文字)`)
+    }
+    return next
+  })
+  if (result === 'missing') {
     throw new Error('ノートが見つかりません')
   }
-  const next = recordMeasurement(existing.memo, { date, item, values, unit })
-  if (next === null) {
+  if (result === 'rejected') {
     throw new Error('この値は記録できません')
-  }
-  // **本文が伸びる経路なので長さも検める。** フォーム経由の保存は readText が
-  // 見ているが、ここは FormData を通らない。項目名を変えながら叩けば同じ日付の
-  // 行にトークンをいくらでも積めてしまい、上限を超えた本文は編集画面から
-  // 保存できなくなる (readText が弾く) うえ、git 履歴・ダンプ・オフライン同期の
-  // 全部に流れる
-  if (next.length > MAX_TEXT_LENGTH) {
-    throw new Error(`本文が長すぎます (最大 ${MAX_TEXT_LENGTH} 文字)`)
-  }
-  // 既に同じ値なら書かない (updated_at を動かさない)
-  if (next !== existing.memo) {
-    await upsertMemo(itemNo, next)
   }
   revalidatePath(`/item/${itemNo}`)
   // 一覧も無効にする。記録は本文そのものなので、一覧のプレビューや
@@ -233,14 +329,33 @@ export async function recordHealthAction(
   revalidatePath('/')
 }
 
-// Ver1 の /edit/:itemNo POST 相当: mode / memo / url を更新 (未登録なら作成)
-export async function updateItemAction(formData: FormData): Promise<void> {
+// Ver1 の /edit/:itemNo POST 相当: mode / memo / url を更新 (未登録なら作成)。
+// 競合の扱いは updateMemoAction と同じ (docs/87 §2-4)
+export async function updateItemAction(
+  _prev: SaveState,
+  formData: FormData,
+): Promise<SaveState> {
   await requireUser()
   const itemNo = readItemNo(formData)
   const memo = readText(formData, 'memo')
   const url = readText(formData, 'url')
   const mode = parseMode(formData.get('mode'))
-  await upsertItem(itemNo, { memo, url, mode })
+  const base = readBase(formData)
+
+  if (formData.get('checkpoint') === '1') {
+    if (!(await checkpointBeforeOverwrite(itemNo, memo))) {
+      return conflictState('checkpointFailed', await getItem(itemNo))
+    }
+  }
+
+  const result = await saveItemIfUnchanged(itemNo, { memo, url, mode }, base)
+  if (!result.ok) {
+    return conflictState(
+      result.reason,
+      result.reason === 'missing' ? null : result.current,
+    )
+  }
+
   // 編集画面からの保存も同じ (updateMemoAction と揃える)。
   // 図を書いてくるのはむしろこちらの画面
   warmCircuitsAfterResponse(itemNo, memo)
@@ -515,15 +630,15 @@ export async function bulkTagAction(formData: FormData): Promise<void> {
 
   if (itemNos.length > 0 && tags.length > 0) {
     for (const itemNo of itemNos) {
-      const item = await getItem(itemNo)
-      const memo = item?.memo ?? ''
-      const next =
-        mode === 'add'
-          ? addTagsToMemo(memo, tags)
-          : removeTagsFromMemo(memo, tags)
-      if (next !== memo) {
-        await upsertMemo(itemNo, next)
-      }
+      // ここも modifyMemo を通す (docs/87 §2-5)。タグの位置は本文で決まるので
+      // 当て直しは安全 (canRetry は要らない)。
+      //
+      // **行が無ければ何もしない** ('missing' を捨てる)。upsert だった頃は
+      // タグだけのノートを作りえたが、対象は検索結果から選ばれた番号なので
+      // 実際には起こらず、作るほうが驚きになる
+      await modifyMemo(itemNo, (memo) =>
+        mode === 'add' ? addTagsToMemo(memo, tags) : removeTagsFromMemo(memo, tags),
+      )
     }
     revalidatePath('/')
   }
@@ -690,6 +805,11 @@ export async function restoreNoteVersionAction(formData: FormData): Promise<void
   const memo = await noteAtCommit(itemNo, oid)
   if (memo === null) {
     throw new Error('この版にノートの本文がありません')
+  }
+  // 復元は「いま DB にある本文」を失う操作。未コミットのまま消える版が
+  // 出ないよう、先に 1 版刻む (docs/87 §4)。刻めなければ復元しない
+  if (!(await checkpointBeforeOverwrite(itemNo, memo))) {
+    throw new Error('いまの本文を履歴に残せませんでした。復元していません')
   }
   await upsertMemo(itemNo, memo)
   revalidatePath(`/item/${itemNo}`)

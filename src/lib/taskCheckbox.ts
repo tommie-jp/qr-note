@@ -43,6 +43,29 @@ function isTaskLine(memo: string, line: number): boolean {
   return found
 }
 
+// 行頭の判定を全行に当てるための同じ規則 (m フラグ付き)。**行末はそのまま**
+// なので、CRLF と LF の違いは「同じ」に丸めない
+const TASK_MARK_LINE_RE = new RegExp(TASK_MARKER_RE.source, 'gm')
+
+// 2 つの本文が「チェック印 (`[ ]` / `[x]`) の違いだけ」かを見る
+// (docs/87-編集競合対策計画.md §2-5)。
+//
+// 使いどころは modifyMemo の再試行の門番。チェックの切り替えは**行番号で**
+// 対象を指すので、読み直した本文で行が増減していると、ずれた先が偶然タスク行
+// だったときに別の項目を裏返してしまう。印だけの違いなら行番号は動いていない。
+//
+// パーサには聞かない (印を揃えて突き合わせるだけ)。コードフェンスの中の
+// 擬似タスクまで揃えることになるが、この門番は「押してよいか」ではなく
+// 「行がずれていないか」を見るものなので、揃えておく方が安全側に倒れる
+// (押せるかどうかは toggleTaskLine が別途パーサで確かめる)。
+export function differsOnlyInTaskMarks(a: string, b: string): boolean {
+  return normalizeTaskMarks(a) === normalizeTaskMarks(b)
+}
+
+function normalizeTaskMarks(memo: string): string {
+  return memo.replace(TASK_MARK_LINE_RE, '$1 $3')
+}
+
 // 本文が持つタスク項目の数 (docs/56-チェック検索計画.md §2)。
 // items.task_todo / task_done の派生キャッシュの元になる。
 //

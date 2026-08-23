@@ -6,8 +6,9 @@ import { MemoEditor } from "./MemoEditor";
 // ここでは読み込まれない。MemoEditor が自前で描く hidden input と
 // 書誌・商品情報取得の状況表示だけを見る
 
-const render = (props: Parameters<typeof MemoEditor>[0]) =>
-  renderToStaticMarkup(<MemoEditor {...props} />);
+// base (この本文が載っている版) は必須。既定はテスト用の適当な版
+const render = (props: Partial<Parameters<typeof MemoEditor>[0]> & { defaultValue: string }) =>
+  renderToStaticMarkup(<MemoEditor base="1787000000123" {...props} />);
 
 test("本文は hidden input に入る (フォームの送信値)", () => {
   const html = render({ defaultValue: "本文" });
@@ -43,4 +44,29 @@ test("prefill が無ければ状況表示そのものを出さない", () => {
   expect(html).not.toContain("書籍情報");
   expect(html).not.toContain("商品情報");
   expect(html).not.toContain("aria-busy");
+});
+
+test("基点は本文と同じ hidden input の並びで送る", () => {
+  // 本文と対で持つのが要点 (docs/87-編集競合対策計画.md §2-2)。
+  // フォーム側の hidden に置くと、同じ画面のチェック操作で基点だけが
+  // 新しくなり、古い本文の保存が検査を素通りしてしまう
+  const html = render({ defaultValue: "本文", base: "1787000000123" });
+
+  expect(html).toContain('name="base"');
+  expect(html).toContain('value="1787000000123"');
+});
+
+test("未登録のノートの基点は new (これから作る)", () => {
+  const html = render({ defaultValue: "", base: "new" });
+
+  expect(html).toContain('name="base"');
+  expect(html).toContain('value="new"');
+});
+
+test("初期描画では上書きの印 (checkpoint) を送らない", () => {
+  // 「このまま上書き」を選んだ送信だけが立てる一発の印。残ると
+  // 普通の保存が自分の直前版を conflict として履歴に刻んでしまう
+  const html = render({ defaultValue: "本文" });
+
+  expect(html).not.toContain('name="checkpoint"');
 });

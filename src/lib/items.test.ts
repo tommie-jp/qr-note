@@ -17,8 +17,11 @@ import type {
   searchItems as SearchItemsFn,
   setItemPublic as SetItemPublicFn,
   trashItems as TrashItemsFn,
+  modifyMemo as ModifyMemoFn,
+  saveItemIfUnchanged as SaveItemIfUnchangedFn,
   upsertMemo as UpsertMemoFn,
 } from './items'
+import { differsOnlyInTaskMarks, toggleTaskLine } from './taskCheckbox'
 import type { PrismaClient } from '@/generated/prisma/client'
 
 // DB を実際に叩く統合テスト。
@@ -39,6 +42,8 @@ describe.skipIf(!runDbTests)(
     let searchItemProps: typeof SearchItemPropsFn
     let searchItemChecks: typeof SearchItemChecksFn
     let upsertMemo: typeof UpsertMemoFn
+    let saveItemIfUnchanged: typeof SaveItemIfUnchangedFn
+    let modifyMemo: typeof ModifyMemoFn
     let listTags: typeof ListTagsFn
     let getItem: typeof GetItemFn
     let trashItems: typeof TrashItemsFn
@@ -186,6 +191,8 @@ describe.skipIf(!runDbTests)(
         searchItemProps,
         searchItemChecks,
         upsertMemo,
+        saveItemIfUnchanged,
+        modifyMemo,
         listTags,
         getItem,
         trashItems,
@@ -971,6 +978,294 @@ describe.skipIf(!runDbTests)(
         })
 
         expect(await isPublicImageName(name)).toBe(false)
+      })
+    })
+
+    // 編集の競合 (docs/87-編集競合対策計画.md §2-4, §2-5)。
+    // 「基点が同じなら書く」条件付き UPDATE と、その上に載る 1 行書き換え。
+    describe('saveItemIfUnchanged / modifyMemo (競合)', () => {
+      const casNote = async (itemNo: string, memo: string) => {
+        await prisma.item.deleteMany({ where: { itemNo } })
+        return prisma.item.create({
+          data: { itemNo, itemNoNum: null, memo, url: '', mode: 'memo' },
+        })
+      }
+
+      test('基点が合えば書ける。版 (updated_at) は必ず前へ進む', async () => {
+        // Arrange
+        const before = await casNote('zzftcas1', 'v1')
+
+        // Act — 続けて 2 回保存する (同じミリ秒に入りうる)
+        const first = await saveItemIfUnchanged(
+          'zzftcas1',
+          { memo: 'v2' },
+          { kind: 'at', at: before.updatedAt },
+        )
+        expect(first.ok).toBe(true)
+        const firstAt = first.ok ? first.item.updatedAt : before.updatedAt
+        const second = await saveItemIfUnchanged(
+          'zzftcas1',
+          { memo: 'v3' },
+          { kind: 'at', at: firstAt },
+        )
+
+        // Assert
+        expect(second.ok).toBe(true)
+        expect(firstAt.getTime()).toBeGreaterThan(before.updatedAt.getTime())
+        if (second.ok) {
+          expect(second.item.updatedAt.getTime()).toBeGreaterThan(firstAt.getTime())
+          expect(second.item.memo).toBe('v3')
+        }
+      })
+
+      test('派生列も作り直す (保存経路が 1 つに揃っている)', async () => {
+        const before = await casNote('zzftcas2', '')
+
+        const result = await saveItemIfUnchanged(
+          'zzftcas2',
+          { memo: '見出し\n#zzftcastag\nhFE=208\n- [ ] やること' },
+          { kind: 'at', at: before.updatedAt },
+        )
+
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.item.title).toBe('見出し')
+          expect(result.item.tags).toContain('zzftcastag')
+          expect(result.item.taskTodo).toBe(1)
+        }
+      })
+
+      test('先に別の端末が保存していたら書かずに competing 版を返す', async () => {
+        // Arrange — 画面が開いた時点の基点
+        const opened = await casNote('zzftcas3', 'v1')
+        // 別の端末が先に保存した
+        await saveItemIfUnchanged(
+          'zzftcas3',
+          { memo: '相手の版' },
+          { kind: 'at', at: opened.updatedAt },
+        )
+
+        // Act — 古い基点のまま保存する
+        const result = await saveItemIfUnchanged(
+          'zzftcas3',
+          { memo: '自分の版' },
+          { kind: 'at', at: opened.updatedAt },
+        )
+
+        // Assert — 上書きせず、いまの版を返す
+        expect(result.ok).toBe(false)
+        if (!result.ok && result.reason === 'conflict') {
+          expect(result.current.memo).toBe('相手の版')
+        } else {
+          expect.unreachable('conflict を返すこと')
+        }
+        expect((await getItem('zzftcas3'))?.memo).toBe('相手の版')
+      })
+
+      test('同じ内容の二重送信は成功扱い (版も動かさない)', async () => {
+        const before = await casNote('zzftcas4', 'v1')
+        const first = await saveItemIfUnchanged(
+          'zzftcas4',
+          { memo: '同じ本文' },
+          { kind: 'at', at: before.updatedAt },
+        )
+        expect(first.ok).toBe(true)
+        const savedAt = first.ok ? first.item.updatedAt : before.updatedAt
+
+        // Act — 同じ本文を古い基点でもう一度 (二重送信・別タブの取り違え)
+        const again = await saveItemIfUnchanged(
+          'zzftcas4',
+          { memo: '同じ本文' },
+          { kind: 'at', at: before.updatedAt },
+        )
+
+        // Assert
+        expect(again.ok).toBe(true)
+        if (again.ok) {
+          expect(again.item.updatedAt.getTime()).toBe(savedAt.getTime())
+        }
+      })
+
+      test('行末だけが違う本文は「変わっていない」と見なす (Ver1 由来の CRLF)', async () => {
+        await casNote('zzftcas5', 'a\r\nb')
+        const stored = await getItem('zzftcas5')
+
+        const result = await saveItemIfUnchanged(
+          'zzftcas5',
+          { memo: 'a\nb' },
+          { kind: 'at', at: new Date((stored?.updatedAt.getTime() ?? 0) - 1000) },
+        )
+
+        expect(result.ok).toBe(true)
+      })
+
+      test('基点不明 (stale) は必ず競合にする', async () => {
+        await casNote('zzftcas6', 'v1')
+
+        const result = await saveItemIfUnchanged('zzftcas6', { memo: 'v2' }, { kind: 'stale' })
+
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.reason).toBe('conflict')
+        expect((await getItem('zzftcas6'))?.memo).toBe('v1')
+      })
+
+      test('新規のつもりで既存番号なら exists (先に作られていた)', async () => {
+        await casNote('zzftcas7', '先に作られた本文')
+
+        const result = await saveItemIfUnchanged('zzftcas7', { memo: '後から' }, { kind: 'new' })
+
+        expect(result.ok).toBe(false)
+        if (!result.ok && result.reason === 'exists') {
+          expect(result.current.memo).toBe('先に作られた本文')
+        } else {
+          expect.unreachable('exists を返すこと')
+        }
+      })
+
+      test('新規なら作る (itemNoNum と派生列も入る)', async () => {
+        await prisma.item.deleteMany({ where: { itemNo: 'zzftcas8' } })
+
+        const result = await saveItemIfUnchanged(
+          'zzftcas8',
+          { memo: '新しいノート #zzftcasnew', url: '', mode: 'memo' },
+          { kind: 'new' },
+        )
+
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.item.tags).toContain('zzftcasnew')
+          // 非数字の itemNo なので item_no_num は null (itemNoToNum の約束)
+          expect(result.item.itemNoNum).toBeNull()
+        }
+      })
+
+      test('編集中に永久削除されたら missing (黙って作り直さない)', async () => {
+        const before = await casNote('zzftcas9', 'v1')
+        await prisma.item.deleteMany({ where: { itemNo: 'zzftcas9' } })
+
+        const result = await saveItemIfUnchanged(
+          'zzftcas9',
+          { memo: 'v2' },
+          { kind: 'at', at: before.updatedAt },
+        )
+
+        expect(result.ok).toBe(false)
+        if (!result.ok) expect(result.reason).toBe('missing')
+        expect(await getItem('zzftcas9')).toBeNull()
+      })
+
+      test('url / mode も一緒に書ける', async () => {
+        const before = await casNote('zzftcas10', 'v1')
+
+        const result = await saveItemIfUnchanged(
+          'zzftcas10',
+          { memo: 'v2', url: 'https://example.com/zzftcas', mode: 'url' },
+          { kind: 'at', at: before.updatedAt },
+        )
+
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+          expect(result.item.url).toBe('https://example.com/zzftcas')
+          expect(result.item.mode).toBe('url')
+        }
+      })
+
+      test('同時に押した 2 つのチェックは両方とも残る (再読込して再適用)', async () => {
+        // Arrange — 別々の行のチェック
+        await casNote('zzftmod1', ['- [ ] 学習済み', '- [ ] 自信あり'].join('\n'))
+
+        // Act — 2 つの切り替えを同時に投げる
+        const [a, b] = await Promise.all([
+          modifyMemo('zzftmod1', (memo) => toggleTaskLine(memo, 1, true), {
+            canRetry: differsOnlyInTaskMarks,
+          }),
+          modifyMemo('zzftmod1', (memo) => toggleTaskLine(memo, 2, true), {
+            canRetry: differsOnlyInTaskMarks,
+          }),
+        ])
+
+        // Assert — 後から書いた側が前の分を消していない
+        expect([a, b]).toEqual(['saved', 'saved'])
+        expect((await getItem('zzftmod1'))?.memo).toBe(
+          ['- [x] 学習済み', '- [x] 自信あり'].join('\n'),
+        )
+      })
+
+      test('再適用してよいかは呼び手が決める (行が増えていたら諦める)', async () => {
+        // Arrange
+        await casNote('zzftmod2', '- [ ] 学習済み')
+        let reads = 0
+
+        // Act — 1 回目の「読んでから書くまで」に、行が増える保存を割り込ませる。
+        // CAS が必ず負け、2 周目は行番号がずれた本文を読むことになる
+        const result = await modifyMemo(
+          'zzftmod2',
+          async (memo) => {
+            reads += 1
+            if (reads === 1) {
+              await prisma.item.update({
+                where: { itemNo: 'zzftmod2' },
+                data: { memo: ['新しい見出し', '- [ ] 学習済み'].join('\n') },
+              })
+            }
+            return toggleTaskLine(memo, 1, true)
+          },
+          { canRetry: differsOnlyInTaskMarks },
+        )
+
+        // Assert — ずれた行番号で別の項目を裏返さない
+        expect(result).toBe('rejected')
+        expect((await getItem('zzftmod2'))?.memo).toBe(
+          ['新しい見出し', '- [ ] 学習済み'].join('\n'),
+        )
+      })
+
+      test('再適用の門番が無ければ、読み直して素直に再適用する', async () => {
+        // Arrange — 本文で位置が決まる書き換え (タグ追加) は行番号に依らない
+        await casNote('zzftmod6', '本文')
+        let reads = 0
+
+        // Act
+        const result = await modifyMemo('zzftmod6', async (memo) => {
+          reads += 1
+          if (reads === 1) {
+            await prisma.item.update({
+              where: { itemNo: 'zzftmod6' },
+              data: { memo: '本文 (別の端末が直した)' },
+            })
+          }
+          return `${memo} #zzftmodtag`
+        })
+
+        // Assert — 割り込んだ側の本文の上に載る (消さない)
+        expect(result).toBe('saved')
+        expect((await getItem('zzftmod6'))?.memo).toBe('本文 (別の端末が直した) #zzftmodtag')
+      })
+
+      test('その行がタスクでなければ rejected (本文が変わっている印)', async () => {
+        await casNote('zzftmod3', 'ただの本文')
+
+        const result = await modifyMemo('zzftmod3', (memo) => toggleTaskLine(memo, 1, true))
+
+        expect(result).toBe('rejected')
+      })
+
+      test('既に望む状態なら書かない (版を動かさない)', async () => {
+        const before = await casNote('zzftmod4', '- [x] 学習済み')
+
+        const result = await modifyMemo('zzftmod4', (memo) => toggleTaskLine(memo, 1, true))
+
+        expect(result).toBe('unchanged')
+        expect((await getItem('zzftmod4'))?.updatedAt.getTime()).toBe(
+          before.updatedAt.getTime(),
+        )
+      })
+
+      test('ノートが無ければ missing (作らない)', async () => {
+        await prisma.item.deleteMany({ where: { itemNo: 'zzftmod5' } })
+
+        expect(await modifyMemo('zzftmod5', (memo) => `${memo}追記`)).toBe('missing')
+        expect(await getItem('zzftmod5')).toBeNull()
       })
     })
   },

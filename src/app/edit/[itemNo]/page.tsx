@@ -6,16 +6,19 @@ import {
   updateItemAction,
 } from "@/app/actions";
 import { AttributionFooter } from "@/components/AttributionFooter";
+import { EditItemFields } from "@/components/EditItemFields";
 import { ItemTimestamps } from "@/components/ItemTimestamps";
 import { MemoEditor } from "@/components/MemoEditor";
+import { NoteSaveForm } from "@/components/NoteSaveForm";
 import { PageTransition } from "@/components/PageTransition";
 import { RecordAccess } from "@/components/RecordAccess";
 import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
-import { ACTION_LINK_CLASS, MEMO_INPUT_CLASS } from "@/components/ui";
+import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items";
+import { formatBase } from "@/lib/saveBase";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
-import { isValidItemNo, MAX_TEXT_LENGTH } from "@/lib/validation";
+import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -68,53 +71,31 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
           <TrashedBanner itemNo={itemNo} restoreAction={restoreItemsAction} />
         )}
 
-        <form action={updateItemAction} className="space-y-3">
+        {/* 保存は「開いたときの版のままなら書く」(docs/87-編集競合対策計画.md)。
+            競合したら画面を作り直さずにバナーだけ出すので、フォームは
+            useActionState で戻り値を受ける包み (NoteSaveForm) にする */}
+        <NoteSaveForm
+          action={updateItemAction}
+          itemNo={itemNo}
+          className="space-y-3"
+        >
           <UnsavedGuard />
-          <input type="hidden" name="itemNo" value={itemNo} />
-
-          <fieldset className="flex gap-6">
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                name="mode"
-                value="memo"
-                defaultChecked={mode === "memo"}
-                className="size-4"
-              />
-              メモ
-            </label>
-            <label className="flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                name="mode"
-                value="url"
-                defaultChecked={mode === "url"}
-                className="size-4"
-              />
-              URL
-            </label>
-          </fieldset>
-
-          <MemoEditor
-            defaultValue={defaultMemo}
-            autoFocus
-            prefill={prefill}
-            draftKey={itemNo}
-          />
-          {/* 打ち止めは本文と同じ定数を見る (lib/validation.ts)。10,000 を直に
-              書いていた頃は、ZIP / ENEX から取り込んだ 10,000 字超の url が
-              編集画面で黙って切り詰められていた */}
-          <textarea
-            name="url"
-            rows={3}
-            maxLength={MAX_TEXT_LENGTH}
-            defaultValue={item?.url ?? ""}
-            placeholder="URLを入力して下さい。"
-            className={MEMO_INPUT_CLASS}
-          />
+          {/* mode / url は制御コンポーネント。React 19 は送信のたびに
+              フォームのリセットを予約するので、非制御のままだと競合の
+              知らせが返った瞬間に打ち込みが巻き戻る */}
+          <EditItemFields defaultUrl={item?.url ?? ""} defaultMode={mode}>
+            <MemoEditor
+              defaultValue={defaultMemo}
+              // 本文と対で凍結する版 (未登録なら "new" = これから作る)
+              base={formatBase(item?.updatedAt ?? null)}
+              autoFocus
+              prefill={prefill}
+              draftKey={itemNo}
+            />
+          </EditItemFields>
           {/* 「更新」は画面下部の操作バーへ移した (MemoEditorInner が portal で
               差し込む)。この form の子孫のまま送信されるので mode/url も一緒に届く */}
-        </form>
+        </NoteSaveForm>
 
         <ItemTimestamps item={item} />
 
