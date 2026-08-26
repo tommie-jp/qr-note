@@ -63,7 +63,7 @@ export async function POST(request: Request): Promise<Response> {
 // 中身が全件か選択かはファイル名で区別しない (frontmatter を見れば判る)。
 // 日付は JST — 手元に落ちたときに「いつ取ったか」が地元の日付で読める
 function exportFileName(): string {
-  return `qr-search-export-${formatJstDate(new Date())}.zip`
+  return `qr-note-export-${formatJstDate(new Date())}.zip`
 }
 
 function errorResponse(status: number, error: string): NextResponse {

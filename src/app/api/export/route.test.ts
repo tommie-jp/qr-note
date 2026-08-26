@@ -101,7 +101,7 @@ test('ZIP としてダウンロードさせる見出しを付ける', async () =
   const response = await POST(postRequest('scope=all'))
   expect(response.headers.get('content-type')).toBe('application/zip')
   expect(response.headers.get('content-disposition')).toMatch(
-    /^attachment; filename="qr-search-export-\d{4}-\d{2}-\d{2}\.zip"$/,
+    /^attachment; filename="qr-note-export-\d{4}-\d{2}-\d{2}\.zip"$/,
   )
   // ノート本文そのもの。共有キャッシュにも履歴にも残させない
   expect(response.headers.get('cache-control')).toBe('no-store')

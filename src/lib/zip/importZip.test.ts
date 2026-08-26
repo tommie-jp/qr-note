@@ -325,7 +325,10 @@ test('ノートが 1 件でもあれば、ゴミが混ざっていても取り�
 })
 
 // 0 件のときの書き出しがこの形 (export.json だけ)。中身が空なのと
-// 選び間違えたのとは別の話なので、断らない
+// 選び間違えたのとは別の話なので、断らない。
+//
+// 名乗りが旧名 (qr-search-export) なのはわざと — 取り込みは format を見ないので、
+// 改名前に書き出した ZIP も同じように通ることをここで押さえておく
 test('export.json だけの ZIP は空の取り込みとして通す', async () => {
   const report = await importZip(
     zip({ 'export.json': strToU8('{"format":"qr-search-export"}') }),

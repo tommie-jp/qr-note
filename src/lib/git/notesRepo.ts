@@ -12,8 +12,8 @@ import { isValidCommitOid, noteFilePath } from './notePath'
 // リポジトリはインスタンス全体で 1 つ・非 bare。ノートは notes/<itemNo>.md。
 // author を固定するのはシングルユーザーだから (複数ユーザー化するときに
 // アプリのユーザー情報へ差し替える)。
-const GIT_AUTHOR_NAME = 'qr-search'
-const GIT_AUTHOR_EMAIL = 'qr-search@localhost'
+const GIT_AUTHOR_NAME = 'qr-note'
+const GIT_AUTHOR_EMAIL = 'qr-note@localhost'
 
 export interface NoteCommit {
   oid: string
@@ -91,15 +91,42 @@ async function openRepo(): Promise<{ git: SimpleGit; dir: string }> {
     )
     if (!hasGitDir) {
       await git.init()
-      // コンテナには git のグローバル設定がないので、identity はローカル設定で持つ
-      await git.addConfig('user.name', GIT_AUTHOR_NAME)
-      await git.addConfig('user.email', GIT_AUTHOR_EMAIL)
+    }
+
+    // コンテナには git のグローバル設定がないので、identity はローカル設定で持つ。
+    //
+    // **init のときだけでなく、食い違っていたら書き直す。** 作った時の値が
+    // リポジトリに焼き付くと、上の定数を変えても既に在るリポジトリ (= 本番) は
+    // 古い名前で署名し続け、定数が嘘になる。
+    await ensureIdentity(git)
+
+    if (!hasGitDir) {
+      // HEAD を常に在らせるための空コミット (identity が要るのでこの順)
       await git.commit('init', undefined, { '--allow-empty': null })
     }
     ensuredDirs.add(dir)
   }
 
   return { git, dir }
+}
+
+// コミットの署名に使う identity をリポジトリのローカル設定へ揃える。
+//
+// **一致していれば何も書かない。** 履歴や過去の版を読むだけの操作もこの経路を
+// 通るので、毎プロセス必ず書きに行くと、ディスクが埋まった程度のことで
+// 「読むことすらできない」に化ける。実際に書くのは作った直後と、
+// 改名で定数を変えた後の 1 回だけ。
+async function ensureIdentity(git: SimpleGit): Promise<void> {
+  const entries: [string, string][] = [
+    ['user.name', GIT_AUTHOR_NAME],
+    ['user.email', GIT_AUTHOR_EMAIL],
+  ]
+  for (const [key, want] of entries) {
+    const current = await git.getConfig(key, 'local')
+    if (current.value !== want) {
+      await git.addConfig(key, want)
+    }
+  }
 }
 
 async function headOid(git: SimpleGit): Promise<string> {

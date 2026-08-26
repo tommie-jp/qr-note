@@ -19,8 +19,12 @@
 
 import pkg from '../../../package.json'
 
-// 形式の名前。ファイル名 (export.json) は誰でも付けられるので、中身でも名乗る
-export const EXPORT_FORMAT = 'qr-search-export'
+// 形式の名前。ファイル名 (export.json) は誰でも付けられるので、中身でも名乗る。
+//
+// 旧名で書き出した ZIP は `qr-search-export` と名乗っている。**取り込み側は
+// この値を見ていない** (importZip.ts) ので、名前が変わっても昔の ZIP は
+// これまでどおり取り込める。中身の意味は変えていないので版も据え置く。
+export const EXPORT_FORMAT = 'qr-note-export'
 
 // 形式の版。**中身の意味を変えたときだけ上げる** (項目を足すだけなら据え置き。
 // 読む側は知らない項目を無視すればよい)

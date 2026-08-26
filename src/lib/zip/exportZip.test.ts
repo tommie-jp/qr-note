@@ -64,7 +64,7 @@ test('先頭に export.json を入れる', async () => {
 
   expect(entries[0].path).toBe('export.json')
   expect(JSON.parse(decode(entries[0]))).toMatchObject({
-    format: 'qr-search-export',
+    format: 'qr-note-export',
     formatVersion: 1,
     exportedAt: '2026-08-07T05:00:00.000Z',
     noteCount: 1,

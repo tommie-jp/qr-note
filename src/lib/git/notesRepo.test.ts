@@ -1,7 +1,8 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { simpleGit } from 'simple-git'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   backfillNotes,
   commitNote,
@@ -118,6 +119,42 @@ describe('notesRepo (実 git)', () => {
     expect(await noteHistory('2')).toHaveLength(1)
     // 2 回目は変化がないので何もコミットしない
     expect(await backfillNotes(notes, 'backfill')).toBeNull()
+  })
+
+  // 改名 (QR search → QR Note) で identity の定数を変えたときに効くようにする。
+  // init のときだけ書いていた頃は、作った当時の名前がローカル設定に焼き付き、
+  // 既に在るリポジトリ (= 本番) は古い名前で署名し続けた
+  test('既に在るリポジトリの author も現在の identity に揃える', async () => {
+    await commitNote('4518', 'v1', 'first')
+
+    // 改名前に作られたリポジトリを再現する
+    const git = simpleGit(dir)
+    await git.addConfig('user.name', 'qr-search')
+    await git.addConfig('user.email', 'qr-search@localhost')
+
+    // identity を書くのは 1 プロセスにつき 1 回なので、開き直しを再現する
+    vi.resetModules()
+    const { commitNote: reopened } = await import('./notesRepo')
+    await reopened('4518', 'v2', 'second')
+
+    expect((await git.raw(['log', '-1', '--format=%an <%ae>'])).trim()).toBe(
+      'qr-note <qr-note@localhost>',
+    )
+  })
+
+  // 逆に、合っているなら書きに行かない。履歴や過去の版を読むだけの操作も
+  // 同じ経路を通るので、毎プロセス必ず書くと、ディスクが埋まった程度のことで
+  // 「読むことすらできない」に化ける
+  test('identity が合っていれば読み取りで設定を書かない', async () => {
+    await commitNote('4518', 'v1', 'first')
+    const configPath = join(dir, '.git', 'config')
+    const before = (await stat(configPath)).mtimeMs
+
+    vi.resetModules()
+    const { noteHistory: reopened } = await import('./notesRepo')
+    expect(await reopened('4518')).toHaveLength(1)
+
+    expect((await stat(configPath)).mtimeMs).toBe(before)
   })
 
   test('concurrent commits are serialized (プロセス内キュー)', async () => {
