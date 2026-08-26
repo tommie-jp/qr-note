@@ -469,6 +469,10 @@ describe.skipIf(!runDbTests)(
       const getRes = await GET(req, ctx)
       expect(getRes.status).toBe(200)
       expect(getRes.headers.get('content-type')).toBe('image/png')
+      // 公開ノートに貼った画像は未ログインでも配る (docs/22 §6) ため、
+      // クローラーの手も届く。HTML の noindex は画像そのものには効かないので、
+      // 配信そのものに付ける (docs/90-クローラ対策計画.md §2)
+      expect(getRes.headers.get('x-robots-tag')).toBe('noindex')
       const bytes = Buffer.from(await getRes.arrayBuffer())
       expect(bytes.equals(PNG_BYTES)).toBe(true)
     })
@@ -608,6 +612,8 @@ describe.skipIf(!runDbTests)(
       expect(res.status).toBe(206)
       expect(res.headers.get('content-range')).toBe(`bytes 0-9/${WAV_BYTES.length}`)
       expect(res.headers.get('content-type')).toBe('audio/wav')
+      // 部分応答も基本ヘッダを継ぐこと (取りこぼすと Range を投げる相手だけ素通し)
+      expect(res.headers.get('x-robots-tag')).toBe('noindex')
       const bytes = Buffer.from(await res.arrayBuffer())
       expect(bytes.equals(WAV_BYTES.subarray(0, 10))).toBe(true)
     })
@@ -691,6 +697,9 @@ describe.skipIf(!runDbTests)(
       expect(res.headers.get('content-type')).toBe('image/webp')
       // 原寸 (image/png) ではないこと = 縮小版が返っている
       expect(res.headers.get('cache-control')).toContain('immutable')
+      // サムネは原寸と別の経路 (imageResponse) を通る。片方だけ付けても
+      // 画像検索に載るのはサムネのほうなので、両方で確かめる
+      expect(res.headers.get('x-robots-tag')).toBe('noindex')
     })
 
     test('?thumb=1 が無ければ今までどおり原寸を配る', async () => {

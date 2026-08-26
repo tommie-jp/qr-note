@@ -135,6 +135,19 @@ export async function GET(
   )
 }
 
+// 画像・音声・PDF をクローラーのインデックスから外す
+// (docs/90-クローラ対策計画.md §2)。
+//
+// **HTML の noindex では届かない。** /item のページ metadata は
+// `robots: { index: false }` を出しているが、あれはその HTML の話で、
+// 画像そのものは別の URL として取得される。バイト列に meta タグは書けないので、
+// 画像に「載せるな」を伝える口はレスポンスヘッダしかない。
+//
+// 公開ノートに貼った添付は未ログインでも配る (docs/22-ノート公開計画.md §6)
+// = クローラーの手が届く、というのがここの前提。ログイン中の配信にも付くが、
+// クローラーはログインしないので害はない。
+const NOINDEX = 'noindex'
+
 function imageResponse(
   data: Uint8Array,
   contentType: string,
@@ -146,6 +159,7 @@ function imageResponse(
       'Cache-Control': cacheControl,
       // ユーザー由来のバイト列を配信するため MIME スニッフィングを禁止
       'X-Content-Type-Options': 'nosniff',
+      'X-Robots-Tag': NOINDEX,
     },
   })
 }
@@ -164,6 +178,7 @@ function dataResponse(
     'Content-Type': contentType,
     'Cache-Control': cacheControl,
     'X-Content-Type-Options': 'nosniff',
+    'X-Robots-Tag': NOINDEX,
     // Range を解さないクライアントにも「部分取得できる」と知らせる
     'Accept-Ranges': 'bytes',
   }
