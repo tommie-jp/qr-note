@@ -21,9 +21,13 @@ export function siteTitle(): string {
 
 const DEFAULT_QR_BASE_URL = "https://qr.tommie.jp";
 
-// QR シールに焼く URL の起点。印刷 (/print) が埋め込む先であり、
+// このサイトの URL の起点。印刷 (/print) が QR シールに焼く先であり、
 // スキャン (ScannerModal) が「これは部品シールだ」と判定する相手でもあるので、
 // 両者がずれないようここを唯一の出どころにする。
+//
+// OGP の metadataBase も同じ値を使う (docs/89-OGP計画.md §3)。og:image を
+// 絶対 URL に組み立てる起点で、「このサイトはどの URL で見えているか」を
+// 答える点で QR シールと同じ問いなので、別の env を増やさない。
 //
 // サーバ専用。process.env は NEXT_PUBLIC_ 以外クライアントへ渡らないため、
 // 必要な値はサーバコンポーネントから props で降ろす。
@@ -34,20 +38,29 @@ export function qrBaseUrl(): string {
   return process.env.QR_BASE_URL || DEFAULT_QR_BASE_URL;
 }
 
-// シールに焼かれた URL のホスト。スキャンの判定に使う (docs/09-スキャン計画.md §3)。
+// 起点を URL として解釈したもの。OGP の metadataBase (layout.tsx) と、
+// 下の qrStickerHost() が使う。
 //
-// 設定ミスで検索まで巻き込まないよう、ここでは投げない。QR_BASE_URL が
-// URL として壊れていても (scheme 忘れなど)、トップページは検索のための
-// ページであって印刷設定とは関係がなく、道連れに 500 にする理由がない。
-// 既定へ倒したうえでサーバログに警告を残す。
-export function qrStickerHost(): string {
+// **設定ミスで投げないのが要点。** QR_BASE_URL が URL として壊れていても
+// (scheme 忘れなど) 既定へ倒し、サーバログに警告を残すだけにする。
+// 理由は 2 つとも「印刷設定の不備を他所の道連れにしない」:
+//   - トップページは検索のためのページであって印刷設定とは関係がない
+//   - metadataBase は **root layout の generateMetadata** が読む。ここで
+//     投げると全ページが 500 になり、直しに行くための**ログイン画面すら
+//     開けなくなる**
+export function siteBaseUrl(): URL {
   try {
-    return new URL(qrBaseUrl()).hostname;
+    return new URL(qrBaseUrl());
   } catch {
     console.warn(
       `QR_BASE_URL が URL として不正なため既定 (${DEFAULT_QR_BASE_URL}) を使う: ` +
         `${JSON.stringify(process.env.QR_BASE_URL)}`,
     );
-    return new URL(DEFAULT_QR_BASE_URL).hostname;
+    return new URL(DEFAULT_QR_BASE_URL);
   }
+}
+
+// シールに焼かれた URL のホスト。スキャンの判定に使う (docs/09-スキャン計画.md §3)
+export function qrStickerHost(): string {
+  return siteBaseUrl().hostname;
 }

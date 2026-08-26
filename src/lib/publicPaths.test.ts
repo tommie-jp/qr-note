@@ -57,6 +57,13 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/robots.txt')).toBe(true)
   })
 
+  // SNS のカード画像 (docs/89-OGP計画.md §4)。閉じるとメタタグだけ出て
+  // 画像の取得が案内 HTML になり、**カードが黙って画像なしで出る**。
+  // 実際の URL には ?<contenthash> が付くが、判定は pathname だけを見る
+  test('/opengraph-image.png is public (card crawlers fetch it without auth)', () => {
+    expect(isPublicPath('/opengraph-image.png')).toBe(true)
+  })
+
   // ここから下が本題。ノートの中身が出る画面は閉じる
   test.each([
     '/',
@@ -77,6 +84,7 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/login-secrets')).toBe(false)
     expect(isPublicPath('/icon.svg.php')).toBe(false)
     expect(isPublicPath('/item/icon.svg')).toBe(false)
+    expect(isPublicPath('/opengraph-image.png.bak')).toBe(false)
   })
 })
 

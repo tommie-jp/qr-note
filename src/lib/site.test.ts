@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { qrBaseUrl, qrStickerHost, siteTitle } from './site'
+import { qrBaseUrl, qrStickerHost, siteBaseUrl, siteTitle } from './site'
 
 const original = process.env.QR_BASE_URL
 const originalAppEnv = process.env.APP_ENV
@@ -70,4 +70,20 @@ test('URL として壊れていても投げず、既定へ倒して警告する'
   process.env.QR_BASE_URL = 'qr.tommie.jp'
   expect(qrStickerHost()).toBe('qr.tommie.jp')
   expect(warn).toHaveBeenCalledOnce()
+})
+
+// OGP の metadataBase が読む口 (docs/89-OGP計画.md §3)
+test('siteBaseUrl は QR_BASE_URL を URL として返す', () => {
+  process.env.QR_BASE_URL = 'https://parts.example.com'
+  expect(siteBaseUrl().href).toBe('https://parts.example.com/')
+})
+
+// **ここが投げると root layout の generateMetadata ごと落ちる** =
+// ログイン画面を含む全ページが 500 になる。qrStickerHost と同じ扱いで守る
+test('siteBaseUrl は URL として壊れていても投げず、既定へ倒す', () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  process.env.QR_BASE_URL = 'qr.tommie.jp' // scheme 忘れ
+  expect(() => siteBaseUrl()).not.toThrow()
+  expect(siteBaseUrl().href).toBe('https://qr.tommie.jp/')
+  expect(warn).toHaveBeenCalled()
 })

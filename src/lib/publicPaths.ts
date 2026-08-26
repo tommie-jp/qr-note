@@ -56,7 +56,14 @@ const DOCS_PATHS = new Set(['/docs/search', '/docs/memo'])
 // 秘密を含まず、むしろ「デモは disallow」を伝えるために**必ず届く**必要がある。
 // ゲートすると app/robots.ts の内容ではなくログイン画面 (200) が返り、
 // クローラには「robots 指示が無い = 全許可」に見えてしまい disallow が効かない。
-const CRAWLER_PATHS = new Set(['/robots.txt'])
+//
+// SNS のカード画像も同じ理由で開ける (docs/89-OGP計画.md §4)。1200x630 の絵
+// 1 枚で、サイト名とアイコンしか描かれていないので秘密を含まない。
+// **閉じると症状が分かりにくい**: メタタグは出るのに画像の取得だけ案内 HTML に
+// 化けるので、カードは「出るが画像が無い」形になり、原因が見えない。
+// 配信 URL には Next が ?<contenthash> を付けるが、ここの判定は pathname だけを
+// 見る (proxy.ts が request.nextUrl.pathname を渡す) ので完全一致でよい。
+const CRAWLER_PATHS = new Set(['/robots.txt', '/opengraph-image.png'])
 
 // ログインの入口そのもの。閉じるとログインできない。
 //
