@@ -6,7 +6,8 @@
 //
 //   node scripts/genIcons.mjs
 //
-// 絵柄は QR のファインダパターン 3 個 + 虫めがねで「QR search」を表す。
+// 絵柄は QR のファインダパターン 3 個 + 虫めがね。虫めがねは旧名「QR search」の
+// 名残だが、貼った QR から探して開くという中身は変わっていないので意匠は据え置く。
 // 元絵を SVG でここに直書きしているのは、512px の PNG を唯一の原本にすると
 // 修正のたびに手作業のトレースが要るため (PNG は原本ではなく生成物)。
 import { writeFile } from 'node:fs/promises'
