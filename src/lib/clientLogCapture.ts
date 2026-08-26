@@ -56,10 +56,10 @@ interface CaptureState {
 
 // globalThis に持つ (logBuffer.ts と同じ理由)。dev の HMR や
 // React StrictMode の二重実行でも、包みは 1 重のまま
-const globalForCapture = globalThis as unknown as { qrSearchClientLog?: CaptureState }
+const globalForCapture = globalThis as unknown as { qrNoteClientLog?: CaptureState }
 
 function current(): CaptureState | undefined {
-  return globalForCapture.qrSearchClientLog
+  return globalForCapture.qrNoteClientLog
 }
 
 function record(level: LogLevel, text: string): void {
@@ -131,7 +131,7 @@ export function installClientLogCapture(options: ClientLogCaptureOptions): void 
     send: options.send,
     listeners: [],
   }
-  globalForCapture.qrSearchClientLog = state
+  globalForCapture.qrNoteClientLog = state
 
   scope.console.warn = (...args: unknown[]) => {
     record('warn', args.map(formatLogArg).join(' '))
@@ -169,7 +169,7 @@ export function uninstallClientLogCapture(): void {
   if (s.timer !== null) {
     clearInterval(s.timer)
   }
-  globalForCapture.qrSearchClientLog = undefined
+  globalForCapture.qrNoteClientLog = undefined
 }
 
 // 送信待ち (テスト用)

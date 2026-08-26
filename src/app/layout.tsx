@@ -120,7 +120,7 @@ export function generateViewport(): Viewport {
   };
 }
 
-const GITHUB_URL = "https://github.com/tommie-jp/qr-search";
+const GITHUB_URL = "https://github.com/tommie-jp/qr-note";
 
 export default async function RootLayout({
   children,

@@ -33,12 +33,12 @@ interface ProgressGlobal {
 }
 
 const globalForProgress = globalThis as unknown as {
-  qrSearchImportProgress?: ProgressGlobal
+  qrNoteImportProgress?: ProgressGlobal
 }
 
 function state(): ProgressGlobal {
-  globalForProgress.qrSearchImportProgress ??= { current: null, nextToken: 1 }
-  return globalForProgress.qrSearchImportProgress
+  globalForProgress.qrNoteImportProgress ??= { current: null, nextToken: 1 }
+  return globalForProgress.qrNoteImportProgress
 }
 
 // 取り込みが既に走っているときに投げる。route が 409 に写す

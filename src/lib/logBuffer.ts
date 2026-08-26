@@ -27,11 +27,11 @@ interface LogGlobal {
   original: { warn: typeof console.warn; error: typeof console.error } | null
 }
 
-const globalForLog = globalThis as unknown as { qrSearchLog?: LogGlobal }
+const globalForLog = globalThis as unknown as { qrNoteLog?: LogGlobal }
 
 function state(): LogGlobal {
-  globalForLog.qrSearchLog ??= { server: [], browser: [], original: null }
-  return globalForLog.qrSearchLog
+  globalForLog.qrNoteLog ??= { server: [], browser: [], original: null }
+  return globalForLog.qrNoteLog
 }
 
 // 末尾に足し、溢れたぶんを古い順に捨てる
