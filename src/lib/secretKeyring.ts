@@ -23,6 +23,9 @@ import {
 
 // 認証器へ渡す PRF の salt。**変えてはいけない** — 変えると PRF 出力が変わり、
 // 保存済みのラップが開けなくなる (復旧キーからやり直しになる)。
+//
+// 下の 3 つに残る `qr-search` は表示名ではなく**暗号の定数**。アプリ名を
+// QR Note へ改めた後もこの綴りで据え置く (改名の一括置換に巻き込まない)。
 export const PRF_SALT = ownedBytes(new TextEncoder().encode('qr-search-secret-v1'))
 
 // HKDF の info。salt と同じく固定値

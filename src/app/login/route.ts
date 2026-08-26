@@ -36,6 +36,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       status: 401,
       headers: {
         // charset="UTF-8" … ユーザー名に非 ASCII を使えるようにする (RFC 7617)
+        //
+        // realm が旧名のままなのはわざと。ブラウザはこの文字列を保存済み資格情報の
+        // 鍵 (protection space) にしているので、変えると全端末で入れ直しになる。
+        // 今のブラウザは realm をダイアログに出さないため、変える利点の方が無い
         'WWW-Authenticate': 'Basic realm="qr-search", charset="UTF-8"',
         'Content-Type': 'text/html; charset=utf-8',
         // 401 も含めて誰にも持たせない。前に nginx が居るため明示する
