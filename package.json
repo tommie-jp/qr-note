@@ -1,6 +1,6 @@
 {
   "name": "ver2",
-  "version": "0.22.93",
+  "version": "0.22.94",
   "private": true,
   "scripts": {
     "dev": "npm run copy:assets && next dev",
