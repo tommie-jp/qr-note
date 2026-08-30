@@ -13,6 +13,25 @@ export const CIRCUITIKZ_LANG = 'circuitikz'
 // (TeX を直に書きたい図があり、既存ノートは全部そちらで書かれている)
 export const CIRCUIT_LANG = 'circuit'
 
+// 回路図になるフェンスの一覧と、描画結果を引くときの鍵。
+// **葉モジュールに置く** — 閲覧 (MarkdownView) とエディタの両方が鍵を作るので、
+// remark を抱えた circuitFences に置くと client のバンドルへ引きずり込む
+export const CIRCUIT_LANGS = [CIRCUITIKZ_LANG, CIRCUIT_LANG] as const
+export type CircuitLang = (typeof CIRCUIT_LANGS)[number]
+
+// unknown を受けるのは、API の本文など**外から来た値**をそのまま渡せるように
+// するため。呼び分けの前に形を確かめる場所を 1 つにしておく
+export function isCircuitLang(lang: unknown): lang is CircuitLang {
+  return CIRCUIT_LANGS.some((candidate) => candidate === lang)
+}
+
+// 描画結果を引く鍵。**言語を混ぜる**のが要点 — 同じ文字列が 2 つの言語で
+// 書かれても別の図なので、本文だけを鍵にすると片方の図がもう片方の場所に出る。
+// DB のキャッシュキー (circuitHash) とは別物で、あちらは版を混ぜる
+export function circuitKey(lang: CircuitLang, source: string): string {
+  return `${lang}\n${source}`
+}
+
 export const MERMAID_LANG = 'mermaid'
 
 // 押して解ける問題カードとして描画するフェンス言語

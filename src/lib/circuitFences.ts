@@ -2,29 +2,26 @@ import type { Code, Root } from 'mdast'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
-import { CIRCUITIKZ_LANG, CIRCUIT_LANG } from './fenceLanguages'
+import {
+  CIRCUITIKZ_LANG,
+  CIRCUIT_LANG,
+  CIRCUIT_LANGS,
+  type CircuitLang,
+  circuitKey,
+  isCircuitLang,
+} from './fenceLanguages'
 
-// memo 本文で回路図を書くときのフェンス言語 (定義は fenceLanguages に集約)
-export { CIRCUITIKZ_LANG, CIRCUIT_LANG }
+// 回路フェンスまわりの定義は fenceLanguages に集約 (client も読む葉モジュール)。
+// 本文の解析が要る呼び出し側は、remark を抱えたこちらから一式を受け取れる
+export { CIRCUITIKZ_LANG, CIRCUIT_LANG, CIRCUIT_LANGS, circuitKey, isCircuitLang }
+export type { CircuitLang }
 
-// 回路図になるフェンスは 2 つある (docs/91)。素の TeX を書く circuitikz と、
-// YAML を書く circuit。**描画の道筋が違う** (YAML は先に compileCircuit を
-// 通す) ので、取り出したものには必ず言語が付いて回る
-export const CIRCUIT_LANGS = [CIRCUITIKZ_LANG, CIRCUIT_LANG] as const
-export type CircuitLang = (typeof CIRCUIT_LANGS)[number]
-
-// 取り出した 1 つのフェンス。source は trim 済み
+// 取り出した 1 つのフェンス。source は trim 済み。
+// **描画の道筋が言語で違う** (YAML は先に compileCircuit を通す) ので、
+// 取り出したものには必ず言語が付いて回る
 export interface CircuitFence {
   readonly lang: CircuitLang
   readonly source: string
-}
-
-// 描画結果を引くときの鍵。**言語を混ぜる**のが要点 — 同じ文字列が
-// 2 つの言語で書かれても別の図なので、本文だけを鍵にすると片方の図が
-// もう片方の場所に出る。DB のキャッシュキー (circuitHash) とは別物で、
-// あちらは版を混ぜる
-export function circuitKey(lang: CircuitLang, source: string): string {
-  return `${lang}\n${source}`
 }
 
 // 本文から回路フェンスの中身を重複なしで取り出す。
@@ -45,10 +42,10 @@ export function extractCircuitFences(
   const seen = new Set<string>()
 
   visit(tree, 'code', (node: Code) => {
-    const nodeLang = CIRCUIT_LANGS.find((candidate) => candidate === node.lang)
-    if (nodeLang === undefined || (lang !== undefined && nodeLang !== lang)) {
+    if (!isCircuitLang(node.lang) || (lang !== undefined && node.lang !== lang)) {
       return
     }
+    const nodeLang = node.lang
     const source = node.value.trim()
     const key = circuitKey(nodeLang, source)
     if (source && !seen.has(key)) {

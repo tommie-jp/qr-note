@@ -26,7 +26,11 @@ import {
   WidgetType,
   type DecorationSet,
 } from "@codemirror/view";
-import { CIRCUITIKZ_LANG, MERMAID_LANG } from "@/lib/fenceLanguages";
+import {
+  type CircuitLang,
+  MERMAID_LANG,
+  isCircuitLang,
+} from "@/lib/fenceLanguages";
 import { fetchCircuitSvg } from "@/lib/circuitFetch";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
 
@@ -54,7 +58,10 @@ function rememberSvg(code: string, svg: string): void {
 // widget ごとに違う DOM id を振るための連番 (mermaid が id を要求する)
 let renderSeq = 0;
 
-export type FenceKind = "mermaid" | "circuit";
+// 描ける種類。回路は 2 つの言語がそのまま種類になる (docs/91) —
+// 描き方 (サーバに頼む) は同じでも、**どちらの言語として描くかを
+// サーバへ伝える**必要があり、控えの鍵も分けないと取り違える
+export type FenceKind = "mermaid" | CircuitLang;
 
 class FenceWidget extends WidgetType {
   // 描き終わる前に畳みが解かれたら、後から届く SVG を捨てるための印
@@ -115,7 +122,7 @@ class FenceWidget extends WidgetType {
     const outcome =
       this.kind === "mermaid"
         ? await this.drawMermaid()
-        : await this.drawCircuit();
+        : await this.drawCircuit(this.kind);
 
     if (!this.live) {
       return; // 描いている間に畳みが解かれた
@@ -147,8 +154,10 @@ class FenceWidget extends WidgetType {
 
   // SVG はサーバが描いて検査済み (assertSafeCircuitSvg)。閲覧の
   // CircuitDiagram と同じものが同じ経路で届く
-  private async drawCircuit(): Promise<{ svg: string } | { error: string }> {
-    return fetchCircuitSvg(this.code);
+  private async drawCircuit(
+    lang: CircuitLang,
+  ): Promise<{ svg: string } | { error: string }> {
+    return fetchCircuitSvg(this.code, lang);
   }
 
   destroy(): void {
@@ -204,7 +213,7 @@ export function drawableFence(
   const opening = /^\s*(?:`{3,}|~{3,})\s*([^\s`]*)/.exec(lines[0]);
   const lang = opening?.[1].toLowerCase();
   const kind: FenceKind | null =
-    lang === MERMAID_LANG ? "mermaid" : lang === CIRCUITIKZ_LANG ? "circuit" : null;
+    lang === MERMAID_LANG ? "mermaid" : isCircuitLang(lang) ? lang : null;
   if (kind === null) {
     return null;
   }

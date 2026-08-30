@@ -34,8 +34,17 @@ describe("drawableFence", () => {
 
   test("circuitikz も対象 (描くのはサーバ)", () => {
     expect(drawableFence("```circuitikz\n\\draw;\n```")).toEqual({
-      kind: "circuit",
+      kind: "circuitikz",
       code: "\\draw;",
+    });
+  });
+
+  // 回路フェンスは 2 つ (docs/91)。種類が言語名そのものなので、
+  // 控えの鍵 (kind:code) も自然に分かれる
+  test("circuit (YAML) も対象", () => {
+    expect(drawableFence("```circuit\nparts:\n  R1: resistor a1 a3\n```")).toEqual({
+      kind: "circuit",
+      code: "parts:\n  R1: resistor a1 a3",
     });
   });
 

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 import { MarkdownView } from "./MarkdownView";
+import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from "@/lib/fenceLanguages";
 import { extractHealthSources } from "@/lib/healthFences";
 import { buildHealthSeries } from "@/lib/healthSeries";
 
@@ -35,7 +36,7 @@ test("circuitikz フェンスは描画済み SVG に差し替える", () => {
   const html = renderToStaticMarkup(
     <MarkdownView
       markdown={"```circuitikz\n" + code + "\n```"}
-      circuits={new Map([[code, { svg: "<svg><path d='M0 0'/></svg>" }]])}
+      circuits={new Map([[circuitKey(CIRCUITIKZ_LANG, code), { svg: "<svg><path d='M0 0'/></svg>" }]])}
     />,
   );
   expect(html).toContain("circuit-diagram");
@@ -50,7 +51,10 @@ test("circuitikz の描画エラーは TeX ログとソースを添えて赤枠�
       markdown={"```circuitikz\n" + code + "\n```"}
       circuits={
         new Map([
-          [code, { error: "回路図を描画できませんでした", texLog: "! Package pgfkeys Error" }],
+          [
+            circuitKey(CIRCUITIKZ_LANG, code),
+            { error: "回路図を描画できませんでした", texLog: "! Package pgfkeys Error" },
+          ],
         ])
       }
     />,
@@ -473,7 +477,7 @@ test("描画済みの回路図にはコピーボタンを出さない", () => {
   const html = renderToStaticMarkup(
     <MarkdownView
       markdown={"```circuitikz\n" + code + "\n```"}
-      circuits={new Map([[code, { svg: "<svg></svg>" }]])}
+      circuits={new Map([[circuitKey(CIRCUITIKZ_LANG, code), { svg: "<svg></svg>" }]])}
     />,
   );
   expect(html).not.toContain(COPY_LABEL);
@@ -722,4 +726,60 @@ test("表の中の `||` は記法にしない (空セルのまま)", () => {
   const html = render("| a || b |\n| --- | --- | --- |\n| 1 | 2 | 3 |");
   expect(html).toContain("<table>");
   expect(html).not.toContain("▶");
+});
+
+// 回路フェンスは 2 つ (docs/91)。YAML 側も同じ仕組みで図に差し替わる
+test("circuit フェンス (YAML) も描画済み SVG に差し替える", () => {
+  const code = "parts:\n  R1: resistor a1 a3 10k";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={"```circuit\n" + code + "\n```"}
+      circuits={
+        new Map([[circuitKey(CIRCUIT_LANG, code), { svg: "<svg><path d='M0 0'/></svg>" }]])
+      }
+    />,
+  );
+  expect(html).toContain("circuit-diagram");
+  expect(html).toContain("<path");
+  expect(html).not.toContain("<code");
+});
+
+// 鍵に言語が入っていないと、片方の図がもう片方の場所に出る
+test("同じ本文でも言語が違えば図を取り違えない", () => {
+  const code = "A";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={"```circuit\n" + code + "\n```"}
+      circuits={
+        // 用意してあるのは circuitikz の図だけ。YAML の場所には出さない
+        new Map([[circuitKey(CIRCUITIKZ_LANG, code), { svg: "<svg><path d='M0 0'/></svg>" }]])
+      }
+    />,
+  );
+  expect(html).not.toContain("circuit-diagram");
+  expect(html).toContain("<code");
+});
+
+// お知らせは図が描けたときにこそ要る (見えている絵と繋がりが違う、を伝える)
+test("お知らせは図と一緒に行番号つきで出す", () => {
+  const code = "parts:\n  R1: resistor a1 a3 10k";
+  const html = renderToStaticMarkup(
+    <MarkdownView
+      markdown={"```circuit\n" + code + "\n```"}
+      circuits={
+        new Map([
+          [
+            circuitKey(CIRCUIT_LANG, code),
+            {
+              svg: "<svg></svg>",
+              notices: [{ line: 4, message: "grid-to はグリッドを出していないので効きません" }],
+            },
+          ],
+        ])
+      }
+    />,
+  );
+  expect(html).toContain("circuit-diagram");
+  expect(html).toContain("4 行目");
+  expect(html).toContain("grid-to");
 });

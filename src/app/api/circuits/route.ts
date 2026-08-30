@@ -2,6 +2,8 @@ import type { NextResponse } from 'next/server'
 import { apiFail, apiOk, readJsonObject } from '@/lib/authApi'
 import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { getOrRenderCircuit } from '@/lib/circuitCache'
+import { renderCircuitYaml } from '@/lib/circuitYaml'
+import { CIRCUIT_LANG, isCircuitLang } from '@/lib/fenceLanguages'
 import { CircuitRenderError } from '@/lib/circuitikz'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 
@@ -31,7 +33,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return denied
   }
 
-  const source = (await readJsonObject(request))?.source
+  const body = await readJsonObject(request)
+  const source = body?.source
   if (typeof source !== 'string' || source.trim() === '') {
     return apiFail('回路図のソースがありません', 400)
   }
@@ -39,6 +42,19 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 受けると 1 要求で時間を使い切れてしまう。本文側と同じ上限に合わせる
   if (source.length > MAX_CIRCUIT_SOURCE_CHARS) {
     return apiFail('回路図のソースが長すぎます', 413)
+  }
+
+  // どちらの回路フェンスか。**省略は circuitikz** — この口は元々そちら専用で、
+  // 言語を送らない古い画面が残っていても今までどおり描ける
+  const lang = body?.lang
+  if (lang !== undefined && !isCircuitLang(lang)) {
+    return apiFail('知らないフェンス言語です', 400)
+  }
+
+  // YAML 側は投げない造り (読めない行も結果に畳んで返す) なので、
+  // そのまま writeResult へ流す
+  if (lang === CIRCUIT_LANG) {
+    return apiOk({ ...(await renderCircuitYaml(source.trim())) })
   }
 
   try {

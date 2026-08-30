@@ -32,11 +32,12 @@ import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
 import {
-  CIRCUITIKZ_LANG,
   HEALTH_LANG,
   MATRIX_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
+  circuitKey,
+  isCircuitLang,
 } from "@/lib/fenceLanguages";
 import type { PendingCircuitMap } from "@/lib/circuitCache";
 import type { HealthMap } from "@/lib/healthData";
@@ -147,9 +148,13 @@ function preOrDiagram(
     }
 
     // 描画済みの結果が無いフェンス (circuits を渡していないページ) は
-    // コードブロックのまま表示する
-    if (fence.lang === CIRCUITIKZ_LANG) {
-      const circuit = circuits.get(fence.code);
+    // コードブロックのまま表示する。
+    //
+    // 回路フェンスは 2 つ (素の TeX / YAML)。**引く鍵に言語を混ぜる** —
+    // 同じ本文が両方で書かれても別の図なので、本文だけで引くと
+    // 片方の図がもう片方の場所に出る (docs/91)
+    if (isCircuitLang(fence.lang)) {
+      const circuit = circuits.get(circuitKey(fence.lang, fence.code));
       if (circuit) {
         return <CircuitDiagram result={circuit} code={fence.code} />;
       }

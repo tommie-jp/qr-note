@@ -1,7 +1,11 @@
 "use client";
 
 import { Suspense, use } from "react";
-import type { CircuitResult, PendingCircuit } from "@/lib/circuitCache";
+import type {
+  CircuitNotice,
+  CircuitResult,
+  PendingCircuit,
+} from "@/lib/circuitCache";
 import { ERROR_SOURCE_CLASS } from "./ui";
 
 interface CircuitDiagramProps {
@@ -67,15 +71,46 @@ function SettledCircuit({ result, code }: CircuitDiagramProps) {
           </pre>
         )}
         <pre className={ERROR_SOURCE_CLASS}>{code}</pre>
+        <CircuitNotices notices={settled.notices} />
       </div>
     );
   }
 
   // TeX が生成し sanitizeCircuitSvg を通した SVG を埋め込む
   return (
-    <div
-      className="circuit-diagram"
-      dangerouslySetInnerHTML={{ __html: settled.svg }}
-    />
+    <>
+      <div
+        className="circuit-diagram"
+        dangerouslySetInnerHTML={{ __html: settled.svg }}
+      />
+      <CircuitNotices notices={settled.notices} />
+    </>
+  );
+}
+
+// お知らせ (docs/91)。**読めなかったのではなく、図は描けたが思ったとおりには
+// 出ていない**もの。書いた人にしか直せないので、エラーより弱い見た目にする。
+//
+// 読み手にも出すのは、伏せる手段が書き手の側にあるから
+// (`style: debug: off` を書いた図では notices が空で届く)。画面ごとに
+// 出し分けると、書き手が「off にしたのに閲覧では出る」を追えなくなる
+function CircuitNotices({
+  notices,
+}: {
+  notices: readonly CircuitNotice[] | undefined;
+}) {
+  if (notices === undefined || notices.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul className="circuit-notices mt-1 list-none text-sm text-amber-800">
+      {notices.map((notice, i) => (
+        <li key={i}>
+          {notice.line === null ? "" : `${notice.line} 行目: `}
+          {notice.message}
+        </li>
+      ))}
+    </ul>
   );
 }
