@@ -111,11 +111,35 @@ describe('parseSyncPayload', () => {
 // **無くても本文は読める** (コードブロックとして出る) ので、読めない形は
 // 落とすだけで同期そのものは成功させる。
 describe('parseSyncPayload の回路図', () => {
-  const circuit = { source: '\\draw (0,0) to[R] (2,0);', svg: '<svg></svg>' }
+  const circuit = {
+    source: '\\draw (0,0) to[R] (2,0);',
+    lang: 'circuitikz' as const,
+    svg: '<svg></svg>',
+  }
 
   test('回路図をそのまま読み取る', () => {
     const parsed = parseSyncPayload({ ...payload([]), circuits: [circuit] })
     expect(parsed?.circuits).toEqual([circuit])
+  })
+
+  // 言語を持たない保存は circuitikz しか無かった頃のもの (docs/91)。
+  // 図は既に描けているので、言語が欠けただけで持ち出しを捨てない
+  test('言語の無い古い保存は circuitikz とみなす', () => {
+    const old = { source: '\\draw (0,0);', svg: '<svg></svg>' }
+
+    const parsed = parseSyncPayload({ ...payload([]), circuits: [old] })
+
+    expect(parsed?.circuits).toEqual([{ ...old, lang: 'circuitikz' }])
+  })
+
+  test('知らない綴りの言語も circuitikz へ倒す', () => {
+    const odd = { source: '\\draw (0,0);', lang: 'circuitish', svg: '<svg></svg>' }
+
+    const parsed = parseSyncPayload({ ...payload([]), circuits: [odd] })
+
+    expect(parsed?.circuits).toEqual([
+      { source: odd.source, lang: 'circuitikz', svg: odd.svg },
+    ])
   })
 
   test('回路図が無い応答は空配列になる (古い版のサーバ・保存)', () => {

@@ -13,6 +13,11 @@
 // 開いたときに描画側が落ちる — 圏外で初めて気づく壊れ方になる。
 
 import { parseMode, type Mode } from '@/lib/validation'
+import {
+  CIRCUITIKZ_LANG,
+  type CircuitLang,
+  isCircuitLang,
+} from '@/lib/fenceLanguages'
 
 // 同期の口。クライアントとテストが同じ定数を見る
 export const SYNC_ITEMS_PATH = '/api/sync/items'
@@ -45,8 +50,11 @@ export interface OfflineItem {
 // RENDERER_VERSION の混ぜ方まで二重に持つことになる。MarkdownView が引くのは
 // フェンスの中身 (trim 済み) なので、そのまま鍵にすれば写す規則がゼロで済む。
 export interface OfflineCircuit {
-  // ```circuitikz フェンスの中身 (trim 済み)
+  // 回路フェンスの中身 (trim 済み)
   source: string
+  // どちらの回路フェンスか (docs/91)。**古い保存には無い** — その頃は
+  // circuitikz しか無かったので、欠けていたら circuitikz とみなす
+  lang: CircuitLang
   // 描画済みの SVG。サーバ側で assertSafeCircuitSvg を通ったものだけを運ぶ
   svg: string
 }
@@ -151,7 +159,13 @@ function parseOfflineCircuit(value: unknown): OfflineCircuit | null {
   if (!isNonEmptyString(row.source) || !isNonEmptyString(row.svg)) {
     return null
   }
-  return { source: row.source, svg: row.svg }
+  return {
+    source: row.source,
+    // 知らない綴りも circuitikz へ倒す。図は既に描けているので、
+    // 言語を読み損ねただけで持ち出しを捨てる理由がない
+    lang: isCircuitLang(row.lang) ? row.lang : CIRCUITIKZ_LANG,
+    svg: row.svg,
+  }
 }
 
 // 同期 API の data 部を読み取る。封筒が壊れていれば null (同期を失敗にする)。

@@ -11,7 +11,13 @@
 import { prisma } from './db'
 import { MAX_CIRCUITS_PER_MEMO } from './circuitCache'
 import { assertSafeCircuitSvg, circuitHash } from './circuitikz'
-import { CIRCUITIKZ_LANG, extractCircuitSources } from './circuitFences'
+import {
+  CIRCUITIKZ_LANG,
+  type CircuitFence,
+  extractCircuitFences,
+  hasNoCircuitFence,
+} from './circuitFences'
+import { circuitYamlHash } from './circuitYaml'
 import { firstThumbInfo } from './memoImages'
 
 // itemNo → インライン SVG (本文の出現順)。小/大は先頭 1 枚、画像モードは全部。
@@ -39,6 +45,14 @@ export const CIRCUIT_THUMB_BUDGET = 256 * 1024
 // 一覧に必要な列だけに絞る (Item を丸ごと要求しない)。テストも軽くなる
 type ThumbSource = { itemNo: string; memo: string; mode: string }
 
+// フェンス 1 つの DB 主キー。**言語ごとに版の混ぜ方が違う** — YAML は
+// レンダラの版に circuit-fence の版も繋ぐ (docs/91 §2)。ここを取り違えると
+// 引きに行く鍵が描画側とずれ、サムネだけ永久に出ない
+const hashOfFence = (fence: CircuitFence): string =>
+  fence.lang === CIRCUITIKZ_LANG
+    ? circuitHash(fence.source)
+    : circuitYamlHash(fence.source)
+
 // ページ内アイテムの回路図サムネをまとめて引く。
 // 対象が無ければクエリ 0 回。DB エラー・検査 NG・未描画は全て
 // 「サムネなし」へ静かに畳む — 回路図はおまけで、一覧本体を道連れにしない
@@ -51,21 +65,19 @@ export async function loadCircuitThumbs(
   // first では画像サムネを持つノートも外す — 一覧の顔は画像が優先で、
   // 引いても使われない (優先順位の正本は ItemRow の thumb 分岐)
   const wants = items.flatMap((item) => {
-    if (item.mode === 'url' || !item.memo.includes(CIRCUITIKZ_LANG)) {
+    if (item.mode === 'url' || hasNoCircuitFence(item.memo)) {
       return []
     }
     if (mode === 'first' && firstThumbInfo(item.memo) !== null) {
       return []
     }
-    // 9 個目以降は描画側 (renderCircuits) が描かないので引きにも行かない
-    const sources = extractCircuitSources(item.memo).slice(
-      0,
-      MAX_CIRCUITS_PER_MEMO,
-    )
-    if (sources.length === 0) {
+    // 9 個目以降は描画側 (planCircuits) が描かないので引きにも行かない。
+    // **上限は 2 言語の合算**なので、切るのも 1 本に並べた後 (docs/91 §4)
+    const fences = extractCircuitFences(item.memo).slice(0, MAX_CIRCUITS_PER_MEMO)
+    if (fences.length === 0) {
       return []
     }
-    return [{ itemNo: item.itemNo, hashes: sources.map((s) => circuitHash(s)) }]
+    return [{ itemNo: item.itemNo, hashes: fences.map(hashOfFence) }]
   })
   if (wants.length === 0) {
     return {}

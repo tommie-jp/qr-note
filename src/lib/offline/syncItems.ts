@@ -9,7 +9,14 @@
 // 端末側は常にサーバの写しになり、消えたノートも自然に消える。
 
 import { prisma } from '@/lib/db'
-import { CIRCUITIKZ_LANG, extractCircuitSources } from '@/lib/circuitFences'
+import {
+  CIRCUITIKZ_LANG,
+  type CircuitFence,
+  circuitKey,
+  extractCircuitFences,
+  hasNoCircuitFence,
+} from '@/lib/circuitFences'
+import { circuitYamlHash } from '@/lib/circuitYaml'
 import { circuitHash } from '@/lib/circuitikz'
 import {
   OFFLINE_CIRCUIT_BUDGET,
@@ -87,30 +94,40 @@ async function loadOfflineCircuits(
   // 同じ優先度の中では引いた順 = 更新の新しい順が残る
   const ordered = [...items].sort((a, b) => Number(b.pinned) - Number(a.pinned))
 
-  const sources: string[] = []
+  const fences: CircuitFence[] = []
   const seen = new Set<string>()
   for (const item of ordered) {
     // remark の解析は全ノートに掛けると安くない。フェンス言語の文字列を
     // 含まないノートは**必ず**回路図を持たないので、そこで先に落とす
     // (``` でも ~~~ でも言語名は本文に現れる)
-    if (!item.memo.includes(CIRCUITIKZ_LANG)) {
+    if (hasNoCircuitFence(item.memo)) {
       continue
     }
-    for (const source of extractCircuitSources(item.memo)) {
-      if (!seen.has(source)) {
-        seen.add(source)
-        sources.push(source)
+    for (const fence of extractCircuitFences(item.memo)) {
+      const key = circuitKey(fence.lang, fence.source)
+      if (!seen.has(key)) {
+        seen.add(key)
+        fences.push(fence)
       }
     }
   }
-  if (sources.length === 0) {
+  if (fences.length === 0) {
     return { circuits: [], circuitsOmitted: 0 }
   }
 
   // DB の主キーは sha256 なので、引く前にフェンス → hash を作っておく
   // (1 本ずつ 2 回計算しないため。数百件で効く差ではないが、対応表が
   // 1 つあるほうが「どちらの向きで引いたか」を追わずに読める)
-  const hashOf = new Map(sources.map((source) => [source, circuitHash(source)]))
+  // **言語ごとに版の混ぜ方が違う** (docs/91 §2)。取り違えると描画側と
+  // 鍵がずれ、描いてある図をオフラインへ持ち出せない
+  const hashOf = new Map(
+    fences.map((fence) => [
+      circuitKey(fence.lang, fence.source),
+      fence.lang === CIRCUITIKZ_LANG
+        ? circuitHash(fence.source)
+        : circuitYamlHash(fence.source),
+    ]),
+  )
   // 落ちても本文の同期は続ける。図が出ないだけで、ノートは読める
   const cached = await prisma.circuitSvg
     .findMany({ where: { hash: { in: [...hashOf.values()] } }, select: { hash: true, svg: true } })
@@ -123,8 +140,8 @@ async function loadOfflineCircuits(
   const circuits: OfflineCircuit[] = []
   let budget = OFFLINE_CIRCUIT_BUDGET
   let omitted = 0
-  for (const source of sources) {
-    const svg = svgByHash.get(hashOf.get(source) ?? '')
+  for (const fence of fences) {
+    const svg = svgByHash.get(hashOf.get(circuitKey(fence.lang, fence.source)) ?? '')
     if (svg === undefined) {
       // まだ描かれていない。断らない — オンラインで開けば揃う類のもので、
       // 予算不足 (利用者にできることが無い) とは性質が違う
@@ -135,7 +152,8 @@ async function loadOfflineCircuits(
       continue
     }
     budget -= svg.length
-    circuits.push({ source, svg })
+    // 取り出す側 (item.ts) が鍵を組み立て直せるよう、言語も一緒に控える
+    circuits.push({ source: fence.source, lang: fence.lang, svg })
   }
 
   return { circuits, circuitsOmitted: omitted }

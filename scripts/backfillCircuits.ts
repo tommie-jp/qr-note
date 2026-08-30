@@ -12,8 +12,33 @@
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { getOrRenderCircuit, MAX_CIRCUITS_PER_MEMO } from '@/lib/circuitCache'
-import { CIRCUITIKZ_LANG, extractCircuitSources } from '@/lib/circuitFences'
+import {
+  CIRCUITIKZ_LANG,
+  type CircuitFence,
+  extractCircuitFences,
+  hasNoCircuitFence,
+} from '@/lib/circuitFences'
 import { circuitHash } from '@/lib/circuitikz'
+import { circuitYamlHash, renderCircuitYaml } from '@/lib/circuitYaml'
+
+// フェンス 1 つの DB 主キー。**言語ごとに版の混ぜ方が違う** (docs/91 §2)
+const hashOfFence = (fence: CircuitFence): string =>
+  fence.lang === CIRCUITIKZ_LANG
+    ? circuitHash(fence.source)
+    : circuitYamlHash(fence.source)
+
+// 1 図を描く。YAML 側は投げない造り (結果に畳んで返す) なので、
+// **ここで投げ直す** — 下の catch が数えている「失敗」に載せるため
+async function renderOne(fence: CircuitFence): Promise<void> {
+  if (fence.lang === CIRCUITIKZ_LANG) {
+    await getOrRenderCircuit(fence.source)
+    return
+  }
+  const result = await renderCircuitYaml(fence.source)
+  if ('error' in result) {
+    throw new Error(result.error)
+  }
+}
 
 async function main(): Promise<void> {
   // ゴミ箱も含めた全ノート (ゴミ箱の一覧にもサムネは出る)。
@@ -26,17 +51,15 @@ async function main(): Promise<void> {
 
   // 同じ図が複数ノートにあっても 1 回で済むよう hash で束ねる。
   // 9 個目以降のフェンスは表示側 (renderCircuits) が描かないので対象外
-  const sources = new Map<string, string>()
+  // **上限は 2 言語の合算**なので、切るのも 1 本に並べた後 (docs/91 §4)
+  const sources = new Map<string, CircuitFence>()
   for (const item of items) {
-    if (!item.memo.includes(CIRCUITIKZ_LANG)) {
+    if (hasNoCircuitFence(item.memo)) {
       continue
     }
-    const fences = extractCircuitSources(item.memo).slice(
-      0,
-      MAX_CIRCUITS_PER_MEMO,
-    )
-    for (const source of fences) {
-      sources.set(circuitHash(source), source)
+    const fences = extractCircuitFences(item.memo).slice(0, MAX_CIRCUITS_PER_MEMO)
+    for (const fence of fences) {
+      sources.set(hashOfFence(fence), fence)
     }
   }
   console.log(`全 ${items.length} ノート中、回路図は ${sources.size} 図`)
@@ -53,11 +76,11 @@ async function main(): Promise<void> {
 
   let made = 0
   let failed = 0
-  for (const source of sources.values()) {
+  for (const fence of sources.values()) {
     // どの図を描いているか判るよう 1 行目だけ添える (ソースは複数行)
-    const head = source.split('\n', 1)[0].slice(0, 60)
+    const head = `${fence.lang}: ${fence.source.split('\n', 1)[0].slice(0, 60)}`
     try {
-      await getOrRenderCircuit(source)
+      await renderOne(fence)
       made += 1
       console.log(`  描画: ${head}`)
     } catch (e) {
