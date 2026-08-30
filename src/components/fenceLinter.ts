@@ -3,8 +3,8 @@ import { linter, type Diagnostic } from "@codemirror/lint";
 import type { EditorView } from "@codemirror/view";
 import { suggestFenceLang } from "@/lib/fenceLanguages";
 
-// フェンスの言語名 (CodeInfo) を走査し、circuitikz / mermaid / quiz の
-// 打ち間違いっぽいものに「◯◯ の間違いでは?」と警告する。
+// フェンスの言語名 (CodeInfo) を走査し、図やカードになる言語 (RENDERED_LANGS)
+// の打ち間違いっぽいものに「◯◯ の間違いでは?」と警告する。
 //
 // 補完だけでは入れ替わり誤字 (mermiad など) が候補ゼロになり無反応で確定して
 // しまうため、確実に気付けるようにするのがこの linter の役目。対象を

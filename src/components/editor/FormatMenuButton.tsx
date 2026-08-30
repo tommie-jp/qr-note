@@ -54,6 +54,7 @@ const INSERT_ITEMS: readonly FormatMenuItem[] = [
   { action: "mathBlock", label: "別行の数式", sample: "$$" },
   { action: "mermaid", label: "図", sample: "mermaid" },
   { action: "circuit", label: "回路図", sample: "circuitikz" },
+  { action: "circuitYaml", label: "回路図 (YAML)", sample: "circuit" },
   { action: "quiz", label: "問題", sample: "quiz" },
 ];
 
