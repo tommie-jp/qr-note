@@ -1,6 +1,7 @@
 import type { Element } from "hast";
 import type { PluggableList } from "unified";
 import Markdown from "react-markdown";
+import rehypeSlug from "rehype-slug";
 import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
 import { remarkTagLinks } from "./remarkTagLinks";
 import { CodeBlock } from "./CodeBlock";
@@ -109,6 +110,17 @@ interface MarkdownViewProps {
   // ```health の記録欄からの保存 (docs/83 §7)。省略すると記録欄が出ない。
   // onToggleTask と同じ理由で処理そのものを受ける (どのノートかを持ち込まない)
   onRecordHealth?: RecordHealthHandler;
+  // 見出しに id を振って、目次から `#見出し` で飛べるようにするか。既定は false。
+  //
+  // **ノート本文では決して true にしない。** sanitizeSchema が
+  // `clobberPrefix: ""` を置けている根拠は「本文から任意の id は書けず、
+  // id を作るのは remark-rehype (脚注) と KaTeX だけ」という不変条件で
+  // (markdownPipeline.tsx)、見出しから id を作るとこれが崩れる。
+  // 脚注そのものは `user-content-` 付きなので当たりにくいが、脚注の塊に付く
+  // `id="footnote-label"` は前置きなしで出ており、その語を見出しに書いた
+  // ノートは aria-describedby の指し先を乗っ取れる。true にしてよいのは
+  // リポジトリ管理の md を出す画面 (記法ヘルプ) だけ
+  headingAnchors?: boolean;
   // 描いているのが本文の切れ端のとき、チェックボックスに刻む行番号へ足す数
   // (ページ 2 枚目以降。docs/74-ページ計画.md §4)。既定の 0 = 本文まるごと。
   //
@@ -320,6 +332,13 @@ function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
 const PROSE_TWEAKS =
   "[&_li.task-list-item]:list-none [&_li.task-list-item>p:first-child]:mt-0 [&_li.task-list-item>p:last-child]:mb-0 [&_.footnotes]:mt-6 [&_.footnotes]:border-t [&_.footnotes]:border-gray-300 [&_.footnotes]:pt-2";
 
+// 目次から飛んだ見出しを、ヘッダー (sticky top-0。layout.tsx) の下へ
+// 潜らせないための余白。**id を振ったときだけ足す** — 飛び先になるのは
+// id を持つ見出しだけなので、付ける条件を id と揃えておく。
+// 値は NotePager が `#p3` の送り先に使っているものと同じ (帯の高さ)
+const HEADING_ANCHOR_TWEAKS =
+  "[&_:is(h1,h2,h3,h4,h5,h6)[id]]:scroll-mt-12";
+
 // memo を Markdown としてレンダリングする Server Component。
 // 生 HTML はデフォルトで無視されるが、保険として rehype-sanitize も通す
 export function MarkdownView({
@@ -333,6 +352,7 @@ export function MarkdownView({
   blobKinds = new Map(),
   onToggleTask,
   onRecordHealth,
+  headingAnchors = false,
   lineOffset = 0,
 }: MarkdownViewProps) {
   // プラグイン列の土台は markdownPipeline.tsx (一覧のプレビューと共有)。
@@ -354,10 +374,16 @@ export function MarkdownView({
   // rehypeAnswerTts (発音ボタンが読む見出し語。docs/81) も同じ理由で後ろに置く。
   // こちらも土台 (BASE) ではなくここに足す — 一覧のプレビューは答えを ▶ の
   // 文字に潰すので、刻む先の span がそもそも無い
+  //
+  // rehypeSlug も同じ側 (サニタイズの後) に置く。前に置いても
+  // `clobberPrefix: ""` のおかげで id はそのまま通るが、それは
+  // 「本文から id は来ない」前提で外した設定に頼ることになる —
+  // 後段なら、その前提を借りずに済む
   const rehypePlugins: PluggableList = [
     ...BASE_REHYPE_PLUGINS,
     [rehypeTaskLines, lineOffset],
     rehypeAnswerTts,
+    ...(headingAnchors ? [rehypeSlug] : []),
   ];
 
   return (
@@ -365,7 +391,9 @@ export function MarkdownView({
     // (docs/61-テキストサイズ計画.md)。prose-sm の 0.875rem も rem なので
     // 一緒に伸縮する
     <div
-      className={`prose prose-sm max-w-none break-words ${PROSE_TWEAKS} ${BOX_CLASS}`}
+      className={`prose prose-sm max-w-none break-words ${PROSE_TWEAKS} ${
+        headingAnchors ? HEADING_ANCHOR_TWEAKS : ""
+      } ${BOX_CLASS}`}
     >
       <Markdown
         remarkPlugins={remarkPlugins}

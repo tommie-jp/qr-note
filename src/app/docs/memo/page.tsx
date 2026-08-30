@@ -17,6 +17,8 @@ export default async function MemoDocsPage() {
     path.join(process.cwd(), "docs", "メモ記法.md"),
     "utf-8",
   );
-  // 見出しは md 側の h1 (# メモ記法) に任せる
-  return <MarkdownView markdown={markdown} />;
+  // 見出しは md 側の h1 (# メモ記法) に任せる。
+  // headingAnchors は md 側の目次 (## 目次) から飛ぶため。
+  // ノート本文では付けない — 理由は MarkdownView の prop の注釈に書いた
+  return <MarkdownView markdown={markdown} headingAnchors />;
 }

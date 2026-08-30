@@ -783,3 +783,34 @@ test("お知らせは図と一緒に行番号つきで出す", () => {
   expect(html).toContain("4 行目");
   expect(html).toContain("grid-to");
 });
+
+// 見出しの id。目次から飛ぶための足場で、**ノート本文では付けない** —
+// sanitizeSchema が clobberPrefix を外している (docs/54 §3) 根拠が
+// 「本文から任意の id は書けない」ことなので、見出しから id を作れる画面を
+// リポジトリ管理の md (記法ヘルプ) に閉じる
+test("既定では見出しに id を付けない", () => {
+  const html = render("## 基本(Markdown)");
+  expect(html).toContain("<h2>基本(Markdown)</h2>");
+});
+
+test("headingAnchors を渡すと見出しに id を付ける", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownView markdown={"## 基本(Markdown)"} headingAnchors />,
+  );
+  expect(html).toContain('<h2 id="基本markdown">基本(Markdown)</h2>');
+});
+
+test("headingAnchors でも脚注の id は二重に前置きしない", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownView markdown={"本文[^1]\n\n[^1]: 注釈"} headingAnchors />,
+  );
+  expect(html).toContain('id="user-content-fn-1"');
+  expect(html).not.toContain("user-content-user-content-");
+});
+
+test("headingAnchors のとき見出しがヘッダーの下に潜らない余白を持つ", () => {
+  const html = renderToStaticMarkup(
+    <MarkdownView markdown={"## 見出し"} headingAnchors />,
+  );
+  expect(html).toContain("scroll-mt-12");
+});
