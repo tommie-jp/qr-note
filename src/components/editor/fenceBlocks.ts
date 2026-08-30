@@ -26,7 +26,7 @@ import {
   WidgetType,
   type DecorationSet,
 } from "@codemirror/view";
-import { CIRCUIT_LANG, MERMAID_LANG } from "@/lib/fenceLanguages";
+import { CIRCUITIKZ_LANG, MERMAID_LANG } from "@/lib/fenceLanguages";
 import { fetchCircuitSvg } from "@/lib/circuitFetch";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
 
@@ -204,7 +204,7 @@ export function drawableFence(
   const opening = /^\s*(?:`{3,}|~{3,})\s*([^\s`]*)/.exec(lines[0]);
   const lang = opening?.[1].toLowerCase();
   const kind: FenceKind | null =
-    lang === MERMAID_LANG ? "mermaid" : lang === CIRCUIT_LANG ? "circuit" : null;
+    lang === MERMAID_LANG ? "mermaid" : lang === CIRCUITIKZ_LANG ? "circuit" : null;
   if (kind === null) {
     return null;
   }

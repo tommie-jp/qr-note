@@ -12,7 +12,7 @@
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { getOrRenderCircuit, MAX_CIRCUITS_PER_MEMO } from '@/lib/circuitCache'
-import { CIRCUIT_LANG, extractCircuitSources } from '@/lib/circuitFences'
+import { CIRCUITIKZ_LANG, extractCircuitSources } from '@/lib/circuitFences'
 import { circuitHash } from '@/lib/circuitikz'
 
 async function main(): Promise<void> {
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   // 9 個目以降のフェンスは表示側 (renderCircuits) が描かないので対象外
   const sources = new Map<string, string>()
   for (const item of items) {
-    if (!item.memo.includes(CIRCUIT_LANG)) {
+    if (!item.memo.includes(CIRCUITIKZ_LANG)) {
       continue
     }
     const fences = extractCircuitSources(item.memo).slice(

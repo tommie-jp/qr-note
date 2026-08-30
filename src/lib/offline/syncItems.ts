@@ -9,7 +9,7 @@
 // 端末側は常にサーバの写しになり、消えたノートも自然に消える。
 
 import { prisma } from '@/lib/db'
-import { CIRCUIT_LANG, extractCircuitSources } from '@/lib/circuitFences'
+import { CIRCUITIKZ_LANG, extractCircuitSources } from '@/lib/circuitFences'
 import { circuitHash } from '@/lib/circuitikz'
 import {
   OFFLINE_CIRCUIT_BUDGET,
@@ -93,7 +93,7 @@ async function loadOfflineCircuits(
     // remark の解析は全ノートに掛けると安くない。フェンス言語の文字列を
     // 含まないノートは**必ず**回路図を持たないので、そこで先に落とす
     // (``` でも ~~~ でも言語名は本文に現れる)
-    if (!item.memo.includes(CIRCUIT_LANG)) {
+    if (!item.memo.includes(CIRCUITIKZ_LANG)) {
       continue
     }
     for (const source of extractCircuitSources(item.memo)) {

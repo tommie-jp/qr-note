@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
-  CIRCUIT_LANG,
+  CIRCUITIKZ_LANG,
   FENCE_LANGUAGES,
   HEALTH_LANG,
   MATRIX_LANG,
@@ -13,7 +13,7 @@ import {
 
 describe('language lists', () => {
   test('補完候補に特別扱いの 5 言語を含む', () => {
-    expect(FENCE_LANGUAGES).toContain(CIRCUIT_LANG)
+    expect(FENCE_LANGUAGES).toContain(CIRCUITIKZ_LANG)
     expect(FENCE_LANGUAGES).toContain(MERMAID_LANG)
     expect(FENCE_LANGUAGES).toContain(QUIZ_LANG)
     expect(FENCE_LANGUAGES).toContain(MATRIX_LANG)
@@ -26,7 +26,7 @@ describe('language lists', () => {
 
   test('描画対象は circuitikz と mermaid と quiz と matrix と health のみ', () => {
     expect([...RENDERED_LANGS]).toEqual([
-      CIRCUIT_LANG,
+      CIRCUITIKZ_LANG,
       MERMAID_LANG,
       QUIZ_LANG,
       MATRIX_LANG,
@@ -67,7 +67,7 @@ describe('editDistance', () => {
 
 describe('suggestFenceLang', () => {
   test('1 文字抜けを図の言語として提案する (ユーザーが踏んだ例)', () => {
-    expect(suggestFenceLang('circuitkz')).toBe(CIRCUIT_LANG)
+    expect(suggestFenceLang('circuitkz')).toBe(CIRCUITIKZ_LANG)
   })
 
   test('入れ替わり誤字を提案する (補完では拾えない例)', () => {
@@ -76,11 +76,11 @@ describe('suggestFenceLang', () => {
 
   test('大文字小文字だけ違うものも正しい綴りを提案する', () => {
     expect(suggestFenceLang('Mermaid')).toBe(MERMAID_LANG)
-    expect(suggestFenceLang('CircuitikZ')).toBe(CIRCUIT_LANG)
+    expect(suggestFenceLang('CircuitikZ')).toBe(CIRCUITIKZ_LANG)
   })
 
   test('完全一致は問題なし (null)', () => {
-    expect(suggestFenceLang(CIRCUIT_LANG)).toBeNull()
+    expect(suggestFenceLang(CIRCUITIKZ_LANG)).toBeNull()
     expect(suggestFenceLang(MERMAID_LANG)).toBeNull()
   })
 

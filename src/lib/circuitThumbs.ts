@@ -11,7 +11,7 @@
 import { prisma } from './db'
 import { MAX_CIRCUITS_PER_MEMO } from './circuitCache'
 import { assertSafeCircuitSvg, circuitHash } from './circuitikz'
-import { CIRCUIT_LANG, extractCircuitSources } from './circuitFences'
+import { CIRCUITIKZ_LANG, extractCircuitSources } from './circuitFences'
 import { firstThumbInfo } from './memoImages'
 
 // itemNo → インライン SVG (本文の出現順)。小/大は先頭 1 枚、画像モードは全部。
@@ -51,7 +51,7 @@ export async function loadCircuitThumbs(
   // first では画像サムネを持つノートも外す — 一覧の顔は画像が優先で、
   // 引いても使われない (優先順位の正本は ItemRow の thumb 分岐)
   const wants = items.flatMap((item) => {
-    if (item.mode === 'url' || !item.memo.includes(CIRCUIT_LANG)) {
+    if (item.mode === 'url' || !item.memo.includes(CIRCUITIKZ_LANG)) {
       return []
     }
     if (mode === 'first' && firstThumbInfo(item.memo) !== null) {

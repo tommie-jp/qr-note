@@ -32,7 +32,7 @@ import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
 import {
-  CIRCUIT_LANG,
+  CIRCUITIKZ_LANG,
   HEALTH_LANG,
   MATRIX_LANG,
   MERMAID_LANG,
@@ -148,7 +148,7 @@ function preOrDiagram(
 
     // 描画済みの結果が無いフェンス (circuits を渡していないページ) は
     // コードブロックのまま表示する
-    if (fence.lang === CIRCUIT_LANG) {
+    if (fence.lang === CIRCUITIKZ_LANG) {
       const circuit = circuits.get(fence.code);
       if (circuit) {
         return <CircuitDiagram result={circuit} code={fence.code} />;

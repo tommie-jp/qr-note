@@ -1,9 +1,12 @@
 // フェンス言語まわりの単一ソース。
 // エディタ (client) からも読むため、remark/mdast などの重い依存は持たない
-// 葉モジュールにしている (circuitFences はここから CIRCUIT_LANG を re-export する)。
+// 葉モジュールにしている (circuitFences はここから CIRCUITIKZ_LANG を re-export する)。
 
-// 特別に図として描画するフェンス言語
-export const CIRCUIT_LANG = 'circuitikz'
+// 特別に図として描画するフェンス言語。
+// 回路図は素の TeX を書く circuitikz と、YAML を書く circuit (docs/91) の
+// 2 つがある。名前を実体に合わせてあるのは、後から足すほうを CIRCUIT_LANG に
+// したときに「どちらの回路フェンスか」を読み違えないため
+export const CIRCUITIKZ_LANG = 'circuitikz'
 export const MERMAID_LANG = 'mermaid'
 
 // 押して解ける問題カードとして描画するフェンス言語
@@ -24,7 +27,7 @@ export const HEALTH_LANG = 'health'
 // 打ち間違えると「図やカードになるはずが黙ってコードブロック」になる言語。
 // linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
 export const RENDERED_LANGS = [
-  CIRCUIT_LANG,
+  CIRCUITIKZ_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
@@ -35,7 +38,7 @@ export const RENDERED_LANGS = [
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
-  CIRCUIT_LANG,
+  CIRCUITIKZ_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
