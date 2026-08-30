@@ -28,6 +28,12 @@ WORKDIR /app
 # prisma generate は下の `npm run build` の中で走り、prisma/ と prisma.config.ts は
 # 続く COPY . . が運ぶ (どちらも .dockerignore に無い)。
 COPY .deps/package.json .deps/package-lock.json ./
+# vendor/ は上の「他のファイルを足さない」の**唯一の例外** (docs/91 §1)。
+# circuit-fence は npm レジストリに無く `file:vendor/circuit-fence-x.y.z.tgz` で
+# 入れるので、npm ci が tarball の実体をここで読む (無いと ENOENT で落ちる)。
+# 例外にしてよい理由: vendor/ が変わる = 依存の実体が変わる、なのでそのとき
+# npm ci が走り直すのは狙いどおり。キャッシュ負債にはならない
+COPY vendor ./vendor
 # postinstall (prisma generate) は npm run build の中で走らせるためここではスキップ
 RUN npm ci --ignore-scripts
 
