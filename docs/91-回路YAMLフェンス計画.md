@@ -27,21 +27,36 @@ circuit-fence は npm レジストリに公開していない (VS Code 拡張が
 `exports` に `circuit-fence/core` (ESM / CJS / 型定義) が生えており、
 `npm pack` の tarball で渡せる。
 
-- [vendor/circuit-fence-0.1.0.tgz](../vendor/circuit-fence-0.1.0.tgz) に置いた
-  (この計画と一緒にコミット)。使うときに
-  `"circuit-fence": "file:vendor/circuit-fence-0.1.0.tgz"` を dependencies へ足す
+- [vendor/circuit-fence-0.2.0.tgz](../vendor/circuit-fence-0.2.0.tgz) に置いた。
+  使うときに `"circuit-fence": "file:vendor/circuit-fence-0.2.0.tgz"` を
+  dependencies へ足す
 - git 依存 (`github:`) にしない: Docker のビルダ (node:24-slim) に git が無く、
   `npm ci` が落ちる。tarball ならビルド文脈の COPY だけで済む
 - 更新は circuit-fence 側で `npm pack` して置き換える (ファイル名に版が入るので、
   package.json の指定も一緒に変わる)
 
-確認済みのこと (2026-08-27、tarball を別プロジェクトへ npm install して実測):
+### 最初に置いた 0.1.0 は差し替えた (2026-08-30)
+
+**同じ 0.1.0 の名前で中身が 2 つあった**。最初の tarball は 2026-08-27 の
+手渡しで、その後 circuit-fence 側に矢 (`i=` / `v=`)・ラベル (`l=`)・計器
+(`wattmeter` / `galvanometer` / `detector`)・素の線 (`short`)・直線の注釈が
+入っている。**書き溜めた図 57 枚のうち 49 枚が古い tarball ではコンパイル
+エラーになる**と実測したので、向こうで `v0.2.0` をタグしてから作り直した。
+
+版で見分けが付かないと、§2 のキャッシュキー (`VERSION` を混ぜる) が古い SVG を
+当てても気づけない。**tarball を差し替えるときは必ず向こうの版も上がっている**
+という前提で書いてよい (circuit-fence 側の doVersion.sh がタグと
+`data-circuit-fence` の刻印まで揃える)。
+
+確認済みのこと (2026-08-30、0.2.0 の tarball を別プロジェクトへ
+npm install して実測):
 
 - ESM / CJS どちらでも読める。`compileCircuit` が TeX と行番号つきエラーを返す
-- tsc の型解決が通る (bundler / nodenext、skipLibCheck なし)
+- tsc の型解決が通る (bundler / nodenext、skipLibCheck なし) — 2026-08-27 に確認
 - 依存として node-tikzjax `^1.0.5` が付いてくる。こちらの指定と同じなので
   dedupe されて 1 つになる想定 (**lockfile で要確認** — 二重に入ると
   jsdom ごと 87MB 増える)
+- 書き溜めた図 57 枚がエラーゼロで通る (0.1.0 では 49 枚が落ちていた)
 
 ### Dockerfile の依存レイヤーに vendor/ の COPY が要る
 
@@ -85,11 +100,16 @@ YAML ソース
   をつなげる。コンパイラが変われば同じ YAML でも TeX が変わるため
 - **後処理まで済ませた SVG をキャッシュする**。テーマは `auto`
   (線が currentColor になり、明暗どちらでも読める) で描けば 1 枚で足りる。
-  注釈の `<text>` は assertSafeCircuitSvg の許可リスト内 (text / fill /
-  text-anchor) に収まる想定 — **実装時にテストで確認する**
+  注釈の `<text>` は assertSafeCircuitSvg の許可リスト内に収まる — 図 57 枚を
+  描いて通したところ**全部通過した** (2026-08-30 実測)。出るのは `text` /
+  `fill` / `text-anchor` / `font-family` / `font-size` / `xml:space` だけで、
+  外部参照も `url()` も無い。**実装時にもテストとして残す**
 - **コンパイルエラーは TeX まで行かずに返せる**。CircuitResult の
   `{ error, texLog }` に「N 行目: 理由」を整形して流せば表示側は無改修でも
   動くが、行番号つきの利点を出すなら専用の表示が要る (§4)
+- **`notices` をどう扱うか決める**。`compileCircuit` の戻り値には `errors` の
+  ほかに `notices` (図は描けるが伝えたいこと。行番号つき) がある。出さないなら
+  黙って捨てることになるので、§4 のエラー表示と一緒に決める
 
 ## 3. フェンス言語の名前 — 定数の整理が先
 
