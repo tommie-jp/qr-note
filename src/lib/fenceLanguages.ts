@@ -7,6 +7,12 @@
 // 2 つがある。名前を実体に合わせてあるのは、後から足すほうを CIRCUIT_LANG に
 // したときに「どちらの回路フェンスか」を読み違えないため
 export const CIRCUITIKZ_LANG = 'circuitikz'
+
+// 回路図を YAML で書くフェンス (docs/91-回路YAMLフェンス計画.md)。
+// circuitikz の上位互換ではなく**別の言語**で、2 つは共存する
+// (TeX を直に書きたい図があり、既存ノートは全部そちらで書かれている)
+export const CIRCUIT_LANG = 'circuit'
+
 export const MERMAID_LANG = 'mermaid'
 
 // 押して解ける問題カードとして描画するフェンス言語
@@ -28,17 +34,19 @@ export const HEALTH_LANG = 'health'
 // linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
 export const RENDERED_LANGS = [
   CIRCUITIKZ_LANG,
+  CIRCUIT_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
   HEALTH_LANG,
 ] as const
 
-// 補完に出す言語 (広め)。特別扱いする 5 つ + メモでよく書くコード言語。
+// 補完に出す言語 (広め)。特別扱いする 6 つ + メモでよく書くコード言語。
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
   CIRCUITIKZ_LANG,
+  CIRCUIT_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,

@@ -187,9 +187,24 @@ function extractTexError(log: string): string {
 // circuitikz のソースを SVG に描く。失敗時は CircuitRenderError を投げる。
 // 呼び出しは直列化されるため、同時に呼んでも順に処理される
 export function renderCircuit(source: string): Promise<string> {
-  return enqueue(() => renderOnce(source))
+  return enqueue(() => renderOnce(`${PREAMBLE}${withCircuitEnvironment(source)}${POSTAMBLE}`))
 }
 
+// **プリアンブルを足さずに**、渡された TeX をそのまま 1 本の文書として描く。
+//
+// 回路 YAML フェンス (docs/91 §2) 用。compileCircuit が返す TeX は
+// `\usepackage{circuitikz}` から `\end{document}` まで揃った完全な入力なので、
+// 上の PREAMBLE を重ねると二重定義で落ちる。OPAMP_FONT_FIX も要らない —
+// circuit-fence は cmmib5 が無い問題を `plain amp` + 手書きの ± で
+// 回避済みで、こちらの細工と食い違わせないためにも触らない。
+//
+// 描画の待ち行列は共有する。node-tikzjax が同時実行を許さないのは
+// 言語に関係なく同じで、別の列にすると 2 本同時に走ってしまう
+export function renderCircuitDocument(tex: string): Promise<string> {
+  return enqueue(() => renderOnce(tex))
+}
+
+// source は**完全な TeX 文書**。プリアンブルの有無は呼び出し側が決める
 function renderOnce(source: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const child = spawn(process.execPath, [RENDERER_SCRIPT], {
@@ -265,8 +280,6 @@ function renderOnce(source: string): Promise<string> {
       )
     })
 
-    child.send({
-      source: `${PREAMBLE}${withCircuitEnvironment(source)}${POSTAMBLE}`,
-    })
+    child.send({ source })
   })
 }

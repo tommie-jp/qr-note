@@ -5,7 +5,13 @@ import {
   circuitHash,
   renderCircuit,
 } from './circuitikz'
-import { extractCircuitSources } from './circuitFences'
+import {
+  CIRCUITIKZ_LANG,
+  type CircuitFence,
+  circuitKey,
+  extractCircuitFences,
+} from './circuitFences'
+import { renderCircuitYaml } from './circuitYaml'
 
 // 1 つのメモで描く回路図の上限。
 // 描画は 1 枚ずつ順に行い、1 枚あたり最大 CIRCUIT_TIMEOUT_MS かかる。
@@ -13,11 +19,30 @@ import { extractCircuitSources } from './circuitFences'
 // 数十枚ぶんの TeX が走り、本番の 2GB / 3 コアを図だけで埋めてしまう
 // (10,000 字あれば数十個書ける)。
 // 一覧サムネの取得 (circuitThumbs.ts) も同じ上限で切り、9 個目以降は
-// 「描かれない図」なので引きにも行かない
+// 「描かれない図」なので引きにも行かない。
+//
+// **2 つの回路フェンス (circuitikz / circuit) の合算で数える** (docs/91 §4)。
+// 上限の理由は「1 回の表示で走る TeX の総量」で、言語が増えても走る TeX の
+// 重さは変わらない。言語ごとに 8 枚にすると、上限の意味が黙って倍になる
 export const MAX_CIRCUITS_PER_MEMO = 8
 
-// 1 つの ```circuitikz フェンスの描画結果。成功か失敗のどちらか
-export type CircuitResult = { svg: string } | { error: string; texLog: string }
+// 回路 YAML フェンスの「お知らせ」1 件 (docs/91)。
+// 読めなかったわけではなく、**図は描けたが思ったとおりには出ない**もの
+// (斜めに入る足への線、部品 ID にも番地にも読める指し先など)。
+// 行は分かるとは限らない (図全体に関わる指摘は null)
+export interface CircuitNotice {
+  readonly line: number | null
+  readonly message: string
+}
+
+// 1 つの回路フェンスの描画結果。成功か失敗のどちらか。
+//
+// notices は circuit フェンス (YAML) だけが持つ。**成功にも失敗にも付く** —
+// 図が描けたときこそ「見えている絵と繋がりが違う」を伝える必要がある。
+// 書き手が `style: debug: off` と書いた図では空になる
+export type CircuitResult =
+  | { svg: string; notices?: readonly CircuitNotice[] }
+  | { error: string; texLog: string; notices?: readonly CircuitNotice[] }
 
 // 描画結果、または「まだ描いている最中」の約束
 // (docs/85-回路図表示待ち計画.md §2)。
@@ -95,25 +120,35 @@ async function renderAndStore(source: string, hash: string): Promise<string> {
 // **同期に返すのが要点。** 呼んだ時点で描画は走り出しており、React は
 // その約束を CircuitDiagram (Suspense) に渡して、解けた図から順に流し込む
 export function planCircuits(markdown: string): PendingCircuitMap {
-  const sources = extractCircuitSources(markdown)
+  // 2 つの言語を**本文に出てくる順**で 1 本に並べる。上限で落とすのは
+  // 後ろからなので、順が混ざると書いた人の期待と食い違う
+  const fences = extractCircuitFences(markdown)
   const results = new Map<string, PendingCircuit>()
 
-  for (const source of sources.slice(MAX_CIRCUITS_PER_MEMO)) {
-    results.set(source, {
+  for (const fence of fences.slice(MAX_CIRCUITS_PER_MEMO)) {
+    results.set(keyOf(fence), {
       error: `1 つのメモに描ける回路図は ${MAX_CIRCUITS_PER_MEMO} 個までです`,
       texLog: '',
     })
   }
 
-  // node-tikzjax は同時実行できないため、renderCircuit 側のキューに
-  // 積まれる。ここでまとめて投げても順に処理される (子プロセスは常に
-  // 1 つ = ピーク 400MB のまま。本番は空きが 750MB しかない)
-  for (const source of sources.slice(0, MAX_CIRCUITS_PER_MEMO)) {
-    results.set(source, renderOne(source))
+  // node-tikzjax は同時実行できないため、描画キューに積まれる。ここで
+  // まとめて投げても順に処理される (子プロセスは常に 1 つ = ピーク 400MB の
+  // まま。本番は空きが 750MB しかない)。**キューは 2 言語で共有している**
+  for (const fence of fences.slice(0, MAX_CIRCUITS_PER_MEMO)) {
+    results.set(
+      keyOf(fence),
+      fence.lang === CIRCUITIKZ_LANG
+        ? renderOne(fence.source)
+        : renderCircuitYaml(fence.source),
+    )
   }
 
   return results
 }
+
+const keyOf = (fence: CircuitFence): string =>
+  circuitKey(fence.lang, fence.source)
 
 // 1 枚ぶんの描画。**決して reject しない。**
 //
