@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { pendingRotation } from "@/lib/rotationState";
 import { parseUploadResponse } from "@/lib/uploadResponse";
+import { CopyImageButton } from "./CopyImageButton";
+import { IMAGE_OVERLAY_BUTTON_CLASS } from "./ui";
 
 type ZoomableImageProps = ComponentProps<"img"> & {
   // 拡大表示に 90° 回転ボタンを出すか (docs/49-画像回転計画.md §2)。
@@ -177,27 +179,34 @@ export function ZoomableImage({
               className="max-h-full max-w-full"
               style={rotateStyle}
             />
-            {allowRotate && (
-              <div
-                className="absolute bottom-4 right-4 flex flex-col items-end gap-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {error && (
-                  <p className="rounded bg-black/70 px-2 py-1 text-sm text-red-300">
-                    {error}
-                  </p>
+            {/* 覆いの上の操作。**コピーは allowRotate に関わらず出す** —
+                回転は自分のノートでだけ許す書き換えだが、コピーは読むだけで、
+                公開ビューでも同じように要る (docs/92 §3)。
+                閉じ (親の onClick) と分けるため、まとめて伝播を止める */}
+            <div
+              className="absolute bottom-4 right-4 flex flex-col items-end gap-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {error && (
+                <p className="rounded bg-black/70 px-2 py-1 text-sm text-red-300">
+                  {error}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <CopyImageButton src={currentSrc} />
+                {allowRotate && (
+                  <button
+                    type="button"
+                    aria-label="90度回転"
+                    disabled={isSaving}
+                    onClick={onRotateClick}
+                    className={`${IMAGE_OVERLAY_BUTTON_CLASS} px-4 py-3 text-lg`}
+                  >
+                    {isSaving ? "…" : "↻"}
+                  </button>
                 )}
-                <button
-                  type="button"
-                  aria-label="90度回転"
-                  disabled={isSaving}
-                  onClick={onRotateClick}
-                  className="rounded-full bg-white/90 px-4 py-3 text-lg text-black shadow disabled:opacity-50"
-                >
-                  {isSaving ? "…" : "↻"}
-                </button>
               </div>
-            )}
+            </div>
           </div>,
           document.body,
         )}

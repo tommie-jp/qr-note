@@ -42,6 +42,12 @@ import { makeVideoThumbs } from "@/lib/video/videoPoster";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
 import { TEXT_EXTENSION_ALTERNATION } from "@/lib/textFormats";
 import { uploadTooLargeMessage } from "@/lib/uploadSizeCheck";
+import {
+  clipboardFileName,
+  clipboardReadErrorMessage,
+  pickClipboardEntry,
+} from "@/lib/clipboardRead";
+import { canShrink, shrinkImageFile } from "@/lib/shrinkImage";
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
@@ -302,6 +308,29 @@ function pickFiles(list: FileList | undefined | null): File[] {
   );
 }
 
+// 上限に収まるファイルを返す。超えていても、縮めてよい画像なら描き直して
+// 小さくしたものを返す (docs/92-クリップボード連携計画.md §4)。縮められない
+// もの・縮めても収まらないものは、従来どおり理由を添えて断る。
+//
+// **縮めた後にもう一度測る。** 上限を桁違いに超えた画像 (巨大な PNG) は、
+// 長辺を落としても JPEG にしても収まらないことがありうる。そのまま送ると
+// エッジが本文を捨てて「通信エラー」に化ける
+async function fitToLimit(file: File, allowShrink: boolean): Promise<File> {
+  const tooLarge = uploadTooLargeMessage(file, isVideoFile(file));
+  if (tooLarge === null) {
+    return file;
+  }
+  if (!allowShrink || !canShrink(file)) {
+    throw new Error(tooLarge);
+  }
+  const shrunk = await shrinkImageFile(file);
+  const stillTooLarge = uploadTooLargeMessage(shrunk, false);
+  if (stillTooLarge !== null) {
+    throw new Error(stillTooLarge);
+  }
+  return shrunk;
+}
+
 // 処理中にフォーム送信を止めたときに出す理由。**録音を先に見る** —
 // アップロードや OCR は画面に進捗が出ているが、録音は押しっぱなしのまま
 // 更新しようとすることがあり、そのまま通すと録音ごと失うため
@@ -309,6 +338,7 @@ function busyReason(
   isRecording: boolean,
   uploading: boolean,
   scanBusy: boolean,
+  clipboardBusy: boolean,
 ): string {
   if (isRecording) {
     return "録音・録画中です。停止してから更新して下さい。";
@@ -318,6 +348,9 @@ function busyReason(
   }
   if (scanBusy) {
     return "コード情報の取得中です。完了してから更新して下さい。";
+  }
+  if (clipboardBusy) {
+    return "クリップボードから取り込み中です。完了してから更新して下さい。";
   }
   return "OCR 処理中です。完了してから更新して下さい。";
 }
@@ -399,6 +432,12 @@ interface InsertFilesOptions {
   // 挿入した画像を続けて OCR するか。お絵かきは自分で描いたものなので読まない
   // (要るときは「後から OCR」ボタンで読ませられる)
   ocr?: boolean;
+  // 上限を超えた画像を、断らずに縮めて送るか (docs/92-クリップボード連携計画.md §4)。
+  // **クリップボード由来のときだけ true。** iOS は写真をコピーすると PNG で
+  // 渡してくることが多く、12MP の写真はそれだけで 20〜30MB になる。OS が作り
+  // 直した写しなので縮めて構わない。ファイル選択・ドロップは原本を指している
+  // ので既定の false のまま (黙って再圧縮せず、上限を理由に断る)
+  shrinkOversized?: boolean;
 }
 
 // markdown 用 CodeMirror エディタ本体 (制御コンポーネント)。
@@ -415,6 +454,11 @@ export default function MemoEditorInner({
   // null なら待機中。busy 判定は従来の uploading boolean と同じ意味を保つ
   const [upload, setUpload] = useState<UploadProgress | null>(null);
   const uploading = upload !== null;
+  // クリップボードからの取り込み中か (docs/92-クリップボード連携計画.md §4)。
+  // **読み取りの許可待ちも含める。** iOS は read() でペーストの吹き出しを出し、
+  // 押されるまで返らない。その間に更新されると、取り込んだ画像が入る前の本文が
+  // 保存され、後から挿入された記法だけが宙に浮く。二重押しもここで止まる
+  const [clipboardBusy, setClipboardBusy] = useState(false);
   // 実行中の OCR の本数 (複数画像を続けて OCR できる)。0 より大きい間は
   // 「OCR処理中」を出し、フォーム送信を止める (結果が本文に入る前に更新しない)。
   const [ocrCount, setOcrCount] = useState(0);
@@ -546,7 +590,8 @@ export default function MemoEditorInner({
   // アップロード / OCR / 録音・録画の完了前に送信すると、画像リンクや OCR 結果、
   // 録音・録画そのものが memo に入らないため、処理中だけフォーム送信をブロックして知らせる
   const isRecording = recording.isRecording || videoRecording.isRecording;
-  const busy = uploading || ocrCount > 0 || isRecording || scanBusy;
+  const busy =
+    uploading || ocrCount > 0 || isRecording || scanBusy || clipboardBusy;
   useEffect(() => {
     if (!busy) {
       return;
@@ -557,11 +602,11 @@ export default function MemoEditorInner({
     }
     const blockSubmit = (event: SubmitEvent) => {
       event.preventDefault();
-      setError(busyReason(isRecording, uploading, scanBusy));
+      setError(busyReason(isRecording, uploading, scanBusy, clipboardBusy));
     };
     form.addEventListener("submit", blockSubmit);
     return () => form.removeEventListener("submit", blockSubmit);
-  }, [busy, uploading, isRecording, scanBusy]);
+  }, [busy, uploading, isRecording, scanBusy, clipboardBusy]);
 
   // 画像 1 枚を OCR し、指定位置へ引用ブロックを差し込む。挿入時 OCR と
   // 「後から OCR」ボタンの両方がこの 1 本を使う (docs/24-画像OCR計画.md §4)。
@@ -634,19 +679,21 @@ export default function MemoEditorInner({
     files: File[],
     options: InsertFilesOptions = {},
   ) => {
-    const { audioAlt = "audio", videoAlt = "video", imageAlt = "", ocr = true } =
-      options;
+    const {
+      audioAlt = "audio",
+      videoAlt = "video",
+      imageAlt = "",
+      ocr = true,
+      shrinkOversized = false,
+    } = options;
     setError(null);
     try {
       for (const [index, file] of files.entries()) {
-        // 上限超えは**送る前に**断る。送ってしまうと、エッジ (nginx / Caddy) か
-        // Next.js の proxy が本文を途中で捨て、ブラウザには「通信エラー」や
-        // 見当違いの 400 しか返らない (理由は uploadSizeCheck.ts)。
-        // ここで止めれば「何 MB のファイルが上限何 MB を超えた」まで言える
-        const tooLarge = uploadTooLargeMessage(file, isVideoFile(file));
-        if (tooLarge) {
-          throw new Error(tooLarge);
-        }
+        // **プレースホルダと busy を、待つより先に置く。** この後の
+        // fitToLimit は縮小で数秒かかることがあり (20〜30MB の PNG)、その間に
+        // 何も置かないと画面は待機中のままになる。busy でなければ「更新」も
+        // 通ってしまい、画像の入っていない本文が保存されてから記法だけが
+        // 後追いで挿さる形になる
         const token = `![アップロード中 ${++uploadSeq}]()`;
         insertText(view, token);
         // 送信が始まるまでは % を出さない (percent: null →「アップロード中…」)。
@@ -654,19 +701,25 @@ export default function MemoEditorInner({
         // % 無しの方がましなため (progressLabels.ts の同旨の判断と揃える)
         setUpload({ current: index + 1, total: files.length, percent: null });
         try {
+          // 上限超えは**送る前に**断る。送ってしまうと、エッジ (nginx / Caddy) か
+          // Next.js の proxy が本文を途中で捨て、ブラウザには「通信エラー」や
+          // 見当違いの 400 しか返らない (理由は uploadSizeCheck.ts)。
+          // ここで止めれば「何 MB のファイルが上限何 MB を超えた」まで言える。
+          // クリップボード由来の画像だけは、断る前に縮めて送り直す (§4)
+          const sending = await fitToLimit(file, shrinkOversized);
           // 動画は静止サムネ (poster) と動くサムネのコマをここで作り、本体と
           // 同じ POST で送る (docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
           // 作れなければ空 (サムネ無しで続行)。コマ集めには上限時間があり、
           // 間に合ったぶんだけが送られる (videoPoster.ts の ANIM_BUDGET_MS)
-          const thumbs = shouldMakeThumbs(file)
-            ? await makeVideoThumbs(file)
+          const thumbs = shouldMakeThumbs(sending)
+            ? await makeVideoThumbs(sending)
             : null;
           // 送信 % はボタンラベル (React state) だけに出す。本文トークンを
           // % で書き換えると undo が壊れる (ocrIntoDoc の同旨コメント参照)。
           // アップロードは直列なので、ボタンの % が常に今のファイルの %。
           // 画像・音声・動画とも同じ /api/images へ送る (サーバが中身で振り分ける)
           const url = await uploadImageWithProgress(
-            file,
+            sending,
             (percent) => {
               setUpload({ current: index + 1, total: files.length, percent });
             },
@@ -683,7 +736,7 @@ export default function MemoEditorInner({
                 ? videoAlt
                 : kind === "image"
                   ? imageAlt
-                  : attachmentAltText(file.name, KIND_FALLBACK[kind]);
+                  : attachmentAltText(sending.name, KIND_FALLBACK[kind]);
           const markup = `![${alt}](${url})`;
           replaceToken(view, token, markup);
           if (kind !== "image" || !ocr) {
@@ -773,7 +826,10 @@ export default function MemoEditorInner({
             return false;
           }
           event.preventDefault();
-          void insertFiles(view, files);
+          // ペーストもクリップボード由来なので、上限を超えた画像は縮めて送る
+          // (docs/92-クリップボード連携計画.md §4)。iOS の写真は PNG で来て
+          // 20〜30MB になり、そのままでは必ず「大きすぎます」で止まる
+          void insertFiles(view, files, { shrinkOversized: true });
           reportIgnored(event.clipboardData?.files, files);
           return true;
         },
@@ -1201,6 +1257,57 @@ export default function MemoEditorInner({
     }
   };
 
+  // 「貼り付け」: クリップボードの中身をそのまま取り込む
+  // (docs/92-クリップボード連携計画.md §4)。iPhone で写真をコピーしてから
+  // 押せば、編集画面を開いて本文を長押しする手順を省いて添付にできる。
+  //
+  // **read() は同期のうちに呼ぶ。** 先に await を挟むとユーザー操作の扱いが
+  // 切れ、NotAllowedError で弾かれる (shareFile.ts の transient activation と
+  // 同じ話)。iOS はここで「ペースト」の吹き出しを出し、そのタップが許可になる。
+  //
+  // 画像が無ければ文字を入れる — コピーしたものが画像でも文字でも、押す
+  // ボタンは 1 つで済ませる (どちらが入っているかは押す前には分からない)
+  const importClipboard = () => {
+    const view = editorRef.current?.view;
+    if (!view) {
+      return;
+    }
+    setError(null);
+    if (typeof navigator.clipboard?.read !== "function") {
+      // secure context の外・対応していないブラウザ。ボタンは常に出しておき
+      // (後から生えると帯が跳ねる)、押した時点で理由を言う
+      setError("この環境ではクリップボードから取り込めません");
+      return;
+    }
+    setClipboardBusy(true);
+    const reading = navigator.clipboard.read();
+    void (async () => {
+      try {
+        const pick = pickClipboardEntry(await reading);
+        if (pick === null) {
+          setError("クリップボードに画像も文字もありません");
+          return;
+        }
+        const blob = await pick.entry.getType(pick.type);
+        if (pick.kind === "text") {
+          insertText(view, await blob.text());
+          return;
+        }
+        // 上限を超えていれば縮めて送る (iOS の写真は PNG で 20〜30MB になる)
+        const file = new File([blob], clipboardFileName(pick.type), {
+          type: pick.type,
+        });
+        await insertFiles(view, [file], { shrinkOversized: true });
+      } catch (e) {
+        setError(clipboardReadErrorMessage(e));
+      } finally {
+        // 挿入まで待ってから下ろす。insertFiles も自前の busy (upload) を
+        // 立てるので、取り込みの初めから終わりまで途切れずに塞がる
+        setClipboardBusy(false);
+      }
+    })();
+  };
+
   // 「更新」は下部バーへ portal されており、DOM は form の外に出る。native の
   // submit ボタンの関連付けは効かないので、囲みの form を明示的に送信する。
   // form は編集エリア (wrapperRef) から辿る — こちらは form の DOM 内にある
@@ -1471,6 +1578,7 @@ export default function MemoEditorInner({
             uploadLabel={uploadButtonLabel(upload)}
             uploading={uploading}
             onInsertFile={() => fileInputRef.current?.click()}
+            onPasteClipboard={importClipboard}
             scanLabel={scanBusy ? "取得中" : "スキャン"}
             onScan={() => setScanning(true)}
             recordLabel={recordButtonLabel(

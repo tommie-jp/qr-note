@@ -76,6 +76,12 @@ export const COMPACT_PRIMARY_ICON_BUTTON_CLASS = `${PRIMARY_SKIN} min-h-9 w-9`;
 // 隠してしまう。狙って押す場所ではなく、押し損ねても実害がない
 export const OVERLAY_BUTTON_CLASS = `${SECONDARY_SKIN} px-2 py-1 text-xs`;
 
+// 拡大表示 (ZoomableImage) の上に浮かせる丸ボタン。暗い覆いの上に置くので、
+// 枠ではなく白い地で浮かせる。指で狙える大きさを px/py で確保する
+// (min-h-11 は入れない — 丸を保ちたいので高さは中身と余白で決める)
+export const IMAGE_OVERLAY_BUTTON_CLASS =
+  "rounded-full bg-white/90 text-black shadow transition active:scale-95 disabled:opacity-50 disabled:active:scale-100";
+
 // 検索窓。文字だけは text-base (16px) のまま下げない。iOS Safari は 16px 未満の
 // 入力欄にフォーカスすると画面を勝手に拡大し、戻せないため
 export const COMPACT_INPUT_CLASS = `${BOX_SKIN} min-h-9 py-1`;

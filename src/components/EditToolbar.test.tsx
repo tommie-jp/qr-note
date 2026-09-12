@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { EditToolbar } from "./EditToolbar";
 
-// 静的描画で 12 ボタン (更新 + 11 ツール) が出ることを確かめる。ラベルは呼び出し側
+// 静的描画で 15 ボタン (更新 + 14 ツール) が出ることを確かめる。ラベルは呼び出し側
 // (MemoEditorInner) が progressLabels で作った文字列をそのまま受けるので、
 // ここでは代表値を渡す。押下時の挙動 (portal・requestSubmit・録音等) はブラウザで確認。
 const noop = () => {};
@@ -18,6 +18,7 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
       uploadLabel="画像を挿入"
       uploading={false}
       onInsertFile={noop}
+      onPasteClipboard={noop}
       scanLabel="スキャン"
       onScan={noop}
       recordLabel="録音"
@@ -40,7 +41,7 @@ const render = (overrides: Partial<Parameters<typeof EditToolbar>[0]> = {}) =>
     />,
   );
 
-test("更新 と 13 のツールをすべて描く", () => {
+test("更新 と 14 のツールをすべて描く", () => {
   const html = render();
   for (const label of [
     "更新",
@@ -49,6 +50,7 @@ test("更新 と 13 のツールをすべて描く", () => {
     "検索",
     "ページ",
     "画像を挿入",
+    "貼り付け",
     "スキャン",
     "録音",
     "録画",
@@ -123,4 +125,24 @@ test("ページ追加は横スクロール帯の中に置く", () => {
 test("検索は長押しで置換つきで開くことを説明に持つ", () => {
   const html = render();
   expect(html).toContain("長押しで置換");
+});
+
+// クリップボードから取り込む (docs/92-クリップボード連携計画.md §4)。
+// **画像ボタンの隣**に置く — どちらも「外から持ってきたものを添付にする」
+// 操作なので、探す場所が離れていると片方を見落とす
+test("貼り付けは画像を挿入の直後に並べる", () => {
+  const html = render();
+  const image = html.indexOf("画像を挿入");
+  const paste = html.indexOf("貼り付け");
+  expect(image).toBeLessThan(paste);
+  expect(paste).toBeLessThan(html.indexOf("録音"));
+});
+
+// アップロード中・OCR 中に押されると、走っている挿入と取り込みが混ざる
+test("処理中は貼り付けも止める", () => {
+  const busy = render({ busy: true });
+  const idle = render({ busy: false });
+  expect(busy.match(/disabled=""/g)?.length).toBeGreaterThan(
+    idle.match(/disabled=""/g)?.length ?? 0,
+  );
 });

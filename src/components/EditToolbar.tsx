@@ -10,6 +10,7 @@ import {
   LockIcon,
   MicIcon,
   OcrIcon,
+  PasteIcon,
   PlusIcon,
   RedoIcon,
   SaveIcon,
@@ -118,6 +119,10 @@ export interface EditToolbarProps {
   uploadLabel: string;
   uploading: boolean;
   onInsertFile: () => void;
+  // クリップボードから取り込む (docs/92-クリップボード連携計画.md §4)。
+  // iPhone でコピーした写真を 1 タップで添付にする口。文字が入っていれば
+  // 文字を挿す。**押した時点でしか読めない**ので、出し分けはしない
+  onPasteClipboard: () => void;
   // スキャン: バーコードを読んで書籍・商品情報をカーソル位置へ挿入する
   // (検索はしない)。ラベルは取得中に差し替わる
   scanLabel: string;
@@ -164,6 +169,7 @@ export function EditToolbar({
   uploadLabel,
   uploading,
   onInsertFile,
+  onPasteClipboard,
   scanLabel,
   onScan,
   recordLabel,
@@ -258,6 +264,20 @@ export function EditToolbar({
             <ImageInsertIcon />
           </ToolIcon>
           {uploadLabel}
+        </button>
+        {/* クリップボードから取り込む (docs/92 §4)。**画像ボタンの隣**に置く —
+            どちらも「外から持ってきたものを添付にする」操作で、探す場所が
+            同じであってほしい */}
+        <button
+          type="button"
+          onClick={onPasteClipboard}
+          disabled={busy}
+          className={TOOL_SLOT}
+        >
+          <ToolIcon color="text-cyan-600">
+            <PasteIcon />
+          </ToolIcon>
+          貼り付け
         </button>
         <button
           type="button"

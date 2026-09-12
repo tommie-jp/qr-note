@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { fitWithin } from './secretImage'
+import { fitWithin } from './imageCanvas'
 
 describe('fitWithin', () => {
   test('keeps small images as they are', () => {

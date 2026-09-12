@@ -469,6 +469,19 @@ export function ImageInsertIcon() {
   );
 }
 
+// クリップボードから取り込む: クリップボード + 中へ降りる矢印
+// (docs/92-クリップボード連携計画.md §4)。メニューの CopyIcon (紙 2 枚の
+// 重なり = コピー) とは別の形にして、取り出しと取り込みを絵で見分ける
+export function PasteIcon() {
+  return (
+    <StrokeIconLarge>
+      <rect {...TINT} x="4" y="4" width="16" height="17" rx="2" />
+      <rect x="9" y="2" width="6" height="4" rx="1" />
+      <path d="M12 10v6M9 13.5l3 3 3-3" />
+    </StrokeIconLarge>
+  );
+}
+
 // 録音: マイク
 export function MicIcon() {
   return (
