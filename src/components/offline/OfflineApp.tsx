@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { BOX_CLASS, BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "@/components/ui";
 import { offlineCircuitMap } from "@/lib/offline/circuits";
-import { loadOfflineSnapshot } from "@/lib/offline/db";
+import { loadOfflineSnapshot } from "@/lib/offline/snapshotDb";
 import { buildOfflineIndex, filterOfflineItems } from "@/lib/offline/filter";
 import type { OfflineSyncPayload } from "@/lib/offline/item";
 import {

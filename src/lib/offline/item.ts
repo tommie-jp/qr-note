@@ -198,7 +198,7 @@ export function parseSyncPayload(data: unknown): OfflineSyncPayload | null {
     truncated: (data as { truncated?: unknown }).truncated === true,
     // 回路図は**無くても本文は読める** (コードブロックとして出る) ので、
     // 配列でなければ空に倒す。古い版のアプリが書いた保存を読み直すときに
-    // ここへ来る (db.ts は保存も parseSyncPayload に通す)
+    // ここへ来る (snapshotDb.ts は保存も parseSyncPayload に通す)
     circuits: Array.isArray(circuits)
       ? circuits.flatMap((row) => {
           const circuit = parseOfflineCircuit(row)

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { LOGOUT_PATH } from "@/lib/authPaths";
 import { LogoutIcon } from "@/components/MenuIcons";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
-import { clearOfflineData } from "@/lib/offline/db";
+import { clearOfflineData } from "@/lib/offline/snapshotDb";
 
 // ログアウト (docs/18-ログイン計画.md §11)。
 //

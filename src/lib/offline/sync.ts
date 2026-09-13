@@ -13,7 +13,7 @@
 
 import 'client-only'
 import { firstThumbInfo, thumbUrl } from '@/lib/memoImages'
-import { saveOfflineSnapshot } from './db'
+import { saveOfflineSnapshot } from './snapshotDb'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'
 
 // 応答の封筒 ({ success, data, error }) から data を取り出す。
