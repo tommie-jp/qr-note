@@ -1,71 +1,23 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
-import { cache, Suspense } from "react";
-import {
-  bulkTagAction,
-  setItemsOfflinePinAction,
-  setSortAction,
-  setViewModeAction,
-  trashItemsAction,
-} from "@/app/actions";
-import { AutoLoadMore } from "@/components/AutoLoadMore";
-import { AutoNotePane } from "@/components/AutoNotePane";
+import { Suspense } from "react";
 import { BusyNotice } from "@/components/BusyNotice";
-import { ItemListNav } from "@/components/ItemListNav";
-import { ItemView } from "@/components/ItemView";
 import { FolderPane } from "@/components/FolderPane";
-import { ItemList } from "@/components/ItemList";
-import { TrashIcon } from "@/components/icons";
 import { PageTransition } from "@/components/PageTransition";
-import { PropsTable } from "@/components/PropsTable";
 import PullToRefresh from "@/components/PullToRefresh";
-import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { SearchForm } from "@/components/SearchForm";
 import { SearchTools } from "@/components/SearchTools";
-import { SearchNavProvider, SearchResults } from "@/components/SearchNav";
+import { SearchNavProvider } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
-import { TaskProgress } from "@/components/TaskProgress";
-import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
-import {
-  countFolderTotals,
-  getItem,
-  listTags,
-  nextItemNo,
-  type TagCount,
-} from "@/lib/items/read";
-import {
-  countTaskProgress,
-  searchItemProps,
-  searchItems,
-} from "@/lib/items/search";
-import { countTrashedItems, countTrashedMatches } from "@/lib/items/trash";
-import { loadCircuitThumbs } from "@/lib/circuitThumbs";
-import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
-import { buildNotePreviews } from "@/components/NotePreviewThumb";
-import { isTaggableCode, scanRegisterHref } from "@/lib/scanRegister";
-import {
-  PANE_MODE_COOKIE,
-  parsePaneMode,
-  showsAutoNote,
-  showsFolderPane,
-  type PaneMode,
-} from "@/lib/paneMode";
-import { resolveItemListContext } from "@/lib/itemListContext";
-import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search/rewrite";
-import { listQueries } from "@/lib/searchQueryStore";
-import { currentUser, requireUser } from "@/lib/session";
-import { buildItemUrl, buildSearchUrl } from "@/lib/searchUrl";
+import { isDemoMode } from "@/lib/appEnv";
+import { listTags } from "@/lib/items/read";
+import { showsFolderPane } from "@/lib/paneMode";
+import { readSearchPrefs } from "@/lib/searchPrefs";
+import { requireUser } from "@/lib/session";
 import { qrStickerHost } from "@/lib/site";
-import { SORT_COOKIE, resolveSort } from "@/lib/sortMode";
-import type { Sort } from "@/lib/validation";
-import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/viewMode";
+import { HomeResults } from "./HomeResults";
+import { SearchFolders } from "./SearchFolders";
 
 export const dynamic = "force-dynamic";
-
-// ゴミ箱の件数は HomeResults (0 件時の案内) と SearchFolders (フォルダーの
-// バッジ) の両方が使う。別々の Suspense 枝から呼んでも 1 回の問い合わせに
-// 畳むため、リクエスト単位で memo する (React の cache)
-const countTrashedItemsOnce = cache(countTrashedItems);
 
 interface HomeProps {
   searchParams: Promise<{ q?: string; page?: string; sort?: string }>;
@@ -87,19 +39,9 @@ export default async function Home({ searchParams }: HomeProps) {
   await requireUser();
   const { q = "", page = "1", sort: sortParam } = await searchParams;
   const query = q.trim();
-  const cookieStore = await cookies();
-  // 並び順は URL → cookie → 既定 の順に決める (src/lib/sortMode.ts)。
-  // URL だけを見ていた頃は、?sort= を持たない入口 (ヘッダーのホーム・
-  // 検索フォーム・スキャン・タグリンク) から入るたびに既定へ戻っていた
-  const sort = resolveSort(sortParam, cookieStore.get(SORT_COOKIE)?.value);
-  // 表示モードは検索状態ではなく端末ごとの好みなので URL ではなく cookie。
-  // ここ (サーバ) で読めるから初回描画から正しい見た目で出る
-  // (docs/23-検索結果表示モード計画.md §5)
-  const view = parseViewMode(cookieStore.get(VIEW_MODE_COOKIE)?.value);
-  // ペイン構成 (docs/86 §4-4)。フォルダーを出すか、先頭のノートを自動で
-  // 選ぶかがここで決まる。**サーバで決めるのが要点** — クライアントで
-  // 隠すだけだと、出さない構成でもタグの集計を引いてしまう
-  const paneMode = parsePaneMode(cookieStore.get(PANE_MODE_COOKIE)?.value);
+  // 並び順 (URL → cookie → 既定)・表示モード・ペイン構成 (フォルダーを出すか、
+  // 先頭のノートを自動で選ぶか) を cookie から読む。規則と理由は lib/searchPrefs.ts
+  const { sort, view, paneMode } = readSearchPrefs(await cookies(), sortParam);
   // 検索窓のタグ補完だけは固定部と一緒に引く (小さな表 1 つで速い)。
   // 重い検索本体は HomeResults に隔離して Suspense で後から流す —
   // ログイン直後や直リンクの初回表示で、固定部 (検索窓) を先に出すため
@@ -180,280 +122,5 @@ export default async function Home({ searchParams }: HomeProps) {
         </PageTransition>
       </SelectModeProvider>
     </SearchNavProvider>
-  );
-}
-
-// 検索フォルダーの件数を引いて描く (docs/86 §5)。HomeResults と同じ
-// 「重い部分を隔離して後から流す」作り。タグ一覧は Home が補完用に
-// 引いたものを使い回す (同じ表を二度引かない)
-async function SearchFolders({
-  tags,
-  query,
-  sort,
-}: {
-  tags: TagCount[];
-  query: string;
-  sort: Sort;
-}) {
-  // ☆ 登録パターン (docs/59 §7) はユーザーごと。この画面は門番 (proxy と
-  // Home 冒頭の requireUser) の内側だが、万一の未ログインは空で受ける
-  // (ペインの他の節は個人情報でない)
-  const user = await currentUser();
-  const [totals, trashCount, queryLists] = await Promise.all([
-    countFolderTotals(),
-    countTrashedItemsOnce(),
-    user ? listQueries(user) : Promise.resolve({ saved: [], recent: [] }),
-  ]);
-  return (
-    <FolderPane
-      tags={tags}
-      totals={totals}
-      trashCount={trashCount}
-      saved={queryLists.saved}
-      query={query}
-      sort={sort}
-    />
-  );
-}
-
-// 検索の重い部分 (DB 問い合わせと結果表示) をまとめた非公開のサーバ
-// コンポーネント。Home 本体はここを await しないので、固定部が先に流れる
-async function HomeResults({
-  query,
-  page,
-  sort,
-  view,
-  paneMode,
-}: {
-  query: string;
-  page: string;
-  sort: Sort;
-  view: ReturnType<typeof parseViewMode>;
-  paneMode: PaneMode;
-}) {
-  // 特性表はタグ検索のときだけ出す。表は「同族の部品を並べて比べる」ビューで、
-  // タグ検索がまさにその族の指定だから (docs/08-プロパティ計画.md §4)。
-  const showProps = queryHasTagTerm(query);
-  // 学習の進捗はチェック状態で絞り込んでいるときだけ数える
-  // (docs/60-学習進捗計画.md §2)。常時出すと、チェックを使っていない
-  // ノート群にも 0% が並ぶ
-  const showProgress = queryTracksTaskProgress(query);
-  const [result, props, trashCount, progress] = await Promise.all([
-    searchItems(query, Number(page) || 1, sort),
-    showProps
-      ? searchItemProps(query, sort)
-      : Promise.resolve({ rows: [], omitted: 0 }),
-    countTrashedItemsOnce(),
-    showProgress
-      ? countTaskProgress(query)
-      : Promise.resolve({ done: 0, total: 0 }),
-  ]);
-
-  // 0 件のときだけ引く 2 つ。どちらも独立なので並べて撃つ。
-  // - 採番: スキャンした未登録コードから新規ノートを作る導線
-  //   (docs/10-スキャン新規登録計画.md §3)。タグにできる語のときだけ。
-  //   ヒットした検索や URL・複数語では引かない (無駄な問い合わせをしないためと、
-  //   ボタンを出さないため)
-  // - ゴミ箱の一致: 消したノートを探して 0 件のときに知らせる
-  //   (docs/12-ゴミ箱計画.md §5)。ゴミ箱が空なら数えるまでもない
-  const [nextNo, trashedMatches] = await Promise.all([
-    result.total === 0 && isTaggableCode(query) ? nextItemNo() : null,
-    result.total === 0 && trashCount > 0 ? countTrashedMatches(query) : 0,
-  ]);
-  const registerHref = nextNo === null ? null : scanRegisterHref(nextNo, query);
-
-  // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md)。キャッシュ済みの
-  // SVG を引くだけで描画はしない。小/大は画像の無いノートの先頭 1 枚、
-  // 画像モードは全部 (表示モードはサーバで既知なので引く量を絞れる)
-  const circuitThumbs = await loadCircuitThumbs(
-    result.items,
-    view === "image" ? "all" : "first",
-  );
-
-  // タイトル・プレビューの数式を KaTeX の HTML に (docs/69-一覧数式計画.md)。
-  // DB は引かない同期処理。プレビューが描かれるのはカード表示だけなので、
-  // それ以外はタイトルだけ作る (circuitThumbs の mode と同じ考え)。
-  // 特性表の要約列はタイトルと同じ文字列なので描画を使い回す
-  const mathTexts = buildMathTexts(
-    result.items,
-    view === "card" ? "both" : "title",
-  );
-  const mathSummaries = buildMathSummaries(props.rows, mathTexts);
-
-  // 画像も回路図も無いノートの顔になる、本文の縮小プレビュー
-  // (docs/71-一覧ノートプレビュー計画.md)。DB は引かない同期処理。
-  // **回路図サムネの後に作る** (出るノートに作っても使われない)。
-  // 表示モードごとの出し分け (画像モードは作らない・小はさらに足切り) は
-  // buildNotePreviews の中 (circuitThumbs / mathTexts と同じ作法)
-  const notePreviews = buildNotePreviews(result.items, circuitThumbs, view);
-
-  // ノートのペインを持つ構成 (3 / 2) では**必ずノートを出す**
-  // (docs/86 §4-4)。まだ何も選んでいないときのために、検索結果の先頭を
-  // 器ごと用意しておく。
-  //
-  // URL は動かさない — router.replace で /item/<先頭> へ飛ばすと、
-  // 再読み込みした瞬間に横取りの外 (全画面のノート) へ着地して 3 ペインが
-  // 消える。ここで描けば URL は検索のまま保てる。
-  // 中身の重さは一覧のプレビュー (buildNotePreviews は最大 20 ノートぶんの
-  // markdown を描く) と同じ桁で、1 ノート増えるだけ
-  const first = showsAutoNote(paneMode) ? result.items[0] : undefined;
-  const autoNote = first ? await buildAutoNote(first.itemNo, query, sort) : null;
-
-  // カード・masonry は広い画面で列を増やしたいので広幅。compact の
-  // 1 カラムだけは読み幅を保つ (docs/23 §1, docs/32 §1)
-  return (
-    <>
-    {/* 3 ペインでまだ何も選んでいないときに出す、先頭ノートのペイン
-        (docs/86 §4-4)。**SearchResults の外に置く** — あちらはカード表示で
-        breakout の transform を持ち、transform のある要素は position:fixed の
-        包含ブロックになる (下部バーを nav の外へ出しているのと同じ罠)。
-        中に入れるとペインが一覧の幅の中へ縮んで浮く。
-        出すかどうかの最終判断はクライアント側 (AutoNotePane) —
-        横取りスロットが既にノートを持っていたら引っ込む */}
-    {autoNote}
-    {/* 幅の指定は持たない。ペイン 2 の器いっぱいに広げる (docs/86 §4-8) —
-        広幅 breakout (WIDE_RESULTS_CLASS) は「中央 max-w-2xl の器から
-        はみ出す」ための道具で、器がもうペイン幅いっぱいなら要らない */}
-    <SearchResults query={query}>
-      {/* 並び順は下部バーへ移したので、この行は件数と補助リンクだけになった
-          (docs/31-下部操作バー計画.md §2)。
-          件数は text-sm、その脇の補助リンクはさらに一段下げて text-xs。
-          両方同じ大きさにすると、件数 (常に見る物) と補助リンク
-          (たまに押す物) の区別が付かなくなる */}
-      {/* 件数と補助リンクは左、一覧に効く操作 (表示・並び順・選択) は右
-          (docs/86 §4-11)。**p ではなく div**  — 中に form を持つので、
-          段落の中に置くと HTML として不正になる */}
-      {/* @container … 中のスロットが「ペインの幅」で文字数を決める基準
-          (docs/86 §4-14)。**画面幅ではなくここを見るのが要点** —
-          3 ペインの一覧は境界のドラッグで細くなるので、画面幅で切ると
-          フォルダーを広げたときに効かない。
-          この器に fixed の子孫は居ない (スロットのメニューは absolute) ので、
-          container が包含ブロックになる副作用は踏まない。
-          **1 行に保つ** … スロット側は whitespace-nowrap + shrink-0 で
-          折り返さないので、詰まったときに譲るのは件数の側。
-
-          件数は flex-1 (= flex-basis:0)。**0 にするのが要点** — flex-wrap の
-          折り返しは「縮める前の大きさ」で決まるので、既定の basis:auto だと
-          件数の全文が入らない時点でスロットが 2 行目へ落ちる。基準を 0 に
-          すれば、まず件数が truncate で詰まり、**スロットまで入らなくなって
-          初めて**折り返す。min-w-0 が無いと flex の子は中身より縮まないので
-          truncate も効かない。
-
-          flex-wrap は最後の逃げ道。3 ペインを 390px の画面で選ぶと一覧は
-          134px まで細り、どう削ってもこの行は入らない (実測)。そこで
-          nowrap のままだと選択ボタンが器の外へ出て押せなくなる —
-          2 行になるほうがまだ使える。**横スクロールにはしない**:
-          overflow-x は overflow-y も殺すので、長押しメニューが切られる
-          (docs/74 と同じ罠) */}
-      <div className="@container flex flex-wrap items-center gap-2 text-sm text-gray-600">
-        <span className="min-w-0 flex-1 truncate">
-          {query ? `「${query}」の検索結果: ` : "すべて: "}
-          {result.total} 件
-        </span>
-        {/* **絵と記号に詰める** (件数の行を短くするため)。ここは件数を読みに
-            来る行で、補助リンクは「あることを知っている人が押す物」なので、
-            文字で名乗り続ける必要がない。読み上げには aria-label で言葉を残す。
-            丸で囲むのは「？」1 文字だとリンクに見えないため */}
-        <Link
-          href="/docs/search"
-          aria-label="検索ヘルプ"
-          title="検索ヘルプ"
-          className="rounded-full border border-blue-300 px-1.5 text-xs leading-4 text-blue-600"
-        >
-          ?
-        </Link>
-        {/* ゴミ箱が空のときは出さない (普段は目に入らないように) */}
-        {trashCount > 0 && (
-          <Link
-            href="/trash"
-            transitionTypes={["nav-forward"]}
-            aria-label={`ゴミ箱 (${trashCount} 件)`}
-            title="ゴミ箱"
-            className="inline-flex items-center gap-0.5 self-center text-xs text-blue-600"
-          >
-            <TrashIcon small />({trashCount})
-          </Link>
-        )}
-
-        <ResultsToolbar
-          query={query}
-          sort={sort}
-          view={view}
-          viewAction={setViewModeAction}
-          sortAction={setSortAction}
-        />
-      </div>
-
-      {/* 件数のすぐ下に進捗。件数 (いま何件出ているか) と進捗 (全体のどこまで
-          進んだか) は続けて読む物なので離さない */}
-      <TaskProgress done={progress.done} total={progress.total} />
-
-      {/* **送るのはここだけ** (docs/86 §4-6)。検索窓・件数・進捗は動かさず、
-          一覧 (と特性表・ページ送り) だけを内側でスクロールさせる。
-          スクロールバーもこの器に付くので、一覧の右端に沿う */}
-      <div data-results-scroll className="space-y-2">
-      <PropsTable
-        rows={props.rows}
-        omitted={props.omitted}
-        query={query}
-        sort={sort}
-        mathSummaries={mathSummaries}
-      />
-
-      <ItemList
-        items={result.items}
-        query={query}
-        page={result.page}
-        sort={sort}
-        action={bulkTagAction}
-        view={view}
-        trashAction={trashItemsAction}
-        pinAction={setItemsOfflinePinAction}
-        registerHref={registerHref}
-        trashedMatches={trashedMatches}
-        circuitThumbs={circuitThumbs}
-        mathTexts={mathTexts}
-        notePreviews={notePreviews}
-      />
-
-      {/* ページ送りは「前へ/次へ」からオンデマンド表示へ (docs/33)。
-          searchItems が 1〜N ページの累積を返すので、末尾の「さらに表示」が
-          見えたら次の page へ replace するだけで一覧が伸びる。
-          全件出し切ったら何も出さない (件数は先頭に常にある) */}
-      {result.page < result.pageCount && (
-        <AutoLoadMore
-          href={buildSearchUrl(query, result.page + 1, sort)}
-          remaining={result.total - result.items.length}
-        />
-      )}
-      </div>
-    </SearchResults>
-    </>
-  );
-}
-
-// 自動で選んだ先頭ノートの中身。横取りしたペイン
-// ((search)/@detail/(.)item/[itemNo]/page.tsx) と同じ組み合わせを、
-// 同じ道具 (resolveItemListContext) で組み立てる
-async function buildAutoNote(itemNo: string, query: string, sort: Sort) {
-  const [item, ctx] = await Promise.all([
-    getItem(itemNo),
-    resolveItemListContext(itemNo, query, sort),
-  ]);
-  return (
-    <AutoNotePane
-      key={itemNo}
-      bgClass={isProductionEnv() ? "bg-gray-50" : "bg-pink-50"}
-      itemNo={itemNo}
-      openHref={buildItemUrl(itemNo, ctx.query, ctx.sort)}
-    >
-      <ItemView itemNo={itemNo} item={item} />
-      <ItemListNav
-        prev={ctx.neighbors.prev}
-        next={ctx.neighbors.next}
-        query={ctx.query}
-        sort={ctx.sort}
-      />
-    </AutoNotePane>
   );
 }

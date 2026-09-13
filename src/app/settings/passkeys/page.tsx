@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { PasskeyManager, type PasskeyRow } from "@/components/PasskeyManager";
-import { isDemoMode } from "@/lib/appEnv";
 import { formatJstDateTime } from "@/lib/datetime";
+import { requireSettingsPage } from "@/lib/pageGuard";
 import { listPasskeys } from "@/lib/passkeys";
-import { requireUser } from "@/lib/session";
 import { isPasskeyEnabled } from "@/lib/webauthnConfig";
 
 // サイト名は付けない。root layout の title.template が付ける
@@ -23,10 +21,7 @@ export const metadata: Metadata = {
 export default async function PasskeySettingsPage() {
   // デモでは設定系を出さない (docs/38-デモモード計画.md §4)。導線 (ヘッダの
   // リンク) も隠すが、URL 直打ちに備えてページ側でも 404 に倒す
-  if (isDemoMode()) {
-    notFound();
-  }
-  await requireUser();
+  await requireSettingsPage();
 
   const passkeys = await listPasskeys();
 

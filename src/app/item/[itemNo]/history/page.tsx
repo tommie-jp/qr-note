@@ -12,8 +12,8 @@ import { isDemoMode } from "@/lib/appEnv";
 import { formatJstDateTime } from "@/lib/datetime";
 import { noteAtHead, noteHistory } from "@/lib/git/notesRepo";
 import { getItem } from "@/lib/items/read";
+import { guardItemPage } from "@/lib/pageGuard";
 import { requireUser } from "@/lib/session";
-import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -36,8 +36,9 @@ export default async function HistoryPage({
   searchParams,
 }: HistoryPageProps) {
   const { itemNo } = await params;
+  guardItemPage(itemNo);
   // デモは履歴機能ごと閉じる (docs/57 §4)。リンクも出していないので 404 でよい
-  if (!isValidItemNo(itemNo) || isDemoMode()) {
+  if (isDemoMode()) {
     notFound();
   }
   await requireUser();

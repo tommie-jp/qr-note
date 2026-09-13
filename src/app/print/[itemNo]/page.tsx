@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
 import { PrintButton } from "@/components/PrintButton";
 import { getItem } from "@/lib/items/read";
+import { guardItemPage } from "@/lib/pageGuard";
 import { isPublicItem } from "@/lib/publicItem";
 import { currentUser } from "@/lib/session";
 import { qrBaseUrl } from "@/lib/site";
-import { buildItemUrl, isValidItemNo } from "@/lib/validation";
+import { buildItemUrl } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +31,7 @@ interface PrintPageProps {
 // 「印刷は素通しだから他も」と読む。
 export default async function PrintPage({ params }: PrintPageProps) {
   const { itemNo } = await params;
-  if (!isValidItemNo(itemNo)) {
-    notFound();
-  }
+  guardItemPage(itemNo);
 
   // ログイン中なら行を引かない (未登録の itemNo でもシールは刷れる。
   // 番号を先に貼っておく使い方があるため)

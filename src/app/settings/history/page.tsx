@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { backfillHistoryAction } from "@/app/actions";
 import { PRIMARY_BUTTON_CLASS } from "@/components/ui";
-import { isDemoMode } from "@/lib/appEnv";
-import { requireUser } from "@/lib/session";
+import { requireSettingsPage } from "@/lib/pageGuard";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {
@@ -25,10 +23,7 @@ export default async function HistorySettingsPage({
   searchParams,
 }: HistorySettingsPageProps) {
   // デモでは履歴機能ごと閉じている (docs/57 §4)。URL 直打ちに備えて 404 に倒す
-  if (isDemoMode()) {
-    notFound();
-  }
-  await requireUser();
+  await requireSettingsPage();
   const { done } = await searchParams;
 
   return (

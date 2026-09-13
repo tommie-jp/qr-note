@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { NotesExporter } from "@/components/NotesExporter";
 import { NotesImporter } from "@/components/NotesImporter";
 import { BOX_CLASS } from "@/components/ui";
-import { isDemoMode } from "@/lib/appEnv";
-import { requireUser } from "@/lib/session";
+import { requireSettingsPage } from "@/lib/pageGuard";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {
@@ -18,14 +16,12 @@ export const metadata: Metadata = {
 // なので、導線が離れていると「戻せる形式なのか」が利用者に伝わらない。
 //
 // proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
-// 唯一の砦にはしない (docs/18 §4)。ここでも requireUser() で確かめる。
+// 唯一の砦にはしない (docs/18 §4)。ここでも requireSettingsPage() の中の
+// requireUser() で確かめる。
 export default async function ImportSettingsPage() {
   // デモでは取り込みも持ち出しも出さない (docs/38-デモモード計画.md §4)。
   // API 側でも塞ぐが、URL 直打ちに備えてページも 404 に倒す
-  if (isDemoMode()) {
-    notFound();
-  }
-  await requireUser();
+  await requireSettingsPage();
 
   return (
     <div className="space-y-8">

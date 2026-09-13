@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import {
   recordAccessAction,
   restoreItemsAction,
@@ -16,10 +15,10 @@ import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items/read";
+import { guardItemPage } from "@/lib/pageGuard";
 import { formatBase } from "@/lib/saveBase";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
 import { requireUser } from "@/lib/session";
-import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +34,7 @@ interface EditPageProps {
 // 確かめる。
 export default async function EditPage({ params, searchParams }: EditPageProps) {
   const { itemNo } = await params;
-  if (!isValidItemNo(itemNo)) {
-    notFound();
-  }
+  guardItemPage(itemNo);
   await requireUser();
   const [item, { code }] = await Promise.all([getItem(itemNo), searchParams]);
   const mode = item?.mode ?? "memo";

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { SecretKeyringManager } from "@/components/secret/SecretKeyringManager";
-import { isDemoMode } from "@/lib/appEnv";
-import { requireUser } from "@/lib/session";
+import { requireSettingsPage } from "@/lib/pageGuard";
 import { isPasskeyEnabled } from "@/lib/webauthnConfig";
 
 // サイト名は付けない。root layout の title.template が付ける
@@ -17,10 +15,7 @@ export const metadata: Metadata = {
 export default async function SecretSettingsPage() {
   // デモでは機能ごと閉じる (docs/51 §10)。鍵を共有アカウントで分け合えないため。
   // 導線も隠すが、URL 直打ちに備えてページ側でも 404 に倒す (passkeys と同じ)
-  if (isDemoMode()) {
-    notFound();
-  }
-  await requireUser();
+  await requireSettingsPage();
 
   return (
     <div className="space-y-6">

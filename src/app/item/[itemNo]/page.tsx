@@ -1,17 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { ItemListNav } from "@/components/ItemListNav";
-import { ItemView } from "@/components/ItemView";
-import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
-import { PageTransition } from "@/components/PageTransition";
-import { PublicItemView } from "@/components/PublicItemView";
-import { RecordAccess } from "@/components/RecordAccess";
+import { ItemDetail } from "@/components/ItemDetail";
 import { recordAccessAction } from "@/app/actions";
-import { getItem } from "@/lib/items/read";
-import { resolveItemListContext } from "@/lib/itemListContext";
-import { isPublicItem } from "@/lib/publicItem";
-import { currentUser } from "@/lib/session";
-import { isValidItemNo } from "@/lib/validation";
+import { guardItemPage } from "@/lib/pageGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +19,7 @@ interface ItemPageProps {
   // q / sort … 一覧から開いたときに持ち回している検索状態。
   //   これがあるときだけ前後ナビを出す (docs/60-学習進捗計画.md §4)。
   //   同じ名前を 2 回書いた URL (`?q=a&q=b`) では配列で届くので、型でも
-  //   その形を認め、下で 1 本に畳んでから使う
+  //   その形を認め、ItemDetail (resolveItemListContext) が 1 本に畳んでから使う
   searchParams: Promise<{
     saved?: string;
     q?: string | string[];
@@ -41,64 +31,20 @@ interface ItemPageProps {
 //
 // このページは proxy.ts が**未ログインでも素通しする**口
 // (publicPaths.ts の isSelfGuardedPath。docs/22 §1)。素通しした以上、
-// 誰に何を見せるかはここが決める。門番を当てにしない:
-//
-//   ログイン中        → ItemView (従来の画面 + 公開トグル)
-//   未ログイン & 公開 → PublicItemView (読み取り専用)
-//   それ以外          → ログインの案内
-//
-// **未登録・非公開・ゴミ箱を同じ応答に潰すのが要点** (docs/22 §4)。
-// 分けると /item/1, /item/2, … を順に叩くだけでノートの存在が数えられる。
-// isPublicItem() が 3 つとも false に畳んでくれるので、ここは 1 本の if で済む。
+// 誰に何を見せるかはこのページ (の ItemDetail) が決める。門番を当てにしない。
+// 見せ分けの表と「未登録・非公開・ゴミ箱を同じ応答に潰す」理由は ItemDetail.tsx
 export default async function ItemPage({ params, searchParams }: ItemPageProps) {
   const { itemNo } = await params;
-  if (!isValidItemNo(itemNo)) {
-    notFound();
-  }
-
-  const [user, item, { saved, q, sort: sortParam }] = await Promise.all([
-    currentUser(),
-    getItem(itemNo),
-    searchParams,
-  ]);
-
-  if (user === null) {
-    return (
-      <PageTransition>
-        {isPublicItem(item) ? (
-          <PublicItemView itemNo={itemNo} item={item} />
-        ) : (
-          <LoginRequiredNotice />
-        )}
-      </PageTransition>
-    );
-  }
-
-  // 一覧の中の前後 (docs/60-学習進捗計画.md §4)。解決の規則
-  // (配列の畳み方・resolveSort・q が無ければ引かない) は横取りプレビュー
-  // ((search)/@detail) と共有する — 別々に持つと同じ URL で「次」がずれる
-  const { query, sort, neighbors } = await resolveItemListContext(
-    itemNo,
-    q,
-    sortParam,
-  );
+  guardItemPage(itemNo);
+  const { saved, q, sort } = await searchParams;
 
   return (
-    <PageTransition>
-      {/* 「最近見た順」のための記録 (docs/37-アクセス順計画.md)。
-          **ログイン中の枝にだけ置く** — 上の未ログイン枝 (公開ノート) に
-          置くと、他人やクローラが開くたびに自分の並びが書き換わる。
-          描画では記録せずマウント後に呼ぶ理由は RecordAccess.tsx に書いた */}
-      <RecordAccess itemNo={itemNo} action={recordAccessAction} />
-      <ItemView itemNo={itemNo} item={item} saved={saved} />
-      {/* 本文の下 (タイムスタンプの下)。問題を解いて読み終えたところに
-          「次」があるのが自然な流れ */}
-      <ItemListNav
-        prev={neighbors.prev}
-        next={neighbors.next}
-        query={query}
-        sort={sort}
-      />
-    </PageTransition>
+    <ItemDetail
+      itemNo={itemNo}
+      q={q}
+      sort={sort}
+      saved={saved}
+      shell={{ kind: "page", recordAccessAction }}
+    />
   );
 }

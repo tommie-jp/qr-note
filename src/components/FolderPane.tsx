@@ -9,7 +9,7 @@ import type { Sort } from "@/lib/validation";
 
 interface FolderPaneProps {
   tags: TagCount[];
-  // 件数と登録パターンは DB を引く後追いの情報 (page.tsx の SearchFolders)。
+  // 件数と登録パターンは DB を引く後追いの情報 ((search)/SearchFolders.tsx)。
   // **未指定でも骨組みは描く** — Suspense の fallback にタグだけの
   // ペインを出し、ペインの現れが遅れて一覧が横へ跳ねないようにするため
   // (globals.css の body:has がペインの有無で一覧の幅を変える)

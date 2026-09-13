@@ -35,7 +35,7 @@ const PANE_WIDTH_CLASS: Record<NotePaneLayout, string> = {
 
 interface PreviewPaneProps {
   // ペインの地色。本番=灰 / ローカル=ピンクは env から決まるので、サーバ側
-  // (@detail の page.tsx) が決めて渡す。LOCAL の目印はプレビューでも失わない
+  // (ItemDetail.tsx の paneBgClass) が決めて渡す。LOCAL の目印はプレビューでも失わない
   bgClass: string;
   // 出しているノートの番号。一覧のハイライトのために context へ知らせる
   // (docs/86 §4-4)。骨組み (loading) では番号がまだ判らないので任意
@@ -56,7 +56,7 @@ interface PreviewPaneProps {
 
 // 検索 3 ペインの右下、選択したノートの器 (docs/86 §4)。
 //
-// 中身 (ItemView) は @detail の page.tsx が入れる。器の畳み方は画面幅で変える:
+// 中身 (ItemView) は ItemDetail.tsx が入れる。器の畳み方は画面幅で変える:
 //
 //   lg 未満 … 全画面のオーバーレイ (z-30 でヘッダーごと覆う)。横取りは
 //             画面幅では止められないので、狭い画面では「ペイン」ではなく

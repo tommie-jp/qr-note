@@ -9,8 +9,8 @@ import { isDemoMode } from "@/lib/appEnv";
 import { formatJstDateTime } from "@/lib/datetime";
 import { isValidCommitOid } from "@/lib/git/notePath";
 import { noteAtCommit, noteHistory } from "@/lib/git/notesRepo";
+import { guardItemPage } from "@/lib/pageGuard";
 import { requireUser } from "@/lib/session";
-import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,8 @@ interface VersionPageProps {
 // proxy は楽観的な検査であって唯一の砦にしない (docs/18 §4)。
 export default async function VersionPage({ params }: VersionPageProps) {
   const { itemNo, oid } = await params;
-  if (!isValidItemNo(itemNo) || !isValidCommitOid(oid) || isDemoMode()) {
+  guardItemPage(itemNo);
+  if (!isValidCommitOid(oid) || isDemoMode()) {
     notFound();
   }
   await requireUser();

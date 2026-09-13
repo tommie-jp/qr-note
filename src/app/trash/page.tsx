@@ -16,13 +16,9 @@ import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { listTrashedItems } from "@/lib/items/trash";
 import { buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
+import { readTrashPrefs } from "@/lib/searchPrefs";
 import { requireUser } from "@/lib/session";
-import { resolveTrashSort, TRASH_SORT_COOKIE } from "@/lib/sortMode";
-import {
-  parseViewMode,
-  usesWideResults,
-  VIEW_MODE_COOKIE,
-} from "@/lib/viewMode";
+import { usesWideResults } from "@/lib/viewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -36,18 +32,14 @@ interface TrashPageProps {
 // 表示形式と並び順は検索一覧と同じ作法で決める (docs/67-ゴミ箱表示形式計画.md):
 //   表示形式 … cookie 1 つを検索一覧と共有 (端末ごとの好み)
 //   並び順   … URL → ゴミ箱用 cookie → 既定 (削除順)
+// (読み方は lib/searchPrefs.ts の readTrashPrefs)
 //
 // proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
 // 唯一の砦にはしない (docs/18 §4)。ここでも requireUser() で確かめる。
 export default async function TrashPage({ searchParams }: TrashPageProps) {
   await requireUser();
   const { sort: sortParam } = await searchParams;
-  const cookieStore = await cookies();
-  const sort = resolveTrashSort(
-    sortParam,
-    cookieStore.get(TRASH_SORT_COOKIE)?.value,
-  );
-  const view = parseViewMode(cookieStore.get(VIEW_MODE_COOKIE)?.value);
+  const { sort, view } = readTrashPrefs(await cookies(), sortParam);
   const items = await listTrashedItems(sort);
   // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md §5)。
   // 検索一覧と同じ: キャッシュ済みの SVG を引くだけで描画はしない
