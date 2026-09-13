@@ -26,7 +26,7 @@ import { findActiveSession, type ActiveSession } from './sessionStore'
 
 export type RequestSession = ActiveSession
 
-// expiresAt まで返すのは、proxy.ts が期限の延長を判断するのに要るため。
+// expiresAt まで返すのは、proxy の門番 (proxyDecision.ts) が期限の延長を判断するのに要るため。
 export async function resolveSession(
   sessionToken: string | null,
 ): Promise<RequestSession | null> {

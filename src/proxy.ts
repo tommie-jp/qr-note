@@ -2,17 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isProductionEnv } from '@/lib/appEnv'
 import { LOGIN_REQUIRED_PATH } from '@/lib/loginRedirect'
-import { loopbackRedirectUrl } from '@/lib/loopbackRedirect'
-import { OFFLINE_PATH } from '@/lib/offline/params'
-import { isPublicPath, isSelfGuardedPath } from '@/lib/publicPaths'
+import {
+  decideWithoutSession,
+  decideWithSession,
+  type ProxyDecision,
+  type ProxyRequest,
+  type ProxySession,
+} from '@/lib/proxyDecision'
 import { resolveSession } from '@/lib/requestAuth'
 import { apiFail } from '@/lib/route/respond'
 import { renewSession } from '@/lib/sessionStore'
-import {
-  SESSION_COOKIE_NAME,
-  sessionCookieOptions,
-  shouldRenewSession,
-} from '@/lib/sessionToken'
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
 
 // ログインの門番 (docs/18-ログイン計画.md)。
 //
@@ -28,124 +28,69 @@ import {
 // ただしこれは Next.js の言う「楽観的な検査」であって唯一の砦ではない
 // (01-app/02-guides/authentication.md)。データに触る入口では session.ts の
 // requireUser() がもう一度確かめる。
+//
+// 分岐の判定は lib/proxyDecision.ts が持つ。ここはリクエストから入力を集め、
+// 判定を NextResponse に写すだけ (docs/93-リファクタリング計画.md §4-9)
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
-  const { pathname } = request.nextUrl
-
-  // ループバック IP で開かれたら localhost へ送り直す (非本番だけ)。
-  // パスキーは rpID にドメイン名を要求し 127.0.0.1 では使えないのに、
-  // VS Code の「Open in Browser」は必ず 127.0.0.1 を開くため
-  // (理由と出典は loopbackRedirect.ts)。
-  //
-  // ログイン検査より前に置く。未ログインの案内を 127.0.0.1 で見せてから
-  // 送り直しても、そこで押したログインが結局使えない
-  // 判定は Host ヘッダで行う。request.nextUrl のホストは Next.js が
-  // localhost に正規化してしまい、127.0.0.1 で開いても見分けられない
-  const loopbackTarget = loopbackRedirectUrl(
-    request.headers.get('host'),
-    request.nextUrl,
-    isProductionEnv(),
-  )
-  if (loopbackTarget !== null) {
-    // 307 = 一時的 + メソッドを保つ。308 だとブラウザに恒久的に覚えられ、
-    // あとで挙動を変えたくなったときに古い転送が残る
-    return NextResponse.redirect(loopbackTarget, 307)
+  const facts: ProxyRequest = {
+    host: request.headers.get('host'),
+    url: request.nextUrl,
+    method: request.method,
+    isProduction: isProductionEnv(),
   }
-
-  if (isPublicPath(pathname)) {
-    const response = NextResponse.next()
-    return NOINDEX_PUBLIC_PATHS.has(pathname) ? denyIndexing(response) : response
-  }
-
-  // 公開かどうかがデータで決まる口 (docs/22-ノート公開計画.md §1)。
-  // 公開ノートは未ログインでも読めるが、それを判断できるのは行を見た後なので、
-  // ここでは決められない。**読み取りだけ**通し、判定はページ / route handler の
-  // isPublicItem() に委ねる。委ね先は publicPaths.ts の一覧に明記されているので、
-  // 「新しいページを足したら黙って公開されていた」は起きない。
-  //
-  // 書き込み (Server Action の POST) をここで通さないのが要点。通すと
-  // requireUser() だけが防波堤になり、公開ノートが誰でも書ける口に一歩近づく。
-  // 公開は読み取り専用と決めた以上、門番の側でも閉じておく
-  if (isSelfGuardedPath(pathname) && isReadRequest(request)) {
-    return NextResponse.next()
-  }
-
-  // 判定 (セッション Cookie だけを見る) は requestAuth.ts が持つ。
-  // ここと session.ts の二か所に書くと、片方だけ直して穴が開く
-  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value ?? null
-  const session = await resolveSession(sessionToken)
-  if (session !== null && sessionToken !== null) {
-    return withRenewedSession(sessionToken, session.expiresAt)
-  }
-
-  // 画面の取得は、URL をそのままに案内へ差し替える (redirect ではなく rewrite)。
-  // ブラウザのアドレス欄が /item/ABC のまま残るので、ログインすれば
-  // 再読み込みだけでその場に戻れる。
-  //
-  // ここで 401 + WWW-Authenticate を返さないのは意図的。それをやると
-  // 「ログインしなくてもヘッダを出す」という今回の目的そのものが壊れ、
-  // どのページを開いてもいきなり認証ダイアログが出る昔の挙動に戻る
-  if (isPageRequest(request)) {
-    const notice = NextResponse.rewrite(new URL(LOGIN_REQUIRED_PATH, request.nextUrl))
-    // 根だけは素のまま返す (理由は denyIndexing のコメント)
-    return pathname === SITE_ROOT ? notice : denyIndexing(notice)
-  }
-
-  // API と書き込み (Server Action の POST を含む) は機械が読む口なので、
-  // 案内の HTML を返しても意味がない。素直に断る
-  return apiFail('ログインが必要です', 401)
+  // セッションは decideWithoutSession で決まらなかったときだけ引く
+  const decision =
+    decideWithoutSession(facts) ??
+    decideWithSession(facts, await lookupSession(request), new Date())
+  return respond(request, decision)
 }
 
-// サイトの根。ここだけ noindex を付けない (理由は denyIndexing)
-const SITE_ROOT = '/'
+async function lookupSession(request: NextRequest): Promise<ProxySession | null> {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value ?? null
+  const session = await resolveSession(token)
+  return session !== null && token !== null
+    ? { token, expiresAt: session.expiresAt }
+    : null
+}
 
-// 公開しているが載せる価値のない画面 (docs/90-クローラ対策計画.md §2)。
-// どちらも**中身を持たない殻**で、検索結果に出ても空の紙が並ぶだけ:
-//
-//   /login-required … ログインの案内。rewrite 経由と直接アクセスで扱いを揃える
-//   /offline        … オフラインの画面。ノートは 1 件も含まず、中身は端末の
-//                     IndexedDB からしか来ない (publicPaths.ts)
-//
-// 残りの公開パス (使い方の説明・PWA の manifest とアイコン・sw.js) は
-// そのまま。説明は読まれて困るものではないし、機械が取りに来るものに
-// インデックスの指示は要らない
-const NOINDEX_PUBLIC_PATHS = new Set<string>([LOGIN_REQUIRED_PATH, OFFLINE_PATH])
+async function respond(request: NextRequest, decision: ProxyDecision): Promise<NextResponse> {
+  switch (decision.kind) {
+    case 'loopback-redirect':
+      // 307 = 一時的 + メソッドを保つ。308 だとブラウザに恒久的に覚えられ、
+      // あとで挙動を変えたくなったときに古い転送が残る
+      return NextResponse.redirect(decision.location, 307)
+    case 'pass':
+      return NextResponse.next()
+    case 'pass-noindex':
+      return denyIndexing(NextResponse.next())
+    case 'pass-with-renewal':
+      return withRenewedSession(decision.token)
+    case 'rewrite-login-required': {
+      const notice = NextResponse.rewrite(new URL(LOGIN_REQUIRED_PATH, request.nextUrl))
+      return decision.noindex ? denyIndexing(notice) : notice
+    }
+    case 'unauthorized':
+      return apiFail('ログインが必要です', 401)
+  }
+}
 
-// ログイン案内をインデックスさせない (docs/90-クローラ対策計画.md §2)。
-//
-// **rewrite だから要る。** redirect と違って応答は「元の URL のまま 200」なので、
-// /settings, /trash, /edit/… が中身の同じページとして URL の数だけ並んで見える。
-//
-// **判定をここに置く理由**は、元のパスが分かるのがこの層だけだから。案内ページ
-// (login-required/page.tsx) の metadata に noindex を書くと、rewrite 先が 1 つ
-// である以上サイトの根まで巻き込む。そして根は SNS のカード生成クローラーが
-// 読む場所で (docs/89-OGP計画.md §6 は `curl -sA Twitterbot https://…/` で
-// 確かめている)、noindex を見たクローラーはカードを出さないことがある。
-// X は「カードなし」も 1 週間キャッシュするため、壊すと戻すのに時間がかかる。
-//
-// 根が「ログインが必要です」としてインデックスされるのは害がない。それはサイトの
-// 玄関そのもので、中身 (ノート) は 1 件も出ていない。
+// 検索エンジンに載せない印 (どこに付けるかの理由は proxyDecision.ts)
 function denyIndexing(response: NextResponse): NextResponse {
   response.headers.set('X-Robots-Tag', 'noindex')
   return response
 }
 
-// セッションの期限を延ばす (docs/29-パスキー計画.md §4)。
+// セッションの期限を延ばす (docs/29-パスキー計画.md §4)。延ばす頃合いの判定は
+// proxyDecision.ts が済ませている。
 //
 // **延長をここでしか行わないのは、Cookie を貼り直せる場所がここだけだから**。
 // Server Component (session.ts の currentUser) からは Cookie を書けない。
 //
-// 延ばすのは 1 日に 1 回まで (shouldRenewSession)。毎リクエスト書き換えると、
-// ページを開くたびに UPDATE と Set-Cookie が飛ぶ。
-//
 // 失敗しても素通しする。延長は「90 日が 90 日に戻らなかった」だけの話で、
 // そのためにログイン済みの人を締め出す理由はない
-async function withRenewedSession(token: string, expiresAt: Date): Promise<NextResponse> {
+async function withRenewedSession(token: string): Promise<NextResponse> {
   const response = NextResponse.next()
-
-  if (!shouldRenewSession(expiresAt, new Date())) {
-    return response
-  }
 
   try {
     await renewSession(token)
@@ -158,21 +103,6 @@ async function withRenewedSession(token: string, expiresAt: Date): Promise<NextR
   // ブラウザ側が先に捨ててしまう
   response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions())
   return response
-}
-
-// 読み取りだけの要求か。isPageRequest と違って /api/ も含む
-// (画像配信は読み取りだが API でもあるため)
-function isReadRequest(request: NextRequest): boolean {
-  return request.method === 'GET' || request.method === 'HEAD'
-}
-
-// 人がブラウザで開いている画面かどうか。Server Action は現在のページの URL へ
-// POST されるため、メソッドを見ないと「保存」が案内ページに化けて黙って失敗する
-function isPageRequest(request: NextRequest): boolean {
-  if (!isReadRequest(request)) {
-    return false
-  }
-  return !request.nextUrl.pathname.startsWith('/api/')
 }
 
 export const config = {
