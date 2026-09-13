@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { useAsyncAction } from "@/components/hooks/useAsyncAction";
 import {
   BOX_CLASS,
   PRIMARY_BUTTON_CLASS,
@@ -12,6 +13,7 @@ import {
   useImportProgress,
 } from "@/components/useImportProgress";
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from "@/lib/enex/limits";
+import { errorText } from "@/lib/errorMessage";
 import type { BaseImportReport } from "@/lib/importReport";
 import type { ConflictPolicy } from "@/lib/zip/conflictPolicy";
 import { MAX_ZIP_BYTES, zipTooLargeMessage } from "@/lib/zip/limits";
@@ -92,8 +94,7 @@ export function NotesImporter() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [conflict, setConflict] = useState<ConflictPolicy>("skip");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { run, busy, error, setError } = useAsyncAction();
   const [report, setReport] = useState<ImportReport | null>(null);
 
   // **送る前に**大きさを見る。上限超過はエッジ (nginx / Caddy) が 413 で
@@ -109,44 +110,40 @@ export function NotesImporter() {
     if (file === null || sizeError !== null) {
       return;
     }
-    setError(null);
-    setReport(null);
-    setBusy(true);
-    try {
-      // **ファイルをそのまま本文にする** (multipart で包まない)。ZIP は
-      // 500MB まで受けるので、包むとサーバ側が本文全体をメモリに載せることに
-      // なる (docs/28 §3)。ブラウザは File をディスクから流して送るため、
-      // こちら側でも中身を抱えずに済む。同時に送りたい設定はクエリへ
-      const response = await fetch(`/api/import?conflict=${conflict}`, {
-        method: "POST",
-        body: file,
-        credentials: "same-origin",
-      });
-      const result: ImportResponse = await response.json();
-      if (!response.ok || !result.success || result.data === null) {
-        throw new Error(result.error ?? `取り込めませんでした (${response.status})`);
-      }
-      setReport(result.data);
-      // 同じファイルを二度押しで二重に取り込みやすいので、成功したら選択を外す
-      setFile(null);
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
-    } catch (cause) {
-      console.error("取り込みに失敗しました", cause);
-      // fetch 自体の失敗 (TypeError: "Load failed" / "Failed to fetch") は
-      // 応答が届く前に接続が切れたということ。素の文言を出しても意味が
-      // 取れないので、考えられる原因を言葉にする
-      if (cause instanceof TypeError) {
-        setError(
-          "送信が途中で切れました。ファイルが大きすぎるか、通信が不安定な可能性があります",
-        );
-      } else {
-        setError(cause instanceof Error ? cause.message : "取り込めませんでした");
-      }
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      async () => {
+        setReport(null);
+        // **ファイルをそのまま本文にする** (multipart で包まない)。ZIP は
+        // 500MB まで受けるので、包むとサーバ側が本文全体をメモリに載せることに
+        // なる (docs/28 §3)。ブラウザは File をディスクから流して送るため、
+        // こちら側でも中身を抱えずに済む。同時に送りたい設定はクエリへ
+        const response = await fetch(`/api/import?conflict=${conflict}`, {
+          method: "POST",
+          body: file,
+          credentials: "same-origin",
+        });
+        const result: ImportResponse = await response.json();
+        if (!response.ok || !result.success || result.data === null) {
+          throw new Error(result.error ?? `取り込めませんでした (${response.status})`);
+        }
+        setReport(result.data);
+        // 同じファイルを二度押しで二重に取り込みやすいので、成功したら選択を外す
+        setFile(null);
+        if (inputRef.current) {
+          inputRef.current.value = "";
+        }
+      },
+      (cause) => {
+        console.error("取り込みに失敗しました", cause);
+        // fetch 自体の失敗 (TypeError: "Load failed" / "Failed to fetch") は
+        // 応答が届く前に接続が切れたということ。素の文言を出しても意味が
+        // 取れないので、考えられる原因を言葉にする
+        if (cause instanceof TypeError) {
+          return "送信が途中で切れました。ファイルが大きすぎるか、通信が不安定な可能性があります";
+        }
+        return errorText(cause, "取り込めませんでした");
+      },
+    );
   }
 
   return (

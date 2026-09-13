@@ -32,6 +32,7 @@ import {
   isCircuitLang,
 } from "@/lib/fenceLanguages";
 import { fetchCircuitSvg } from "@/lib/circuitFetch";
+import { errorText } from "@/lib/errorMessage";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
 
 const PARSE_BUDGET_MS = 200;
@@ -147,7 +148,7 @@ class FenceWidget extends WidgetType {
       return { svg };
     } catch (e) {
       return {
-        error: `mermaid の構文エラー: ${e instanceof Error ? e.message : String(e)}`,
+        error: `mermaid の構文エラー: ${errorText(e)}`,
       };
     }
   }

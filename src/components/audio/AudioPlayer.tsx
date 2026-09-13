@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
+import { errorText } from "@/lib/errorMessage";
 import {
   attachmentShareName,
   isShareAborted,
@@ -105,7 +106,7 @@ export function AudioPlayer({ src, label }: AudioPlayerProps) {
       setPhase("retry");
       return;
     }
-    setError(e instanceof Error ? e.message : String(e));
+    setError(errorText(e));
     setPhase("idle");
   };
 

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui";
 import { rankItems, type ImageVectorEntry, type ItemMatch } from "@/lib/imageSearch";
 import { thumbUrl } from "@/lib/memoImages";
+import { errorText } from "@/lib/errorMessage";
 import { disposeOcr } from "./ocr/ocrService";
 import { captureSquareBitmap } from "./imageSearch/capture";
 import { fetchImageSearchIndex } from "./imageSearch/fetchIndex";
@@ -113,7 +114,7 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setIndexError(err instanceof Error ? err.message : "索引を取得できませんでした");
+          setIndexError(errorText(err, "索引を取得できませんでした"));
         }
       });
     return () => {

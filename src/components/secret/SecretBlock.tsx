@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAsyncAction } from "@/components/hooks/useAsyncAction";
 import { BUSY_SPINNER_CLASS } from "@/components/ui";
 import {
   SecretLockedError,
@@ -70,8 +71,7 @@ export function SecretBlock({
   allowEdit = false,
 }: SecretBlockProps) {
   const unlocked = useSecretUnlocked();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { run, busy, error, setError } = useAsyncAction();
   const [content, setContent] = useState<SecretContent | null>(null);
   // 復号した markdown。断片内の画像参照は Blob URL に差し替え済み
   const [markdown, setMarkdown] = useState<string | null>(null);
@@ -105,7 +105,7 @@ export function SecretBlock({
     setMedia(null);
     setBlobKinds(new Map());
     setError(null);
-  }, [revokeBlobs]);
+  }, [revokeBlobs, setError]);
 
   // 鍵が消えたら (施錠) 表示中の中身も引っ込め、Blob URL も解放する。
   //
@@ -121,42 +121,41 @@ export function SecretBlock({
     [hide],
   );
 
-  const reveal = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      if (!unlocked) {
-        await unlockWithPasskey();
-      }
-      const loaded = await loadSecret(name);
-      setContent(loaded);
+  const reveal = useCallback(
+    () =>
+      run(
+        async () => {
+          if (!unlocked) {
+            await unlockWithPasskey();
+          }
+          const loaded = await loadSecret(name);
+          setContent(loaded);
 
-      const kind = secretMimeKind(loaded.mime);
-      if (kind !== null && kind !== "text") {
-        setMedia({
-          url: trackBlob(blobUrls, loaded.bytes, loaded.mime),
-          kind,
-        });
-        return;
-      }
+          const kind = secretMimeKind(loaded.mime);
+          if (kind !== null && kind !== "text") {
+            setMedia({
+              url: trackBlob(blobUrls, loaded.bytes, loaded.mime),
+              kind,
+            });
+            return;
+          }
 
-      const resolved = await resolveNestedMedia(secretText(loaded), blobUrls);
-      setBlobKinds(resolved.kinds);
-      setMarkdown(resolved.markdown);
-    } catch (cause) {
-      if (cause instanceof SecretCancelledError) {
-        return; // 自分でやめた操作は失敗として出さない (passkeyClient.ts と同じ)
-      }
-      console.error(`シークレットを開けませんでした (${name})`, cause);
-      setError(
-        cause instanceof Error && !(cause instanceof SecretLockedError)
-          ? cause.message
-          : "シークレットを開けませんでした",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [name, unlocked]);
+          const resolved = await resolveNestedMedia(secretText(loaded), blobUrls);
+          setBlobKinds(resolved.kinds);
+          setMarkdown(resolved.markdown);
+        },
+        (cause) => {
+          if (cause instanceof SecretCancelledError) {
+            return null; // 自分でやめた操作は失敗として出さない (passkeyClient.ts と同じ)
+          }
+          console.error(`シークレットを開けませんでした (${name})`, cause);
+          return cause instanceof Error && !(cause instanceof SecretLockedError)
+            ? cause.message
+            : "シークレットを開けませんでした";
+        },
+      ),
+    [name, unlocked, run],
+  );
 
   const copy = useCallback(async () => {
     if (content === null) {
@@ -182,7 +181,7 @@ export function SecretBlock({
       console.error("クリップボードにコピーできませんでした", cause);
       setError("コピーできませんでした");
     }
-  }, [content]);
+  }, [content, setError]);
 
   if (content === null) {
     return (

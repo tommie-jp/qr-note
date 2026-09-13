@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAsyncAction } from "@/components/hooks/useAsyncAction";
 import {
   BOX_CLASS,
   BUSY_SPINNER_CLASS,
@@ -35,8 +36,7 @@ import {
 export function SecretKeyringManager() {
   const unlocked = useSecretUnlocked();
   const [keyring, setKeyring] = useState<KeyringState | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { run: runAction, busy, error, setError } = useAsyncAction();
   const [notice, setNotice] = useState<string | null>(null);
   // 初回設定の直後にだけ出す復旧キー。閉じたら二度と出せない
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function SecretKeyringManager() {
     } catch (cause) {
       setError(message(cause, "設定を読み込めませんでした"));
     }
-  }, []);
+  }, [setError]);
 
   // 初回の読み込み。**effect の中で setState を直に呼ばない** (React の
   // 助言どおり) ため、取得の後始末として書く。以後の読み直しは操作の
@@ -69,31 +69,29 @@ export function SecretKeyringManager() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setError]);
 
   // 押した操作をまとめて包む。取り消し (Face ID を閉じた) は失敗にしない
   const run = useCallback(
-    async (action: () => Promise<void>, done: string | null) => {
-      setBusy(true);
-      setError(null);
-      setNotice(null);
-      try {
-        await action();
-        if (done !== null) {
-          setNotice(done);
-        }
-        await reload();
-      } catch (cause) {
-        if (cause instanceof SecretCancelledError) {
-          return;
-        }
-        console.error("シークレットの鍵操作に失敗しました", cause);
-        setError(message(cause, "操作に失敗しました"));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [reload],
+    (action: () => Promise<void>, done: string | null) =>
+      runAction(
+        async () => {
+          setNotice(null);
+          await action();
+          if (done !== null) {
+            setNotice(done);
+          }
+          await reload();
+        },
+        (cause) => {
+          if (cause instanceof SecretCancelledError) {
+            return null;
+          }
+          console.error("シークレットの鍵操作に失敗しました", cause);
+          return message(cause, "操作に失敗しました");
+        },
+      ),
+    [reload, runAction],
   );
 
   // 解錠中なら、いつでも手元のマスターキーから復旧キーを組み直せる
@@ -106,7 +104,7 @@ export function SecretKeyringManager() {
     }
     setNotice(null);
     setRecoveryKey(formatRecoveryKey(encodeRecoveryKey(masterKey)));
-  }, []);
+  }, [setError]);
 
   const initialized = keyring?.initialized ?? false;
   const enrolledCount =

@@ -10,6 +10,7 @@ import {
   MAX_RECORDING_MS,
   type Recording,
 } from "@/lib/audio/audioRecorder";
+import { errorText } from "@/lib/errorMessage";
 
 // 経過時間の更新間隔。表示は秒単位なので 200ms あれば十分滑らかに見える
 const TICK_MS = 200;
@@ -22,10 +23,6 @@ export interface AudioRecordingState {
   // エラーではないが伝えるべきこと (自動停止など)。無ければ null
   note: string | null;
   toggle: () => void;
-}
-
-function messageOf(e: unknown, fallback: string): string {
-  return e instanceof Error ? e.message : fallback;
 }
 
 export interface AudioRecordingHandlers {
@@ -67,7 +64,7 @@ export function useAudioRecording(
       // 開始できてから録音中にする。失敗したまま「録音中」を出さない
       setStartedAt(Date.now());
     } catch (e) {
-      handlersRef.current.onError(messageOf(e, "録音を開始できませんでした。"));
+      handlersRef.current.onError(errorText(e, "録音を開始できませんでした。"));
     }
   }, []);
 
@@ -83,7 +80,7 @@ export function useAudioRecording(
       const recording = await recorder.stop();
       await handlersRef.current.onFinish(recording);
     } catch (e) {
-      handlersRef.current.onError(messageOf(e, "録音を保存できませんでした。"));
+      handlersRef.current.onError(errorText(e, "録音を保存できませんでした。"));
     }
   }, []);
 

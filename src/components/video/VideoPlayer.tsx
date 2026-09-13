@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
+import { errorText } from "@/lib/errorMessage";
 import {
   attachmentShareName,
   isShareAborted,
@@ -95,7 +96,7 @@ export function VideoPlayer({ src, label, width = null }: VideoPlayerProps) {
       setPhase("retry");
       return;
     }
-    setError(e instanceof Error ? e.message : String(e));
+    setError(errorText(e));
     setPhase("idle");
   };
 

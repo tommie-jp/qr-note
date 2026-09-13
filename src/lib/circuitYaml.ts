@@ -8,6 +8,7 @@ import {
 import type { CircuitResult } from './circuit/types'
 import { renderCircuitDocument } from './circuitikz'
 import { prisma } from './db'
+import { errorText } from './errorMessage'
 
 // 回路 YAML フェンス (docs/91-回路YAMLフェンス計画.md) の描画。
 //
@@ -70,7 +71,7 @@ export async function renderCircuitYaml(source: string): Promise<CircuitResult> 
     return { svg, notices }
   } catch (e) {
     return {
-      error: e instanceof Error ? e.message : String(e),
+      error: errorText(e),
       texLog: '',
       notices,
     }

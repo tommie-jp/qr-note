@@ -2,6 +2,7 @@
 
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { useEffect, useRef, useState } from "react";
+import { errorText } from "@/lib/errorMessage";
 import { loginWithPasskey, PasskeyCancelledError } from "@/lib/passkeyClient";
 import {
   hasPasskeyHint,
@@ -88,7 +89,7 @@ export function PasskeyLoginButton({
         setIsBusy(false);
         return;
       }
-      setError(cause instanceof Error ? cause.message : "ログインできませんでした");
+      setError(errorText(cause, "ログインできませんでした"));
       setIsBusy(false);
     }
   }

@@ -7,6 +7,7 @@
 // **ここだけに**置き、DOM に触らない形にしてある (呼ぶ側は取得と挿入だけ)。
 
 import { timestampFileName } from './datetime'
+import { errorText } from './errorMessage'
 import { extForMime } from './uploads'
 
 // クリップボードに載せる形式として最も素直なもの。iOS のスクリーンショットも
@@ -83,5 +84,5 @@ export function clipboardReadErrorMessage(error: unknown): string {
   ) {
     return 'クリップボードの読み取りが許可されませんでした'
   }
-  return error instanceof Error ? error.message : String(error)
+  return errorText(error)
 }

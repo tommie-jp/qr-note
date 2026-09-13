@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { errorText } from "@/lib/errorMessage";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
 import { ERROR_SOURCE_CLASS } from "./ui";
 
@@ -33,7 +34,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
       } catch (e) {
         // 一時要素の掃除は renderMermaidSvg が済ませている
         if (!cancelled) {
-          setState({ error: e instanceof Error ? e.message : String(e) });
+          setState({ error: errorText(e) });
         }
       }
     })();

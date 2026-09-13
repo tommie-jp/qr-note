@@ -8,9 +8,11 @@ import {
   type ComponentProps,
 } from "react";
 import { useRouter } from "next/navigation";
+import { errorText } from "@/lib/errorMessage";
 import { pendingRotation } from "@/lib/rotationState";
 import { parseUploadResponse } from "@/lib/uploadResponse";
 import { CopyImageButton } from "./CopyImageButton";
+import { useAsyncAction } from "./hooks/useAsyncAction";
 import { ModalOverlay } from "./modal/ModalOverlay";
 import { useEscapeKey } from "./modal/useEscapeKey";
 import { IMAGE_OVERLAY_BUTTON_CLASS } from "./ui";
@@ -60,8 +62,7 @@ export function ZoomableImage({
   );
   // CSS で即時に見せる累計回転角 (deg)。保存確定 or 失敗で 0 に戻す
   const [displayAngle, setDisplayAngle] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { run, busy: isSaving, error } = useAsyncAction();
   // タイマー確定時に読む累計角。state は描画用、確定判定はこの ref を正とする
   // (連打で state 更新が溜まっても取りこぼさない)
   const angleRef = useRef(0);
@@ -92,33 +93,32 @@ export function ZoomableImage({
       resetAngle();
       return;
     }
-    setIsSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`${imagePath(currentSrc)}/rotate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ angle }),
-      });
-      // アップロードと同じ共通エンベロープ。失敗は例外で返る (uploadResponse.ts)
-      const newUrl = parseUploadResponse(res.status, await res.text());
-      await preloadImage(newUrl);
-      // 差し替えと CSS 回転リセットは同時に (別々だとチラつく)
-      resetAngle();
-      setCurrentSrc(newUrl);
-      // 回転はノート本文の書き換え (URL 置換) なので、サーバ描画を取り直して
-      // ページ全体を新 URL へ追随させる。とくに**まだ開いていない編集タブ**は
-      // これで新しい本文を初期値にマウントできる (MemoPanel は開くまで遅延)。
-      // クライアント状態 (このコンポーネントの currentSrc、開いた overlay、
-      // 編集中の CodeMirror) は refresh でも保持される
-      router.refresh();
-    } catch (e) {
-      // 失敗は握り潰さず表示に出し、CSS 回転を元へ戻す
-      resetAngle();
-      setError(e instanceof Error ? e.message : "回転に失敗しました");
-    } finally {
-      setIsSaving(false);
-    }
+    await run(
+      async () => {
+        const res = await fetch(`${imagePath(currentSrc)}/rotate`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ angle }),
+        });
+        // アップロードと同じ共通エンベロープ。失敗は例外で返る (uploadResponse.ts)
+        const newUrl = parseUploadResponse(res.status, await res.text());
+        await preloadImage(newUrl);
+        // 差し替えと CSS 回転リセットは同時に (別々だとチラつく)
+        resetAngle();
+        setCurrentSrc(newUrl);
+        // 回転はノート本文の書き換え (URL 置換) なので、サーバ描画を取り直して
+        // ページ全体を新 URL へ追随させる。とくに**まだ開いていない編集タブ**は
+        // これで新しい本文を初期値にマウントできる (MemoPanel は開くまで遅延)。
+        // クライアント状態 (このコンポーネントの currentSrc、開いた overlay、
+        // 編集中の CodeMirror) は refresh でも保持される
+        router.refresh();
+      },
+      (e) => {
+        // 失敗は握り潰さず表示に出し、CSS 回転を元へ戻す
+        resetAngle();
+        return errorText(e, "回転に失敗しました");
+      },
+    );
   }
 
   function onRotateClick(e: React.MouseEvent) {

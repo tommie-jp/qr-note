@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useAsyncAction } from "@/components/hooks/useAsyncAction";
 import { TrashIcon } from "@/components/MenuIcons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
+import { errorText } from "@/lib/errorMessage";
 
 // ログの控えを消すボタン (docs/30-ブラウザログ計画.md §7)。
 // 実機調査では「一度消してから再現操作をする」と、/logs に並ぶのが今回の
@@ -12,27 +13,20 @@ import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 // hook を持ち込むとページの静的描画テスト (page.test.tsx) が router の
 // マウントを要求して壊れる
 export function ClearLogsButton() {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { run, busy, error } = useAsyncAction();
 
-  const clear = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/logs/clear", { method: "POST" });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      // サーバ側の控えが消えたので、一覧を読み直して空にする
-      location.reload();
-    } catch (e) {
-      setError(
-        `ログを消去できませんでした (${e instanceof Error ? e.message : String(e)})`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+  const clear = () =>
+    run(
+      async () => {
+        const res = await fetch("/api/logs/clear", { method: "POST" });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        // サーバ側の控えが消えたので、一覧を読み直して空にする
+        location.reload();
+      },
+      (e) => `ログを消去できませんでした (${errorText(e)})`,
+    );
 
   return (
     <span className="inline-flex items-center gap-2">

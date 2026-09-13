@@ -9,6 +9,7 @@ import {
   PRIMARY_BUTTON_CLASS,
 } from "@/components/ui";
 import { PASSKEYS_PATH } from "@/lib/authPaths";
+import { errorText } from "@/lib/errorMessage";
 import { PASSKEY_LABEL_MAX } from "@/lib/passkeyLabel";
 import { PasskeyCancelledError, registerPasskey } from "@/lib/passkeyClient";
 
@@ -45,7 +46,7 @@ export function PasskeyManager({ passkeys, isEnabled }: PasskeyManagerProps) {
       router.refresh();
     } catch (cause) {
       if (!(cause instanceof PasskeyCancelledError)) {
-        setError(cause instanceof Error ? cause.message : "登録できませんでした");
+        setError(errorText(cause, "登録できませんでした"));
       }
     } finally {
       setBusy(null);
@@ -72,7 +73,7 @@ export function PasskeyManager({ passkeys, isEnabled }: PasskeyManagerProps) {
       router.refresh();
     } catch (cause) {
       console.error("パスキーの削除に失敗しました", cause);
-      setError(cause instanceof Error ? cause.message : "削除できませんでした");
+      setError(errorText(cause, "削除できませんでした"));
     } finally {
       setBusy(null);
     }

@@ -1,5 +1,6 @@
 import 'server-only'
 import { prisma } from './db'
+import { errorText } from './errorMessage'
 import { assertSafeCircuitSvg, circuitHash } from './circuit/hash'
 import { CircuitRenderError } from './circuit/renderError'
 import {
@@ -120,7 +121,7 @@ async function renderOne(source: string): Promise<CircuitResult> {
     return { svg: await getOrRenderCircuit(source) }
   } catch (e) {
     return {
-      error: e instanceof Error ? e.message : String(e),
+      error: errorText(e),
       texLog: e instanceof CircuitRenderError ? e.texLog : '',
     }
   }

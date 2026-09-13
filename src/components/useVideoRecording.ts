@@ -12,6 +12,7 @@
 //      トーチ・ズームはトラックを開き直さないので録画中でも効く。
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { errorText } from "@/lib/errorMessage";
 import { NEAR_FOCUS_ZOOM, zoomLevelsFor } from "@/lib/video/cameraSelection";
 import {
   type CameraFacing,
@@ -75,10 +76,6 @@ export interface VideoRecordingState {
   toggleTorch: () => void;
   // ズーム倍率を変える (録画中も可)
   setZoom: (value: number) => void;
-}
-
-function messageOf(e: unknown, fallback: string): string {
-  return e instanceof Error ? e.message : fallback;
 }
 
 export interface VideoRecordingHandlers {
@@ -166,7 +163,7 @@ export function useVideoRecording(
       // 検出は recorder が open 時にストリームの生きているうちに済ませている
       syncCameraState();
     } catch (e) {
-      handlersRef.current.onError(messageOf(e, "カメラを開けませんでした。"));
+      handlersRef.current.onError(errorText(e, "カメラを開けませんでした。"));
       recorder.cancel();
       resetToIdle();
     }
@@ -185,7 +182,7 @@ export function useVideoRecording(
       setPhase("recording");
     } catch (e) {
       handlersRef.current.onError(
-        messageOf(e, "録画を開始できませんでした。"),
+        errorText(e, "録画を開始できませんでした。"),
       );
       recorder.cancel();
       resetToIdle();
@@ -207,7 +204,7 @@ export function useVideoRecording(
         await handlersRef.current.onFinish(recording);
       } catch (e) {
         handlersRef.current.onError(
-          messageOf(e, "録画を保存できませんでした。"),
+          errorText(e, "録画を保存できませんでした。"),
         );
       }
     },
@@ -239,7 +236,7 @@ export function useVideoRecording(
         syncCameraState();
       } catch (e) {
         handlersRef.current.onError(
-          messageOf(e, "カメラを切り替えられませんでした。"),
+          errorText(e, "カメラを切り替えられませんでした。"),
         );
         recorder.cancel();
         resetToIdle();

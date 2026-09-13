@@ -13,6 +13,7 @@ import {
   type PdfDocumentHandle,
 } from "./pdfService";
 import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/displayMode";
+import { errorText } from "@/lib/errorMessage";
 import { isShareAborted, shareFile, shouldOfferShare } from "@/lib/shareFile";
 import { ModalOverlay } from "../modal/ModalOverlay";
 import { useBodyScrollLock } from "../modal/useBodyScrollLock";
@@ -201,7 +202,7 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
       })
       .catch((e: unknown) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(errorText(e));
         }
       });
 
@@ -224,7 +225,7 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
       if (isShareAborted(e)) {
         return;
       }
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   };
 

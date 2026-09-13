@@ -17,6 +17,7 @@ import {
   saveDrawPrefs,
 } from "@/lib/draw/drawPrefs";
 import { drawingAltText, drawingFileName } from "@/lib/draw/drawingFile";
+import { errorText } from "@/lib/errorMessage";
 import {
   createLayerState,
   type LayerId,
@@ -202,7 +203,7 @@ export function DrawModal({ sourceImageUrl, onCancel, onInsert }: DrawModalProps
       // 挿入は呼び手 (エディタ) の仕事。ここは画面を閉じるだけ
       onInsert(file, drawingAltText(now));
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : String(e));
+      setSaveError(errorText(e));
       setIsSaving(false);
     }
   };

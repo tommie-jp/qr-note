@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/displayMode";
+import { errorText } from "@/lib/errorMessage";
 import { ModalOverlay } from "../modal/ModalOverlay";
 import { useBodyScrollLock } from "../modal/useBodyScrollLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
@@ -80,9 +81,7 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
         setError(
           e instanceof Error && e.name === "TimeoutError"
             ? "時間内に読み込めませんでした。通信状況を確かめて開き直して下さい。"
-            : e instanceof Error
-              ? e.message
-              : String(e),
+            : errorText(e),
         );
       });
     return () => {

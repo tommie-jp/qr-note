@@ -3,6 +3,7 @@ import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth
 import { concatBytes } from '@/lib/bytes'
 import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
+import { errorText } from '@/lib/errorMessage'
 import { checkUploadRequest } from '@/lib/uploads'
 import {
   CONFLICT_POLICY_ERROR,
@@ -108,7 +109,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error('取り込みに失敗しました:', error)
     return errorResponse(
       400,
-      error instanceof Error ? error.message : 'ファイルを読み込めませんでした',
+      errorText(error, 'ファイルを読み込めませんでした'),
     )
   } finally {
     reader.releaseLock()

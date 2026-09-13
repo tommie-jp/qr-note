@@ -13,6 +13,7 @@ import 'server-only'
 import { restoreAttachment } from '@/lib/attachmentStore'
 import { ownedBytes } from '@/lib/bytes'
 import { prisma } from '@/lib/db'
+import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/importDuplicate'
 import type { BaseImportReport } from '@/lib/importReport'
 import {
@@ -238,7 +239,7 @@ async function importNotes(
       console.error(`ノートを戻せませんでした (${parsed.note.itemNo}):`, error)
       report.skipped.push({
         label: `${entry.path} (#${parsed.note.itemNo})`,
-        reason: error instanceof Error ? error.message : '保存できませんでした',
+        reason: errorText(error, '保存できませんでした'),
       })
       continue
     } finally {

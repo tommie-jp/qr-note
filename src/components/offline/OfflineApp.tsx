@@ -25,6 +25,7 @@ import {
 } from "@/lib/offline/pinCache";
 import { LAST_SYNC_ATTEMPT_KEY, writeMark } from "@/lib/offline/schedule";
 import { prefetchOfflineThumbs, syncOfflineItems, type PrefetchProgress } from "@/lib/offline/sync";
+import { errorText } from "@/lib/errorMessage";
 import { OfflineList } from "./OfflineList";
 import { OfflineNote } from "./OfflineNote";
 import { OfflineStatus } from "./OfflineStatus";
@@ -151,7 +152,7 @@ export function OfflineApp() {
       setSnapshot(payload);
       report(`${payload.items.length} 件を保存しました`);
     } catch (error) {
-      report(error instanceof Error ? error.message : "同期に失敗しました", true);
+      report(errorText(error, "同期に失敗しました"), true);
     } finally {
       setIsSyncing(false);
     }
@@ -168,7 +169,7 @@ export function OfflineApp() {
         failed > 0,
       );
     } catch (error) {
-      report(error instanceof Error ? error.message : "画像を保存できませんでした", true);
+      report(errorText(error, "画像を保存できませんでした"), true);
     } finally {
       setPrefetch(null);
     }
@@ -198,7 +199,7 @@ export function OfflineApp() {
       // 出し直す (押していないときに定期的に測りに行くほどの値ではない)
       setUsage(await storageUsage());
     } catch (error) {
-      report(error instanceof Error ? error.message : "オフライン保存に失敗しました", true);
+      report(errorText(error, "オフライン保存に失敗しました"), true);
     } finally {
       setPinProgress(null);
     }

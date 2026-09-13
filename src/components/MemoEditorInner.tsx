@@ -37,6 +37,7 @@ import {
 import { isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
 import { recordingAltText } from "@/lib/audio/audioRecorder";
 import { AUDIO_EXTENSION_ALTERNATION } from "@/lib/audioFormats";
+import { errorText } from "@/lib/errorMessage";
 import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
 import { makeVideoThumbs } from "@/lib/video/videoPoster";
 import { VIDEO_EXTENSION_ALTERNATION } from "@/lib/videoFormats";
@@ -628,7 +629,7 @@ export default function MemoEditorInner({
       }
     } catch (e) {
       replaceToken(view, insertion, "");
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
       // 「準備しています…」を畳む。残すとエラーと並んで
       // 「まだ待てば直る」と誤解される (実機で確認)
       setOcrNote(null);
@@ -736,7 +737,7 @@ export default function MemoEditorInner({
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     } finally {
       setUpload(null);
     }
@@ -884,7 +885,7 @@ export default function MemoEditorInner({
       // 生のメッセージは英語で判じ物なので、まず日本語で言って括弧に添える
       setError(
         `ページを追加できませんでした。通信を確かめ、画面を再読み込みしてから試して下さい (${
-          e instanceof Error ? e.message : String(e)
+          errorText(e)
         })`,
       );
     }
@@ -1142,7 +1143,7 @@ export default function MemoEditorInner({
       const blob = await res.blob();
       await ocrIntoDoc(view, blob, hit.insertAt);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorText(e));
     }
   };
 

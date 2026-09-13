@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { CheckIcon, CopyIcon } from "@/components/MenuIcons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
+import { errorText } from "@/lib/errorMessage";
 
 // コピーできた印を出しておく時間 (CodeBlock.tsx と同じ長さ)
 const COPIED_LABEL_MS = 2000;
@@ -56,7 +57,7 @@ export function CopyLogsButton({ text }: CopyLogsButtonProps) {
       // 使うとログ自身が 1 件増える (logBuffer が console を包んでいる) ため、
       // 失敗の記録は画面だけに留める
       setError(
-        `ログをコピーできませんでした (${cause instanceof Error ? cause.message : String(cause)})`,
+        `ログをコピーできませんでした (${errorText(cause)})`,
       );
     }
   };

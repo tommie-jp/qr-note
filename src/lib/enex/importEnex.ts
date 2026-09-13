@@ -11,6 +11,7 @@
 import 'server-only'
 import { storeAttachment } from '@/lib/attachmentStore'
 import { prisma } from '@/lib/db'
+import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/importDuplicate'
 import type { BaseImportReport } from '@/lib/importReport'
 import { applyImportedTimestamps, nextItemNo, upsertItem } from '@/lib/items'
@@ -119,7 +120,7 @@ export async function importEnex(
       console.error(`ENEX ノートの取り込みに失敗しました (${noteLabel(note)}):`, error)
       report.skipped.push({
         label: noteLabel(note),
-        reason: error instanceof Error ? error.message : '取り込みに失敗しました',
+        reason: errorText(error, '取り込みに失敗しました'),
       })
     }
   }
