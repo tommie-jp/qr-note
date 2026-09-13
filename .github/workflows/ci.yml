@@ -114,6 +114,6 @@ jobs:
 
       # DATABASE_URL と RUN_DB_TESTS=1 が両方あるときだけ走るテスト
       - name: DB 統合テスト
-        run: npx vitest run src/lib/items.test.ts src/app/api/images/images.test.ts
+        run: npx vitest run src/lib/items/items.test.ts src/app/api/images/images.test.ts
         env:
           RUN_DB_TESTS: '1'
