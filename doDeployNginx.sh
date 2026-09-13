@@ -25,7 +25,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REMOTE="${DEPLOY_REMOTE:-vps2}"
+. scripts/lib/log.sh
+. scripts/lib/target.sh
+
+# nginx はホストに 1 つで本番・デモ共用なので、使うのは接続先 (REMOTE) だけ
+resolve_target prod
 SITE="${DEPLOY_SITE:-qr.tommie.jp}"
 # conf のパスは SITE から導く。既定 (qr.tommie.jp) は従来と同一。
 # 本番/デモで同じスクリプトを使い回すため、ここをハードコードしない
@@ -44,11 +48,8 @@ case "${1:-}" in
   --check) CHECK_ONLY=1 ;;
   "") ;;
   # 未知の引数を黙って無視すると、確認のつもりの typo が本番反映になる
-  *) echo "ERROR: 未知の引数: $1 (使えるのは --check のみ)" >&2; exit 1 ;;
+  *) die "未知の引数: $1 (使えるのは --check のみ)" ;;
 esac
-
-log() { echo ""; echo "==> $*"; }
-die() { echo "ERROR: $*" >&2; exit 1; }
 
 http_status() {
   local status

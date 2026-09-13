@@ -14,23 +14,26 @@
 # 既定は「live を保持」。人間の編集を消さない安全側をデフォルトにする
 # (誤操作で消えると復旧不能なため)。種の状態からやり直すときだけ start --reset。
 #
-# 環境変数:
-#   DEMO_SSH_HOST   ssh 先 (default: vps2)
-#   DEMO_DIR        リモートの compose dir (default: ~/qr-demo)
+# 環境変数 (接続先は scripts/lib/target.sh の demo と同じ既定):
+#   DEPLOY_REMOTE      ssh 先 (default: vps2)。旧名 DEMO_SSH_HOST も受け付ける
+#   DEPLOY_REMOTE_DIR  リモートの compose dir (default: ~/qr-demo)。旧名 DEMO_DIR も可
 set -euo pipefail
 
-DEMO_SSH_HOST="${DEMO_SSH_HOST:-vps2}"
-DEMO_DIR="${DEMO_DIR:-qr-demo}" # $HOME からの相対。~ を渡さないのは ssh 越しの展開差を避けるため
+. "$(dirname "$0")/lib/log.sh"
+. "$(dirname "$0")/lib/target.sh"
+
+target_alias DEPLOY_REMOTE DEMO_SSH_HOST
+target_alias DEPLOY_REMOTE_DIR DEMO_DIR
+# REMOTE_DIR は $HOME からの相対。~ を渡さないのは ssh 越しの展開差を避けるため
+resolve_target demo
 DB_NAME="qr"
 SEED_NAME="qr_seed"
 DB_USER="qr"
 TIMER="qr-demo-reseed.timer"
 SERVICE="qr-demo-reseed.service"
 
-log()  { echo ""; echo "==> $*"; }
 info() { echo "    $*"; }
 warn() { echo "WARN: $*" >&2; }
-die()  { echo "ERROR: $*" >&2; exit 1; }
 
 usage() {
   cat <<'USAGE'
@@ -75,15 +78,15 @@ migration を含むデプロイをデモに当てた直後 (種を旧スキー�
   ./doDemoSeedEdit.sh commit     # 新スキーマの種を撮り直す
 
 環境変数:
-  DEMO_SSH_HOST   ssh 先 (default: vps2)
-  DEMO_DIR        リモートの compose dir、$HOME 相対 (default: qr-demo)
+  DEPLOY_REMOTE      ssh 先 (default: vps2)。旧名 DEMO_SSH_HOST も可
+  DEPLOY_REMOTE_DIR  リモートの compose dir、$HOME 相対 (default: qr-demo)。旧名 DEMO_DIR も可
 USAGE
 }
 
 # リモートの compose dir で bash スクリプトを実行する。stdin にヒアドキュメントを流す。
 # 呼び出し側は $DB_NAME 等をローカルで展開済みの文字列として渡す。
 remote() {
-  ssh "$DEMO_SSH_HOST" bash -s
+  ssh "$REMOTE" bash -s
 }
 
 # systemctl --user を叩く小道具。linger 直後は bus 未起動のことがあるため
@@ -91,12 +94,12 @@ remote() {
 SYSTEMCTL='XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user'
 
 timer_state() {
-  ssh "$DEMO_SSH_HOST" "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user is-active $TIMER" 2>/dev/null || true
+  ssh "$REMOTE" "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user is-active $TIMER" 2>/dev/null || true
 }
 
 seed_exists() {
-  ssh "$DEMO_SSH_HOST" bash -s <<EOF 2>/dev/null || true
-cd "\$HOME/$DEMO_DIR" 2>/dev/null || exit 0
+  ssh "$REMOTE" bash -s <<EOF 2>/dev/null || true
+cd "\$HOME/$REMOTE_DIR" 2>/dev/null || exit 0
 docker compose exec -T db psql -U "$DB_USER" -d postgres -tAc \
   "SELECT 1 FROM pg_database WHERE datname='$SEED_NAME'" </dev/null 2>/dev/null || true
 EOF
@@ -109,8 +112,8 @@ EOF
 # タグを出力に足して数値がずれるため、GUC は接続オプションで渡す。
 COUNT_PGOPTS="-c enable_indexscan=off -c enable_bitmapscan=off -c enable_indexonlyscan=off"
 fetch_counts() {
-  ssh "$DEMO_SSH_HOST" bash -s <<EOF 2>/dev/null || echo "? ?"
-cd "\$HOME/$DEMO_DIR" 2>/dev/null || { echo "? ?"; exit 0; }
+  ssh "$REMOTE" bash -s <<EOF 2>/dev/null || echo "? ?"
+cd "\$HOME/$REMOTE_DIR" 2>/dev/null || { echo "? ?"; exit 0; }
 count_db() {
   # </dev/null 必須: docker compose exec -T はヒアドキュメント (この bash -s の
   # stdin) を食い尽くし、以降の行が実行されなくなる。明示的に stdin を切る。
@@ -139,7 +142,7 @@ cmd_start() {
   esac
 
   log "1/2 毎時リセット timer を止める"
-  ssh "$DEMO_SSH_HOST" "$SYSTEMCTL stop $TIMER" \
+  ssh "$REMOTE" "$SYSTEMCTL stop $TIMER" \
     || warn "timer を止められなかった (未設置かもしれない。続行する)"
 
   if [ "$reset" = "1" ]; then
@@ -148,7 +151,7 @@ cmd_start() {
       info "このまま編集し、最後に commit すると初回の種になる。"
     else
       log "2/2 --reset: live を種の状態へ戻す (reseed)"
-      ssh "$DEMO_SSH_HOST" "$SYSTEMCTL start $SERVICE" \
+      ssh "$REMOTE" "$SYSTEMCTL start $SERVICE" \
         || die "reseed に失敗した。ログ: doDemoSeedEdit.sh status"
     fi
   else
@@ -197,7 +200,7 @@ cmd_commit() {
   # なる (実際にこれで編集が消えた)。
   remote <<EOF
 set -euo pipefail
-cd "\$HOME/$DEMO_DIR"
+cd "\$HOME/$REMOTE_DIR"
 [ -f compose.yaml ] || { echo "ERROR: \$PWD に compose.yaml が無い" >&2; exit 1; }
 
 restart_app() { echo "==> (trap) app を起こし直す"; docker compose start app </dev/null || true; }
@@ -233,7 +236,7 @@ EOF
   fi
 
   log "毎時リセット timer を戻す"
-  ssh "$DEMO_SSH_HOST" "$SYSTEMCTL start $TIMER" \
+  ssh "$REMOTE" "$SYSTEMCTL start $TIMER" \
     || warn "timer を戻せなかった。手動で: systemctl --user start $TIMER"
 
   echo ""
@@ -245,12 +248,12 @@ cmd_abort() {
   if [ "$(seed_exists)" != "1" ]; then
     warn "種がまだ無い。破棄する種状態が無いので timer を戻すだけにする。"
   else
-    ssh "$DEMO_SSH_HOST" "$SYSTEMCTL start $SERVICE" \
+    ssh "$REMOTE" "$SYSTEMCTL start $SERVICE" \
       || die "reseed に失敗した。ログ: doDemoSeedEdit.sh status"
   fi
 
   log "毎時リセット timer を戻す"
-  ssh "$DEMO_SSH_HOST" "$SYSTEMCTL start $TIMER" \
+  ssh "$REMOTE" "$SYSTEMCTL start $TIMER" \
     || warn "timer を戻せなかった。手動で: systemctl --user start $TIMER"
 
   echo ""
@@ -268,7 +271,7 @@ cmd_status() {
   show_counts
 
   log "直近の reseed ログ"
-  ssh "$DEMO_SSH_HOST" \
+  ssh "$REMOTE" \
     "XDG_RUNTIME_DIR=/run/user/\$(id -u) journalctl --user -u $SERVICE -n 3 --no-pager" \
     2>/dev/null || info "(ログ取得不可)"
 }

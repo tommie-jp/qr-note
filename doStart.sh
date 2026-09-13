@@ -13,8 +13,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-log() { echo ""; echo "==> $*"; }
-die() { echo "ERROR: $*" >&2; exit 1; }
+. scripts/lib/log.sh
+. scripts/lib/health.sh
 
 usage() {
   cat <<'EOF'
@@ -61,8 +61,6 @@ HEALTH_URL="http://127.0.0.1:${APP_PORT:-3000}/"
 # 案内する URL 自体を localhost にしておく
 APP_URL="http://localhost:${APP_PORT:-3000}/"
 
-HEALTH_RETRIES=30
-
 if [ "$DO_BUILD" = 1 ]; then
   log "イメージビルド"
   # Dockerfile の依存レイヤーが読む .deps/ を作る (git 管理外の生成物)。
@@ -88,17 +86,11 @@ log "app 起動"
 docker compose up -d app
 
 log "ヘルスチェック ($HEALTH_URL)"
-for i in $(seq 1 "$HEALTH_RETRIES"); do
-  # -L で転送を追う。非本番の app は 127.0.0.1 を localhost へ 307 で
-  # 送り返すため (パスキーが IP では使えないので。src/lib/loopbackRedirect.ts)、
-  # 追わないとヘルスチェックが 307 のまま失敗する
-  status="$(curl -fsSL -o /dev/null -w '%{http_code}' "$HEALTH_URL" || true)"
-  if [ "$status" = "200" ]; then
-    echo "OK: HTTP $status"
-    log "起動完了: $APP_URL"
-    exit 0
-  fi
-  echo "  waiting... ($i/$HEALTH_RETRIES, status=${status:-none})"
-  sleep 2
-done
+# -L で転送を追う。非本番の app は 127.0.0.1 を localhost へ 307 で
+# 送り返すため (パスキーが IP では使えないので。src/lib/loopbackRedirect.ts)、
+# 追わないとヘルスチェックが 307 のまま失敗する
+if wait_healthy local_http_status -fsSL "$HEALTH_URL"; then
+  log "起動完了: $APP_URL"
+  exit 0
+fi
 die "ヘルスチェックが $HEALTH_RETRIES 回失敗した。'docker compose logs app' を確認すること"

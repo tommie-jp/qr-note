@@ -16,9 +16,9 @@
 #   ./doCopyDBfromVPS2.sh          # 確認プロンプトあり
 #   ./doCopyDBfromVPS2.sh --yes    # プロンプトを省略 (自動実行用)
 #
-# 環境変数で上書き可能:
-#   COPY_REMOTE      ssh 接続先 (default: vps2)
-#   COPY_REMOTE_DIR  リモートの compose ディレクトリ ($HOME 相対)
+# 環境変数で上書き可能 (scripts/lib/target.sh の prod と同じ既定):
+#   DEPLOY_REMOTE      ssh 接続先 (default: vps2)。旧名 COPY_REMOTE も受け付ける
+#   DEPLOY_REMOTE_DIR  リモートの compose ディレクトリ ($HOME 相対)。旧名 COPY_REMOTE_DIR も可
 #
 # ロールバック: 上書き前のローカル DB は backup/ に退避する。戻すには
 #   docker compose stop app
@@ -28,25 +28,19 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REMOTE="${COPY_REMOTE:-vps2}"
-REMOTE_DIR="${COPY_REMOTE_DIR:-41-QR-search/qr-search}"
+. scripts/lib/log.sh
+. scripts/lib/target.sh
+. scripts/lib/remote.sh
+. scripts/lib/health.sh
+. scripts/lib/dumpGuard.sh
+
+# local_db / remote_db / query_local / query_remote は scripts/lib/remote.sh
+target_alias DEPLOY_REMOTE COPY_REMOTE
+target_alias DEPLOY_REMOTE_DIR COPY_REMOTE_DIR
+resolve_target prod
 readonly BACKUP_DIR="backup"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 readonly LOCAL_BACKUP="${BACKUP_DIR}/qr-local-backup_${TIMESTAMP}.dump"
-readonly HEALTH_RETRIES=30
-
-log() { echo ""; echo "==> $*"; }
-die() { echo "ERROR: $*" >&2; exit 1; }
-
-# ローカル / リモートの db コンテナ内でコマンドを実行する。
-# remote_db は引数を $* で連結するためクォートが保てない。SQL のような
-# クォートを含む文字列は引数で渡さず、psql の標準入力から流すこと (query_* を使う)
-local_db() { docker compose exec -T db "$@"; }
-remote_db() { ssh "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db $*"; }
-
-# SQL は stdin 経由で渡す (ssh・docker compose exec -T とも stdin を素通しする)
-query_local() { local_db psql -U qr -d "${2:-qr}" -tA -v ON_ERROR_STOP=1 <<< "$1"; }
-query_remote() { remote_db psql -U qr -d qr -tA -v ON_ERROR_STOP=1 <<< "$1"; }
 
 # 本番ダンプの一時ファイルは必ず消す (メモと画像の実データを含むため)
 DUMP=""
@@ -67,7 +61,7 @@ log "0/7 事前チェック"
 [ -f .env ] || die ".env がない。cp .env.example .env して値を設定すること"
 local_db pg_isready -U qr -d qr >/dev/null 2>&1 ||
   die "ローカルの db が起動していない。docker compose up -d db を先に実行すること"
-ssh -o BatchMode=yes -o ConnectTimeout=10 "$REMOTE" true 2>/dev/null ||
+remote_reachable ||
   die "$REMOTE に ssh 接続できない"
 remote_db pg_isready -U qr -d qr >/dev/null 2>&1 ||
   die "$REMOTE の db が起動していない"
@@ -89,13 +83,13 @@ fi
 log "1/7 ローカル DB を退避 ($LOCAL_BACKUP)"
 mkdir -p "$BACKUP_DIR"
 local_db pg_dump -U qr -d qr -Fc > "$LOCAL_BACKUP"
-[ -s "$LOCAL_BACKUP" ] || die "退避ダンプが空。中止する (ロールバック手段が無い状態では進めない)"
+require_nonempty "$LOCAL_BACKUP" "退避ダンプが空。中止する (ロールバック手段が無い状態では進めない)"
 du -h "$LOCAL_BACKUP"
 
 log "2/7 $REMOTE の DB をダンプ取得"
 DUMP="$(mktemp "${TMPDIR:-/tmp}/qr-vps2-dump.XXXXXX")"
 remote_db pg_dump -U qr -d qr -Fc > "$DUMP"
-[ -s "$DUMP" ] || die "取得したダンプが空"
+require_nonempty "$DUMP" "取得したダンプが空"
 du -h "$DUMP"
 
 log "3/7 app を停止 (DB 接続を切る)"
@@ -161,15 +155,9 @@ APP_PORT="$(grep -oP '^APP_PORT=\K.*' .env || true)"
 # この転送が起きないから
 APP_URL="http://localhost:${APP_PORT:-3000}/"
 log "ヘルスチェック ($APP_URL)"
-for i in $(seq 1 "$HEALTH_RETRIES"); do
-  status="$(curl -fsS -o /dev/null -w '%{http_code}' "$APP_URL" || true)"
-  if [ "$status" = "200" ]; then
-    echo "OK: HTTP $status"
-    log "コピー完了: $APP_URL"
-    echo "上書き前のローカル DB は $LOCAL_BACKUP に残してある"
-    exit 0
-  fi
-  echo "  waiting... ($i/$HEALTH_RETRIES, status=${status:-none})"
-  sleep 2
-done
+if wait_healthy local_http_status -fsS "$APP_URL"; then
+  log "コピー完了: $APP_URL"
+  echo "上書き前のローカル DB は $LOCAL_BACKUP に残してある"
+  exit 0
+fi
 die "ヘルスチェックが $HEALTH_RETRIES 回失敗した。docker compose logs app を確認すること"

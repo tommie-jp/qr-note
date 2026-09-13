@@ -151,6 +151,8 @@ vps2 でイメージ取得 → SSH トンネル経由で DB マイグレーシ�
 レジストリは初回だけ `./deploy/setupRegistry.sh` で設置し、溜まった古い
 イメージは `./deploy/registryGc.sh` で掃除する。接続先などは
 `DEPLOY_REMOTE` 等の環境変数で上書きできる (詳細は `-h`)。
+本番・デモの接続先の既定 (ディレクトリ・DB ポート・app ポート) と、`do*.sh` が共有する
+ログ・ssh・ヘルスチェックの小道具は `scripts/lib/` にある。
 
 - **`--no-version-up`** … 版を上げず、今の package.json の版で配る。
   レジストリに同じ版のイメージがあれば、ビルドも lint / test も飛ばして

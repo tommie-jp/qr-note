@@ -36,22 +36,25 @@
 # 取り込み中にアプリでノートを新規作成しないこと。nextItemNo() は
 # 「空き番号の最小値」を返すだけで番号を予約しない (src/lib/items.ts)。
 #
-# 環境変数で上書き可能:
-#   IMPORT_REMOTE      ssh 接続先 (default: vps2)
-#   IMPORT_REMOTE_DIR  リモートの compose ディレクトリ ($HOME 相対)
+# 環境変数で上書き可能 (接続先は scripts/lib/target.sh の prod と同じ既定):
+#   DEPLOY_REMOTE      ssh 接続先 (default: vps2)。旧名 IMPORT_REMOTE も受け付ける
+#   DEPLOY_REMOTE_DIR  リモートの compose ディレクトリ ($HOME 相対)。旧名 IMPORT_REMOTE_DIR も可
 #   IMPORT_TUNNEL_PORT トンネルのローカルポート (default: 15433)
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REMOTE="${IMPORT_REMOTE:-vps2}"
-REMOTE_DIR="${IMPORT_REMOTE_DIR:-41-QR-search/qr-search}"
+. scripts/lib/log.sh
+. scripts/lib/target.sh
+. scripts/lib/remote.sh
+. scripts/lib/dumpGuard.sh
+
+target_alias DEPLOY_REMOTE IMPORT_REMOTE
+target_alias DEPLOY_REMOTE_DIR IMPORT_REMOTE_DIR
+resolve_target prod
 # doDeploy.sh の 15432 とずらす。デプロイ中に取り込みを走らせても
 # 「ポートが埋まっている」で止まらないようにするため
 TUNNEL_PORT="${IMPORT_TUNNEL_PORT:-15433}"
 readonly BACKUP_DIR="backup"
-
-log() { echo ""; echo "==> $*"; }
-die() { echo "ERROR: $*" >&2; exit 1; }
 
 usage() {
   echo "usage: $0 <file.enex...> [--local] [--check] [--tag NAME] [--force] [--no-embed] [--yes] [--skip-backup]" >&2
@@ -102,7 +105,7 @@ fi
 if [ "$LOCAL" = "1" ]; then
   log "ローカルの db へ取り込む"
   [ -f .env ] || die ".env がない。cp .env.example .env して値を設定すること"
-  docker compose exec -T db pg_isready -U qr -d qr >/dev/null 2>&1 ||
+  local_db pg_isready -U qr -d qr >/dev/null 2>&1 ||
     die "ローカルの db が起動していない。docker compose up -d db を先に実行すること"
   # .env の DATABASE_URL をそのまま使う (dotenv/config が読む)
   run_import
@@ -112,9 +115,9 @@ fi
 # --- ここから本番 (vps2) ---
 
 log "0/3 事前チェック ($REMOTE)"
-ssh -o BatchMode=yes -o ConnectTimeout=10 "$REMOTE" true 2>/dev/null ||
+remote_reachable ||
   die "$REMOTE に ssh 接続できない"
-ssh "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db pg_isready -U qr -d qr" >/dev/null 2>&1 ||
+remote_db pg_isready -U qr -d qr >/dev/null 2>&1 ||
   die "$REMOTE の db が起動していない"
 echo "OK"
 
@@ -126,26 +129,20 @@ else
   BACKUP="${BACKUP_DIR}/vps2-before-import_$(date +%Y%m%d_%H%M%S).dump"
   # ssh の失敗でも空ファイルが残り「バックアップがある」ように見えてしまうので、
   # 中身があることまで確かめる。ここが唯一の巻き戻し手段
-  ssh "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db pg_dump -U qr -d qr -Fc" > "$BACKUP"
-  [ -s "$BACKUP" ] || die "バックアップが空。中止する (巻き戻せない状態では進めない)"
+  remote_db pg_dump -U qr -d qr -Fc > "$BACKUP"
+  require_nonempty "$BACKUP" "バックアップが空。中止する (巻き戻せない状態では進めない)"
   du -h "$BACKUP"
   echo "戻すには: docker/psql で pg_restore --clean --if-exists (doCopyDBfromVPS2.sh 冒頭に手順)"
 fi
 
-log "2/3 SSH トンネル (localhost:$TUNNEL_PORT → $REMOTE の 127.0.0.1:5432)"
+log "2/3 SSH トンネル (localhost:$TUNNEL_PORT → $REMOTE の 127.0.0.1:$REMOTE_DB_PORT)"
 # ControlMaster で管理し、終了時に必ず閉じる (doDeploy.sh と同じ)
-SSH_CTRL="$(mktemp -u "${TMPDIR:-/tmp}/qr-import-ssh.XXXXXX")"
-cleanup() { ssh -S "$SSH_CTRL" -O exit "$REMOTE" 2>/dev/null || true; }
-trap cleanup EXIT
+ssh_master_init import
+trap ssh_master_close EXIT
 
-REMOTE_PW="$(ssh "$REMOTE" "grep '^POSTGRES_PASSWORD=' '$REMOTE_DIR/.env' | cut -d= -f2-")"
-[ -n "$REMOTE_PW" ] || die "$REMOTE の $REMOTE_DIR/.env から POSTGRES_PASSWORD を取得できない"
-ENCODED_PW="$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$REMOTE_PW")"
-
-ssh -M -S "$SSH_CTRL" -f -N \
-  -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:5432" \
-  -o ExitOnForwardFailure=yes "$REMOTE"
+DB_URL="$(remote_db_url "$TUNNEL_PORT" "$REMOTE_DB_NAME")"
+ssh_master_open "$TUNNEL_PORT" "$REMOTE_DB_PORT"
 echo "OK"
 
 log "3/3 取り込み"
-DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/qr" run_import
+DATABASE_URL="$DB_URL" run_import

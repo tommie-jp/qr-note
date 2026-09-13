@@ -38,6 +38,9 @@ DB_NAME="qr"
 SEED_NAME="qr_seed"
 DB_USER="qr"
 
+# log / die を scripts/lib/log.sh から source しないのはわざと。このスクリプトだけは
+# vps2 の ~/qr-demo/ に単体でコピーして systemd から動かす (deploy/systemd/) ので、
+# リポジトリの scripts/lib/ がそこには無い
 log() { echo ""; echo "==> $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 

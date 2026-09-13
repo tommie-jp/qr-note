@@ -102,7 +102,7 @@
 #     コンテナには届かず「設定したのに未設定と言われる」形で嵌まる
 #     (docs/29-パスキー計画.md §12 で実際に踏んだ)。
 #
-# 環境変数で上書き可能 (括弧内は 既定 / --demo 時の既定):
+# 環境変数で上書き可能 (括弧内は 既定 / --demo 時の既定。接続先の既定は scripts/lib/target.sh):
 #   DEPLOY_REMOTE          ssh 接続先 (default: vps2)
 #   DEPLOY_REMOTE_DIR      リモートの compose ディレクトリ ($HOME 相対,
 #                          default: 41-QR-search/qr-search / --demo: qr-demo)
@@ -116,6 +116,11 @@
 # レジストリは本番・デモで共用する (イメージ名が同じなのでそのまま両対応)。
 set -euo pipefail
 cd "$(dirname "$0")"
+
+. scripts/lib/log.sh
+. scripts/lib/target.sh
+. scripts/lib/remote.sh
+. scripts/lib/health.sh
 
 usage() {
   echo "usage: $0 [patch|minor|major | --no-version-up] [--demo] [--send-compose.yml]" >&2
@@ -155,21 +160,16 @@ if [ "$NO_VERSION_UP" = 1 ] && [ -n "$BUMP" ]; then usage; fi
 if [ "$DEMO" = 1 ] && [ -z "$BUMP" ]; then NO_VERSION_UP=1; fi
 BUMP="${BUMP:-patch}"
 
-REMOTE="${DEPLOY_REMOTE:-vps2}"
 TUNNEL_PORT="${DEPLOY_TUNNEL_PORT:-15432}"
-# 接続先 (compose ディレクトリ / migrate 先 DB ポート / ヘルスチェックの app ポート)。
+# 接続先 (REMOTE / compose ディレクトリ / migrate 先 DB ポート / ヘルスチェックの app ポート)。
 # 既定 (41-QR-search/qr-search / 5432 / 3000) は本番、--demo は別スタックの値。
 # **デモで app ポートが 3000 のままだと、本番 app を叩いて誤って成功と判定する**
 # ため、3 点をまとめて旗で切り替える (env を明示すればそちらが勝つ)。
 if [ "$DEMO" = 1 ]; then
-  REMOTE_DIR="${DEPLOY_REMOTE_DIR:-qr-demo}"
-  REMOTE_DB_PORT="${DEPLOY_DB_PORT:-5433}"
-  APP_PORT="${DEPLOY_APP_PORT:-3100}"
-  SEED_DB="qr_seed"       # 毎時リセットの種 DB (手順 6 でスキーマを揃える)
+  resolve_target demo
+  SEED_DB="$DEMO_SEED_DB"  # 毎時リセットの種 DB (手順 6 でスキーマを揃える)
 else
-  REMOTE_DIR="${DEPLOY_REMOTE_DIR:-41-QR-search/qr-search}"
-  REMOTE_DB_PORT="${DEPLOY_DB_PORT:-5432}"
-  APP_PORT="${DEPLOY_APP_PORT:-3000}"
+  resolve_target prod
 fi
 # レジストリ転送用トンネル: ローカル $REGISTRY_PORT → リモート $REGISTRY_REMOTE_PORT。
 # 本番・デモとも同じレジストリを共用するので、ここはスタックによらず既定でよい。
@@ -188,40 +188,11 @@ REG_REMOTE="127.0.0.1:${REGISTRY_REMOTE_PORT}/qr-search-app"
 # 毎デプロイ上書きするので溜まらない (本番・デモが同じレジストリを共有するが、
 # 2 つを同時に走らせない限り混ざらない)。
 STAGING_TAG="staging"
-HEALTH_URL="http://127.0.0.1:${APP_PORT}/"
-HEALTH_RETRIES=30
+HEALTH_URL="http://127.0.0.1:${REMOTE_APP_PORT}/"
 
-log() { echo ""; echo "==> $*"; }
-die() { echo "ERROR: $*" >&2; exit 1; }
-
-# 区間ごとの所要時間を控え、最後にまとめて出す (docs/80-デプロイ再高速化計画.md §6)。
-# 「デプロイが遅い」と感じたときに、どこが遅いのかを推測しないで済ませるため。
-# 失敗して落ちたときも (そこまでの分を) 出す — どこで待たされたかは失敗時こそ知りたい。
-DEPLOY_T0="$(date +%s)"
-STEP_T0="$DEPLOY_T0"
-STEP_NAMES=()
-STEP_SECS=()
-
-step_done() {
-  local now
-  now="$(date +%s)"
-  STEP_NAMES+=("$1")
-  STEP_SECS+=("$((now - STEP_T0))")
-  STEP_T0="$now"
-}
-
-# 秒を先に置くのは桁が揃うから。ラベルを %-Ns で揃えると、日本語は 1 文字 3 バイトの
-# ため printf のバイト数勘定とずれて列が崩れる
-print_timing() {
-  [ "${#STEP_NAMES[@]}" -gt 0 ] || return 0
-  local i
-  echo ""
-  echo "==> 処理時間"
-  for i in "${!STEP_NAMES[@]}"; do
-    printf '    %5ds  %s\n' "${STEP_SECS[$i]}" "${STEP_NAMES[$i]}"
-  done
-  printf '    %5ds  %s\n' "$(($(date +%s) - DEPLOY_T0))" "合計"
-}
+# 区間ごとの所要時間を控え、最後にまとめて出す (scripts/lib/log.sh、docs/80 §6)。
+# 失敗して落ちたときも (そこまでの分を) EXIT trap の print_timing が出す
+timing_start
 
 # レジストリ (トンネル越しの 127.0.0.1:$REGISTRY_PORT) の API 入口と、
 # manifest を取りに行くときの Accept。buildx は --provenance=false で
@@ -318,22 +289,19 @@ context_fingerprint() {
 }
 
 # SSH は ControlMaster で 1 本に束ね、全 ssh/scp で使い回す (毎回のハンドシェイクを省く)。
-# レジストリ転送トンネルも同じ master に載せ、終了時にまとめて閉じる。
-SSH_CTRL="$(mktemp -u "${TMPDIR:-/tmp}/qr-deploy-ssh.XXXXXX")"
-SSH() { ssh -S "$SSH_CTRL" "$@"; }
-SCP() { scp -o "ControlPath=$SSH_CTRL" "$@"; }
+# レジストリ転送トンネルも同じ master に載せ、終了時にまとめて閉じる (scripts/lib/remote.sh)。
+ssh_master_init deploy
 # 3/8 を並列で走らせるあいだ、混ざらないよう各コマンドの出力を退避する置き場
 LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/qr-deploy-logs.XXXXXX")"
 cleanup() {
-  ssh -S "$SSH_CTRL" -O exit "$REMOTE" 2>/dev/null || true
+  ssh_master_close
   rm -rf "$LOG_DIR"
   print_timing
 }
 trap cleanup EXIT
 
 log "0/8 SSH 多重接続 + レジストリトンネル確立 (127.0.0.1:${REGISTRY_PORT} → ${REMOTE}:${REGISTRY_REMOTE_PORT})"
-ssh -M -S "$SSH_CTRL" -f -N -o ExitOnForwardFailure=yes \
-  -L "127.0.0.1:${REGISTRY_PORT}:127.0.0.1:${REGISTRY_REMOTE_PORT}" "$REMOTE"
+ssh_master_open "$REGISTRY_PORT" "$REGISTRY_REMOTE_PORT"
 
 # レジストリの疎通を先に確認する。ビルドで時間を使う前に、設置忘れを弾く。
 if ! curl -fsS "http://127.0.0.1:${REGISTRY_PORT}/v2/" >/dev/null 2>&1; then
@@ -349,7 +317,7 @@ step_done "0/8 SSH + レジストリ疎通"
 # 判定は「APP_ENV=production を明示したときだけ本番」なので、リモートの .env に
 # 書き忘れると本番が LOCAL 表示のまま公開されてしまう。ビルドで時間を使う前に弾く
 log "1/8 デプロイ先の APP_ENV 確認"
-REMOTE_APP_ENV="$(SSH "$REMOTE" "grep '^APP_ENV=' '$REMOTE_DIR/.env' | cut -d= -f2-")"
+REMOTE_APP_ENV="$(remote_env_var APP_ENV)"
 if [ "$REMOTE_APP_ENV" != "production" ]; then
   die "$REMOTE の $REMOTE_DIR/.env に APP_ENV=production がない (現在: ${REMOTE_APP_ENV:-未設定})。
      これが無いと本番の画面がローカル扱い (ピンク + [LOCAL]) になる。
@@ -492,18 +460,15 @@ fi
 # リモートは自分の localhost のレジストリからダイジェスト一致で pull し、compose が
 # 参照するタグ (qr-search-app:latest) に付け替える。compose.yaml は無変更でよい。
 log "5/8 $REMOTE でイメージ取得 + タグ付け"
-SSH "$REMOTE" "docker pull '${REG_REMOTE}:v${VERSION}' \
+remote_ssh "$REMOTE" "docker pull '${REG_REMOTE}:v${VERSION}' \
   && docker tag '${REG_REMOTE}:v${VERSION}' '$IMAGE'"
 step_done "5/8 イメージ取得 + タグ付け"
 
 log "6/8 DB マイグレーション + 派生列の再計算 (SSH トンネル localhost:$TUNNEL_PORT 経由)"
-REMOTE_PW="$(SSH "$REMOTE" "grep '^POSTGRES_PASSWORD=' '$REMOTE_DIR/.env' | cut -d= -f2-")"
-[ -n "$REMOTE_PW" ] || die "$REMOTE の $REMOTE_DIR/.env から POSTGRES_PASSWORD を取得できない"
-ENCODED_PW="$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$REMOTE_PW")"
+REMOTE_DB_URL="$(remote_db_url "$TUNNEL_PORT" qr)"
 
 # 既に張ってある master にマイグレーション用のポート転送を追加し、済んだら外す。
-SSH -O forward -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE"
-REMOTE_DB_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/qr"
+ssh_forward_add "$TUNNEL_PORT" "$REMOTE_DB_PORT"
 DATABASE_URL="$REMOTE_DB_URL" npx prisma migrate deploy
 
 # タスク数の派生列を数え直す (docs/56-チェック検索計画.md §4)。
@@ -544,7 +509,7 @@ DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfill
 # 派生列 (title / task_*) は本文から機械的に切り出したキャッシュなので、
 # 埋め直しても「見せている内容」は変わらない。
 if [ "$DEMO" = 1 ]; then
-  SEED_DB_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${SEED_DB}"
+  SEED_DB_URL="${REMOTE_DB_URL%/*}/${SEED_DB}"
 
   echo "--- 種 ($SEED_DB) のスキーマを live に揃える"
   DATABASE_URL="$SEED_DB_URL" npx prisma migrate deploy
@@ -566,8 +531,7 @@ if [ "$DEMO" = 1 ]; then
   # </dev/null … docker compose exec -T は繋いだ stdin を食い尽くすので、
   # 塞がないと後続のコマンドが黙って実行されなくなる
   echo "--- 種の PGroonga を REINDEX (壊れた索引のままでは UPDATE が落ちる)"
-  SSH "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db \
-    psql -U qr -d $SEED_DB -c 'REINDEX DATABASE $SEED_DB'" </dev/null
+  remote_db "psql -U qr -d $SEED_DB -c 'REINDEX DATABASE $SEED_DB'" </dev/null
 
   # 種の派生列も埋め直す (docs/63-タイトル順計画.md §4)。
   #
@@ -589,7 +553,7 @@ if [ "$DEMO" = 1 ]; then
   # 保たれる (docs/39 §6-2)。ここの REINDEX は「この後の UPDATE を通すため」
 fi
 
-SSH -O cancel -L "127.0.0.1:${TUNNEL_PORT}:127.0.0.1:${REMOTE_DB_PORT}" "$REMOTE" 2>/dev/null || true
+ssh_forward_cancel "$TUNNEL_PORT" "$REMOTE_DB_PORT"
 step_done "6/8 マイグレーション + 派生列"
 
 # compose.yaml の転送は再作成の**直前**に置く。ここで送っておけば、続く
@@ -599,7 +563,7 @@ if [ "$SEND_COMPOSE" = "1" ]; then
   log "7/8 compose.yaml 転送 + app コンテナ再作成"
 
   LOCAL_SUM="$(md5sum compose.yaml | cut -d' ' -f1)"
-  REMOTE_SUM="$(SSH "$REMOTE" "md5sum '$REMOTE_DIR/compose.yaml' 2>/dev/null | cut -d' ' -f1" || true)"
+  REMOTE_SUM="$(remote_ssh "$REMOTE" "md5sum '$REMOTE_DIR/compose.yaml' 2>/dev/null | cut -d' ' -f1" || true)"
 
   if [ "$LOCAL_SUM" = "$REMOTE_SUM" ]; then
     echo "OK: compose.yaml は同一 (転送を省略)"
@@ -610,36 +574,30 @@ if [ "$SEND_COMPOSE" = "1" ]; then
     #
     # 初回 (リモートに何も無い) は控えを作らない。作れないのに
     # 「控えは .bak にある」と言うと、戻せると思って探す羽目になる
-    if SSH "$REMOTE" "[ -f '$REMOTE_DIR/compose.yaml' ]"; then
-      SSH "$REMOTE" "cp '$REMOTE_DIR/compose.yaml' '$REMOTE_DIR/compose.yaml.bak'"
+    if remote_ssh "$REMOTE" "[ -f '$REMOTE_DIR/compose.yaml' ]"; then
+      remote_ssh "$REMOTE" "cp '$REMOTE_DIR/compose.yaml' '$REMOTE_DIR/compose.yaml.bak'"
       BACKUP_NOTE="前の内容は $REMOTE_DIR/compose.yaml.bak"
     else
       BACKUP_NOTE="リモートに既存の compose.yaml は無かった"
     fi
-    SCP -q compose.yaml "$REMOTE:$REMOTE_DIR/compose.yaml"
+    remote_scp -q compose.yaml "$REMOTE:$REMOTE_DIR/compose.yaml"
     echo "OK: compose.yaml を転送 ($BACKUP_NOTE)"
   fi
 else
   log "7/8 app コンテナ再作成"
 fi
 
-SSH "$REMOTE" "cd '$REMOTE_DIR' && docker compose up -d --no-build --force-recreate app"
+remote_compose up -d --no-build --force-recreate app
 step_done "7/8 app コンテナ再作成"
 
 log "8/8 ヘルスチェック ($REMOTE 上の $HEALTH_URL)"
-for i in $(seq 1 "$HEALTH_RETRIES"); do
-  status="$(SSH "$REMOTE" "curl -fsS -o /dev/null -w '%{http_code}' '$HEALTH_URL'" || true)"
-  if [ "$status" = "200" ]; then
-    echo "OK: HTTP $status"
-    # 中間タグ (127.0.0.1:5000/...:vX) を外して溜めない。:latest は残るので影響なし。
-    # その後 dangling を掃除する (前バージョンの :latest が浮く)。
-    SSH "$REMOTE" "docker rmi '${REG_REMOTE}:v${VERSION}' >/dev/null 2>&1 || true; docker image prune -f" >/dev/null
-    step_done "8/8 ヘルスチェック + 後片付け"
-    log "デプロイ完了 (v$VERSION)"
-    # 処理時間の内訳は EXIT trap の print_timing がこの後に出す
-    exit 0
-  fi
-  echo "  waiting... ($i/$HEALTH_RETRIES, status=${status:-none})"
-  sleep 2
-done
+if wait_healthy remote_http_status "$HEALTH_URL"; then
+  # 中間タグ (127.0.0.1:5000/...:vX) を外して溜めない。:latest は残るので影響なし。
+  # その後 dangling を掃除する (前バージョンの :latest が浮く)。
+  remote_ssh "$REMOTE" "docker rmi '${REG_REMOTE}:v${VERSION}' >/dev/null 2>&1 || true; docker image prune -f" >/dev/null
+  step_done "8/8 ヘルスチェック + 後片付け"
+  log "デプロイ完了 (v$VERSION)"
+  # 処理時間の内訳は EXIT trap の print_timing がこの後に出す
+  exit 0
+fi
 die "ヘルスチェックが $HEALTH_RETRIES 回失敗した。$REMOTE で 'docker compose logs app' を確認すること"
