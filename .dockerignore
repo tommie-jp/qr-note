@@ -8,6 +8,11 @@ tsconfig.tsbuildinfo
 # ビルドコンテキスト・中間レイヤーに取り込まないため
 data
 backup
+# E2E (Playwright) の生成物とログインの cookie (e2e/README.md)。cookie は
+# teardown で無効にするが、手元のツリーから配ったときにイメージの層へ残さない
+test-results
+playwright-report
+e2e/.auth
 .env
 .env.*
 !.env.example

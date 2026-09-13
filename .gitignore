@@ -75,3 +75,8 @@ next-env.d.ts
 
 # PDF ビューア (scripts/copyPdfjsAssets.mjs が node_modules から複製する)
 /public/pdfjs
+
+# Playwright (E2E) の生成物とログインの cookie
+/test-results/
+/playwright-report/
+/e2e/.auth/
