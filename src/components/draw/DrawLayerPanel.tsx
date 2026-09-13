@@ -5,6 +5,7 @@
 // 押すと 3 行の小パネルを開く。暗い覆いの上に出すので、共有の白地ボタンでは
 // なくこの画面だけの配色 (DrawToolbar と揃える) を持つ。
 
+import { EyeIcon } from "@/components/icons";
 import { LAYER_IDS, type LayerId } from "@/lib/draw/layers";
 
 const BUTTON_BASE =
@@ -21,26 +22,6 @@ interface DrawLayerPanelProps {
   onSetActive: (layer: LayerId) => void;
   onToggleHidden: (layer: LayerId) => void;
   disabled: boolean;
-}
-
-// 目のアイコン (線画・currentColor。docs/31 の作法)。開いた目 / 斜線入りの目
-function EyeIcon({ hidden }: { hidden: boolean }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-5"
-    >
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-      {hidden && <line x1="3" y1="3" x2="21" y2="21" />}
-    </svg>
-  );
 }
 
 export function DrawLayerPanel({

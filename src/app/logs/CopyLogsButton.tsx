@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckIcon, CopyIcon } from "@/components/MenuIcons";
+import { CheckIcon, CopyIcon } from "@/components/icons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 import { errorText } from "@/lib/errorMessage";
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { TrashIcon } from "@/components/MenuIcons";
+import { TrashIcon } from "@/components/icons";
 import { PaneResizer } from "@/components/PaneResizer";
 import type { FolderTotals, TagCount } from "@/lib/items";
 import { UNTAGGED_TOKEN } from "@/lib/search";

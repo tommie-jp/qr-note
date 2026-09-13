@@ -1,5 +1,5 @@
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
-import { PrivateIcon, PublicIcon } from "@/components/MenuIcons";
+import { PrivateIcon, PublicIcon } from "@/components/icons";
 import { PressTip } from "@/components/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";
 

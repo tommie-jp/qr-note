@@ -3,7 +3,7 @@ import { ItemTags } from "@/components/ItemTags";
 import { ItemTimestamps } from "@/components/ItemTimestamps";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
 import { LoginButton } from "@/components/LoginButton";
-import { QrIcon } from "@/components/MenuIcons";
+import { QrIcon } from "@/components/icons";
 import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { PendingLink } from "@/components/PendingLink";

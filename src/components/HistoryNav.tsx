@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { TriangleIcon } from "@/components/icons";
 
 // ヘッダーのサイト名・バージョンの右に置く「戻る (◀)」「進む (▶)」ボタン
 // (docs/11-アプリ的UIUX計画.md §5-1, §5-2)。
@@ -56,28 +57,6 @@ function useCanGo(direction: "back" | "forward"): boolean {
     },
     // サーバ描画・ハイドレーション時は可否不明なので disabled 側に倒す
     () => false,
-  );
-}
-
-// 塗りつぶしの三角。文字の ◀ ▶ (U+25C0/25B6) は iOS が絵文字として描くため
-// CSS の色が効かず、字形も端末ごとに変わる。矢印 ← → より面が広く、色を
-// 乗せたときに小さくても目に入る。
-//
-// 角を丸めるのに線を重ねる (fill と同色の stroke + linejoin round)。
-// 尖った三角は、ヘッダーの丸い文字組みの中で 1 つだけ硬く見える
-function TriangleIcon({ direction }: { direction: "back" | "forward" }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      className="size-5"
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={2.5}
-      strokeLinejoin="round"
-    >
-      <path d={direction === "back" ? "M15 5 8 12l7 7z" : "M9 5l7 7-7 7z"} />
-    </svg>
   );
 }
 

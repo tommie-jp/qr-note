@@ -17,7 +17,7 @@ import {
   ScanIcon,
   UndoIcon,
   VideoIcon,
-} from "@/components/MenuIcons";
+} from "@/components/icons";
 import { useLongPress } from "@/components/useLongPress";
 import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
 import type { FormatAction } from "@/components/editor/markdownFormat";

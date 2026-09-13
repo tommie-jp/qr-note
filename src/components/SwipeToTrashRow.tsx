@@ -20,7 +20,7 @@ import {
   settleSwipe,
   type SwipeState,
 } from "@/lib/swipeRow";
-import { TrashIcon } from "./MenuIcons";
+import { TrashIcon } from "./icons";
 import { RowActionMenu } from "./RowActionMenu";
 import {
   RowActionButtons,

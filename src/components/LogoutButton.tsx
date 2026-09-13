@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LOGOUT_PATH } from "@/lib/authPaths";
-import { LogoutIcon } from "@/components/MenuIcons";
+import { LogoutIcon } from "@/components/icons";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { clearOfflineData } from "@/lib/offline/snapshotDb";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TextSizeIcon } from "@/components/MenuIcons";
+import { TextSizeIcon } from "@/components/icons";
 import { HEADER_MENU_ROW_CLASS } from "@/components/ui";
 import {
   DEFAULT_NOTE_FONT_SCALE,

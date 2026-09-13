@@ -1,4 +1,4 @@
-import { OfflineOffIcon, OfflinePinIcon } from "@/components/MenuIcons";
+import { OfflineOffIcon, OfflinePinIcon } from "@/components/icons";
 import { PressTip } from "@/components/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";
 

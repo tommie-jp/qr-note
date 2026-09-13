@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { SlotMenu } from "@/components/SlotMenu";
 import { SLOT_MENU_ITEM_CLASS } from "@/components/ui";
-import { FormatIcon } from "@/components/MenuIcons";
+import { FormatIcon } from "@/components/icons";
 import type { FormatAction } from "./markdownFormat";
 
 // 下部バーの「書式」ボタン (docs/70-編集ライブプレビュー計画.md §6)。

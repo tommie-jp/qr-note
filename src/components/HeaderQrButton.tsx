@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { QrIcon } from "@/components/MenuIcons";
+import { QrIcon } from "@/components/icons";
 import { ModalOverlay } from "@/components/modal/ModalOverlay";
 import { useEscapeKey } from "@/components/modal/useEscapeKey";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";

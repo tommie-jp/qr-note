@@ -16,7 +16,7 @@ import {
   HistoryIcon,
   NotationIcon,
   QrIcon,
-} from "@/components/MenuIcons";
+} from "@/components/icons";
 import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { MemoEditor } from "@/components/MemoEditor";

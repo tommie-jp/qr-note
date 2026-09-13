@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { PageNextIcon, PagePrevIcon } from "@/components/MenuIcons";
+import { PageNextIcon, PagePrevIcon } from "@/components/icons";
 import { PressTip } from "@/components/PressTip";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 import { useNotePagerPaged } from "@/lib/notePagerPref";

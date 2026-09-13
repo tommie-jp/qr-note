@@ -8,7 +8,7 @@ import {
   OcrIcon,
   ScanIcon,
   VideoIcon,
-} from "@/components/MenuIcons";
+} from "@/components/icons";
 
 // シークレット入力ダイアログのツール行 (docs/53-シークレット挿入拡張計画.md §4)。
 //
@@ -16,7 +16,7 @@ import {
 // 全画面モーダルの下に潜る層にいる。「更新・元に戻す・やり直す」も CodeMirror と
 // フォームが前提で、ここの textarea には意味がない。
 //
-// 流用するのは下の層 — アイコン (MenuIcons) とボタンの見た目だけを揃え、
+// 流用するのは下の層 — アイコン (components/icons) とボタンの見た目だけを揃え、
 // 状態とハンドラは SecretDialog が持つ (EditToolbar と同じ役割分担)。
 
 // 見た目は EditToolbar の TOOL_SLOT と揃える (同じ道具が同じ形に見えるように)

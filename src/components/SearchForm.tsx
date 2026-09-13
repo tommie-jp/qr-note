@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { ClearIcon, PlusIcon, SearchIcon } from "@/components/MenuIcons";
+import { ClearIcon, PlusIcon, SearchIcon } from "@/components/icons";
 import { PendingLink } from "@/components/PendingLink";
 import { useSearchNav } from "@/components/SearchNav";
 import {
@@ -761,7 +761,7 @@ export function SearchForm({
             左右の余白を持たない正方形にするのも同じ理由 (COMPACT_ICON_BUTTON_CLASS)。
             **文字の "+" ではなく PlusIcon (svg)** にしてある (docs/62 §4) —
             文字はフォント任せのベースラインに載るので、中央寄せしても
-            中央に見えなかった。緑なのは「足す」の合図 (MenuIcons.tsx)。
+            中央に見えなかった。緑なのは「足す」の合図 (icons/search.tsx)。
             スピナーは absolute で流れから抜く。流れに置くと ＋ と横に並んで
             正方形からはみ出す (PendingLink の spinnerClassName) */}
         <PendingLink

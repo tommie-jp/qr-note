@@ -14,7 +14,7 @@ import { ItemListNav } from "@/components/ItemListNav";
 import { ItemView } from "@/components/ItemView";
 import { FolderPane } from "@/components/FolderPane";
 import { ItemList } from "@/components/ItemList";
-import { TrashIcon } from "@/components/MenuIcons";
+import { TrashIcon } from "@/components/icons";
 import { PageTransition } from "@/components/PageTransition";
 import { PropsTable } from "@/components/PropsTable";
 import PullToRefresh from "@/components/PullToRefresh";

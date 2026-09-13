@@ -23,7 +23,7 @@ import {
   KeyIcon,
   LockIcon,
   LogIcon,
-} from "@/components/MenuIcons";
+} from "@/components/icons";
 import { RowTintMenuItem } from "@/components/RowTintMenuItem";
 import { OfflineSync } from "@/components/OfflineSync";
 import { PaneModeButton } from "@/components/PaneModeButton";

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { ClearIcon } from "@/components/MenuIcons";
+import { ClearIcon } from "@/components/icons";
 import { PaneResizer } from "@/components/PaneResizer";
 import { usePaneMode } from "@/components/PaneModeProvider";
 import { ACTION_LINK_CLASS } from "@/components/ui";

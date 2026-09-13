@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { MenuToggleIcon } from "@/components/icons";
 import { useBodyScrollLock } from "./modal/useBodyScrollLock";
 import { useEscapeKey } from "./modal/useEscapeKey";
 
@@ -108,29 +109,9 @@ export function HeaderMenu({
         // (16px 内側から始まる 35px) より当てやすい
         className="relative z-40 -mb-3 inline-flex min-h-11 items-center rounded lg:mb-0 lg:min-h-0 pl-[max(0.75rem,env(safe-area-inset-left))] pr-1 text-lg text-gray-500 transition-colors hover:text-gray-900 active:bg-gray-100"
       >
-        {/* アイコンは inline SVG で持つ。この 2 本のためにライブラリを
-            足さない (currentColor なので文字色にそのまま追従する)。
-
-            viewBox は線のインク (stroke 2 + 丸キャップの張り出しを含む) に
-            ぴったり合わせる。余白を残すと、ヘッダーのベースライン揃えで
-            「svg の下端 = ベースライン」に載せたとき線だけ浮いて見える。
-            h-[1cap] で 3 本線の全高が大文字 Q と同じになり、下の線が
-            ベースラインに載る */}
-        <svg
-          aria-hidden
-          viewBox="3 6 18 12"
-          className="h-[1cap] w-auto"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-        >
-          {isOpen ? (
-            <path d="M7 7l10 10M17 7L7 17" />
-          ) : (
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          )}
-        </svg>
+        {/* ☰ / ✕ の寸法 (h-[1cap]) とベースライン揃えの理由は
+            MenuToggleIcon (icons/header.tsx) の注 */}
+        <MenuToggleIcon isOpen={isOpen} />
       </button>
 
       {isOpen &&

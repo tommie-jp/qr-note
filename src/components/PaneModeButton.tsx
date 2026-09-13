@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { PaneModeIcon } from "@/components/icons";
 import {
   nextPaneMode,
   paneModeLabel,
@@ -8,46 +9,6 @@ import {
   PANE_MODE_COOKIE,
   type PaneMode,
 } from "@/lib/paneMode";
-
-// ペイン構成のアイコン (docs/86 §4-4)。**いまの構成そのものを描く** —
-// 押した先ではなく現状を見せる (下部バーの表示モードと同じ流儀)。
-//
-// 色は 3 つのペインで塗り分ける: フォルダー=青 / 検索結果=緑 / ノート=琥珀。
-// 数字と合わせて、形と色と数の 3 通りで同じことを言う
-function PaneModeIcon({ mode }: { mode: PaneMode }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      className="size-5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      {/* 外枠 (画面) */}
-      <rect x="2.5" y="4.5" width="19" height="15" rx="2" className="text-gray-400" />
-      {mode === "3" && (
-        <>
-          {/* 左: フォルダー */}
-          <rect x="2.5" y="4.5" width="6" height="15" rx="2" className="fill-blue-500/70 stroke-blue-600" />
-          {/* 右上: 検索結果 */}
-          <rect x="8.5" y="4.5" width="13" height="8" className="fill-emerald-500/70 stroke-emerald-600" />
-          {/* 右下: ノート */}
-          <rect x="8.5" y="12.5" width="13" height="7" className="fill-amber-400/70 stroke-amber-500" />
-        </>
-      )}
-      {mode === "2" && (
-        <>
-          <rect x="2.5" y="4.5" width="19" height="8" rx="2" className="fill-emerald-500/70 stroke-emerald-600" />
-          <rect x="2.5" y="12.5" width="19" height="7" rx="2" className="fill-amber-400/70 stroke-amber-500" />
-        </>
-      )}
-      {mode === "1" && (
-        <rect x="2.5" y="4.5" width="19" height="15" rx="2" className="fill-emerald-500/70 stroke-emerald-600" />
-      )}
-    </svg>
-  );
-}
 
 // ヘッダーのペイン構成ボタン (docs/86 §4-4)。押すと 3 → 2 → 1 → 3 と循環する。
 //

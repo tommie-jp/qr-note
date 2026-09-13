@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SpeakerIcon } from "@/components/icons";
 import { primeVoices, speakEnglish, stopSpeaking } from "@/lib/ttsSpeech";
 import { ttsSilenceMessage } from "@/lib/ttsSilence";
 
@@ -105,35 +106,4 @@ export function useTtsPress(
   };
 
   return { isSpeaking, press };
-}
-
-// スピーカーのアイコン。アイコンライブラリは足さない (MenuIcons.tsx と
-// 同じ判断)。本文には既に `[🔊](辞書)` の絵文字リンクが並ぶので、
-// 絵文字ではなく線画にして「別の物」に見せる。
-//
-// 鳴っている間は波を点滅させる。止める操作ができることの合図で、
-// 文字を足さずに状態を出せる
-function SpeakerIcon({ speaking }: { speaking: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="inline-block size-4 align-text-bottom"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path
-        d="M11 5 6.5 9H3v6h3.5L11 19z"
-        fill="currentColor"
-        fillOpacity={0.15}
-      />
-      <g className={speaking ? "animate-pulse" : undefined}>
-        <path d="M15 9.5a3.5 3.5 0 0 1 0 5" />
-        <path d="M17.5 7a7 7 0 0 1 0 10" />
-      </g>
-    </svg>
-  );
 }

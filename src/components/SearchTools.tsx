@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
-import { ImageSearchIcon, ScanIcon } from "@/components/MenuIcons";
+import { ImageSearchIcon, ScanIcon } from "@/components/icons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 
 interface SearchToolsProps {

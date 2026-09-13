@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LOGIN_PATH, loginHref } from "@/lib/loginRedirect";
-import { LoginIcon } from "@/components/MenuIcons";
+import { LoginIcon } from "@/components/icons";
 import {
   BUSY_NOTICE_CLASS,
   BUSY_SPINNER_CLASS,

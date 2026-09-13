@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { BarSlot } from "@/components/BarSlot";
-import { SortAscIcon, SortDescIcon, SortIcon } from "@/components/MenuIcons";
+import { SortAscIcon, SortDescIcon, SortIcon } from "@/components/icons";
 import { cycleOf } from "@/lib/cycle";
 import type { SortSpec } from "@/lib/sortDirection";
 import { SORT_BASE_LABEL, SORT_DIRECTION_LABEL } from "@/lib/sortLabels";

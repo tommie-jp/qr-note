@@ -19,6 +19,7 @@
 import type { ReactNode } from "react";
 import Markdown from "react-markdown";
 import type { PluggableList } from "unified";
+import { DiagramIcon } from "@/components/icons";
 import { remarkAnswerSpoiler } from "@/components/remarkAnswerSpoiler";
 import {
   BASE_REHYPE_PLUGINS,
@@ -64,18 +65,7 @@ function FencePlaceholder() {
       className="fence-placeholder flex h-24 items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-gray-300"
       role="presentation"
     >
-      <svg
-        viewBox="0 0 24 24"
-        className="size-10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        aria-hidden
-      >
-        <rect x="3" y="3" width="7" height="6" rx="1" />
-        <rect x="14" y="15" width="7" height="6" rx="1" />
-        <path d="M6.5 9v6a3 3 0 0 0 3 3H14" />
-      </svg>
+      <DiagramIcon />
     </div>
   );
 }

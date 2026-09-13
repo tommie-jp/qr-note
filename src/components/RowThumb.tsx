@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PlayBadgeIcon, VideoThumbIcon } from "@/components/icons";
 import { thumbAnimUrl, thumbUrl } from "@/lib/memoImages";
 import { useAnimThumb } from "./useAnimThumb";
 
@@ -62,7 +63,7 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
       onMouseLeave={isVideo ? onMouseLeave : undefined}
     >
       {showIcon ? (
-        <VideoIcon />
+        <VideoFallback />
       ) : (
         <>
           {/* next/image は使えない (画像 API はログイン必須で optimizer に
@@ -95,28 +96,19 @@ function PlayBadge() {
       aria-hidden
       className="pointer-events-none absolute inset-0 flex items-center justify-center"
     >
-      <svg
-        viewBox="0 0 24 24"
-        className="size-1/3 min-h-4 min-w-4 drop-shadow"
-        fill="white"
-      >
-        <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.45)" />
-        <path d="M9 7.5v9l7-4.5z" fill="white" />
-      </svg>
+      <PlayBadgeIcon />
     </span>
   );
 }
 
 // poster が無い動画のアイコン (ビデオカメラ風)。枠いっぱいの灰色地に白の記号。
-function VideoIcon() {
+function VideoFallback() {
   return (
     <span
       aria-label="動画"
       className="absolute inset-0 flex items-center justify-center text-gray-400"
     >
-      <svg viewBox="0 0 24 24" className="size-2/3" fill="currentColor">
-        <path d="M4 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm13 3.5 4-2.5v10l-4-2.5z" />
-      </svg>
+      <VideoThumbIcon />
     </span>
   );
 }

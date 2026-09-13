@@ -9,7 +9,7 @@ import {
   isAutoLoginSuppressed,
   suppressAutoLogin,
 } from "@/lib/passkeyHint";
-import { KeyIcon } from "@/components/MenuIcons";
+import { KeyIcon } from "@/components/icons";
 import {
   HEADER_MENU_ITEM_CLASS,
   PRIMARY_BUTTON_CLASS,

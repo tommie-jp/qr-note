@@ -7,7 +7,7 @@ import {
   ImageViewIcon,
   ListDetailViewIcon,
   ListViewIcon,
-} from "@/components/MenuIcons";
+} from "@/components/icons";
 import { cycleOf } from "@/lib/cycle";
 import { VIEW_MODES, VIEW_MODE_COOKIE, type ViewMode } from "@/lib/viewMode";
 

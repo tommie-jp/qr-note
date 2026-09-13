@@ -31,7 +31,7 @@ const KIND_FALLBACK_LABEL: Record<AttachmentChipKind, string> = {
   secret: DEFAULT_SECRET_LABEL,
 }
 
-// チップの絵文字。SVG アイコン (MenuIcons) を使わないのは、ここが React の
+// チップの絵文字。SVG アイコン (components/icons) を使わないのは、ここが React の
 // 外 (CodeMirror の WidgetType が組む素の DOM) だから。1 文字で済むものに
 // createRoot を持ち込むと、widget ごとに React ツリーを抱えることになる
 const KIND_GLYPH: Record<AttachmentChipKind, string> = {

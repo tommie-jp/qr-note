@@ -6,7 +6,7 @@ import {
   ChevronUpIcon,
   ClearIcon,
   ReplaceIcon,
-} from "@/components/MenuIcons";
+} from "@/components/icons";
 import {
   COMPACT_ICON_BUTTON_CLASS,
   COMPACT_INPUT_CLASS,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PaletteIcon } from "@/components/MenuIcons";
+import { PaletteIcon } from "@/components/icons";
 import { HEADER_MENU_ROW_CLASS } from "@/components/ui";
 import {
   applyRowTint,

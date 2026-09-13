@@ -18,7 +18,7 @@ import { BulkTagToolbar } from "./BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";
 import { usePaneMode } from "./PaneModeProvider";
-import { TrashIcon } from "./MenuIcons";
+import { TrashIcon } from "./icons";
 import { useSelectMode } from "./SelectModeProvider";
 import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "./ui";
 

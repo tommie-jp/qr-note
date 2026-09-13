@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SelectIcon } from "@/components/MenuIcons";
+import { SelectIcon } from "@/components/icons";
 import { useSelectMode } from "@/components/SelectModeProvider";
 import { SlotIcon } from "@/components/SlotIcon";
 import { SortSlot } from "@/components/SortSlot";

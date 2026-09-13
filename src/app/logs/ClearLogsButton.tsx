@@ -1,7 +1,7 @@
 "use client";
 
 import { useAsyncAction } from "@/components/hooks/useAsyncAction";
-import { TrashIcon } from "@/components/MenuIcons";
+import { TrashIcon } from "@/components/icons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 import { errorText } from "@/lib/errorMessage";
 
