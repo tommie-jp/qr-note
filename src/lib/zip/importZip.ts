@@ -1,7 +1,7 @@
 // 書き出した ZIP を取り込んでノートを戻す (docs/28-エクスポート計画.md §3)。
 //
 // ここは**繋ぎ役だけ**を持つ。展開は readZip、1 枚の Markdown の解釈は
-// noteFile、添付の検証と保存は attachmentStore、派生キャッシュ (tags / props)
+// noteFile、添付の検証と保存は attachments/restore.ts、派生キャッシュ (tags / props)
 // の再計算は upsertItem —— どれも既にある経路をそのまま通す。インポート専用の
 // 保存経路を作らないのが設計の要 (§4 の方針をそのまま引き継ぐ)。
 //
@@ -10,7 +10,7 @@
 // 目視するまで欠落に気づけない。
 
 import 'server-only'
-import { restoreAttachment } from '@/lib/attachmentStore'
+import { restoreAttachment } from '@/lib/attachments/restore'
 import { ownedBytes } from '@/lib/bytes'
 import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'

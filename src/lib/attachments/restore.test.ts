@@ -4,15 +4,15 @@ import { beforeEach, expect, test, vi } from 'vitest'
 // 形式の裏付けと大きさの線引きであって、行の作成ではない
 const restoreAttachmentRow = vi.fn()
 
-vi.mock('./imageStore', () => ({
+vi.mock('@/lib/imageStore', () => ({
   restoreAttachmentRow: (name: string, bytes: Uint8Array, mime: string) =>
     restoreAttachmentRow(name, bytes, mime),
   saveImage: vi.fn(),
   savePlainAttachment: vi.fn(),
 }))
 
-const { restoreAttachment } = await import('./attachmentStore')
-const { MAX_ZIP_FILE_BYTES } = await import('./zip/limits')
+const { restoreAttachment } = await import('./restore')
+const { MAX_ZIP_FILE_BYTES } = await import('@/lib/zip/limits')
 
 const UUID = '0189d1f0-1b2c-4d5e-8f90-a1b2c3d4e5f6'
 

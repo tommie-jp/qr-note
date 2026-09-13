@@ -82,7 +82,7 @@ function isWebmVideo(bytes: Uint8Array): boolean {
 }
 
 // 先頭バイトから動画形式を判定する。判定できなければ null (=非対応)。
-// attachmentStore は音声判定より後にこれを試す (音声のみのファイルは
+// attachments/store.ts は音声判定より後にこれを試す (音声のみのファイルは
 // hasVideoTrack が false になり、ここでも null になるので取り違えない)。
 export function sniffVideoFormat(bytes: Uint8Array): VideoFormat | null {
   if (isWebmVideo(bytes)) {
@@ -97,7 +97,7 @@ export function sniffVideoFormat(bytes: Uint8Array): VideoFormat | null {
 // 出せず PNG/JPEG に化けるため、webp 限定だと iPhone 録画に poster が付かない
 // (実機報告)。クライアントは JPEG を出し、端末によっては PNG になる。sharp が
 // 読める光栅画像 (sniffImageFormat が種別を返すもの = png/jpg/webp/gif/avif/tiff)
-// なら受け、attachmentStore が makeThumbnail で webp へ作り直す。SVG は
+// なら受け、attachments/storeVideo.ts が makeThumbnail で webp へ作り直す。SVG は
 // sniffImageFormat が弾く (スクリプト混入対策) ので、ここも自動で拒否される。
 // 大きさは 200KB を超えないものだけ (MAX_VIDEO_THUMB_BYTES。バッファ済みの防波堤は
 // route 側にもある)。

@@ -15,7 +15,7 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 // 動画だけは別枠で大きい上限を持つ (41-QR-search/docs/14-動画挿入計画.md)。3 分・720p・
 // 映像 1Mbps + 音声 64kbps で約 24MB になるため、余裕を見て 30MB。画像・音声・
 // PDF・テキストは従来どおり MAX_IMAGE_BYTES (10MB) のまま — 動画以外を大きく
-// する理由はないので、種別で上限を分ける (判定は attachmentStore が中身を見て)。
+// する理由はないので、種別で上限を分ける (判定は attachments/store.ts が中身を見て)。
 export const MAX_VIDEO_BYTES = 30 * 1024 * 1024
 
 // デモインスタンスでの 1 ファイル上限 (docs/38-デモモード計画.md §5)。
@@ -27,7 +27,7 @@ export const DEMO_MAX_IMAGE_BYTES = 2 * 1024 * 1024
 // リクエスト全体で受け入れうる 1 ファイルの上限 (= 全種別の最大)。
 // checkUploadRequest の Content-Length 事前チェックと route の申告サイズ検査が
 // 使う「本文を読む前の門」。動画が最大なので非デモでは MAX_VIDEO_BYTES に開く。
-// **種別ごとの上限はこの後 attachmentStore が中身を見て絞る** (動画 30MB /
+// **種別ごとの上限はこの後 attachments/store.ts が中身を見て絞る** (動画 30MB /
 // それ以外 10MB)。定数ではなく関数にするのは DEMO_MODE を起動時 env で切り替える
 // ため (テストも env で差せる)。デモでは動画を扱わないので従来の 2MB のまま。
 export function maxUploadBytes(): number {
@@ -35,7 +35,7 @@ export function maxUploadBytes(): number {
 }
 
 // 動画以外 (画像・音声・PDF・テキスト) の 1 ファイル上限。デモでは 2MB。
-// attachmentStore がスニッフ後にこの値で絞る (route はこれを渡す)。
+// attachments/store.ts がスニッフ後にこの値で絞る (route はこれを渡す)。
 export function maxAttachmentBytes(): number {
   return isDemoMode() ? DEMO_MAX_IMAGE_BYTES : MAX_IMAGE_BYTES
 }

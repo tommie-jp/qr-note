@@ -47,7 +47,7 @@ function bomEncoding(bytes: Uint8Array): string | null {
 
 // UTF-16 の BOM を持つか。
 //
-// 呼び出し側 (attachmentStore) が**音声判定より先にテキストを確定させる**ために
+// 呼び出し側 (attachments/store.ts) が**音声判定より先にテキストを確定させる**ために
 // 見る。UTF-16LE の BOM `FF FE` は、緩い MP3 判定 (先頭 FF + 次バイトの上位
 // 3bit が同期語) に音声として横取りされてしまう — `FF FE` は MPEG1 Layer II の
 // 同期語としても妥当なので、音声判定を弱めては直せない。BOM という強い署名が
@@ -79,7 +79,7 @@ function decodeStrict(bytes: Uint8Array, encoding: string): string | null {
 
 // テキストとして受け付けられるなら UTF-8 に正規化したバイト列を、
 // 受け付けられないなら null を返す。**例外は投げない** (呼び出し側の
-// attachmentStore は「次の形式を試す」だけなので、判定は真偽で足りる)。
+// attachments/store.ts は「次の形式を試す」だけなので、判定は真偽で足りる)。
 export function normalizeTextBytes(
   bytes: Uint8Array,
 ): Uint8Array<ArrayBuffer> | null {

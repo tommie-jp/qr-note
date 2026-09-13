@@ -165,7 +165,7 @@ export function mapCaptureError(e: unknown): VideoCaptureError {
 // 録画直後の手当て。Firefox は webm の Duration を 0 で書くため、<video> の長さが
 // Infinity になりシークできない。実測の長さを書き込む (音声と同じ処理で、動画の
 // webm にもそのまま効く)。**mp4 (Safari) の moov 並べ替えはサーバ側でやる**
-// (attachmentStore の video 分岐)。
+// (attachments/storeVideo.ts)。
 async function prepareForUpload(
   blob: Blob,
   mimeType: string,

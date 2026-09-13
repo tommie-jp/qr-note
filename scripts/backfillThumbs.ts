@@ -34,7 +34,7 @@ async function main(): Promise<void> {
     }
 
     // images 表は音声・PDF・テキストなど画像でない添付も持つ
-    // (attachmentStore.ts の savePlainAttachment)。これらはサムネの対象外で、
+    // (attachments/ の各分岐が呼ぶ savePlainAttachment)。これらはサムネの対象外で、
     // sharp に渡しても必ず失敗するだけなので、エラーにせず黙って飛ばす。
     // 判定は保存経路 (storeAttachment) と同じマジックバイト sniff に揃える
     if (!sniffImageFormat(image.data)) {

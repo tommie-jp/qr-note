@@ -54,7 +54,7 @@ vi.mock('@/lib/productLookup', () => ({
   lookupProduct: (jan: string) => mocks.lookupProduct(jan),
 }))
 
-vi.mock('@/lib/attachmentStore', () => ({
+vi.mock('@/lib/attachments/store', () => ({
   storeAttachment: (bytes: Uint8Array, options: unknown) => mocks.storeAttachment(bytes, options),
 }))
 

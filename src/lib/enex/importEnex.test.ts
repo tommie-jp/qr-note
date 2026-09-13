@@ -21,7 +21,7 @@ vi.mock('@/lib/items/write', () => ({
     applyImportedTimestamps(itemNo, created, updated),
 }))
 
-vi.mock('@/lib/attachmentStore', () => ({
+vi.mock('@/lib/attachments/store', () => ({
   storeAttachment: (bytes: Uint8Array, options?: unknown) =>
     storeAttachment(bytes, options),
 }))

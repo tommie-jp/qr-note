@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { storeAttachment } from '@/lib/attachmentStore'
+import { storeAttachment } from '@/lib/attachments/store'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import { guardRequest } from '@/lib/route/guard'
 import { parseFormBody } from '@/lib/route/parse'
@@ -18,7 +18,7 @@ import { checkUploadRequest } from '@/lib/uploads/request'
 // memo エディタからの画像アップロード。UUID 名で images テーブルに保存し、
 // 参照用の URL (/api/images/<name>) を返す。
 //
-// 形式の判定・変換・保存そのものは attachmentStore.ts が持つ (ENEX インポートと
+// 形式の判定・変換・保存そのものは attachments/store.ts が持つ (ENEX インポートと
 // 共有する)。ここに残すのは HTTP の作法 — 認証・CSRF・大きさ・応答の組み立て。
 export async function POST(request: Request): Promise<NextResponse> {
   // 一番先に見る。ログインしていない相手のために本文を読む理由はない
@@ -63,7 +63,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const file = form.value.get('file')
   // 動画のときだけ付く poster 用 WebP (クライアント生成)。中身の検証は
-  // attachmentStore が行うので、ここでは有無だけ拾う (41-QR-search/docs/14 §Phase3)
+  // attachments/storeVideo.ts が行うので、ここでは有無だけ拾う (41-QR-search/docs/14 §Phase3)
   const thumbField = form.value.get('thumb')
   // 動くサムネの材料になるコマ (docs/72-動画アニメサムネ計画.md)。
   // 同じ名前で複数付くので getAll で受ける
@@ -88,9 +88,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   // 動画の poster (WebP) が付いていれば読む。動画以外では無視される
-  // (attachmentStore が動画判定時のみ使い、WebP・200KB 以下だけを採用する)。
+  // (attachments/storeVideo.ts が動画判定時のみ使い、WebP・200KB 以下だけを採用する)。
   // **バッファする前に申告サイズで弾く** — 上限超過の thumb はメモリに読まず
-  // poster 無しとして扱う (本体の動画は通す)。中身の再検証は attachmentStore。
+  // poster 無しとして扱う (本体の動画は通す)。中身の再検証は attachments/storeVideo.ts。
   const videoThumb =
     thumbField instanceof File &&
     thumbField.size > 0 &&
@@ -117,7 +117,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // ファイル名を渡すのはテキスト (txt/csv/md) の拡張子を決めるためだけ。
   // 名前そのものは保存名にならない (サーバ発番の UUID + 既知の拡張子)。
   // maxBytes は動画以外の 1 ファイル上限 (デモでは 2MB)。動画は
-  // attachmentStore が MAX_VIDEO_BYTES で別に絞る
+  // attachments/storeVideo.ts が MAX_VIDEO_BYTES で別に絞る
   const stored = await storeAttachment(new Uint8Array(await file.arrayBuffer()), {
     fileName: file.name,
     maxBytes: maxAttachmentBytes(),

@@ -24,7 +24,7 @@ import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, megabytesLabel } from './uploads/limi
 // 送る前に当てる 1 ファイルの上限。動画だけ別枠で大きいのはサーバと同じ
 // (uploads/limits.ts の MAX_VIDEO_BYTES / MAX_IMAGE_BYTES がそのまま正本)。
 // 種別の判定はクライアントの申告 (MIME・拡張子) でよい — ここは「送る前に
-// 気づかせる」ための予選で、実体を見た最終判定は attachmentStore が行う。
+// 気づかせる」ための予選で、実体を見た最終判定は attachments/store.ts が行う。
 export function uploadSizeLimit(isVideo: boolean): number {
   return isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES
 }

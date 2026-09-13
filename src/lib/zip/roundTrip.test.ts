@@ -48,7 +48,7 @@ vi.mock('@/lib/items/flags', () => ({
   setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
 }))
 
-vi.mock('@/lib/attachmentStore', () => ({
+vi.mock('@/lib/attachments/restore', () => ({
   restoreAttachment: (name: string, bytes: Uint8Array) => restoreAttachment(name, bytes),
 }))
 

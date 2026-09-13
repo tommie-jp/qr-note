@@ -35,7 +35,7 @@ vi.mock('@/lib/importDuplicate', () => ({
     isAlreadyImported(created, title),
 }))
 
-vi.mock('@/lib/attachmentStore', () => ({
+vi.mock('@/lib/attachments/restore', () => ({
   restoreAttachment: (name: string, bytes: Uint8Array) => restoreAttachment(name, bytes),
 }))
 

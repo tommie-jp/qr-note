@@ -1,7 +1,7 @@
 // ENEX を取り込んでノートを作る (設計は docs/28-エクスポート計画.md §4)。
 //
 // ここは**繋ぎ役だけ**を持つ。読み取りは parseEnex、本文の変換は enmlToMarkdown、
-// 添付の保存は attachmentStore、派生キャッシュ (tags / props) の再計算は
+// 添付の保存は attachments/store.ts、派生キャッシュ (tags / props) の再計算は
 // upsertItem —— どれも既にある経路をそのまま通す。インポート専用の保存経路を
 // 作らないのが設計の要 (§4「インポート経路を 2 本持たない」)。
 //
@@ -9,7 +9,7 @@
 // 添付でファイル 1 枚まるごとが入らないほうが困る。
 
 import 'server-only'
-import { storeAttachment } from '@/lib/attachmentStore'
+import { storeAttachment } from '@/lib/attachments/store'
 import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/importDuplicate'
@@ -47,7 +47,7 @@ export interface ImportOptions {
   // 後で backfill を回す手間が消える。
   embedImages?: boolean
 
-  // 添付 1 件の上限 (既定: attachmentStore の 10MB)。
+  // 添付 1 件の上限 (既定: attachments/store.ts の 10MB)。
   //
   // Web の口は既定のまま。CLI は MAX_CLI_ATTACHMENT_BYTES を渡す —
   // 10MB は HTTP アップロードの都合で決めた値で、ファイルから読む経路に

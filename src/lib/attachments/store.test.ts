@@ -4,7 +4,7 @@ import {
   MAX_VIDEO_ANIM_FRAME_BYTES,
   MAX_VIDEO_BYTES,
   MAX_VIDEO_THUMB_BYTES,
-} from './uploads/limits'
+} from '@/lib/uploads/limits'
 
 // DB (imageStore) と sharp を掴む変換 (normalizeImage・thumbnail・videoAnim)、
 // moov の詰め替え (mp4Faststart) は差し替える。確かめたいのは storeAttachment の
@@ -40,7 +40,8 @@ vi.mock('@/lib/mp4Faststart', () => ({
   moveMoovToFront: (bytes: Uint8Array) => moveMoovToFront(bytes),
 }))
 
-const { storeAttachment, UNSUPPORTED_ATTACHMENT_MESSAGE } = await import('./attachmentStore')
+const { storeAttachment } = await import('./store')
+const { UNSUPPORTED_ATTACHMENT_MESSAGE } = await import('./result')
 
 const UUID = '0189d1f0-1b2c-4d5e-8f90-a1b2c3d4e5f6'
 const MB = 1024 * 1024
