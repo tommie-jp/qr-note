@@ -105,7 +105,7 @@ describe('拒否系 (触る前に弾く)', () => {
   })
 
   test('クロスサイトからの記録は 403', async () => {
-    // Basic 認証は Cookie を使わないので SameSite が効かない (apiAuth.ts)
+    // Basic 認証は Cookie を使わないので SameSite が効かない (route/guard.ts)
     const { POST } = await routes()
 
     const res = await POST(

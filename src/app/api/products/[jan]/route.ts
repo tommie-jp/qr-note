@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
-import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { lookupProduct } from '@/lib/productLookup'
+import { guardRequest } from '@/lib/route/guard'
 import {
   apiDemoDisabled,
   apiFail,
@@ -29,9 +29,9 @@ export async function GET(
   // ログイン検査だけでは足りない。Basic 認証は SameSite が効かないので、
   // ログイン済みのブラウザが第三者のページを開くと <img src> ひとつで
   // ここが動き、Yahoo! の利用枠を焚かれる (docs/18 §9)
-  const denied = (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'allow' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   // デモインスタンスでは Yahoo! の Client ID を持たせない (docs/39-デモ公開計画.md §5)。

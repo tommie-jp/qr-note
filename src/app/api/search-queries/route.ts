@@ -15,17 +15,17 @@ import { importSavedQueries, listQueries, recordUse } from '@/lib/searchQuerySto
 // で、クライアントは返ってきた物でそのまま手元を差し替えられる。
 
 export async function GET(request: Request): Promise<NextResponse> {
-  const user = await searchQueryUser(request)
-  if (typeof user !== 'string') {
-    return user
+  const guard = await searchQueryUser(request)
+  if (!guard.ok) {
+    return guard.response
   }
-  return apiOk(await listQueries(user))
+  return apiOk(await listQueries(guard.user))
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const user = await searchQueryUser(request)
-  if (typeof user !== 'string') {
-    return user
+  const guard = await searchQueryUser(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const query = (await readJsonObject(request))?.query
@@ -33,7 +33,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiFail('リクエストの形式が正しくありません', 400)
   }
 
-  return apiOk(await recordUse(user, query))
+  return apiOk(await recordUse(guard.user, query))
 }
 
 // localStorage から引き取る (docs/59-検索候補計画.md §7)。
@@ -41,9 +41,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 // 空配列でも 200 を返す。クライアントは「返事が来た = サーバは受け取った」を
 // もって localStorage を消すので、ここで断ると消せないまま毎回送り直しになる。
 export async function PUT(request: Request): Promise<NextResponse> {
-  const user = await searchQueryUser(request)
-  if (typeof user !== 'string') {
-    return user
+  const guard = await searchQueryUser(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const body = await readJsonObject(request)
@@ -52,5 +52,5 @@ export async function PUT(request: Request): Promise<NextResponse> {
   }
   // 覚えられない物 (空・長すぎ・文字列でない) は黙って落とす。手で編集できる
   // localStorage から来た値なので、1 件の形式違いで全部を捨てさせない
-  return apiOk(await importSavedQueries(user, sanitizeQueryList(body.saved)))
+  return apiOk(await importSavedQueries(guard.user, sanitizeQueryList(body.saved)))
 }

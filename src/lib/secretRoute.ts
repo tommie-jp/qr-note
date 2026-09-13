@@ -5,7 +5,7 @@
 // 33% 太らせないため)。復号後の種別だけをヘッダで申告させる。
 
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from './apiAuth'
+import { guardRequest, type GuardResult } from './route/guard'
 import { apiFail } from './route/respond'
 import {
   checkSecretPayload,
@@ -16,14 +16,10 @@ import { checkUploadRequest, MULTIPART_OVERHEAD_BYTES } from './uploads'
 
 // どの口にも共通の門番。
 //
-// デモを最初に断つのは apiAuth.ts の作法どおり (共有アカウントのデモでは
+// デモを最初に断つのは route/guard.ts の作法どおり (共有アカウントのデモでは
 // 鍵を分け合えないので、機能ごと閉じる。docs/51 §10)。
-export async function denySecretRequest(
-  request: Request,
-): Promise<NextResponse | null> {
-  return (
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  )
+export function guardSecretRequest(request: Request): Promise<GuardResult> {
+  return guardRequest(request, { demo: 'deny' })
 }
 
 // 書き込みの口 (POST / PUT) の本文を読む。断られた場合は NextResponse を返す。

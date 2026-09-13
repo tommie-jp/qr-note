@@ -1,6 +1,6 @@
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { formatJstDate } from '@/lib/datetime'
 import { parseSelectedItemNos } from '@/lib/itemSelection'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { exportEntries } from '@/lib/zip/exportZip'
 import { createZipStream } from '@/lib/zip/zipStream'
@@ -21,10 +21,9 @@ import { createZipStream } from '@/lib/zip/zipStream'
 export async function POST(request: Request): Promise<Response> {
   // デモでは閉じる (docs/38 §4)。共有アカウントのデモに「全データを 1 ファイルで
   // 持ち出す口」を開けておく理由がない。インポートと同じ判断・同じ並び順
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   let formData: FormData

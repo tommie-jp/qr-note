@@ -14,9 +14,9 @@ import { registerSaved, unregisterSaved } from '@/lib/searchQueryStore'
 // 入るのでクエリ文字列に載せるより素直だから (エンコード漏れの余地が無い)。
 
 export async function PUT(request: Request): Promise<NextResponse> {
-  const user = await searchQueryUser(request)
-  if (typeof user !== 'string') {
-    return user
+  const guard = await searchQueryUser(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const query = (await readJsonObject(request))?.query
@@ -24,7 +24,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return apiFail('リクエストの形式が正しくありません', 400)
   }
 
-  const lists = await registerSaved(user, query)
+  const lists = await registerSaved(guard.user, query)
   if (lists === null) {
     // 満杯。画面は ☆ を押せなくしているので普通は来ないが、2 台から同時に
     // 登録すれば起きうる。黙って捨てず、理由の分かる応答を返す
@@ -34,9 +34,9 @@ export async function PUT(request: Request): Promise<NextResponse> {
 }
 
 export async function DELETE(request: Request): Promise<NextResponse> {
-  const user = await searchQueryUser(request)
-  if (typeof user !== 'string') {
-    return user
+  const guard = await searchQueryUser(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const query = (await readJsonObject(request))?.query
@@ -44,5 +44,5 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     return apiFail('リクエストの形式が正しくありません', 400)
   }
 
-  return apiOk(await unregisterSaved(user, query))
+  return apiOk(await unregisterSaved(guard.user, query))
 }

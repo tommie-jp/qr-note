@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
+import { guardRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 import { currentImport } from '@/lib/zip/importProgressStore'
 
@@ -14,10 +14,9 @@ import { currentImport } from '@/lib/zip/importProgressStore'
 // 500ms ごとに叩かれるので、DB には触らない (触るとポーリングがそのまま
 // 負荷になる)。
 export async function GET(request: Request): Promise<NextResponse> {
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   // 進み具合は一瞬で古くなる。中継にもブラウザにも溜めさせない (apiOk の既定の no-store)

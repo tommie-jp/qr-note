@@ -1,10 +1,10 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { readJsonObject } from '@/lib/authApi'
 import { getOrRenderCircuit } from '@/lib/circuitCache'
 import { renderCircuitYaml } from '@/lib/circuitYaml'
 import { CIRCUIT_LANG, isCircuitLang } from '@/lib/fenceLanguages'
 import { CircuitRenderError } from '@/lib/circuit/renderError'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 
@@ -29,9 +29,9 @@ const MAX_CIRCUIT_SOURCE_CHARS = MAX_TEXT_LENGTH
 // (閉じると編集画面だけ図が出ない、という食い違いになる)。
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const denied = (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'allow' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   const body = await readJsonObject(request)

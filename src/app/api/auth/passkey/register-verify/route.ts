@@ -1,12 +1,11 @@
 import { verifyRegistrationResponse } from '@simplewebauthn/server'
 import type { RegistrationResponseJSON } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { apiPasskeyDisabled, readJsonObject } from '@/lib/authApi'
 import { normalizePasskeyLabel } from '@/lib/passkeyLabel'
 import { savePasskey } from '@/lib/passkeys'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { currentUser } from '@/lib/session'
 import { consumeChallenge } from '@/lib/webauthnChallenge'
 import { webauthnConfig } from '@/lib/webauthnConfig'
 
@@ -14,20 +13,14 @@ import { webauthnConfig } from '@/lib/webauthnConfig'
 // (docs/29-パスキー計画.md §6)。
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは登録を閉じる (docs/38 §4。register-options と対で塞ぐ)
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   const config = webauthnConfig()
   if (config === null) {
     return apiPasskeyDisabled()
-  }
-
-  const userName = await currentUser()
-  if (userName === null) {
-    return apiFail('ログインが必要です', 401)
   }
 
   const body = await readJsonObject(request)
@@ -65,7 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     await savePasskey({
       id: credential.id,
-      userName,
+      userName: guard.user,
       publicKey: credential.publicKey,
       counter: credential.counter,
       transports: credential.transports ?? [],

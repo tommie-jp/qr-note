@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { storeAttachment } from '@/lib/attachmentStore'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {
   checkUploadRequest,
@@ -28,9 +28,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   // ブラウザは POST に必ず Origin も付けるので、ここで増えて断る正規の要求は
   // ない。それでも他の口と同じ門番を通し、口ごとの流儀の差を作らない
   // (docs/18 §9、判定の理由は crossSite.ts)
-  const denied = (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'allow' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   const rejection = checkUploadRequest(request)

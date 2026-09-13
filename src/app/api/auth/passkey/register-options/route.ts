@@ -1,10 +1,9 @@
 import { generateRegistrationOptions } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
 import { apiPasskeyDisabled } from '@/lib/authApi'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
-import { apiFail, apiOk } from '@/lib/route/respond'
 import { listCredentialDescriptors } from '@/lib/passkeys'
-import { currentUser } from '@/lib/session'
+import { guardRequest } from '@/lib/route/guard'
+import { apiOk } from '@/lib/route/respond'
 import { rememberChallenge } from '@/lib/webauthnChallenge'
 import { stableUserHandle, webauthnConfig } from '@/lib/webauthnConfig'
 
@@ -17,10 +16,9 @@ import { stableUserHandle, webauthnConfig } from '@/lib/webauthnConfig'
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは登録を閉じる (docs/38 §4)。共有アカウントに他人がパスキーを
   // 足せてしまうため。ログインの有無より前に断つ
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   const config = webauthnConfig()
@@ -28,11 +26,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiPasskeyDisabled()
   }
 
-  // denyUnlessLoggedIn を通っている以上 null にはならないが、型のために見る
-  const userName = await currentUser()
-  if (userName === null) {
-    return apiFail('ログインが必要です', 401)
-  }
+  const userName = guard.user
 
   const options = await generateRegistrationOptions({
     rpName: config.rpName,

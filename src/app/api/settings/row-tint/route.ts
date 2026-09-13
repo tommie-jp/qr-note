@@ -1,10 +1,9 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { readJsonObject } from '@/lib/authApi'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { isRowTintId } from '@/lib/rowTint'
 import { saveRowTintId } from '@/lib/rowTintStore'
-import { currentUser } from '@/lib/session'
 
 // 検索結果で選択中の行の地色を保存する口 (docs/88-選択行の色計画.md)。
 //
@@ -20,16 +19,9 @@ import { currentUser } from '@/lib/session'
 // 行) 自体も layout が出さないが、口の側でも塞ぐ — 旗の欠落や導線の隠蔽に
 // 頼らない (§2「欠落は無防備へ倒れる」)。
 export async function PUT(request: Request): Promise<NextResponse> {
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
-  }
-
-  const userName = await currentUser()
-  if (userName === null) {
-    // denyUnlessLoggedIn を通った後なのでここへは来ない。素通しにせず断る
-    return apiFail('ログインが必要です', 401)
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   // **知らない色は畳まず断る。** parseRowTintId で既定へ寄せると、送り手は
@@ -39,6 +31,6 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return apiFail('リクエストの形式が正しくありません', 400)
   }
 
-  await saveRowTintId(userName, tint)
+  await saveRowTintId(guard.user, tint)
   return apiOk({ tint })
 }

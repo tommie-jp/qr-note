@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import { saveImage } from '@/lib/imageStore'
 import { rewriteImageReference } from '@/lib/items'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {
   isRotatableExt,
@@ -26,9 +26,9 @@ export async function POST(
   { params }: RouteContext,
 ): Promise<NextResponse> {
   // ログイン + CSRF。データに触る前に断る (uploads.ts と同じ流儀・順)
-  const denied = (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'allow' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   const { name } = await params

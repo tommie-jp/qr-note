@@ -190,7 +190,7 @@ export const config = {
   //                この口は 500MB を流し読みで受ける設計なので、複製されると
   //                そこで千切れる (上限を 500MB まで上げると今度は 500MB が
   //                メモリに載り、RAM 2GB の本番が落ちる)。proxy から外して
-  //                素通しし、認証は route handler 側の denyUnlessLoggedIn に
+  //                素通しし、認証は route handler 側の guardRequest に
   //                任せる — もともとここは楽観的検査で、データに触る入口が正
   //                (冒頭のコメント)。実際に本番で「10MB で切られて ZIP が
   //                壊れて見える」を踏んだ

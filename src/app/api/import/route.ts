@@ -1,9 +1,9 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { concatBytes } from '@/lib/bytes'
 import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
 import { errorText } from '@/lib/errorMessage'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { checkUploadRequest } from '@/lib/uploads'
 import {
@@ -41,10 +41,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 第三者のページからの呼び出しも本文の前に断る (/api/images と同じく
   // checkUploadRequest の Origin 検査と重なるが、他の口と門番を揃える)。
   // この口は proxy の matcher から外してある (proxy.ts) ので、門番はここだけ
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   // Origin の検査 (CSRF) と、Content-Length を名乗った時点での足切り。

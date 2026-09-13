@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
-import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { deletePasskey } from '@/lib/passkeys'
+import { guardRequest } from '@/lib/route/guard'
 
 // 登録済みパスキーを 1 つ消す (docs/29-パスキー計画.md §6, §8)。
 //
@@ -14,10 +14,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   // デモでは登録も削除も閉じる (docs/38 §4。パスキー設定画面ごと落とす)
-  const denied =
-    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'deny' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   const { id } = await params

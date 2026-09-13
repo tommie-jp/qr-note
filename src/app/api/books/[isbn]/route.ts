@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
-import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { lookupBook } from '@/lib/bookLookup'
 import { saveCoverImage } from '@/lib/coverImage'
+import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { isIsbn } from '@/lib/scanRegister'
 
@@ -28,9 +28,9 @@ export async function GET(
   // ログイン検査だけでは足りない。この口は**書影を DB に書き、楽天の
   // クォータを使う GET** なので、第三者のページの <img src> から動かされると
   // 孤児の書影とクォータをいくらでも焚かれる (docs/18 §9 / docs/19 §3)
-  const denied = (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
-  if (denied) {
-    return denied
+  const guard = await guardRequest(request, { demo: 'allow' })
+  if (!guard.ok) {
+    return guard.response
   }
 
   // **書誌はデモでも引く** (docs/45-デモ書誌開放計画.md)。書名・著者は

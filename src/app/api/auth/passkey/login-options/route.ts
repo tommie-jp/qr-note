@@ -1,7 +1,7 @@
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { denyCrossSite } from '@/lib/apiAuth'
 import { apiPasskeyDisabled } from '@/lib/authApi'
+import { denyCrossSite } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { listCredentialDescriptors } from '@/lib/passkeys'
 import { rememberChallenge } from '@/lib/webauthnChallenge'

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { SECRET_MIME_HEADER } from '@/lib/secretPayload'
-import { denySecretRequest, readSecretBody } from '@/lib/secretRoute'
+import { guardSecretRequest, readSecretBody } from '@/lib/secretRoute'
 import { findSecret, saveSecret } from '@/lib/secretStore'
 import { isValidSecretName } from '@/lib/secrets'
 
@@ -18,14 +18,14 @@ const NO_STORE = 'no-store'
 // 未ログインの閲覧者には暗号文すら配らない (docs/51 §10)。
 //
 // publicPaths.ts の isSelfGuardedPath に /api/secrets/ を載せていないので
-// proxy.ts が先に 401 で止めるが、そこを唯一の砦にはしない (apiAuth.ts の作法)。
+// proxy.ts が先に 401 で止めるが、そこを唯一の砦にはしない (route/guard.ts の作法)。
 export async function GET(
   request: Request,
   { params }: RouteContext,
 ): Promise<NextResponse> {
-  const denied = await denySecretRequest(request)
-  if (denied) {
-    return denied
+  const guard = await guardSecretRequest(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const { name } = await params
@@ -59,9 +59,9 @@ export async function PUT(
   request: Request,
   { params }: RouteContext,
 ): Promise<NextResponse> {
-  const denied = await denySecretRequest(request)
-  if (denied) {
-    return denied
+  const guard = await guardSecretRequest(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const { name } = await params

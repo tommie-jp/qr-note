@@ -2,7 +2,7 @@ import type { NextResponse } from 'next/server'
 import { readJsonObject } from '@/lib/authApi'
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytesBase64'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { denySecretRequest } from '@/lib/secretRoute'
+import { guardSecretRequest } from '@/lib/secretRoute'
 import {
   deleteKeyring,
   findKeyringVerifier,
@@ -25,9 +25,9 @@ import {
 const MAX_KEY_BYTES = 256
 
 export async function GET(request: Request): Promise<NextResponse> {
-  const denied = await denySecretRequest(request)
-  if (denied) {
-    return denied
+  const guard = await guardSecretRequest(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const verifier = await findKeyringVerifier()
@@ -50,9 +50,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 // 初回設定。**既に設定済みなら断る** — 検証値を上書きすると、既存の断片を
 // 開けるマスターキーが分からなくなる (二重に設定できてはいけない)。
 export async function POST(request: Request): Promise<NextResponse> {
-  const denied = await denySecretRequest(request)
-  if (denied) {
-    return denied
+  const guard = await guardSecretRequest(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const body = await readJsonObject(request)
@@ -87,9 +87,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 // 2 台目以降 (または作り直し) の包みを足す。
 export async function PUT(request: Request): Promise<NextResponse> {
-  const denied = await denySecretRequest(request)
-  if (denied) {
-    return denied
+  const guard = await guardSecretRequest(request)
+  if (!guard.ok) {
+    return guard.response
   }
 
   const body = await readJsonObject(request)
