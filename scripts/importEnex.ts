@@ -235,7 +235,8 @@ function printReport(file: string, report: ImportReport): void {
 }
 
 // レポートはファイルにも残す。件数が多いと端末のスクロールから溢れるうえ、
-// 「何が入らなかったか」は後から突き合わせたくなる (migrateFromVer1.ts と同じ流儀)
+// 「何が入らなかったか」は後から突き合わせたくなる (役目を終えて消した Ver1 移行の
+// scripts/migrateFromVer1.ts と同じ流儀。git 履歴に残っている)
 function saveReport(file: string, report: ImportReport): void {
   const reportPath = path.join(
     path.dirname(file),

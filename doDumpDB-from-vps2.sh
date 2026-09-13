@@ -6,6 +6,12 @@
 # 取り込み (./doImportEnex.sh) は書き込む前にこれと同じダンプを自動で取るので、
 # 普段はそちらに任せてよい。これは「いま手で 1 本取っておきたい」ときのもの。
 #
+# 世代の上限 (任意): DUMP_KEEP=N を付けたときだけ、取り終えたあとに同じ名前の
+# ダンプを新しい順に N 本残し、古いものを消す (消した名前は表示する)。
+# 付けなければ何も消さない (従来どおり)。backup/ は放っておくと際限なく育つ。
+# doImportEnex.sh の取り込み前ダンプも**同じ名前**なので、本数に一緒に入る。
+#   DUMP_KEEP=10 ./doDumpDB-from-vps2.sh
+#
 # 戻すとき (本番へ):
 #   cat backup/vps2-before-import_<timestamp>.dump |
 #     ssh vps2 "cd 41-QR-search/qr-search &&
@@ -20,6 +26,32 @@ cd "$(dirname "$0")"
 REMOTE="${DUMP_REMOTE:-vps2}"
 REMOTE_DIR="${DUMP_REMOTE_DIR:-41-QR-search/qr-search}"
 OUT="backup/vps2-before-import_$(date +%Y%m%d_%H%M%S).dump"
+KEEP="${DUMP_KEEP:-}"
+
+# 0 を許すと、いま取ったばかりの 1 本まで消える。ssh の前に弾く
+if [ -n "$KEEP" ] && ! [[ "$KEEP" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: DUMP_KEEP は 1 以上の整数で指定すること (現在: $KEEP)" >&2
+  exit 1
+fi
+
+# OUT と同じ形の名前だけを数える (qr-local-backup_* など他のダンプには触らない)。
+# 時刻は固定幅なので glob の展開順 = 古い順。先頭から「超えた本数」を消す
+prune_old_dumps() {
+  local keep="$1"
+  local -a dumps
+  shopt -s nullglob
+  dumps=(backup/vps2-before-import_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].dump)
+  shopt -u nullglob
+  local excess=$(( ${#dumps[@]} - keep ))
+  if [ "$excess" -le 0 ]; then
+    return 0
+  fi
+  local old
+  for old in "${dumps[@]:0:excess}"; do
+    echo "古い世代を消す: $old"
+    rm -f -- "$old"
+  done
+}
 
 mkdir -p backup
 ssh "$REMOTE" "cd '$REMOTE_DIR' && docker compose exec -T db pg_dump -U qr -d qr -Fc" > "$OUT"
@@ -31,3 +63,7 @@ if [ ! -s "$OUT" ]; then
 fi
 
 du -h "$OUT"
+
+if [ -n "$KEEP" ]; then
+  prune_old_dumps "$KEEP"
+fi
