@@ -140,14 +140,14 @@ export interface MemoEditorInnerProps {
 const ACCEPTED_IMAGE_TYPES =
   "image/png,image/jpeg,image/gif,image/webp,image/avif,image/heic,image/heif,image/tiff,.png,.jpg,.jpeg,.gif,.webp,.avif,.heic,.heif,.tif,.tiff";
 
-// 音声 (docs/12-添付ファイル種類拡張メモ.md)。mp3/m4a/wav/webm を受け付ける。
+// 音声 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。mp3/m4a/wav/webm を受け付ける。
 // audio/x-m4a は一部ブラウザが m4a に付ける別名。webm はブラウザ内録音の
 // 出力形式で、ファイル選択からも受ける。最終判定はサーバの
 // sniffAudioFormat が中身を見て行う (音声トラックだけの webm しか通らない)
 const ACCEPTED_AUDIO_TYPES =
   "audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/webm,.mp3,.m4a,.wav,.webm";
 
-// 動画 (docs/14-動画挿入計画.md)。mp4/webm/mov を受け付ける。iOS カメラロールは
+// 動画 (41-QR-search/docs/14-動画挿入計画.md)。mp4/webm/mov を受け付ける。iOS カメラロールは
 // .mov (QuickTime)、Android の録画は .webm。最終判定はサーバの sniffVideoFormat が
 // 中身を見て行う (映像トラックを持つものだけが動画として通る)。webm 動画は
 // 保存時に .mkv へ写す (videoFormats.ts の経緯) が、ここは**入力**の受け口なので
@@ -155,11 +155,11 @@ const ACCEPTED_AUDIO_TYPES =
 const ACCEPTED_VIDEO_TYPES =
   "video/mp4,video/webm,video/quicktime,.mp4,.m4v,.webm,.mov,.mkv,.3gp";
 
-// PDF (docs/12-添付ファイル種類拡張メモ.md)。表示はブラウザ内蔵ビューアに任せ、
+// PDF (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。表示はブラウザ内蔵ビューアに任せ、
 // 本文にはリンクだけを出す
 const ACCEPTED_PDF_TYPES = "application/pdf,.pdf";
 
-// テキスト系 (docs/12-添付ファイル種類拡張メモ.md)。**MIME も併記する** —
+// テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。**MIME も併記する** —
 // iOS の file picker は accept の各項目を UTI に変換して照合し、`.md` には
 // iOS 標準の UTI が無いため、拡張子だけだと Evernote 等から渡る .md が
 // どれにも一致せずグレーアウトする。`text/plain` (= public.plain-text) を
@@ -556,7 +556,7 @@ export default function MemoEditorInner({
     };
   }, []);
 
-  // 編集画面からのその場録音 (docs/12「ノート内録音の実装計画」)。
+  // 編集画面からのその場録音 (41-QR-search/docs/12「ノート内録音の実装計画」)。
   // 録音できたものは、ファイル選択と同じ挿入経路 (insertFiles) に流す。
   // alt には録音日時を残す (PDF のファイル名と同じ狙いで、全文検索から引ける)
   const recording = useAudioRecording({
@@ -572,7 +572,7 @@ export default function MemoEditorInner({
     onError: setError,
   });
 
-  // 編集画面からのその場録画 (docs/14-動画挿入計画.md)。録音と同じく、録れた
+  // 編集画面からのその場録画 (41-QR-search/docs/14-動画挿入計画.md)。録音と同じく、録れた
   // ものはファイル選択と同じ挿入経路 (insertFiles) に流す。alt には録画日時を残す
   const videoRecording = useVideoRecording({
     onFinish: async (result) => {
@@ -708,7 +708,7 @@ export default function MemoEditorInner({
           // クリップボード由来の画像だけは、断る前に縮めて送り直す (§4)
           const sending = await fitToLimit(file, shrinkOversized);
           // 動画は静止サムネ (poster) と動くサムネのコマをここで作り、本体と
-          // 同じ POST で送る (docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
+          // 同じ POST で送る (41-QR-search/docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
           // 作れなければ空 (サムネ無しで続行)。コマ集めには上限時間があり、
           // 間に合ったぶんだけが送られる (videoPoster.ts の ANIM_BUDGET_MS)
           const thumbs = shouldMakeThumbs(sending)

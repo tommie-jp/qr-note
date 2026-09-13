@@ -22,7 +22,7 @@ const IMAGE_SYNTAX = /!\[[^\]]*\]\(([^)\s]+)\)/g
 const OWN_IMAGE_PREFIX = '/api/images/'
 
 // 音声・PDF・テキストも `![audio](/api/images/x.mp3)` `![仕様書.pdf](…)` という
-// 画像記法で本文に入る (docs/12-添付ファイル種類拡張メモ.md)。OCR の対象は
+// 画像記法で本文に入る (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。OCR の対象は
 // 画像だけなので、画像でない添付の URL は「後から OCR」の候補から外す
 const NON_IMAGE_URL_RE = new RegExp(
   `\\.(?:${AUDIO_EXTENSION_ALTERNATION}|${TEXT_EXTENSION_ALTERNATION}|pdf)$`,

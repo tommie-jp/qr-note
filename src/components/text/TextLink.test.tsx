@@ -14,7 +14,7 @@ test("ファイル名つきのボタンとして描画する", () => {
 
 // PDF と同じ理由。<a href> のままだとハイドレーション前に押されたときに
 // ブラウザ既定の遷移が起き、standalone PWA では戻る導線が無いまま
-// テキストの生表示に閉じ込められる (docs/12 の PDF ビューアの経緯)
+// テキストの生表示に閉じ込められる (41-QR-search/docs/12 の PDF ビューアの経緯)
 test("テキストの URL へ遷移する要素を本文に置かない (ハイドレーション前の事故防止)", () => {
   const html = render("/api/images/abc.txt", "x.txt");
   expect(html).not.toContain("href=");

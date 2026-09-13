@@ -2,7 +2,7 @@
 # Evernote の .enex を取り込む。変換はローカル (WSL) で行う。
 #
 # なぜローカルなのか: 変換は入力に比例してメモリを食う。実データ (40.2MB) を
-# Web の口 (/api/import) へ投げると本番 VPS (RAM 2GB / swap 常用。docs/09) には
+# Web の口 (/api/import) へ投げると本番 VPS (RAM 2GB / swap 常用。41-QR-search/docs/09) には
 # 重い。イメージをローカルでビルドして送る doDeploy.sh と同じで、
 # 「重い処理は手元、成果物だけ本番へ」に揃える。
 #

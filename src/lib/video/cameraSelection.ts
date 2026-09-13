@@ -1,5 +1,5 @@
 // 近接撮影・カメラ操作のためのデバイス選択と capability 制御
-// (docs/16-録画の近接フォーカス計画.md)。
+// (41-QR-search/docs/16-録画の近接フォーカス計画.md)。
 //
 // iOS Safari は focusMode / focusDistance (手動フォーカス) の MediaTrackConstraints
 // に対応しない。一方 iOS の「マクロ (近接)」は実体が **超広角レンズ** なので、
@@ -79,7 +79,7 @@ export async function findUltraWideDeviceId(): Promise<string | null> {
 }
 
 // 開けたトラックが前面 (自撮り) カメラかどうか。iOS Safari には deviceId を
-// 前面に誤解決する癖があり (docs/16)、超広角を名指しで開いた後の検証に使う。
+// 前面に誤解決する癖があり (41-QR-search/docs/16)、超広角を名指しで開いた後の検証に使う。
 // getSettings の facingMode を第一に、無ければラベルで判定。どちらも取れなければ
 // 前面とは断定しない (誤検出でフォールバックを空回りさせない)。
 export function isFrontFacing(track: MediaStreamTrack): boolean {

@@ -35,7 +35,7 @@ export interface SaveImageOptions {
   // 一括取り込み (ENEX インポート) 用。埋め込みの生成はモデルの読み込みだけで
   // **RSS が 475MB 増える** (実測)。1 枚ずつのアップロードなら 1 回で済むが、
   // 取り込みは画像の数だけ「待たない」生成を撃つので、本番 VPS (RAM 2GB /
-  // swap 常用。docs/09-vps振り分け移行手順.md) では取り込み中に落ちる。
+  // swap 常用。41-QR-search/docs/09-vps振り分け移行手順.md) では取り込み中に落ちる。
   //
   // 後回しにしても失うものは無い。embedding は data から作れる派生キャッシュで、
   // null の行は scripts/backfillEmbeddings.ts が後から埋める設計になっている
@@ -75,7 +75,7 @@ export async function saveImage(
 }
 
 // 変換せずそのまま保存する添付 (音声・動画・PDF) の入口
-// (docs/12-添付ファイル種類拡張メモ.md, docs/14-動画挿入計画.md)。
+// (41-QR-search/docs/12-添付ファイル種類拡張メモ.md, 41-QR-search/docs/14-動画挿入計画.md)。
 //
 // 画像と同じ images テーブルに置くが、サーバ側の変換も埋め込みも作らない:
 // ブラウザが直接再生・表示でき (mp3/m4a/wav/mp4/webm/pdf)、画像検索の対象でも
@@ -83,7 +83,7 @@ export async function saveImage(
 // 「サーバ生成 UUID + 対応拡張子」で、トラバーサル対策を 1 か所に揃える。
 //
 // thumbs は動画のときだけ渡る — クライアントが動画から抜いたコマから作った
-// 静止 poster と動くサムネ (docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
+// 静止 poster と動くサムネ (41-QR-search/docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
 // サーバに ffmpeg を持ち込まずにサムネを出すための唯一の経路。音声・PDF・
 // テキストは渡さないので従来どおり両方 null。
 export interface PlainAttachmentThumbs {

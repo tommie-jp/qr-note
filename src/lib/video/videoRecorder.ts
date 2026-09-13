@@ -1,4 +1,4 @@
-// ノート編集画面からのその場録画 (docs/14-動画挿入計画.md)。
+// ノート編集画面からのその場録画 (41-QR-search/docs/14-動画挿入計画.md)。
 // lib/audio/audioRecorder.ts が原型で、音声を動画に置き換えた鏡写し。
 //
 // 録画した動画はそのまま /api/images へ送り、サーバが中身を見て保存する。
@@ -36,7 +36,7 @@ const MIME_CANDIDATES = [
   'video/webm',
 ]
 
-// 720p で文字が読める最低ライン (docs/14 のおすすめ設定)。明示しないと
+// 720p で文字が読める最低ライン (41-QR-search/docs/14 のおすすめ設定)。明示しないと
 // ブラウザ任せになり、画質もサイズも安定しない。
 export const VIDEO_BITS_PER_SECOND = 1_000_000
 // 音声は音声録音と同じ 64kbps あれば十分明瞭。
@@ -58,7 +58,7 @@ function buildVideoConstraints(facing: CameraFacing): MediaTrackConstraints {
 
 // 近接 (超広角) 経路。deviceId 名指しに **facingMode: { exact: 'environment' } を
 // 添えて「前面では絶対に開かない」を制約で保証する** — iOS Safari には deviceId を
-// 前面カメラに誤解決する癖があり (docs/16)、ideal では抑止できなかった。exact なら
+// 前面カメラに誤解決する癖があり (41-QR-search/docs/16)、ideal では抑止できなかった。exact なら
 // 誤解決時は OverconstrainedError で失敗し、呼び出し側が通常背面へフォールバック
 // する (前面で開くより近接なしの方がまし)。
 function buildUltraWideConstraints(deviceId: string): MediaTrackConstraints {

@@ -25,7 +25,7 @@ const MIME_TO_EXT: Record<string, string> = {
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
-// 動画だけは別枠で大きい上限を持つ (docs/14-動画挿入計画.md)。3 分・720p・
+// 動画だけは別枠で大きい上限を持つ (41-QR-search/docs/14-動画挿入計画.md)。3 分・720p・
 // 映像 1Mbps + 音声 64kbps で約 24MB になるため、余裕を見て 30MB。画像・音声・
 // PDF・テキストは従来どおり MAX_IMAGE_BYTES (10MB) のまま — 動画以外を大きく
 // する理由はないので、種別で上限を分ける (判定は attachmentStore が中身を見て)。
@@ -173,14 +173,14 @@ export function sniffImageFormat(bytes: Uint8Array): ImageFormat | null {
   return sniffIsoBmff(bytes)
 }
 
-// --- 音声 (docs/12-添付ファイル種類拡張メモ.md) ---
+// --- 音声 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 //
 // 音声は画像と違い、変換もサムネも埋め込みもしない。ブラウザが直接再生できる
 // 形式 (mp3/m4a/wav) だけを受け付け、images テーブルへそのまま bytes で保存し、
 // そのまま配信する。images テーブルを流用するのは、pg_dump 一発でメモと一緒に
 // バックアップできる利点 (imageStore.ts) を音声にも効かせるため。
 
-// webm はブラウザ内録音の受け皿 (docs/12「ノート内録音の実装計画」)。
+// webm はブラウザ内録音の受け皿 (41-QR-search/docs/12「ノート内録音の実装計画」)。
 // Chrome / Android の MediaRecorder は webm/opus しか出せないため、
 // 録音をノートへ挿入するにはこの形式を受ける必要がある。
 // 形式の一覧そのものは audioFormats.ts が持つ (表示・OCR 除外と共有するため)
@@ -265,7 +265,7 @@ function isMp3(bytes: Uint8Array): boolean {
 // m4a を名乗る ISO-BMFF ブランド。動画 (mp42/isom 単独) を音声として受けない
 // よう、音声専用の M4A / M4B だけを見る。iPhone のボイスメモ (.m4a) は major
 // brand が "M4A " なのでこれで拾える。他ツール由来の mp42 単独 m4a は弾かれるが、
-// 動画混入を防ぐことを優先する (docs/12)。
+// 動画混入を防ぐことを優先する (41-QR-search/docs/12)。
 const M4A_BRANDS = new Set(['M4A ', 'M4B '])
 
 // ISO-BMFF のトップレベルから指定のボックスを探して中身を返す (無ければ null)。
@@ -327,7 +327,7 @@ function handlerTypesIn(moov: Uint8Array): string[] {
 // moov のトラック構成が「音声のみ」か。ブランド名の列挙 (M4A_BRANDS) は
 // 「どのブランドが来るか」の当てずっぽうになりがちで、Safari の MediaRecorder が
 // 出す mp4 (iso5 系) はそこを通らない。トラックの種別で判定すればブランドに
-// 依らず正しく、しかも映像トラックを持つ mp4 を確実に弾ける (docs/12)。
+// 依らず正しく、しかも映像トラックを持つ mp4 を確実に弾ける (41-QR-search/docs/12)。
 function hasAudioOnlyTracks(bytes: Uint8Array): boolean {
   const moov = findTopLevelBox(bytes, 'moov')
   if (!moov) {
@@ -350,7 +350,7 @@ function sniffIsoBmffAudio(bytes: Uint8Array): AudioFormat | null {
   return hasAudioOnlyTracks(bytes) ? 'm4a' : null
 }
 
-// --- webm (ブラウザ内録音, docs/12) ---
+// --- webm (ブラウザ内録音, 41-QR-search/docs/12) ---
 //
 // webm/matroska は EBML マジックで判るが、**画像や PDF と違い音声と動画で
 // 同じコンテナを使う**ため、マジックだけでは動画を弾けない。「動画を音声として
@@ -457,7 +457,7 @@ export function sniffAudioFormat(bytes: Uint8Array): AudioFormat | null {
   return sniffIsoBmffAudio(bytes)
 }
 
-// --- 動画 (docs/14-動画挿入計画.md) ---
+// --- 動画 (41-QR-search/docs/14-動画挿入計画.md) ---
 //
 // 動画は音声と同じく変換もサムネ生成もサーバではしない。ブラウザが直接再生できる
 // 形式だけを受け付け、images テーブルへそのまま bytes で保存し、そのまま配信する。
@@ -602,7 +602,7 @@ export function isValidVideoAnimFrame(bytes: Uint8Array): boolean {
   )
 }
 
-// --- PDF (docs/12-添付ファイル種類拡張メモ.md) ---
+// --- PDF (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 //
 // PDF も音声と同じく変換もサムネも埋め込みもせず、images テーブルへそのまま
 // 保存する。表示はブラウザ内蔵ビューアに任せ (本文にはリンクだけ出す)、
@@ -626,7 +626,7 @@ export function sniffPdf(bytes: Uint8Array): boolean {
   return startsWith(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])
 }
 
-// --- テキスト系 (docs/12-添付ファイル種類拡張メモ.md) ---
+// --- テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 //
 // txt / csv / md。音声・PDF と同じく変換もサムネも埋め込みもせず、そのまま
 // images テーブルへ保存する。違いは 2 つだけ:

@@ -107,7 +107,7 @@ export function isPublicPath(pathname: string): boolean {
 const ITEM_NO_PREFIXES = ['/item/', '/print/']
 
 // メモに貼った画像・音声。閉じたままだと公開ノートを開いた人に画像だけ割れ、
-// 音声も再生できない (docs/22 §6, docs/12-添付ファイル種類拡張メモ.md)
+// 音声も再生できない (docs/22 §6, 41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
 const IMAGE_PREFIX = '/api/images/'
 
 // 末尾は itemNo / 画像名の書式に**完全一致**すること。前方一致で通すと

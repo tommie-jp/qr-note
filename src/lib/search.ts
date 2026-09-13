@@ -2,7 +2,7 @@
 // pgroonga への SQL 組み立ては items.ts が行い、ここでは
 // ユーザー入力の解析だけを純関数として扱う (DB 非依存でテストしやすくするため)。
 //
-// 検索窓の文法 (詳細は docs/05-全文検索の使い方.md / docs/16-論理演算検索計画.md)。
+// 検索窓の文法 (詳細は docs/05-全文検索の使い方.md / docs/16-検索の論理演算.md)。
 // Lucene (Elasticsearch) / Obsidian 系の文法に揃えてある:
 //
 //   expr    := orExpr

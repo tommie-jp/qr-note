@@ -134,7 +134,7 @@ function wavFile(): File {
 
 // iOS Safari の録音・iPhone のボイスメモと同じ並び (ftyp → mdat → moov)。
 // moov が末尾にあると <audio preload="metadata"> が再生を始められないため、
-// 保存時に先頭へ移す (docs/12「iPhone で録音が再生できなかった件」)
+// 保存時に先頭へ移す (41-QR-search/docs/12「iPhone で録音が再生できなかった件」)
 function m4aBox(type: string, payload: Buffer): Buffer {
   const header = Buffer.alloc(8)
   header.writeUInt32BE(8 + payload.length, 0)
@@ -313,7 +313,7 @@ describe('/api/images の拒否系 (実 DB 不要)', () => {
     expect(res.status).toBe(400)
   })
 
-  // テキスト系 (docs/12-添付ファイル種類拡張メモ.md)。受け入れ条件は
+  // テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。受け入れ条件は
   // 「名前が txt/csv/md」かつ「中身がテキストとして読める」の両方。
   // ここでは片方ずつ欠けたものが弾かれることを確かめる (どちらも DB に届かない)
   test('.txt と名乗るバイナリは 400 を返す', async () => {
@@ -509,7 +509,7 @@ describe.skipIf(!runDbTests)(
       expect(bytes.equals(PNG_BYTES)).toBe(true)
     })
 
-    // 音声 (docs/12-添付ファイル種類拡張メモ.md)。画像と違い変換・サムネ・
+    // 音声 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。画像と違い変換・サムネ・
     // 埋め込みを作らず、そのまま images テーブルへ保存してそのまま配信する
     test('WAV をアップロードすると .wav 名で保存し、GET で同じバイト列を配る', async () => {
       const res = await POST(uploadRequest(wavFile()))
@@ -532,7 +532,7 @@ describe.skipIf(!runDbTests)(
       expect(bytes.equals(WAV_BYTES)).toBe(true)
     })
 
-    // テキスト系 (docs/12-添付ファイル種類拡張メモ.md)。音声・PDF と同じく
+    // テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。音声・PDF と同じく
     // 素通しだが、**保存前に UTF-8 へ正規化する**ぶんだけ違う
     test('CSV をアップロードすると .csv 名で保存し、charset つきで配る', async () => {
       const csv = new File(['id,name\n1,ねじ\n'], '部品表.csv', {
@@ -650,7 +650,7 @@ describe.skipIf(!runDbTests)(
       expect(bytes.equals(WAV_BYTES.subarray(0, 10))).toBe(true)
     })
 
-    // PDF (docs/12-添付ファイル種類拡張メモ.md)。音声と同じ「変換しない添付」
+    // PDF (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。音声と同じ「変換しない添付」
     // の経路に乗り、表示はブラウザ内蔵ビューアに任せる
     test('PDF をアップロードすると .pdf 名で保存し、GET で同じバイト列を配る', async () => {
       const res = await POST(uploadRequest(pdfFile()))

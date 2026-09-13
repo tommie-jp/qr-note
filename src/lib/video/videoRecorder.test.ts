@@ -416,7 +416,7 @@ describe('VideoRecorder', () => {
       await recorder.open()
       const callsAfterOpen = enumerateDevices.mock.calls.length
       // トラックを止めた後の enumerateDevices はラベルが消えることがあるので、
-      // 切替はキャッシュで賄う (docs/16)
+      // 切替はキャッシュで賄う (41-QR-search/docs/16)
       await recorder.switchNearFocus(true)
       expect(recorder.nearFocus).toBe(true)
       expect(enumerateDevices.mock.calls.length).toBe(callsAfterOpen)

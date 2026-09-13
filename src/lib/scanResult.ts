@@ -38,7 +38,7 @@ function itemNoFromUrl(value: string, itemHosts: string[]): string | null {
   }
 
   // スキームは見ない。Ver1 のシールには http:// が焼き込まれており
-  // (docs/02-Ver1調査.md)、https 化後も貼り替えられないため。
+  // (41-QR-search/docs/02-Ver1調査.md)、https 化後も貼り替えられないため。
   // origin 比較にすると http のシールが全部読めなくなる。
   //
   // 逆に hostname は完全一致で見る。endsWith だと

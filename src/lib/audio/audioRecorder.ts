@@ -1,4 +1,4 @@
-// ノート編集画面からのその場録音 (docs/12-添付ファイル種類拡張メモ.md
+// ノート編集画面からのその場録音 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md
 // 「ノート内録音の実装計画」)。~/27-tommieVox/src/lib/audioRecorder.ts が原型。
 //
 // 録音した音声はそのまま /api/images へ送り、サーバが中身を見て保存する。
@@ -7,7 +7,7 @@
 import fixWebmDuration from 'fix-webm-duration'
 
 // 試す順に並べる。**Safari だけを mp4/AAC に寄せ、他は webm/opus のまま**に
-// したい (docs/12「iPhone で 1 回目が無音になる件」)。
+// したい (41-QR-search/docs/12「iPhone で 1 回目が無音になる件」)。
 //
 // もともと webm を先頭に置いていたが、Safari が webm 録音に対応した結果
 // iPhone でも webm が選ばれるようになり、その再生が不安定だった。WebKit に
@@ -34,7 +34,7 @@ const MIME_CANDIDATES = [
 ]
 
 // 明示しないとブラウザ任せ (実測で倍近くなる) になる。音声のみなので
-// 64kbps あれば十分明瞭 (docs/12・tommieVox の形式調査)。
+// 64kbps あれば十分明瞭 (41-QR-search/docs/12・tommieVox の形式調査)。
 export const AUDIO_BITS_PER_SECOND = 64_000
 
 // 自動停止までの長さ。64kbps = 8KB/s なので 15 分で約 7.2MB、

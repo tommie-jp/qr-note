@@ -17,7 +17,7 @@ export function uploadImageWithProgress(
   // 送信量が分からない環境 (lengthComputable = false) では null を渡す。
   // 0% のまま張り付いて「止まって見える」より、% を出さない方がまし
   onPercent: (percent: number | null) => void,
-  // 動画のときサムネの材料を同送する (docs/14 §Phase3,
+  // 動画のときサムネの材料を同送する (41-QR-search/docs/14 §Phase3,
   // docs/72-動画アニメサムネ計画.md)。poster は静止サムネ、frames は
   // 動くサムネの材料。サーバは動画判定時だけ使い、種別と大きさの検査に
   // 通らないものは捨てる (uploads.ts)

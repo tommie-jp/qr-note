@@ -1,4 +1,4 @@
-// フルスクリーンの録画モーダル (docs/16-録画の近接フォーカス計画.md)。
+// フルスクリーンの録画モーダル (41-QR-search/docs/16-録画の近接フォーカス計画.md)。
 // カメラアプリ風に、プレビュー/録画中は画面いっぱいに映像を出し、下部バーに
 // 録画・停止と各種カメラ操作を並べる。録画の state・操作は useVideoRecording が
 // すべて持つので、ここは表示と配置だけを引き受ける (ScannerModal と同じ流儀で
@@ -86,7 +86,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
 
       {/* 映像は object-contain 相当 (max-h/max-w)。上下黒帯が出ても、録れる範囲と
           見える範囲を一致させる (cover はズレる)。内側カメラは鏡像で見せる —
-          録画ファイル自体は反転しない (docs/16) */}
+          録画ファイル自体は反転しない (41-QR-search/docs/16) */}
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
         <video
           ref={videoRef}

@@ -104,7 +104,7 @@ async function loadLib(): Promise<Transformers> {
 }
 
 // 注意: **同じ Worker (realm) の中で WASM に組み直してはいけない**。
-// 効きそうに見えるが必ず失敗する (docs/11-画像検索調査メモ.md):
+// 効きそうに見えるが必ず失敗する (41-QR-search/docs/11-画像検索調査メモ.md):
 //   1. transformers.js は Web 環境のセッション生成を
 //      `webInitChain = webInitChain.then(load)` で直列化しており、鎖が 1 度
 //      reject すると catch でリセットされない。2 回目は load を実行すらせず

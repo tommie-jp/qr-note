@@ -1,4 +1,4 @@
-// ファイルを OS の共有シートへ渡す (docs/12-添付ファイル種類拡張メモ.md)。
+// ファイルを OS の共有シートへ渡す (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 //
 // **なぜ要るか**: ホーム画面から起動した PWA (standalone) には、PDF を印刷・
 // 保存・他アプリへ送る手段が無い。ブラウザなら「新しいタブ」でネイティブ
@@ -30,7 +30,7 @@ export function canShareFiles(nav: Navigator = navigator): boolean {
 // iOS (WebKit) か。SSR では判定できないので false。
 //
 // 共有ボタンは **API が使えるかではなく、要るか + 実際に動くか**で出し分ける。
-// 実機で全環境を当たった結果 (docs/12)、両方を満たすのは iOS だけだった:
+// 実機で全環境を当たった結果 (41-QR-search/docs/12)、両方を満たすのは iOS だけだった:
 //   - PC (Win/Mac/Linux): プレイヤーの ⋮ / 右クリックで保存できるうえ、
 //     Windows は files 付き share がブラウザを問わず Permission denied になる
 //     既知問題がある (mdn/browser-compat-data#21312)
@@ -107,7 +107,7 @@ export async function shareFile(
 // 共有が「一時的な許可切れ」で弾かれたか (AbortError = ユーザーが閉じた、とは別)。
 // iOS は share の直前に通信を挟むと transient activation が切れ、
 // NotAllowedError を投げる。このときはバイト列を手元に残して「もう一度押す」で
-// 救えるので、呼び出し側がこの合図で 2 段構えに切り替える (docs/12)。
+// 救えるので、呼び出し側がこの合図で 2 段構えに切り替える (41-QR-search/docs/12)。
 export function isShareActivationLost(error: unknown): boolean {
   return (
     typeof error === 'object' &&

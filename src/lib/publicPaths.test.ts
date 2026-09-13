@@ -98,11 +98,11 @@ describe('isSelfGuardedPath', () => {
     '/item/100x', // Ver1 由来の非数字 itemNo
     '/print/4518',
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.png',
-    // 音声も公開ノートで再生できるよう素通しする (docs/12-添付ファイル種類拡張メモ.md)
+    // 音声も公開ノートで再生できるよう素通しする (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.mp3',
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.m4a',
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.wav',
-    // PDF も公開ノートから開けるよう素通しする (docs/12-添付ファイル種類拡張メモ.md)
+    // PDF も公開ノートから開けるよう素通しする (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.pdf',
   ])('%s is self-guarded (page/handler decides)', (path) => {
     expect(isSelfGuardedPath(path)).toBe(true)

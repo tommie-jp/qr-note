@@ -33,7 +33,7 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
 
   // 「新しいタブ」を出してよいか。**ブラウザだと判るまで出さない**。
   // standalone では target="_blank" が効かず、同じ webview がテキストの生表示へ
-  // 遷移して戻れなくなる (displayMode.ts と docs/12 に経緯)
+  // 遷移して戻れなくなる (displayMode.ts と 41-QR-search/docs/12 に経緯)
   const canOpenNewTab = useSyncExternalStore(
     subscribeDisplayMode,
     () => !isStandaloneDisplay(),

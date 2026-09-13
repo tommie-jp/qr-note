@@ -49,7 +49,7 @@ export async function GET(
 
   // 名前の検算が先。この後の isPublicImageName は名前を SQL の
   // position() へ渡すので、書式を確かめてから渡す。
-  // 画像・音声のどちらの保存名も許す (docs/12-添付ファイル種類拡張メモ.md)
+  // 画像・音声のどちらの保存名も許す (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
   if (!isValidAttachmentName(name)) {
     return NextResponse.json(
       { success: false, data: null, error: '不正なファイル名です' },
@@ -103,7 +103,7 @@ export async function GET(
     }
     // 動画はサムネが無くても**原寸で代替しない**。poster が無いだけで数十 MB の
     // 動画本体を返してしまうと、一覧や <video poster> の意図に反する。404 を返せば
-    // ブラウザは poster を静かに無視する (docs/14 §Phase4)。行が無い場合も 404。
+    // ブラウザは poster を静かに無視する (41-QR-search/docs/14 §Phase4)。行が無い場合も 404。
     if (isValidVideoName(name)) {
       return NextResponse.json(
         { success: false, data: null, error: 'サムネイルがありません' },
@@ -165,7 +165,7 @@ function imageResponse(
 }
 
 // 原寸データの配信。音声 (<audio>) のシークに応えるため Range に対応する
-// (docs/12-添付ファイル種類拡張メモ.md)。画像も同じ経路を通るが、Range
+// (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。画像も同じ経路を通るが、Range
 // ヘッダが無ければ従来どおり 200 で全体を返すので挙動は変わらない。
 function dataResponse(
   request: Request,

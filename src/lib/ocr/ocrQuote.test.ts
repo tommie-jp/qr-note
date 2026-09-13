@@ -70,7 +70,7 @@ test('画像が無ければ null', () => {
   expect(imageAtCursor('ただのテキスト', 3)).toBeNull()
 })
 
-// 音声・PDF も画像記法で本文に入る (docs/12-添付ファイル種類拡張メモ.md)。
+// 音声・PDF も画像記法で本文に入る (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 // OCR できるのは画像だけなので、「後から OCR」の候補から外す
 test.each([
   '![audio](/api/images/cccccccc-0000-0000-0000-000000000000.mp3)',

@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
     // src/lib/uploads.test.ts が両者の一致を見張っている。
     //
     // これ以上は上げない。ここはメモリに載る量そのもので、本番 VPS は RAM 2GB
-    // (docs/09-vps振り分け移行手順.md)。500MB を流す ZIP 取り込みは、複製
+    // (41-QR-search/docs/09-vps振り分け移行手順.md)。500MB を流す ZIP 取り込みは、複製
     // させないために proxy の matcher から外してある (src/proxy.ts)。
     proxyClientMaxBodySize: 31 * 1024 * 1024,
   },

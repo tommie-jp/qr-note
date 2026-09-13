@@ -23,7 +23,7 @@ test('いま開いているホストの部品 URL も飛ばす', () => {
 })
 
 test('旧シールの http URL も部品ページへ飛ばす (スキームは見ない)', () => {
-  // Ver1 のシールには http:// が焼き込まれている (docs/02-Ver1調査.md)。
+  // Ver1 のシールには http:// が焼き込まれている (41-QR-search/docs/02-Ver1調査.md)。
   // https 化後もシールは貼り替えられないので、ここが通らないと実物が読めない
   expect(resolveScanPath('http://qr.tommie.jp/item/1003', [HOST])).toBe('/item/1003')
 })

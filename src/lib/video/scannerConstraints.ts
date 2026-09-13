@@ -7,7 +7,7 @@
 // 既定の facingMode を落とすため、近接時は facingMode を併記しても無駄で、
 // deviceId 単独になる。iOS が deviceId を前面カメラに誤解決する癖は、開き直した
 // 後にトラックを isFrontFacing で検証して呼び出し側が畳む
-// (docs/16 / メモリ「iOS は deviceId を前面カメラに誤解決する」)。
+// (41-QR-search/docs/16 / メモリ「iOS は deviceId を前面カメラに誤解決する」)。
 
 import type { CameraFacing } from "./videoRecorder";
 

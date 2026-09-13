@@ -16,7 +16,7 @@ import { TEXT_EXTENSION_ALTERNATION } from './textFormats'
 import { VIDEO_EXTENSION_ALTERNATION } from './videoFormats'
 
 // 音声の配信 URL (`/api/images/<uuid>.mp3` など)。エディタは音声を画像記法
-// `![audio](url)` で挿入するので (docs/12-添付ファイル種類拡張メモ.md)、img の
+// `![audio](url)` で挿入するので (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)、img の
 // src が音声ならレンダラ側で <audio> 等に振り分ける。振り分け後の要素は
 // sanitize 後に React が組み立てるので、生 HTML の許可リスト (sanitizeSchema)
 // は要らない。
@@ -26,7 +26,7 @@ const AUDIO_SRC_RE = new RegExp(
 )
 
 // 動画の配信 URL (`/api/images/<uuid>.mp4` など)。エディタは動画を画像記法
-// `![video](url)` で挿入するので (docs/14-動画挿入計画.md)、img の src が動画なら
+// `![video](url)` で挿入するので (41-QR-search/docs/14-動画挿入計画.md)、img の src が動画なら
 // <video> に振り分ける。保存名の拡張子は mp4|mkv|mov で、音声の .webm とは
 // 重ならない (webm 動画は .mkv で保存される。videoFormats.ts の経緯)。
 const VIDEO_SRC_RE = new RegExp(
@@ -40,7 +40,7 @@ const VIDEO_SRC_RE = new RegExp(
 const PDF_SRC_RE = /\.pdf(?:[?#]|$)/i
 
 // テキスト系 (txt/csv/md) も同じ画像記法で入る。PDF と同じくページ内の
-// ビューアで開く (docs/12-添付ファイル種類拡張メモ.md)
+// ビューアで開く (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
 const TEXT_SRC_RE = new RegExp(
   `\\.(?:${TEXT_EXTENSION_ALTERNATION})(?:[?#]|$)`,
   'i',

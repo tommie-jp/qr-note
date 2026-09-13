@@ -1,4 +1,4 @@
-// テキスト添付の受け入れ判定と正規化 (docs/12-添付ファイル種類拡張メモ.md)。
+// テキスト添付の受け入れ判定と正規化 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 //
 // **画像・音声・PDF と違い、テキストには先頭バイトの署名が無い。** そのため
 // 「これはテキストか」を積極的に確かめるしかなく、判定は 2 段構えにする:
@@ -31,7 +31,7 @@ const ENCODINGS = ['utf-8', 'shift_jis'] as const
 // なぜ要るか: Excel や一部ツール・iOS 上のアプリ (iCloud 同期や Numbers 等で
 // 開き直した CSV) が UTF-16 で書き出すことがある。PC では UTF-8/Shift_JIS
 // だった同じ CSV が、別環境では UTF-16 になっていて弾かれる
-// (docs/12-添付ファイル種類拡張メモ.md)。
+// (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 function bomEncoding(bytes: Uint8Array): string | null {
   if (bytes.byteLength < 2) {
     return null
@@ -51,7 +51,7 @@ function bomEncoding(bytes: Uint8Array): string | null {
 // 見る。UTF-16LE の BOM `FF FE` は、緩い MP3 判定 (先頭 FF + 次バイトの上位
 // 3bit が同期語) に音声として横取りされてしまう — `FF FE` は MPEG1 Layer II の
 // 同期語としても妥当なので、音声判定を弱めては直せない。BOM という強い署名が
-// あるうちにテキストへ寄せるのが安全 (docs/12-添付ファイル種類拡張メモ.md)。
+// あるうちにテキストへ寄せるのが安全 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 export function hasUtf16Bom(bytes: Uint8Array): boolean {
   return bomEncoding(bytes) !== null
 }

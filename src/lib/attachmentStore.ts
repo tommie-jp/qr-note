@@ -75,7 +75,7 @@ export interface StoreAttachmentOptions extends SaveImageOptions {
   fileName?: string | null
 
   // 動画の poster に使う WebP サムネ。クライアントが先頭フレームから作って
-  // 同じ POST で送る (docs/14 §Phase3)。**動画と判定されたときだけ**使い、
+  // 同じ POST で送る (41-QR-search/docs/14 §Phase3)。**動画と判定されたときだけ**使い、
   // WebP かつ 200KB 以下でなければ捨てる (isValidVideoThumb)。無ければ
   // poster なしで保存する (配信側が 404 を返し、ブラウザは poster を無視する)。
   // ENEX インポートなど動画を伴わない経路では渡らない。

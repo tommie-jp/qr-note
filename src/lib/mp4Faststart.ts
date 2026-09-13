@@ -1,5 +1,5 @@
 // mp4 の moov を先頭へ移す (いわゆる faststart)。
-// docs/12-添付ファイル種類拡張メモ.md「iPhone で録音が再生できなかった件」
+// 41-QR-search/docs/12-添付ファイル種類拡張メモ.md「iPhone で録音が再生できなかった件」
 //
 // iOS Safari の MediaRecorder が出す mp4 は
 //

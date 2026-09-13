@@ -61,7 +61,7 @@ export function firstImageName(memo: string): string | null {
 
 // 一覧サムネにできる添付 (画像 or 動画) を出現順に列挙する。
 // 画像はサムネを、動画は poster を **同じ thumb カラム**に持つので、どちらも
-// ?thumb=1 で縮小版を配れる (docs/14-動画挿入計画.md)。音声・PDF・テキストは
+// ?thumb=1 で縮小版を配れる (41-QR-search/docs/14-動画挿入計画.md)。音声・PDF・テキストは
 // thumb を持たないので対象外 (一覧では文字だけ)。
 //
 // **画像検索の索引 (allImageNames) には動画を混ぜない** — あちらは画像だけを

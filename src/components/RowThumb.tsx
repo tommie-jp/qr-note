@@ -16,7 +16,7 @@ interface RowThumbProps {
   sizeClass: string;
 }
 
-// 一覧の 1 件のサムネ (docs/23-検索結果表示モード計画.md §2, docs/14 §Phase4)。
+// 一覧の 1 件のサムネ (docs/23-検索結果表示モード計画.md §2, 41-QR-search/docs/14 §Phase4)。
 //
 // 画像は従来どおり ?thumb=1 の縮小版を <img> で出す。動画も poster を同じ
 // ?thumb=1 で出せるが、**poster が無い動画がある** (iOS 旧録画・生成失敗)。

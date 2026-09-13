@@ -2,7 +2,7 @@
 // (設計は docs/28-エクスポート計画.md §4)。
 //
 // **なぜ CLI があるのか**: 変換はメモリを食う。実データ (40.2MB) を Web の口
-// (/api/import) へ投げると本番 VPS (RAM 2GB / swap 常用。docs/09) では重い。
+// (/api/import) へ投げると本番 VPS (RAM 2GB / swap 常用。41-QR-search/docs/09) では重い。
 // ローカルは潤沢なので、変換だけ手元でやって結果を DB へ書く。
 // vps2 のイメージをローカルでビルドして送る doDeploy.sh と同じ考え方で、
 // 「重い処理は手元、成果物だけ本番へ」に揃えている。
@@ -143,7 +143,7 @@ function readEnex(file: string): string {
     die(
       `${file} は大きすぎます (${mb(stat.size)} / 上限 ${mb(MAX_CLI_ENEX_BYTES)})。\n` +
         '     Evernote 側でノートブックや選択を分けて書き出し直して下さい ' +
-        '(docs/13-EVERNOTE全ノート移行メモ.md)',
+        '(41-QR-search/docs/13-EVERNOTE全ノート移行メモ.md)',
     )
   }
   return fs.readFileSync(file, 'utf8')

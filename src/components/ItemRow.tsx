@@ -130,7 +130,7 @@ export function ItemRow({
   );
   // サムネにできる添付 (画像 or 動画 poster)。音声・PDF・テキストは thumb を
   // 持たないので null (一覧では文字だけ)。動画は poster を出し、無ければ
-  // RowThumb がアイコンへ切り替える (docs/14 §Phase4)
+  // RowThumb がアイコンへ切り替える (41-QR-search/docs/14 §Phase4)
   const thumbInfo = isUrl ? null : firstThumbInfo(item.memo);
 
   // 顔の優先順位: 画像/動画 → 回路図 → ノート全体プレビュー (docs/68 §1、

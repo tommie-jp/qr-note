@@ -201,7 +201,7 @@ test("末尾が数字でない | は動画でも幅指定として扱わない",
   expect(html).not.toContain("max-width");
 });
 
-// 音声 (docs/12-添付ファイル種類拡張メモ.md)。エディタは音声を ![audio](url)
+// 音声 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。エディタは音声を ![audio](url)
 // で挿入し、レンダラは src の拡張子を見て <audio> に振り分ける
 test("音声 URL の画像記法は <audio> プレイヤーにする", () => {
   const html = render("![audio](/api/images/abc.mp3)");
@@ -234,7 +234,7 @@ test("画像 URL は従来どおり <img> のまま (音声に巻き込まれな
   expect(html).not.toContain("<audio");
 });
 
-// PDF (docs/12-添付ファイル種類拡張メモ.md)。押すとページ内のビューアで開く
+// PDF (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。押すとページ内のビューアで開く
 // (画面遷移させない。standalone PWA で戻れなくなるため。PdfLink.tsx 参照)
 test("PDF URL の画像記法はビューアを開くボタンにする", () => {
   const html = render("![仕様書.pdf](/api/images/abc.pdf)");
@@ -253,7 +253,7 @@ test("PDF の alt が空でも既定のラベルを出す", () => {
   expect(html).toContain("PDF");
 });
 
-// テキスト系 (docs/12-添付ファイル種類拡張メモ.md)。PDF と同じく
+// テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。PDF と同じく
 // ページ内のビューアで開く (画面遷移させない)
 test.each(["txt", "csv", "md"])("%s の画像記法はビューアを開くボタンにする", (ext) => {
   const html = render(`![資料.${ext}](/api/images/abc.${ext})`);

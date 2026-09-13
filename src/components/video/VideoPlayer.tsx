@@ -26,7 +26,7 @@ interface VideoBytes {
   mime: string;
 }
 
-// 本文の動画プレイヤー + 共有ボタン (docs/14-動画挿入計画.md)。
+// 本文の動画プレイヤー + 共有ボタン (41-QR-search/docs/14-動画挿入計画.md)。
 //
 // AudioPlayer.tsx の鏡写し。違いは 2 つ:
 //   1. <video> を使い、poster に配信の ?thumb=1 (クライアント生成 WebP) を渡す。

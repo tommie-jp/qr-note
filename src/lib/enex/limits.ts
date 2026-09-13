@@ -24,7 +24,7 @@
 // 実際に断るのは api/import/route.ts の readText (流し読みの途中で 413)。
 //
 // **大きい ENEX は Web からは入れない**。変換は入力に比例してメモリを食い、
-// 本番 VPS は RAM 2GB で swap を常用している (docs/09-vps振り分け移行手順.md)。
+// 本番 VPS は RAM 2GB で swap を常用している (41-QR-search/docs/09-vps振り分け移行手順.md)。
 // 実データの書き出しは 40.2MB あり、これはローカル (WSL) から
 // ./doImportEnex.sh で取り込む。Web の口は「スマホから小さいものを入れる」用途に
 // 絞り、エッジの防波堤を下げない (docs/28-エクスポート計画.md §4)。
@@ -50,7 +50,7 @@ export const MAX_CLI_ATTACHMENT_BYTES = 50 * 1024 * 1024
 // 持てない。readFileSync(path, 'utf8') はファイル全体を 1 つの文字列にするので、
 // 512MB を超える .enex は変換以前に `ERR_STRING_TOO_LONG` で落ちる。
 // **その意味不明なエラーを見せる前に**、余白を取った 400MB で断って
-// 「選択を分けて書き出し直す」よう案内する (docs/13-EVERNOTE全ノート移行メモ.md)。
+// 「選択を分けて書き出し直す」よう案内する (41-QR-search/docs/13-EVERNOTE全ノート移行メモ.md)。
 export const MAX_CLI_ENEX_BYTES = 400 * 1024 * 1024
 
 // このタグを ENEX 由来の全ノートに必ず付ける (docs/28-エクスポート計画.md §4)。

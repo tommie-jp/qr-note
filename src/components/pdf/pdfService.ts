@@ -1,4 +1,4 @@
-// PDF ビューアの下回り (docs/12-添付ファイル種類拡張メモ.md)。
+// PDF ビューアの下回り (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 //
 // **なぜ自前ビューアか**: ホーム画面から起動した iOS PWA (standalone) では
 // target="_blank" が効かず、同じ webview がそのまま PDF に遷移する。standalone

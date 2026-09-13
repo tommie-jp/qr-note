@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # qr-search を vps2 へデプロイする。
 #
-# 前提 (docs/03-移行計画.md の手順を自動化したもの):
+# 前提 (41-QR-search/docs/03-移行計画.md の手順を自動化したもの):
 #   - vps2 の ~/41-QR-search/qr-search/ に compose.yaml と .env が配置済み
 #   - その .env に APP_ENV=production がある (無いと本番の画面がローカル扱いに
 #     なるため、手順 1/8 で弾く)

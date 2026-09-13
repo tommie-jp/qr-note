@@ -48,7 +48,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const formData = await request.formData()
     file = formData.get('file')
     // 動画のときだけ付く poster 用 WebP (クライアント生成)。中身の検証は
-    // attachmentStore が行うので、ここでは有無だけ拾う (docs/14 §Phase3)
+    // attachmentStore が行うので、ここでは有無だけ拾う (41-QR-search/docs/14 §Phase3)
     thumbField = formData.get('thumb')
     // 動くサムネの材料になるコマ (docs/72-動画アニメサムネ計画.md)。
     // 同じ名前で複数付くので getAll で受ける

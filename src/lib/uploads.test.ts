@@ -180,7 +180,7 @@ test('切り詰めた入力でも throw しない (呼び出し側は try/catch 
   }
 })
 
-// --- 音声 (docs/12-添付ファイル種類拡張メモ.md) ---
+// --- 音声 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 
 test('先頭バイトから音声形式を判定する (mp3/wav/m4a)', () => {
   // mp3: ID3v2 タグ始まり
@@ -205,7 +205,7 @@ test('音声でない・動画の ftyp は null (音声判定)', () => {
   expect(sniffAudioFormat(new Uint8Array(0))).toBeNull()
 })
 
-// --- ブラウザ録音の形式 (docs/12「ノート内録音の実装計画」) ---
+// --- ブラウザ録音の形式 (41-QR-search/docs/12「ノート内録音の実装計画」) ---
 
 // ISO-BMFF の汎用ボックス [長さ(4)][型(4)][中身]。
 function box(type: string, payload: Uint8Array): Uint8Array {
@@ -361,7 +361,7 @@ test('配信 Content-Type は既知の画像・音声・PDF mime だけ採用す
   expect(isAllowedContentMime('audio/mp4')).toBe(true)
   expect(isAllowedContentMime('audio/wav')).toBe(true)
   expect(isAllowedContentMime(PDF_MIME)).toBe(true)
-  // 動画も配信 mime として許可する (docs/14-動画挿入計画.md)
+  // 動画も配信 mime として許可する (41-QR-search/docs/14-動画挿入計画.md)
   expect(isAllowedContentMime('video/mp4')).toBe(true)
   expect(isAllowedContentMime('video/webm')).toBe(true)
   expect(isAllowedContentMime('video/quicktime')).toBe(true)
@@ -370,7 +370,7 @@ test('配信 Content-Type は既知の画像・音声・PDF mime だけ採用す
   expect(isAllowedContentMime('text/html')).toBe(false)
 })
 
-// --- PDF (docs/12-添付ファイル種類拡張メモ.md) ---
+// --- PDF (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 
 test('先頭が "%PDF-" なら PDF と判定する', () => {
   expect(sniffPdf(new TextEncoder().encode('%PDF-1.7\n%âãÏÓ'))).toBe(true)
@@ -400,7 +400,7 @@ test('PDF の保存名 (UUID + .pdf) を許可する', () => {
   expect(isValidPdfName('a.pdf')).toBe(false) // UUID 形式でない
 })
 
-// --- 動画 (docs/14-動画挿入計画.md) ---
+// --- 動画 (41-QR-search/docs/14-動画挿入計画.md) ---
 
 test('webm は映像 CodecID があれば動画と判定する (音声判定の裏返し)', () => {
   // 映像のみ・映像+音声のどちらも動画
@@ -511,7 +511,7 @@ test('コマの合計は multipart のオーバーヘッド枠に収まる', () 
   expect(extras).toBeLessThan(MULTIPART_OVERHEAD_BYTES)
 })
 
-test('動画の上限は画像より大きい (docs/14: 3 分 720p を収める)', () => {
+test('動画の上限は画像より大きい (41-QR-search/docs/14: 3 分 720p を収める)', () => {
   // 3 分・映像 1Mbps + 音声 64kbps ≈ 24MB が収まること
   const estimatedThreeMin = ((1_000_000 + 64_000) / 8) * 180
   expect(estimatedThreeMin).toBeLessThan(MAX_VIDEO_BYTES)
@@ -593,7 +593,7 @@ test('proxy の本文複製の上限は checkUploadRequest の門以上である
   )
 })
 
-// --- テキスト系 (docs/12-添付ファイル種類拡張メモ.md) ---
+// --- テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 
 test('テキストの保存名は UUID + txt/csv/md だけ許可する', () => {
   const uuid = '0f1e2d3c-4b5a-4678-9abc-def012345678'

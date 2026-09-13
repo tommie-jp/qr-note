@@ -67,7 +67,7 @@ test("シークレットは伏せ字チップにする (SecretBlock を出さな
   expect(html).not.toContain(`/api/secrets/${SECRET}`);
 });
 
-// 添付 (docs/12/14)。押せるプレイヤーやビューアは開かない
+// 添付 (41-QR-search/docs/12/14)。押せるプレイヤーやビューアは開かない
 
 test("内部画像は ?thumb=1 の縮小版で出す", () => {
   const html = render(`![](/api/images/${IMAGE})`);
