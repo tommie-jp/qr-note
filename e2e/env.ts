@@ -18,3 +18,8 @@ export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? 'e2e-test-pass'
 
 // setup プロジェクトが保存するセッション cookie (.gitignore 済み)
 export const AUTH_FILE = path.join(__dirname, '.auth', 'session.json')
+
+// E2E が作るノートの番号の頭。ローカル DB には本物のノートが入っているので、
+// **この頭を持たない番号は決して書き換え・ゴミ箱・永久削除しない**
+// (統合テストの `zzft` と同じ流儀。notes.ts の assertE2eItemNo が門番)
+export const E2E_ITEM_PREFIX = 'zze2e'
