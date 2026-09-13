@@ -23,7 +23,7 @@ export type StatusCell = 'untouched' | 'learning' | 'mastered'
 
 export type MatrixCell = CheckCell | StatusCell
 
-// 表の元になる 1 行 (items.searchItemChecks が返す形)
+// 表の元になる 1 行 (matrix/matrixQuery.ts の searchItemChecks が返す形)
 export interface MatrixSourceRow {
   itemNo: string
   memo: string

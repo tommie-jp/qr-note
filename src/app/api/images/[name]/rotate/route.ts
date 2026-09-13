@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import { saveImage } from '@/lib/imageStore'
-import { rewriteImageReference } from '@/lib/items'
+import { rewriteImageReference } from '@/lib/items/write'
 import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {

@@ -5,7 +5,7 @@
 // 穴が開く (publicPaths.ts が「エッジとアプリに散らさない」と言っているのと同じ)。
 //
 // DB にも next/headers にも触らない純粋な層にする (auth.ts と同じ流儀)。
-// 行を取ってくるのは items.ts、リクエストと結びつけるのはページの役目。
+// 行を取ってくるのは items/read.ts、リクエストと結びつけるのはページの役目。
 // (env の参照は純粋な層のまま — appEnv.ts / site.ts と同じ扱い)
 
 import { isDemoMode } from "./appEnv"

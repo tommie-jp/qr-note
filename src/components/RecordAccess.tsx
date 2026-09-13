@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { recordAccessAction } from "@/app/actions";
 
 // アクションは prop で受ける。ここから '@/app/actions' を import すると
-// items.ts → db.ts を巻き込み、クライアント束に DATABASE_URL を要求する
+// items/ → db.ts を巻き込み、クライアント束に DATABASE_URL を要求する
 // モジュールが混ざる (ItemList / ViewModeToggle と同じ理由)
 type RecordAccessActionType = typeof recordAccessAction;
 
@@ -26,7 +26,7 @@ interface RecordAccessProps {
 // 出さない — 並びが 1 回進まないだけで、ノートの表示を巻き添えにする
 // 理由がない。サーバ側 (recordAccessAction) はログに残す。
 //
-// 連打・StrictMode の二重発火は DB 側の 1 分ガード (items.ts の
+// 連打・StrictMode の二重発火は DB 側の 1 分ガード (items/flags.ts の
 // recordItemAccess) が吸収するので、ここでは重複呼び出しを気にしない。
 export function RecordAccess({ itemNo, action }: RecordAccessProps) {
   useEffect(() => {

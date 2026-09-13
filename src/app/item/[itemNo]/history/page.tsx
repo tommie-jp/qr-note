@@ -11,7 +11,7 @@ import {
 import { isDemoMode } from "@/lib/appEnv";
 import { formatJstDateTime } from "@/lib/datetime";
 import { noteAtHead, noteHistory } from "@/lib/git/notesRepo";
-import { getItem } from "@/lib/items";
+import { getItem } from "@/lib/items/read";
 import { requireUser } from "@/lib/session";
 import { isValidItemNo } from "@/lib/validation";
 

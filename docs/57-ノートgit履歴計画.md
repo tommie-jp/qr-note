@@ -15,7 +15,8 @@
 ## 1. 方針: DB が正本・作業コピー、git は履歴専用
 
 このアプリの確立した型「正本はメモ本文 (items.memo)、他は派生キャッシュ」
-([items.ts](../src/lib/items.ts) の `derivedFromMemo`) は動かさない。
+([items.ts](../src/lib/items.ts) の `derivedFromMemo`。当時のパス。現在は
+`src/lib/items/write.ts`) は動かさない。
 git は **items.memo のコミット済みスナップショットの置き場**であって、
 正本ではない。
 

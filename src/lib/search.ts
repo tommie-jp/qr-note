@@ -1,5 +1,5 @@
 // 全文検索の検索語ユーティリティ。
-// pgroonga への SQL 組み立ては items.ts が行い、ここでは
+// pgroonga への SQL 組み立ては items/where.ts が行い、ここでは
 // ユーザー入力の解析だけを純関数として扱う (DB 非依存でテストしやすくするため)。
 //
 // 検索窓の文法 (詳細は docs/05-全文検索の使い方.md / docs/16-検索の論理演算.md)。
@@ -30,7 +30,7 @@
 //     閉じ忘れの `(` は自動クローズ、余った `)` と空括弧と裸の `!` は無視。
 //
 // 生の演算子構文は &@ に渡さず、ここで素の語 (AST の葉) に分解してから
-// items.ts がパラメータとして渡す (構文エラー/エスケープ漏れを避ける)。
+// items/where.ts がパラメータとして渡す (構文エラー/エスケープ漏れを避ける)。
 
 import { normalizeTag, parseTagToken } from '@/lib/tags'
 
@@ -47,7 +47,7 @@ export type SearchTerm =
   | { kind: 'task'; value: TaskState }
   | { kind: 'untagged' }
 
-// 検索式の抽象構文木。items.ts がこれを再帰的に WHERE 句へコンパイルする。
+// 検索式の抽象構文木。items/where.ts がこれを再帰的に WHERE 句へコンパイルする。
 // DNF (選言標準形) へ展開しないのは、括弧と NOT の組み合わせで項が
 // 指数的に増えうるため。木のままなら入力サイズに比例した SQL で済む。
 export type SearchExpr =
@@ -392,7 +392,7 @@ export function stripTaskTerms(expr: SearchExpr): SearchExpr | null {
   return pruneTerms(expr, (term) => !isTaskTerm(term))
 }
 
-// 「チェックを 1 つ以上持つ」を検索文法で書いた式。items.ts の HAS_TASKS
+// 「チェックを 1 つ以上持つ」を検索文法で書いた式。items/where.ts の HAS_TASKS
 // (`task_todo > 0 OR task_done > 0`) と同じ集合を指す (is:todo = task_todo > 0、
 // is:done = task_done > 0)。
 const HAS_CHECKS_QUERY = 'is:todo OR is:done'

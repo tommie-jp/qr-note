@@ -34,12 +34,18 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/items', () => ({
-  upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
+vi.mock('@/lib/items/read', () => ({
   nextItemNo: (alsoUsed?: readonly number[]) => nextItemNo(alsoUsed),
-  setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
+}))
+
+vi.mock('@/lib/items/write', () => ({
+  upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
   applyImportedTimestamps: (itemNo: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemNo, created, updated),
+}))
+
+vi.mock('@/lib/items/flags', () => ({
+  setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
 }))
 
 vi.mock('@/lib/attachmentStore', () => ({

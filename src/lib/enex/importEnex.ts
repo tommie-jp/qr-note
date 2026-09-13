@@ -14,7 +14,8 @@ import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/importDuplicate'
 import type { BaseImportReport } from '@/lib/importReport'
-import { applyImportedTimestamps, nextItemNo, upsertItem } from '@/lib/items'
+import { nextItemNo } from '@/lib/items/read'
+import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 import { buildMemo, enexTagToMemoTag } from './buildMemo'
 import {
@@ -362,7 +363,7 @@ async function isDuplicate(note: EnexNote): Promise<boolean> {
   return isAlreadyImported(note.createdAt ?? note.updatedAt, note.title.trim())
 }
 
-// ENEX の作成・更新日時をそのまま反映する (中身は lib/items.ts に集約。
+// ENEX の作成・更新日時をそのまま反映する (中身は lib/items/write.ts に集約。
 // ZIP インポートも同じ関数を通る)。
 async function applyEnexTimestamps(itemNo: string, note: EnexNote): Promise<void> {
   await applyImportedTimestamps(itemNo, note.createdAt, note.updatedAt)

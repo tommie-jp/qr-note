@@ -7,7 +7,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { PublicItemView } from "@/components/PublicItemView";
 import { RecordAccess } from "@/components/RecordAccess";
 import { recordAccessAction } from "@/app/actions";
-import { getItem } from "@/lib/items";
+import { getItem } from "@/lib/items/read";
 import { resolveItemListContext } from "@/lib/itemListContext";
 import { isPublicItem } from "@/lib/publicItem";
 import { currentUser } from "@/lib/session";

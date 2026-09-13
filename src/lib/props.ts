@@ -171,7 +171,7 @@ function isPropEntry(value: unknown): value is PropEntry {
   )
 }
 
-// 表の元データ 1 件 (items.ts が DB から組み立てる)。
+// 表の元データ 1 件 (items/search.ts が DB から組み立てる)。
 export interface ItemPropsRow {
   itemNo: string
   summary: string

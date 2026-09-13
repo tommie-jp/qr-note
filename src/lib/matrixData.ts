@@ -6,7 +6,7 @@
 // 同じ内容のフェンスが 2 つあれば 1 回の集計を共有する。
 
 import { MATRIX_LANG } from './fenceLanguages'
-import { searchItemChecks } from './items'
+import { searchItemChecks } from './matrix/matrixQuery'
 import { extractFenceSources } from './markdown/extractFences'
 import { buildFenceData } from './markdown/fenceData'
 import type { ParseCache } from './markdown/parseCache'

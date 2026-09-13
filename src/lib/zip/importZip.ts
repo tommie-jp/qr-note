@@ -16,12 +16,9 @@ import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/importDuplicate'
 import type { BaseImportReport } from '@/lib/importReport'
-import {
-  applyImportedTimestamps,
-  nextItemNo,
-  setItemPublic,
-  upsertItem,
-} from '@/lib/items'
+import { setItemPublic } from '@/lib/items/flags'
+import { nextItemNo } from '@/lib/items/read'
+import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
 import { isValidImageName } from '@/lib/uploads'
 import { itemNoToNum } from '@/lib/validation'
 import type { ConflictPolicy } from './conflictPolicy'

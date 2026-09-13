@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { findListNeighbors } from '@/lib/items'
+import { findListNeighbors } from '@/lib/items/read'
 import { SORT_COOKIE, resolveSort } from '@/lib/sortMode'
 import type { Sort } from '@/lib/validation'
 

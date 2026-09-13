@@ -531,7 +531,7 @@ describe('narrowToChecks', () => {
     expect(narrowToChecks('  \n ')).toBe('is:todo OR is:done')
   })
 
-  // 足した式は items.ts の HAS_TASKS (task_todo > 0 OR task_done > 0) と
+  // 足した式は items/where.ts の HAS_TASKS (task_todo > 0 OR task_done > 0) と
   // 同じ条件になる。表の SQL と前後ナビの SQL が同じ集合を指す根拠
   test('足す条件は is:todo OR is:done', () => {
     expect(parseSearchExpr(narrowToChecks(''))).toEqual(

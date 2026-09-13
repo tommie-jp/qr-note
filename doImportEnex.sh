@@ -34,7 +34,7 @@
 #   3. ./doImportEnex.sh f.enex           本番へ (実行中はアプリを触らないこと)
 #
 # 取り込み中にアプリでノートを新規作成しないこと。nextItemNo() は
-# 「空き番号の最小値」を返すだけで番号を予約しない (src/lib/items.ts)。
+# 「空き番号の最小値」を返すだけで番号を予約しない (src/lib/items/read.ts)。
 #
 # 環境変数で上書き可能 (接続先は scripts/lib/target.sh の prod と同じ既定):
 #   DEPLOY_REMOTE      ssh 接続先 (default: vps2)。旧名 IMPORT_REMOTE も受け付ける

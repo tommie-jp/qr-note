@@ -15,7 +15,7 @@ import { RecordAccess } from "@/components/RecordAccess";
 import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS } from "@/components/ui";
-import { getItem } from "@/lib/items";
+import { getItem } from "@/lib/items/read";
 import { formatBase } from "@/lib/saveBase";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
 import { requireUser } from "@/lib/session";

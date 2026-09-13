@@ -4,7 +4,7 @@ import type { Sort } from "@/lib/validation";
 import { ACTION_LINK_CLASS, SECONDARY_BUTTON_CLASS } from "./ui";
 
 interface ItemListNavProps {
-  // 一覧での隣 (items.ts の findListNeighbors)。端では null
+  // 一覧での隣 (items/read.ts の findListNeighbors)。端では null
   prev: string | null;
   next: string | null;
   // 持ち回している検索状態。行き先の URL にも同じものを載せて連鎖させる

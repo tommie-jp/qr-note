@@ -11,8 +11,11 @@ const executeRaw = vi.fn()
 const deleteMany = vi.fn()
 const isAlreadyImported = vi.fn()
 
-vi.mock('@/lib/items', () => ({
+vi.mock('@/lib/items/read', () => ({
   nextItemNo: () => nextItemNo(),
+}))
+
+vi.mock('@/lib/items/write', () => ({
   upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
   applyImportedTimestamps: (itemNo: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemNo, created, updated),
@@ -379,7 +382,7 @@ test('ENEX の日時を反映する', async () => {
   )
 })
 
-// 日時をどう埋めるか (片方だけのとき・両方無いとき) の判断は items.ts が持つ
+// 日時をどう埋めるか (片方だけのとき・両方無いとき) の判断は items/write.ts が持つ
 test('日時が無いノートは null のまま渡す (取り込んだ時刻のまま)', async () => {
   await importEnex(
     enex(note(`<title>題名</title><content>${enml('<div>本文</div>')}</content>`)),

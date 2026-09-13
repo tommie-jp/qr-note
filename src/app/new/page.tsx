@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { nextItemNo } from "@/lib/items";
+import { nextItemNo } from "@/lib/items/read";
 import { requireUser } from "@/lib/session";
 
 // 「+」から空ノートを作る入口 (docs/27-新規ノート追加計画.md)。

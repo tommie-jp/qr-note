@@ -48,7 +48,7 @@ export type SortBase = 'itemNo' | 'updated' | 'accessed' | 'title'
 // 種別を逆向きに辿る並び (docs/64-並び順逆順計画.md)。
 //
 // **種別と方向を 1 本の文字列に畳む**のが要点。cookie も URL も
-// `?sort=` 1 つで、items.ts / searchUrl.ts / 前後ナビもこの 1 値を持ち回す
+// `?sort=` 1 つで、items/ / searchUrl.ts / 前後ナビもこの 1 値を持ち回す
 // 形になっている。方向を別のパラメータにすると全部の経路が二本立てになる。
 //
 // 名前は「種別 + 逆向きの方向」。基底の 4 値が**その種別の既定の方向**を

@@ -5,7 +5,7 @@
 // 文法を書き写すと、演算子を足したときにオンラインとオフラインで解釈が割れる
 // — しかも割れたことに気づくのは圏外だけ、という最悪の壊れ方をする。
 //
-// 葉の評価の対応 (items.ts の termCondition と対で読むこと):
+// 葉の評価の対応 (items/where.ts の termCondition と対で読むこと):
 //
 //   text … PGroonga の `memo &@ 語 OR url &@ 語 OR item_no ILIKE 語%`
 //          → 正規化済み文字列の部分一致 + itemNo の前方一致。
@@ -47,7 +47,7 @@ export function buildOfflineIndex(
   }))
 }
 
-// 検索語 1 つの判定。語種ごとに必ず case を書く (items.ts の termCondition と
+// 検索語 1 つの判定。語種ごとに必ず case を書く (items/where.ts の termCondition と
 // 同じ網羅 switch)。text へ落ちる既定にすると、種別を足したときに黙って
 // 全文検索へ流れる
 function matchesTerm(entry: OfflineIndexEntry, term: SearchTerm): boolean {
@@ -70,7 +70,7 @@ function matchesTerm(entry: OfflineIndexEntry, term: SearchTerm): boolean {
   }
 }
 
-// AST を再帰的に評価する。exprCondition (items.ts) の SQL 版と同じ形なので、
+// AST を再帰的に評価する。exprCondition (items/where.ts) の SQL 版と同じ形なので、
 // 片方を直したらもう片方も直すこと
 function matchesExpr(entry: OfflineIndexEntry, expr: SearchExpr): boolean {
   switch (expr.op) {

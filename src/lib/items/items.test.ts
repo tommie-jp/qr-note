@@ -1,27 +1,33 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import type { setItemPublic as SetItemPublicFn } from './flags'
 import type {
   countFolderTotals as CountFolderTotalsFn,
-  countTaskProgress as CountTaskProgressFn,
-  countTrashedItems as CountTrashedItemsFn,
-  countTrashedMatches as CountTrashedMatchesFn,
   findListNeighbors as FindListNeighborsFn,
   getItem as GetItemFn,
   isPublicImageName as IsPublicImageNameFn,
   listTags as ListTagsFn,
-  listTrashedItems as ListTrashedItemsFn,
   nextItemNo as NextItemNoFn,
-  purgeItems as PurgeItemsFn,
-  restoreItems as RestoreItemsFn,
-  searchItemChecks as SearchItemChecksFn,
+} from './read'
+import type {
+  countTaskProgress as CountTaskProgressFn,
   searchItemProps as SearchItemPropsFn,
   searchItems as SearchItemsFn,
-  setItemPublic as SetItemPublicFn,
+} from './search'
+import type {
+  countTrashedItems as CountTrashedItemsFn,
+  countTrashedMatches as CountTrashedMatchesFn,
+  listTrashedItems as ListTrashedItemsFn,
+  purgeItems as PurgeItemsFn,
+  restoreItems as RestoreItemsFn,
   trashItems as TrashItemsFn,
+} from './trash'
+import type {
   modifyMemo as ModifyMemoFn,
   saveItemIfUnchanged as SaveItemIfUnchangedFn,
   upsertMemo as UpsertMemoFn,
-} from './items'
-import { differsOnlyInTaskMarks, toggleTaskLine } from './taskCheckbox'
+} from './write'
+import type { searchItemChecks as SearchItemChecksFn } from '@/lib/matrix/matrixQuery'
+import { differsOnlyInTaskMarks, toggleTaskLine } from '@/lib/taskCheckbox'
 import type { PrismaClient } from '@/generated/prisma/client'
 
 // DB を実際に叩く統合テスト。
@@ -186,29 +192,27 @@ describe.skipIf(!runDbTests)(
     ]
 
     beforeAll(async () => {
+      ;({ searchItems, searchItemProps, countTaskProgress } = await import('./search'))
+      ;({ searchItemChecks } = await import('@/lib/matrix/matrixQuery'))
+      ;({ upsertMemo, saveItemIfUnchanged, modifyMemo } = await import('./write'))
       ;({
-        searchItems,
-        searchItemProps,
-        searchItemChecks,
-        upsertMemo,
-        saveItemIfUnchanged,
-        modifyMemo,
         listTags,
         getItem,
+        countFolderTotals,
+        findListNeighbors,
+        nextItemNo,
+        isPublicImageName,
+      } = await import('./read'))
+      ;({
         trashItems,
         restoreItems,
         purgeItems,
         listTrashedItems,
         countTrashedItems,
         countTrashedMatches,
-        countTaskProgress,
-        countFolderTotals,
-        findListNeighbors,
-        nextItemNo,
-        setItemPublic,
-        isPublicImageName,
-      } = await import('./items'))
-      ;({ prisma } = await import('./db'))
+      } = await import('./trash'))
+      ;({ setItemPublic } = await import('./flags'))
+      ;({ prisma } = await import('@/lib/db'))
       await prisma.item.deleteMany({ where: { itemNo: { startsWith: TEST_PREFIX } } })
       for (const s of seed) {
         await prisma.item.create({ data: { itemNoNum: null, ...s } })

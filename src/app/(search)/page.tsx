@@ -28,15 +28,17 @@ import { TaskProgress } from "@/components/TaskProgress";
 import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import {
   countFolderTotals,
-  countTaskProgress,
-  countTrashedItems,
-  countTrashedMatches,
+  getItem,
   listTags,
   nextItemNo,
+  type TagCount,
+} from "@/lib/items/read";
+import {
+  countTaskProgress,
   searchItemProps,
   searchItems,
-  type TagCount,
-} from "@/lib/items";
+} from "@/lib/items/search";
+import { countTrashedItems, countTrashedMatches } from "@/lib/items/trash";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { buildMathSummaries, buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
@@ -49,7 +51,6 @@ import {
   type PaneMode,
 } from "@/lib/paneMode";
 import { resolveItemListContext } from "@/lib/itemListContext";
-import { getItem } from "@/lib/items";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { listQueries } from "@/lib/searchQueryStore";
 import { currentUser, requireUser } from "@/lib/session";

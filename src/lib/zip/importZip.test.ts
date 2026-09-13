@@ -16,12 +16,18 @@ const executeRaw = vi.fn()
 const findUniqueItem = vi.fn()
 const findManyImage = vi.fn()
 
-vi.mock('@/lib/items', () => ({
+vi.mock('@/lib/items/read', () => ({
+  nextItemNo: (alsoUsed?: readonly number[]) => nextItemNo(alsoUsed),
+}))
+
+vi.mock('@/lib/items/write', () => ({
   upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
-  setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
   applyImportedTimestamps: (itemNo: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemNo, created, updated),
-  nextItemNo: (alsoUsed?: readonly number[]) => nextItemNo(alsoUsed),
+}))
+
+vi.mock('@/lib/items/flags', () => ({
+  setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
 }))
 
 vi.mock('@/lib/importDuplicate', () => ({

@@ -9,7 +9,7 @@ import { extractHealthSources } from './healthFences'
 import { parseHealthFence } from './healthFence'
 import type { HealthDataLine } from './healthRecords'
 import { buildHealthSeries, type HealthSeries } from './healthSeries'
-import { searchItemHealth } from './items'
+import { searchItemHealth } from './health/healthQuery'
 import { buildFenceData, sharePending } from './markdown/fenceData'
 import type { ParseCache } from './markdown/parseCache'
 

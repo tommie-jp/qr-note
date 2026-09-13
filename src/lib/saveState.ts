@@ -5,7 +5,7 @@
 // バナーを出す材料にする。
 //
 // **client からも import されるので、DB (prisma) を引っぱる物は置かない。**
-// items.ts の SaveOutcome を直接使わないのはそのため — 型だけのつもりでも
+// items/write.ts の SaveOutcome を直接使わないのはそのため — 型だけのつもりでも
 // 値の import が 1 本混ざれば、編集画面のバンドルに prisma が落ちてくる。
 
 import type { Mode } from '@/lib/validation'

@@ -4,7 +4,7 @@ import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
 import { PreviewPane } from "@/components/PreviewPane";
 import { PublicItemView } from "@/components/PublicItemView";
 import { isProductionEnv } from "@/lib/appEnv";
-import { getItem } from "@/lib/items";
+import { getItem } from "@/lib/items/read";
 import { resolveItemListContext } from "@/lib/itemListContext";
 import { isPublicItem } from "@/lib/publicItem";
 import { buildItemUrl } from "@/lib/searchUrl";

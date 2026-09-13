@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { isPublicImageName } from '@/lib/items'
+import { isPublicImageName } from '@/lib/items/read'
 import { byteHeaders, bytesResponse, rangedBytesResponse } from '@/lib/route/bytes'
 import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { currentUser } from '@/lib/session'

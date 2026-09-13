@@ -18,19 +18,10 @@ import { recordMeasurement } from '@/lib/healthEdit'
 import { MAX_MEASURE_VALUES } from '@/lib/healthRecords'
 import { backfillAllNotes } from '@/lib/noteHistoryBackfill'
 import type { Item } from '@/generated/prisma/client'
-import {
-  emptyTrash,
-  getItem,
-  modifyMemo,
-  purgeItems,
-  recordItemAccess,
-  restoreItems,
-  saveItemIfUnchanged,
-  setItemOfflinePin,
-  setItemPublic,
-  trashItems,
-  upsertMemo,
-} from '@/lib/items'
+import { recordItemAccess, setItemOfflinePin, setItemPublic } from '@/lib/items/flags'
+import { getItem } from '@/lib/items/read'
+import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
+import { modifyMemo, saveItemIfUnchanged, upsertMemo } from '@/lib/items/write'
 import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'
 import { parseBase, type SaveBase } from '@/lib/saveBase'
 import { noteSnapshot, type SaveState } from '@/lib/saveState'
@@ -509,7 +500,7 @@ export async function restoreItemsAction(formData: FormData): Promise<void> {
   }
 }
 
-// 永久削除。ゴミ箱にある行しか消せないことは items.ts の purgeItems が保証する
+// 永久削除。ゴミ箱にある行しか消せないことは items/trash.ts の purgeItems が保証する
 // (UI の confirm は最後の一押しで、防護そのものではない)。
 export async function purgeItemsAction(formData: FormData): Promise<void> {
   await requireUser()

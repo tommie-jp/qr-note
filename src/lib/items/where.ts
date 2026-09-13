@@ -133,7 +133,8 @@ export function buildProgressWhere(query: string): Prisma.Sql {
 }
 
 // 一覧の前後ナビの WHERE 句。検索条件に「今のノート自身」を OR で足す
-// (理由は findListNeighbors のコメント)。空クエリなら全件が対象なので足さない
+// (理由は read.ts の findListNeighbors のコメント)。空クエリなら全件が
+// 対象なので足さない
 export function buildNeighborsWhere(query: string, itemNo: string): Prisma.Sql {
   const condition = buildQueryCondition(query)
   const scope =
