@@ -31,6 +31,18 @@ README・`docs/`・`src/`・`scripts/`・直下の `*.sh`・`deploy/`・`Dockerf
 (またはディレクトリを明示したとき) だけ検査し、公開リポジトリを単独で
 clone した環境では飛ばす。ファイルを動かしたり文書を振り直したりしたら流す。
 
+## 環境変数と上限の検査
+
+```bash
+node scripts/checkEnv.mjs
+```
+
+`.env.example`・`compose.yaml` の app の `environment:`・コードの `process.env` の
+食い違い (「`.env` に足したのにコンテナに届かない」など) と、`Caddyfile`・
+`deploy/nginx/*.conf`・`src` の定数に書かれた本体サイズ上限の大小関係
+(エッジ ≥ アプリの門、など) を見る。想定外のずれがあれば終了コード 1
+([93-リファクタリング計画.md](93-リファクタリング計画.md) §7-3)。
+
 ## 利用者向け
 
 - [全文検索の使い方](05-全文検索の使い方.md)

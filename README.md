@@ -58,6 +58,15 @@ npm run dev            # http://localhost:3000
 `npx tsx --conditions=react-server scripts/xxx.ts` のように条件を付ける
 (サーバ専用 module が `import 'server-only'` を持ち、付けないと import 時に throw する)。
 
+環境変数を足したとき・アップロードや取り込みの上限を変えたときは、3 か所が
+揃っているかを検査する (`.env.example`・`compose.yaml` の app の `environment:`・
+コードの `process.env`、および `Caddyfile`・`deploy/nginx/*.conf`・`src` の上限の定数)。
+意図的なずれはスクリプト内の表に理由付きで書いてある:
+
+```bash
+node scripts/checkEnv.mjs
+```
+
 ## テスト
 
 ```bash
