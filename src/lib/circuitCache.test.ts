@@ -206,6 +206,9 @@ describe('renderCircuits', () => {
 
 // 2 つの回路フェンス (circuitikz / circuit) が同じメモに並ぶとき
 // (docs/91 §4)。走る TeX の重さは言語に依らないので、上限は合算で数える
+// circuit-fence の組み立てを実際に走らせるテストの待ち時間 (下の注を参照)
+const YAML_COMPILE_TIMEOUT_MS = 30_000
+
 describe('2 言語の共存', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -214,7 +217,10 @@ describe('2 言語の共存', () => {
     renderCircuit.mockResolvedValue(SVG)
   })
 
-  test('上限は circuitikz と circuit の合算で数える', async () => {
+  // YAML の図は circuit-fence が組み立て (配置の探索) まで実際に走らせるので、
+  // 1 本目は手元でも約 2 秒かかる。2 コアの CI 機では既定の 5 秒を超えて
+  // 落ちたため、このテストだけ待ち時間を延ばす (描画 renderCircuit はモック)
+  test('上限は circuitikz と circuit の合算で数える', { timeout: YAML_COMPILE_TIMEOUT_MS }, async () => {
     // circuitikz を 6 枚 → circuit を 4 枚。合計 10 枚で上限 8 を超える
     const tikzFences = Array.from(
       { length: 6 },
