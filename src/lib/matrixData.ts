@@ -5,20 +5,15 @@
 // 済ませ、結果を prop で渡す。鍵はフェンスの中身 (trim 済み) で、
 // 同じ内容のフェンスが 2 つあれば 1 回の集計を共有する。
 
-import type { Code, Root } from 'mdast'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
-import { visit } from 'unist-util-visit'
 import { MATRIX_LANG } from './fenceLanguages'
 import { searchItemChecks } from './items'
+import { extractFenceSources } from './markdown/extractFences'
+import { buildFenceData } from './markdown/fenceData'
+import type { ParseCache } from './markdown/parseCache'
 import { parseMatrixFence, type MatrixMarkSet } from './matrixFence'
-import {
-  buildMatrixTable,
-  type CheckParseCache,
-  type MatrixTableData,
-} from './matrixTable'
+import { buildMatrixTable, type MatrixTableData } from './matrixTable'
 import { narrowToChecks } from './search'
-import { requireUser } from './session'
+import type { CheckState } from './taskCheckbox'
 import type { Sort } from './validation'
 
 // 1 つのメモに置ける表の上限。1 つの表につき 1 クエリ走るので、
@@ -61,22 +56,9 @@ export type MatrixMap = ReadonlyMap<string, MatrixResult>
 // 正規表現ではなく remark で解析するのは extractCircuitSources と同じ理由
 // (react-markdown 側の解釈とズレると、集計済みの表を引けない)
 export function extractMatrixSources(markdown: string): string[] {
-  const tree = unified().use(remarkParse).parse(markdown) as Root
-  const sources: string[] = []
-
-  visit(tree, 'code', (node: Code) => {
-    if (node.lang !== MATRIX_LANG) {
-      return
-    }
-    // 中身が空でも表は作れる (検索式なし = チェックを持つ全ノート) ので、
-    // 回路図と違い空を捨てない。鍵は '' になる
-    const source = node.value.trim()
-    if (!sources.includes(source)) {
-      sources.push(source)
-    }
-  })
-
-  return sources
+  // 中身が空でも表は作れる (検索式なし = チェックを持つ全ノート) ので、
+  // 回路図と違い空を捨てない。鍵は '' になる
+  return extractFenceSources(markdown, MATRIX_LANG)
 }
 
 // 本文中のすべての ```matrix フェンスを集計してマップにする。
@@ -88,58 +70,39 @@ export function extractMatrixSources(markdown: string): string[] {
 //
 // 公開ビュー (PublicItemView) は**回路図のために renderCircuits を呼んで
 // いる**ので、同じ場所にこれを並べたら漏れる。そこで「渡さない」という
-// 実装時の判断だけに頼らず、ここで requireUser() を通して落とす。
+// 実装時の判断だけに頼らず、ここで requireUser() を通して落とす
+// (骨格の buildFenceData が呼ぶ)。
 //
 // 1 つ失敗しても他の表と本文は出したいので、失敗はマップに畳んで返す
 // (投げ返さない)。ただし認証だけは畳まない — 静かに空の表を出すより、
 // 落ちて気づけるほうがよい。
 export async function buildMatrices(markdown: string): Promise<MatrixMap> {
-  const sources = extractMatrixSources(markdown)
-  const results = new Map<string, MatrixResult>()
-  if (sources.length === 0) {
-    return results
-  }
+  return buildFenceData<MatrixResult>({
+    sources: extractMatrixSources(markdown),
+    limit: MAX_MATRICES_PER_MEMO,
+    overLimitError: `1 つのノートに置ける表は ${MAX_MATRICES_PER_MEMO} 個までです`,
+    prepare: () => {
+      // 本文の解析は表をまたいで使い回す。表が複数あるときは対象のノートが
+      // 大きく重なる (`#電験三種` と `#電験三種 #難` など) ため
+      const parseCache: ParseCache<CheckState> = new Map()
 
-  await requireUser()
-
-  for (const source of sources.slice(MAX_MATRICES_PER_MEMO)) {
-    results.set(source, {
-      kind: 'error',
-      error: `1 つのノートに置ける表は ${MAX_MATRICES_PER_MEMO} 個までです`,
-    })
-  }
-
-  // 本文の解析は表をまたいで使い回す。表が複数あるときは対象のノートが
-  // 大きく重なる (`#電験三種` と `#電験三種 #難` など) ため
-  const parseCache: CheckParseCache = new Map()
-
-  const built = await Promise.all(
-    sources
-      .slice(0, MAX_MATRICES_PER_MEMO)
-      .map(async (source): Promise<[string, MatrixResult]> => {
+      return async (source): Promise<MatrixResult> => {
         const spec = parseMatrixFence(source)
         if ('error' in spec) {
-          return [source, { kind: 'error', error: spec.error }]
+          return { kind: 'error', error: spec.error }
         }
         const { rows, omitted } = await searchItemChecks(spec.query, spec.sort)
-        return [
-          source,
-          {
-            kind: 'table',
-            table: buildMatrixTable(rows, spec.columns, omitted, parseCache),
-            // 検索は素の式で行い (絞りは HAS_TASKS)、**リンクへ載せる式には
-            // その絞りを書き足す**。同じ集合を SQL と検索式の 2 通りで
-            // 表しているので、片方だけ変えないこと (計画 §7)
-            query: narrowToChecks(spec.query),
-            sort: spec.sort,
-            marks: spec.marks,
-          },
-        ]
-      }),
-  )
-  for (const [source, result] of built) {
-    results.set(source, result)
-  }
-
-  return results
+        return {
+          kind: 'table',
+          table: buildMatrixTable(rows, spec.columns, omitted, parseCache),
+          // 検索は素の式で行い (絞りは HAS_TASKS)、**リンクへ載せる式には
+          // その絞りを書き足す**。同じ集合を SQL と検索式の 2 通りで
+          // 表しているので、片方だけ変えないこと (計画 §7)
+          query: narrowToChecks(spec.query),
+          sort: spec.sort,
+          marks: spec.marks,
+        }
+      }
+    },
+  })
 }

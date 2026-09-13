@@ -1,8 +1,5 @@
-import type { Code, Root } from 'mdast'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
-import { visit } from 'unist-util-visit'
 import { HEALTH_LANG } from './fenceLanguages'
+import { extractFenceSources } from './markdown/extractFences'
 
 // memo 本文で健康グラフを書くときのフェンス言語 (定義は fenceLanguages に集約)
 export { HEALTH_LANG }
@@ -19,20 +16,7 @@ export { HEALTH_LANG }
 // 壊れる — その一致こそ試したい場所であって、DB の有無とは関係がない
 // (circuitFences.ts と同じ切り方)
 export function extractHealthSources(markdown: string): string[] {
-  const tree = unified().use(remarkParse).parse(markdown) as Root
-  const sources: string[] = []
-
-  visit(tree, 'code', (node: Code) => {
-    if (node.lang !== HEALTH_LANG) {
-      return
-    }
-    // 中身が空でもグラフは作れる (検索式なし = 全ノートから記録を拾う) ので、
-    // 回路図と違い空を捨てない。鍵は '' になる
-    const source = node.value.trim()
-    if (!sources.includes(source)) {
-      sources.push(source)
-    }
-  })
-
-  return sources
+  // 中身が空でもグラフは作れる (検索式なし = 全ノートから記録を拾う) ので、
+  // 回路図と違い空を捨てない。鍵は '' になる
+  return extractFenceSources(markdown, HEALTH_LANG)
 }

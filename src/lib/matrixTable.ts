@@ -5,6 +5,7 @@
 // オフライン (端末の写しも tags / taskTodo / taskDone を持つ) でも同じ関数が
 // 同じ表を作れる。特性表 (searchItemProps + buildPropsTable) と同じ役割分担。
 
+import type { ParseCache } from './markdown/parseCache'
 import { memoSummary } from './memoSummary'
 import { MAX_MATRIX_COLUMNS, normalizeCheckLabel } from './matrixFence'
 import { checkStates, type CheckState } from './taskCheckbox'
@@ -172,13 +173,14 @@ function statusOf(row: MatrixSourceRow): StatusCell {
   return row.taskTodo === 0 ? 'mastered' : 'learning'
 }
 
-// 本文の解析結果の控え。remark の全文解析が要るので、1 回の描画で同じ本文を
-// 何度も解析しないよう外から渡せるようにする (1 ノートに表が複数あるとき、
-// 対象のノートは大きく重なる)。**名前の並びも要る**ので配列で持つ —
-// 列を本文から拾うときに初出順が必要になる
-export type CheckParseCache = Map<string, readonly CheckState[]>
-
-function statesOf(memo: string, cache: CheckParseCache): readonly CheckState[] {
+// 本文の解析結果の控え (ParseCache) は外から渡せるようにする。remark の
+// 全文解析が要るので、1 回の描画で同じ本文を何度も解析しない
+// (1 ノートに表が複数あるとき、対象のノートは大きく重なる)。**名前の並びも
+// 要る**ので配列で持つ — 列を本文から拾うときに初出順が必要になる
+function statesOf(
+  memo: string,
+  cache: ParseCache<CheckState>,
+): readonly CheckState[] {
   const cached = cache.get(memo)
   if (cached !== undefined) {
     return cached
@@ -191,7 +193,7 @@ function statesOf(memo: string, cache: CheckParseCache): readonly CheckState[] {
 function checkCellsOf(
   row: MatrixSourceRow,
   keys: string[],
-  cache: CheckParseCache,
+  cache: ParseCache<CheckState>,
 ): CheckCell[] {
   // 同じ名前が 2 つあれば最初の 1 つを使う (既に入っている鍵は上書きしない)
   const states = new Map<string, boolean>()
@@ -218,7 +220,7 @@ function checkCellsOf(
 // 名前 (別の用途のノートのチェック) から先に落ちるようにするため。
 function deriveColumns(
   sourceRows: readonly MatrixSourceRow[],
-  cache: CheckParseCache,
+  cache: ParseCache<CheckState>,
 ): { columns: string[]; omitted: number } {
   // 鍵 = 照合用に畳んだ名前、値 = 表示に使う初出の綴り + 出現数 + 初出の順番
   const found = new Map<string, { label: string; count: number; first: number }>()
@@ -262,7 +264,7 @@ export function buildMatrixTable(
   omitted: number,
   // 本文の解析結果の控え。同じ描画で表を複数作るときに呼び出し側が持ち回る
   // (省略すればこの表の中だけで効く)
-  parseCache: CheckParseCache = new Map(),
+  parseCache: ParseCache<CheckState> = new Map(),
 ): MatrixTableData {
   const derived =
     columns.length === 0 ? deriveColumns(sourceRows, parseCache) : null

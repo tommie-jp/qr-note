@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { extractCircuitSources } from './circuitFences'
+import { extractCircuitFences, extractCircuitSources } from './circuitFences'
 
 describe('extractCircuitSources', () => {
   test('extracts a circuitikz fence', () => {
@@ -36,5 +36,30 @@ describe('extractCircuitSources', () => {
 
   test('returns an empty list for markdown without fences', () => {
     expect(extractCircuitSources('ただのメモ #タグ')).toEqual([])
+  })
+})
+
+describe('extractCircuitFences', () => {
+  test('returns both circuit languages in document order', () => {
+    const md = '```circuit\nA\n```\n\n```mermaid\nX\n```\n\n```circuitikz\nB\n```\n'
+    expect(extractCircuitFences(md)).toEqual([
+      { lang: 'circuit', source: 'A' },
+      { lang: 'circuitikz', source: 'B' },
+    ])
+  })
+
+  test('keeps the same source in different languages apart', () => {
+    const md = '```circuitikz\nA\n```\n\n```circuit\nA\n```\n\n```circuit\nA\n```\n'
+    expect(extractCircuitFences(md)).toEqual([
+      { lang: 'circuitikz', source: 'A' },
+      { lang: 'circuit', source: 'A' },
+    ])
+  })
+
+  test('drops empty fences and filters by the given language', () => {
+    const md = '```circuit\n\n```\n\n```circuit\nA\n```\n\n```circuitikz\nB\n```\n'
+    expect(extractCircuitFences(md, 'circuit')).toEqual([
+      { lang: 'circuit', source: 'A' },
+    ])
   })
 })

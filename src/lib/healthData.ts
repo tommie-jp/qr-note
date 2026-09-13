@@ -7,10 +7,11 @@
 
 import { extractHealthSources } from './healthFences'
 import { parseHealthFence } from './healthFence'
-import type { HealthParseCache } from './healthRecords'
+import type { HealthDataLine } from './healthRecords'
 import { buildHealthSeries, type HealthSeries } from './healthSeries'
-import { searchItemHealth, type ItemHealthResult } from './items'
-import { requireUser } from './session'
+import { searchItemHealth } from './items'
+import { buildFenceData, sharePending } from './markdown/fenceData'
+import type { ParseCache } from './markdown/parseCache'
 
 // 1 つのメモに置けるグラフの上限 (MAX_MATRICES_PER_MEMO と同じ考え方)。
 // 1 枚につき 1 クエリ走るので、上限が無いと 1 ノートで DB を殴れる。
@@ -22,7 +23,7 @@ import { requireUser } from './session'
 // 増やすと、表を持つノートを開いたときに**セッションの照会まで待たされる**。
 // 表と同じ数に揃えておけば、片方の上限を動かすときにもう片方も目に入る。
 //
-// ただし**同じ検索式のフェンスはクエリを共有する** (下の queryCache) ため、
+// ただし**同じ検索式のフェンスはクエリを共有する** (下の rowsFor) ため、
 // 実際に飛ぶクエリは「フェンスの数」ではなく「検索式の種類」で決まる。
 // 体重と体温を並べる使い方 (検索式は同じで y= だけ違う) が典型なので、
 // 4 枚が 4 クエリになる場面はそう多くない
@@ -52,68 +53,40 @@ export type HealthMap = ReadonlyMap<string, HealthResult>
 // **ログイン必須** (計画 §8)。線の元になる数値はそのノート 1 枚の外から
 // 集まるので、進捗の表 (docs/77 §6) とまったく同じ危険がある — むしろ
 // 体重・血圧は学習状況より取り返しがつかない。公開ビューへ渡さないという
-// 実装時の判断だけに頼らず、ここで requireUser() を通して落とす。
+// 実装時の判断だけに頼らず、ここで requireUser() を通して落とす
+// (骨格の buildFenceData が呼ぶ)。
 //
 // 1 つ失敗しても他のグラフと本文は出したいので、失敗はマップに畳んで返す
 // (投げ返さない)。ただし認証だけは畳まない — 静かに空のグラフを出すより、
 // 落ちて気づけるほうがよい。
 export async function buildHealthCharts(markdown: string): Promise<HealthMap> {
-  const sources = extractHealthSources(markdown)
-  const results = new Map<string, HealthResult>()
-  if (sources.length === 0) {
-    return results
-  }
+  return buildFenceData<HealthResult>({
+    sources: extractHealthSources(markdown),
+    limit: MAX_HEALTH_CHARTS_PER_MEMO,
+    overLimitError: `1 つのノートに置けるグラフは ${MAX_HEALTH_CHARTS_PER_MEMO} 個までです`,
+    prepare: () => {
+      // 本文の解析はグラフをまたいで使い回す。同じ検索式なら対象のノートは
+      // まったく同じで、そこを枚数ぶん解析し直すと 200 ノート × 枚数になる
+      const parseCache: ParseCache<HealthDataLine> = new Map()
 
-  await requireUser()
+      // 同じ検索式のフェンスは 1 回のクエリを共有する。**Promise を鍵に入れる**
+      // のが要点で、結果を入れる作りだと Promise.all で同時に走る 2 枚が
+      // どちらもキャッシュを外し、同じクエリが 2 回飛ぶ (sharePending)
+      const rowsFor = sharePending(searchItemHealth)
 
-  for (const source of sources.slice(MAX_HEALTH_CHARTS_PER_MEMO)) {
-    results.set(source, {
-      kind: 'error',
-      error: `1 つのノートに置けるグラフは ${MAX_HEALTH_CHARTS_PER_MEMO} 個までです`,
-    })
-  }
-
-  // 同じ検索式のフェンスは 1 回のクエリを共有する。**Promise を鍵に入れる**
-  // のが要点で、結果を入れる作りだと Promise.all で同時に走る 2 枚が
-  // どちらもキャッシュを外し、同じクエリが 2 回飛ぶ
-  // 本文の解析はグラフをまたいで使い回す。同じ検索式なら対象のノートは
-  // まったく同じで、そこを枚数ぶん解析し直すと 200 ノート × 枚数になる
-  const parseCache: HealthParseCache = new Map()
-
-  const queryCache = new Map<string, Promise<ItemHealthResult>>()
-  const rowsFor = (query: string): Promise<ItemHealthResult> => {
-    const pending = queryCache.get(query)
-    if (pending !== undefined) {
-      return pending
-    }
-    const started = searchItemHealth(query)
-    queryCache.set(query, started)
-    return started
-  }
-
-  const built = await Promise.all(
-    sources
-      .slice(0, MAX_HEALTH_CHARTS_PER_MEMO)
-      .map(async (source): Promise<[string, HealthResult]> => {
+      return async (source): Promise<HealthResult> => {
         const spec = parseHealthFence(source)
         if ('error' in spec) {
-          return [source, { kind: 'error', error: spec.error }]
+          return { kind: 'error', error: spec.error }
         }
         const { rows, omitted } = await rowsFor(spec.query)
-        return [
-          source,
-          {
-            kind: 'chart',
-            series: buildHealthSeries(rows, spec.item, spec.days, parseCache),
-            query: spec.query,
-            omittedNotes: omitted,
-          },
-        ]
-      }),
-  )
-  for (const [source, result] of built) {
-    results.set(source, result)
-  }
-
-  return results
+        return {
+          kind: 'chart',
+          series: buildHealthSeries(rows, spec.item, spec.days, parseCache),
+          query: spec.query,
+          omittedNotes: omitted,
+        }
+      }
+    },
+  })
 }

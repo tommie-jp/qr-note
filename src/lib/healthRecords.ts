@@ -21,6 +21,7 @@ import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
+import type { ParseCache } from './markdown/parseCache'
 import { splitLines } from './memoLines'
 
 // 1 つの測定値。label は書かれたままの綴り (照合は normalizeMeasureLabel を通す)、
@@ -100,10 +101,6 @@ function codeLines(memo: string): Set<number> {
   })
   return lines
 }
-
-// 本文の解析結果の控え。同じノートの本文を、グラフの枚数だけ解析し直さない
-// ため呼び出し側が持ち回る (matrixTable.ts の CheckParseCache と同じ形)
-export type HealthParseCache = Map<string, readonly HealthDataLine[]>
 
 // 記録として書ける日付か (ISO の形 + 暦にある日)。
 // 記録欄から来た日付を書く前に検めるのにも使う (healthEdit.ts)
@@ -196,10 +193,11 @@ export function parseMeasureToken(token: string): Measure | null {
 // まだ本文になっていないため (remark も EOF までを code と読む)。
 //
 // cache … 同じ本文を何度も解析しないための控え。1 回の描画でグラフを
-// 複数枚作るとき、対象のノートは全部同じ (呼び出し側が持ち回る)
+// 複数枚作るとき、対象のノートは全部同じ (呼び出し側が持ち回る。
+// 進捗の表と同じ ParseCache — markdown/parseCache.ts)
 export function healthDataLines(
   memo: string,
-  cache?: HealthParseCache,
+  cache?: ParseCache<HealthDataLine>,
 ): readonly HealthDataLine[] {
   const cached = cache?.get(memo)
   if (cached !== undefined) {
