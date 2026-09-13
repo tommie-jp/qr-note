@@ -13,14 +13,16 @@
 
 import 'client-only'
 import { DEBUG_STORAGE_KEY } from './debugConsole'
+import { createNotifier } from './prefs/externalStore'
 import { browserStorage, defineBooleanPref } from './prefs/storagePref'
 
 // 読み込み済みの本体。destroy 後に再び出せるよう、都度 import せず持っておく
 let loaded: { destroy: () => void } | null = null
 
 // 出ているかを見ている React 側 (DebugConsoleButton) への通知。
-// sessionStorage は変更を知らせてくれない (storage イベントは別タブの分だけ)
-const listeners = new Set<() => void>()
+// sessionStorage は変更を知らせてくれない (storage イベントは別タブの分だけ)。
+// 値の正本は sessionStorage のままなので、値は持たずに通知だけ借りる
+const consoleChanges = createNotifier()
 
 // sessionStorage は Safari のプライベートモードなどで投げうる (prefs/storagePref.ts
 // が畳む)。覚えられないだけで機能自体は動く (その場では出る) ので、既定に倒す
@@ -34,9 +36,7 @@ function remember(enabled: boolean): void {
   } else {
     DEBUG_CONSOLE_PREF.remove(storage)
   }
-  for (const listener of listeners) {
-    listener()
-  }
+  consoleChanges.notify()
 }
 
 export function isDebugConsoleOn(): boolean {
@@ -44,10 +44,7 @@ export function isDebugConsoleOn(): boolean {
 }
 
 export function subscribeDebugConsole(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
+  return consoleChanges.subscribe(listener)
 }
 
 // **覚えるのは成否が決まってから**。先に覚えると、本体の読み込みに失敗した

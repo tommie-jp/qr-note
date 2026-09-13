@@ -8,43 +8,42 @@
 // 表示するときに要る (CryptoKey は非 extractable で取り出せない)。
 
 import { useSyncExternalStore } from 'react'
+import { createExternalStore } from './prefs/externalStore'
 import { importContentKey } from './secretEnvelope'
 
-let masterKeyBytes: Uint8Array | null = null
-let masterKey: CryptoKey | null = null
-
-const listeners = new Set<() => void>()
-
-function notify(): void {
-  for (const listener of listeners) {
-    listener()
-  }
+interface UnlockedSecrets {
+  readonly masterKey: CryptoKey
+  readonly masterKeyBytes: Uint8Array
 }
 
+// 未解錠なら null。鍵と生バイト列は必ず対で入れ替える (prefs/externalStore.ts)
+const session = createExternalStore<UnlockedSecrets | null>({
+  initial: () => null,
+  serverSnapshot: null,
+})
+
 export async function unlockWith(raw: Uint8Array): Promise<void> {
-  masterKey = await importContentKey(raw)
-  masterKeyBytes = Uint8Array.from(raw)
-  notify()
+  const masterKey = await importContentKey(raw)
+  session.set({ masterKey, masterKeyBytes: Uint8Array.from(raw) })
 }
 
 export function lockSecrets(): void {
-  masterKey = null
-  masterKeyBytes = null
-  notify()
+  session.set(null)
 }
 
 // 断片の暗号化・復号に使う鍵。未解錠なら null。
 export function unlockedKey(): CryptoKey | null {
-  return masterKey
+  return session.get()?.masterKey ?? null
 }
 
 // 包み直し・復旧キー表示に使う生バイト列。未解錠なら null。
 export function unlockedMasterKeyBytes(): Uint8Array | null {
-  return masterKeyBytes === null ? null : Uint8Array.from(masterKeyBytes)
+  const unlocked = session.get()
+  return unlocked === null ? null : Uint8Array.from(unlocked.masterKeyBytes)
 }
 
 export function isUnlocked(): boolean {
-  return masterKey !== null
+  return session.get() !== null
 }
 
 // 解錠・施錠のたびに呼ばれる購読口。
@@ -53,13 +52,13 @@ export function isUnlocked(): boolean {
 // こちらは「施錠されたので手元の復号済みデータを捨てる」といった後始末に使う
 // (React の外の資源 = Blob URL の解放など)。
 export function subscribeSecretLock(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
+  return session.subscribe(listener)
 }
 
 // 解錠状態を購読する。サーバ描画では常に false (鍵はブラウザにしかない)。
+//
+// スナップショットは真偽値に畳む (session.useStore を使わない)。鍵の組を
+// そのまま返すと、解錠し直すたびに参照が変わって描画が余計に走る
 export function useSecretUnlocked(): boolean {
   return useSyncExternalStore(subscribeSecretLock, isUnlocked, () => false)
 }

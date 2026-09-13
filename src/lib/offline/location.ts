@@ -14,24 +14,24 @@
 // 来ない)。だから書き換える側が notifyLocationChanged を呼ぶ約束にする。
 
 import 'client-only'
+import { createNotifier } from '@/lib/prefs/externalStore'
 import { parseSort, type Sort } from '@/lib/validation'
 
-const listeners = new Set<() => void>()
+// 値の正本は window.location なので、値は持たずに通知だけ借りる (prefs/externalStore.ts)
+const locationChanges = createNotifier()
 
 export function subscribeLocation(listener: () => void): () => void {
-  listeners.add(listener)
+  const unsubscribe = locationChanges.subscribe(listener)
   window.addEventListener('popstate', listener)
   return () => {
-    listeners.delete(listener)
+    unsubscribe()
     window.removeEventListener('popstate', listener)
   }
 }
 
 // pushState / replaceState の直後に呼ぶ。呼び忘れると画面が URL に付いてこない
 export function notifyLocationChanged(): void {
-  for (const listener of listeners) {
-    listener()
-  }
+  locationChanges.notify()
 }
 
 // getSnapshot。**文字列を返す**のが要点 — オブジェクトを組み立てて返すと

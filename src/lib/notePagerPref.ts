@@ -13,7 +13,7 @@
 // 後半がその上に載る購読の口。読み書きの例外の扱いは prefs/storagePref.ts。
 
 import 'client-only'
-import { useSyncExternalStore } from 'react'
+import { createExternalStore } from './prefs/externalStore'
 import {
   browserStorage,
   defineBooleanPref,
@@ -54,48 +54,37 @@ export function saveNotePagerPref(
   NOTE_PAGER_PREF.save(storage, paged)
 }
 
-// 以下、購読の口 (secretSession.ts と同じ形)。
+// 以下、購読の口 (secretSession.ts と同じ形。prefs/externalStore.ts)。
 //
 // **window.localStorage を触ること自体が例外になる**ブラウザがある
 // (Cookie を全面禁止した Chrome など)。browserStorage がそれを null (= 既定) に畳む
 
-// 読んだ値を覚えておく。useSyncExternalStore は描画のたびに何度も
-// スナップショットを読むので、そのつど localStorage を叩かない
-let cached: boolean | null = null
-
-const listeners = new Set<() => void>()
+// 読んだ値はストアが覚えておく。useSyncExternalStore は描画のたびに何度も
+// スナップショットを読むので、そのつど localStorage を叩かない。
+//
+// **サーバ描画では必ず既定** — 端末の設定はブラウザにしかないので、サーバが
+// 描いた HTML と食い違わせないために serverSnapshot へ既定を渡す (React が
+// ハイドレーションの後に読み直す)
+const pagedStore = createExternalStore<boolean>({
+  initial: () => loadNotePagerPref(browserStorage()),
+  serverSnapshot: NOTE_PAGER_DEFAULT,
+})
 
 export function isNotePagerPaged(): boolean {
-  if (cached === null) {
-    cached = loadNotePagerPref(browserStorage())
-  }
-  return cached
+  return pagedStore.get()
 }
 
 export function setNotePagerPaged(paged: boolean): void {
-  cached = paged
   // 覚えられなくても、その場の切り替えは効いている
   saveNotePagerPref(browserStorage(), paged)
-  for (const listener of listeners) {
-    listener()
-  }
+  pagedStore.set(paged)
 }
 
 export function subscribeNotePagerPref(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
+  return pagedStore.subscribe(listener)
 }
 
-// ページ送りを使うかを購読する。**サーバ描画では必ず既定** — 端末の設定は
-// ブラウザにしかないので、サーバが描いた HTML と食い違わせないために
-// useSyncExternalStore の第 3 引数へ既定を渡す (React がハイドレーションの
-// 後に読み直す)
+// ページ送りを使うかを購読する (サーバ描画では既定)
 export function useNotePagerPaged(): boolean {
-  return useSyncExternalStore(
-    subscribeNotePagerPref,
-    isNotePagerPaged,
-    () => NOTE_PAGER_DEFAULT,
-  )
+  return pagedStore.useStore()
 }
