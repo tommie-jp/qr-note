@@ -78,7 +78,7 @@ describe("paneSizeFromPointer", () => {
   });
 });
 
-// 先回りスクリプト (layout.tsx が <head> に置く) は、上の実装と同じ答えを
+// 先回りスクリプト (PreHydrationScripts.tsx が layout の <head> に置く) は、上の実装と同じ答えを
 // 出さなければならない。ずれると読み込み直後だけ別の寸法で描かれる
 describe("PANE_SIZE_INIT_SCRIPT", () => {
   const run = (stored: Record<string, string>) => {

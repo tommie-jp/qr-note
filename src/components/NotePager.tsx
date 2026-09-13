@@ -121,7 +121,7 @@ export function pageFrameClass(
   // 画面のページと紙のページを一致させる (2 ページ目以降は改ページ)
   const breakBefore = index === 0 ? "" : "print:break-before-page";
   // scroll-mt-12 … 通し表示で `#p3` から送られてきたときに、ヘッダー
-  // (sticky。layout.tsx) の下へ潜らせない。帯の側と同じ値
+  // (sticky。chrome/AppHeader.tsx) の下へ潜らせない。帯の側と同じ値
   return `scroll-mt-12 ${hidden} ${breakBefore}`;
 }
 
@@ -192,7 +192,7 @@ export function NotePager({ pages }: NotePagerProps) {
       // 送るのは次の描画の枠で。ページを開き直した直後はまだ display:none で、
       // その場で呼んでも動かない
       requestAnimationFrame(() => {
-        // ヘッダーが sticky (layout.tsx) なので start だと帯の下に潜る。
+        // ヘッダーが sticky (chrome/AppHeader.tsx) なので start だと帯の下に潜る。
         // 本文の途中の要素に scroll-mt は当てられないため真ん中に置く
         targets[found]?.scrollIntoView({ block: "center" });
       });
@@ -220,7 +220,7 @@ export function NotePager({ pages }: NotePagerProps) {
   const currentPage = pages[current];
 
   return (
-    // scroll-mt-12 … ヘッダーが sticky (layout.tsx) なので、そのぶん手前で
+    // scroll-mt-12 … ヘッダーが sticky (chrome/AppHeader.tsx) なので、そのぶん手前で
     // 止めないとページを送った直後に帯が帯の下へ潜る。rem 指定なので
     // 文字サイズ設定 (docs/61) で root が伸びても一緒に伸びる
     <div className="space-y-2 scroll-mt-12" ref={topRef}>

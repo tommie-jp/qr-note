@@ -18,7 +18,7 @@ import {
 // 含むメニュー自体は大きくならない (noteFontScale.ts の冒頭に理由)。
 //
 // 保存は localStorage。サーバは倍率を知らないので、この部品だけで完結する。
-// 読み込み時の反映は layout.tsx の <head> に置いたインラインスクリプトが
+// 読み込み時の反映は layout の <head> に置いたインラインスクリプト (PreHydrationScripts.tsx) が
 // 先回りして済ませており、ここはその続きから始める
 // (useState の遅延初期化で同じ値を読むので、両者は必ず一致する)。
 //

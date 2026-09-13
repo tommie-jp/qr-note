@@ -332,7 +332,7 @@ function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
 const PROSE_TWEAKS =
   "[&_li.task-list-item]:list-none [&_li.task-list-item>p:first-child]:mt-0 [&_li.task-list-item>p:last-child]:mb-0 [&_.footnotes]:mt-6 [&_.footnotes]:border-t [&_.footnotes]:border-gray-300 [&_.footnotes]:pt-2";
 
-// 目次から飛んだ見出しを、ヘッダー (sticky top-0。layout.tsx) の下へ
+// 目次から飛んだ見出しを、ヘッダー (sticky top-0。chrome/AppHeader.tsx) の下へ
 // 潜らせないための余白。**id を振ったときだけ足す** — 飛び先になるのは
 // id を持つ見出しだけなので、付ける条件を id と揃えておく。
 // 値は NotePager が `#p3` の送り先に使っているものと同じ (帯の高さ)

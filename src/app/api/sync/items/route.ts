@@ -15,7 +15,7 @@ import { apiOk } from '@/lib/route/respond'
 //
 // デモでも断る。ここは /api/export と同じ「全データを 1 応答で持ち出す口」で、
 // 共有アカウントのデモに開けておく理由がない (docs/39-デモ公開計画.md §3)。
-// layout.tsx が !isDemo で仕掛けないようにもしてあるが、**旗の欠落に頼らない**
+// chrome/AppSideEffects.tsx が !isDemo で仕掛けないようにもしてあるが、**旗の欠落に頼らない**
 // のが route/guard.ts の流儀 — 画面を出さないことと、口を閉じることは別の話。
 //
 // 応答は apiOk が no-store を付ける。中間キャッシュに持たれると、別の端末で

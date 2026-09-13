@@ -70,7 +70,8 @@ export function noteFontScaleLabel(scale: number): string {
   return `${Math.round(scale * 100)}%`;
 }
 
-// 初回描画の前に走らせるスクリプト (layout.tsx が <head> へ inline で置く)。
+// 初回描画の前に走らせるスクリプト (chrome/PreHydrationScripts.tsx が layout の
+// <head> へ inline で置く)。
 //
 // useEffect で当てると、サーバが描いた等倍の本文が一度見えてから大きくなる。
 // 「文字サイズを上げた人」は毎回その跳ねを見ることになるので、HTML の解析中に

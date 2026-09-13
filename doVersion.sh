@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # package.json のバージョンを上げる。
-# 画面フッター (layout.tsx) はビルド時に package.json の version を
+# ヘッダーの版表示 (src/components/chrome/AppHeader.tsx) はビルド時に package.json の version を
 # 埋め込むので、バージョンアップ後に ./doDeploy.sh すれば表示も更新される。
 #
 # 使い方:

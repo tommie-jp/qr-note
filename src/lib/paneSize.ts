@@ -4,7 +4,7 @@
 // 一覧の底上げ padding も、カード一覧の広幅補正も、もとから同じ変数を
 // 見ているので (docs/86 §4)、ここで変数を書き換えれば全部が追随する。
 //
-// 保存は localStorage、初回描画前の反映は layout.tsx の <head> に置く
+// 保存は localStorage、初回描画前の反映は layout の <head> (PreHydrationScripts.tsx) に置く
 // インラインスクリプト — テキストサイズ (docs/61) と同じ作り。サーバは
 // 寸法を知らないので、この 2 つだけで完結する。
 
@@ -104,7 +104,8 @@ export function paneSizeFromPointer(
   return clampPaneSize(kind, (heightPx / viewport) * 100);
 }
 
-// 初回描画の前に走らせるスクリプト (layout.tsx が <head> へ inline で置く)。
+// 初回描画の前に走らせるスクリプト (chrome/PreHydrationScripts.tsx が layout の
+// <head> へ inline で置く)。
 //
 // useEffect で当てると、サーバが描いた既定の寸法でひととおり組まれた後に
 // ペインだけ動く。境界を動かした人は毎回その跳ねを見ることになるので、

@@ -38,7 +38,7 @@ export function qrBaseUrl(): string {
   return qrBaseUrlEnv() || DEFAULT_QR_BASE_URL;
 }
 
-// 起点を URL として解釈したもの。OGP の metadataBase (layout.tsx) と、
+// 起点を URL として解釈したもの。OGP の metadataBase (app/metadata.ts) と、
 // 下の qrStickerHost() が使う。
 //
 // **設定ミスで投げないのが要点。** QR_BASE_URL が URL として壊れていても

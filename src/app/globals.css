@@ -27,7 +27,7 @@ html {
   -webkit-text-size-adjust: 100%;
 
   /* 文字サイズ (docs/61-テキストサイズ計画.md)。--note-font-scale は
-     メニューの ＋ / − と、初回描画前に走る layout.tsx のインラインスクリプトが
+     メニューの ＋ / − と、初回描画前に走る layout のインラインスクリプト (PreHydrationScripts.tsx) が
      この html へ立てる。立っていなければ 1 = 従来どおり。
 
      **root ごと動かすのが要点。** 当初は本文の器にだけ倍率を掛けていたが、

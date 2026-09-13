@@ -24,11 +24,11 @@ import { useEscapeKey } from "./modal/useEscapeKey";
 // ヘッダーの構成ごと変える話なので別途 (§6 参照)。
 //
 // 中身は children で受け取る。こうすると HeaderMenu 自身はログイン状態を
-// 知らずに済み、layout.tsx (Server Component) が項目を組み立てられる
+// 知らずに済み、chrome/AppHeaderMenu.tsx (Server Component) が項目を組み立てられる
 // (LogoutButton などのクライアント側の部品もそのまま入れられる)。
 //
 // bgClass はヘッダーの帯と同じ地色。帯は 1 行に収めるため横スクロールする
-// ようになり (layout.tsx)、この開閉ボタンだけが sticky で貼り付いて残る。
+// ようになり (chrome/AppHeader.tsx)、この開閉ボタンだけが sticky で貼り付いて残る。
 // 下をサイト名や版が潜っていくので、同じ色で塞がないと文字が透ける。
 // 色を自前で持たず受け取るのは、帯と 2 か所に書き分けないため
 export function HeaderMenu({
@@ -73,7 +73,7 @@ export function HeaderMenu({
     // flex にしておくこと。block のままだとボタンは行ボックスに乗るため、
     // 下の負マージンが高さに効かず帯が縮まない。
     //
-    // sticky left-0 … 帯 (layout.tsx の器) が横スクロール容器なので、その中で
+    // sticky left-0 … 帯 (chrome/AppHeader.tsx の器) が横スクロール容器なので、その中で
     // 左端に貼り付く。**器の側に左パディングを置かないこと** — 静止位置が
     // left:0 とずれ、スクロールを始めた瞬間にボタンだけカクッと飛ぶ。
     // z-index は付けない: 位置指定要素なので、位置指定でない兄弟 (サイト名・

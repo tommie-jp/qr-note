@@ -19,7 +19,8 @@ import { SITE_DESCRIPTION, SITE_NAME, siteTitle } from "@/lib/site";
 // このアプリは検索も表示も編集もサーバ必須でオフラインに出来ることがほぼないため。
 // ローカルをホーム画面に入れている場合、standalone には URL バーが無く、
 // 本番と見分ける手がかりが名前・スプラッシュ・ステータスバーの帯しかない。
-// ブラウザ (layout.tsx) と同じ塗り分けをここにも入れる (src/lib/appEnv.ts)
+// ブラウザ (layout.tsx・app/metadata.ts・chrome/AppHeader.tsx) と同じ塗り分けを
+// ここにも入れる (src/lib/appEnv.ts)
 export default function manifest(): MetadataRoute.Manifest {
   const isProd = isProductionEnv();
 
@@ -40,7 +41,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     // body の背景 (起動時スプラッシュに出る)
     background_color: isProd ? PROD_BACKGROUND_COLOR : LOCAL_BACKGROUND_COLOR,
-    // ヘッダの色。layout.tsx の viewport.themeColor と揃える
+    // ヘッダの色。app/metadata.ts の viewport.themeColor と揃える
     theme_color: isProd ? PROD_THEME_COLOR : LOCAL_THEME_COLOR,
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

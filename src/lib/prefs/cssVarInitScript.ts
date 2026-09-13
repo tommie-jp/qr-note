@@ -1,7 +1,7 @@
 // 初回描画の前に、端末に覚えた値を CSS 変数へ写すインラインスクリプトの生成
 // (docs/93-リファクタリング計画.md §3-1)。
 //
-// layout.tsx が <head> に置く。useEffect で当てると、サーバが描いた既定の
+// chrome/PreHydrationScripts.tsx が layout の <head> に置く。useEffect で当てると、サーバが描いた既定の
 // 見た目でひととおり組まれた後に跳ねるので、HTML の解析中に同期で当てる
 // (Next の docs/01-app/02-guides/preventing-flash-before-hydration.md の theme と
 // 同じ手)。テキストサイズ (noteFontScale.ts) とペインの寸法 (paneSize.ts) が
@@ -11,7 +11,8 @@
 // JS の断片として二重に持つことになり、ずれると読み込み直後だけ別の見た目で
 // 描かれる。各モジュールのテストが TS の実装と同じ表で突き合わせている。
 //
-// サーバの layout から import されるので client-only は付けない。
+// サーバ側 (layout の <head> を組む PreHydrationScripts) から import されるので
+// client-only は付けない。
 
 export interface CssVarInitTarget {
   readonly storageKey: string

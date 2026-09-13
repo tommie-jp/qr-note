@@ -16,7 +16,7 @@ import { syncOfflineItems } from "@/lib/offline/sync";
 
 // オフライン用の下ごしらえ (docs/65-オフライン対応計画.md)。何も描かない。
 //
-// layout.tsx が**ログイン中のときだけ**置く。同期の口は 401 を返すので、
+// root layout (chrome/AppSideEffects.tsx) が**ログイン中のときだけ**置く。同期の口は 401 を返すので、
 // 未ログインで仕掛けても失敗するだけ (ClientLogCapture と同じ判断)。
 //
 // やることは 4 つ:
