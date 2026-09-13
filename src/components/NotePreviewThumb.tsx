@@ -23,7 +23,7 @@ import { DiagramIcon } from "@/components/icons";
 import { remarkAnswerSpoiler } from "@/components/remarkAnswerSpoiler";
 import {
   BASE_REHYPE_PLUGINS,
-  BASE_REMARK_PLUGINS,
+  NOTE_REMARK_PLUGINS,
   blockquoteWithAlert,
   type MarkdownComponentProps,
   readFence,
@@ -163,7 +163,7 @@ function previewImg({
 // ▶ の文字になる — 足さないと `||訳||` の文字がそのまま出て、答えが
 // 一覧のカードに漏れる
 const PREVIEW_REMARK_PLUGINS: PluggableList = [
-  ...BASE_REMARK_PLUGINS,
+  ...NOTE_REMARK_PLUGINS,
   [remarkAnswerSpoiler, { mask: true }],
 ];
 

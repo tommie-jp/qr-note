@@ -1,8 +1,6 @@
 import type { Root, RootContent, ThematicBreak } from "mdast";
-import remarkParse from "remark-parse";
-import { unified } from "unified";
+import { createNoteParser } from "@/lib/markdown/parser";
 import { memoSummary } from "@/lib/memoSummary";
-import { BASE_REMARK_PLUGINS } from "./remarkPlugins";
 
 // ノートをページに分ける (docs/74-ページ計画.md)。
 //
@@ -14,12 +12,13 @@ import { BASE_REMARK_PLUGINS } from "./remarkPlugins";
 // 表が真っ二つになる。circuitFences.ts が正規表現ではなく remark を使うのと
 // 同じ理由で、**表示側と必ず同じ解釈にする**。
 //
-// lib ではなくここに置いてあるのは、描画と**同じプラグイン列**
-// (remarkPlugins.ts の BASE_REMARK_PLUGINS) を共有するため。1 つでも欠けると
+// 解析は描画と**同じプラグイン列**で読む (lib/markdown/parser.ts の
+// createNoteParser)。1 つでも欠けると
 // 同じ本文が画面とページ分割で違う形に読まれる — 折りたたみを知らなければ
 // `:::details` の中の水平線で割れ、表を知らなければ表の直後の `---` が
 // setext 見出しの下線に見えて区切りが消え、数式を知らなければブロック数式の
-// 中で割れる (詳しくは remarkPlugins.ts)。
+// 中で割れる (詳しくは parser.ts)。lib ではなくここに置いてあるのは、列が
+// components 側にしか無かった頃の名残 (docs/74 §8)。
 
 // 書き手に案内する区切り (docs/メモ記法.md)。`***` / `___` も CommonMark の
 // 水平線なので remark は同じく区切りと読むが、案内するのはこれ 1 つに絞る
@@ -77,11 +76,10 @@ const MAYBE_THEMATIC_BREAK = /^[ \t]*[-*_][ \t]*[-*_][ \t]*[-*_][-*_ \t]*$/m;
 // parse だけで足りる (run は要らない) — 区切りも定義も構文の段階で決まる。
 // ただしプラグインの登録は描画と同じにしておかないと、micromark 拡張を
 // 持つもの (表・数式・折りたたみ) の読み方がずれる
+const NOTE_PARSER = createNoteParser();
+
 function parseNote(memo: string): Root {
-  return unified()
-    .use(remarkParse)
-    .use(BASE_REMARK_PLUGINS)
-    .parse(memo) as Root;
+  return NOTE_PARSER.parse(memo) as Root;
 }
 
 // 段落に食い込む罫線か (直前の行が段落の続き)。

@@ -1,7 +1,7 @@
 import Markdown from "react-markdown";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { BASE_REHYPE_PLUGINS, BASE_REMARK_PLUGINS } from "./markdownPipeline";
+import { BASE_REHYPE_PLUGINS, NOTE_REMARK_PLUGINS } from "./markdownPipeline";
 import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
 import { rehypeAnswerTts, ttsWordOf } from "./rehypeAnswerTts";
 import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
@@ -12,7 +12,7 @@ import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
 const render = (markdown: string) =>
   renderToStaticMarkup(
     <Markdown
-      remarkPlugins={[...BASE_REMARK_PLUGINS, remarkAnswerSpoiler]}
+      remarkPlugins={[...NOTE_REMARK_PLUGINS, remarkAnswerSpoiler]}
       rehypePlugins={[...BASE_REHYPE_PLUGINS, rehypeAnswerTts]}
       components={{
         span: ({ node, className, children }) =>

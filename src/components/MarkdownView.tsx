@@ -13,7 +13,7 @@ import { CircuitDiagram } from "./CircuitDiagram";
 import { QuizFence } from "./quiz/QuizFence";
 import {
   BASE_REHYPE_PLUGINS,
-  BASE_REMARK_PLUGINS,
+  NOTE_REMARK_PLUGINS,
   blockquoteWithAlert,
   spanWithAnswer,
   linkWithTarget,
@@ -359,9 +359,9 @@ export function MarkdownView({
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
   // 残るので、本文の見た目は「リンクでない #タグ」になる
   const remarkPlugins: PluggableList = [
-    ...BASE_REMARK_PLUGINS,
+    ...NOTE_REMARK_PLUGINS,
     ...(linkTags ? [remarkTagLinks] : []),
-    // 答え隠し `||答え||` (docs/79)。土台 (BASE) ではなくここに足すのは、
+    // 答え隠し `||答え||` (docs/79)。土台 (NOTE_REMARK_PLUGINS) ではなくここに足すのは、
     // 一覧のプレビューが押せる部品を持たないため — あちらは同じプラグインを
     // mask で通して ▶ の文字だけにする (NotePreviewThumb)
     remarkAnswerSpoiler,

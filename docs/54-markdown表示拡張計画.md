@@ -124,7 +124,8 @@ details 以外の directive が素通しすること。
 
 1. コピーボタン — `CodeBlock.tsx`。`readFence` は言語なしフェンスで null を
    返していたので、`lang: string | null` を返す形に変えて字下げコードにも出す
-2. アラート — `remarkAlerts.ts` + `MarkdownAlert.tsx` + blockquote 差し替え
+2. アラート — `remarkAlerts.ts` (当時のパス。現在は `src/lib/markdown/`。
+   `remarkDetails.ts` も同じ) + `MarkdownAlert.tsx` + blockquote 差し替え
 3. 脚注 — 壊れ方をテストで固定 → `clobberPrefix: ""` + `footnoteLabel`
 4. 折りたたみ — remark-directive 導入 + `remarkDetails.ts`
 
