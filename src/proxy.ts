@@ -6,6 +6,7 @@ import { loopbackRedirectUrl } from '@/lib/loopbackRedirect'
 import { OFFLINE_PATH } from '@/lib/offline/params'
 import { isPublicPath, isSelfGuardedPath } from '@/lib/publicPaths'
 import { resolveSession } from '@/lib/requestAuth'
+import { apiFail } from '@/lib/route/respond'
 import { renewSession } from '@/lib/sessionStore'
 import {
   SESSION_COOKIE_NAME,
@@ -92,10 +93,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   // API と書き込み (Server Action の POST を含む) は機械が読む口なので、
   // 案内の HTML を返しても意味がない。素直に断る
-  return NextResponse.json(
-    { success: false, data: null, error: 'ログインが必要です' },
-    { status: 401, headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiFail('ログインが必要です', 401)
 }
 
 // サイトの根。ここだけ noindex を付けない (理由は denyIndexing)

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
+import { apiOk } from '@/lib/route/respond'
 import { currentImport } from '@/lib/zip/importProgressStore'
 
 // 取り込みの進み具合を覗く (docs/28-エクスポート計画.md §9)。
@@ -19,9 +20,6 @@ export async function GET(request: Request): Promise<NextResponse> {
     return denied
   }
 
-  return NextResponse.json(
-    { success: true, data: currentImport(), error: null },
-    // 進み具合は一瞬で古くなる。中継にもブラウザにも溜めさせない
-    { headers: { 'Cache-Control': 'no-store' } },
-  )
+  // 進み具合は一瞬で古くなる。中継にもブラウザにも溜めさせない (apiOk の既定の no-store)
+  return apiOk(currentImport())
 }

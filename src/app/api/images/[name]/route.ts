@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { resolveByteRange } from '@/lib/httpRange'
 import { isPublicImageName } from '@/lib/items'
+import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { currentUser } from '@/lib/session'
 import { THUMB_MIME } from '@/lib/images/thumbConfig'
 import {
@@ -51,10 +52,7 @@ export async function GET(
   // position() へ渡すので、書式を確かめてから渡す。
   // 画像・音声のどちらの保存名も許す (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
   if (!isValidAttachmentName(name)) {
-    return NextResponse.json(
-      { success: false, data: null, error: '不正なファイル名です' },
-      { status: 400 },
-    )
+    return apiFail('不正なファイル名です', 400, WITHOUT_CACHE_CONTROL)
   }
 
   // 画像はメモの中身そのもの (メモに貼った写真) なので、ノート本文と同じく守る。
@@ -67,10 +65,7 @@ export async function GET(
   // proxy.ts はこの口を未ログインでも素通しする (isSelfGuardedPath)。
   // 素通しした以上、判定はここが唯一の砦になる
   if (!(await canView(name))) {
-    return NextResponse.json(
-      { success: false, data: null, error: 'ログインが必要です' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    )
+    return apiFail('ログインが必要です', 401)
   }
 
   // 動くサムネ。**代替を一切しない**のが要点 — 無ければ 404 を返し、表示側は
@@ -85,10 +80,7 @@ export async function GET(
     if (row?.thumbAnim) {
       return imageResponse(row.thumbAnim, THUMB_MIME, IMMUTABLE_CACHE)
     }
-    return NextResponse.json(
-      { success: false, data: null, error: '動くサムネイルがありません' },
-      { status: 404, headers: { 'Cache-Control': FALLBACK_CACHE } },
-    )
+    return apiFail('動くサムネイルがありません', 404, { cacheControl: FALLBACK_CACHE })
   }
 
   // サムネだけを引く。原寸 (data) は数 MB ありうるので、一覧の 20 枚分を
@@ -105,10 +97,7 @@ export async function GET(
     // 動画本体を返してしまうと、一覧や <video poster> の意図に反する。404 を返せば
     // ブラウザは poster を静かに無視する (41-QR-search/docs/14 §Phase4)。行が無い場合も 404。
     if (isValidVideoName(name)) {
-      return NextResponse.json(
-        { success: false, data: null, error: 'サムネイルがありません' },
-        { status: 404, headers: { 'Cache-Control': FALLBACK_CACHE } },
-      )
+      return apiFail('サムネイルがありません', 404, { cacheControl: FALLBACK_CACHE })
     }
     // 画像は未生成 (バックフィル前・生成失敗) なら原寸で代替する。一覧は重くなるが
     // 絵は出る。行そのものが無い場合もここを抜け、下の 404 に合流する
@@ -120,10 +109,7 @@ export async function GET(
   })
 
   if (!image) {
-    return NextResponse.json(
-      { success: false, data: null, error: '画像が見つかりません' },
-      { status: 404 },
-    )
+    return apiFail('画像が見つかりません', 404, WITHOUT_CACHE_CONTROL)
   }
 
   return dataResponse(

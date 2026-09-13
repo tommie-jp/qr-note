@@ -1,9 +1,10 @@
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server'
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite } from '@/lib/apiAuth'
-import { apiFail, apiOk, apiPasskeyDisabled, readJsonObject } from '@/lib/authApi'
+import { apiPasskeyDisabled, readJsonObject } from '@/lib/authApi'
 import { findCredential, touchPasskey } from '@/lib/passkeys'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import { issueSession } from '@/lib/sessionStore'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
 import {
@@ -11,6 +12,9 @@ import {
   consumeChallengeFromClientData,
 } from '@/lib/webauthnChallenge'
 import { webauthnConfig } from '@/lib/webauthnConfig'
+
+// 失敗はどれもこの 1 つの文言で返す (区別しない理由は POST の説明)
+const LOGIN_FAILED = 'ログインできませんでした。もう一度お試しください'
 
 // ログインの 2 歩目 — 署名を確かめてセッションを発行する
 // (docs/29-パスキー計画.md §4, §6)。
@@ -48,7 +52,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     // ここで消しておかないと、知らない credential ID を送りつけるだけで
     // 同じチャレンジを 5 分間何度でも生かしておける
     consumeChallengeFromClientData(response.response?.clientDataJSON)
-    return loginFailed()
+    return apiFail(LOGIN_FAILED, 401)
   }
 
   let verification
@@ -63,11 +67,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     })
   } catch (error) {
     console.error('パスキーのログイン検証に失敗しました', error)
-    return loginFailed()
+    return apiFail(LOGIN_FAILED, 401)
   }
 
   if (!verification.verified) {
-    return loginFailed()
+    return apiFail(LOGIN_FAILED, 401)
   }
 
   // カウンタを進め、最終使用日時を残す。
@@ -89,8 +93,4 @@ export async function POST(request: Request): Promise<NextResponse> {
   const result = apiOk({ userName: stored.userName })
   result.cookies.set(SESSION_COOKIE_NAME, session.token, sessionCookieOptions())
   return result
-}
-
-function loginFailed(): NextResponse {
-  return apiFail('ログインできませんでした。もう一度お試しください', 401)
 }

@@ -5,9 +5,9 @@
 // 書き写すと、片方だけ直して穴が開く。
 
 import type { NextResponse } from 'next/server'
-import { apiFail, apiOk } from './authApi'
 import { isDemoMode } from './appEnv'
 import { denyCrossSite, denyUnlessLoggedIn } from './apiAuth'
+import { apiFail, apiOk } from './route/respond'
 import type { QueryLists } from './searchQueries'
 import { currentUser } from './session'
 

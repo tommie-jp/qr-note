@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import type { NextResponse } from 'next/server'
 import { denyCrossSite } from '@/lib/apiAuth'
-import { apiOk } from '@/lib/authApi'
+import { apiOk } from '@/lib/route/respond'
 import { destroySession } from '@/lib/sessionStore'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
 

@@ -1,22 +1,9 @@
 // パスキーの口が共通で使う応答の組み立て (docs/29-パスキー計画.md §6)。
 //
-// 封筒の形 ({ success, data, error }) は既存の /api/* と揃える
-// (~/.claude の API Response Format にも合わせてある)。
-//
-// どの応答にも Cache-Control: no-store を付ける。チャレンジもセッションも
-// 「その 1 回だけ」の値で、nginx やブラウザに持たれると別の誰かに配られうる。
+// 封筒そのもの (apiOk / apiFail) は route/respond.ts が持つ。
 
-import { NextResponse } from 'next/server'
-
-const NO_STORE = { 'Cache-Control': 'no-store' }
-
-export function apiOk<T>(data: T, status = 200): NextResponse {
-  return NextResponse.json({ success: true, data, error: null }, { status, headers: NO_STORE })
-}
-
-export function apiFail(error: string, status: number): NextResponse {
-  return NextResponse.json({ success: false, data: null, error }, { status, headers: NO_STORE })
-}
+import type { NextResponse } from 'next/server'
+import { apiFail } from './route/respond'
 
 // 設定 (WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN) が無いとき。
 //

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import { SECRET_MIME_HEADER } from '@/lib/secretPayload'
-import { denySecretRequest, readSecretBody, secretFail } from '@/lib/secretRoute'
+import { denySecretRequest, readSecretBody } from '@/lib/secretRoute'
 import { findSecret, saveSecret } from '@/lib/secretStore'
 import { isValidSecretName } from '@/lib/secrets'
 
@@ -29,12 +30,12 @@ export async function GET(
 
   const { name } = await params
   if (!isValidSecretName(name)) {
-    return secretFail(400, '不正なシークレット名です')
+    return apiFail('不正なシークレット名です', 400)
   }
 
   const secret = await findSecret(name)
   if (secret === null) {
-    return secretFail(404, 'シークレットが見つかりません')
+    return apiFail('シークレットが見つかりません', 404)
   }
 
   return new NextResponse(new Uint8Array(secret.data), {
@@ -65,7 +66,7 @@ export async function PUT(
 
   const { name } = await params
   if (!isValidSecretName(name)) {
-    return secretFail(400, '不正なシークレット名です')
+    return apiFail('不正なシークレット名です', 400)
   }
 
   const body = await readSecretBody(request)
@@ -75,8 +76,5 @@ export async function PUT(
 
   await saveSecret(name, body.mime, body.bytes)
 
-  return NextResponse.json(
-    { success: true, data: { name }, error: null },
-    { headers: { 'Cache-Control': NO_STORE } },
-  )
+  return apiOk({ name })
 }

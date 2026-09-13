@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { storeAttachment } from '@/lib/attachmentStore'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
+import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {
   checkUploadRequest,
   maxAttachmentBytes,
@@ -12,10 +13,6 @@ import {
   megabytesLabel,
   tooLargeMessage,
 } from '@/lib/uploads'
-
-function errorResponse(status: number, error: string): NextResponse {
-  return NextResponse.json({ success: false, data: null, error }, { status })
-}
 
 // memo エディタからの画像アップロード。UUID 名で images テーブルに保存し、
 // 参照用の URL (/api/images/<name>) を返す。
@@ -38,7 +35,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const rejection = checkUploadRequest(request)
   if (rejection) {
-    return errorResponse(rejection.status, rejection.error)
+    return apiFail(rejection.error, rejection.status, WITHOUT_CACHE_CONTROL)
   }
 
   let file: FormDataEntryValue | null
@@ -66,21 +63,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     // する — かつてこの文言のせいで、上限超えの動画が「multipart の書き方の
     // 問題」に見えていた
     console.error('アップロードの multipart 解析に失敗しました:', error)
-    return errorResponse(
-      400,
+    return apiFail(
       'アップロードに失敗しました (本文が最後まで届きませんでした)。' +
         `ファイルが大きすぎる可能性があります (最大 ${megabytesLabel(maxUploadBytes())})`,
+      400,
+      WITHOUT_CACHE_CONTROL,
     )
   }
 
   if (!(file instanceof File)) {
-    return errorResponse(400, 'file フィールドがありません')
+    return apiFail('file フィールドがありません', 400, WITHOUT_CACHE_CONTROL)
   }
 
   // 原寸を Uint8Array に読む前に、申告サイズで弾けるものは弾く。
   // 上限はデモインスタンスでは縮む (docs/38 §5。maxUploadBytes が env で切り替え)
   if (file.size > maxUploadBytes()) {
-    return errorResponse(400, tooLargeMessage(maxUploadBytes()))
+    return apiFail(tooLargeMessage(maxUploadBytes()), 400, WITHOUT_CACHE_CONTROL)
   }
 
   // デモの総量クォータ (docs/39-デモ公開計画.md §2-1)。デモのときだけ、
@@ -88,7 +86,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 認証・CSRF・サイズの安い検査をすべて通した後に置く
   const quota = await checkDemoUploadQuota(file.size)
   if (quota) {
-    return errorResponse(quota.status, quota.error)
+    return apiFail(quota.error, quota.status, WITHOUT_CACHE_CONTROL)
   }
 
   // 動画の poster (WebP) が付いていれば読む。動画以外では無視される
@@ -129,12 +127,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     videoFrames,
   })
   if (!stored.ok) {
-    return errorResponse(400, stored.reason)
+    return apiFail(stored.reason, 400, WITHOUT_CACHE_CONTROL)
   }
 
-  return NextResponse.json({
-    success: true,
-    data: { url: stored.url },
-    error: null,
-  })
+  return apiOk({ url: stored.url }, 200, WITHOUT_CACHE_CONTROL)
 }

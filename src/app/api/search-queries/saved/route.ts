@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
-import { apiFail, apiOk, readJsonObject } from '@/lib/authApi'
+import type { NextResponse } from 'next/server'
+import { readJsonObject } from '@/lib/authApi'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import { isRecordableQuery, SAVED_LIMIT } from '@/lib/searchQueries'
 import { searchQueryUser } from '@/lib/searchQueryRoute'
 import { registerSaved, unregisterSaved } from '@/lib/searchQueryStore'

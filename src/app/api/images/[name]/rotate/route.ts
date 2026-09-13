@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import { saveImage } from '@/lib/imageStore'
 import { rewriteImageReference } from '@/lib/items'
+import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {
   isRotatableExt,
   isRotateAngle,
@@ -13,10 +14,6 @@ import { isValidImageName } from '@/lib/uploads'
 
 interface RouteContext {
   params: Promise<{ name: string }>
-}
-
-function errorResponse(status: number, error: string): NextResponse {
-  return NextResponse.json({ success: false, data: null, error }, { status })
 }
 
 // 挿入済み画像を 90° 単位で回す (docs/49-画像回転計画.md)。
@@ -38,24 +35,24 @@ export async function POST(
 
   // 名前の検算が先。この後 DB へ渡す値なので書式を確かめる (route.ts と同じ線引き)
   if (!isValidImageName(name)) {
-    return errorResponse(400, '不正なファイル名です')
+    return apiFail('不正なファイル名です', 400, WITHOUT_CACHE_CONTROL)
   }
 
   // gif は回さない — アニメ GIF のフレーム保持が sharp 既定では効かず、
   // 静止画に潰れてしまうため。動画・音声・PDF は isValidImageName で既に外れる
   const ext = name.split('.').pop() ?? ''
   if (!isRotatableExt(ext)) {
-    return errorResponse(400, 'この形式は回転できません')
+    return apiFail('この形式は回転できません', 400, WITHOUT_CACHE_CONTROL)
   }
 
   let angle: unknown
   try {
     angle = (await request.json())?.angle
   } catch {
-    return errorResponse(400, 'JSON の body を送信して下さい')
+    return apiFail('JSON の body を送信して下さい', 400, WITHOUT_CACHE_CONTROL)
   }
   if (!isRotateAngle(angle)) {
-    return errorResponse(400, 'angle は 90 / 180 / 270 のいずれかです')
+    return apiFail('angle は 90 / 180 / 270 のいずれかです', 400, WITHOUT_CACHE_CONTROL)
   }
 
   const image = await prisma.image.findUnique({
@@ -63,7 +60,7 @@ export async function POST(
     select: { data: true, mime: true },
   })
   if (!image) {
-    return errorResponse(404, '画像が見つかりません')
+    return apiFail('画像が見つかりません', 404, WITHOUT_CACHE_CONTROL)
   }
 
   // デモの総量クォータ (docs/39 §2-1)。回転は 1 枚ぶん実データが増えるので、
@@ -72,7 +69,7 @@ export async function POST(
   // ほぼ変わらないので、原寸のバイト数で見積もって十分 (クォータは元より近似)。
   const quota = await checkDemoUploadQuota(image.data.byteLength)
   if (quota) {
-    return errorResponse(quota.status, quota.error)
+    return apiFail(quota.error, quota.status, WITHOUT_CACHE_CONTROL)
   }
 
   // 回転 + 再符号化。壊れた画像・符号化失敗は 500 ではなく 400 で断る
@@ -86,7 +83,7 @@ export async function POST(
     )
   } catch (error) {
     console.error(`画像の回転に失敗しました (${name}, ${angle}°):`, error)
-    return errorResponse(400, '画像を回転できませんでした')
+    return apiFail('画像を回転できませんでした', 400, WITHOUT_CACHE_CONTROL)
   }
 
   // 新 UUID で保存し直す (thumb + embedding も自動再生成)。mime は保存済みの
@@ -97,5 +94,5 @@ export async function POST(
   // この画像を参照する本文をすべて新 URL へ追随させる (ゴミ箱内も含む)
   await rewriteImageReference(name, newName)
 
-  return NextResponse.json({ success: true, data: { url: newUrl }, error: null })
+  return apiOk({ url: newUrl }, 200, WITHOUT_CACHE_CONTROL)
 }

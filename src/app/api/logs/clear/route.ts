@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { clearLogBuffer } from '@/lib/logBuffer'
+import { apiOk } from '@/lib/route/respond'
 
 // ログの控えを消す (docs/30-ブラウザログ計画.md §7)。/logs のクリアボタンが呼ぶ。
 // 実機調査で「ここから先が今回の再現」と区切りを付けるための口。
@@ -18,8 +19,5 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   clearLogBuffer()
 
-  return NextResponse.json(
-    { success: true, data: null, error: null },
-    { headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiOk(null)
 }

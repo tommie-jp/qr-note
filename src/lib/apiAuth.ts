@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { isDemoMode } from './appEnv'
 import { isCrossSiteRequest } from './crossSite'
+import { apiFail } from './route/respond'
 import { currentUser } from './session'
 
 // route handler 用の門番 (docs/18-ログイン計画.md)。
@@ -20,10 +21,7 @@ export async function denyUnlessLoggedIn(): Promise<NextResponse | null> {
   if ((await currentUser()) !== null) {
     return null
   }
-  return NextResponse.json(
-    { success: false, data: null, error: 'ログインが必要です' },
-    { status: 401, headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiFail('ログインが必要です', 401)
 }
 
 // 第三者のページから動かされた呼び出しを断る (docs/18-ログイン計画.md §9)。
@@ -40,10 +38,7 @@ export function denyCrossSite(request: Request): NextResponse | null {
   if (!isCrossSiteRequest(request)) {
     return null
   }
-  return NextResponse.json(
-    { success: false, data: null, error: 'クロスサイトからの呼び出しは許可されていません' },
-    { status: 403, headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiFail('クロスサイトからの呼び出しは許可されていません', 403)
 }
 
 // デモインスタンスで閉じる口を断る (docs/38-デモモード計画.md §4)。
@@ -61,8 +56,5 @@ export function denyIfDemoMode(): NextResponse | null {
   if (!isDemoMode()) {
     return null
   }
-  return NextResponse.json(
-    { success: false, data: null, error: 'デモモードでは利用できません' },
-    { status: 403, headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiFail('デモモードでは利用できません', 403)
 }

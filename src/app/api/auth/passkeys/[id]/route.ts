@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
-import { apiFail, apiOk } from '@/lib/authApi'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import { deletePasskey } from '@/lib/passkeys'
 
 // 登録済みパスキーを 1 つ消す (docs/29-パスキー計画.md §6, §8)。

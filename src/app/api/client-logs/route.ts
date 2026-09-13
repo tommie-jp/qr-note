@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { deviceLabel, parseClientLogPayload } from '@/lib/clientLogPayload'
 import { pushBrowserLogs } from '@/lib/logBuffer'
+import { apiFail, apiOk } from '@/lib/route/respond'
+
+// JSON にならない本文も、形の違う本文も同じ文言で断る
+const BAD_PAYLOAD = 'ログの形式が不正です'
 
 // ブラウザで起きた失敗を受け取る (docs/30-ブラウザログ計画.md §1)。
 // 控えは /logs がサーバのログと混ぜて出す。
@@ -26,26 +30,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     body = await request.json()
   } catch {
-    return badRequest()
+    return apiFail(BAD_PAYLOAD, 400)
   }
 
   const items = parseClientLogPayload(body)
   if (items === null) {
-    return badRequest()
+    return apiFail(BAD_PAYLOAD, 400)
   }
 
   pushBrowserLogs(items, deviceLabel(request.headers.get('user-agent')))
 
   // 送りっぱなしで良い口なので中身は返さない (Beacon は応答を読めない)
-  return NextResponse.json(
-    { success: true, data: null, error: null },
-    { headers: { 'Cache-Control': 'no-store' } },
-  )
-}
-
-function badRequest(): NextResponse {
-  return NextResponse.json(
-    { success: false, data: null, error: 'ログの形式が不正です' },
-    { status: 400, headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiOk(null)
 }

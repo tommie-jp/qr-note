@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
 import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { lookupProduct } from '@/lib/productLookup'
+import {
+  apiDemoDisabled,
+  apiFail,
+  apiOk,
+  WITHOUT_CACHE_CONTROL,
+} from '@/lib/route/respond'
 import { isJan } from '@/lib/scanRegister'
 
 // JAN の商品情報を返す (設計は docs/14-JAN商品情報取得計画.md)。
@@ -32,33 +38,22 @@ export async function GET(
   // 黙って「見つかりませんでした」になるより、デモだと明示する (books と同じ扱い)。
   // 表示文言はクライアント (MemoEditor) 側
   if (isDemoMode()) {
-    return NextResponse.json({
-      success: false,
-      data: null,
-      error: 'デモ版では JAN 情報を取得できません',
-      demoDisabled: true,
-    })
+    return apiDemoDisabled('デモ版では JAN 情報を取得できません')
   }
 
   const { jan } = await params
   // 外から来る値なので必ず検算する。13 桁の数字だけを外部 API の URL に
   // 載せることになり、ISBN は書籍側 (/api/books/) にしか行かない
   if (!isJan(jan)) {
-    return NextResponse.json(
-      { success: false, data: null, error: 'JAN ではありません' },
-      { status: 400 },
-    )
+    return apiFail('JAN ではありません', 400, WITHOUT_CACHE_CONTROL)
   }
 
   try {
     const product = await lookupProduct(jan)
-    return NextResponse.json({ success: true, data: product, error: null })
+    return apiOk(product, 200, WITHOUT_CACHE_CONTROL)
   } catch (err) {
     // 「見つからなかった」ではなく「訊けなかった」。中身は返さずログに残す
     console.error('商品情報の取得に失敗しました', err)
-    return NextResponse.json(
-      { success: false, data: null, error: '商品情報の取得に失敗しました' },
-      { status: 502 },
-    )
+    return apiFail('商品情報の取得に失敗しました', 502, WITHOUT_CACHE_CONTROL)
   }
 }

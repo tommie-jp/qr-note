@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { readJsonObject } from '@/lib/authApi'
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytesBase64'
-import { denySecretRequest, secretFail } from '@/lib/secretRoute'
+import { apiFail, apiOk } from '@/lib/route/respond'
+import { denySecretRequest } from '@/lib/secretRoute'
 import {
   deleteKeyring,
   findKeyringVerifier,
@@ -32,7 +33,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const verifier = await findKeyringVerifier()
   const wraps = await listKeyWraps()
 
-  return keyringOk({
+  return apiOk({
     initialized: verifier !== null,
     verifier: verifier === null ? null : bytesToBase64(verifier),
     // 包んだ後のバイト列なので、ログイン済みの相手にまとめて返してよい
@@ -58,7 +59,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const verifier = readKeyBytes(body?.verifier)
   const wrap = readWrapFields(body)
   if (verifier === null || wrap === null) {
-    return secretFail(400, 'リクエストの形式が正しくありません')
+    return apiFail('リクエストの形式が正しくありません', 400)
   }
 
   // **パスキーの存在確認が先**。逆順にすると、知らないパスキーで設定を試みた
@@ -66,11 +67,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   // まだ画面に出ていないので誰にも開けられず、しかも初回設定は 409 で断られる
   // ため作り直せない (secretStore.ts の hasCredential に経緯)
   if (!(await hasCredential(wrap.credentialId))) {
-    return secretFail(404, 'そのパスキーは登録されていません')
+    return apiFail('そのパスキーは登録されていません', 404)
   }
 
   if (!(await initKeyring(verifier))) {
-    return secretFail(409, '暗号化は既に設定されています')
+    return apiFail('暗号化は既に設定されています', 409)
   }
 
   // 存在確認と書き込みの間にパスキーが消える競合はありうる (別タブでの削除)。
@@ -78,10 +79,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 作り直そうとしても 409 で断られる行き止まりになる。畳んでやり直させる
   if (!(await saveKeyWrap(wrap.credentialId, wrap.wrapped))) {
     await deleteKeyring()
-    return secretFail(404, 'そのパスキーは登録されていません')
+    return apiFail('そのパスキーは登録されていません', 404)
   }
 
-  return keyringOk({ initialized: true })
+  return apiOk({ initialized: true })
 }
 
 // 2 台目以降 (または作り直し) の包みを足す。
@@ -94,26 +95,19 @@ export async function PUT(request: Request): Promise<NextResponse> {
   const body = await readJsonObject(request)
   const wrap = readWrapFields(body)
   if (wrap === null) {
-    return secretFail(400, 'リクエストの形式が正しくありません')
+    return apiFail('リクエストの形式が正しくありません', 400)
   }
 
   // 鍵束が無いのに包みだけ足せると、検証値と噛み合わない鍵が入りうる
   if ((await findKeyringVerifier()) === null) {
-    return secretFail(409, '先に暗号化を設定してください')
+    return apiFail('先に暗号化を設定してください', 409)
   }
 
   if (!(await saveKeyWrap(wrap.credentialId, wrap.wrapped))) {
-    return secretFail(404, 'そのパスキーは登録されていません')
+    return apiFail('そのパスキーは登録されていません', 404)
   }
 
-  return keyringOk({ initialized: true })
-}
-
-function keyringOk<T>(data: T): NextResponse {
-  return NextResponse.json(
-    { success: true, data, error: null },
-    { headers: { 'Cache-Control': 'no-store' } },
-  )
+  return apiOk({ initialized: true })
 }
 
 // base64 の鍵材料を読む。形式違い・長すぎるものは null。

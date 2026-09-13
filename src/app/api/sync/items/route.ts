@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
-import { apiOk } from '@/lib/authApi'
 import { loadOfflineSyncPayload } from '@/lib/offline/syncItems'
+import { apiOk } from '@/lib/route/respond'
 
 // オフライン用にノートをまるごと持ち出す口 (docs/65-オフライン対応計画.md §1)。
 //

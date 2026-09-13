@@ -4,21 +4,15 @@
 // 断片は base64 にせず application/octet-stream で生のまま運ぶ (数 MB を
 // 33% 太らせないため)。復号後の種別だけをヘッダで申告させる。
 
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from './apiAuth'
+import { apiFail } from './route/respond'
 import {
   checkSecretPayload,
   MAX_SECRET_VIDEO_BYTES,
   SECRET_MIME_HEADER,
 } from './secretPayload'
 import { checkUploadRequest, MULTIPART_OVERHEAD_BYTES } from './uploads'
-
-export function secretFail(status: number, error: string): NextResponse {
-  return NextResponse.json(
-    { success: false, data: null, error },
-    { status, headers: { 'Cache-Control': 'no-store' } },
-  )
-}
 
 // どの口にも共通の門番。
 //
@@ -51,7 +45,7 @@ export async function readSecretBody(
     MAX_SECRET_VIDEO_BYTES + MULTIPART_OVERHEAD_BYTES,
   )
   if (rejection) {
-    return secretFail(rejection.status, rejection.error)
+    return apiFail(rejection.error, rejection.status)
   }
 
   const mime = request.headers.get(SECRET_MIME_HEADER) ?? ''
@@ -62,13 +56,13 @@ export async function readSecretBody(
   } catch (error) {
     // 途中で切れた通信など。400 を返すが原因はログに残す (api/images と同じ)
     console.error('シークレットの本文の読み取りに失敗しました:', error)
-    return secretFail(400, '本文を読み取れませんでした')
+    return apiFail('本文を読み取れませんでした', 400)
   }
 
   // 申告 (Content-Length) が無くても実測で必ず確かめる
   const denied = checkSecretPayload(mime, bytes.byteLength)
   if (denied) {
-    return secretFail(denied.status, denied.error)
+    return apiFail(denied.error, denied.status)
   }
 
   return { mime, bytes }

@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
 import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { formatJstDate } from '@/lib/datetime'
 import { parseSelectedItemNos } from '@/lib/itemSelection'
+import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { exportEntries } from '@/lib/zip/exportZip'
 import { createZipStream } from '@/lib/zip/zipStream'
 
@@ -32,21 +32,21 @@ export async function POST(request: Request): Promise<Response> {
     formData = await request.formData()
   } catch (error) {
     console.error('エクスポート要求の解析に失敗しました:', error)
-    return errorResponse(400, 'フォームの形式が正しくありません')
+    return apiFail('フォームの形式が正しくありません', 400, WITHOUT_CACHE_CONTROL)
   }
 
   const scope = formData.get('scope')
   if (scope !== 'all' && scope !== 'selected') {
     // **既定を「全件」に倒さない**。選択の受け渡しが壊れたときに黙って全件を
     // 書き出すより、断って気づけるほうがよい
-    return errorResponse(400, 'scope には all か selected を指定して下さい')
+    return apiFail('scope には all か selected を指定して下さい', 400, WITHOUT_CACHE_CONTROL)
   }
 
   // 番号の検証・重複除去・上限は一括操作 (タグ付け・ゴミ箱行き) と同じ
   // parseSelectedItemNos を通す。フォームの形が同じなので解釈も 1 か所に置く
   const itemNos = scope === 'selected' ? parseSelectedItemNos(formData) : null
   if (itemNos !== null && itemNos.length === 0) {
-    return errorResponse(400, 'ノートが選択されていません')
+    return apiFail('ノートが選択されていません', 400, WITHOUT_CACHE_CONTROL)
   }
 
   return new Response(createZipStream(exportEntries(itemNos)), {
@@ -64,8 +64,4 @@ export async function POST(request: Request): Promise<Response> {
 // 日付は JST — 手元に落ちたときに「いつ取ったか」が地元の日付で読める
 function exportFileName(): string {
   return `qr-note-export-${formatJstDate(new Date())}.zip`
-}
-
-function errorResponse(status: number, error: string): NextResponse {
-  return NextResponse.json({ success: false, data: null, error }, { status })
 }
