@@ -9,6 +9,7 @@
 // 持つより単純で、画像 GC (docs/20-画像GC計画.md) とも干渉しない — 行が消えれば
 // サムネも一緒に消える。
 
+import 'server-only'
 import sharp from 'sharp'
 import { MAX_INPUT_PIXELS, THUMB_MAX_PX } from './images/thumbConfig'
 

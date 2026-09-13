@@ -11,6 +11,8 @@
 // 「いつ試したか」は成功・失敗に関わらず残したいから — 失敗のたびに
 // 全力で撃ち直すと、圏外で開くたびにタイムアウトを待つことになる。
 
+import 'client-only'
+
 export const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
 
 export const LAST_SYNC_ATTEMPT_KEY = 'qr-search:offline-sync-attempt'

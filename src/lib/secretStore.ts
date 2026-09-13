@@ -4,6 +4,7 @@
 // バイト列で、サーバに鍵は無い。images テーブルと違いサムネも埋め込みも
 // 作らないのが要点で、そのために表ごと分けてある (docs/51 §5)。
 
+import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from './db'
 

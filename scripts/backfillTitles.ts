@@ -14,7 +14,7 @@
 // そのとき url を見る (src/lib/sortOrder.ts) ので、ここで url を入れてはいけない
 // —— 正本が二重になる。
 //
-// 使い方: npx tsx scripts/backfillTitles.ts
+// 使い方: npx tsx --conditions=react-server scripts/backfillTitles.ts
 //   (本番/デモへは ./doBackfillTitles.sh 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'

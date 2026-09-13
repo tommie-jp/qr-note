@@ -8,6 +8,7 @@
 // v5 は外部実体参照 (XXE) と引数実体を明示的に拒み、実体展開にも上限がある。
 // **その安全側の既定に乗るため、DOCTYPE を自前で剥がしたりしない**。
 
+import 'server-only'
 import { createHash } from 'node:crypto'
 import { XMLParser, XMLValidator } from 'fast-xml-parser'
 

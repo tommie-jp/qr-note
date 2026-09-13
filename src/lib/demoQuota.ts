@@ -4,6 +4,7 @@
 // demoLimits.ts の純関数 (exceedsUploadQuota / exceedsItemQuota) が持ち、
 // 合計・件数を DB から取るのがこの層の役目。route / items は結果を使うだけ。
 
+import 'server-only'
 import { isDemoMode } from './appEnv'
 import { prisma } from './db'
 import { exceedsItemQuota, exceedsUploadQuota } from './demoLimits'

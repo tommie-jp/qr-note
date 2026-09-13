@@ -9,6 +9,7 @@
 // **入らなかったものは必ずレポートに出す** — 黙って落とすと、利用者は全ノートを
 // 目視するまで欠落に気づけない。
 
+import 'server-only'
 import { restoreAttachment } from '@/lib/attachmentStore'
 import { ownedBytes } from '@/lib/bytes'
 import { prisma } from '@/lib/db'

@@ -10,6 +10,8 @@
 // 歴史的に不安定なので、壊れていたら消してやり直す (openDb)。失敗は握り潰さず
 // 投げ、呼び出し側が「保存が無い」状態へ倒す。
 
+import 'client-only'
+
 const DB_NAME = 'qr-search-offline'
 // 2: keyring ストアを足した (シークレットのオフライン解錠)
 const DB_VERSION = 2

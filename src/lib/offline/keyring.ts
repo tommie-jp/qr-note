@@ -20,6 +20,7 @@
 // **捨てて作り直せるキャッシュ**として扱う。読めなければ「写しが無い」と
 // 同じ扱いで、オンラインに戻れば取り直せる。
 
+import 'client-only'
 import type { KeyringState, KeyWrapInfo } from '@/lib/secretApi'
 import { deleteRecord, getRecord, putRecord } from './idb'
 

@@ -1,3 +1,4 @@
+import 'server-only'
 import { prisma } from './db'
 import { assertSafeCircuitSvg, circuitHash } from './circuit/hash'
 import { CircuitRenderError } from './circuit/renderError'

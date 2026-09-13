@@ -89,6 +89,8 @@ if [ "$DB_NAME" = "$SEED_DB_NAME" ]; then
 fi
 
 log "見出しを切り出し直す"
-npx tsx scripts/backfillTitles.ts
+# --conditions=react-server … src/lib のサーバ専用 module は import 'server-only' を
+# 持ち、この条件で解決しないと import した瞬間に throw する (docs/93 §2-2)
+npx tsx --conditions=react-server scripts/backfillTitles.ts
 
 log "完了"

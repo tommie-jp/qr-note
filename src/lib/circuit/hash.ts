@@ -6,6 +6,7 @@
 // 起動部を抱え込まないようにする。**このファイルに child_process や prisma を
 // 足さないこと** (node:crypto だけを使う)
 
+import 'server-only'
 import { createHash } from 'node:crypto'
 import { CircuitRenderError } from './renderError'
 

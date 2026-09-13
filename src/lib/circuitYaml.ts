@@ -1,3 +1,4 @@
+import 'server-only'
 import { VERSION, compileCircuit, finishSvg } from 'circuit-fence/core'
 import {
   RENDERER_VERSION,

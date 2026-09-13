@@ -24,6 +24,7 @@
 // 失敗させる。全件バックアップは pg_dump の担当 (§冒頭) なので、ここが
 // 4GB を超える日が来たら分割エクスポートを設計する。
 
+import 'server-only'
 import { deflateRawSync, crc32 } from 'node:zlib'
 
 export interface ZipEntry {

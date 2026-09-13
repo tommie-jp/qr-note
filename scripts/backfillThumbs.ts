@@ -2,7 +2,7 @@
 // thumb は data 由来の派生キャッシュのため、いつでも再実行して整合を回復できる。
 // 冪等: 既に埋まっている行は飛ばす (--force で作り直す)。
 //
-// 使い方: npx tsx scripts/backfillThumbs.ts [--force]
+// 使い方: npx tsx --conditions=react-server scripts/backfillThumbs.ts [--force]
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { makeThumbnail } from '@/lib/thumbnail'

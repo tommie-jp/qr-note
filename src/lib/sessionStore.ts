@@ -6,6 +6,7 @@
 // トークンの作り方と寿命の計算は sessionToken.ts (純粋な層)。
 // リクエストとの結びつけは requestAuth.ts。
 
+import 'server-only'
 import { prisma } from './db'
 import {
   createSessionToken,

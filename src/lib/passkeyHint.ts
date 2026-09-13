@@ -14,6 +14,8 @@
 // storage が使えない環境 (プライベートモード、storage 無効) では
 // **すべて「無し」に倒れる**。自動が出なくなるだけで、手動のログインは無傷。
 
+import 'client-only'
+
 const HINT_KEY = 'qr-passkey-used-here'
 const SUPPRESS_KEY = 'qr-passkey-auto-suppressed'
 

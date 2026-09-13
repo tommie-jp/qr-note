@@ -4,6 +4,7 @@
 // 添付は 1 件が数 MB あり、全ノート分を配列に集めると本番 VPS (RAM 2GB) では
 // 足りない。zipStream.ts の背圧がそのままこの関数の歩みになる。
 
+import 'server-only'
 import { prisma } from '@/lib/db'
 import { buildExportMeta } from './exportMeta'
 import { attachmentEntryPath, META_ENTRY_PATH, noteEntryPath } from './layout'

@@ -13,6 +13,7 @@
 // 本文をすべて置くと将来詰まる) と、同期 API を待たずに読める非同期性のため。
 // IndexedDB そのものの配管は idb.ts が持つ。
 
+import 'client-only'
 import { deleteRecord, getRecord, putRecord } from './idb'
 import { parseSyncPayload, type OfflineSyncPayload } from './item'
 import { clearKeyringCache } from './keyring'

@@ -12,6 +12,7 @@
 // 出力は**クレデンシャルごと**に決まる (端末ごとではない)。iCloud キーチェーンで
 // 同期されたパスキーは iPhone / iPad / Mac で同じ値を返す。
 
+import 'client-only'
 import { base64UrlToBytes } from './bytesBase64'
 import { PRF_SALT } from './secretKeyring'
 

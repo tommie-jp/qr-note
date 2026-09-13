@@ -4,6 +4,7 @@
 // 呼び出し側 (api/images/[name]/rotate) はこれを saveImage() に渡して**新 UUID で
 // 保存し直す** — 同名上書きは immutable キャッシュに阻まれるため (docs/49 §1)。
 
+import 'server-only'
 import sharp from 'sharp'
 import { MAX_INPUT_PIXELS } from './images/thumbConfig'
 

@@ -9,6 +9,7 @@
 // このモジュールは prisma を引き込むサーバ専用。client component からは
 // 値を import しないこと。返り値の型 (CircuitThumbMap) は葉の
 // circuit/types.ts に置いてあり、表示側はそちらを import する
+import 'server-only'
 import { prisma } from './db'
 import { assertSafeCircuitSvg, circuitHash } from './circuit/hash'
 import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './circuit/types'

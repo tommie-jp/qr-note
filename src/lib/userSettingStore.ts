@@ -10,6 +10,7 @@
 //
 // **サーバ専用。** prisma を掴むので、クライアント部品から import しないこと
 
+import 'server-only'
 import { prisma } from './db'
 
 export async function readUserSetting(

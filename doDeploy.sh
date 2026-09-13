@@ -518,7 +518,9 @@ DATABASE_URL="$REMOTE_DB_URL" npx prisma migrate deploy
 # 次のデプロイで自然に直る。リモートにはソースが無いのでローカルから叩く
 # (このトンネルは prisma migrate deploy が使うのと同じもの)。
 echo "--- タスク数の派生列を数え直す"
-DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTaskCounts.ts
+# --conditions=react-server … src/lib のサーバ専用 module は import 'server-only' を
+# 持ち、この条件で解決しないと import した瞬間に throw する (docs/93 §2-2)
+DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfillTaskCounts.ts
 
 # 見出しの派生列を切り出し直す (docs/63-タイトル順計画.md §4)。
 #
@@ -529,7 +531,7 @@ DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTaskCounts.ts
 # タスク数と同じく冪等で、値が合っている行は書かない (598 件で 1 秒未満) ので
 # 毎回流す。派生列を更新しない経路 (Ver1 取り込み) で狂っても次のデプロイで直る。
 echo "--- 見出しの派生列を切り出し直す"
-DATABASE_URL="$REMOTE_DB_URL" npx tsx scripts/backfillTitles.ts
+DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfillTitles.ts
 
 # デモは live の qr を migrate しただけでは足りない。種 qr_seed が旧スキーマのまま
 # 残り、次の毎時リセット (`createdb -T qr_seed qr`) がスキーマを巻き戻して app が
@@ -575,12 +577,12 @@ if [ "$DEMO" = 1 ]; then
   # 見えなくなる。スキーマ同期をここに置いているのと同じ理由で、忘れないよう
   # 隣に並べる。
   echo "--- 種の見出しを切り出し直す"
-  DATABASE_URL="$SEED_DB_URL" npx tsx scripts/backfillTitles.ts
+  DATABASE_URL="$SEED_DB_URL" npx tsx --conditions=react-server scripts/backfillTitles.ts
 
   # タスク数も同じ理由で埋め直す (live 側は上で流している)。派生列を 1 つだけ
   # 直しても、もう片方が巻き戻れば結局ちぐはぐになる
   echo "--- 種のタスク数を数え直す"
-  DATABASE_URL="$SEED_DB_URL" npx tsx scripts/backfillTaskCounts.ts
+  DATABASE_URL="$SEED_DB_URL" npx tsx --conditions=react-server scripts/backfillTaskCounts.ts
 
   # ここで直した種の索引は、次の reseedDemo.sh の createdb -T でまた壊れる。
   # それでよい — あちらは複製の直後に live を REINDEX するので live は健全に

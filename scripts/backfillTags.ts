@@ -2,7 +2,7 @@
 // tags は memo 由来の派生キャッシュのため、いつでも再実行して整合を回復できる。
 // 冪等: 何度実行しても結果は同じ (extractTags は純関数)。
 //
-// 使い方: npx tsx scripts/backfillTags.ts
+// 使い方: npx tsx --conditions=react-server scripts/backfillTags.ts
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { extractTags } from '@/lib/tags'

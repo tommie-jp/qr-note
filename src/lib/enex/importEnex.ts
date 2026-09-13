@@ -8,6 +8,7 @@
 // 失敗の扱いは「そのノートだけ飛ばしてレポートに載せる」(§3)。1 件の壊れた
 // 添付でファイル 1 枚まるごとが入らないほうが困る。
 
+import 'server-only'
 import { storeAttachment } from '@/lib/attachmentStore'
 import { prisma } from '@/lib/db'
 import { isAlreadyImported } from '@/lib/importDuplicate'

@@ -8,6 +8,7 @@
 // ここは純粋なロジックだけを持つ (Storage は引数で受ける)。debounce や
 // effect の結線は MemoEditor 側。
 
+import 'client-only'
 import { BASE_STALE } from './saveBase'
 
 export interface MemoDraft {

@@ -12,6 +12,7 @@
 // 前半は Storage を引数で受ける純関数 (livePreviewPref.ts と同じ流儀)。
 // 後半がその上に載る購読の口。
 
+import 'client-only'
 import { useSyncExternalStore } from 'react'
 
 // localStorage は全部は要らないので、使う分だけの形で受ける (テスト容易性)

@@ -14,7 +14,9 @@
 #   ./doBackfillCircuits.sh
 #
 # ローカル DB を埋めたいときはこのスクリプトではなく直接:
-#   npx tsx scripts/backfillCircuits.ts
+#   npx tsx --conditions=react-server scripts/backfillCircuits.ts
+# (--conditions=react-server … src/lib のサーバ専用 module は import 'server-only' を
+# 持ち、この条件で解決しないと import した瞬間に throw する。docs/93 §2-2)
 #
 # 環境変数で上書き可能 (doBackfillThumbs.sh と同じ既定):
 #   DEPLOY_REMOTE      ssh 接続先 (default: vps2)
@@ -57,6 +59,6 @@ export DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${DB
 
 log "回路図の一括描画 (描画済みは飛ばす)"
 # backfillCircuits.ts は全件失敗のときだけ exit 1 を返す
-npx tsx scripts/backfillCircuits.ts
+npx tsx --conditions=react-server scripts/backfillCircuits.ts
 
 log "完了"

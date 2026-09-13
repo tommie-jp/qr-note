@@ -7,6 +7,7 @@
 // この階層は DB にも next/headers にも触らない (純粋な計算だけ)。
 // 行の読み書きは sessionStore.ts、リクエストとの結びつけは requestAuth.ts。
 
+import 'server-only'
 import { createHash, randomBytes } from 'node:crypto'
 
 // `__Host-` 接頭辞を付ける。ブラウザはこの名前の Cookie を

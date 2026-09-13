@@ -4,6 +4,8 @@
 // 読み出しは信用しない — 手で書き換えられる値なので、色は書式を、太さは
 // 選択肢に在ることを検算してから使う (外れていれば既定へ寄せる)。
 
+import 'client-only'
+
 // localStorage のうち、ここで使う分だけの形。テストから差し替えられるように
 // 具象の Storage ではなくこの幅で受ける
 export interface PrefsStorage {

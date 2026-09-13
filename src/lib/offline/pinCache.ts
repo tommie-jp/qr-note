@@ -18,6 +18,7 @@
 // 印の棚は**入れる物と消す物をこちらが決める**必要があり、fetch の副作用では
 // 「余りを消す」が書けない。sw.js 側はこの棚を読むだけにしてある (pinnedFirst)。
 
+import 'client-only'
 import { allAttachments, attachmentUrl, thumbUrl } from '@/lib/memoImages'
 import { allSecretNames, secretUrl } from '@/lib/secrets'
 import { PIN_CACHE } from './cacheNames'

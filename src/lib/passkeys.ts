@@ -6,6 +6,7 @@
 // 利用者は 1 名だけ (docs/29 §11) なので、行を利用者で絞らない。
 // 登録された鍵はすべて「その 1 名のもの」として扱う。
 
+import 'server-only'
 import type { AuthenticatorTransportFuture, WebAuthnCredential } from '@simplewebauthn/server'
 import { prisma } from './db'
 

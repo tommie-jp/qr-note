@@ -11,6 +11,7 @@
 // 保存時に埋めるほどの用途ではない (ノートを開いたときに 1 度だけ、しかも
 // 添付を持つノートだけが払う)。
 
+import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/db'
 import { allAttachments } from '@/lib/memoImages'

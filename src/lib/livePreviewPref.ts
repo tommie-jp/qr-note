@@ -6,6 +6,8 @@
 // memoDraft.ts と同じ流儀で、Storage は引数で受ける純関数だけを置く
 // (effect の結線は MemoEditorInner 側)。
 
+import 'client-only'
+
 // localStorage は全部は要らないので、使う分だけの形で受ける (テスト容易性)
 export type LivePreviewStorage = Pick<Storage, 'getItem' | 'setItem'>
 

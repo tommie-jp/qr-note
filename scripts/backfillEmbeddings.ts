@@ -5,7 +5,7 @@
 // 冪等: 既に埋まっている行は飛ばす (--force で作り直す)。
 //
 // 使い方: npm run backfill:embeddings -- [--force]
-//   (直接: npx tsx scripts/backfillEmbeddings.ts [--force])
+//   (直接: npx tsx --conditions=react-server scripts/backfillEmbeddings.ts [--force])
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { computeEmbeddingBytes } from '@/lib/embedding/embedImageServer'

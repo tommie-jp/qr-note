@@ -63,6 +63,8 @@ ssh -M -S "$SSH_CTRL" -f -N \
 export DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${DB_NAME}"
 
 log "タスク数を数え直す"
-npx tsx scripts/backfillTaskCounts.ts
+# --conditions=react-server … src/lib のサーバ専用 module は import 'server-only' を
+# 持ち、この条件で解決しないと import した瞬間に throw する (docs/93 §2-2)
+npx tsx --conditions=react-server scripts/backfillTaskCounts.ts
 
 log "完了"

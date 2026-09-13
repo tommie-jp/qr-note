@@ -47,6 +47,10 @@ npx prisma migrate dev
 npm run dev            # http://localhost:3000
 ```
 
+`src/lib` を import するスクリプトを `tsx` で直接走らせるときは
+`npx tsx --conditions=react-server scripts/xxx.ts` のように条件を付ける
+(サーバ専用 module が `import 'server-only'` を持ち、付けないと import 時に throw する)。
+
 ## テスト
 
 ```bash

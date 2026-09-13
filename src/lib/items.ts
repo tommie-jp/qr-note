@@ -1,3 +1,4 @@
+import 'server-only'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 import type { Item } from '@/generated/prisma/client'

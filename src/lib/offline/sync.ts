@@ -11,6 +11,7 @@
 // 失敗は握り潰さず投げる — 「同期できていない」ことが画面に出ないと、
 // 圏外で開いて初めて古いデータだったと気づくことになる。
 
+import 'client-only'
 import { firstThumbInfo, thumbUrl } from '@/lib/memoImages'
 import { saveOfflineSnapshot } from './db'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'

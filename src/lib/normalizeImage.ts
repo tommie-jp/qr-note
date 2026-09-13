@@ -10,6 +10,7 @@
 //                           heic-decode(WASM libheif) で復号してから sharp で符号化)
 //   tiff                  … WebP へ変換 (ブラウザが表示できない)
 
+import 'server-only'
 import { all as decodeHeicAll } from 'heic-decode'
 import sharp from 'sharp'
 import { MAX_INPUT_PIXELS } from './images/thumbConfig'

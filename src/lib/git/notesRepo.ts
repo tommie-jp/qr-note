@@ -1,3 +1,4 @@
+import 'server-only'
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { simpleGit, type SimpleGit } from 'simple-git'

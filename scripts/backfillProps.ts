@@ -2,7 +2,7 @@
 // props は memo 由来の派生キャッシュのため、いつでも再実行して整合を回復できる。
 // 冪等: 何度実行しても結果は同じ (extractProps は純関数)。
 //
-// 使い方: npx tsx scripts/backfillProps.ts
+// 使い方: npx tsx --conditions=react-server scripts/backfillProps.ts
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { extractProps, parseStoredProps, type PropEntry } from '@/lib/props'

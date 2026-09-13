@@ -63,6 +63,8 @@ export DATABASE_URL="postgresql://qr:${ENCODED_PW}@127.0.0.1:${TUNNEL_PORT}/${DB
 log "サムネ再生成 (--force)"
 # 画像以外の添付 (.pdf/.m4a/.webm など) は「対象外」として黙って飛ばされる。
 # backfillThumbs.ts は全件失敗のときだけ exit 1 を返す
-npx tsx scripts/backfillThumbs.ts --force
+# --conditions=react-server … src/lib のサーバ専用 module は import 'server-only' を
+# 持ち、この条件で解決しないと import した瞬間に throw する (docs/93 §2-2)
+npx tsx --conditions=react-server scripts/backfillThumbs.ts --force
 
 log "完了"

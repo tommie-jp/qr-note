@@ -88,7 +88,9 @@ done
 [ ${#FILES[@]} -gt 0 ] || usage
 
 run_import() {
-  npx tsx scripts/importEnex.ts "${FILES[@]}" ${PASS_THROUGH+"${PASS_THROUGH[@]}"}
+  # --conditions=react-server … src/lib のサーバ専用 module は import 'server-only' を
+  # 持ち、この条件で解決しないと import した瞬間に throw する (docs/93 §2-2)
+  npx tsx --conditions=react-server scripts/importEnex.ts "${FILES[@]}" ${PASS_THROUGH+"${PASS_THROUGH[@]}"}
 }
 
 if [ "$IS_CHECK" = "1" ]; then

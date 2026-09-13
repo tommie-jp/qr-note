@@ -7,6 +7,7 @@
 // 埋め込みは生バイト列を base64 にして運ぶ (JSON に数値配列で入れるより小さい)。
 // 1 枚 384 次元 × 4 バイト = 1536 バイト → base64 で約 2KB。千枚でも約 2MB。
 
+import 'server-only'
 import { prisma } from './db'
 import { allImageNames } from './memoImages'
 import { memoSummary } from './memoSummary'

@@ -8,7 +8,7 @@
 // 冪等: 描画済みの図は先に除外して飛ばす。SVG はソース + レンダラ版の hash が
 // 主キーの派生データなので、何度流しても壊れない。
 //
-// 使い方: npx tsx scripts/backfillCircuits.ts
+// 使い方: npx tsx --conditions=react-server scripts/backfillCircuits.ts
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { getOrRenderCircuit } from '@/lib/circuitCache'

@@ -14,7 +14,7 @@
 // そちらを指す (doImportEnex.sh が面倒を見る)。
 //
 // 使い方:
-//   npx tsx scripts/importEnex.ts <file.enex...> [オプション]
+//   npx tsx --conditions=react-server scripts/importEnex.ts <file.enex...> [オプション]
 //
 //   --check     ファイルを読むだけ (DB に触らない)。件数と、取り込めない
 //               ノートを先に知りたいときに使う
@@ -53,7 +53,7 @@ interface Args {
 }
 
 const USAGE =
-  '使い方: npx tsx scripts/importEnex.ts <file.enex...> [--check] [--no-embed] [--tag NAME] [--force] [--yes]'
+  '使い方: npx tsx --conditions=react-server scripts/importEnex.ts <file.enex...> [--check] [--no-embed] [--tag NAME] [--force] [--yes]'
 
 function parseArgs(argv: string[]): Args {
   const files: string[] = []

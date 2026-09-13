@@ -7,6 +7,7 @@
 // (docs/19-書影取得計画.md) の 2 か所から呼ばれる。名前の作り方を 2 通りに
 // 散らすと、片方だけトラバーサル対策が抜けることが起きうる。
 
+import 'server-only'
 import { randomUUID } from 'node:crypto'
 import { prisma } from './db'
 import {

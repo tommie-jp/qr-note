@@ -11,6 +11,7 @@
 // ログイン前でも動く (クライアントで完結し、サーバに何も置かない)。
 // 転送の側は 401 になって運べないので、ログインできない不具合はここで見る。
 
+import 'client-only'
 import { DEBUG_STORAGE_KEY } from './debugConsole'
 
 // 読み込み済みの本体。destroy 後に再び出せるよう、都度 import せず持っておく

@@ -13,6 +13,8 @@
 //                    印を外したときだけ (pinCache.ts が突き合わせて消す)
 //   qr-secret-v1  … シークレット断片の暗号文。名前が UUID で中身が変わらない
 
+import 'client-only'
+
 export const MEDIA_CACHE = 'qr-media-v1'
 export const PIN_CACHE = 'qr-pin-v1'
 export const SECRET_CACHE = 'qr-secret-v1'

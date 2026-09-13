@@ -17,6 +17,7 @@
 // component から辿ると `fs` がクライアントバンドルに入って壊れる
 // (thumbnail.ts と同じ理由。コマの抽出側は videoPoster.ts に置く)。
 
+import 'server-only'
 import sharp from 'sharp'
 import { MAX_INPUT_PIXELS } from '../images/thumbConfig'
 import { MAX_VIDEO_ANIM_FRAMES } from '../uploads'

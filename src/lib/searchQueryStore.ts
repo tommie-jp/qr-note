@@ -15,6 +15,7 @@
 // 持っていたら 2 台からの同時操作が後勝ちで消し合うが、1 クエリ = 1 行なので
 // 衝突する範囲はそのクエリだけで済む。
 
+import 'server-only'
 import type { Prisma } from '@/generated/prisma/client'
 import { prisma } from './db'
 import {

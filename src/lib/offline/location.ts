@@ -13,6 +13,7 @@
 // **history API は popstate を発火しない** (自分で書き換えたときは通知が
 // 来ない)。だから書き換える側が notifyLocationChanged を呼ぶ約束にする。
 
+import 'client-only'
 import { parseSort, type Sort } from '@/lib/validation'
 
 const listeners = new Set<() => void>()

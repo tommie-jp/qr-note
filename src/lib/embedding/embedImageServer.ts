@@ -8,6 +8,7 @@
 // 失敗しても画像検索の対象から外れるだけ (thumb と同じ思想)。アップロードや
 // バックフィルの本筋を、モデルの不調で巻き添えにしない。
 
+import 'server-only'
 import { prisma } from '../db'
 import { serializeEmbedding } from '../imageVector'
 import { embed } from './embedder'

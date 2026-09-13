@@ -8,6 +8,7 @@
 // 「消えたノートを端末からも消す」処理が別に要る — 毎回まるごと置き換えれば、
 // 端末側は常にサーバの写しになり、消えたノートも自然に消える。
 
+import 'server-only'
 import { prisma } from '@/lib/db'
 import {
   CIRCUITIKZ_LANG,

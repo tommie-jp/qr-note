@@ -4,7 +4,7 @@
 // 冪等: 差分が無ければ何もコミットしない。
 //
 // 使い方: npm run backfill:git
-//   (直接: npx tsx scripts/backfillGitHistory.ts)
+//   (直接: npx tsx --conditions=react-server scripts/backfillGitHistory.ts)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { backfillAllNotes } from '@/lib/noteHistoryBackfill'

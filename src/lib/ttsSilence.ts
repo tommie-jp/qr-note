@@ -15,6 +15,8 @@
 // 聞こえている人には無用なので、**消せる**ようにして端末に覚える
 // (livePreviewPref.ts と同じ流儀で、Storage は引数で受ける純関数にする)。
 
+import 'client-only'
+
 // iOS / iPadOS か。**iPad は UA が Macintosh を名乗る** (13 以降) ので、
 // 触れる画面かどうかで見分ける。外したときの症状は文面が一般的になるだけ
 export function isAppleTouchDevice(

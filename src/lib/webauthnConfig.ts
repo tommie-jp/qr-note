@@ -8,6 +8,7 @@
 // 設定漏れは**パスキー機能ごと無効**に倒す (appEnv.ts と同じで、迷ったら
 // 閉じる側へ)。Basic 認証は生きているので締め出しにはならない。
 
+import 'server-only'
 import { createHash } from 'node:crypto'
 import { SITE_NAME } from './site'
 
