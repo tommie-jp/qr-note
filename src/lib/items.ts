@@ -55,6 +55,22 @@ export async function getItem(itemNo: string): Promise<Item | null> {
   return prisma.item.findUnique({ where: { itemNo } })
 }
 
+// updated_at を打たずに 1 行を書く (公開・オフラインの印・アクセス順)。
+// Prisma の update は @updatedAt を必ず打ってしまうので生 SQL で書く。
+//
+// condition は「書く必要がある行か」。既に望む状態の行には書かないので、
+// 戻り値の件数 0 は正常な結果になりうる
+function updateItemQuietly(
+  itemNo: string,
+  set: Prisma.Sql,
+  condition: Prisma.Sql,
+): Promise<number> {
+  return prisma.$executeRaw`
+    UPDATE items SET ${set}
+    WHERE item_no = ${itemNo} AND ${condition}
+  `
+}
+
 // --- 公開 (docs/22-ノート公開計画.md) ---
 
 // ノートを公開する / 公開をやめる。
@@ -70,15 +86,17 @@ export async function getItem(itemNo: string): Promise<Item | null> {
 // public_at を上書きしない。押し直すたびに公開日時が今へ進むのは嘘になる。
 export async function setItemPublic(itemNo: string, isPublic: boolean): Promise<number> {
   if (isPublic) {
-    return prisma.$executeRaw`
-      UPDATE items SET public_at = now()
-      WHERE item_no = ${itemNo} AND public_at IS NULL
-    `
+    return updateItemQuietly(
+      itemNo,
+      Prisma.sql`public_at = now()`,
+      Prisma.sql`public_at IS NULL`,
+    )
   }
-  return prisma.$executeRaw`
-    UPDATE items SET public_at = NULL
-    WHERE item_no = ${itemNo} AND public_at IS NOT NULL
-  `
+  return updateItemQuietly(
+    itemNo,
+    Prisma.sql`public_at = NULL`,
+    Prisma.sql`public_at IS NOT NULL`,
+  )
 }
 
 // --- オフラインの印 (docs/65-オフライン対応計画.md §7) ---
@@ -90,10 +108,11 @@ export async function setItemPublic(itemNo: string, isPublic: boolean): Promise<
 // 先頭に来るのは嘘になる — しかも同期は更新の新しい順に打ち切るので、
 // 動かすと「印を付けたノートが他を押し出す」という別の嘘まで生む。
 export async function setItemOfflinePin(itemNo: string, pinned: boolean): Promise<number> {
-  return prisma.$executeRaw`
-    UPDATE items SET offline_pin = ${pinned}
-    WHERE item_no = ${itemNo} AND offline_pin <> ${pinned}
-  `
+  return updateItemQuietly(
+    itemNo,
+    Prisma.sql`offline_pin = ${pinned}`,
+    Prisma.sql`offline_pin <> ${pinned}`,
+  )
 }
 
 // --- アクセス順 (docs/37-アクセス順計画.md) ---
@@ -114,11 +133,11 @@ const ACCESS_THROTTLE = '1 minute'
 // ゴミ箱の行も記録してよい。ゴミ箱から開いて中身を確かめることはあり、
 // 復元したときに「最近見た」順で見つかるほうが自然。
 export async function recordItemAccess(itemNo: string): Promise<void> {
-  await prisma.$executeRaw`
-    UPDATE items SET accessed_at = now()
-    WHERE item_no = ${itemNo}
-      AND accessed_at < now() - ${ACCESS_THROTTLE}::interval
-  `
+  await updateItemQuietly(
+    itemNo,
+    Prisma.sql`accessed_at = now()`,
+    Prisma.sql`accessed_at < now() - ${ACCESS_THROTTLE}::interval`,
+  )
 }
 
 // その画像が「公開中のノートの本文に貼られているか」(docs/22 §6)。
@@ -638,6 +657,15 @@ const ITEM_COLUMNS = Prisma.sql`
   public_at   AS "publicAt"
 `
 
+// WHERE 句に当たる件数。一覧の総数、表・グラフが溢れたときの本当の総数
+// (溢れていなければ撃たない)、0 件検索時のゴミ箱の案内が使う。
+async function countItemsWhere(where: Prisma.Sql): Promise<number> {
+  const rows = await prisma.$queryRaw<{ count: number }[]>`
+    SELECT count(*)::int AS count FROM items ${where}
+  `
+  return rows[0]?.count ?? 0
+}
+
 // ソート句。PGroonga のスコアは小テーブルで seq scan になり効かないため、
 // 関連度順は採用せず現行の更新順/番号順/アクセス順を維持する
 // (docs/04-全文検索計画.md §3-4、docs/37-アクセス順計画.md)。
@@ -664,10 +692,7 @@ export async function searchItems(
 ): Promise<ItemSearchResult> {
   const where = buildWhere(query)
 
-  const totalRows = await prisma.$queryRaw<{ count: number }[]>`
-    SELECT count(*)::int AS count FROM items ${where}
-  `
-  const total = totalRows[0]?.count ?? 0
+  const total = await countItemsWhere(where)
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
   // floor が要る: ?page=1.5 のような値をそのまま掛けると LIMIT 30 になり、
   // 半端な page が次ページの URL にも伝播する
@@ -689,6 +714,32 @@ export async function searchItems(
   return { items, total, page: safePage, pageCount }
 }
 
+// 表・グラフの元データを引く共通形 (特性表・進捗の表・健康グラフの三つ子)。
+// 3 つの違いは絞り (where)・取る列・並び・上限だけで、溢れの作法は同じ。
+//
+// 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
+// (件数用に count を撃つより安い)。溢れたときだけ本当の総数を数えて、
+// 表に載らなかった件数 (omitted) を返す
+async function searchItemRows<T>(
+  where: Prisma.Sql,
+  columns: Prisma.Sql,
+  sort: TrashSort,
+  limit: number,
+): Promise<{ rows: T[]; omitted: number }> {
+  const rows = await prisma.$queryRaw<T[]>`
+    SELECT ${columns}
+    FROM items
+    ${where}
+    ${buildOrderBy(sort)}
+    LIMIT ${limit + 1}
+  `
+
+  const omitted =
+    rows.length > limit ? (await countItemsWhere(where)) - limit : 0
+
+  return { rows: rows.slice(0, limit), omitted }
+}
+
 export interface ItemPropsResult {
   rows: ItemPropsRow[]
   // 上限を超えて表に載らなかった件数。黙って打ち切ると「これで全部」と
@@ -704,42 +755,29 @@ export async function searchItemProps(
   query: string,
   sort: Sort = 'updated',
 ): Promise<ItemPropsResult> {
-  const where = buildPropsWhere(query)
-  // 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
-  // (件数用に count を撃つより安い)。
-  const rows = await prisma.$queryRaw<
-    { itemNo: string; memo: string; props: unknown }[]
-  >`
-    SELECT item_no AS "itemNo",
-           memo,
-           props
-    FROM items
-    ${where}
-    ${buildOrderBy(sort)}
-    LIMIT ${PROPS_TABLE_LIMIT + 1}
-  `
-
-  const omitted =
-    rows.length > PROPS_TABLE_LIMIT
-      ? (await countItemsWhere(where)) - PROPS_TABLE_LIMIT
-      : 0
+  const { rows, omitted } = await searchItemRows<{
+    itemNo: string
+    memo: string
+    props: unknown
+  }>(
+    buildPropsWhere(query),
+    Prisma.sql`
+      item_no AS "itemNo",
+      memo,
+      props
+    `,
+    sort,
+    PROPS_TABLE_LIMIT,
+  )
 
   return {
-    rows: rows.slice(0, PROPS_TABLE_LIMIT).map((row) => ({
+    rows: rows.map((row) => ({
       itemNo: row.itemNo,
       summary: memoSummary(row.memo),
       props: parseStoredProps(row.props),
     })),
     omitted,
   }
-}
-
-// 溢れたときだけ本当の総数を数える (通常の検索では撃たない)。
-async function countItemsWhere(where: Prisma.Sql): Promise<number> {
-  const rows = await prisma.$queryRaw<{ count: number }[]>`
-    SELECT count(*)::int AS count FROM items ${where}
-  `
-  return rows[0]?.count ?? 0
 }
 
 export interface ItemChecksResult {
@@ -760,25 +798,17 @@ export async function searchItemChecks(
   query: string,
   sort: Sort = 'itemNo',
 ): Promise<ItemChecksResult> {
-  const where = buildChecksWhere(query)
-  // 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
-  const rows = await prisma.$queryRaw<MatrixSourceRow[]>`
-    SELECT item_no   AS "itemNo",
-           memo,
-           task_todo AS "taskTodo",
-           task_done AS "taskDone"
-    FROM items
-    ${where}
-    ${buildOrderBy(sort)}
-    LIMIT ${MATRIX_ROW_LIMIT + 1}
-  `
-
-  const omitted =
-    rows.length > MATRIX_ROW_LIMIT
-      ? (await countItemsWhere(where)) - MATRIX_ROW_LIMIT
-      : 0
-
-  return { rows: rows.slice(0, MATRIX_ROW_LIMIT), omitted }
+  return searchItemRows<MatrixSourceRow>(
+    buildChecksWhere(query),
+    Prisma.sql`
+      item_no   AS "itemNo",
+      memo,
+      task_todo AS "taskTodo",
+      task_done AS "taskDone"
+    `,
+    sort,
+    MATRIX_ROW_LIMIT,
+  )
 }
 
 export interface ItemHealthResult {
@@ -798,23 +828,15 @@ export interface ItemHealthResult {
 // 集計 (healthSeries) が日付で行う。ここでの順が意味を持つのは「同じ日付が
 // 2 つあったらどちらを採るか」だけなので、毎回同じ答えになる番号順で固定する。
 export async function searchItemHealth(query: string): Promise<ItemHealthResult> {
-  const where = buildWhere(query)
-  // 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
-  const rows = await prisma.$queryRaw<HealthSourceRow[]>`
-    SELECT item_no AS "itemNo",
-           memo
-    FROM items
-    ${where}
-    ${buildOrderBy('itemNo')}
-    LIMIT ${HEALTH_ROW_LIMIT + 1}
-  `
-
-  const omitted =
-    rows.length > HEALTH_ROW_LIMIT
-      ? (await countItemsWhere(where)) - HEALTH_ROW_LIMIT
-      : 0
-
-  return { rows: rows.slice(0, HEALTH_ROW_LIMIT), omitted }
+  return searchItemRows<HealthSourceRow>(
+    buildWhere(query),
+    Prisma.sql`
+      item_no AS "itemNo",
+      memo
+    `,
+    'itemNo',
+    HEALTH_ROW_LIMIT,
+  )
 }
 
 // --- ゴミ箱 (二段階削除。docs/12-ゴミ箱計画.md) ---
@@ -822,24 +844,29 @@ export async function searchItemHealth(query: string): Promise<ItemHealthResult>
 // ゴミ箱へ入れる / 戻す。どちらも updated_at は触らない。本文は変わって
 // いないので、削除・復元で更新順が動くのは嘘になるため。Prisma の
 // updateMany は @updatedAt を必ず打ってしまうので生 SQL で書く。
-export async function trashItems(itemNos: string[]): Promise<number> {
+//
+// from の状態にある行だけを書き換える (既にゴミ箱にある行の deleted_at を
+// 動かさない)。2 つの違いは deleted_at に入れる値と from だけ
+async function setDeletedAt(
+  itemNos: string[],
+  deletedAt: Prisma.Sql,
+  from: Prisma.Sql,
+): Promise<number> {
   if (itemNos.length === 0) {
     return 0
   }
   return prisma.$executeRaw`
-    UPDATE items SET deleted_at = now()
-    WHERE item_no IN (${Prisma.join(itemNos)}) AND deleted_at IS NULL
+    UPDATE items SET deleted_at = ${deletedAt}
+    WHERE item_no IN (${Prisma.join(itemNos)}) AND ${from}
   `
 }
 
+export async function trashItems(itemNos: string[]): Promise<number> {
+  return setDeletedAt(itemNos, Prisma.sql`now()`, NOT_TRASHED)
+}
+
 export async function restoreItems(itemNos: string[]): Promise<number> {
-  if (itemNos.length === 0) {
-    return 0
-  }
-  return prisma.$executeRaw`
-    UPDATE items SET deleted_at = NULL
-    WHERE item_no IN (${Prisma.join(itemNos)}) AND deleted_at IS NOT NULL
-  `
+  return setDeletedAt(itemNos, Prisma.sql`NULL`, TRASHED)
 }
 
 // 永久削除 (DB から消す)。**ゴミ箱にある行しか消さない**のがこの関数の要点で、
@@ -856,24 +883,19 @@ export async function purgeItems(itemNos: string[]): Promise<string[]> {
   if (itemNos.length === 0) {
     return []
   }
-  const rows = await prisma.item.findMany({
-    where: { itemNo: { in: itemNos }, deletedAt: { not: null } },
-    select: { itemNo: true },
-  })
-  if (rows.length === 0) {
-    return []
-  }
-  const targets = rows.map((row) => row.itemNo)
-  await prisma.item.deleteMany({
-    where: { itemNo: { in: targets }, deletedAt: { not: null } },
-  })
-  return targets
+  return purgeTrashed({ itemNo: { in: itemNos } })
 }
 
 // purgeItems と同じ約束で、消えた itemNo の列を返す (墓石コミットの対象)。
 export async function emptyTrash(): Promise<string[]> {
+  return purgeTrashed({})
+}
+
+// 永久削除の共通形。scope に当たる行のうち**ゴミ箱にあるものだけ**を消し、
+// 消えた itemNo の列を返す (purgeItems のコメントの約束)
+async function purgeTrashed(scope: Prisma.ItemWhereInput): Promise<string[]> {
   const rows = await prisma.item.findMany({
-    where: { deletedAt: { not: null } },
+    where: { ...scope, deletedAt: { not: null } },
     select: { itemNo: true },
   })
   if (rows.length === 0) {
@@ -914,10 +936,7 @@ export async function countTrashedItems(): Promise<number> {
 // 「消したノートを探して 0 件」や、ゴミ箱のノートと同じコードの再スキャンで
 // 二重登録しかけたときに、ゴミ箱へ誘導するために使う。0 件のときしか撃たない。
 export async function countTrashedMatches(query: string): Promise<number> {
-  const rows = await prisma.$queryRaw<{ count: number }[]>`
-    SELECT count(*)::int AS count FROM items ${buildTrashedWhere(query)}
-  `
-  return rows[0]?.count ?? 0
+  return countItemsWhere(buildTrashedWhere(query))
 }
 
 // 学習の進捗 (docs/60-学習進捗計画.md §2)。
