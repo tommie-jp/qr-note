@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText } from "@/lib/errorMessage";
+import { useLatest } from "./hooks/useLatest";
 import { NEAR_FOCUS_ZOOM, zoomLevelsFor } from "@/lib/video/cameraSelection";
 import {
   type CameraFacing,
@@ -103,10 +104,7 @@ export function useVideoRecording(
   const recorderRef = useRef<VideoRecorder | null>(null);
 
   // start / stop を毎レンダリング作り直さずに済ませるため、呼び先だけ差し替える
-  const handlersRef = useRef(handlers);
-  useEffect(() => {
-    handlersRef.current = handlers;
-  });
+  const handlersRef = useLatest(handlers);
 
   // 画面を離れたらカメラ・マイクを離す。開いたままの離脱で止め忘れると、
   // タブのカメラ使用中表示が残り続ける (プレビューだけでも開いていれば離す)
@@ -167,7 +165,7 @@ export function useVideoRecording(
       recorder.cancel();
       resetToIdle();
     }
-  }, [resetToIdle, syncCameraState]);
+  }, [handlersRef, resetToIdle, syncCameraState]);
 
   const startRecording = useCallback(() => {
     const recorder = recorderRef.current;
@@ -187,7 +185,7 @@ export function useVideoRecording(
       recorder.cancel();
       resetToIdle();
     }
-  }, [resetToIdle]);
+  }, [handlersRef, resetToIdle]);
 
   const stop = useCallback(
     async (reason?: string) => {
@@ -208,7 +206,7 @@ export function useVideoRecording(
         );
       }
     },
-    [resetToIdle],
+    [handlersRef, resetToIdle],
   );
 
   const cancelPreview = useCallback(() => {
@@ -242,7 +240,7 @@ export function useVideoRecording(
         resetToIdle();
       }
     },
-    [resetToIdle, syncCameraState],
+    [handlersRef, resetToIdle, syncCameraState],
   );
 
   const toggleNearFocus = useCallback(() => {

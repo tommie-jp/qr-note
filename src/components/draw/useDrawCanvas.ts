@@ -25,12 +25,12 @@ import {
   undoHistory,
 } from "@/lib/draw/history";
 import {
-  createLayerState,
   insertionIndex,
   type LayerId,
   type LayerState,
   layerFlags,
 } from "@/lib/draw/layers";
+import { useLatest } from "@/components/hooks/useLatest";
 import type { DrawTool } from "./drawTools";
 import { buildFill, buildMosaic } from "./rasterTool";
 import { attachShapeTool, type ShapeToolHandle } from "./shapeTool";
@@ -205,23 +205,16 @@ export function useDrawCanvas({
   });
 
   // 初期化のときに 1 度だけ束ねた fabric のイベントハンドラから、
-  // そのときどきの道具・色・太さを読むための控え
-  const toolRef = useRef(tool);
-  const colorRef = useRef(color);
-  const widthRef = useRef(width);
-  const fitScaleRef = useRef(fitScale);
-  const displayScaleRef = useRef(displayScale);
+  // そのときどきの道具・色・太さを読むための控え。下の useCallback や初期化の
+  // effect の依存に並ぶが、ref 自体は変わらないので作り直し・張り直しは起きない
+  const toolRef = useLatest(tool);
+  const colorRef = useLatest(color);
+  const widthRef = useLatest(width);
+  const fitScaleRef = useLatest(fitScale);
+  const displayScaleRef = useLatest(displayScale);
   // 描いている最中の object:added からいまのアクティブレイヤを読むための控え。
   // 初期化のイベントハンドラは 1 度しか束ねないので、state ではなく ref で持つ
-  const layerStateRef = useRef<LayerState>(createLayerState());
-  useEffect(() => {
-    toolRef.current = tool;
-    colorRef.current = color;
-    widthRef.current = width;
-    fitScaleRef.current = fitScale;
-    displayScaleRef.current = displayScale;
-    layerStateRef.current = layerState;
-  }, [tool, color, width, fitScale, displayScale, layerState]);
+  const layerStateRef = useLatest(layerState);
 
   // 消しゴムを手放す。@erase2d の dispose は効果用の裏 canvas を 0×0 にして
   // GC に返すためのもので、呼ばないと捨てたブラシのぶんだけメモリが残る
@@ -255,7 +248,7 @@ export function useDrawCanvas({
     }
     brush.width = toCanvasUnits(width, scale);
     brush.color = colorRef.current;
-  }, []);
+  }, [colorRef, fitScaleRef, toolRef, widthRef]);
 
   // 選択枠を「白い紙の上でも見える」見た目にする。色は固定だが、太さと角の
   // 大きさは表示倍率で変わるので、倍率が動くたびに当て直す。
@@ -272,7 +265,7 @@ export function useDrawCanvas({
       cornerSize: toCanvasUnits(SELECTION_CORNER_PX, scale),
       touchCornerSize: toCanvasUnits(SELECTION_TOUCH_CORNER_PX, scale),
     });
-  }, []);
+  }, [displayScaleRef]);
 
   const applySelectionStyle = useCallback(() => {
     const fc = fcRef.current;
@@ -289,7 +282,7 @@ export function useDrawCanvas({
     fc.selectionBorderColor = SELECTION_COLOR;
     fc.selectionLineWidth = toCanvasUnits(1.5, displayScaleRef.current);
     fc.requestRenderAll();
-  }, [styleForSelection]);
+  }, [displayScaleRef, styleForSelection]);
 
   // 空判定とレイヤ別オブジェクト数をまとめて出し直す。オブジェクトが増減する
   // 節目 (描いた・戻した・全消し) で呼ぶ。layer は @erase2d の erasable と同じ
@@ -334,7 +327,7 @@ export function useDrawCanvas({
       fc.discardActiveObject();
     }
     fc.requestRenderAll();
-  }, [applySelectionStyle]);
+  }, [applySelectionStyle, layerStateRef, toolRef]);
 
   const syncHistoryState = useCallback((history: DrawHistory) => {
     historyRef.current = history;
@@ -613,11 +606,17 @@ export function useDrawCanvas({
     applySelectionStyle,
     backgroundUrl,
     canvasElRef,
+    colorRef,
     containerRef,
+    displayScaleRef,
+    fitScaleRef,
+    layerStateRef,
     refreshStats,
     releaseEraser,
     scheduleSnapshot,
     syncHistoryState,
+    toolRef,
+    widthRef,
   ]);
 
   // --- 道具の切り替え -----------------------------------------------------
@@ -666,7 +665,7 @@ export function useDrawCanvas({
 
   // --- レイヤ状態の反映 (docs/50 §3-2 の当て直し 1 箇所目) -------------------
   // アクティブの切り替え・表示/非表示で、見え方と消しゴム・選択の効き先を
-  // 全オブジェクトへ落とし込む。layerStateRef は上の同期 effect が先に更新する
+  // 全オブジェクトへ落とし込む。layerStateRef は上の useLatest が先に更新する
   useEffect(() => {
     if (isPreparing) {
       return;

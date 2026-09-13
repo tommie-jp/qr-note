@@ -11,6 +11,7 @@ import {
   type Recording,
 } from "@/lib/audio/audioRecorder";
 import { errorText } from "@/lib/errorMessage";
+import { useLatest } from "./hooks/useLatest";
 
 // 経過時間の更新間隔。表示は秒単位なので 200ms あれば十分滑らかに見える
 const TICK_MS = 200;
@@ -42,10 +43,7 @@ export function useAudioRecording(
 
   // start / stop を毎レンダリング作り直さずに済ませるため、呼び先だけ差し替える。
   // (作り直すと経過時間の interval を毎回張り直すことになる)
-  const handlersRef = useRef(handlers);
-  useEffect(() => {
-    handlersRef.current = handlers;
-  });
+  const handlersRef = useLatest(handlers);
 
   // 画面を離れたらマイクを離す。録音したままの離脱で止め忘れると、
   // タブのマイク使用中表示が残り続ける
@@ -66,7 +64,7 @@ export function useAudioRecording(
     } catch (e) {
       handlersRef.current.onError(errorText(e, "録音を開始できませんでした。"));
     }
-  }, []);
+  }, [handlersRef]);
 
   const stop = useCallback(async (reason?: string) => {
     const recorder = recorderRef.current;
@@ -82,7 +80,7 @@ export function useAudioRecording(
     } catch (e) {
       handlersRef.current.onError(errorText(e, "録音を保存できませんでした。"));
     }
-  }, []);
+  }, [handlersRef]);
 
   // 経過時間を刻み、上限で自動停止する。上限を超えた分はアップロードで
   // 断られて録音ごと失われるので、その手前で確実に止める

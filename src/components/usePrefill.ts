@@ -1,6 +1,6 @@
 "use client";
 
-import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import {
   DemoDisabledError,
   fetchPrefillSummary,
@@ -8,6 +8,7 @@ import {
   type PrefillTarget,
 } from "@/lib/prefillSummary";
 import { scanRegisterMemo } from "@/lib/scanRegister";
+import { useLatest } from "./hooks/useLatest";
 
 // 型は取得ロジックと同じ場所 (prefillSummary) に置いた。従来ここから import して
 // いた箇所 (MemoEditor) のために再輸出する
@@ -60,10 +61,7 @@ export function usePrefill({
 
   // いまの本文を effect から読むための控え。value を effect の依存に入れると
   // 打鍵のたびに取得がやり直しになるため、依存には入れずここで拾う
-  const valueRef = useRef(value);
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
+  const valueRef = useLatest(value);
 
   // 依存はオブジェクトの identity ではなく中身 (kind / code) で持つ。
   // 親の再描画で毎回新しいオブジェクトが渡されても取得をやり直さない
@@ -105,7 +103,7 @@ export function usePrefill({
         setStatus("error");
       });
     return () => abort.abort("unmount");
-  }, [kind, code, setMemo, pristine]);
+  }, [kind, code, setMemo, pristine, valueRef]);
 
   return status;
 }

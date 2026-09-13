@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { formatElapsed } from "@/lib/progressLabels";
 import { cameraControlClass } from "./cameraControlButton";
+import { useLatest } from "./hooks/useLatest";
 import { useEscapeKey } from "./modal/useEscapeKey";
 import type { VideoRecordingState } from "./useVideoRecording";
 
@@ -23,10 +24,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
   const recording = video.phase === "recording";
 
   // Escape ハンドラが毎レンダリング張り替わらないよう、最新 state は ref で読む
-  const videoStateRef = useRef(video);
-  useEffect(() => {
-    videoStateRef.current = video;
-  });
+  const videoStateRef = useLatest(video);
 
   // Escape で閉じる。プレビュー中は取消、録画中は停止して保存する
   // (撮った録画を誤操作で失わせない。不要なら本文から 1 行消せばよい)
@@ -37,7 +35,7 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
     } else {
       v.cancelPreview();
     }
-  }, []);
+  }, [videoStateRef]);
   useEscapeKey(onEscape, isOpen);
 
   // プレビュー stream を <video> に繋ぐ。MediaStream は srcObject にしか渡せず
