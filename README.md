@@ -37,6 +37,13 @@ QR シールで電子部品を管理する様子を実際に触れます。タ�
 - Prisma 7 + PostgreSQL 16
 - Docker Compose(db / app / proxy)
 
+## 文書
+
+- [docs/README.md](docs/README.md) — 計画書・調査メモの索引 (番号順) と、
+  文書参照の検査 (`node scripts/checkDocLinks.mjs`) の使い方
+- [docs/93-リファクタリング計画.md](docs/93-リファクタリング計画.md) —
+  挙動を変えずに構造を整える全体計画
+
 ## 開発
 
 ```bash
@@ -54,15 +61,33 @@ npm run dev            # http://localhost:3000
 ## テスト
 
 ```bash
-npm test
+npm test                # 単体テスト (DB 不要)
+npm run test:coverage   # カバレッジ付きで流す
+npm run lint
+npm run typecheck
 ```
+
+DB を実際に叩く統合テスト (`src/lib/items.test.ts` 全体と
+`src/app/api/images/images.test.ts` の DB 往復) は、`DATABASE_URL` と
+`RUN_DB_TESTS=1` が**両方**あるときだけ走り、普段は skip になる。
+vitest は `.env` を読まないので、`DATABASE_URL` もコマンドで渡す
+(値は `.env` と同じ。`docker compose up -d db` と migrate を済ませた
+ローカル DB に向ける):
+
+```bash
+RUN_DB_TESTS=1 DATABASE_URL=postgresql://qr:changeme@localhost:5432/qr npm test
+```
+
+テストが作るノートは番号 `zzft` 始まりで、後始末で消す。
 
 ## 本番相当のローカル実行
 
 ```bash
-./doStart.sh           # db 起動 → migrate → app 起動 → ヘルスチェック
-./doStart.sh --build   # イメージを作り直してから起動
+./doStart.sh             # イメージをビルド → db 起動 → migrate → app 起動 → ヘルスチェック
+./doStart.sh --nobuild   # ビルドせず既存イメージのまま起動
 ```
+
+`--nobuild` では版番号などビルド時に埋め込む値が古いままになる。
 
 Caddy (HTTPS + Basic 認証) 込みで試す場合は:
 
@@ -83,13 +108,39 @@ version は画面フッターにビルド時に埋め込まれる。
 ## デプロイ
 
 ```bash
-./doDeploy.sh
+./doDeploy.sh                   # 版を patch で上げて本番へ配る
+./doDeploy.sh minor             # 上げ幅を指定 (patch|minor|major)
+./doDeploy.sh --no-version-up   # 版を上げずに配る
+./doDeploy.sh --demo            # デモ (qr-demo) へ配る。既定で版を上げない
+./doDeploy.sh -h                # 詳しい説明 (スクリプト冒頭のコメント)
 ```
 
-lint/test → イメージビルド → docker save/load で転送 →
-SSH トンネル経由で DB マイグレーション → app 再作成 → ヘルスチェック、
-まで一括で行う。接続先などは `DEPLOY_REMOTE` 等の環境変数で上書きできる
-(詳細はスクリプト冒頭のコメント参照)。
+版上げ (`doVersion.sh`) → lint / typecheck / test とイメージビルド (buildx) を
+並列に流し、ビルドしたイメージはその場で SSH トンネル越しに vps2 の私設
+レジストリ (`registry:2`) へ push → 検査が全部通ったら版タグを付けて公開 →
+vps2 でイメージ取得 → SSH トンネル経由で DB マイグレーション → app 再作成 →
+ヘルスチェック、まで一括で行う。転送はレジストリのレイヤー差分なので、
+中身の変わったレイヤーだけが送られる
+([docs/41-デプロイ高速化.md](docs/41-デプロイ高速化.md)・
+[docs/80-デプロイ再高速化計画.md](docs/80-デプロイ再高速化計画.md))。
+レジストリは初回だけ `./deploy/setupRegistry.sh` で設置し、溜まった古い
+イメージは `./deploy/registryGc.sh` で掃除する。接続先などは
+`DEPLOY_REMOTE` 等の環境変数で上書きできる (詳細は `-h`)。
+
+- **`--no-version-up`** … 版を上げず、今の package.json の版で配る。
+  レジストリに同じ版のイメージがあれば、ビルドも lint / test も飛ばして
+  それを再利用する (本番とビット単位で同じイメージになる。手元の未コミット
+  変更は含まれない)。`patch|minor|major` とは併用できない
+- **`--demo`** … デモスタックへ配る。リモートの置き場 (`qr-demo`)・
+  migrate 先 DB ポート (5433)・ヘルスチェック先 app ポート (3100) を
+  まとめて切り替える (app ポートが 3000 のままだと本番を叩いて誤って成功と
+  判定するため、環境変数を手で書かずこの旗を使う)。既定で版を上げないので、
+  本番に配った直後に流せば同じ版が載る。デモだけ版を上げたいときは
+  `patch|minor|major` を明示する。種 DB `qr_seed` にも migrate を当てる
+
+```bash
+./doDeploy.sh && ./doDeploy.sh --demo   # 本番 → デモを同じ版で
+```
 
 ⚠️ **既定では `compose.yaml` は転送されない。** 送るのはイメージだけで、
 `compose.yaml` と `.env` はサーバに配置済みであることが前提。
