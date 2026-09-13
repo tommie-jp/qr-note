@@ -4,12 +4,10 @@
 // 隠したいはずで、ノートごとに覚えると開くたびに表示が変わって落ち着かない。
 //
 // memoDraft.ts と同じ流儀で、Storage は引数で受ける純関数だけを置く
-// (effect の結線は MemoEditorInner 側)。
+// (effect の結線は MemoEditorInner 側)。読み書きの例外の扱いは prefs/storagePref.ts。
 
 import 'client-only'
-
-// localStorage は全部は要らないので、使う分だけの形で受ける (テスト容易性)
-export type LivePreviewStorage = Pick<Storage, 'getItem' | 'setItem'>
+import { defineBooleanPref, type PrefStorage } from './prefs/storagePref'
 
 export const LIVE_PREVIEW_STORAGE_KEY = 'qr-search:live-preview'
 
@@ -20,35 +18,29 @@ export const LIVE_PREVIEW_STORAGE_KEY = 'qr-search:live-preview'
 // 勝手に ON へ戻ることはない (parseLivePreviewPref は '0' を尊重する)
 export const LIVE_PREVIEW_DEFAULT = true
 
+// プライベートモード等で読めない環境では既定で動く (設定は保険であって
+// 本筋ではない。編集そのものは従来どおりできる)。書けなくてもその場の
+// 切り替えは効いている (次に開くと既定に戻るだけ)
+const LIVE_PREVIEW_PREF = defineBooleanPref(
+  LIVE_PREVIEW_STORAGE_KEY,
+  LIVE_PREVIEW_DEFAULT,
+)
+
 // 保存されていない・読めない・知らない値はすべて既定に倒す
 // (localStorage は外部入力として扱う)
 export function parseLivePreviewPref(raw: string | null): boolean {
-  if (raw === '1') {
-    return true
-  }
-  if (raw === '0') {
-    return false
-  }
-  return LIVE_PREVIEW_DEFAULT
+  return LIVE_PREVIEW_PREF.parse(raw)
 }
 
-export function loadLivePreviewPref(storage: LivePreviewStorage): boolean {
-  try {
-    return parseLivePreviewPref(storage.getItem(LIVE_PREVIEW_STORAGE_KEY))
-  } catch {
-    // プライベートモード等で読めない環境では既定で動く (設定は保険であって
-    // 本筋ではない。編集そのものは従来どおりできる)
-    return LIVE_PREVIEW_DEFAULT
-  }
+export function loadLivePreviewPref(
+  storage: PrefStorage | null | undefined,
+): boolean {
+  return LIVE_PREVIEW_PREF.load(storage)
 }
 
 export function saveLivePreviewPref(
-  storage: LivePreviewStorage,
+  storage: PrefStorage | null | undefined,
   enabled: boolean,
 ): void {
-  try {
-    storage.setItem(LIVE_PREVIEW_STORAGE_KEY, enabled ? '1' : '0')
-  } catch {
-    // 書けなくてもその場の切り替えは効いている (次に開くと既定に戻るだけ)
-  }
+  LIVE_PREVIEW_PREF.save(storage, enabled)
 }

@@ -86,11 +86,8 @@ import {
 } from "./editor/noteSearch";
 import { createNoteSearch } from "./editor/noteSearchHighlight";
 import { quizLinter } from "./editor/quizLinter";
-import {
-  LIVE_PREVIEW_DEFAULT,
-  loadLivePreviewPref,
-  saveLivePreviewPref,
-} from "@/lib/livePreviewPref";
+import { loadLivePreviewPref, saveLivePreviewPref } from "@/lib/livePreviewPref";
+import { browserStorage } from "@/lib/prefs/storagePref";
 import {
   disposeOcr,
   isOcrReady,
@@ -399,26 +396,6 @@ const FIND_SCROLL_GAP = 16;
 // 消してから打ち直す手間が増えるだけ
 const FIND_SEED_MAX = 50;
 
-// ライブプレビューの設定の読み書き (docs/70-編集ライブプレビュー計画.md §4)。
-// **window.localStorage を触ること自体が例外になる**ブラウザがある
-// (Cookie を全面禁止した Chrome など)。判定・整形は lib 側の純関数が持ち、
-// ここは「触れない環境でも編集は従来どおりできる」ための包みだけを足す
-function readLivePreviewPref(): boolean {
-  try {
-    return loadLivePreviewPref(window.localStorage);
-  } catch {
-    return LIVE_PREVIEW_DEFAULT;
-  }
-}
-
-function writeLivePreviewPref(enabled: boolean): void {
-  try {
-    saveLivePreviewPref(window.localStorage, enabled);
-  } catch {
-    // 覚えられなくても、その場の切り替えは効いている
-  }
-}
-
 interface InsertFilesOptions {
   // 音声の画像記法に入れる alt。録音は日時を残したいので上書きする
   // (ファイル選択・ペースト由来の音声は既定の "audio" のまま)
@@ -497,7 +474,10 @@ export default function MemoEditorInner({
   // 装飾済みに見せる表示で、**本文は書き換えない**。OFF は従来の編集表示。
   // この部品は ssr: false で読み込まれる (MemoEditor.tsx) ので、初期値を
   // localStorage から同期に読んでも hydration はずれない
-  const [livePreview, setLivePreview] = useState(readLivePreviewPref);
+  // (触れない環境では既定で動く。例外の扱いは prefs/storagePref.ts)
+  const [livePreview, setLivePreview] = useState(() =>
+    loadLivePreviewPref(browserStorage()),
+  );
   // ノート内検索・置換 (docs/76-ノート内検索計画.md)。開いている間、下部バーは
   // 編集ツールバーの代わりに検索バーを出す (帯を 2 段にしない)
   const [findOpen, setFindOpen] = useState(false);
@@ -813,7 +793,9 @@ export default function MemoEditorInner({
       //
       // 描画中に localStorage を読むことになるが、この部品は ssr: false で
       // 読み込まれる (MemoEditor.tsx) ので hydration はずれない
-      livePreviewCompartment.of(livePreviewContent(readLivePreviewPref())),
+      livePreviewCompartment.of(
+        livePreviewContent(loadLivePreviewPref(browserStorage())),
+      ),
       // ノート内検索 (docs/76 §3, §6)。検索状態・ハイライト・Ctrl+F を足す
       noteSearch.extension,
       EditorView.domEventHandlers({
@@ -913,7 +895,7 @@ export default function MemoEditorInner({
   const toggleLivePreview = () => {
     const next = !livePreview;
     setLivePreview(next);
-    writeLivePreviewPref(next);
+    saveLivePreviewPref(browserStorage(), next);
     const view = editorRef.current?.view;
     if (view) {
       view.dispatch({

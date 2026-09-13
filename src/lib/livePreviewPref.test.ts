@@ -5,8 +5,8 @@ import {
   loadLivePreviewPref,
   parseLivePreviewPref,
   saveLivePreviewPref,
-  type LivePreviewStorage,
 } from './livePreviewPref'
+import type { PrefStorage } from './prefs/storagePref'
 
 // 読み書きの記録だけ取る最小の Storage (memoDraft.test.ts と同じ流儀)
 function fakeStorage(initial: Record<string, string> = {}) {
@@ -61,7 +61,7 @@ describe('loadLivePreviewPref / saveLivePreviewPref', () => {
 
   test('読めない環境では既定に落ちる (例外を投げない)', () => {
     // Arrange: プライベートモード等で getItem 自体が例外になる環境
-    const storage: LivePreviewStorage = {
+    const storage: PrefStorage = {
       getItem: () => {
         throw new Error('SecurityError')
       },
@@ -73,7 +73,7 @@ describe('loadLivePreviewPref / saveLivePreviewPref', () => {
   })
 
   test('書けない環境でも例外を投げない (その場の切り替えは効く)', () => {
-    const storage: LivePreviewStorage = {
+    const storage: PrefStorage = {
       getItem: () => null,
       setItem: () => {
         throw new Error('QuotaExceededError')

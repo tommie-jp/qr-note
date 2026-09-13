@@ -13,6 +13,7 @@
 
 import 'client-only'
 import { DEBUG_STORAGE_KEY } from './debugConsole'
+import { browserStorage, defineBooleanPref } from './prefs/storagePref'
 
 // 読み込み済みの本体。destroy 後に再び出せるよう、都度 import せず持っておく
 let loaded: { destroy: () => void } | null = null
@@ -21,17 +22,17 @@ let loaded: { destroy: () => void } | null = null
 // sessionStorage は変更を知らせてくれない (storage イベントは別タブの分だけ)
 const listeners = new Set<() => void>()
 
-// sessionStorage は Safari のプライベートモードなどで投げうる。
-// 覚えられないだけで機能自体は動く (その場では出る) ので、既定に倒す
+// sessionStorage は Safari のプライベートモードなどで投げうる (prefs/storagePref.ts
+// が畳む)。覚えられないだけで機能自体は動く (その場では出る) ので、既定に倒す
+const DEBUG_CONSOLE_PREF = defineBooleanPref(DEBUG_STORAGE_KEY, false)
+
+// 覚えられないときは再読み込みで消えるが、出し入れ自体は成立する
 function remember(enabled: boolean): void {
-  try {
-    if (enabled) {
-      sessionStorage.setItem(DEBUG_STORAGE_KEY, '1')
-    } else {
-      sessionStorage.removeItem(DEBUG_STORAGE_KEY)
-    }
-  } catch {
-    // 覚えられないだけ。再読み込みで消えるが、出し入れ自体は成立する
+  const storage = browserStorage('sessionStorage')
+  if (enabled) {
+    DEBUG_CONSOLE_PREF.save(storage, true)
+  } else {
+    DEBUG_CONSOLE_PREF.remove(storage)
   }
   for (const listener of listeners) {
     listener()
@@ -39,11 +40,7 @@ function remember(enabled: boolean): void {
 }
 
 export function isDebugConsoleOn(): boolean {
-  try {
-    return sessionStorage.getItem(DEBUG_STORAGE_KEY) === '1'
-  } catch {
-    return false
-  }
+  return DEBUG_CONSOLE_PREF.load(browserStorage('sessionStorage'))
 }
 
 export function subscribeDebugConsole(listener: () => void): () => void {

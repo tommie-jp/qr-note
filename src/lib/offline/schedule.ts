@@ -12,6 +12,11 @@
 // 全力で撃ち直すと、圏外で開くたびにタイムアウトを待つことになる。
 
 import 'client-only'
+import {
+  browserStorage,
+  readStorageItem,
+  writeStorageItem,
+} from '../prefs/storagePref'
 
 export const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000
 
@@ -50,28 +55,16 @@ export function shouldAutoSync(
 // 呼び出し元の効果を突き抜けて unhandled rejection になり、オフラインの
 // 下ごしらえが**丸ごと黙って動かなくなる**。
 //
-// 読めない/書けないときは「記録が無い」と同じ扱いにする。同期が毎回走る
-// だけで、機能は落ちない (schedule.ts 冒頭の「同期する側へ倒す」と同じ判断)。
-function storage(): Storage | null {
-  try {
-    return typeof window === 'undefined' ? null : (window.localStorage ?? null)
-  } catch {
-    return null
-  }
-}
-
+// 読めない/書けないときは「記録が無い」と同じ扱いにする (prefs/storagePref.ts が
+// 畳む)。同期が毎回走るだけで、機能は落ちない (schedule.ts 冒頭の「同期する側へ
+// 倒す」と同じ判断)。書けなくても困るのは「次も同期する」だけ。
+//
+// 鍵は呼び手ごとに違う (同期の試行・暖機した版・起動計測) ので、definePref ではなく
+// 生の文字列の出し入れを使う
 export function readMark(key: string): string | null {
-  try {
-    return storage()?.getItem(key) ?? null
-  } catch {
-    return null
-  }
+  return readStorageItem(browserStorage(), key)
 }
 
 export function writeMark(key: string, value: string): void {
-  try {
-    storage()?.setItem(key, value)
-  } catch {
-    // 書けなくても困るのは「次も同期する」だけ
-  }
+  writeStorageItem(browserStorage(), key, value)
 }

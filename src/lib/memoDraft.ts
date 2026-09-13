@@ -9,6 +9,7 @@
 // effect の結線は MemoEditor 側。
 
 import 'client-only'
+import type { PrefStorage } from './prefs/storagePref'
 import { BASE_STALE } from './saveBase'
 
 export interface MemoDraft {
@@ -28,8 +29,10 @@ export interface RestoredDraft {
   base: string
 }
 
-// localStorage を全部は要らないので、使う分だけの形で受ける (テスト容易性)
-export type DraftStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+// 設定の読み書き (prefs/storagePref.ts) の形に、下書きの掃除に使う removeItem を足す。
+// 例外はここでは握らない — 呼び手 (MemoEditor) が読み出しから復元までを
+// まとめて包み、使えない環境では下書き保護なしの通常動作に落とす
+export type DraftStorage = PrefStorage & Pick<Storage, 'removeItem'>
 
 export function draftStorageKey(draftKey: string): string {
   return `qr-search:memo-draft:${draftKey}`

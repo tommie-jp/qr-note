@@ -5,13 +5,7 @@
 // 選択肢に在ることを検算してから使う (外れていれば既定へ寄せる)。
 
 import 'client-only'
-
-// localStorage のうち、ここで使う分だけの形。テストから差し替えられるように
-// 具象の Storage ではなくこの幅で受ける
-export interface PrefsStorage {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-}
+import { definePref, type PrefStorage } from '../prefs/storagePref'
 
 export interface DrawPrefs {
   readonly color: string
@@ -41,38 +35,31 @@ function validWidth(value: unknown): number {
     : DEFAULT_DRAW_WIDTH
 }
 
-export function loadDrawPrefs(storage: PrefsStorage | null | undefined): DrawPrefs {
-  const fallback: DrawPrefs = { color: DEFAULT_DRAW_COLOR, width: DEFAULT_DRAW_WIDTH }
-  if (!storage) {
-    return fallback
+const DEFAULT_DRAW_PREFS: DrawPrefs = { color: DEFAULT_DRAW_COLOR, width: DEFAULT_DRAW_WIDTH }
+
+// JSON.parse が投げる壊れた値は definePref が既定へ倒す
+function parseDrawPrefs(raw: string): DrawPrefs {
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== 'object' || parsed === null) {
+    return DEFAULT_DRAW_PREFS
   }
-  try {
-    const raw = storage.getItem(DRAW_PREFS_KEY)
-    if (!raw) {
-      return fallback
-    }
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null) {
-      return fallback
-    }
-    const { color, width } = parsed as Record<string, unknown>
-    return { color: validColor(color), width: validWidth(width) }
-  } catch {
-    // 壊れた JSON もプライベートモードの拒否も、既定で描き始められれば足りる
-    return fallback
-  }
+  const { color, width } = parsed as Record<string, unknown>
+  return { color: validColor(color), width: validWidth(width) }
 }
 
-export function saveDrawPrefs(
-  storage: PrefsStorage | null | undefined,
-  prefs: DrawPrefs,
-): void {
-  if (!storage) {
-    return
-  }
-  try {
-    storage.setItem(DRAW_PREFS_KEY, JSON.stringify({ color: prefs.color, width: prefs.width }))
-  } catch {
-    // 容量超過・プライベートモード。持ち越せないだけで描画には影響しない
-  }
+// 壊れた JSON もプライベートモードの拒否も、既定で描き始められれば足りる。
+// 書けないとき (容量超過・プライベートモード) も、持ち越せないだけで描画には影響しない
+const DRAW_PREFS_PREF = definePref<DrawPrefs>({
+  key: DRAW_PREFS_KEY,
+  parse: parseDrawPrefs,
+  serialize: (prefs) => JSON.stringify({ color: prefs.color, width: prefs.width }),
+  fallback: DEFAULT_DRAW_PREFS,
+})
+
+export function loadDrawPrefs(storage: PrefStorage | null | undefined): DrawPrefs {
+  return DRAW_PREFS_PREF.load(storage)
+}
+
+export function saveDrawPrefs(storage: PrefStorage | null | undefined, prefs: DrawPrefs): void {
+  DRAW_PREFS_PREF.save(storage, prefs)
 }

@@ -5,11 +5,11 @@ import {
   DRAW_PREFS_KEY,
   loadDrawPrefs,
   saveDrawPrefs,
-  type PrefsStorage,
 } from './drawPrefs'
+import type { PrefStorage } from '../prefs/storagePref'
 
 // localStorage の代役。vitest の環境は node なので本物は無い
-function fakeStorage(initial: Record<string, string> = {}): PrefsStorage {
+function fakeStorage(initial: Record<string, string> = {}): PrefStorage {
   const data = { ...initial }
   return {
     getItem: (key) => data[key] ?? null,
@@ -91,7 +91,7 @@ describe('loadDrawPrefs', () => {
 
   test('returns the defaults when reading throws (private mode)', () => {
     // Arrange
-    const storage: PrefsStorage = {
+    const storage: PrefStorage = {
       getItem: () => {
         throw new Error('denied')
       },
@@ -110,7 +110,7 @@ describe('saveDrawPrefs', () => {
   test('writes the prefs as JSON under the shared key', () => {
     // Arrange
     const setItem = vi.fn()
-    const storage: PrefsStorage = { getItem: () => null, setItem }
+    const storage: PrefStorage = { getItem: () => null, setItem }
 
     // Act
     saveDrawPrefs(storage, { color: '#00aaff', width: 12 })
@@ -124,7 +124,7 @@ describe('saveDrawPrefs', () => {
 
   test('ignores a storage that refuses to write', () => {
     // Arrange
-    const storage: PrefsStorage = {
+    const storage: PrefStorage = {
       getItem: () => null,
       setItem: () => {
         throw new Error('quota')

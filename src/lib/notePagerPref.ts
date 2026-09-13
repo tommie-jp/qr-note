@@ -10,13 +10,15 @@
 // すれば、購読している部品はどこに居ても一緒に切り替わる。
 //
 // 前半は Storage を引数で受ける純関数 (livePreviewPref.ts と同じ流儀)。
-// 後半がその上に載る購読の口。
+// 後半がその上に載る購読の口。読み書きの例外の扱いは prefs/storagePref.ts。
 
 import 'client-only'
 import { useSyncExternalStore } from 'react'
-
-// localStorage は全部は要らないので、使う分だけの形で受ける (テスト容易性)
-export type NotePagerStorage = Pick<Storage, 'getItem' | 'setItem'>
+import {
+  browserStorage,
+  defineBooleanPref,
+  type PrefStorage,
+} from './prefs/storagePref'
 
 export const NOTE_PAGER_STORAGE_KEY = 'qr-search:note-pager'
 
@@ -25,44 +27,37 @@ export const NOTE_PAGER_STORAGE_KEY = 'qr-search:note-pager'
 // 一度でも切り替えた端末は保存値が優先される
 export const NOTE_PAGER_DEFAULT = true
 
+// プライベートモード等で読めない環境では既定で動く (設定は保険であって
+// 本筋ではない。ノートそのものは従来どおり読める)。書けなくてもその場の
+// 切り替えは効いている (次に開くと既定に戻るだけ)
+const NOTE_PAGER_PREF = defineBooleanPref(
+  NOTE_PAGER_STORAGE_KEY,
+  NOTE_PAGER_DEFAULT,
+)
+
 // 保存されていない・読めない・知らない値はすべて既定に倒す
 // (localStorage は外部入力として扱う)
 export function parseNotePagerPref(raw: string | null): boolean {
-  if (raw === '1') {
-    return true
-  }
-  if (raw === '0') {
-    return false
-  }
-  return NOTE_PAGER_DEFAULT
+  return NOTE_PAGER_PREF.parse(raw)
 }
 
-export function loadNotePagerPref(storage: NotePagerStorage): boolean {
-  try {
-    return parseNotePagerPref(storage.getItem(NOTE_PAGER_STORAGE_KEY))
-  } catch {
-    // プライベートモード等で読めない環境では既定で動く (設定は保険であって
-    // 本筋ではない。ノートそのものは従来どおり読める)
-    return NOTE_PAGER_DEFAULT
-  }
+export function loadNotePagerPref(
+  storage: PrefStorage | null | undefined,
+): boolean {
+  return NOTE_PAGER_PREF.load(storage)
 }
 
 export function saveNotePagerPref(
-  storage: NotePagerStorage,
+  storage: PrefStorage | null | undefined,
   paged: boolean,
 ): void {
-  try {
-    storage.setItem(NOTE_PAGER_STORAGE_KEY, paged ? '1' : '0')
-  } catch {
-    // 書けなくてもその場の切り替えは効いている (次に開くと既定に戻るだけ)
-  }
+  NOTE_PAGER_PREF.save(storage, paged)
 }
 
 // 以下、購読の口 (secretSession.ts と同じ形)。
 //
 // **window.localStorage を触ること自体が例外になる**ブラウザがある
-// (Cookie を全面禁止した Chrome など)。上の純関数は getItem / setItem の中の
-// 例外しか見ないので、`window.localStorage` を読む所も包む
+// (Cookie を全面禁止した Chrome など)。browserStorage がそれを null (= 既定) に畳む
 
 // 読んだ値を覚えておく。useSyncExternalStore は描画のたびに何度も
 // スナップショットを読むので、そのつど localStorage を叩かない
@@ -72,22 +67,15 @@ const listeners = new Set<() => void>()
 
 export function isNotePagerPaged(): boolean {
   if (cached === null) {
-    try {
-      cached = loadNotePagerPref(window.localStorage)
-    } catch {
-      cached = NOTE_PAGER_DEFAULT
-    }
+    cached = loadNotePagerPref(browserStorage())
   }
   return cached
 }
 
 export function setNotePagerPaged(paged: boolean): void {
   cached = paged
-  try {
-    saveNotePagerPref(window.localStorage, paged)
-  } catch {
-    // 覚えられなくても、その場の切り替えは効いている
-  }
+  // 覚えられなくても、その場の切り替えは効いている
+  saveNotePagerPref(browserStorage(), paged)
   for (const listener of listeners) {
     listener()
   }

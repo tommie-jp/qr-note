@@ -16,6 +16,7 @@
 // (livePreviewPref.ts と同じ流儀で、Storage は引数で受ける純関数にする)。
 
 import 'client-only'
+import { defineBooleanPref, type PrefStorage } from './prefs/storagePref'
 
 // iOS / iPadOS か。**iPad は UA が Macintosh を名乗る** (13 以降) ので、
 // 触れる画面かどうかで見分ける。外したときの症状は文面が一般的になるだけ
@@ -52,35 +53,27 @@ export function ttsSilenceMessage(nav?: unknown): string {
 export const TTS_SILENT_HINT =
   '聞こえないときは、消音モードを解除して着信音量を上げてください (読み上げはメディア音量ではなく着信音量で鳴ります)'
 
-// localStorage は全部は要らないので、使う分だけの形で受ける (テスト容易性)
-export type TtsHintStorage = Pick<Storage, 'getItem' | 'setItem'>
-
 export const TTS_HINT_STORAGE_KEY = 'qr-search:tts-hint'
+
+// 消した印は '1'。プライベートモード等で読めない環境では出し続ける。案内は
+// 保険なので、読めないことを理由に黙るより、うるさいほうがまだよい。
+// 書けなくてもその場では消えている (次に開くとまた出るだけ)
+const TTS_HINT_DISMISSED_PREF = defineBooleanPref(TTS_HINT_STORAGE_KEY, false)
 
 // 案内を消したか。**端末単位**で覚える — 音量の設定は端末のものなので、
 // ノートごとに覚え直させる意味がない (livePreviewPref と同じ判断)
-export function isTtsHintDismissed(storage: TtsHintStorage): boolean {
-  try {
-    return storage.getItem(TTS_HINT_STORAGE_KEY) === '1'
-  } catch {
-    // プライベートモード等で読めない環境では出し続ける。案内は保険なので、
-    // 読めないことを理由に黙るより、うるさいほうがまだよい
-    return false
-  }
+export function isTtsHintDismissed(storage: PrefStorage): boolean {
+  return TTS_HINT_DISMISSED_PREF.load(storage)
 }
 
-export function dismissTtsHint(storage: TtsHintStorage): void {
-  try {
-    storage.setItem(TTS_HINT_STORAGE_KEY, '1')
-  } catch {
-    // 書けなくてもその場では消えている (次に開くとまた出るだけ)
-  }
+export function dismissTtsHint(storage: PrefStorage): void {
+  TTS_HINT_DISMISSED_PREF.save(storage, true)
 }
 
 // いま案内を出すか。Apple 端末だけに出す — 着信音量で鳴るのは iOS の作法で、
 // PC と Android には当てはまらない (的外れな案内は害になる)
 export function shouldShowTtsHint(
-  storage: TtsHintStorage,
+  storage: PrefStorage,
   nav?: unknown,
 ): boolean {
   return isAppleTouchDevice(nav) && !isTtsHintDismissed(storage)

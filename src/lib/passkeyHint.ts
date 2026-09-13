@@ -15,61 +15,35 @@
 // **すべて「無し」に倒れる**。自動が出なくなるだけで、手動のログインは無傷。
 
 import 'client-only'
+import { browserStorage, defineBooleanPref } from './prefs/storagePref'
 
 const HINT_KEY = 'qr-passkey-used-here'
 const SUPPRESS_KEY = 'qr-passkey-auto-suppressed'
 
-// 置く値は '1' だけ。利用者名などは置かない (漏れて困るものを増やさない)
-const FLAG = '1'
+// 置く値は '1' だけ (defineBooleanPref の印)。利用者名などは置かない
+// (漏れて困るものを増やさない)
+const HINT = defineBooleanPref(HINT_KEY, false)
+const SUPPRESS = defineBooleanPref(SUPPRESS_KEY, false)
 
-// storage へのアクセスはすべてここを通す。
-//
-// window の有無を見るのは Server Component から間接的に呼ばれても
-// 落ちないようにするため。try/catch は「storage はあるが触ると投げる」
-// 環境 (Safari のプライベートモードなど) のため。両方要る
-function readFlag(storage: 'localStorage' | 'sessionStorage', key: string): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
-  try {
-    return window[storage].getItem(key) === FLAG
-  } catch {
-    // 読めないなら「無い」と同じ扱いでよい (自動を出さない側に倒れる)
-    return false
-  }
-}
-
-function writeFlag(storage: 'localStorage' | 'sessionStorage', key: string): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-  try {
-    window[storage].setItem(key, FLAG)
-  } catch {
-    // 書けなくても実害は「次回も自動が出ない」だけ
-  }
-}
+// storage へのアクセスはすべて prefs/storagePref.ts を通す。window が無い
+// (Server Component から間接的に呼ばれた) ときも、storage はあるが触ると投げる
+// (Safari のプライベートモードなど) ときも、読めば「無い」、書けば何もしない
+// に倒れる — 自動を出さない側。書けなくても実害は「次回も自動が出ない」だけ
 
 // パスキーのログイン / 登録が成功した直後に呼ぶ。
 export function markPasskeyUsedHere(): void {
-  writeFlag('localStorage', HINT_KEY)
+  HINT.save(browserStorage('localStorage'), true)
 }
 
 // パスキーが 1 つも登録されていないと分かったとき (login-options が 404) に呼ぶ。
 // 残したままだと、鍵が消えているのに毎回自動発火を試みることになる。
+// 消せなくても、次の自動発火が空振りして 404 でまたここへ来るだけ
 export function clearPasskeyHint(): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-  try {
-    window.localStorage.removeItem(HINT_KEY)
-  } catch {
-    // 消せなくても、次の自動発火が空振りして 404 でまたここへ来るだけ
-  }
+  HINT.remove(browserStorage('localStorage'))
 }
 
 export function hasPasskeyHint(): boolean {
-  return readFlag('localStorage', HINT_KEY)
+  return HINT.load(browserStorage('localStorage'))
 }
 
 // 自動発火を利用者が取り消したときに呼ぶ。
@@ -79,9 +53,9 @@ export function hasPasskeyHint(): boolean {
 // 「一度キャンセルしたら二度と自動で出ない」になってしまう。タブを開き直せば
 // 元に戻る、が落としどころ。
 export function suppressAutoLogin(): void {
-  writeFlag('sessionStorage', SUPPRESS_KEY)
+  SUPPRESS.save(browserStorage('sessionStorage'), true)
 }
 
 export function isAutoLoginSuppressed(): boolean {
-  return readFlag('sessionStorage', SUPPRESS_KEY)
+  return SUPPRESS.load(browserStorage('sessionStorage'))
 }
