@@ -114,3 +114,71 @@ test("保存先の鍵をスクリプトと TS で共有する", () => {
   // 既定は段の中に居ること (外れると ＋ / − の起点が定まらない)
   expect(NOTE_FONT_SCALES).toContain(DEFAULT_NOTE_FONT_SCALE);
 });
+
+// 共通の生成器 (prefs/cssVarInitScript.ts) へ移す前に、ここで手書きしていた
+// スクリプト。同じ表から組み、振る舞いが変わっていないことを突き合わせる
+const LEGACY_NOTE_FONT_SCALE_INIT_SCRIPT = `(function(){try{var r=localStorage.getItem(${JSON.stringify(
+  NOTE_FONT_SCALE_KEY,
+)});if(r===null)return;var n=parseFloat(r);if(!isFinite(n))return;var s=${JSON.stringify(
+  NOTE_FONT_SCALES,
+)},c=s[0];for(var i=1;i<s.length;i++){if(Math.abs(s[i]-n)<Math.abs(c-n))c=s[i]}if(c!==${JSON.stringify(
+  DEFAULT_NOTE_FONT_SCALE,
+)})document.documentElement.style.setProperty(${JSON.stringify(
+  NOTE_FONT_SCALE_VAR,
+)},String(c))}catch(e){}})()`;
+
+// 読んだ鍵・書いた変数と値・外へ投げたかを記録する
+function recordInitScript(
+  script: string,
+  stored: string | null,
+  faults: { throwOnRead?: boolean; throwOnWrite?: boolean } = {},
+) {
+  const calls: string[] = [];
+  const localStorage = {
+    getItem: (key: string) => {
+      calls.push(`get ${key}`);
+      if (faults.throwOnRead) {
+        throw new Error("blocked");
+      }
+      return stored;
+    },
+  };
+  const document = {
+    documentElement: {
+      style: {
+        setProperty: (name: string, value: string) => {
+          calls.push(`set ${name}=${value}`);
+          if (faults.throwOnWrite) {
+            throw new Error("readonly");
+          }
+        },
+      },
+    },
+  };
+  try {
+    new Function("localStorage", "document", script)(localStorage, document);
+    return { calls, threw: false };
+  } catch {
+    return { calls, threw: true };
+  }
+}
+
+test("生成器へ移す前のスクリプトと同じ値を同じように当てる", () => {
+  const raws = [
+    null, "", "abc", "1", "1.0", "1.3", "1.2", "0.75", "0.8", "0.80", "0.9",
+    "1.075", "1.074", "1.076", "3", "-1", "0", "Infinity", "NaN", "2.0",
+    "1.15", " 1.5", "1.5x", "1e0",
+  ];
+  for (const raw of raws) {
+    expect(recordInitScript(NOTE_FONT_SCALE_INIT_SCRIPT, raw)).toEqual(
+      recordInitScript(LEGACY_NOTE_FONT_SCALE_INIT_SCRIPT, raw),
+    );
+  }
+  for (const fault of [{ throwOnRead: true }, { throwOnWrite: true }]) {
+    const now = recordInitScript(NOTE_FONT_SCALE_INIT_SCRIPT, "1.5", fault);
+    expect(now).toEqual(
+      recordInitScript(LEGACY_NOTE_FONT_SCALE_INIT_SCRIPT, "1.5", fault),
+    );
+    expect(now.threw).toBe(false);
+  }
+});

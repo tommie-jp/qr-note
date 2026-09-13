@@ -11,6 +11,9 @@
 //
 // 例外は 2 つだけ: 入力欄の 16px 下限と、rem に追随しない図 (どちらも
 // globals.css 側に理由付きで置いてある)。
+
+import { makeCssVarInitScript } from "./prefs/cssVarInitScript";
+
 export const NOTE_FONT_SCALE_KEY = "note-font-scale";
 export const NOTE_FONT_SCALE_VAR = "--note-font-scale";
 
@@ -75,17 +78,21 @@ export function noteFontScaleLabel(scale: number): string {
 // docs/01-app/02-guides/preventing-flash-before-hydration.md の theme と同じ手)。
 //
 // **寄せ方は normalizeNoteFontScale と同じにすること。** import できない
-// (バンドル前に走る) ので実装は二重になる。ずれると読み込み直後だけ別の
-// 大きさで描かれるため、noteFontScale.test.ts が両方を同じ表で確かめている。
+// (バンドル前に走る) ので実装は二重になる (prefs/cssVarInitScript.ts の
+// nearestStep)。ずれると読み込み直後だけ別の大きさで描かれるため、
+// noteFontScale.test.ts が両方を同じ表で確かめている。
 //
 // 等倍のときは何も書かない。CSS 側の既定 (var の第 2 引数) と同じなので、
 // html に style を足す意味がない
-export const NOTE_FONT_SCALE_INIT_SCRIPT = `(function(){try{var r=localStorage.getItem(${JSON.stringify(
-  NOTE_FONT_SCALE_KEY,
-)});if(r===null)return;var n=parseFloat(r);if(!isFinite(n))return;var s=${JSON.stringify(
-  NOTE_FONT_SCALES,
-)},c=s[0];for(var i=1;i<s.length;i++){if(Math.abs(s[i]-n)<Math.abs(c-n))c=s[i]}if(c!==${JSON.stringify(
-  DEFAULT_NOTE_FONT_SCALE,
-)})document.documentElement.style.setProperty(${JSON.stringify(
-  NOTE_FONT_SCALE_VAR,
-)},String(c))}catch(e){}})()`;
+export const NOTE_FONT_SCALE_INIT_SCRIPT = makeCssVarInitScript({
+  normalize: "nearestStep",
+  targets: [
+    {
+      storageKey: NOTE_FONT_SCALE_KEY,
+      cssVar: NOTE_FONT_SCALE_VAR,
+      unit: "",
+      steps: NOTE_FONT_SCALES,
+      skip: DEFAULT_NOTE_FONT_SCALE,
+    },
+  ],
+});

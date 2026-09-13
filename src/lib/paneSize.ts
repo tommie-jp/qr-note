@@ -8,6 +8,8 @@
 // インラインスクリプト — テキストサイズ (docs/61) と同じ作り。サーバは
 // 寸法を知らないので、この 2 つだけで完結する。
 
+import { makeCssVarInitScript } from "./prefs/cssVarInitScript";
+
 // 動かせる境界。**単位・既定・上下限・刻みは必ずこの表 1 つで持つ**
 // (NotePreviewFrame の FRAME と同じ判断)。CSS 変数の綴りもここが正本で、
 // 先回りスクリプトもこの表から組み立てる — 数値を書き写した瞬間に、
@@ -110,13 +112,9 @@ export function paneSizeFromPointer(
 //
 // **表 (PANE_SIZES) をそのまま埋め込む。** 数値を書き写さないので、
 // 上下限を直せばスクリプトも一緒に直る (書き写すと、読み込み直後だけ
-// 古い上限で clamp される端末が生まれる)。
-export const PANE_SIZE_INIT_SCRIPT = `(function(){try{var P=${JSON.stringify(
-  Object.values(PANE_SIZES).map((s) => [
-    s.storageKey,
-    s.cssVar,
-    s.unit,
-    s.min,
-    s.max,
-  ]),
-)};for(var i=0;i<P.length;i++){var p=P[i],r=localStorage.getItem(p[0]);if(r===null)continue;var n=parseFloat(r);if(!isFinite(n))continue;n=Math.round(n*10)/10;if(n<p[3])n=p[3];if(n>p[4])n=p[4];document.documentElement.style.setProperty(p[1],n+p[2])}}catch(e){}})()`;
+// 古い上限で clamp される端末が生まれる)。丸めと端への寄せ方は
+// clampPaneSize と同じ断片を prefs/cssVarInitScript.ts が組む。
+export const PANE_SIZE_INIT_SCRIPT = makeCssVarInitScript({
+  normalize: "clamp",
+  targets: Object.values(PANE_SIZES),
+});

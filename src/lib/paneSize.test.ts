@@ -139,3 +139,87 @@ describe("PANE_SIZE_INIT_SCRIPT", () => {
     ).not.toThrow();
   });
 });
+
+// 共通の生成器 (prefs/cssVarInitScript.ts) へ移す前に、ここで手書きしていた
+// スクリプト。同じ表から組み、振る舞いが変わっていないことを突き合わせる
+const LEGACY_PANE_SIZE_INIT_SCRIPT = `(function(){try{var P=${JSON.stringify(
+  Object.values(PANE_SIZES).map((s) => [
+    s.storageKey,
+    s.cssVar,
+    s.unit,
+    s.min,
+    s.max,
+  ]),
+)};for(var i=0;i<P.length;i++){var p=P[i],r=localStorage.getItem(p[0]);if(r===null)continue;var n=parseFloat(r);if(!isFinite(n))continue;n=Math.round(n*10)/10;if(n<p[3])n=p[3];if(n>p[4])n=p[4];document.documentElement.style.setProperty(p[1],n+p[2])}}catch(e){}})()`;
+
+describe("PANE_SIZE_INIT_SCRIPT (生成器へ移す前との互換)", () => {
+  // getItem が投げる鍵と setProperty が投げるかを選べる偽物で走らせ、
+  // 書いた順・値・外へ投げたかを記録する
+  const record = (
+    script: string,
+    stored: Record<string, string>,
+    faults: { throwOnRead?: string; throwOnWrite?: boolean } = {},
+  ) => {
+    const calls: string[] = [];
+    const localStorage = {
+      getItem: (key: string) => {
+        calls.push(`get ${key}`);
+        if (faults.throwOnRead === key) {
+          throw new Error("blocked");
+        }
+        return stored[key] ?? null;
+      },
+    };
+    const document = {
+      documentElement: {
+        style: {
+          setProperty: (name: string, value: string) => {
+            calls.push(`set ${name}=${value}`);
+            if (faults.throwOnWrite) {
+              throw new Error("readonly");
+            }
+          },
+        },
+      },
+    };
+    try {
+      new Function("localStorage", "document", script)(localStorage, document);
+      return { calls, threw: false };
+    } catch {
+      return { calls, threw: true };
+    }
+  };
+
+  const RAWS = [
+    "18", "2", "999", "16.34", "16.35", "16.25", "-3", "0", "100", "45",
+    " 18", "18px", "1e1", "Infinity", "-Infinity", "NaN", "", "0x10", ".5", "ひろく",
+  ];
+
+  test("保存値ごとに同じ CSS 変数を同じ順で当てる", () => {
+    const cases = [
+      {},
+      ...RAWS.map((raw) => ({ "pane-folder-w": raw, "pane-preview-h": raw })),
+      ...RAWS.map((raw) => ({ "pane-folder-w": raw })),
+      ...RAWS.map((raw) => ({ "pane-preview-h": raw })),
+    ];
+    for (const stored of cases) {
+      expect(record(PANE_SIZE_INIT_SCRIPT, stored)).toEqual(
+        record(LEGACY_PANE_SIZE_INIT_SCRIPT, stored),
+      );
+    }
+  });
+
+  test("途中で読めない・書けないときも同じところで止まる", () => {
+    const stored = { "pane-folder-w": "18", "pane-preview-h": "60" };
+    const faults = [
+      { throwOnRead: "pane-folder-w" },
+      { throwOnRead: "pane-preview-h" },
+      { throwOnWrite: true },
+    ];
+    for (const fault of faults) {
+      const now = record(PANE_SIZE_INIT_SCRIPT, stored, fault);
+      expect(now).toEqual(record(LEGACY_PANE_SIZE_INIT_SCRIPT, stored, fault));
+      expect(now.threw).toBe(false);
+    }
+  });
+});
