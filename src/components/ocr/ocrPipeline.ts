@@ -12,7 +12,7 @@ import { aggregatePercent } from '@/lib/progress'
 import { createProgressFetch } from '@/lib/progressFetch'
 
 // onnxruntime-web は既定で .wasm を CDN から取りに行く。自前配布した
-// public/onnxruntime/ を指して外部依存を断つ (scripts/copyOnnxWasm.mjs)。
+// public/onnxruntime/ を指して外部依存を断つ (scripts/assets.mjs)。
 const WASM_BASE_PATH = '/onnxruntime/'
 
 // 日本語を含む統合モデル (PP-OCRv5 mobile)。日本語優先は認識後の正規化
@@ -20,7 +20,7 @@ const WASM_BASE_PATH = '/onnxruntime/'
 //
 // SDK の既定は百度の CDN からモデルを直接取るが、そこは CORS ヘッダを返さず
 // **ブラウザからは弾かれる** (実機で確認)。自前配布に差し替える
-// (scripts/fetchPaddleOcrModels.mjs が public/paddle-ocr/ へ落とす)。
+// (scripts/assets.mjs が public/paddle-ocr/ へ落とす)。
 // モデル名は tar 内 inference.yml の model_name と一致していないと
 // 初期化時に弾かれるので、スクリプト側のファイル名と対で変える。
 const DET_MODEL_NAME = 'PP-OCRv5_mobile_det'
@@ -29,7 +29,7 @@ const MODEL_BASE_PATH = '/paddle-ocr/'
 
 // モデル tar 2 本の合計バイト数 (det 4,843,520 + rec 16,701,440)。
 // Content-Length が取れないときの進捗 % の分母に使う。モデルを差し替える
-// ときは scripts/fetchPaddleOcrModels.mjs と対でここも更新する
+// ときは scripts/assets.mjs と対でここも更新する
 // (ずれても % の見た目が狂うだけで動作には影響しない)
 const MODEL_TOTAL_BYTES_FALLBACK = 21_544_960
 

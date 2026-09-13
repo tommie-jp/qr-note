@@ -57,23 +57,23 @@ next-env.d.ts
 # 本番の実データ (メモ・画像) を含むため git 管理外
 /backup/
 
-# node-tikzjax の webfont (scripts/copyTikzFonts.mjs が node_modules から複製する)
+# node-tikzjax の webfont (scripts/assets.mjs が node_modules から複製する)
 /public/tikzjax
 
-# スキャナの読み取りエンジン (scripts/copyZxingWasm.mjs が node_modules から複製する)
+# スキャナの読み取りエンジン (scripts/assets.mjs が node_modules から複製する)
 /public/zxing
 
-# OCR 推論エンジンの wasm (scripts/copyOnnxWasm.mjs が node_modules から複製する)
+# OCR 推論エンジンの wasm (scripts/assets.mjs が node_modules から複製する)
 /public/onnxruntime
 
 # 画像検索 (transformers.js) の onnxruntime-web wasm
-# (scripts/copyEmbeddingWasm.mjs が node_modules から複製する)
+# (scripts/assets.mjs が node_modules から複製する)
 /public/embedding-onnx
 
-# OCR の認識モデル (scripts/fetchPaddleOcrModels.mjs がネットから落とす)
+# OCR の認識モデル (scripts/assets.mjs がネットから落とす)
 /public/paddle-ocr
 
-# PDF ビューア (scripts/copyPdfjsAssets.mjs が node_modules から複製する)
+# PDF ビューア (scripts/assets.mjs が node_modules から複製する)
 /public/pdfjs
 
 # Playwright (E2E) の生成物とログインの cookie

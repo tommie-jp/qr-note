@@ -80,7 +80,7 @@ async function loadLib(): Promise<Transformers> {
   const lib = await import('@huggingface/transformers')
   // ブラウザの WASM バックエンドは既定で ort の .wasm を CDN から取りに行く。
   // 自前配布した public/embedding-onnx/ を指して外部依存を断つ
-  // (scripts/copyEmbeddingWasm.mjs)。Node では無関係。
+  // (scripts/assets.mjs)。Node では無関係。
   // ブラウザ (メインスレッド/Worker 両方) でだけ自前配布を指す。Worker には
   // window が無いので window の有無ではなく「Node でない」で判定する。
   const wasm = lib.env.backends?.onnx?.wasm

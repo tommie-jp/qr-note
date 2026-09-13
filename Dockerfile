@@ -71,7 +71,8 @@ RUN sha256sum .deps/package.json .deps/package-lock.json > /tmp/deps-used.sha256
 # ビルド時のページデータ収集で db.ts が import されるためダミー URL を渡す
 # (全ページ force-dynamic なので実際の接続は起きない。実行時は compose が上書き)
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
-# npm run build = tikzjax フォント + zxing wasm の複製 + prisma generate + next build
+# npm run build = アセットの複製と取得 (scripts/assets.mjs。ここではスタンプが無いので
+# 必ず複製する) + prisma generate + next build
 #
 # 注: レイヤーの再現性 (public 188MB・onnx 35MB を毎デプロイ再送しないための mtime 固定)
 # は、doDeploy.sh 側が buildx の rewrite-timestamp + SOURCE_DATE_EPOCH で全レイヤーに

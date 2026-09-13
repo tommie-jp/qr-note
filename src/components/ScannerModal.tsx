@@ -19,7 +19,7 @@ import { useScannerCamera } from "./useScannerCamera";
 
 // 読み取りエンジン (wasm) の取得先を自前配信へ向ける (docs/09-スキャン計画.md §5)。
 // 既定は jsDelivr の CDN で、外部依存を作りたくない。
-// public/zxing/ へはビルド時に scripts/copyZxingWasm.mjs が複製する。
+// public/zxing/ へはビルド時に scripts/assets.mjs が複製する。
 //
 // prepareZXingModule はモジュール読み込み時 = 最初の読み取りより前に呼ぶ必要がある。
 // このファイル自体が動的 import されるので、Scanner が描画される前に必ず通る。

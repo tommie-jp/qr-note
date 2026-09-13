@@ -15,7 +15,7 @@
 
 import { pageRenderScale } from '@/lib/pdfScale'
 
-// worker とアセットは scripts/copyPdfjsAssets.mjs が public/pdfjs/ へ複製する。
+// worker とアセットは scripts/assets.mjs が public/pdfjs/ へ複製する。
 // CDN も import.meta.url 相対も使わない (外部依存を作らない / Turbopack が
 // worker の相対解決を追えずビルドを落とすため)。
 const ASSET_BASE = '/pdfjs/'
@@ -103,7 +103,7 @@ export async function loadPdfDocument(url: string): Promise<PdfDocumentHandle> {
   // PDF 内 JavaScript (AcroForm のスクリプト) はここでは動かない。実行には
   // pdfjs のビューア層 (PDFViewer + scripting sandbox) が要るが、このアプリは
   // getDocument と page.render しか使わないため入口が無い。加えて
-  // copyPdfjsAssets.mjs が quickjs-eval を複製しないので、仮に呼ばれても動かない
+  // scripts/assets.mjs が quickjs-eval を複製しないので、仮に呼ばれても動かない
 
   const doc = await task.promise
   // ページごとの描画タスク。同じページへ描き直すときに前のを中断する

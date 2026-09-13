@@ -1,6 +1,6 @@
 // PWA アイコンとブラウザタブのアイコンを SVG から生成する。
 //
-// copyTikzFonts.mjs と違い、これは **ビルドでは走らない**。生成物 (public/icon-*.png と
+// assets.mjs と違い、これは **ビルドでは走らない**。生成物 (public/icon-*.png と
 // src/app/apple-icon.png, src/app/icon.svg) はリポジトリにコミットしてある。
 // 意匠を変えたいときだけ手で叩く:
 //

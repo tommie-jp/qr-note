@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "npm run copy:assets && next dev",
     "build": "npm run copy:assets && prisma generate && next build",
-    "copy:assets": "node scripts/copyTikzFonts.mjs && node scripts/copyZxingWasm.mjs && node scripts/copyOnnxWasm.mjs && node scripts/copyEmbeddingWasm.mjs && node scripts/copyPdfjsAssets.mjs && node scripts/fetchPaddleOcrModels.mjs",
+    "copy:assets": "node scripts/assets.mjs",
     "backfill:embeddings": "tsx --conditions=react-server scripts/backfillEmbeddings.ts",
     "backfill:git": "tsx --conditions=react-server scripts/backfillGitHistory.ts",
     "start": "next start",
