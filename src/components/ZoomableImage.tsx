@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentProps } from "react";
-import { createPortal } from "react-dom";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { useRouter } from "next/navigation";
 import { pendingRotation } from "@/lib/rotationState";
 import { parseUploadResponse } from "@/lib/uploadResponse";
 import { CopyImageButton } from "./CopyImageButton";
+import { ModalOverlay } from "./modal/ModalOverlay";
+import { useEscapeKey } from "./modal/useEscapeKey";
 import { IMAGE_OVERLAY_BUTTON_CLASS } from "./ui";
 
 type ZoomableImageProps = ComponentProps<"img"> & {
@@ -60,18 +67,8 @@ export function ZoomableImage({
   const angleRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
+  const close = useCallback(() => setIsOpen(false), []);
+  useEscapeKey(close, isOpen);
 
   // アンマウント時に確定待ちのタイマーを止める
   useEffect(() => {
@@ -166,50 +163,45 @@ export function ZoomableImage({
           style={{ ...props.style, ...rotateStyle }}
         />
       </button>
-      {isOpen &&
-        createPortal(
+      {isOpen && (
+        <ModalOverlay variant="zoom" onClose={close}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={currentSrc}
+            alt={alt}
+            className="max-h-full max-w-full"
+            style={rotateStyle}
+          />
+          {/* 覆いの上の操作。**コピーは allowRotate に関わらず出す** —
+              回転は自分のノートでだけ許す書き換えだが、コピーは読むだけで、
+              公開ビューでも同じように要る (docs/92 §3)。
+              閉じ (覆いの onClick) と分けるため、まとめて伝播を止める */}
           <div
-            className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/70 p-4"
-            onClick={() => setIsOpen(false)}
+            className="absolute bottom-4 right-4 flex flex-col items-end gap-2"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentSrc}
-              alt={alt}
-              className="max-h-full max-w-full"
-              style={rotateStyle}
-            />
-            {/* 覆いの上の操作。**コピーは allowRotate に関わらず出す** —
-                回転は自分のノートでだけ許す書き換えだが、コピーは読むだけで、
-                公開ビューでも同じように要る (docs/92 §3)。
-                閉じ (親の onClick) と分けるため、まとめて伝播を止める */}
-            <div
-              className="absolute bottom-4 right-4 flex flex-col items-end gap-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {error && (
-                <p className="rounded bg-black/70 px-2 py-1 text-sm text-red-300">
-                  {error}
-                </p>
+            {error && (
+              <p className="rounded bg-black/70 px-2 py-1 text-sm text-red-300">
+                {error}
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <CopyImageButton src={currentSrc} />
+              {allowRotate && (
+                <button
+                  type="button"
+                  aria-label="90度回転"
+                  disabled={isSaving}
+                  onClick={onRotateClick}
+                  className={`${IMAGE_OVERLAY_BUTTON_CLASS} px-4 py-3 text-lg`}
+                >
+                  {isSaving ? "…" : "↻"}
+                </button>
               )}
-              <div className="flex items-center gap-2">
-                <CopyImageButton src={currentSrc} />
-                {allowRotate && (
-                  <button
-                    type="button"
-                    aria-label="90度回転"
-                    disabled={isSaving}
-                    onClick={onRotateClick}
-                    className={`${IMAGE_OVERLAY_BUTTON_CLASS} px-4 py-3 text-lg`}
-                  >
-                    {isSaving ? "…" : "↻"}
-                  </button>
-                )}
-              </div>
             </div>
-          </div>,
-          document.body,
-        )}
+          </div>
+        </ModalOverlay>
+      )}
     </>
   );
 }

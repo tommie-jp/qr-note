@@ -9,11 +9,12 @@ import {
   type ScannerErrorKind,
 } from "@yudiel/react-qr-scanner";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { SCAN_FORMATS } from "@/lib/scanFormats";
 import { resolveScanPath } from "@/lib/scanResult";
 import { cameraControlClass } from "./cameraControlButton";
+import { useEscapeKey } from "./modal/useEscapeKey";
 import { useScannerCamera } from "./useScannerCamera";
 
 // 読み取りエンジン (wasm) の取得先を自前配信へ向ける (docs/09-スキャン計画.md §5)。
@@ -78,15 +79,7 @@ export function ScannerModal({
   const scannerRef = useRef<IScannerHandle>(null);
   const cam = useScannerCamera(scannerRef);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   const handleScan = (codes: IDetectedBarcode[]) => {
     if (isHandled.current) {

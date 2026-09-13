@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   BUSY_SPINNER_CLASS,
   MEMO_INPUT_CLASS,
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
+import { ModalOverlay } from "@/components/modal/ModalOverlay";
+import { useEscapeKey } from "@/components/modal/useEscapeKey";
 import { insertBlockAtSelection } from "@/lib/insertAtSelection";
 import {
   loadSecret,
@@ -85,15 +86,7 @@ export function SecretDialog({
   const [blocked, setBlocked] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   // 施錠されたら閉じる。**開いている間、復号した平文はこの state に居る**ので、
   // 施錠したのに残っていては「施錠 = 手元の復号済みデータは消える」という
@@ -207,8 +200,8 @@ export function SecretDialog({
     }
   }, [label, name, onSaved, text]);
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-900/90">
+  return (
+    <ModalOverlay variant="viewer">
       <div className="flex items-center gap-3 bg-white px-3 py-2 text-sm">
         <span className="min-w-0 flex-1 truncate font-bold">
           🔒 {name === null ? "シークレットを挿入" : "シークレットを編集"}
@@ -301,8 +294,7 @@ export function SecretDialog({
           </p>
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalOverlay>
   );
 }
 

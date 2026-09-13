@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useState } from "react";
 import { QrIcon } from "@/components/MenuIcons";
+import { ModalOverlay } from "@/components/modal/ModalOverlay";
+import { useEscapeKey } from "@/components/modal/useEscapeKey";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 
 interface HeaderQrButtonProps {
@@ -21,18 +22,8 @@ export function HeaderQrButton({
 }: HeaderQrButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
+  const close = useCallback(() => setIsOpen(false), []);
+  useEscapeKey(close, isOpen);
 
   return (
     <>
@@ -60,25 +51,18 @@ export function HeaderQrButton({
           "QR"
         )}
       </button>
-      {isOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/70 p-4"
-            onClick={() => setIsOpen(false)}
-          >
-            {/* max-h + overflow … QR (240px) + URL で高さ 300px を超えるため、
-                スマホ横持ち (視界 300px 台) でははみ出す。器の p-4 の内側に
-                収めて中をスクロールさせる (docs/31 §12) */}
-            <div className="max-h-full overflow-y-auto border border-gray-300 bg-white p-3 text-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrDataUrl} alt={`QR: ${url}`} width={240} height={240} />
-              <div className="mt-1 break-all font-mono text-gray-600">
-                {url}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {isOpen && (
+        <ModalOverlay variant="zoom" onClose={close}>
+          {/* max-h + overflow … QR (240px) + URL で高さ 300px を超えるため、
+              スマホ横持ち (視界 300px 台) でははみ出す。器の p-4 の内側に
+              収めて中をスクロールさせる (docs/31 §12) */}
+          <div className="max-h-full overflow-y-auto border border-gray-300 bg-white p-3 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrDataUrl} alt={`QR: ${url}`} width={240} height={240} />
+            <div className="mt-1 break-all font-mono text-gray-600">{url}</div>
+          </div>
+        </ModalOverlay>
+      )}
     </>
   );
 }

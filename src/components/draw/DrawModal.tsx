@@ -7,8 +7,9 @@
 // ノート編集フォームの中から開くので、body へポータルで逃がす —
 // form の中に置くと、中のボタンが「更新」として送信されてしまう。
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useEscapeKey } from "@/components/modal/useEscapeKey";
 import {
   DEFAULT_DRAW_COLOR,
   DEFAULT_DRAW_WIDTH,
@@ -140,30 +141,24 @@ export function DrawModal({ sourceImageUrl, onCancel, onInsert }: DrawModalProps
     return () => stage.removeEventListener("scroll", reset);
   }, []);
 
-  const requestClose = () => {
+  // isEmpty を読む。閉じる前の確認を出す条件が変わるので追う
+  // (Escape のリスナーもこれに合わせて張り直る)
+  const requestClose = useCallback(() => {
     if (!isEmpty && !window.confirm("描いたものは保存されません。閉じますか？")) {
       return;
     }
     onCancel();
-  };
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
-        return;
-      }
-      // 文字道具の編集中は fabric の隠し textarea に焦点がある。
-      // そこでの Esc は「文字の入力をやめる」なので、画面は閉じない
-      if (document.activeElement instanceof HTMLTextAreaElement) {
-        return;
-      }
-      requestClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // requestClose は isEmpty を読む。閉じる前の確認を出す条件が変わるので追う
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEmpty, onCancel]);
+
+  const closeOnEscape = useCallback(() => {
+    // 文字道具の編集中は fabric の隠し textarea に焦点がある。
+    // そこでの Esc は「文字の入力をやめる」なので、画面は閉じない
+    if (document.activeElement instanceof HTMLTextAreaElement) {
+      return;
+    }
+    requestClose();
+  }, [requestClose]);
+  useEscapeKey(closeOnEscape);
 
   const updatePrefs = (next: { color: string; width: number }) => {
     setPrefs(next);

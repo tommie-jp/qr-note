@@ -14,6 +14,7 @@ import { disposeOcr } from "./ocr/ocrService";
 import { captureSquareBitmap } from "./imageSearch/capture";
 import { fetchImageSearchIndex } from "./imageSearch/fetchIndex";
 import { useImageEmbedder } from "./imageSearch/useImageEmbedder";
+import { useEscapeKey } from "./modal/useEscapeKey";
 
 // 上位いくつ出すか。1 位一発当てではなく候補から選ばせる (docs/25 §6)。
 const MAX_RESULTS = 5;
@@ -92,15 +93,7 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
   const [busy, setBusy] = useState(false);
 
   // Esc で閉じる (ScannerModal と同じ)
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   // 索引の取得 (モーダルを開いた時点で 1 度)
   useEffect(() => {

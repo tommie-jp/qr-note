@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "./modal/useBodyScrollLock";
+import { useEscapeKey } from "./modal/useEscapeKey";
 
 // ヘッダーのハンバーガーメニュー (docs/11-アプリ的UIUX計画.md §6)。
 //
@@ -39,28 +41,24 @@ export function HeaderMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  // 開いている間だけの後始末をまとめて持つ。閉じたら (= 依存が false に
-  // なったら) cleanup が走り、すべて元へ戻る
+  // 以下の 3 つは開いている間だけ効かせる。閉じたら (= isOpen が false に
+  // なったら) それぞれの cleanup が走り、すべて元へ戻る
+  const closeFromKeyboard = useCallback(() => {
+    setIsOpen(false);
+    // 閉じたら開閉ボタンへ戻す。キーボードで辿っている人が
+    // 行き場を失わないようにする
+    triggerRef.current?.focus();
+  }, []);
+  useEscapeKey(closeFromKeyboard, isOpen);
+
+  // 背面のスクロールを止める。暗くした背景が指で動くと「触れないのに
+  // 動く」矛盾になるうえ、シートの中を弾いたつもりが後ろが流れる
+  useBodyScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) {
       return;
     }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-        // 閉じたら開閉ボタンへ戻す。キーボードで辿っている人が
-        // 行き場を失わないようにする
-        triggerRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-
-    // 背面のスクロールを止める。暗くした背景が指で動くと「触れないのに
-    // 動く」矛盾になるうえ、シートの中を弾いたつもりが後ろが流れる
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     // シートへフォーカスを移す。**portal で body の末尾に描くので、
     // 移さないとタブ順がヘッダー → 本文 → シートになり、開いた直後に
     // Tab を押しても項目へ入れない** (ヘッダーの中に描いていた頃は
@@ -68,11 +66,6 @@ export function HeaderMenu({
     // 項目の外に出た後まで閉じ込める処理 (focus trap) は持たない —
     // Escape と外側タップで出られるので、行き止まりにはならない
     sheetRef.current?.focus();
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
   }, [isOpen]);
 
   return (

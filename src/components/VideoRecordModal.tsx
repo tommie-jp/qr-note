@@ -6,10 +6,11 @@
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { formatElapsed } from "@/lib/progressLabels";
 import { cameraControlClass } from "./cameraControlButton";
+import { useEscapeKey } from "./modal/useEscapeKey";
 import type { VideoRecordingState } from "./useVideoRecording";
 
 export interface VideoRecordModalProps {
@@ -29,24 +30,15 @@ export function VideoRecordModal({ video }: VideoRecordModalProps) {
 
   // Escape で閉じる。プレビュー中は取消、録画中は停止して保存する
   // (撮った録画を誤操作で失わせない。不要なら本文から 1 行消せばよい)
-  useEffect(() => {
-    if (!isOpen) {
-      return;
+  const onEscape = useCallback(() => {
+    const v = videoStateRef.current;
+    if (v.phase === "recording") {
+      v.stop();
+    } else {
+      v.cancelPreview();
     }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") {
-        return;
-      }
-      const v = videoStateRef.current;
-      if (v.phase === "recording") {
-        v.stop();
-      } else {
-        v.cancelPreview();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
+  }, []);
+  useEscapeKey(onEscape, isOpen);
 
   // プレビュー stream を <video> に繋ぐ。MediaStream は srcObject にしか渡せず
   // 属性では渡せないので ref 経由で設定する。カメラ切替で stream が変わっても

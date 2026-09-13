@@ -7,7 +7,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   isRenderCancelled,
   loadPdfDocument,
@@ -15,6 +14,9 @@ import {
 } from "./pdfService";
 import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/displayMode";
 import { isShareAborted, shareFile, shouldOfferShare } from "@/lib/shareFile";
+import { ModalOverlay } from "../modal/ModalOverlay";
+import { useBodyScrollLock } from "../modal/useBodyScrollLock";
+import { useEscapeKey } from "../modal/useEscapeKey";
 import { BUSY_SPINNER_CLASS, SECONDARY_BUTTON_CLASS } from "../ui";
 
 // ページを先読みする距離。スクロールで現れる直前に描き始めることで、
@@ -165,24 +167,10 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
     () => false,
   );
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   // 開いている間は後ろのページをスクロールさせない (iOS のスクロール伝播よけ)
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
+  useBodyScrollLock();
 
   // 読み込みと後始末。閉じたら worker ごと破棄する — 抱えたままだと
   // wasm ヒープが残り、後から開く OCR や画像検索がモデルを積めずに落ちる
@@ -259,8 +247,8 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
     };
   }, [measure]);
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-900/90">
+  return (
+    <ModalOverlay variant="viewer">
       <div className="flex items-center gap-3 bg-white px-3 py-2 text-sm">
         <span className="min-w-0 flex-1 truncate font-bold">{label}</span>
         {/* 逃げ道: ブラウザ起動なら内蔵ビューアの方が快適なこともある。
@@ -321,7 +309,6 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
           </div>
         )}
       </div>
-    </div>,
-    document.body,
+    </ModalOverlay>
   );
 }

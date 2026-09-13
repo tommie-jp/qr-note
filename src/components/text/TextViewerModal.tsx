@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/displayMode";
+import { ModalOverlay } from "../modal/ModalOverlay";
+import { useBodyScrollLock } from "../modal/useBodyScrollLock";
+import { useEscapeKey } from "../modal/useEscapeKey";
 import { BUSY_SPINNER_CLASS, SECONDARY_BUTTON_CLASS } from "../ui";
 
 // 一度に描く文字数の上限。10MB の CSV をそのまま <pre> に流すと、テキスト
@@ -40,24 +42,10 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
     () => false,
   );
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(onClose);
 
   // 開いている間は後ろのページをスクロールさせない (iOS のスクロール伝播よけ)
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
+  useBodyScrollLock();
 
   useEffect(() => {
     let cancelled = false;
@@ -104,8 +92,8 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
 
   const truncated = text !== null && text.length > MAX_DISPLAY_CHARS;
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-900/90">
+  return (
+    <ModalOverlay variant="viewer">
       <div className="flex items-center gap-3 bg-white px-3 py-2 text-sm">
         <span className="min-w-0 flex-1 truncate font-bold">{label}</span>
         {/* 逃げ道: ブラウザ起動なら別タブで開いて保存もできる。
@@ -159,7 +147,6 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
           </div>
         )}
       </div>
-    </div>,
-    document.body,
+    </ModalOverlay>
   );
 }
