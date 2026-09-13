@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { CircuitRenderError, circuitHash, assertSafeCircuitSvg } from './circuitikz'
+import { circuitHash, assertSafeCircuitSvg } from './hash'
+import { CircuitRenderError } from './renderError'
 
 // **TeX を回さない**ぶんだけをここに置く。実際に描画するテストは重く、
 // 置き場所を分けてある (どれも「なぜ別ファイルか」を各ヘッダに書いた):
-//   - circuitikz.render.test.ts     … renderCircuit の描画
-//   - circuitikz.timeout.test.ts    … 暴走 TeX の打ち切り (丸ごと 10 秒待つ)
-//   - circuitikz.injection.test.ts  … dvisvgm:raw の注入口
+//   - ../circuitikz.render.test.ts     … renderCircuit の描画
+//   - ../circuitikz.timeout.test.ts    … 暴走 TeX の打ち切り (丸ごと 10 秒待つ)
+//   - ../circuitikz.injection.test.ts  … dvisvgm:raw の注入口
 
 const SIMPLE = String.raw`\begin{circuitikz}
 \draw (0,0) to[R=$R_1$] (2,0);

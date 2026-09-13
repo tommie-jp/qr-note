@@ -4,7 +4,7 @@ import { ItemTags } from "@/components/ItemTags";
 import { ItemUrlBox } from "@/components/ItemUrlBox";
 import { NoteBody } from "@/components/NoteBody";
 import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
-import type { CircuitMap } from "@/lib/circuitCache";
+import type { CircuitMap } from "@/lib/circuit/types";
 import { formatJstDateTime } from "@/lib/datetime";
 import type { OfflineItem } from "@/lib/offline/item";
 

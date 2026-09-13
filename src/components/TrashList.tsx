@@ -1,8 +1,10 @@
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts / mathText.ts / NotePreviewThumb.tsx は
-// サーバ専用 module (offline/circuits.ts と同じ線引き)。型は erase されるので安全
-import type { CircuitThumbMap } from "@/lib/circuitThumbs";
-import type { MathTextMap } from "@/lib/mathText";
+// 値の import は不可 — NotePreviewThumb.tsx はサーバ専用 module
+// (offline/circuits.ts と同じ線引き)。型は erase されるので安全。
+// 回路図サムネと数式の型は、サーバ専用の circuitThumbs.ts / mathText.ts ではなく
+// 型だけの葉 (circuit/types.ts / mathTextTypes.ts) から取る
+import type { CircuitThumbMap } from "@/lib/circuit/types";
+import type { MathTextMap } from "@/lib/mathTextTypes";
 import type { NotePreviewMap } from "./NotePreviewThumb";
 import { formatJstDateTime } from "@/lib/datetime";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";

@@ -12,7 +12,7 @@
 
 import { all as decodeHeicAll } from 'heic-decode'
 import sharp from 'sharp'
-import { MAX_INPUT_PIXELS } from './thumbnail'
+import { MAX_INPUT_PIXELS } from './images/thumbConfig'
 import type { ImageFormat } from './uploads'
 
 export interface NormalizedImage {

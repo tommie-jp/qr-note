@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { circuitHash } from './circuitikz'
+import { circuitHash } from './circuit/hash'
 import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from './circuitFences'
 
 // DB と TeX の実描画は差し替えて、キャッシュの分岐だけを見る

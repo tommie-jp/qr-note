@@ -1,12 +1,14 @@
 import sharp from 'sharp'
 import { expect, test } from 'vitest'
 import {
-  canAnimateThumbnail,
-  makeThumbnail,
-  MAX_ANIMATION_FRAMES,
   MAX_INPUT_PIXELS,
   THUMB_MAX_PX,
   THUMB_MIME,
+} from './images/thumbConfig'
+import {
+  canAnimateThumbnail,
+  makeThumbnail,
+  MAX_ANIMATION_FRAMES,
 } from './thumbnail'
 
 // テスト用の単色画像。中身は問わないので生成で済ませる (固定ファイルを置かない)。

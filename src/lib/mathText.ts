@@ -8,17 +8,15 @@
 // 回路図サムネ (circuitThumbs.ts + CircuitThumb.tsx) と同じ型。
 //
 // このモジュールはサーバ専用にする (katex ~280KB をクライアント束に入れない)。
-// client component からは型だけ import すること (circuitThumbs.ts と同じ線引き)
+// client component からは値を import しないこと。返り値の型 (MathTextMap) は
+// 葉の mathTextTypes.ts に置いてあり、表示側はそちらを import する
+// (circuitThumbs.ts と同じ線引き)
 import katex from 'katex'
 import { escapeHtml } from './escapeHtml'
 import { KATEX_OPTIONS } from './katexOptions'
+import type { MathTextMap } from './mathTextTypes'
 import { memoPreview } from './memoPreview'
 import { inlineMathRanges, memoSummary } from './memoSummary'
-
-// itemNo → 数式入りのタイトル/プレビュー (KaTeX 済み HTML)。数式の無い
-// フィールドは持たない (表示側がプレーンテキストへフォールバック)。
-// サーバ→クライアント境界を越える prop なので素の Record
-export type MathTextMap = Record<string, { title?: string; preview?: string }>
 
 // title … 小/画像モード用。プレビューはどの行にも描かれないので作らない
 // both  … カード表示用。タイトルと本文プレビューの両方

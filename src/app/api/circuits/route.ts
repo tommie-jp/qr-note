@@ -4,7 +4,7 @@ import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { getOrRenderCircuit } from '@/lib/circuitCache'
 import { renderCircuitYaml } from '@/lib/circuitYaml'
 import { CIRCUIT_LANG, isCircuitLang } from '@/lib/fenceLanguages'
-import { CircuitRenderError } from '@/lib/circuitikz'
+import { CircuitRenderError } from '@/lib/circuit/renderError'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 
 // 受け付けるソースの長さ。本文を経由しない直接の呼び出しを断つための門で、

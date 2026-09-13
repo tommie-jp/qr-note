@@ -29,7 +29,7 @@ import {
   REMARK_REHYPE_OPTIONS,
   urlTransform,
 } from "./markdownPipeline";
-import type { CircuitThumbMap } from "@/lib/circuitThumbs";
+import type { CircuitThumbMap } from "@/lib/circuit/types";
 import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
 import { RENDERED_LANGS } from "@/lib/fenceLanguages";

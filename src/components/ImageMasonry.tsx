@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — circuitThumbs.ts / mathText.ts はサーバ専用 module
-// (offline/circuits.ts と同じ線引き)。型は erase されるので安全
-import type { CircuitThumbMap } from "@/lib/circuitThumbs";
-import type { MathTextMap } from "@/lib/mathText";
+// 型は葉 (circuit/types.ts / mathTextTypes.ts) から取る — 取得側の
+// circuitThumbs.ts / mathText.ts はサーバ専用 module で、値の import は不可
+// (offline/circuits.ts と同じ線引き)
+import type { CircuitThumbMap } from "@/lib/circuit/types";
+import type { MathTextMap } from "@/lib/mathTextTypes";
 import { allImageNames, thumbUrl } from "@/lib/memoImages";
 import { memoSummary } from "@/lib/memoSummary";
 import { tagSearchHref } from "@/lib/tags";

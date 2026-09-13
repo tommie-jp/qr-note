@@ -5,7 +5,7 @@ import type {
   CircuitNotice,
   CircuitResult,
   PendingCircuit,
-} from "@/lib/circuitCache";
+} from "@/lib/circuit/types";
 import { ERROR_SOURCE_CLASS } from "./ui";
 
 interface CircuitDiagramProps {

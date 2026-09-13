@@ -7,10 +7,11 @@
 // 描かないのと同じ理由 (syncItems.ts の loadOfflineCircuits)。
 //
 // このモジュールは prisma を引き込むサーバ専用。client component からは
-// 値を import しないこと (型だけなら可。offline/circuits.ts と同じ線引き)
+// 値を import しないこと。返り値の型 (CircuitThumbMap) は葉の
+// circuit/types.ts に置いてあり、表示側はそちらを import する
 import { prisma } from './db'
-import { MAX_CIRCUITS_PER_MEMO } from './circuitCache'
-import { assertSafeCircuitSvg, circuitHash } from './circuitikz'
+import { assertSafeCircuitSvg, circuitHash } from './circuit/hash'
+import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './circuit/types'
 import {
   CIRCUITIKZ_LANG,
   type CircuitFence,
@@ -19,10 +20,6 @@ import {
 } from './circuitFences'
 import { circuitYamlHash } from './circuitYaml'
 import { firstThumbInfo } from './memoImages'
-
-// itemNo → インライン SVG (本文の出現順)。小/大は先頭 1 枚、画像モードは全部。
-// サーバ→クライアント境界を越える prop なので Map ではなく素の Record
-export type CircuitThumbMap = Record<string, string[]>
 
 // first … 小/大のサムネ用。画像サムネの無いノートに 1 枚だけ
 // all   … 画像モードのタイル用。ノートの図を全部 (画像タイルと併記)

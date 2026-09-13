@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { CIRCUIT_TIMEOUT_MS, CircuitRenderError, renderCircuit } from './circuitikz'
+import { CircuitRenderError } from './circuit/renderError'
+import { CIRCUIT_TIMEOUT_MS, renderCircuit } from './circuitikz'
 
 // 暴走した TeX を上限時間で打ち切れることの回帰テスト。**1 本きりで、丸ごと
 // CIRCUIT_TIMEOUT_MS だけ待つ**ので、他と同居させるとその待ち時間がまるまる

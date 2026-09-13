@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { resolveByteRange } from '@/lib/httpRange'
 import { isPublicImageName } from '@/lib/items'
 import { currentUser } from '@/lib/session'
-import { THUMB_MIME } from '@/lib/thumbnail'
+import { THUMB_MIME } from '@/lib/images/thumbConfig'
 import {
   isAllowedContentMime,
   isValidAttachmentName,

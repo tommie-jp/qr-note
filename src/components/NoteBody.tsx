@@ -5,7 +5,7 @@ import { noteDefinitions, splitPages } from "@/components/notePages";
 import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
 import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
 import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
-import type { PendingCircuitMap } from "@/lib/circuitCache";
+import type { PendingCircuitMap } from "@/lib/circuit/types";
 import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";
 

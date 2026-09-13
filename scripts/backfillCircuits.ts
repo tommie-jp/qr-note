@@ -11,14 +11,15 @@
 // 使い方: npx tsx scripts/backfillCircuits.ts
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
-import { getOrRenderCircuit, MAX_CIRCUITS_PER_MEMO } from '@/lib/circuitCache'
+import { getOrRenderCircuit } from '@/lib/circuitCache'
+import { circuitHash } from '@/lib/circuit/hash'
+import { MAX_CIRCUITS_PER_MEMO } from '@/lib/circuit/types'
 import {
   CIRCUITIKZ_LANG,
   type CircuitFence,
   extractCircuitFences,
   hasNoCircuitFence,
 } from '@/lib/circuitFences'
-import { circuitHash } from '@/lib/circuitikz'
 import { circuitYamlHash, renderCircuitYaml } from '@/lib/circuitYaml'
 
 // フェンス 1 つの DB 主キー。**言語ごとに版の混ぜ方が違う** (docs/91 §2)

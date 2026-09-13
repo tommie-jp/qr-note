@@ -18,7 +18,7 @@
 // (thumbnail.ts と同じ理由。コマの抽出側は videoPoster.ts に置く)。
 
 import sharp from 'sharp'
-import { MAX_INPUT_PIXELS } from '../thumbnail'
+import { MAX_INPUT_PIXELS } from '../images/thumbConfig'
 import { MAX_VIDEO_ANIM_FRAMES } from '../uploads'
 
 // 出力の一辺 (px)。静止サムネ (THUMB_MAX_PX = 384) より一段小さくする。

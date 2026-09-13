@@ -17,7 +17,7 @@ import {
   hasNoCircuitFence,
 } from '@/lib/circuitFences'
 import { circuitYamlHash } from '@/lib/circuitYaml'
-import { circuitHash } from '@/lib/circuitikz'
+import { circuitHash } from '@/lib/circuit/hash'
 import {
   OFFLINE_CIRCUIT_BUDGET,
   OFFLINE_SYNC_LIMIT,

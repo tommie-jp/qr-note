@@ -3,10 +3,10 @@ import {
   RENDERER_VERSION,
   assertSafeCircuitSvg,
   circuitHash,
-  renderCircuitDocument,
-} from './circuitikz'
+} from './circuit/hash'
+import type { CircuitResult } from './circuit/types'
+import { renderCircuitDocument } from './circuitikz'
 import { prisma } from './db'
-import type { CircuitResult } from './circuitCache'
 
 // 回路 YAML フェンス (docs/91-回路YAMLフェンス計画.md) の描画。
 //

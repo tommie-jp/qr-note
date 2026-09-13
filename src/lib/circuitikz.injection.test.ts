@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { CircuitRenderError, renderCircuit } from './circuitikz'
+import { CircuitRenderError } from './circuit/renderError'
+import { renderCircuit } from './circuitikz'
 
 // dvi2html の \special{dvisvgm:raw ...} は中身をエスケープせず SVG へ流し込む。
 // TeX の素の命令なのでパッケージも要らず、ここが任意マークアップの唯一の注入口。

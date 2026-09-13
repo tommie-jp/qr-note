@@ -40,7 +40,7 @@ import {
   circuitKey,
   isCircuitLang,
 } from "@/lib/fenceLanguages";
-import type { PendingCircuitMap } from "@/lib/circuitCache";
+import type { PendingCircuitMap } from "@/lib/circuit/types";
 import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";
 import { HealthChart } from "@/components/health/HealthChart";

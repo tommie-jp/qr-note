@@ -1,12 +1,12 @@
 // 持ち出した回路図を MarkdownView に渡せる形にする
 // (docs/65-オフライン対応計画.md §8)。
 //
-// 型だけを circuitCache から借りる。**値を import してはいけない** — あちらは
-// prisma と node:child_process を引き込むサーバ専用の module で、クライアントの
-// 束に混ざると編集画面ごと 500 になる (thumbnail.ts が sharp を漏らした件と
-// 同じ落とし穴)。`import type` はコンパイルで消えるので安全。
+// 型は葉の circuit/types.ts から借りる。**circuitCache.ts から値を import しては
+// いけない** — あちらは prisma と node:child_process を引き込むサーバ専用の
+// module で、クライアントの束に混ざると編集画面ごと 500 になる (thumbnail.ts が
+// sharp を漏らした件と同じ落とし穴)。
 
-import type { CircuitMap } from '@/lib/circuitCache'
+import type { CircuitMap } from '@/lib/circuit/types'
 import { circuitKey } from '@/lib/fenceLanguages'
 import type { OfflineCircuit } from './item'
 

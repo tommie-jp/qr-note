@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { CircuitRenderError, renderCircuit } from './circuitikz'
+import { CircuitRenderError } from './circuit/renderError'
+import { renderCircuit } from './circuitikz'
 
-// renderCircuit の**実際に TeX を回す**ぶん。純粋関数のテストは circuitikz.test.ts。
+// renderCircuit の**実際に TeX を回す**ぶん。純粋関数のテストは circuit/hash.test.ts。
 //
 // ファイルを分けているのは速さのため。vitest は forks プールで**ファイル単位に**
 // 並列化するので、1 ファイルに置くと 1 プロセスの中で直列に流れる。しかも

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { circuitHash } from './circuitikz'
+import { circuitHash } from './circuit/hash'
 
 // DB は差し替えて、足切り・突き合わせ・予算の分岐だけを見る。
 // 描画 (renderCircuit) はこのモジュールから決して呼ばれない — 一覧は

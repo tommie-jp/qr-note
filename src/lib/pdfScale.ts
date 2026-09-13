@@ -6,7 +6,7 @@
 // **なぜ上限が要るか**: canvas は幅 x 高さ x 4 バイトを実メモリで確保する。
 // 高 DPR (iPhone は 3) をそのまま掛けると、A4 1 ページでも数十 MB になり、
 // 数ページ分で iOS WebKit のメモリ上限に当たって描画が白紙になる。
-// 画像の解凍爆弾よけ (thumbnail.ts の MAX_INPUT_PIXELS) と同じ考え方で、
+// 画像の解凍爆弾よけ (images/thumbConfig.ts の MAX_INPUT_PIXELS) と同じ考え方で、
 // 「入力がどうであれ確保量を縛る」ことを倍率の側で担保する。
 
 // 1 ページの canvas に許す最大ピクセル数。

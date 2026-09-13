@@ -5,7 +5,7 @@
 // 保存し直す** — 同名上書きは immutable キャッシュに阻まれるため (docs/49 §1)。
 
 import sharp from 'sharp'
-import { MAX_INPUT_PIXELS } from './thumbnail'
+import { MAX_INPUT_PIXELS } from './images/thumbConfig'
 
 // 90° 単位のみ許す。任意角は再符号化のたびに補間で滲むので扱わない。
 export type RotateAngle = 90 | 180 | 270
