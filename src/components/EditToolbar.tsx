@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useFormStatus } from "react-dom";
 import {
   DrawIcon,
   FindIcon,
@@ -18,6 +17,7 @@ import {
   UndoIcon,
   VideoIcon,
 } from "@/components/icons";
+import { SubmitButton } from "@/components/SubmitButton";
 import { useLongPress } from "@/components/useLongPress";
 import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
 import type { FormatAction } from "@/components/editor/markdownFormat";
@@ -46,29 +46,37 @@ function ToolIcon({ color, children }: { color: string; children: ReactNode }) {
   return <span className={`flex ${color}`}>{children}</span>;
 }
 
-// 更新ボタン。useFormStatus は囲みの <form> の子孫 (portal はツリー親子を保つ)
-// でしか pending を拾えないので、ここだけ独立させる (SubmitButton と同じ理由)。
-// portal で DOM は form の外に出るため、submit の DOM 関連付けは使えない。
-// onSubmit で form.requestSubmit() を明示的に呼ぶ (MemoEditorInner から渡す)。
-function SubmitBarButton({ onSubmit }: { onSubmit: () => void }) {
-  const { pending } = useFormStatus();
+// 横スクロール帯の 1 ボタン (アイコン + 文字)。帯のボタンは押したときの処理・
+// 止める条件・トグルの押下状態だけが違うので、形はここで 1 度だけ書く。
+//
+// disabled … 渡さなければ止めない (ページ・装飾表示のように busy でも押せる物)。
+// pressed … トグルだけが渡す。渡さなければ aria-pressed 自体を出さない —
+// 「押されていない」と「トグルではない」は読み上げで別の意味になる
+function ToolButton({
+  icon,
+  color,
+  label,
+  onClick,
+  disabled,
+  pressed,
+}: {
+  icon: ReactNode;
+  color: string;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  pressed?: boolean;
+}) {
   return (
     <button
       type="button"
-      onClick={onSubmit}
-      disabled={pending}
-      aria-busy={pending}
-      className={SUBMIT_SLOT}
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={pressed}
+      className={TOOL_SLOT}
     >
-      {pending ? (
-        <span
-          aria-hidden
-          className="size-6 animate-spin rounded-full border-2 border-white/40 border-t-white"
-        />
-      ) : (
-        <SaveIcon />
-      )}
-      {pending ? "更新中" : "更新"}
+      <ToolIcon color={color}>{icon}</ToolIcon>
+      {label}
     </button>
   );
 }
@@ -191,8 +199,18 @@ export function EditToolbar({
 }: EditToolbarProps) {
   return (
     <>
-      {/* ← → の右に固定する主ボタン */}
-      <SubmitBarButton onSubmit={onSubmit} />
+      {/* ← → の右に固定する主ボタン。useFormStatus は囲みの <form> の子孫
+          (portal はツリー親子を保つ) でしか pending を拾えないので、送信中の
+          表示は SubmitButton に任せる。portal で DOM は form の外に出るため、
+          送信は onClick で form.requestSubmit() を明示的に呼ぶ */}
+      <SubmitButton
+        onClick={onSubmit}
+        overrideClassName={SUBMIT_SLOT}
+        icon={<SaveIcon />}
+        pendingLabel="更新中"
+      >
+        更新
+      </SubmitButton>
 
       {/* 書式だけ横スクロール帯の**外**に出す。
           帯は overflow-x-auto を持ち、CSS の規定で片方が visible でなくなると
@@ -205,90 +223,60 @@ export function EditToolbar({
 
       {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる */}
       <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
-        <button
-          type="button"
+        <ToolButton
+          icon={<UndoIcon />}
+          color="text-gray-500"
+          label="元に戻す"
           onClick={onUndo}
           disabled={!canUndo}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-gray-500">
-            <UndoIcon />
-          </ToolIcon>
-          元に戻す
-        </button>
-        <button
-          type="button"
+        />
+        <ToolButton
+          icon={<RedoIcon />}
+          color="text-gray-500"
+          label="やり直す"
           onClick={onRedo}
           disabled={!canRedo}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-gray-500">
-            <RedoIcon />
-          </ToolIcon>
-          やり直す
-        </button>
+        />
         {/* ノート内検索 (docs/76 §2)。打鍵の合間に使うものなので、
             undo/redo の隣 (帯の前寄り) に置く */}
         <FindButton onFind={onFind} />
         {/* 新しいページ (docs/74-ページ計画.md §5)。書式と違いメニューを
             開かないので、帯の中に置いても切り取られる物が無い。挿入系の
             前寄りに置くのは、打鍵の合間に使うため */}
-        <button
-          type="button"
+        <ToolButton
+          icon={<PlusIcon />}
+          color="text-emerald-600"
+          label="ページ"
           onClick={onAddPage}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-emerald-600">
-            <PlusIcon />
-          </ToolIcon>
-          ページ
-        </button>
-        <button
-          type="button"
+        />
+        <ToolButton
+          icon={<ScanIcon />}
+          color="text-sky-600"
+          label={scanLabel}
           onClick={onScan}
           disabled={busy}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-sky-600">
-            <ScanIcon />
-          </ToolIcon>
-          {scanLabel}
-        </button>
-        <button
-          type="button"
+        />
+        <ToolButton
+          icon={<ImageInsertIcon />}
+          color="text-violet-600"
+          label={uploadLabel}
           onClick={onInsertFile}
           disabled={uploading}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-violet-600">
-            <ImageInsertIcon />
-          </ToolIcon>
-          {uploadLabel}
-        </button>
+        />
         {/* クリップボードから取り込む (docs/92 §4)。**画像ボタンの隣**に置く —
             どちらも「外から持ってきたものを添付にする」操作で、探す場所が
             同じであってほしい */}
-        <button
-          type="button"
+        <ToolButton
+          icon={<PasteIcon />}
+          color="text-cyan-600"
+          label="貼り付け"
           onClick={onPasteClipboard}
           disabled={busy}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-cyan-600">
-            <PasteIcon />
-          </ToolIcon>
-          貼り付け
-        </button>
-        <button
-          type="button"
-          onClick={onToggleRecord}
-          disabled={recordDisabled}
-          aria-pressed={isRecording}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-rose-600">
-            {/* 録音中は赤い点を重ねて「録れている」ことを示す (従来踏襲) */}
-            {isRecording ? (
+        />
+        <ToolButton
+          icon={
+            // 録音中は赤い点を重ねて「録れている」ことを示す (従来踏襲)
+            isRecording ? (
               <span
                 aria-hidden
                 className="size-6 flex items-center justify-center"
@@ -297,68 +285,52 @@ export function EditToolbar({
               </span>
             ) : (
               <MicIcon />
-            )}
-          </ToolIcon>
-          {recordLabel}
-        </button>
-        <button
-          type="button"
+            )
+          }
+          color="text-rose-600"
+          label={recordLabel}
+          onClick={onToggleRecord}
+          disabled={recordDisabled}
+          pressed={isRecording}
+        />
+        <ToolButton
+          icon={<VideoIcon />}
+          color="text-orange-600"
+          label="録画"
           onClick={onRecordVideo}
           disabled={busy}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-orange-600">
-            <VideoIcon />
-          </ToolIcon>
-          録画
-        </button>
-        <button
-          type="button"
+        />
+        <ToolButton
+          icon={<DrawIcon />}
+          color="text-emerald-600"
+          label="お絵かき"
           onClick={onDraw}
           disabled={busy}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-emerald-600">
-            <DrawIcon />
-          </ToolIcon>
-          お絵かき
-        </button>
-        <button
-          type="button"
+        />
+        <ToolButton
+          icon={<OcrIcon />}
+          color="text-teal-600"
+          label={ocrLabel}
           onClick={onOcr}
           disabled={busy}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-teal-600">
-            <OcrIcon />
-          </ToolIcon>
-          {ocrLabel}
-        </button>
-        <button
-          type="button"
+        />
+        <ToolButton
+          icon={<LockIcon />}
+          color="text-amber-600"
+          label={secretLabel}
           onClick={onSecret}
           disabled={busy}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color="text-amber-600">
-            <LockIcon />
-          </ToolIcon>
-          {secretLabel}
-        </button>
+        />
         {/* 表示の切り替えなので busy でも押せる (本文にも通信にも触らない)。
             帯の末尾に置くのは、一度決めたらあまり動かさない設定だから —
             打鍵中に使う挿入系のボタンを、スクロールの奥へ押しやらない */}
-        <button
-          type="button"
+        <ToolButton
+          icon={<LivePreviewIcon />}
+          color={livePreview ? "text-blue-600" : "text-gray-500"}
+          label={livePreview ? "記法を表示" : "装飾表示"}
           onClick={onToggleLivePreview}
-          aria-pressed={livePreview}
-          className={TOOL_SLOT}
-        >
-          <ToolIcon color={livePreview ? "text-blue-600" : "text-gray-500"}>
-            <LivePreviewIcon />
-          </ToolIcon>
-          {livePreview ? "記法を表示" : "装飾表示"}
-        </button>
+          pressed={livePreview}
+        />
       </div>
     </>
   );

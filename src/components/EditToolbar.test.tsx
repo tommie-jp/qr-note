@@ -146,3 +146,29 @@ test("処理中は貼り付けも止める", () => {
     idle.match(/disabled=""/g)?.length ?? 0,
   );
 });
+
+// 帯のボタンは ToolButton に、更新は SubmitButton に寄せてある
+// (docs/93-リファクタリング計画.md §3-2)。上のテストはラベルと一部の属性しか
+// 見ないので、ボタンごとの属性 (disabled・aria-pressed の有無) やアイコンの色の
+// 取り違えはここで拾う。EditToolbar.snapshot.json は寄せる前の描画から取った。
+//
+// 2 つの状態で、止める・止めない / 押下あり・なし / 色の切り替え / 録音中の点を
+// すべて一度ずつ通す
+test("帯のボタンと更新の描画は寄せる前と同じ", async () => {
+  const snapshot = {
+    既定: render(),
+    "履歴あり・処理中・録音中・装飾表示": render({
+      canUndo: true,
+      canRedo: true,
+      uploading: true,
+      isRecording: true,
+      recordDisabled: true,
+      livePreview: true,
+      busy: true,
+    }),
+  };
+
+  await expect(`${JSON.stringify(snapshot, null, 2)}\n`).toMatchFileSnapshot(
+    "./EditToolbar.snapshot.json",
+  );
+});

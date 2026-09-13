@@ -92,9 +92,21 @@ export const COMPACT_INPUT_CLASS = `${BOX_SKIN} min-h-9 py-1`;
 export const BUSY_NOTICE_CLASS =
   "rounded bg-red-600/90 px-3 py-2 font-medium text-white";
 
+// 白系のスピナーの輪 (寸法を除いた見た目)。赤い知らせ (BUSY_NOTICE_CLASS) や
+// 青い主ボタンの上に置く。寸法は下の定数ごとに完成したクラス名で書く —
+// Tailwind はソースに書かれたクラス名をそのまま拾うので、`size-${n}` のように
+// 組み立てると CSS が生成されない
+const WHITE_SPINNER_RING =
+  "animate-spin rounded-full border-2 border-white/40 border-t-white";
+
 // BUSY_NOTICE_CLASS の中に置くスピナー (赤背景に合わせた白系)
-export const BUSY_SPINNER_CLASS =
-  "size-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white";
+export const BUSY_SPINNER_CLASS = `size-3.5 ${WHITE_SPINNER_RING}`;
+
+// 送信ボタン (SubmitButton) の文字の前に添えるスピナー (16px)
+export const SUBMIT_SPINNER_CLASS = `size-4 ${WHITE_SPINNER_RING}`;
+
+// 送信ボタンのアイコン (下部バーの 24px) と入れ替えるスピナー。寸法はアイコンと同じ
+export const SUBMIT_ICON_SPINNER_CLASS = `size-6 ${WHITE_SPINNER_RING}`;
 
 // ヘッダーのハンバーガーメニューの 1 行 (docs/11-アプリ的UIUX計画.md §6)。
 //
