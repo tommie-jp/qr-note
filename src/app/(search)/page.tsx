@@ -73,9 +73,10 @@ interface HomeProps {
 export default async function Home({ searchParams }: HomeProps) {
   // 二重目の門番 (docs/18 §4)。proxy.ts も未ログインの画面 GET を止めるが、
   // それは楽観的な検査であって唯一の砦にはしない (settings 系と同じ判断)。
-  // proxy を通らずにここが描かれる道もある — (search)/default.tsx が Home を
-  // 呼ぶので、proxy が素通しする /item/<番号> への横取り遷移でも children
-  // としてこの画面が描かれる。
+  // proxy を通らずにここへ来る道もある — proxy が素通しする /item/<番号> への
+  // 横取り遷移では (search)/default.tsx が children を描く。未ログインの
+  // ときは default.tsx 側で一覧ごと伏せる (ログイン案内を残すため) ので、
+  // ここで投げるのは default を経ない想定外の道だけ。
   //
   // **置き場所は Home の冒頭**。固定部のタグ補完 (listTags) から DB に触るので、
   // それより前でなければ意味がない。Suspense の後送りは崩れない — Home は
