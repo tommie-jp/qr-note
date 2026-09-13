@@ -6,11 +6,11 @@ import {
   type IDetectedBarcode,
   type IScannerError,
   type IScannerHandle,
-  type ScannerErrorKind,
 } from "@yudiel/react-qr-scanner";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
+import { SCANNER_ERROR_MESSAGES } from "@/lib/camera/cameraErrors";
 import { SCAN_FORMATS } from "@/lib/scanFormats";
 import { resolveScanPath } from "@/lib/scanResult";
 import { cameraControlClass } from "./cameraControlButton";
@@ -29,24 +29,6 @@ prepareZXingModule({
       path.endsWith(".wasm") ? "/zxing/zxing_reader.wasm" : `${prefix}${path}`,
   },
 });
-
-// カメラを開けなかった理由。黙って真っ黒な画面を見せると原因を追えないので、
-// 何が起きたか・どうすれば直るかまで書く。
-// Record にして ScannerErrorKind の追加を型で検出させる (取りこぼし防止)
-const ERROR_MESSAGES: Record<ScannerErrorKind, string> = {
-  "permission-denied":
-    "カメラの使用が許可されていません。ブラウザのサイト設定でカメラを許可してください。",
-  "no-camera": "カメラが見つかりません。",
-  "in-use": "他のアプリがカメラを使用中です。閉じてからもう一度お試しください。",
-  overconstrained: "この端末のカメラでは条件を満たせませんでした。",
-  // https でないと getUserMedia 自体が使えない (docs/09-スキャン計画.md §6)
-  "insecure-context": "カメラは https でしか使えません。https でアクセスしてください。",
-  unsupported: "このブラウザはカメラのスキャンに対応していません。",
-  aborted: "カメラの起動が中断されました。",
-  security: "セキュリティ設定によりカメラを開けませんでした。",
-  "type-error": "カメラの起動に失敗しました。",
-  unknown: "カメラを開けませんでした。",
-};
 
 interface ScannerModalProps {
   // QR シールに焼かれている URL のホスト (QR_BASE_URL 由来)。
@@ -119,7 +101,10 @@ export function ScannerModal({
   // カメラを開けなかったときの表示と復帰はフックに任せる (切替に失敗したら
   // 最後に写っていたカメラへ戻り、開き直せたらエラー表示も畳まれる)
   const handleError = (e: IScannerError) => {
-    cam.notifyOpenFailed(ERROR_MESSAGES[e.kind] ?? ERROR_MESSAGES.unknown);
+    // 文言は lib/camera/cameraErrors.ts (画像検索の getUserMedia と共有)
+    cam.notifyOpenFailed(
+      SCANNER_ERROR_MESSAGES[e.kind] ?? SCANNER_ERROR_MESSAGES.unknown,
+    );
   };
 
   return createPortal(

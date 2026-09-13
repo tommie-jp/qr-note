@@ -6,6 +6,7 @@
 // WebP) はクライアントが別途作って同じ POST で送る (videoPoster.ts)。
 
 import fixWebmDuration from 'fix-webm-duration'
+import { stopStream } from '../camera/mediaStream'
 import { timestampFileName, timestampLabel } from '../datetime'
 import { MAX_VIDEO_BYTES } from '../uploads'
 import {
@@ -284,7 +285,7 @@ export class VideoRecorder {
     if (!this.mediaStream) {
       throw new VideoCaptureError('カメラを開いていません。')
     }
-    this.mediaStream.getTracks().forEach((track) => track.stop())
+    stopStream(this.mediaStream)
     this.mediaStream = null
     this.videoTrack = null
     this.nearFocusOn = false
@@ -321,7 +322,7 @@ export class VideoRecorder {
       this.recorder = recorder
       this.startedAt = Date.now()
     } catch (e) {
-      stream.getTracks().forEach((track) => track.stop())
+      stopStream(stream)
       this.mediaStream = null
       this.videoTrack = null
       this.nearFocusOn = false
@@ -375,7 +376,7 @@ export class VideoRecorder {
     }
     const track = stream.getVideoTracks()[0] ?? null
     if (track && isFrontFacing(track)) {
-      stream.getTracks().forEach((t) => t.stop())
+      stopStream(stream)
       this.ultraWideId = null
       return false
     }
@@ -428,7 +429,7 @@ export class VideoRecorder {
         recorder.stop()
       }))
     } finally {
-      stream.getTracks().forEach((track) => track.stop())
+      stopStream(stream)
       this.recorder = null
       this.mediaStream = null
       this.videoTrack = null
@@ -452,7 +453,7 @@ export class VideoRecorder {
       this.recorder.onstop = null
       this.recorder.stop()
     }
-    this.mediaStream?.getTracks().forEach((track) => track.stop())
+    stopStream(this.mediaStream)
     this.recorder = null
     this.mediaStream = null
     this.videoTrack = null

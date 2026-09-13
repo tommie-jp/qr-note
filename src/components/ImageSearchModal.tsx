@@ -8,6 +8,8 @@ import {
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
+import { cameraErrorMessage } from "@/lib/camera/cameraErrors";
+import { stopStream } from "@/lib/camera/mediaStream";
 import { rankItems, type ImageVectorEntry, type ItemMatch } from "@/lib/imageSearch";
 import { thumbUrl } from "@/lib/memoImages";
 import { errorText } from "@/lib/errorMessage";
@@ -24,30 +26,6 @@ const LIVE_INTERVAL_MS = 400;
 // この類似度未満は候補に出さない。絶対値の当たりは環境依存が強いので、
 // Phase 0 のスパイクで実測して詰める暫定値 (docs/25 §8)。
 const MIN_SCORE = 0.15;
-
-// getUserMedia の失敗理由 (DOMException 名) を日本語にする。ScannerModal の
-// ERROR_MESSAGES と役割は同じだが、あちらはライブラリ固有のコード、こちらは
-// 素の getUserMedia の例外名なので別に持つ。
-function cameraErrorMessage(err: unknown): string {
-  const name = err instanceof DOMException ? err.name : "";
-  switch (name) {
-    case "NotAllowedError":
-    case "SecurityError":
-      return "カメラの使用が許可されていません。ブラウザのサイト設定でカメラを許可してください。";
-    case "NotFoundError":
-      return "カメラが見つかりません。";
-    case "NotReadableError":
-      return "他のアプリがカメラを使用中です。閉じてからもう一度お試しください。";
-    case "OverconstrainedError":
-      return "この端末のカメラでは条件を満たせませんでした。";
-    default:
-      // https でないと getUserMedia 自体が無い (docs/09 §6)
-      if (typeof navigator !== "undefined" && !navigator.mediaDevices) {
-        return "カメラは https でしか使えません。https でアクセスしてください。";
-      }
-      return "カメラを開けませんでした。";
-  }
-}
 
 interface ImageSearchModalProps {
   onClose: () => void;
@@ -138,7 +116,7 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
           audio: false,
         });
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+          stopStream(stream);
           return;
         }
         streamRef.current = stream;
@@ -158,7 +136,7 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
     start();
     return () => {
       cancelled = true;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopStream(streamRef.current);
       streamRef.current = null;
       if (video) {
         video.srcObject = null;

@@ -5,6 +5,7 @@
 // 変換はしない (音声・PDF と同じ「素通し」方針)。
 
 import fixWebmDuration from 'fix-webm-duration'
+import { stopStream } from '../camera/mediaStream'
 import { timestampFileName, timestampLabel } from '../datetime'
 
 // 試す順に並べる。**Safari だけを mp4/AAC に寄せ、他は webm/opus のまま**に
@@ -216,7 +217,7 @@ export class AudioRecorder {
       this.stream = stream
       this.startedAt = Date.now()
     } catch (e) {
-      stream.getTracks().forEach((track) => track.stop())
+      stopStream(stream)
       this.chunks = []
       throw mapCaptureError(e)
     }
@@ -254,7 +255,7 @@ export class AudioRecorder {
         recorder.stop()
       }))
     } finally {
-      stream.getTracks().forEach((track) => track.stop())
+      stopStream(stream)
       this.recorder = null
       this.stream = null
       this.chunks = []
@@ -275,7 +276,7 @@ export class AudioRecorder {
       this.recorder.onstop = null
       this.recorder.stop()
     }
-    this.stream?.getTracks().forEach((track) => track.stop())
+    stopStream(this.stream)
     this.recorder = null
     this.stream = null
     this.chunks = []
