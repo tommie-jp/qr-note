@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { BusyNotice } from "@/components/BusyNotice";
 import {
-  BUSY_NOTICE_CLASS,
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
@@ -301,12 +301,12 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
             {preparing && (
               // カメラ映像の上に白文字だけだと埋もれて「固まった」と誤解される。
               // 初回は数十 MB のモデル取得で待ちが長いので、赤背景で明示する
-              <p
+              <BusyNotice
                 aria-live="polite"
-                className={`${BUSY_NOTICE_CLASS} absolute inset-x-2 bottom-2 text-center`}
+                className="absolute inset-x-2 bottom-2 text-center"
               >
                 モデルを準備しています (初回のみ)…
-              </p>
+              </BusyNotice>
             )}
           </div>
         )}

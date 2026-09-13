@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { BOX_CLASS, BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "@/components/ui";
+import { BusyNotice } from "@/components/BusyNotice";
+import { BOX_CLASS } from "@/components/ui";
 import { offlineCircuitMap } from "@/lib/offline/circuits";
 import { loadOfflineSnapshot } from "@/lib/offline/snapshotDb";
 import { buildOfflineIndex, filterOfflineItems } from "@/lib/offline/filter";
@@ -228,10 +229,9 @@ export function OfflineApp() {
 
   if (isLoading) {
     return (
-      <p role="status" className={`${BUSY_NOTICE_CLASS} flex items-center gap-2`}>
-        <span aria-hidden className={BUSY_SPINNER_CLASS} />
+      <BusyNotice role="status" busy>
         保存したノートを読み込み中…
-      </p>
+      </BusyNotice>
     );
   }
 

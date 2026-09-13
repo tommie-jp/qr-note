@@ -88,7 +88,8 @@ export const COMPACT_INPUT_CLASS = `${BOX_SKIN} min-h-9 py-1`;
 
 // 時間のかかる準備・処理中の知らせ (OCR、画像検索のモデル準備、書誌取得など)。
 // 灰色の小さな文字だと埋もれて「固まった」と誤解されるため、赤背景で統一して
-// 目立たせる。置き場所ごとのレイアウト (flex / absolute) は使う側で足す
+// 目立たせる。置き場所ごとのレイアウト (flex / absolute) は使う側で足す。
+// 文言とスピナーを並べる <p> は BusyNotice.tsx にまとめてある
 export const BUSY_NOTICE_CLASS =
   "rounded bg-red-600/90 px-3 py-2 font-medium text-white";
 

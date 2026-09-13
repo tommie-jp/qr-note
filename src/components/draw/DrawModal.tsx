@@ -24,7 +24,8 @@ import {
   setActive,
   toggleHidden,
 } from "@/lib/draw/layers";
-import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "@/components/ui";
+import { BusyNotice } from "@/components/BusyNotice";
+import { BUSY_SPINNER_CLASS } from "@/components/ui";
 import { DrawLayerPanel } from "./DrawLayerPanel";
 import type { DrawTool } from "./drawTools";
 import { DrawToolbar } from "./DrawToolbar";
@@ -312,9 +313,9 @@ export function DrawModal({ sourceImageUrl, onCancel, onInsert }: DrawModalProps
       </div>
 
       {(canvasError || saveError) && (
-        <p aria-live="polite" className={`${BUSY_NOTICE_CLASS} mx-3 mb-2`}>
+        <BusyNotice aria-live="polite" className="mx-3 mb-2">
           {canvasError ?? saveError}
-        </p>
+        </BusyNotice>
       )}
 
       <DrawToolbar

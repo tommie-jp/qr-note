@@ -10,6 +10,7 @@ import {
 } from "@/app/actions";
 import { AutoLoadMore } from "@/components/AutoLoadMore";
 import { AutoNotePane } from "@/components/AutoNotePane";
+import { BusyNotice } from "@/components/BusyNotice";
 import { ItemListNav } from "@/components/ItemListNav";
 import { ItemView } from "@/components/ItemView";
 import { FolderPane } from "@/components/FolderPane";
@@ -24,7 +25,6 @@ import { SearchTools } from "@/components/SearchTools";
 import { SearchNavProvider, SearchResults } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
 import { TaskProgress } from "@/components/TaskProgress";
-import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "@/components/ui";
 import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import {
   countFolderTotals,
@@ -148,13 +148,9 @@ export default async function Home({ searchParams }: HomeProps) {
                 ので、既存の PendingLink のスピナーはそのまま生きる */}
             <Suspense
               fallback={
-                <p
-                  role="status"
-                  className={`${BUSY_NOTICE_CLASS} flex items-center gap-2`}
-                >
-                  <span aria-hidden className={BUSY_SPINNER_CLASS} />
+                <BusyNotice role="status" busy>
                   検索結果を読み込み中…
-                </p>
+                </BusyNotice>
               }
             >
               <HomeResults

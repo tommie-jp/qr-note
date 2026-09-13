@@ -96,8 +96,8 @@ import {
   ocrImageToQuote,
   subscribeModelProgress,
 } from "./ocr/ocrService";
+import { BusyNotice } from "./BusyNotice";
 import { uploadImageWithProgress } from "./uploadImageXhr";
-import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "./ui";
 import { useAudioRecording } from "./useAudioRecording";
 import { useVideoRecording } from "./useVideoRecording";
 import { VideoRecordModal } from "./VideoRecordModal";
@@ -1444,40 +1444,30 @@ export default function MemoEditorInner({
       {/* 自動停止の知らせ。押していないのに止まった理由が判らないと、
           録音が切れた原因を探せない */}
       {recording.note && (
-        <p aria-live="polite" className={BUSY_NOTICE_CLASS}>
-          {recording.note}
-        </p>
+        <BusyNotice aria-live="polite">{recording.note}</BusyNotice>
       )}
       {/* 録画は全画面モーダルで行う (プレビュー・録画・カメラ操作すべて)。
           state と操作は videoRecording が持ち、ここは開閉のきっかけだけ */}
       <VideoRecordModal video={videoRecording} />
       {videoRecording.note && (
-        <p aria-live="polite" className={BUSY_NOTICE_CLASS}>
-          {videoRecording.note}
-        </p>
+        <BusyNotice aria-live="polite">{videoRecording.note}</BusyNotice>
       )}
       {ocrNote && (
-        <p
+        <BusyNotice
           aria-live="polite"
           aria-busy={ocrCount > 0}
-          className={`${BUSY_NOTICE_CLASS} flex items-center gap-2`}
+          busy={ocrCount > 0}
         >
-          {ocrCount > 0 && <span aria-hidden className={BUSY_SPINNER_CLASS} />}
           {ocrNote}
           {/* % は aria-hidden で足す: aria-live が毎ティック読み上げないように */}
           {modelPercent !== null && <span aria-hidden> {modelPercent}%</span>}
-        </p>
+        </BusyNotice>
       )}
       {/* 編集中スキャンの取得中・結果 (OCR と同じ赤バナー) */}
       {scanNote && (
-        <p
-          aria-live="polite"
-          aria-busy={scanBusy}
-          className={`${BUSY_NOTICE_CLASS} flex items-center gap-2`}
-        >
-          {scanBusy && <span aria-hidden className={BUSY_SPINNER_CLASS} />}
+        <BusyNotice aria-live="polite" aria-busy={scanBusy} busy={scanBusy}>
           {scanNote}
-        </p>
+        </BusyNotice>
       )}
       <input
         ref={fileInputRef}

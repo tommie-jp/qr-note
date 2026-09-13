@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
-import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "@/components/ui";
+import { BusyNotice } from "@/components/BusyNotice";
 import { VideoRecordModal } from "@/components/VideoRecordModal";
 import { useAudioRecording } from "@/components/useAudioRecording";
 import { useVideoRecording } from "@/components/useVideoRecording";
@@ -213,10 +213,9 @@ export function SecretTools({
       />
 
       {(note !== null || recording.note !== null || videoRecording.note !== null) && (
-        <p aria-live="polite" className={`${BUSY_NOTICE_CLASS} flex items-center gap-2`}>
-          {ocrCount > 0 && <span aria-hidden className={BUSY_SPINNER_CLASS} />}
+        <BusyNotice aria-live="polite" busy={ocrCount > 0}>
           {note ?? recording.note ?? videoRecording.note}
-        </p>
+        </BusyNotice>
       )}
 
       {/* 録画は全画面モーダル。プレビュー・録画・カメラ操作は編集画面と同じ部品 */}
