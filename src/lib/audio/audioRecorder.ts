@@ -5,6 +5,7 @@
 // 変換はしない (音声・PDF と同じ「素通し」方針)。
 
 import fixWebmDuration from 'fix-webm-duration'
+import { timestampFileName, timestampLabel } from '../datetime'
 
 // 試す順に並べる。**Safari だけを mp4/AAC に寄せ、他は webm/opus のまま**に
 // したい (41-QR-search/docs/12「iPhone で 1 回目が無音になる件」)。
@@ -62,24 +63,17 @@ export function extensionFor(mimeType: string): string {
   return 'bin' // MIME_CANDIDATES の範囲では起きない
 }
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
 // 本文の alt に残す録音日時 (`![録音 2026-07-20 14:03:12](url)`)。
 // PDF で元ファイル名を alt に残したのと同じ理由 — UUID 名では失われる手がかりが
 // 本文に載り、PGroonga の全文検索から引ける。通し番号でなく日時にするのは、
 // 番号がノートを跨ぐと意味を失うのに対し、日時は後から手がかりになるため。
+// 組み立ては録画 (video/videoRecorder.ts) と共通で、違うのは語だけ (datetime.ts)
 export function recordingAltText(at: Date): string {
-  const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`
-  const time = `${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`
-  return `録音 ${date} ${time}`
+  return timestampLabel('録音', at)
 }
 
 export function recordingFileName(at: Date, ext: string): string {
-  const date = `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}`
-  const time = `${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`
-  return `recording-${date}-${time}.${ext}`
+  return timestampFileName('recording', at, ext)
 }
 
 export interface Recording {

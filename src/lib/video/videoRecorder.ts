@@ -6,6 +6,7 @@
 // WebP) はクライアントが別途作って同じ POST で送る (videoPoster.ts)。
 
 import fixWebmDuration from 'fix-webm-duration'
+import { timestampFileName, timestampLabel } from '../datetime'
 import { MAX_VIDEO_BYTES } from '../uploads'
 import {
   applyNearFocusZoom,
@@ -108,22 +109,15 @@ export function extensionFor(mimeType: string): string {
   return 'bin' // MIME_CANDIDATES の範囲では起きない
 }
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
 // 本文の alt に残す録画日時 (`![録画 2026-07-20 14:03:12](url)`)。録音と同じ狙いで、
 // UUID 名では失われる手がかりを本文に載せ、PGroonga の全文検索から引ける。
+// 組み立ては録音と共通で、違うのは語とファイル名の接頭辞だけ (datetime.ts)
 export function recordingAltText(at: Date): string {
-  const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`
-  const time = `${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}`
-  return `録画 ${date} ${time}`
+  return timestampLabel('録画', at)
 }
 
 export function recordingFileName(at: Date, ext: string): string {
-  const date = `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}`
-  const time = `${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`
-  return `video-${date}-${time}.${ext}`
+  return timestampFileName('video', at, ext)
 }
 
 export interface Recording {

@@ -6,6 +6,8 @@
 // 描き味はずれない。なので「表示に合わせて小さく作る」必要はなく、
 // 解像度として十分な論理サイズを取ってよい。
 
+import { timestampFileName, timestampLabel } from '../datetime'
+
 // 書き出す画像の長辺の上限 —— であると同時に、**消しゴムの速さを決める値**。
 // 消しゴムは 1 フレームに canvas 全体を 3 回描き直すので (docs/34 §3-2)、
 // 器の画素数がそのまま体感の重さになる。2400px では実機で引っかかったため
@@ -25,26 +27,19 @@ export interface CanvasSize {
   readonly height: number
 }
 
-function pad2(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
 // 並べたときに時系列になる名前にする。サーバは保存時に UUID を振り直すので
 // (src/lib/imageStore.ts)、この名前が残るわけではない — 送信時の File に
 // 名前が要ることと、失敗時のログで何を送ったか判るようにするためのもの
 export function drawingFileName(date: Date, extension: string): string {
-  const stamp =
-    `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}` +
-    `-${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}`
-  return `drawing-${stamp}.${extension}`
+  return timestampFileName('drawing', date, extension)
 }
 
 // 画像記法の alt に入れる説明。PDF がファイル名を alt に残すのと同じ狙いで、
 // 本文に書いておけば PGroonga の全文検索から「お絵かき」で引ける。
-// `]` `|` と改行は記法そのもの (と幅指定 `![alt|200]`) を壊すので使わない
+// `]` `|` と改行は記法そのもの (と幅指定 `![alt|200]`) を壊すので使わない。
+// 日時は分まで (録音・録画は秒まで)
 export function drawingAltText(date: Date): string {
-  const day = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
-  return `お絵かき ${day} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+  return timestampLabel('お絵かき', date, 'minute')
 }
 
 // 既にある画像に描くときの器。元の画素を保ったまま、長辺だけ上限に収める。

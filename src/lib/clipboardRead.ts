@@ -6,6 +6,7 @@
 // コピーすると text/html と text/plain が並んだりする。どれを採るかの規則を
 // **ここだけに**置き、DOM に触らない形にしてある (呼ぶ側は取得と挿入だけ)。
 
+import { timestampFileName } from './datetime'
 import { extForMime } from './uploads'
 
 // クリップボードに載せる形式として最も素直なもの。iOS のスクリーンショットも
@@ -66,20 +67,7 @@ function pickText(entries: readonly ClipboardEntry[]): ClipboardPick | null {
 // 取り込んだ画像に付ける名前。UUID を発番するのはサーバなので、ここでは
 // 「いつクリップボードから入れたか」が判ればよい
 export function clipboardFileName(mime: string, at: Date = new Date()): string {
-  const stamp = [
-    at.getFullYear(),
-    pad(at.getMonth() + 1),
-    pad(at.getDate()),
-    '-',
-    pad(at.getHours()),
-    pad(at.getMinutes()),
-    pad(at.getSeconds()),
-  ].join('')
-  return `clipboard-${stamp}.${extForMime(mime) ?? FALLBACK_EXT}`
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
+  return timestampFileName('clipboard', at, extForMime(mime) ?? FALLBACK_EXT)
 }
 
 // read() が投げたものを画面に出す文にする。
