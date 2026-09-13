@@ -9,6 +9,7 @@
 // 主キーの派生データなので、何度流しても壊れない。
 //
 // 使い方: npx tsx --conditions=react-server scripts/backfillCircuits.ts
+//   (本番/デモへは ./doBackfill.sh circuits 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { getOrRenderCircuit } from '@/lib/circuitCache'

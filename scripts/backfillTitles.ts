@@ -15,7 +15,7 @@
 // —— 正本が二重になる。
 //
 // 使い方: npx tsx --conditions=react-server scripts/backfillTitles.ts
-//   (本番/デモへは ./doBackfillTitles.sh 経由。リモートにはソースが無い)
+//   (本番/デモへは ./doBackfill.sh titles 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { memoSummary } from '@/lib/memoSummary'

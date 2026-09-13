@@ -187,6 +187,15 @@ vps2 でイメージ取得 → SSH トンネル経由で DB マイグレーシ�
 [docs/29-パスキー計画.md](docs/29-パスキー計画.md) §12 で踏んだ)。
 確認は `docker exec qr-search-app-1 printenv | grep <名前>`。
 
+派生データ (見出し・タスク数・サムネ・回路図) を本番やデモの DB へ埋め直すときは
+`doBackfill.sh` を使う。リモートにはソースが無いので、ローカルから SSH トンネル越しに叩く
+(見出しとタスク数は `doDeploy.sh` が毎回流している。詳細は `-h`):
+
+```bash
+./doBackfill.sh circuits          # 本番へ (titles|taskcounts|thumbs|circuits)
+./doBackfill.sh thumbs --demo     # デモの live (qr) と種 (qr_seed) の両方へ
+```
+
 ## nginx 設定 (本番)
 
 本番の前段は vps2 の nginx (+ certbot)。設定は

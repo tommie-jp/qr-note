@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     // 「全部失敗したのに exit 0」だと成功として素通りしてしまう。sharp ごと
     // 壊れていれば全件ここに落ちるので、その 1 回で気づける。
     // 一部失敗は exit 0 のまま — 壊れた 1 枚が居座るだけで全実行が恒久的に
-    // 失敗扱いになると、呼び出し側 (doBackfillThumbs.sh の set -e) が後続処理
+    // 失敗扱いになると、呼び出し側 (doBackfill.sh の set -e) が後続処理
     // ごと止まってしまう
     process.exitCode = 1
   }

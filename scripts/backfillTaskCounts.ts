@@ -10,7 +10,7 @@
 // ゴミ箱の行も対象にする。復元したときに数が 0 のままでは is:todo に出ない。
 //
 // 使い方: npx tsx --conditions=react-server scripts/backfillTaskCounts.ts
-//   (本番/デモへは ./doBackfillTaskCounts.sh 経由。リモートにはソースが無い)
+//   (本番/デモへは ./doBackfill.sh taskcounts 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { countTasks } from '@/lib/taskCheckbox'
