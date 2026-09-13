@@ -12,7 +12,7 @@ import { buildFenceData } from './markdown/fenceData'
 import type { ParseCache } from './markdown/parseCache'
 import { parseMatrixFence, type MatrixMarkSet } from './matrixFence'
 import { buildMatrixTable, type MatrixTableData } from './matrixTable'
-import { narrowToChecks } from './search'
+import { narrowToChecks } from './search/rewrite'
 import type { CheckState } from './taskCheckbox'
 import type { Sort } from './validation'
 

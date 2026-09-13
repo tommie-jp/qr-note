@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { TrashIcon } from "@/components/icons";
 import { PaneResizer } from "@/components/PaneResizer";
 import type { FolderTotals, TagCount } from "@/lib/items/read";
-import { UNTAGGED_TOKEN } from "@/lib/search";
+import { UNTAGGED_TOKEN } from "@/lib/search/types";
 import { normalizeTag, tagSearchHref } from "@/lib/tags";
 import type { Sort } from "@/lib/validation";
 

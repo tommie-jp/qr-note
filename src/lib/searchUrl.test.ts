@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { narrowToChecks } from './search'
+import { narrowToChecks } from './search/rewrite'
 import { buildItemUrl, buildSearchUrl, buildTrashUrl, itemNoFromPathname } from './searchUrl'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {

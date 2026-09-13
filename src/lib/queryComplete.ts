@@ -19,7 +19,7 @@ export interface Completion {
 }
 
 // 直前がここなら新しいトークンの先頭とみなす。
-// 境界の集合は search.ts の tokenize がトークンを切る位置と揃える:
+// 境界の集合は search/tokenize.ts の tokenize がトークンを切る位置と揃える:
 // 空白と演算子 (`|` `!` `(` `)`、全角も) の直後は新しいトークンの先頭。
 // 揃えないと `(!#np` や `!is:todo` と打った時点で補完が止まる。
 export function isTokenBoundary(ch: string | undefined): boolean {

@@ -51,7 +51,7 @@ import {
   type PaneMode,
 } from "@/lib/paneMode";
 import { resolveItemListContext } from "@/lib/itemListContext";
-import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
+import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search/rewrite";
 import { listQueries } from "@/lib/searchQueryStore";
 import { currentUser, requireUser } from "@/lib/session";
 import { buildItemUrl, buildSearchUrl } from "@/lib/searchUrl";

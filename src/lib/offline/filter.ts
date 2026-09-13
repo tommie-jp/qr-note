@@ -1,6 +1,6 @@
 // オフラインでのノート検索 (docs/65-オフライン対応計画.md §3-3)。
 //
-// **検索窓の文法はサーバと 1 つの実装を共有する**のが要点。search.ts の
+// **検索窓の文法はサーバと 1 つの実装を共有する**のが要点。search/parse.ts の
 // パーサ (DNF ではなく AST) をそのまま呼び、差し替えるのは葉の評価だけにする。
 // 文法を書き写すと、演算子を足したときにオンラインとオフラインで解釈が割れる
 // — しかも割れたことに気づくのは圏外だけ、という最悪の壊れ方をする。
@@ -17,9 +17,10 @@
 //
 // 正規化 (NFKC + 小文字化) は normalizeTag をそのまま使う。名前はタグ用だが
 // 規則は PGroonga の NormalizerAuto (全半角・大小の同一視) に揃えたもので、
-// search.ts も OR 演算子の判定に同じ関数を使っている。
+// search/tokenize.ts も OR 演算子の判定に同じ関数を使っている。
 
-import { parseSearchExpr, type SearchExpr, type SearchTerm } from '@/lib/search'
+import { parseSearchExpr } from '@/lib/search/parse'
+import type { SearchExpr, SearchTerm } from '@/lib/search/types'
 import { normalizeTag } from '@/lib/tags'
 import type { OfflineItem } from './item'
 

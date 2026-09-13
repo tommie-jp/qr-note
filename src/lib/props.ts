@@ -59,7 +59,7 @@ const VALUE_TRAILING_PUNCT = /[,、]+$/u
 // key と value の区切り (全角 ＝ は NFKC で = に畳まれるが、元トークンの分割にも使う)。
 const SEPARATOR = /[=＝]/
 
-// 半角空白 (\s) と全角空白 (　) の連続。search.ts の TERM_SEPARATOR と揃える。
+// 半角空白 (\s) と全角空白 (　) の連続。search/tokenize.ts の isSpace と揃える。
 const TOKEN_SEPARATOR = /[\s　]+/
 
 // 比較・保存のための正規化キー。正規化の規則 (NFKC + 小文字化) はタグと同じで、

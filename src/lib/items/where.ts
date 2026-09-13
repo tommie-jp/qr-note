@@ -8,12 +8,9 @@
 // 引き込むため。SQL の断片はサーバーでしか意味を持たない。
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
-import {
-  parseSearchExpr,
-  stripTaskTerms,
-  type SearchExpr,
-  type SearchTerm,
-} from '@/lib/search'
+import { parseSearchExpr } from '@/lib/search/parse'
+import { stripTaskTerms } from '@/lib/search/rewrite'
+import type { SearchExpr, SearchTerm } from '@/lib/search/types'
 import { orderByClause } from '@/lib/sortOrder'
 import { escapeLike, type TrashSort } from '@/lib/validation'
 
@@ -21,7 +18,7 @@ import { escapeLike, type TrashSort } from '@/lib/validation'
 // text: memo / url は PGroonga の全文一致 (&@, 日本語バイグラム・全半角/大小の
 //   正規化つき)、itemNo は前方一致 (ILIKE, 旧データの英字入り itemNo に備え大小無視)。
 // tag: items.tags 配列の完全一致 (@>, GIN インデックスが効く)。
-//   タグ名は search.ts が正規化済み (NFKC + 小文字化)。
+//   タグ名は search/tokenize.ts が正規化済み (NFKC + 小文字化)。
 // 語種ごとに必ず case を書く (exprCondition と同じ網羅 switch)。
 // text へ落ちる既定にすると、種別を足したときに黙って全文検索へ流れる
 export function termCondition(term: SearchTerm): Prisma.Sql {
@@ -51,7 +48,7 @@ export function termCondition(term: SearchTerm): Prisma.Sql {
 //   `抵抗 1608 OR コンデンサ` → ((抵抗) AND (1608)) OR ((コンデンサ))
 //   `#bjt !(#npn OR #pnp)`   → (#bjt) AND (NOT ((#npn) OR (#pnp)))
 // 葉は termCondition がすべてパラメータとして渡すため、演算子構文が
-// PGroonga に生で届くことはない (search.ts 冒頭の設計)。
+// PGroonga に生で届くことはない (search/parse.ts 冒頭の設計)。
 // NOT が三値論理で化けないのは memo/url/tags が NOT NULL だから
 // (prisma/schema.prisma。NULL 混入時は NOT NULL → NULL で行が落ちる)。
 function exprCondition(expr: SearchExpr): Prisma.Sql {
