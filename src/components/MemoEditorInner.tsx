@@ -29,43 +29,17 @@ import { createPortal } from "react-dom";
 import { useBottomBarSlot } from "@/components/BottomBarContext";
 import { EditToolbar } from "@/components/EditToolbar";
 import { PanelActiveContext } from "@/components/PanelActiveContext";
-import {
-  DemoDisabledError,
-  fetchPrefillSummary,
-  prefillTargetFromCode,
-} from "@/lib/prefillSummary";
-import { isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
-import { recordingAltText } from "@/lib/audio/audioRecorder";
-import {
-  ACCEPTED_FILE_TYPES,
-  attachmentAlt,
-  attachmentKind,
-  ignoredFilesMessage,
-  isVideoFile,
-  pickFiles,
-  shouldMakeThumbs,
-} from "@/lib/editor/attachmentKinds";
+import { ACCEPTED_FILE_TYPES } from "@/lib/editor/attachmentKinds";
 import { busyReason, isEditorBusy } from "@/lib/editor/busyReason";
-import { insertBlock, insertText, replaceToken } from "@/lib/editor/cmDoc";
+import { insertText } from "@/lib/editor/cmDoc";
 import { errorText } from "@/lib/errorMessage";
-import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
-import { makeVideoThumbs } from "@/lib/video/videoPoster";
-import { uploadTooLargeMessage } from "@/lib/uploadSizeCheck";
-import {
-  clipboardFileName,
-  clipboardReadErrorMessage,
-  pickClipboardEntry,
-} from "@/lib/clipboardRead";
-import { canShrink, shrinkImageFile } from "@/lib/shrinkImage";
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
-import { imageAtCursor, ocrInsertion, ocrPlaceholder } from "@/lib/ocr/ocrQuote";
 import {
   ocrButtonLabel,
   recordButtonLabel,
   uploadButtonLabel,
-  type UploadProgress,
 } from "@/lib/progressLabels";
 import {
   findSecretNotation,
@@ -95,19 +69,15 @@ import {
 } from "./editor/noteSearch";
 import { createNoteSearch } from "./editor/noteSearchHighlight";
 import { quizLinter } from "./editor/quizLinter";
+import { useAttachmentInsert } from "./editor/hooks/useAttachmentInsert";
+import { useEditorClipboard } from "./editor/hooks/useEditorClipboard";
+import { useEditorDrawing } from "./editor/hooks/useEditorDrawing";
+import { useEditorOcr } from "./editor/hooks/useEditorOcr";
+import { useEditorRecordings } from "./editor/hooks/useEditorRecordings";
+import { useEditorScanInsert } from "./editor/hooks/useEditorScanInsert";
 import { loadLivePreviewPref, saveLivePreviewPref } from "@/lib/livePreviewPref";
 import { browserStorage } from "@/lib/prefs/storagePref";
-import {
-  disposeOcr,
-  isOcrReady,
-  MODEL_READY_PERCENT,
-  ocrImageToQuote,
-  subscribeModelProgress,
-} from "./ocr/ocrService";
 import { BusyNotice } from "./BusyNotice";
-import { uploadImageWithProgress } from "./uploadImageXhr";
-import { useAudioRecording } from "./useAudioRecording";
-import { useVideoRecording } from "./useVideoRecording";
 import { VideoRecordModal } from "./VideoRecordModal";
 
 // fabric 一式は重いので、お絵かきを開くまで読み込まない
@@ -139,42 +109,6 @@ export interface MemoEditorInnerProps {
   minHeight?: string;
 }
 
-// アップロード済みの画像を Blob として取り直す。OCR は元 File ではなく
-// これを読む: HEIC など Chrome/Firefox が createImageBitmap で復号できない
-// 形式でも、保存時に WebP へ変換済みのバイトなら OCR・表示・検索が同じ画素を見る。
-// 取得できなければ null (アップロードは成功しているので OCR だけ諦める)
-async function fetchImageBlob(url: string): Promise<Blob | null> {
-  try {
-    const res = await fetch(url);
-    return res.ok ? await res.blob() : null;
-  } catch {
-    return null;
-  }
-}
-
-// 上限に収まるファイルを返す。超えていても、縮めてよい画像なら描き直して
-// 小さくしたものを返す (docs/92-クリップボード連携計画.md §4)。縮められない
-// もの・縮めても収まらないものは、従来どおり理由を添えて断る。
-//
-// **縮めた後にもう一度測る。** 上限を桁違いに超えた画像 (巨大な PNG) は、
-// 長辺を落としても JPEG にしても収まらないことがありうる。そのまま送ると
-// エッジが本文を捨てて「通信エラー」に化ける
-async function fitToLimit(file: File, allowShrink: boolean): Promise<File> {
-  const tooLarge = uploadTooLargeMessage(file, isVideoFile(file));
-  if (tooLarge === null) {
-    return file;
-  }
-  if (!allowShrink || !canShrink(file)) {
-    throw new Error(tooLarge);
-  }
-  const shrunk = await shrinkImageFile(file);
-  const stillTooLarge = uploadTooLargeMessage(shrunk, false);
-  if (stillTooLarge !== null) {
-    throw new Error(stillTooLarge);
-  }
-  return shrunk;
-}
-
 // CodeMirror に渡す設定はレンダリングごとに作り直さない。
 // @uiw/react-codemirror は basicSetup / onUpdate の**参照**が変わるたびに
 // StateEffect.reconfigure で拡張一式を組み直すため、毎回新しいオブジェクトを
@@ -190,10 +124,6 @@ const BASIC_SETUP = {
   // 同じ鍵は noteSearchExtension が全部引き受ける
   searchKeymap: false,
 } as const;
-
-// プレースホルダの一意性のための連番 (インスタンス間で共有してよい)
-let uploadSeq = 0;
-let ocrSeq = 0;
 
 // ノート内検索の帯が持つ値 (docs/76-ノート内検索計画.md §2)。
 // 閉じても捨てずに残す — 同じ語を続けて探すことが多い
@@ -219,27 +149,6 @@ const FIND_SCROLL_GAP = 16;
 // 消してから打ち直す手間が増えるだけ
 const FIND_SEED_MAX = 50;
 
-interface InsertFilesOptions {
-  // 音声の画像記法に入れる alt。録音は日時を残したいので上書きする
-  // (ファイル選択・ペースト由来の音声は既定の "audio" のまま)
-  audioAlt?: string;
-  // 動画の alt。録画は日時を残したいので上書きする (ファイル選択・ペースト
-  // 由来の動画は既定の "video" のまま)
-  videoAlt?: string;
-  // 画像の alt。お絵かきは「いつ描いたか」を残して全文検索から引けるようにする
-  // (ファイル選択・ペースト由来の画像は既定の空のまま)
-  imageAlt?: string;
-  // 挿入した画像を続けて OCR するか。お絵かきは自分で描いたものなので読まない
-  // (要るときは「後から OCR」ボタンで読ませられる)
-  ocr?: boolean;
-  // 上限を超えた画像を、断らずに縮めて送るか (docs/92-クリップボード連携計画.md §4)。
-  // **クリップボード由来のときだけ true。** iOS は写真をコピーすると PNG で
-  // 渡してくることが多く、12MP の写真はそれだけで 20〜30MB になる。OS が作り
-  // 直した写しなので縮めて構わない。ファイル選択・ドロップは原本を指している
-  // ので既定の false のまま (黙って再圧縮せず、上限を理由に断る)
-  shrinkOversized?: boolean;
-}
-
 // markdown 用 CodeMirror エディタ本体 (制御コンポーネント)。
 // 画像はペースト / ドラッグ&ドロップ / 画像ボタンで /api/images へアップロードし、
 // カーソル位置に ![](url) を挿入する
@@ -250,39 +159,10 @@ export default function MemoEditorInner({
   autoFocus = false,
   minHeight = "14rem",
 }: MemoEditorInnerProps) {
-  // 進行中アップロードの表示用スナップショット (何枚目 / 全何枚 / 送信 %)。
-  // null なら待機中。busy 判定は従来の uploading boolean と同じ意味を保つ
-  const [upload, setUpload] = useState<UploadProgress | null>(null);
-  const uploading = upload !== null;
-  // クリップボードからの取り込み中か (docs/92-クリップボード連携計画.md §4)。
-  // **読み取りの許可待ちも含める。** iOS は read() でペーストの吹き出しを出し、
-  // 押されるまで返らない。その間に更新されると、取り込んだ画像が入る前の本文が
-  // 保存され、後から挿入された記法だけが宙に浮く。二重押しもここで止まる
-  const [clipboardBusy, setClipboardBusy] = useState(false);
-  // 実行中の OCR の本数 (複数画像を続けて OCR できる)。0 より大きい間は
-  // 「OCR処理中」を出し、フォーム送信を止める (結果が本文に入る前に更新しない)。
-  const [ocrCount, setOcrCount] = useState(0);
-  // 初回のモデルダウンロードの実測 % (完了・待機中は null)
-  const [modelPercent, setModelPercent] = useState<number | null>(null);
-  // OCR の情報表示 (エラーではない「準備中」「見つかりませんでした」など)。
-  // 初回はモデル取得で待ちが長く、灰色だと埋もれて「固まった」と誤解される
-  // ため、画像検索の準備中バナーと同じ赤背景で目立たせる (ImageSearchModal)。
-  const [ocrNote, setOcrNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // undo / redo ボタンの活殺 (docs/11-アプリ的UIUX計画.md §2-4)。
   // 履歴自体は basicSetup が既定で持っている (Ctrl+Z も従来どおり効く)
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
-  // お絵かき画面。null なら閉じている。開くときにカーソルの近くの画像を控え、
-  // 下敷きの候補として渡す (docs/34-お絵かき計画.md §2)
-  const [drawing, setDrawing] = useState<{ sourceImageUrl: string | null } | null>(
-    null,
-  );
-  // 編集中スキャン (docs/13/14 の書誌・商品情報を挿入する導線)。
-  // scanning … カメラのモーダルを開いているか。scanBusy … 読み取り後の取得中
-  // (フォーム送信を止める)。scanNote … 取得中・結果の知らせ (OCR と同じ赤バナー)
-  const [scanning, setScanning] = useState(false);
-  const [scanBusy, setScanBusy] = useState(false);
-  const [scanNote, setScanNote] = useState<string | null>(null);
   // シークレットの入力ダイアログ (docs/51-部分暗号化計画.md §8)。null なら閉じている。
   // name が非 null なら既存の断片の編集、null なら新規 (text は選択範囲)
   const [secret, setSecret] = useState<{
@@ -310,7 +190,6 @@ export default function MemoEditorInner({
   // (タイマーで消さない — 「元に戻す」を押す間に消えては困る)
   const [findNote, setFindNote] = useState<NoteSearchNote | null>(null);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   // いまの検索条件。**参照を固定した onUpdate から読む**ので state ではなく ref
   // (state にすると onUpdate の参照が変わり、拡張一式が組み直される)
@@ -342,63 +221,39 @@ export default function MemoEditorInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // モデルダウンロードの % をバナーに流す。100 (初期化完了) でクリアする
-  useEffect(() => {
-    return subscribeModelProgress((percent) => {
-      setModelPercent(percent >= MODEL_READY_PERCENT ? null : percent);
-    });
-  }, []);
-
-  // 編集画面を離れたら OCR の Worker を落とす。抱えたままだと OpenCV と
-  // onnxruntime の wasm ヒープが残り、後から開いた画像検索がモデルを積めずに
-  // 落ちる (iOS WebKit のタブ上限)。terminate は realm ごと捨てるので
-  // メモリが OS へ返る (ocrService.disposeOcr)
-  useEffect(() => {
-    return () => {
-      disposeOcr("編集画面を離脱");
-    };
-  }, []);
-
-  // 編集画面からのその場録音 (41-QR-search/docs/12「ノート内録音の実装計画」)。
-  // 録音できたものは、ファイル選択と同じ挿入経路 (insertFiles) に流す。
-  // alt には録音日時を残す (PDF のファイル名と同じ狙いで、全文検索から引ける)
-  const recording = useAudioRecording({
-    onFinish: async (result) => {
-      const view = editorRef.current?.view;
-      if (!view) {
-        return;
-      }
-      await insertFiles(view, [result.file], {
-        audioAlt: recordingAltText(result.recordedAt),
-      });
-    },
-    onError: setError,
+  const ocr = useEditorOcr({ editorRef, setError });
+  // 戻り値は分けて受ける。fileInputRef (ref) と同じ入れ物のまま描画中に
+  // 他の値を読むと、react-hooks/refs が「ref を描画中に読んだ」と見なす
+  const {
+    upload,
+    uploading,
+    insertFiles,
+    fileEvents,
+    fileInputRef,
+    openFilePicker,
+    handleFilePick,
+  } = useAttachmentInsert({ editorRef, setError, ocrIntoDoc: ocr.ocrIntoDoc });
+  const { recording, videoRecording, isRecording } = useEditorRecordings({
+    editorRef,
+    setError,
+    insertFiles,
   });
-
-  // 編集画面からのその場録画 (41-QR-search/docs/14-動画挿入計画.md)。録音と同じく、録れた
-  // ものはファイル選択と同じ挿入経路 (insertFiles) に流す。alt には録画日時を残す
-  const videoRecording = useVideoRecording({
-    onFinish: async (result) => {
-      const view = editorRef.current?.view;
-      if (!view) {
-        return;
-      }
-      await insertFiles(view, [result.file], {
-        videoAlt: videoRecordingAltText(result.recordedAt),
-      });
-    },
-    onError: setError,
+  const { clipboardBusy, importClipboard } = useEditorClipboard({
+    editorRef,
+    setError,
+    insertFiles,
   });
+  const scan = useEditorScanInsert({ editorRef, setError });
+  const drawings = useEditorDrawing({ editorRef, setError, insertFiles });
 
   // アップロード / OCR / 録音・録画の完了前に送信すると、画像リンクや OCR 結果、
   // 録音・録画そのものが memo に入らないため、処理中だけフォーム送信をブロックして知らせる
-  const isRecording = recording.isRecording || videoRecording.isRecording;
   const busy = isEditorBusy({
     isRecording,
     uploading,
-    scanBusy,
+    scanBusy: scan.scanBusy,
     clipboardBusy,
-    ocrRunning: ocrCount > 0,
+    ocrRunning: ocr.ocrCount > 0,
   });
   useEffect(() => {
     if (!busy) {
@@ -410,151 +265,18 @@ export default function MemoEditorInner({
     }
     const blockSubmit = (event: SubmitEvent) => {
       event.preventDefault();
-      setError(busyReason({ isRecording, uploading, scanBusy, clipboardBusy }));
+      setError(
+        busyReason({
+          isRecording,
+          uploading,
+          scanBusy: scan.scanBusy,
+          clipboardBusy,
+        }),
+      );
     };
     form.addEventListener("submit", blockSubmit);
     return () => form.removeEventListener("submit", blockSubmit);
-  }, [busy, uploading, isRecording, scanBusy, clipboardBusy]);
-
-  // 画像 1 枚を OCR し、指定位置へ引用ブロックを差し込む。挿入時 OCR と
-  // 「後から OCR」ボタンの両方がこの 1 本を使う (docs/24-画像OCR計画.md §4)。
-  // 処理中はプレースホルダを置き、本文が編集されても文字列一致で差し替える。
-  const ocrIntoDoc = async (
-    view: EditorView,
-    // Blob を直接、または後から届く Promise で受ける。プレースホルダは
-    // insertPos が新鮮なうちに同期で挿し、画像取得の await はその後に回す
-    // (取得を待つ間に本文が動いても、置換は文字列一致なのでずれない)
-    source: Blob | Promise<Blob | null>,
-    insertPos: number,
-  ) => {
-    const seq = ++ocrSeq;
-    const placeholder = ocrPlaceholder(seq);
-    const insertion = ocrInsertion(placeholder);
-    view.dispatch({ changes: { from: insertPos, insert: insertion } });
-    setOcrCount((n) => n + 1);
-    // モデルが載っていなければ読み込みが走る。処理中との区別を出す。
-    // 「初回のみ」とは言えない: 画面を離れるとモデルを解放する (disposeOcr) ので、
-    // 戻ってきた 2 回目以降もここを通る
-    setOcrNote(isOcrReady() ? null : "OCR モデルを準備しています…");
-    try {
-      const blob = source instanceof Blob ? source : await source;
-      if (!blob) {
-        // 画像を取り直せなかった。OCR はおまけなので黙って諦める
-        // (アップロードは成功していて画像自体は本文に載っている)
-        replaceToken(view, insertion, "");
-        setOcrNote(null);
-        return;
-      }
-      const quote = await ocrImageToQuote(blob);
-      if (quote) {
-        replaceToken(view, placeholder, quote);
-        setOcrNote(null);
-      } else {
-        // 0 文字は黙って消さない。プレースホルダごと除いて理由を出す
-        replaceToken(view, insertion, "");
-        setOcrNote("画像から文字が見つかりませんでした。");
-      }
-    } catch (e) {
-      replaceToken(view, insertion, "");
-      setError(errorText(e));
-      // 「準備しています…」を畳む。残すとエラーと並んで
-      // 「まだ待てば直る」と誤解される (実機で確認)
-      setOcrNote(null);
-    } finally {
-      setOcrCount((n) => n - 1);
-    }
-  };
-
-  // 拾わなかったファイルがあれば知らせる (理由は ignoredFilesMessage)
-  const reportIgnored = (list: FileList | null | undefined, picked: File[]) => {
-    const message = ignoredFilesMessage(list, picked);
-    if (message !== null) {
-      setError(message);
-    }
-  };
-
-  const insertFiles = async (
-    view: EditorView,
-    files: File[],
-    options: InsertFilesOptions = {},
-  ) => {
-    const {
-      audioAlt = "audio",
-      videoAlt = "video",
-      imageAlt = "",
-      ocr = true,
-      shrinkOversized = false,
-    } = options;
-    setError(null);
-    try {
-      for (const [index, file] of files.entries()) {
-        // **プレースホルダと busy を、待つより先に置く。** この後の
-        // fitToLimit は縮小で数秒かかることがあり (20〜30MB の PNG)、その間に
-        // 何も置かないと画面は待機中のままになる。busy でなければ「更新」も
-        // 通ってしまい、画像の入っていない本文が保存されてから記法だけが
-        // 後追いで挿さる形になる
-        const token = `![アップロード中 ${++uploadSeq}]()`;
-        insertText(view, token);
-        // 送信が始まるまでは % を出さない (percent: null →「アップロード中…」)。
-        // 動画では下のコマ抽出に数秒かかることがあり、0% に張り付いて見えるより
-        // % 無しの方がましなため (progressLabels.ts の同旨の判断と揃える)
-        setUpload({ current: index + 1, total: files.length, percent: null });
-        try {
-          // 上限超えは**送る前に**断る。送ってしまうと、エッジ (nginx / Caddy) か
-          // Next.js の proxy が本文を途中で捨て、ブラウザには「通信エラー」や
-          // 見当違いの 400 しか返らない (理由は uploadSizeCheck.ts)。
-          // ここで止めれば「何 MB のファイルが上限何 MB を超えた」まで言える。
-          // クリップボード由来の画像だけは、断る前に縮めて送り直す (§4)
-          const sending = await fitToLimit(file, shrinkOversized);
-          // 動画は静止サムネ (poster) と動くサムネのコマをここで作り、本体と
-          // 同じ POST で送る (41-QR-search/docs/14 §Phase3, docs/72-動画アニメサムネ計画.md)。
-          // 作れなければ空 (サムネ無しで続行)。コマ集めには上限時間があり、
-          // 間に合ったぶんだけが送られる (videoPoster.ts の ANIM_BUDGET_MS)
-          const thumbs = shouldMakeThumbs(sending)
-            ? await makeVideoThumbs(sending)
-            : null;
-          // 送信 % はボタンラベル (React state) だけに出す。本文トークンを
-          // % で書き換えると undo が壊れる (ocrIntoDoc の同旨コメント参照)。
-          // アップロードは直列なので、ボタンの % が常に今のファイルの %。
-          // 画像・音声・動画とも同じ /api/images へ送る (サーバが中身で振り分ける)
-          const url = await uploadImageWithProgress(
-            sending,
-            (percent) => {
-              setUpload({ current: index + 1, total: files.length, percent });
-            },
-            thumbs,
-          );
-          // 種類ごとの alt の決め方は attachmentAlt
-          const kind = attachmentKind(url);
-          const alt = attachmentAlt(kind, sending.name, {
-            audio: audioAlt,
-            video: videoAlt,
-            image: imageAlt,
-          });
-          const markup = `![${alt}](${url})`;
-          replaceToken(view, token, markup);
-          if (kind !== "image" || !ocr) {
-            continue; // 画像でないもの・OCR を頼まれていないものは読まない
-          }
-          // 挿入した画像を OCR し、直後に引用ブロックを差し込む。
-          // アップロードの流れは止めない (url は UUID で一意なので位置を引ける)。
-          // OCR には元 File ではなく保存後の画像 (url) を読ませる。HEIC など
-          // ブラウザが直接復号できない形式は、保存時に WebP へ変換済みのため
-          const pos = view.state.doc.toString().indexOf(markup);
-          if (pos >= 0) {
-            void ocrIntoDoc(view, fetchImageBlob(url), pos + markup.length);
-          }
-        } catch (e) {
-          replaceToken(view, token, "");
-          throw e;
-        }
-      }
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setUpload(null);
-    }
-  };
+  }, [busy, uploading, isRecording, scan.scanBusy, clipboardBusy]);
 
   // 拡張一式と、ライブプレビューの差し替え口を**一緒に**組む。
   // Compartment をここで作るのは、拡張と寿命を揃えるため — 外で作って
@@ -612,44 +334,13 @@ export default function MemoEditorInner({
       ),
       // ノート内検索 (docs/76 §3, §6)。検索状態・ハイライト・Ctrl+F を足す
       noteSearch.extension,
-      EditorView.domEventHandlers({
-        paste: (event, view) => {
-          const files = pickFiles(event.clipboardData?.files);
-          if (files.length === 0) {
-            // ファイルを貼ったのに 1 つも拾えなかったときだけ知らせる
-            // (文字列のペーストはここに来ても files が空なので何も出ない)
-            reportIgnored(event.clipboardData?.files, files);
-            return false;
-          }
-          event.preventDefault();
-          // ペーストもクリップボード由来なので、上限を超えた画像は縮めて送る
-          // (docs/92-クリップボード連携計画.md §4)。iOS の写真は PNG で来て
-          // 20〜30MB になり、そのままでは必ず「大きすぎます」で止まる
-          void insertFiles(view, files, { shrinkOversized: true });
-          reportIgnored(event.clipboardData?.files, files);
-          return true;
-        },
-        drop: (event, view) => {
-          const files = pickFiles(event.dataTransfer?.files);
-          if (files.length === 0) {
-            reportIgnored(event.dataTransfer?.files, files);
-            return false;
-          }
-          event.preventDefault();
-          // ドロップした位置にカーソルを移してから挿入する
-          const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-          if (pos !== null) {
-            view.dispatch({ selection: { anchor: pos } });
-          }
-          void insertFiles(view, files);
-          reportIgnored(event.dataTransfer?.files, files);
-          return true;
-        },
-      }),
+      // 添付のペースト・ドロップ (useAttachmentInsert)
+      fileEvents,
     ];
     return { extensions, livePreviewCompartment, noteSearch };
-    // insertImages は ref と state セッターのみ参照するため再生成不要
-  }, []);
+    // fileEvents は useAttachmentInsert が参照を固定して渡すので、依存に
+    // 載せても組み直しは起きない (編集画面につき一度だけ組む)
+  }, [fileEvents]);
 
   // 書式メニューで選んだ記法を選択範囲へ掛ける (docs/70 §6)。
   // 何を変えるかは markdownFormat が決め、ここは反映と後始末だけ。
@@ -931,63 +622,6 @@ export default function MemoEditorInner({
     }
   };
 
-  // 「後から OCR」: カーソル位置にいちばん近い自前画像を取り直して OCR する。
-  // 既にある画像 (過去にアップロード済み) を後から検索対象にできる (docs/24 §4)。
-  const runOcrAtCursor = async () => {
-    const view = editorRef.current?.view;
-    if (!view) {
-      return;
-    }
-    setError(null);
-    setOcrNote(null);
-    const doc = view.state.doc.toString();
-    const hit = imageAtCursor(doc, view.state.selection.main.head);
-    if (!hit) {
-      setOcrNote(
-        "カーソルの近くに画像が見つかりません。画像の上を選んでから押して下さい。",
-      );
-      return;
-    }
-    try {
-      const res = await fetch(hit.url);
-      if (!res.ok) {
-        throw new Error(`画像を取得できませんでした (HTTP ${res.status})`);
-      }
-      const blob = await res.blob();
-      await ocrIntoDoc(view, blob, hit.insertAt);
-    } catch (e) {
-      setError(errorText(e));
-    }
-  };
-
-  // 「お絵かき」: カーソルの近くに自前画像があればそれを下敷きにして開く。
-  // 「後から OCR」と同じ探し方 (imageAtCursor) なので、画像の上で押せば
-  // その画像に描ける。下敷きが要らなければお絵かき画面で白紙に切り替えられる
-  const openDrawing = () => {
-    const view = editorRef.current?.view;
-    if (!view) {
-      return;
-    }
-    setError(null);
-    const hit = imageAtCursor(
-      view.state.doc.toString(),
-      view.state.selection.main.head,
-    );
-    setDrawing({ sourceImageUrl: hit?.url ?? null });
-  };
-
-  // 描いたものは 1 枚の画像として、ファイル選択と同じ挿入経路に流す。
-  // 元にした画像は書き換えない (描いたものは別の画像として増える)
-  const insertDrawing = (file: File, alt: string) => {
-    setDrawing(null);
-    const view = editorRef.current?.view;
-    if (!view) {
-      return;
-    }
-    view.focus();
-    void insertFiles(view, [file], { imageAlt: alt, ocr: false });
-  };
-
   // 履歴の深さが変わったときだけボタンの活殺を更新する。
   // onUpdate はカーソル移動でも呼ばれるので、同じ値なら前の state を
   // 返して再レンダリングを止める。
@@ -1039,70 +673,6 @@ export default function MemoEditorInner({
       }
     }
   }, []);
-
-  const handleFilePick = (files: FileList | null) => {
-    const view = editorRef.current?.view;
-    const picked = pickFiles(files);
-    if (view && picked.length > 0) {
-      void insertFiles(view, picked);
-    }
-    reportIgnored(files, picked);
-    // 同じファイルを続けて選べるようリセットする
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  // 「貼り付け」: クリップボードの中身をそのまま取り込む
-  // (docs/92-クリップボード連携計画.md §4)。iPhone で写真をコピーしてから
-  // 押せば、編集画面を開いて本文を長押しする手順を省いて添付にできる。
-  //
-  // **read() は同期のうちに呼ぶ。** 先に await を挟むとユーザー操作の扱いが
-  // 切れ、NotAllowedError で弾かれる (shareFile.ts の transient activation と
-  // 同じ話)。iOS はここで「ペースト」の吹き出しを出し、そのタップが許可になる。
-  //
-  // 画像が無ければ文字を入れる — コピーしたものが画像でも文字でも、押す
-  // ボタンは 1 つで済ませる (どちらが入っているかは押す前には分からない)
-  const importClipboard = () => {
-    const view = editorRef.current?.view;
-    if (!view) {
-      return;
-    }
-    setError(null);
-    if (typeof navigator.clipboard?.read !== "function") {
-      // secure context の外・対応していないブラウザ。ボタンは常に出しておき
-      // (後から生えると帯が跳ねる)、押した時点で理由を言う
-      setError("この環境ではクリップボードから取り込めません");
-      return;
-    }
-    setClipboardBusy(true);
-    const reading = navigator.clipboard.read();
-    void (async () => {
-      try {
-        const pick = pickClipboardEntry(await reading);
-        if (pick === null) {
-          setError("クリップボードに画像も文字もありません");
-          return;
-        }
-        const blob = await pick.entry.getType(pick.type);
-        if (pick.kind === "text") {
-          insertText(view, await blob.text());
-          return;
-        }
-        // 上限を超えていれば縮めて送る (iOS の写真は PNG で 20〜30MB になる)
-        const file = new File([blob], clipboardFileName(pick.type), {
-          type: pick.type,
-        });
-        await insertFiles(view, [file], { shrinkOversized: true });
-      } catch (e) {
-        setError(clipboardReadErrorMessage(e));
-      } finally {
-        // 挿入まで待ってから下ろす。insertFiles も自前の busy (upload) を
-        // 立てるので、取り込みの初めから終わりまで途切れずに塞がる
-        setClipboardBusy(false);
-      }
-    })();
-  };
 
   // 「更新」は下部バーへ portal されており、DOM は form の外に出る。native の
   // submit ボタンの関連付けは効かないので、囲みの form を明示的に送信する。
@@ -1162,50 +732,6 @@ export default function MemoEditorInner({
     view.focus();
   };
 
-  // 編集中スキャン: バーコードを読んで書籍・商品情報をカーソル位置へ挿入する
-  // (検索・遷移はしない。ユーザー要望)。ISBN→書誌、JAN→商品情報を引き、
-  // 取れれば scanRegisterMemo で見出し+タグを、取れなくてもタグだけを挿す。
-  // 書籍・商品コードでなければ、タグにできれば #コード、無理なら生値を入れる。
-  const runScanInsert = async (rawValue: string) => {
-    const view = editorRef.current?.view;
-    if (!view) {
-      return;
-    }
-    const code = rawValue.trim();
-    setError(null);
-    setScanNote(null);
-    view.focus();
-
-    const target = prefillTargetFromCode(code);
-    if (!target) {
-      // 書籍・商品として引けないコード。タグにできれば #コード、それ以外は生値
-      insertBlock(view, isTaggableCode(code) ? scanRegisterMemo(code).trim() : code);
-      return;
-    }
-
-    const noun = target.kind === "book" ? "書籍情報" : "商品情報";
-    setScanBusy(true);
-    setScanNote(`${noun}を取得中…`);
-    try {
-      const summary = await fetchPrefillSummary(target);
-      // 取れても取れなくてもコード自体は入れる (見つからなくても手掛かりが残る)
-      insertBlock(view, scanRegisterMemo(code, summary).trim());
-      setScanNote(
-        summary ? null : `${noun}が見つかりませんでした。コードだけ挿入しました。`,
-      );
-    } catch (e) {
-      // 取得に失敗してもコード (タグ) だけは入れておく
-      insertBlock(view, scanRegisterMemo(code).trim());
-      setScanNote(
-        e instanceof DemoDisabledError
-          ? `デモ版では${noun}を取得できません。コードだけ挿入しました。`
-          : `${noun}の取得に失敗しました。コードだけ挿入しました。`,
-      );
-    } finally {
-      setScanBusy(false);
-    }
-  };
-
   return (
     <div ref={wrapperRef} className="space-y-2">
       <div className="overflow-hidden rounded border border-gray-300 bg-white">
@@ -1256,21 +782,27 @@ export default function MemoEditorInner({
       {videoRecording.note && (
         <BusyNotice aria-live="polite">{videoRecording.note}</BusyNotice>
       )}
-      {ocrNote && (
+      {ocr.ocrNote && (
         <BusyNotice
           aria-live="polite"
-          aria-busy={ocrCount > 0}
-          busy={ocrCount > 0}
+          aria-busy={ocr.ocrCount > 0}
+          busy={ocr.ocrCount > 0}
         >
-          {ocrNote}
+          {ocr.ocrNote}
           {/* % は aria-hidden で足す: aria-live が毎ティック読み上げないように */}
-          {modelPercent !== null && <span aria-hidden> {modelPercent}%</span>}
+          {ocr.modelPercent !== null && (
+            <span aria-hidden> {ocr.modelPercent}%</span>
+          )}
         </BusyNotice>
       )}
       {/* 編集中スキャンの取得中・結果 (OCR と同じ赤バナー) */}
-      {scanNote && (
-        <BusyNotice aria-live="polite" aria-busy={scanBusy} busy={scanBusy}>
-          {scanNote}
+      {scan.scanNote && (
+        <BusyNotice
+          aria-live="polite"
+          aria-busy={scan.scanBusy}
+          busy={scan.scanBusy}
+        >
+          {scan.scanNote}
         </BusyNotice>
       )}
       <input
@@ -1281,11 +813,11 @@ export default function MemoEditorInner({
         hidden
         onChange={(e) => handleFilePick(e.target.files)}
       />
-      {drawing && (
+      {drawings.drawing && (
         <DrawModal
-          sourceImageUrl={drawing.sourceImageUrl}
-          onCancel={() => setDrawing(null)}
-          onInsert={insertDrawing}
+          sourceImageUrl={drawings.drawing.sourceImageUrl}
+          onCancel={drawings.closeDrawing}
+          onInsert={drawings.insertDrawing}
         />
       )}
       {/* シークレットの入力。**本文の state を経由しない** — ここで書いた
@@ -1300,11 +832,11 @@ export default function MemoEditorInner({
         />
       )}
       {/* 編集中スキャン: 読み取った生値を runScanInsert へ渡すだけ (検索しない) */}
-      {scanning && (
+      {scan.scanning && (
         <ScannerModal
           title="書籍・商品バーコードをかざす"
-          onClose={() => setScanning(false)}
-          onResult={(rawValue) => void runScanInsert(rawValue)}
+          onClose={scan.closeScanner}
+          onResult={(rawValue) => void scan.runScanInsert(rawValue)}
         />
       )}
       {/* 操作ボタンを下部バーの差し込み口へ portal する。差し込み口が出来る
@@ -1354,10 +886,10 @@ export default function MemoEditorInner({
             onRedo={() => runHistoryCommand(redo)}
             uploadLabel={uploadButtonLabel(upload)}
             uploading={uploading}
-            onInsertFile={() => fileInputRef.current?.click()}
+            onInsertFile={openFilePicker}
             onPasteClipboard={importClipboard}
-            scanLabel={scanBusy ? "取得中" : "スキャン"}
-            onScan={() => setScanning(true)}
+            scanLabel={scan.scanBusy ? "取得中" : "スキャン"}
+            onScan={scan.openScanner}
             recordLabel={recordButtonLabel(
               recording.isRecording,
               recording.elapsedMs,
@@ -1367,9 +899,9 @@ export default function MemoEditorInner({
             recordDisabled={busy && !recording.isRecording}
             onToggleRecord={recording.toggle}
             onRecordVideo={videoRecording.openPreview}
-            onDraw={openDrawing}
-            ocrLabel={ocrButtonLabel(ocrCount)}
-            onOcr={() => void runOcrAtCursor()}
+            onDraw={drawings.openDrawing}
+            ocrLabel={ocrButtonLabel(ocr.ocrCount)}
+            onOcr={() => void ocr.runOcrAtCursor()}
             secretLabel={secretLabel}
             onSecret={openSecret}
             livePreview={livePreview}
