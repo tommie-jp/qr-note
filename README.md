@@ -80,6 +80,31 @@ RUN_DB_TESTS=1 DATABASE_URL=postgresql://qr:changeme@localhost:5432/qr npm test
 
 テストが作るノートは番号 `zzft` 始まりで、後始末で消す。
 
+### E2E (Playwright)
+
+ブラウザで画面を通すスモーク (`e2e/`。罠と書き方は
+[e2e/README.md](e2e/README.md))。dev サーバとローカル DB を使うので、
+`docker compose up -d db` を済ませておく。ログインはテスト専用の資格情報で
+行い、`.env` は書き換えずにシェルの env で上書きする (シェルの値が `.env` より
+優先される):
+
+```bash
+npx playwright install chromium   # 初回だけ (ブラウザ本体を落とす)
+HASH=$(node -e "const h = require('bcryptjs').hashSync('e2e-test-pass', 10);
+  console.log(Buffer.from(h).toString('base64'))")
+BASIC_AUTH_USER=e2e BASIC_AUTH_HASH_B64=$HASH npm run dev -- -p 3210
+
+npm run test:e2e                  # 別の端末で
+```
+
+- dev サーバの起動も Playwright に任せるなら `E2E_START_SERVER=1 npm run test:e2e`
+  (資格情報の上書きも設定が行う。3210 番が空いていること)
+- 接続先は `E2E_BASE_URL` (既定 `http://localhost:3210`)。**`127.0.0.1` では
+  開かない** (非本番のループバック IP は localhost へ 307 で送り直される)
+- 資格情報を変えるときは `E2E_USER` / `E2E_PASSWORD` とサーバ側の `BASIC_AUTH_*` を揃える
+- E2E が作るノートは番号 `zze2e` 始まりで、画面からゴミ箱 → 永久削除して片付ける。
+  結果は `test-results/`・`playwright-report/` に出る (どちらも git 管理外)
+
 ## 本番相当のローカル実行
 
 ```bash
