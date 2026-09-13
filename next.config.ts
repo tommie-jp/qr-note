@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { MAX_VIDEO_BYTES, MULTIPART_OVERHEAD_BYTES } from "./src/lib/uploads";
 
 const nextConfig: NextConfig = {
   // Docker 用の自己完結ビルド (.next/standalone)
@@ -24,8 +25,10 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // 画面遷移のアニメーション (docs/11-アプリ的UIUX計画.md §4)。
-  // experimental なので、壊れたらこの 1 行と layout.tsx の <ViewTransition> を
-  // 外せば元に戻る。非対応ブラウザではアニメーションなしで普通に動く
+  // experimental なので、壊れたらこの 1 行と src/components/PageTransition.tsx の
+  // <ViewTransition> (各ページが <PageTransition> で包んでいる) を外せば元に戻る。
+  // layout ではなくページごとに置く理由は PageTransition.tsx の注。
+  // 非対応ブラウザではアニメーションなしで普通に動く
   experimental: {
     viewTransition: true,
     // proxy (src/proxy.ts) を通るルートは、Next.js が本文をメモリへ丸ごと
@@ -43,12 +46,19 @@ const nextConfig: NextConfig = {
     // maxUploadBytes() (動画 30MB) + MULTIPART_OVERHEAD_BYTES (1MB)。揃えると
     // 「本文が切られるのは 413 で断った後だけ」になり、切られた本文が route に
     // 届くことがなくなる。片方だけ動かすと上の不具合が戻るので、
-    // src/lib/uploads.test.ts が両者の一致を見張っている。
+    // 手で書き写さず uploads.ts の定数から導き、src/lib/uploads.test.ts が
+    // maxUploadBytes() との一致を見張る (動画より大きい種別が増えたらそこで落ちる)。
+    //
+    // maxUploadBytes() そのものを呼ばないのは、DEMO_MODE で値が変わる関数だから。
+    // ここはデモでも 31MB のまま (デモの門 3MB より大きいので本文は切られない)。
+    // import できるのは uploads.ts の依存 (appEnv・*Formats) が副作用なしの
+    // 相対 import だけだから。Next は next.config.ts を SWC + require フックで
+    // 読む (--experimental-next-config-strip-types は使っていない)。
     //
     // これ以上は上げない。ここはメモリに載る量そのもので、本番 VPS は RAM 2GB
     // (41-QR-search/docs/09-vps振り分け移行手順.md)。500MB を流す ZIP 取り込みは、複製
     // させないために proxy の matcher から外してある (src/proxy.ts)。
-    proxyClientMaxBodySize: 31 * 1024 * 1024,
+    proxyClientMaxBodySize: MAX_VIDEO_BYTES + MULTIPART_OVERHEAD_BYTES,
   },
   turbopack: {
     // OCR の公式 SDK (@paddleocr/paddleocr-js) には、ブラウザでは通らない分岐が
@@ -58,12 +68,29 @@ const nextConfig: NextConfig = {
     //     (ort.bundle.min.mjs) を import.meta.url 相対で探す
     // どちらも実行時には踏まない (ブラウザで動かし、worker モードも使わない。
     // ocrService.ts は worker 未指定) が、Turbopack は静的解析で追いかけて
-    // 解決できずにビルドを落とす。SDK 配下に限って未解決を無視する。
+    // 解決できずにビルドを落とす。
     //
-    // 範囲を dist/assets/ だけに絞ると OpenCV.js 側 (SDK の node_modules に
-    // ネストしている) が漏れてビルドが落ちる。SDK 全体を対象にする必要がある。
+    // 無視するのは**この 2 ファイルの、この 2 つの未解決だけ**
+    // (docs/93-リファクタリング計画.md §2-5)。以前は SDK 全体 (/paddleocr-js/)
+    // を黙らせていたため、SDK を上げて本物の解決漏れや別の破損が出ても
+    // ビルドが通ってしまった。絞っておけば、SDK 側でファイル名や文言が変わった
+    // 日にはビルドが落ちるので、そのとき中身を確かめて書き直す
+    // (worker-entry のハッシュ部分だけは版ごとに変わるので [^/]+ で受ける)。
+    // OpenCV.js は SDK の node_modules にネストしている点に注意。
+    //
+    // 未解決の相手 ('fs' など) は title に「Module not found: Can't resolve 'fs'」
+    // の形で入っている (実測。違う相手を書くとビルドが落ちることも確かめた)。
     // path は glob だとマッチしなかったため RegExp で書く。
-    ignoreIssue: [{ path: /paddleocr-js/ }],
+    ignoreIssue: [
+      {
+        path: /\/@paddleocr\/paddleocr-js\/node_modules\/@techstark\/opencv-js\/dist\/opencv\.js$/,
+        title: /Module not found: Can't resolve 'fs'/,
+      },
+      {
+        path: /\/@paddleocr\/paddleocr-js\/dist\/assets\/worker-entry-[^/]+\.js$/,
+        title: /Module not found: Can't resolve 'ort\.bundle\.min\.mjs'/,
+      },
+    ],
   },
   // node-tikzjax は TeX の core dump などを __dirname 相対で読むため、
   // バンドルせず素のパッケージのまま standalone へ運ばせる。

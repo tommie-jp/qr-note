@@ -213,7 +213,7 @@ select,
 }
 
 /* 画面遷移のアニメーション (docs/11-アプリ的UIUX計画.md §4)。
-   クラス名は layout.tsx の <ViewTransition> が種類に応じて付ける。
+   クラス名は src/components/PageTransition.tsx の <ViewTransition> が種類に応じて付ける。
    横方向で前後を表す: 進むと新しい画面が右から入り、戻ると左から入る。
    古い画面は素早く消し (150ms)、新しい画面はやや遅れて穏やかに出す */
 ::view-transition-old(.nav-forward) {

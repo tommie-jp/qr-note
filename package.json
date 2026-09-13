@@ -2,6 +2,9 @@
   "name": "ver2",
   "version": "0.23.5",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "npm run copy:assets && next dev",
     "build": "npm run copy:assets && prisma generate && next build",
@@ -43,7 +46,6 @@
     "@yudiel/react-qr-scanner": "^2.6.0",
     "bcryptjs": "^3.0.3",
     "circuit-fence": "file:vendor/circuit-fence-0.3.0.tgz",
-    "dotenv": "^17.4.2",
     "eruda": "^3.4.3",
     "fabric": "^7.4.0",
     "fast-xml-parser": "^5.10.1",
@@ -56,6 +58,7 @@
     "micromark-extension-directive": "^4.0.0",
     "next": "16.2.11",
     "node-tikzjax": "^1.0.5",
+    "onnxruntime-node": "1.24.3",
     "onnxruntime-web": "^1.27.0",
     "pdfjs-dist": "^6.1.200",
     "qrcode": "^1.5.4",
@@ -75,17 +78,18 @@
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0"
+    "unist-util-visit": "^5.1.0",
+    "zxing-wasm": "3.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/turndown": "^5.0.6",
-    "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.10",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
     "prisma": "^7.9.1",
