@@ -73,6 +73,8 @@ const eslintConfig = defineConfig([
     // 含み (copyOnnxWasm / copyEmbeddingWasm など)、自分のコードではないので
     // lint 対象にしない
     "public/**",
+    // npm run test:coverage の生成物 (html レポートの js を含む)
+    "coverage/**",
   ]),
 ]);
 
