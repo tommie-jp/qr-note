@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server'
-import { readJsonObject } from '@/lib/authApi'
-import { apiFail, apiOk } from '@/lib/route/respond'
-import { isRecordableQuery, sanitizeQueryList } from '@/lib/searchQueries'
-import { searchQueryUser } from '@/lib/searchQueryRoute'
+import { parseJsonBody } from '@/lib/route/parse'
+import { apiOk } from '@/lib/route/respond'
+import { sanitizeQueryList } from '@/lib/searchQueries'
+import { recordableQueryOf, searchQueryUser } from '@/lib/searchQueryRoute'
 import { importSavedQueries, listQueries, recordUse } from '@/lib/searchQueryStore'
 
 // 検索履歴と登録パターンの口 (docs/59-検索候補計画.md §7)。
@@ -28,12 +28,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  const query = (await readJsonObject(request))?.query
-  if (!isRecordableQuery(query)) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const query = await parseJsonBody(request, recordableQueryOf)
+  if (!query.ok) {
+    return query.response
   }
 
-  return apiOk(await recordUse(guard.user, query))
+  return apiOk(await recordUse(guard.user, query.value))
 }
 
 // localStorage から引き取る (docs/59-検索候補計画.md §7)。
@@ -46,11 +46,11 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  const body = await readJsonObject(request)
-  if (body === null) {
-    return apiFail('リクエストの形式が正しくありません', 400)
-  }
   // 覚えられない物 (空・長すぎ・文字列でない) は黙って落とす。手で編集できる
   // localStorage から来た値なので、1 件の形式違いで全部を捨てさせない
-  return apiOk(await importSavedQueries(guard.user, sanitizeQueryList(body.saved)))
+  const saved = await parseJsonBody(request, (body) => sanitizeQueryList(body.saved))
+  if (!saved.ok) {
+    return saved.response
+  }
+  return apiOk(await importSavedQueries(guard.user, saved.value))
 }

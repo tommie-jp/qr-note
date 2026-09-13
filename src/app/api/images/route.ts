@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server'
 import { storeAttachment } from '@/lib/attachmentStore'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import { guardRequest } from '@/lib/route/guard'
+import { parseFormBody } from '@/lib/route/parse'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {
   checkUploadRequest,
@@ -38,38 +39,35 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiFail(rejection.error, rejection.status, WITHOUT_CACHE_CONTROL)
   }
 
-  let file: FormDataEntryValue | null
-  let thumbField: FormDataEntryValue | null = null
-  let frameFields: FormDataEntryValue[] = []
-  try {
-    const formData = await request.formData()
-    file = formData.get('file')
-    // 動画のときだけ付く poster 用 WebP (クライアント生成)。中身の検証は
-    // attachmentStore が行うので、ここでは有無だけ拾う (41-QR-search/docs/14 §Phase3)
-    thumbField = formData.get('thumb')
-    // 動くサムネの材料になるコマ (docs/72-動画アニメサムネ計画.md)。
-    // 同じ名前で複数付くので getAll で受ける
-    frameFields = formData.getAll('thumbFrames')
-  } catch (error) {
-    // 400 を返すが原因はログに残す。multipart の書き方だけでなく、途中で切れた
-    // 通信や境界を書き換えるプロキシもここへ来るため (api/import と同じ理由)
-    //
-    // **「書き方が悪い」とだけ言わない。** ここへ来る現実の原因はほとんどが
-    // 「本文が最後まで届かなかった」で、その筆頭が大きすぎるファイルである。
-    // Content-Length を申告する普通の送信は上の checkUploadRequest が 413 で
-    // 断るが、申告しない送信 (chunked) はそこを素通りし、Next.js の proxy が
-    // 複製できる量 (next.config.ts の proxyClientMaxBodySize) で黙って切られて
-    // ここへ落ちてくる。大きさの目安を添えて、次に何を疑えばよいか分かるように
-    // する — かつてこの文言のせいで、上限超えの動画が「multipart の書き方の
-    // 問題」に見えていた
-    console.error('アップロードの multipart 解析に失敗しました:', error)
-    return apiFail(
-      'アップロードに失敗しました (本文が最後まで届きませんでした)。' +
+  // 読めなければ 400 を返すが原因はログに残す (parseFormBody。api/import と同じ理由)
+  const form = await parseFormBody(
+    request,
+    {
+      log: 'アップロードの multipart 解析に失敗しました:',
+      // **「書き方が悪い」とだけ言わない。** ここへ来る現実の原因はほとんどが
+      // 「本文が最後まで届かなかった」で、その筆頭が大きすぎるファイルである。
+      // Content-Length を申告する普通の送信は上の checkUploadRequest が 413 で
+      // 断るが、申告しない送信 (chunked) はそこを素通りし、Next.js の proxy が
+      // 複製できる量 (next.config.ts の proxyClientMaxBodySize) で黙って切られて
+      // ここへ落ちてくる。大きさの目安を添えて、次に何を疑えばよいか分かるように
+      // する — かつてこの文言のせいで、上限超えの動画が「multipart の書き方の
+      // 問題」に見えていた
+      message:
+        'アップロードに失敗しました (本文が最後まで届きませんでした)。' +
         `ファイルが大きすぎる可能性があります (最大 ${megabytesLabel(maxUploadBytes())})`,
-      400,
-      WITHOUT_CACHE_CONTROL,
-    )
+    },
+    WITHOUT_CACHE_CONTROL,
+  )
+  if (!form.ok) {
+    return form.response
   }
+  const file = form.value.get('file')
+  // 動画のときだけ付く poster 用 WebP (クライアント生成)。中身の検証は
+  // attachmentStore が行うので、ここでは有無だけ拾う (41-QR-search/docs/14 §Phase3)
+  const thumbField = form.value.get('thumb')
+  // 動くサムネの材料になるコマ (docs/72-動画アニメサムネ計画.md)。
+  // 同じ名前で複数付くので getAll で受ける
+  const frameFields = form.value.getAll('thumbFrames')
 
   if (!(file instanceof File)) {
     return apiFail('file フィールドがありません', 400, WITHOUT_CACHE_CONTROL)

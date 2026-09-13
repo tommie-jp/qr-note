@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
-import { readJsonObject } from '@/lib/authApi'
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytesBase64'
+import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { guardSecretRequest } from '@/lib/secretRoute'
 import {
@@ -55,12 +55,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  const body = await readJsonObject(request)
-  const verifier = readKeyBytes(body?.verifier)
-  const wrap = readWrapFields(body)
-  if (verifier === null || wrap === null) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const body = await parseJsonBody(request, (fields) => {
+    const verifier = readKeyBytes(fields.verifier)
+    const wrap = readWrapFields(fields)
+    return verifier === null || wrap === null ? null : { verifier, wrap }
+  })
+  if (!body.ok) {
+    return body.response
   }
+  const { verifier, wrap } = body.value
 
   // **パスキーの存在確認が先**。逆順にすると、知らないパスキーで設定を試みた
   // ときに「鍵束はあるが、それを開ける包みが 1 つも無い」状態が残る。復旧キーは
@@ -92,11 +95,11 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  const body = await readJsonObject(request)
-  const wrap = readWrapFields(body)
-  if (wrap === null) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const body = await parseJsonBody(request, readWrapFields)
+  if (!body.ok) {
+    return body.response
   }
+  const wrap = body.value
 
   // 鍵束が無いのに包みだけ足せると、検証値と噛み合わない鍵が入りうる
   if ((await findKeyringVerifier()) === null) {
@@ -123,10 +126,10 @@ function readKeyBytes(value: unknown): Uint8Array<ArrayBuffer> | null {
 }
 
 function readWrapFields(
-  body: Record<string, unknown> | null,
+  body: Readonly<Record<string, unknown>>,
 ): { credentialId: string; wrapped: Uint8Array<ArrayBuffer> } | null {
-  const credentialId = body?.credentialId
-  const wrapped = readKeyBytes(body?.wrapped)
+  const credentialId = body.credentialId
+  const wrapped = readKeyBytes(body.wrapped)
   if (typeof credentialId !== 'string' || credentialId === '' || wrapped === null) {
     return null
   }

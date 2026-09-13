@@ -1,6 +1,8 @@
 import { formatJstDate } from '@/lib/datetime'
 import { parseSelectedItemNos } from '@/lib/itemSelection'
 import { guardRequest } from '@/lib/route/guard'
+import { byteHeaders } from '@/lib/route/bytes'
+import { parseFormBody } from '@/lib/route/parse'
 import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { exportEntries } from '@/lib/zip/exportZip'
 import { createZipStream } from '@/lib/zip/zipStream'
@@ -26,13 +28,15 @@ export async function POST(request: Request): Promise<Response> {
     return guard.response
   }
 
-  let formData: FormData
-  try {
-    formData = await request.formData()
-  } catch (error) {
-    console.error('エクスポート要求の解析に失敗しました:', error)
-    return apiFail('フォームの形式が正しくありません', 400, WITHOUT_CACHE_CONTROL)
+  const form = await parseFormBody(
+    request,
+    { log: 'エクスポート要求の解析に失敗しました:', message: 'フォームの形式が正しくありません' },
+    WITHOUT_CACHE_CONTROL,
+  )
+  if (!form.ok) {
+    return form.response
   }
+  const formData = form.value
 
   const scope = formData.get('scope')
   if (scope !== 'all' && scope !== 'selected') {
@@ -49,13 +53,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   return new Response(createZipStream(exportEntries(itemNos)), {
-    headers: {
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${exportFileName()}"`,
+    headers: byteHeaders({
+      contentType: 'application/zip',
+      extra: { 'Content-Disposition': `attachment; filename="${exportFileName()}"` },
       // ノート本文そのもの。共有キャッシュにも履歴にも残させない
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-    },
+      cacheControl: 'no-store',
+    }),
   })
 }
 

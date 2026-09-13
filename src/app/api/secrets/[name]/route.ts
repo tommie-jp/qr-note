@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { byteHeaders, bytesResponse } from '@/lib/route/bytes'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { SECRET_MIME_HEADER } from '@/lib/secretPayload'
 import { guardSecretRequest, readSecretBody } from '@/lib/secretRoute'
@@ -38,16 +39,16 @@ export async function GET(
     return apiFail('シークレットが見つかりません', 404)
   }
 
-  return new NextResponse(new Uint8Array(secret.data), {
-    headers: {
+  return bytesResponse(
+    secret.data,
+    byteHeaders({
       // 中身は暗号文であって画像でも markdown でもない。復号後の種別は
       // 別ヘッダで伝え、ブラウザにはただのバイト列として渡す
-      'Content-Type': 'application/octet-stream',
-      [SECRET_MIME_HEADER]: secret.mime,
-      'Cache-Control': NO_STORE,
-      'X-Content-Type-Options': 'nosniff',
-    },
-  })
+      contentType: 'application/octet-stream',
+      extra: { [SECRET_MIME_HEADER]: secret.mime },
+      cacheControl: NO_STORE,
+    }),
+  )
 }
 
 // 断片の保存 (新規も編集も同じ口)。

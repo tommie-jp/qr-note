@@ -1,9 +1,10 @@
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { apiPasskeyDisabled, readJsonObject } from '@/lib/authApi'
+import { apiPasskeyDisabled } from '@/lib/authApi'
 import { findCredential, touchPasskey } from '@/lib/passkeys'
 import { denyCrossSite } from '@/lib/route/guard'
+import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { issueSession } from '@/lib/sessionStore'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
@@ -36,15 +37,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiPasskeyDisabled()
   }
 
-  const body = await readJsonObject(request)
-  if (body === null || typeof body.response !== 'object' || body.response === null) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const parsed = await parseJsonBody(request, readAuthenticationResponse)
+  if (!parsed.ok) {
+    return parsed.response
   }
-
-  const response = body.response as AuthenticationResponseJSON
-  if (typeof response.id !== 'string') {
-    return apiFail('リクエストの形式が正しくありません', 400)
-  }
+  const response = parsed.value
 
   const stored = await findCredential(response.id)
   if (stored === null) {
@@ -93,4 +90,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   const result = apiOk({ userName: stored.userName })
   result.cookies.set(SESSION_COOKIE_NAME, session.token, sessionCookieOptions())
   return result
+}
+
+// 本文の { response } を取り出す。credential ID (response.id) で保存済みの鍵を
+// 引くので、それが文字列であるところまで確かめる
+function readAuthenticationResponse(
+  body: Readonly<Record<string, unknown>>,
+): AuthenticationResponseJSON | null {
+  if (typeof body.response !== 'object' || body.response === null) {
+    return null
+  }
+  const response = body.response as AuthenticationResponseJSON
+  return typeof response.id === 'string' ? response : null
 }

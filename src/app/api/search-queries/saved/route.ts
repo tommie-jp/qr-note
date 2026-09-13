@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server'
-import { readJsonObject } from '@/lib/authApi'
+import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { isRecordableQuery, SAVED_LIMIT } from '@/lib/searchQueries'
-import { searchQueryUser } from '@/lib/searchQueryRoute'
+import { SAVED_LIMIT } from '@/lib/searchQueries'
+import { recordableQueryOf, searchQueryUser } from '@/lib/searchQueryRoute'
 import { registerSaved, unregisterSaved } from '@/lib/searchQueryStore'
 
 // 登録パターン (★) の口 (docs/59-検索候補計画.md §4, §7)。
@@ -19,12 +19,12 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  const query = (await readJsonObject(request))?.query
-  if (!isRecordableQuery(query)) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const query = await parseJsonBody(request, recordableQueryOf)
+  if (!query.ok) {
+    return query.response
   }
 
-  const lists = await registerSaved(guard.user, query)
+  const lists = await registerSaved(guard.user, query.value)
   if (lists === null) {
     // 満杯。画面は ☆ を押せなくしているので普通は来ないが、2 台から同時に
     // 登録すれば起きうる。黙って捨てず、理由の分かる応答を返す
@@ -39,10 +39,10 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  const query = (await readJsonObject(request))?.query
-  if (!isRecordableQuery(query)) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const query = await parseJsonBody(request, recordableQueryOf)
+  if (!query.ok) {
+    return query.response
   }
 
-  return apiOk(await unregisterSaved(guard.user, query))
+  return apiOk(await unregisterSaved(guard.user, query.value))
 }

@@ -7,10 +7,17 @@
 import { isDemoMode } from './appEnv'
 import { guardRequest, type GuardResult } from './route/guard'
 import { apiOk } from './route/respond'
-import type { QueryLists } from './searchQueries'
+import { isRecordableQuery, type QueryLists } from './searchQueries'
 
 export function emptyLists(): QueryLists {
   return { saved: [], recent: [] }
+}
+
+// 本文 { query } から覚えてよいクエリを取り出す (parseJsonBody の check)。
+// 記録・登録・解除の 3 つが同じ形を受ける
+export function recordableQueryOf(body: Readonly<Record<string, unknown>>): string | null {
+  const { query } = body
+  return isRecordableQuery(query) ? query : null
 }
 
 // 誰の履歴かを決める。**セッションだけを見る** — 本文で名乗らせると、

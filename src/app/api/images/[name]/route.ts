@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
+import type { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { resolveByteRange } from '@/lib/httpRange'
 import { isPublicImageName } from '@/lib/items'
+import { byteHeaders, bytesResponse, rangedBytesResponse } from '@/lib/route/bytes'
 import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { currentUser } from '@/lib/session'
 import { THUMB_MIME } from '@/lib/images/thumbConfig'
@@ -78,7 +78,7 @@ export async function GET(
       select: { thumbAnim: true },
     })
     if (row?.thumbAnim) {
-      return imageResponse(row.thumbAnim, THUMB_MIME, IMMUTABLE_CACHE)
+      return bytesResponse(row.thumbAnim, attachmentHeaders(THUMB_MIME, IMMUTABLE_CACHE))
     }
     return apiFail('動くサムネイルがありません', 404, { cacheControl: FALLBACK_CACHE })
   }
@@ -91,7 +91,7 @@ export async function GET(
       select: { thumb: true },
     })
     if (row?.thumb) {
-      return imageResponse(row.thumb, THUMB_MIME, IMMUTABLE_CACHE)
+      return bytesResponse(row.thumb, attachmentHeaders(THUMB_MIME, IMMUTABLE_CACHE))
     }
     // 動画はサムネが無くても**原寸で代替しない**。poster が無いだけで数十 MB の
     // 動画本体を返してしまうと、一覧や <video poster> の意図に反する。404 を返せば
@@ -112,12 +112,15 @@ export async function GET(
     return apiFail('画像が見つかりません', 404, WITHOUT_CACHE_CONTROL)
   }
 
-  return dataResponse(
+  // 原寸は Range に応える (音声のシーク。rangedBytesResponse)
+  return rangedBytesResponse(
     request,
     image.data,
-    // 保存時に検証済みだが、DB の値をそのまま信用せず既知の MIME のときだけ採用する
-    isAllowedContentMime(image.mime) ? image.mime : 'application/octet-stream',
-    wantThumb ? FALLBACK_CACHE : IMMUTABLE_CACHE,
+    attachmentHeaders(
+      // 保存時に検証済みだが、DB の値をそのまま信用せず既知の MIME のときだけ採用する
+      isAllowedContentMime(image.mime) ? image.mime : 'application/octet-stream',
+      wantThumb ? FALLBACK_CACHE : IMMUTABLE_CACHE,
+    ),
   )
 }
 
@@ -132,62 +135,8 @@ export async function GET(
 // 公開ノートに貼った添付は未ログインでも配る (docs/22-ノート公開計画.md §6)
 // = クローラーの手が届く、というのがここの前提。ログイン中の配信にも付くが、
 // クローラーはログインしないので害はない。
-const NOINDEX = 'noindex'
-
-function imageResponse(
-  data: Uint8Array,
-  contentType: string,
-  cacheControl: string,
-): NextResponse {
-  return new NextResponse(new Uint8Array(data), {
-    headers: {
-      'Content-Type': contentType,
-      'Cache-Control': cacheControl,
-      // ユーザー由来のバイト列を配信するため MIME スニッフィングを禁止
-      'X-Content-Type-Options': 'nosniff',
-      'X-Robots-Tag': NOINDEX,
-    },
-  })
-}
-
-// 原寸データの配信。音声 (<audio>) のシークに応えるため Range に対応する
-// (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。画像も同じ経路を通るが、Range
-// ヘッダが無ければ従来どおり 200 で全体を返すので挙動は変わらない。
-function dataResponse(
-  request: Request,
-  data: Uint8Array,
-  contentType: string,
-  cacheControl: string,
-): NextResponse {
-  const size = data.byteLength
-  const headers: Record<string, string> = {
-    'Content-Type': contentType,
-    'Cache-Control': cacheControl,
-    'X-Content-Type-Options': 'nosniff',
-    'X-Robots-Tag': NOINDEX,
-    // Range を解さないクライアントにも「部分取得できる」と知らせる
-    'Accept-Ranges': 'bytes',
-  }
-
-  const range = resolveByteRange(request.headers.get('range'), size)
-  if (range === 'unsatisfiable') {
-    return new NextResponse(null, {
-      status: 416,
-      headers: { ...headers, 'Content-Range': `bytes */${size}` },
-    })
-  }
-  if (range) {
-    const slice = data.subarray(range.start, range.end + 1)
-    return new NextResponse(new Uint8Array(slice), {
-      status: 206,
-      headers: {
-        ...headers,
-        'Content-Range': `bytes ${range.start}-${range.end}/${size}`,
-      },
-    })
-  }
-
-  return new NextResponse(new Uint8Array(data), { headers })
+function attachmentHeaders(contentType: string, cacheControl: string): Record<string, string> {
+  return byteHeaders({ contentType, cacheControl, noindex: true })
 }
 
 // 配ってよい画像か。ログイン中なら全部、未ログインなら公開ノートに

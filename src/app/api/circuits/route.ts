@@ -1,10 +1,10 @@
 import type { NextResponse } from 'next/server'
-import { readJsonObject } from '@/lib/authApi'
 import { getOrRenderCircuit } from '@/lib/circuitCache'
 import { renderCircuitYaml } from '@/lib/circuitYaml'
 import { CIRCUIT_LANG, isCircuitLang } from '@/lib/fenceLanguages'
 import { CircuitRenderError } from '@/lib/circuit/renderError'
 import { guardRequest } from '@/lib/route/guard'
+import { readJsonObject } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 

@@ -729,7 +729,7 @@ describe.skipIf(!runDbTests)(
       expect(res.headers.get('content-type')).toBe('image/webp')
       // 原寸 (image/png) ではないこと = 縮小版が返っている
       expect(res.headers.get('cache-control')).toContain('immutable')
-      // サムネは原寸と別の経路 (imageResponse) を通る。片方だけ付けても
+      // サムネは原寸と別の経路 (bytesResponse) を通る。片方だけ付けても
       // 画像検索に載るのはサムネのほうなので、両方で確かめる
       expect(res.headers.get('x-robots-tag')).toBe('noindex')
     })

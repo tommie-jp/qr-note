@@ -1,6 +1,7 @@
 // パスキーの口が共通で使う応答の組み立て (docs/29-パスキー計画.md §6)。
 //
-// 封筒そのもの (apiOk / apiFail) は route/respond.ts が持つ。
+// 封筒そのもの (apiOk / apiFail) は route/respond.ts、本文の読み取りは
+// route/parse.ts が持つ。
 
 import type { NextResponse } from 'next/server'
 import { apiFail } from './route/respond'
@@ -13,20 +14,4 @@ import { apiFail } from './route/respond'
 // 未ログインでも叩ける口なので、設定の詳細を外へ漏らさない)。
 export function apiPasskeyDisabled(): NextResponse {
   return apiFail('この環境ではパスキーを利用できません', 503)
-}
-
-// JSON ボディを受け取る。壊れていれば null。
-//
-// 外から来る値なので、まず「オブジェクトかどうか」まで確かめてから返す。
-// JSON.parse は 'null' や '42' も通してしまう
-export async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
-  try {
-    const body: unknown = await request.json()
-    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-      return null
-    }
-    return body as Record<string, unknown>
-  } catch {
-    return null
-  }
 }

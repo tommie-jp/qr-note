@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
-import { readJsonObject } from '@/lib/authApi'
 import { guardRequest } from '@/lib/route/guard'
-import { apiFail, apiOk } from '@/lib/route/respond'
+import { parseJsonBody } from '@/lib/route/parse'
+import { apiOk } from '@/lib/route/respond'
 import { isRowTintId } from '@/lib/rowTint'
 import { saveRowTintId } from '@/lib/rowTintStore'
 
@@ -26,11 +26,14 @@ export async function PUT(request: Request): Promise<NextResponse> {
 
   // **知らない色は畳まず断る。** parseRowTintId で既定へ寄せると、送り手は
   // 保存できたと思い込んだまま次の読み込みで青に戻る
-  const tint = (await readJsonObject(request))?.tint
-  if (!isRowTintId(tint)) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const tint = await parseJsonBody(request, (body) => {
+    const { tint: value } = body
+    return isRowTintId(value) ? value : null
+  })
+  if (!tint.ok) {
+    return tint.response
   }
 
-  await saveRowTintId(guard.user, tint)
-  return apiOk({ tint })
+  await saveRowTintId(guard.user, tint.value)
+  return apiOk({ tint: tint.value })
 }

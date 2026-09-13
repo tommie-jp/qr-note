@@ -1,10 +1,11 @@
 import { verifyRegistrationResponse } from '@simplewebauthn/server'
 import type { RegistrationResponseJSON } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { apiPasskeyDisabled, readJsonObject } from '@/lib/authApi'
+import { apiPasskeyDisabled } from '@/lib/authApi'
 import { normalizePasskeyLabel } from '@/lib/passkeyLabel'
 import { savePasskey } from '@/lib/passkeys'
 import { guardRequest } from '@/lib/route/guard'
+import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { consumeChallenge } from '@/lib/webauthnChallenge'
 import { webauthnConfig } from '@/lib/webauthnConfig'
@@ -23,15 +24,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiPasskeyDisabled()
   }
 
-  const body = await readJsonObject(request)
-  if (body === null || typeof body.response !== 'object' || body.response === null) {
-    return apiFail('リクエストの形式が正しくありません', 400)
+  const body = await parseJsonBody(request, (fields) =>
+    typeof fields.response === 'object' && fields.response !== null
+      ? { response: fields.response as RegistrationResponseJSON, label: fields.label }
+      : null,
+  )
+  if (!body.ok) {
+    return body.response
   }
 
   let verification
   try {
     verification = await verifyRegistrationResponse({
-      response: body.response as RegistrationResponseJSON,
+      response: body.value.response,
       // 控えにあって、まだ使われていないチャレンジだけを通す。
       // この関数は成否によらず消費する (リプレイを断つ)
       expectedChallenge: (challenge) => consumeChallenge(challenge),
@@ -53,7 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const { credential } = verification.registrationInfo
-  const label = normalizePasskeyLabel(body.label)
+  const label = normalizePasskeyLabel(body.value.label)
 
   try {
     await savePasskey({
