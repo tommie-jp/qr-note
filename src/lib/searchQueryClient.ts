@@ -10,6 +10,7 @@
 // 書きは fire-and-forget + 楽観更新。★ を押した手応えを往復待ちにしないため、
 // 手元のキャッシュを先に動かして、返ってきた正本で置き換える。
 
+import { envelopeData } from './api/envelope'
 import { applyQueryUse, type QueryLists } from './searchQueries'
 
 const ENDPOINT = '/api/search-queries'
@@ -69,7 +70,7 @@ async function callQueryApi(
       return null
     }
     const body: unknown = await res.json()
-    const lists = parseLists((body as { data?: unknown } | null)?.data)
+    const lists = parseLists(envelopeData(body))
     if (lists === null) {
       console.warn(`searchQueryClient: ${url} の応答を読めなかった`, body)
       return null

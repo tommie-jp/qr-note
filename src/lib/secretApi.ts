@@ -6,21 +6,16 @@
 // **例外の文言はここで日本語にして投げる** (passkeyClient.ts と同じ流儀)。
 // 呼ぶ側がそのまま画面に出せるようにするため。
 
+import { apiFetch, ApiError, fetchEnvelope } from './api/envelope'
 import { base64ToBytes, bytesToBase64 } from './bytesBase64'
 import { SECRET_MIME_HEADER } from './secretPayload'
 import { secretUrl } from './secrets'
 
 const KEYRING_PATH = '/api/secrets/keyring'
 
-export class SecretApiError extends Error {
-  readonly status: number
-
-  constructor(message: string, status: number) {
-    super(message)
-    this.name = 'SecretApiError'
-    this.status = status
-  }
-}
+// 旧名。封筒の読み手を api/envelope.ts の 1 本にしたので、中身は ApiError そのもの
+// (passkeyClient.ts の PasskeyApiError も同じ)
+export { ApiError as SecretApiError }
 
 export interface KeyWrapInfo {
   credentialId: string
@@ -36,11 +31,11 @@ export interface KeyringState {
 }
 
 export async function fetchKeyring(): Promise<KeyringState> {
-  const data = (await requestJson(KEYRING_PATH, { method: 'GET' })) as {
+  const data = await fetchEnvelope<{
     initialized: boolean
     verifier: string | null
     wraps: { credentialId: string; label: string; wrapped: string | null }[]
-  }
+  }>(KEYRING_PATH, { method: 'GET' })
   return {
     initialized: data.initialized,
     verifier: decodeKey(data.verifier, '検証値'),
@@ -73,7 +68,7 @@ export async function initKeyring(
   credentialId: string,
   wrapped: Uint8Array,
 ): Promise<void> {
-  await requestJson(KEYRING_PATH, {
+  await fetchEnvelope(KEYRING_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -89,7 +84,7 @@ export async function saveKeyWrap(
   credentialId: string,
   wrapped: Uint8Array,
 ): Promise<void> {
-  await requestJson(KEYRING_PATH, {
+  await fetchEnvelope(KEYRING_PATH, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -106,9 +101,9 @@ export interface SecretBlob {
 
 // 暗号文をそのまま取る。復号は呼ぶ側 (鍵はサーバに無い)。
 export async function fetchSecretBlob(name: string): Promise<SecretBlob> {
-  const response = await send(secretUrl(name), { method: 'GET' })
+  const response = await apiFetch(secretUrl(name), { method: 'GET' })
   if (!response.ok) {
-    throw new SecretApiError(await failureMessage(response), response.status)
+    throw new ApiError(await failureMessage(response), response.status)
   }
   return {
     mime: response.headers.get('X-Secret-Mime') ?? '',
@@ -124,7 +119,7 @@ export async function saveSecret(
   mime: string,
   bytes: Uint8Array,
 ): Promise<void> {
-  await requestJson(secretUrl(name), blobRequest(mime, bytes))
+  await fetchEnvelope(secretUrl(name), blobRequest(mime, bytes))
 }
 
 function blobRequest(mime: string, bytes: Uint8Array): RequestInit {
@@ -139,39 +134,6 @@ function blobRequest(mime: string, bytes: Uint8Array): RequestInit {
       [SECRET_MIME_HEADER]: mime,
     },
     body,
-  }
-}
-
-// 封筒 ({ success, data, error }) を開けて data だけ返す。
-async function requestJson(path: string, init: RequestInit): Promise<unknown> {
-  const response = await send(path, init)
-
-  let envelope: { success?: boolean; data?: unknown; error?: string | null }
-  try {
-    envelope = await response.json()
-  } catch {
-    throw new SecretApiError(
-      `サーバから予期しない応答が返りました (${response.status})`,
-      response.status,
-    )
-  }
-
-  if (!response.ok || envelope.success !== true) {
-    throw new SecretApiError(
-      envelope.error || `処理に失敗しました (${response.status})`,
-      response.status,
-    )
-  }
-
-  return envelope.data
-}
-
-async function send(path: string, init: RequestInit): Promise<Response> {
-  try {
-    return await fetch(path, { ...init, credentials: 'same-origin' })
-  } catch (error) {
-    console.error(`${path} への通信に失敗しました`, error)
-    throw new SecretApiError('通信に失敗しました。電波の状態を確認してください', 0)
   }
 }
 

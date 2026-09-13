@@ -12,18 +12,10 @@
 // 圏外で開いて初めて古いデータだったと気づくことになる。
 
 import 'client-only'
+import { envelopeData } from '@/lib/api/envelope'
 import { firstThumbInfo, thumbUrl } from '@/lib/memoImages'
 import { saveOfflineSnapshot } from './snapshotDb'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'
-
-// 応答の封筒 ({ success, data, error }) から data を取り出す。
-// **サーバを無条件には信じない** (searchQueryClient.ts と同じ流儀)
-function readEnvelope(body: unknown): unknown {
-  if (typeof body !== 'object' || body === null) {
-    return null
-  }
-  return (body as { data?: unknown }).data ?? null
-}
 
 // ノート本文を取り込んで IndexedDB へ置き換える。失敗したら投げる。
 //
@@ -42,7 +34,9 @@ export async function syncOfflineItems(): Promise<OfflineSyncPayload> {
     )
   }
 
-  const payload = parseSyncPayload(readEnvelope(await res.json()))
+  // 封筒から data を取り出す。**サーバを無条件には信じない** (envelopeData が
+  // オブジェクトでない本文を null にし、形は parseSyncPayload が確かめる)
+  const payload = parseSyncPayload(envelopeData(await res.json()))
   if (payload === null) {
     throw new Error('同期の応答を読み取れませんでした')
   }
