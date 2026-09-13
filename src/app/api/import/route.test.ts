@@ -179,6 +179,44 @@ test('デモモードは 403', async () => {
   expect(importZip).not.toHaveBeenCalled()
 })
 
+// 他の口と同じ denyCrossSite (docs/18 §9)。この口は proxy を通らないので、
+// 門番は route の中にしかない
+test('第三者のページからの呼び出しは本文を読まずに 403', async () => {
+  const request = new Request('http://localhost/api/import', {
+    method: 'POST',
+    body: zipBody(),
+    headers: { 'sec-fetch-site': 'cross-site' },
+  })
+
+  const response = await POST(request)
+
+  expect(response.status).toBe(403)
+  expect(await response.json()).toEqual({
+    success: false,
+    data: null,
+    error: 'クロスサイトからの呼び出しは許可されていません',
+  })
+  expect(importZip).not.toHaveBeenCalled()
+})
+
+// NotesImporter の fetch (同一オリジン) が送る組み合わせは今までどおり通る
+test('自分のページ (same-origin) からの呼び出しは取り込める', async () => {
+  const request = new Request('http://localhost/api/import', {
+    method: 'POST',
+    body: zipBody(),
+    headers: {
+      'sec-fetch-site': 'same-origin',
+      origin: 'http://localhost',
+      host: 'localhost',
+    },
+  })
+
+  const response = await POST(request)
+
+  expect(response.status).toBe(200)
+  expect(importZip).toHaveBeenCalled()
+})
+
 test('ZIP は ZIP として取り込む', async () => {
   const response = await POST(upload(zipBody()))
   expect(response.status).toBe(200)

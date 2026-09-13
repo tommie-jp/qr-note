@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
+import { denyCrossSite, denyIfDemoMode, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { concatBytes } from '@/lib/bytes'
 import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
@@ -39,8 +39,12 @@ function errorResponse(status: number, error: string): NextResponse {
 // ENML → Markdown も添付の保存もここから先で行う。
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは取り込みを閉じる (docs/38 §4)。ログインの有無より前に断つ。
-  // ログインしていない相手のために本文を読む理由もない (/api/images と同じ順)
-  const denied = denyIfDemoMode() ?? (await denyUnlessLoggedIn())
+  // ログインしていない相手のために本文を読む理由もない (/api/images と同じ順)。
+  // 第三者のページからの呼び出しも本文の前に断る (/api/images と同じく
+  // checkUploadRequest の Origin 検査と重なるが、他の口と門番を揃える)。
+  // この口は proxy の matcher から外してある (proxy.ts) ので、門番はここだけ
+  const denied =
+    denyIfDemoMode() ?? (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
   if (denied) {
     return denied
   }

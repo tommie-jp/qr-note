@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { denyUnlessLoggedIn } from '@/lib/apiAuth'
+import { denyCrossSite, denyUnlessLoggedIn } from '@/lib/apiAuth'
 import { storeAttachment } from '@/lib/attachmentStore'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
 import {
@@ -25,7 +25,13 @@ function errorResponse(status: number, error: string): NextResponse {
 export async function POST(request: Request): Promise<NextResponse> {
   // 一番先に見る。ログインしていない相手のために本文を読む理由はない
   // (31MB まで受け取ってから断るのは、断り方として無駄が大きい)
-  const denied = await denyUnlessLoggedIn()
+  //
+  // 第三者のページからの呼び出し (Sec-Fetch-Site) も本文の前に断る。下の
+  // checkUploadRequest の Origin 検査と役目は重なる — Sec-Fetch-Site を送る
+  // ブラウザは POST に必ず Origin も付けるので、ここで増えて断る正規の要求は
+  // ない。それでも他の口と同じ門番を通し、口ごとの流儀の差を作らない
+  // (docs/18 §9、判定の理由は crossSite.ts)
+  const denied = (await denyUnlessLoggedIn()) ?? denyCrossSite(request)
   if (denied) {
     return denied
   }

@@ -340,6 +340,38 @@ describe('/api/images の拒否系 (実 DB 不要)', () => {
     expect(res.status).toBe(403)
   })
 
+  // 他の口と同じ denyCrossSite (docs/18 §9)。Origin の検査とは別に、
+  // Fetch Metadata だけでも本文を読む前に断る
+  test('クロスサイトからの呼び出しは 403 の封筒を返す', async () => {
+    const res = await POST(
+      uploadRequest(pngFile(), { 'sec-fetch-site': 'cross-site' }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({
+      success: false,
+      data: null,
+      error: 'クロスサイトからの呼び出しは許可されていません',
+    })
+  })
+
+  // 自分のエディタ (uploadImageXhr) の XHR が送る組み合わせは門番を通り、
+  // 形式の検査まで進む (ここでは SVG なので 400。DB には届かない)
+  test('自分のページ (same-origin) からの呼び出しは門番を通る', async () => {
+    const file = new File(['<svg onload=alert(1)>'], 'x.svg', {
+      type: 'image/svg+xml',
+    })
+    const res = await POST(
+      uploadRequest(file, {
+        'sec-fetch-site': 'same-origin',
+        origin: 'http://localhost',
+        host: 'localhost',
+      }),
+    )
+
+    expect(res.status).toBe(400)
+  })
+
   test('Content-Length が大きすぎる場合は本文を読まず 413 を返す', async () => {
     const res = await POST(
       new Request('http://localhost/api/images', {
