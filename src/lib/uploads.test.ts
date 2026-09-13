@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import {
   audioSaveInfo,
   checkUploadRequest,
@@ -27,6 +27,7 @@ import {
   sniffPdf,
   sniffVideoFormat,
   textSaveInfo,
+  uuidNamePattern,
   videoSaveInfo,
 } from './uploads'
 
@@ -62,6 +63,64 @@ test('UUID + 対応拡張子のファイル名だけを許可する', () => {
   expect(isValidImageName('0f1e2d3c-4b5a-4678-9abc-def012345678.jpg')).toBe(true)
   // AVIF は無変換で保存するので保存名にも現れる
   expect(isValidImageName('0f1e2d3c-4b5a-4678-9abc-def012345678.avif')).toBe(true)
+})
+
+describe('uuidNamePattern', () => {
+  const uuid = '0f1e2d3c-4b5a-4678-9abc-def012345678'
+
+  test('UUID + 拡張子の選択肢を丸ごと覆う正規表現を作る', () => {
+    // Act
+    const pattern = uuidNamePattern('png|jpg')
+
+    // Assert: 画像の保存名の正規表現 (リテラルで書いていた頃) と同じ source
+    expect(pattern.source).toBe(
+      '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(png|jpg)$',
+    )
+    expect(pattern.flags).toBe('')
+  })
+
+  test('選択肢のどれかで終わる UUID 名だけを通す', () => {
+    const pattern = uuidNamePattern('png|jpg')
+    expect(pattern.test(`${uuid}.png`)).toBe(true)
+    expect(pattern.test(`${uuid}.jpg`)).toBe(true)
+    expect(pattern.test(`${uuid}.gif`)).toBe(false)
+    // 選択肢は拡張子全体に掛かる (`png|jpg` が `^…png` と `jpg$` に割れない)
+    expect(pattern.test(`${uuid}.pngx`)).toBe(false)
+    expect(pattern.test(`x${uuid}.jpg`)).toBe(false)
+  })
+
+  test('大文字の UUID・拡張子の欠け・パスを含む名前は通さない', () => {
+    const pattern = uuidNamePattern('pdf')
+    expect(pattern.test(`${uuid}.pdf`)).toBe(true)
+    expect(pattern.test(`${uuid.toUpperCase()}.pdf`)).toBe(false)
+    expect(pattern.test(`${uuid}.PDF`)).toBe(false)
+    expect(pattern.test(uuid)).toBe(false)
+    expect(pattern.test(`${uuid}.`)).toBe(false)
+    expect(pattern.test(`../${uuid}.pdf`)).toBe(false)
+    expect(pattern.test(`${uuid}.pdf/../x`)).toBe(false)
+    expect(pattern.test(`${uuid}xpdf`)).toBe(false)
+    expect(pattern.test(`${uuid}.pdf\n`)).toBe(false)
+  })
+})
+
+test('5 種の保存名はそれぞれ自分の拡張子だけを通す', () => {
+  const uuid = '0f1e2d3c-4b5a-4678-9abc-def012345678'
+  const checks: [(name: string) => boolean, string[]][] = [
+    [isValidImageName, ['png', 'jpg', 'gif', 'webp', 'avif']],
+    [isValidAudioName, ['mp3', 'm4a', 'wav', 'webm']],
+    [isValidVideoName, ['mp4', 'mkv', 'mov']],
+    [isValidPdfName, ['pdf']],
+    [isValidTextName, ['txt', 'csv', 'md']],
+  ]
+  const allExts = checks.flatMap(([, exts]) => exts)
+  for (const [isValid, exts] of checks) {
+    for (const ext of allExts) {
+      expect(isValid(`${uuid}.${ext}`), `${isValid.name} .${ext}`).toBe(exts.includes(ext))
+    }
+    expect(isValid(`${uuid.toUpperCase()}.${exts[0]}`)).toBe(false)
+    expect(isValid(`../${uuid}.${exts[0]}`)).toBe(false)
+    expect(isValid(uuid)).toBe(false)
+  }
 })
 
 test('パストラバーサル・不正なファイル名を拒否する', () => {

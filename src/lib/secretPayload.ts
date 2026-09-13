@@ -6,8 +6,12 @@
 // 既知のものだけ」「大きさは種別ごとの上限まで」の 2 つだけを門にする。
 //
 // このファイルはブラウザからも import する。**サーバ専用のものを import
-// しないこと** — uploads.ts を辿ると env や sharp まで引き込みかねない
-// (thumbnail.ts で実際に踏んだ轍)。上限もここに独立して持つ。
+// しないこと** (thumbnail.ts が sharp を編集画面に漏らした轍)。上限の元に
+// する uploads.ts はサーバ専用の依存を持たない (uploadSizeCheck.ts や
+// video/videoRecorder.ts もブラウザから読んでいる)。持ち込んだ日には
+// `server-only` の印が next build で落として知らせる。
+
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './uploads'
 
 // 断片本文の種別。中身は markdown で、通常のメモと同じ描画パイプラインを通す
 export const SECRET_TEXT_MIME = 'text/markdown'
@@ -44,12 +48,16 @@ const SECRET_VIDEO_MIMES = new Set([
   'video/quicktime',
 ])
 
+// 暗号エンベロープの余白 (上限は暗号化した後のバイト列に掛けるため)
+const SECRET_ENVELOPE_SLACK_BYTES = 1024
+
 // 1 断片の上限 (**暗号化した後のバイト列**に対する)。種別で分けるのは通常の
 // 添付と同じ考え方で、動画だけ枠が大きい (uploads.ts の MAX_IMAGE_BYTES /
-// MAX_VIDEO_BYTES と同じ 10MB / 30MB)。uploads.ts から import しないのは、
-// この値をブラウザ側の事前チェックでも使うため (冒頭のとおり)。
-export const MAX_SECRET_BYTES = 10 * 1024 * 1024 + 1024
-export const MAX_SECRET_VIDEO_BYTES = 30 * 1024 * 1024 + 1024
+// MAX_VIDEO_BYTES = 10MB / 30MB にエンベロープの余白を足したもの)。
+// この値はブラウザ側の事前チェックでも使う (冒頭のとおり)。
+export const MAX_SECRET_BYTES = MAX_IMAGE_BYTES + SECRET_ENVELOPE_SLACK_BYTES
+export const MAX_SECRET_VIDEO_BYTES =
+  MAX_VIDEO_BYTES + SECRET_ENVELOPE_SLACK_BYTES
 
 // 復号後にどう描くか。表示側 (SecretBlock) の振り分けにも使う
 export type SecretKind = 'text' | 'image' | 'audio' | 'video'

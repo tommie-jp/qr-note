@@ -16,10 +16,13 @@
 // - mkv … webm 動画 (Chromium/Firefox の録画。中身は video/webm)
 // - mov … iOS カメラロール由来 (QuickTime)
 
-export const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'mov'] as const
+import { defineFormats } from './defineFormats'
+
+const FORMATS = defineFormats(['mp4', 'mkv', 'mov'] as const)
+
+export const VIDEO_EXTENSIONS = FORMATS.list
 
 export type VideoExtension = (typeof VIDEO_EXTENSIONS)[number]
 
-// 正規表現に埋める用の "mp4|mkv|mov"。拡張子は英数字だけなので
-// 正規表現のエスケープは要らない (増やすときもその範囲に収めること)
-export const VIDEO_EXTENSION_ALTERNATION = VIDEO_EXTENSIONS.join('|')
+// 正規表現に埋める用の "mp4|mkv|mov" (defineFormats のコメントのとおりエスケープ不要)
+export const VIDEO_EXTENSION_ALTERNATION = FORMATS.alternation

@@ -9,10 +9,13 @@
 // 拡張子をここに限り、text/plain 系 + nosniff で配る**ことで、
 // スクリプトとして解釈される経路そのものを塞いでいる (uploads.ts textSaveInfo)。
 
-export const TEXT_EXTENSIONS = ['txt', 'csv', 'md'] as const
+import { defineFormats } from './defineFormats'
+
+const FORMATS = defineFormats(['txt', 'csv', 'md'] as const)
+
+export const TEXT_EXTENSIONS = FORMATS.list
 
 export type TextFormat = (typeof TEXT_EXTENSIONS)[number]
 
-// 正規表現に埋める用の "txt|csv|md"。拡張子は英数字だけなので
-// 正規表現のエスケープは要らない (増やすときもその範囲に収めること)
-export const TEXT_EXTENSION_ALTERNATION = TEXT_EXTENSIONS.join('|')
+// 正規表現に埋める用の "txt|csv|md" (defineFormats のコメントのとおりエスケープ不要)
+export const TEXT_EXTENSION_ALTERNATION = FORMATS.alternation

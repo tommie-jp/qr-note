@@ -83,6 +83,11 @@ describe('checkSecretPayload', () => {
     expect(checkSecretPayload('image/png', MAX_SECRET_BYTES + 1)?.status).toBe(413)
   })
 
+  test('allows the attachment limits plus 1KB of envelope slack', () => {
+    expect(MAX_SECRET_BYTES).toBe(10 * 1024 * 1024 + 1024)
+    expect(MAX_SECRET_VIDEO_BYTES).toBe(30 * 1024 * 1024 + 1024)
+  })
+
   test('gives video a larger allowance than the rest (uploads.ts と同じ分け方)', () => {
     const overImage = MAX_SECRET_BYTES + 1
     expect(checkSecretPayload('video/mp4', overImage)).toBe(null)

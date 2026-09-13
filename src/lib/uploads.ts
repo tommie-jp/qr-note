@@ -55,9 +55,19 @@ export function maxAttachmentBytes(): number {
 
 // 保存ファイル名は「サーバが生成した UUID + 対応拡張子」のみ。
 // クライアント由来の文字列をパスに使わないことでトラバーサルを防ぐ。
+// 画像・音声・動画・PDF・テキストの 5 種がすべてこの形で、違うのは拡張子だけ。
+//
+// extAlternation は "png|jpg" のような選択肢をそのまま埋める。拡張子は英数字
+// だけなので正規表現のエスケープは要らない (audioFormats.ts などと同じ前提)。
+// UUID は小文字だけを許す (サーバが生成する形そのもの)
+export function uuidNamePattern(extAlternation: string): RegExp {
+  return new RegExp(
+    `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(${extAlternation})$`,
+  )
+}
+
 // heic/tiff は変換後に webp になるため、ここには現れない
-const IMAGE_NAME_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|gif|webp|avif)$/
+const IMAGE_NAME_PATTERN = uuidNamePattern('png|jpg|gif|webp|avif')
 
 export function extForMime(mime: string): string | null {
   return MIME_TO_EXT[mime] ?? null
@@ -205,9 +215,7 @@ const AUDIO_FORMAT_TO_MIME: Record<AudioFormat, string> = {
 }
 
 // 保存名は画像と同じ「UUID + 対応拡張子」だけ。拡張子は形式名がそのまま入る。
-const AUDIO_NAME_PATTERN = new RegExp(
-  `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(${AUDIO_EXTENSION_ALTERNATION})$`,
-)
+const AUDIO_NAME_PATTERN = uuidNamePattern(AUDIO_EXTENSION_ALTERNATION)
 
 // sniff で決めた形式を、保存に使う mime / ext へ写す (mp3/m4a/wav は形式名=拡張子)。
 export function audioSaveInfo(format: AudioFormat): { mime: string; ext: string } {
@@ -494,9 +502,7 @@ const VIDEO_MIME_TO_EXT: Record<string, string> = {
 }
 
 // 保存名は画像・音声と同じ「UUID + 対応拡張子」だけ (拡張子は mp4/mkv/mov)。
-const VIDEO_NAME_PATTERN = new RegExp(
-  `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(${VIDEO_EXTENSION_ALTERNATION})$`,
-)
+const VIDEO_NAME_PATTERN = uuidNamePattern(VIDEO_EXTENSION_ALTERNATION)
 
 // sniff で決めた中身の形式を、保存に使う mime / ext へ写す。
 export function videoSaveInfo(format: VideoFormat): { mime: string; ext: string } {
@@ -612,8 +618,7 @@ export const PDF_MIME = 'application/pdf'
 export const PDF_EXT = 'pdf'
 
 // 保存名は画像・音声と同じ「UUID + .pdf」だけ (トラバーサル対策)。
-const PDF_NAME_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$/
+const PDF_NAME_PATTERN = uuidNamePattern(PDF_EXT)
 
 export function isValidPdfName(name: string): boolean {
   return PDF_NAME_PATTERN.test(name)
@@ -654,9 +659,7 @@ const TEXT_MIME_TO_EXT: Record<string, string> = Object.fromEntries(
 )
 
 // 保存名は画像・音声・PDF と同じ「UUID + 対応拡張子」だけ。
-const TEXT_NAME_PATTERN = new RegExp(
-  `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(${TEXT_EXTENSION_ALTERNATION})$`,
-)
+const TEXT_NAME_PATTERN = uuidNamePattern(TEXT_EXTENSION_ALTERNATION)
 
 export function isValidTextName(name: string): boolean {
   return TEXT_NAME_PATTERN.test(name)

@@ -11,10 +11,13 @@
 // audio/x-m4a のような別名まで許して選ばせ、実際の可否はサーバが中身を見て
 // 決める。無理に 1 つにすると、その遊びが失われる。
 
-export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'webm'] as const
+import { defineFormats } from './defineFormats'
+
+const FORMATS = defineFormats(['mp3', 'm4a', 'wav', 'webm'] as const)
+
+export const AUDIO_EXTENSIONS = FORMATS.list
 
 export type AudioFormat = (typeof AUDIO_EXTENSIONS)[number]
 
-// 正規表現に埋める用の "mp3|m4a|wav|webm"。拡張子は英数字だけなので
-// 正規表現のエスケープは要らない (増やすときもその範囲に収めること)
-export const AUDIO_EXTENSION_ALTERNATION = AUDIO_EXTENSIONS.join('|')
+// 正規表現に埋める用の "mp3|m4a|wav|webm" (defineFormats のコメントのとおりエスケープ不要)
+export const AUDIO_EXTENSION_ALTERNATION = FORMATS.alternation
