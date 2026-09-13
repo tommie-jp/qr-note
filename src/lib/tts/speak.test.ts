@@ -1,154 +1,24 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
+  FakeUtterance,
+  VoiceRejectingUtterance,
+  installSpeech,
+  uninstallSpeech,
+  voice,
+} from '@/test/fakeSpeech'
+import {
   TTS_GIVEUP_MS,
   TTS_LANG,
   TTS_RATE,
   TTS_START_TIMEOUT_MS,
-  pickEnglishVoice,
-  speakEnglish,
-  stopSpeaking,
-} from './ttsSpeech'
+} from './config'
+import { speakEnglish, stopSpeaking } from './speak'
 
 // 診断ログはサーバへ送る副作用なので黙らせる (node には Beacon も無い)
-vi.mock('./diagLog', () => ({ logDiagEvent: vi.fn() }))
-
-const voice = (name: string, lang: string) =>
-  ({ name, lang }) as SpeechSynthesisVoice
-
-// ブラウザの API を差し込むための最小の作り物。vitest は node 環境なので
-// speechSynthesis も SpeechSynthesisUtterance も無い
-class FakeUtterance {
-  lang = ''
-  rate = 1
-  voice: SpeechSynthesisVoice | null = null
-  onstart: (() => void) | null = null
-  onend: (() => void) | null = null
-  onerror: ((event: { error?: string }) => void) | null = null
-  constructor(public text: string) {}
-}
-
-// 声を代入しようとすると投げる端末の作り物。voice は**アクセサ**にする
-// (クラスフィールドにすると構築時の初期化で自分の setter を踏む)
-class VoiceRejectingUtterance {
-  lang = ''
-  rate = 1
-  onstart: (() => void) | null = null
-  onend: (() => void) | null = null
-  onerror: ((event: { error?: string }) => void) | null = null
-  constructor(public text: string) {}
-  set voice(_value: SpeechSynthesisVoice | null) {
-    throw new TypeError('Failed to convert value to SpeechSynthesisVoice')
-  }
-  get voice(): SpeechSynthesisVoice | null {
-    return null
-  }
-}
-
-interface FakeSynth {
-  speaking: boolean
-  pending: boolean
-  cancel: ReturnType<typeof vi.fn>
-  speak: ReturnType<typeof vi.fn>
-  getVoices: () => SpeechSynthesisVoice[]
-}
-
-function installSpeech(
-  voices: SpeechSynthesisVoice[],
-  speaking = false,
-): FakeSynth {
-  const synth: FakeSynth = {
-    speaking,
-    pending: false,
-    cancel: vi.fn(),
-    speak: vi.fn(),
-    getVoices: () => voices,
-  }
-  Object.assign(globalThis, {
-    speechSynthesis: synth,
-    SpeechSynthesisUtterance: FakeUtterance,
-  })
-  return synth
-}
+vi.mock('@/lib/diagLog', () => ({ logDiagEvent: vi.fn() }))
 
 afterEach(() => {
-  Reflect.deleteProperty(globalThis, 'speechSynthesis')
-  Reflect.deleteProperty(globalThis, 'SpeechSynthesisUtterance')
-})
-
-describe('pickEnglishVoice', () => {
-  test('日本語端末でも英語の声を選ぶ (既定の Kyoko を選ばない)', () => {
-    // Arrange — 日本語 iPhone の並び。既定は Kyoko
-    const voices = [
-      voice('Kyoko', 'ja-JP'),
-      voice('Samantha', 'en-US'),
-      voice('Daniel', 'en-GB'),
-    ]
-
-    // Act
-    const picked = pickEnglishVoice(voices)
-
-    // Assert
-    expect(picked?.name).toBe('Samantha')
-  })
-
-  test('先頭にある冗談の声 (Albert など) を選ばない', () => {
-    // Arrange — iOS の英語 (US) 一覧は Albert のような声から始まる
-    const voices = [
-      voice('Albert', 'en-US'),
-      voice('Bad News', 'en-US'),
-      voice('Samantha', 'en-US'),
-    ]
-
-    // Act
-    const picked = pickEnglishVoice(voices)
-
-    // Assert
-    expect(picked?.name).toBe('Samantha')
-  })
-
-  test('拡張版をダウンロードしてあれば自然な声を優先する', () => {
-    // Arrange — Ava は追加ダウンロードの声。あるなら選ばれたということ
-    const voices = [voice('Samantha', 'en-US'), voice('Ava', 'en-US')]
-
-    // Act
-    const picked = pickEnglishVoice(voices)
-
-    // Assert
-    expect(picked?.name).toBe('Ava')
-  })
-
-  test('US が無ければ他の英語で代用する', () => {
-    // Arrange
-    const voices = [voice('Kyoko', 'ja-JP'), voice('Daniel', 'en-GB')]
-
-    // Act
-    const picked = pickEnglishVoice(voices)
-
-    // Assert
-    expect(picked?.name).toBe('Daniel')
-  })
-
-  test('en_US のような区切りの違いも英語と見なす', () => {
-    // Arrange — Android は en_US と書く
-    const voices = [voice('English United States', 'en_US')]
-
-    // Act / Assert
-    expect(pickEnglishVoice(voices)?.lang).toBe('en_US')
-  })
-
-  test('冗談の声しか無ければそれで鳴らす (無音にしない)', () => {
-    // Arrange
-    const voices = [voice('Albert', 'en-US')]
-
-    // Act / Assert
-    expect(pickEnglishVoice(voices)?.name).toBe('Albert')
-  })
-
-  test('英語が 1 つも無ければ null (lang 指定だけで鳴らす)', () => {
-    // Arrange / Act / Assert
-    expect(pickEnglishVoice([voice('Kyoko', 'ja-JP')])).toBeNull()
-    expect(pickEnglishVoice([])).toBeNull()
-  })
+  uninstallSpeech()
 })
 
 describe('speakEnglish', () => {
@@ -159,7 +29,7 @@ describe('speakEnglish', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     vi.resetModules()
-    speak = (await import('./ttsSpeech')).speakEnglish
+    speak = (await import('./speak')).speakEnglish
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -389,7 +259,7 @@ describe('終わりの知らせは 1 度だけ (settle once)', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     vi.resetModules()
-    const tts = await import('./ttsSpeech')
+    const tts = await import('./speak')
     speak = tts.speakEnglish
     stop = tts.stopSpeaking
   })

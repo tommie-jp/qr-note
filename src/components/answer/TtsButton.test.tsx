@@ -10,7 +10,7 @@ const { primeVoices, speakEnglish, stopSpeaking } = vi.hoisted(() => ({
   speakEnglish: vi.fn<(text: string, onEnd?: (spoke: boolean) => void) => boolean>(),
   stopSpeaking: vi.fn<() => void>(),
 }));
-vi.mock("@/lib/ttsSpeech", () => ({ primeVoices, speakEnglish, stopSpeaking }));
+vi.mock("@/lib/tts/speak", () => ({ primeVoices, speakEnglish, stopSpeaking }));
 
 type Press = ReturnType<typeof useTtsPress>;
 

@@ -91,6 +91,7 @@ Safari の Web Speech API は **SSML も IPA 指定も受け付けない**。渡
 ```text
 lib/vocabTts.ts          答えの分解・見出し語の切り出し (純関数)
 lib/ttsSpeech.ts         声の選択と読み上げ (Web Speech API)
+                         (当時のパス。現在は lib/tts/ に 4 分割)
 components/rehypeAnswerTts.ts  見出し語を span に刻む (sanitize の後)
 components/answer/TtsButton.tsx   発音ボタン
 components/answer/VocabAnswer.tsx 開いた答えを組み立てる
@@ -362,9 +363,11 @@ iPhone で鳴らす方法は無いと考えてよい。
 ## 9. 確認
 
 - 単体: `vocabTts.test.ts` は **#1128 の 10 語を実データのまま**固定して
-  分解と往復を見る。`ttsSpeech.test.ts` は作り物の音声一覧で
+  分解と往復を見る。`ttsSpeech.test.ts` (当時のパス。現在は
+  `tts/voices.test.ts`) は作り物の音声一覧で
   「Kyoko を選ばない」「Albert を選ばない」を見る
-- 終わり方: `ttsSpeech.test.ts` は偽の時計で 1.2 秒と 8 秒の見張りを進め、
+- 終わり方: `ttsSpeech.test.ts` (当時のパス。現在は `tts/speak.test.ts`) は
+  偽の時計で 1.2 秒と 8 秒の見張りを進め、
   **知らせが 1 度だけ**であること (§6-4) を固定する。`TtsButton.test.tsx` は
   jsdom が無いので押下のフックだけを取り出し、同期に失敗した回でも次の
   1 押しで鳴らし直せることを見る

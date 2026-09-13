@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SpeakerIcon } from "@/components/icons";
-import { primeVoices, speakEnglish, stopSpeaking } from "@/lib/ttsSpeech";
+import { primeVoices, speakEnglish, stopSpeaking } from "@/lib/tts/speak";
 import { ttsSilenceMessage } from "@/lib/ttsSilence";
 
 interface TtsButtonProps {
