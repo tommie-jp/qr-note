@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { isAllowedCoverUrl, lookupCover } from './coverLookup'
-import { MAX_IMAGE_BYTES } from './uploads'
+import { MAX_IMAGE_BYTES } from './uploads/limits'
 
 const OPENBD_COVER = 'https://cover.openbd.jp/9784861827754.jpg'
 const RAKUTEN_COVER =

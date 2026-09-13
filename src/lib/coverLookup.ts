@@ -13,7 +13,8 @@
 import { normalizeImage } from './normalizeImage'
 import { fetchCoverUrl as fetchRakutenCoverUrl } from './rakutenBooks'
 import { withSourceTimeout } from './sourceTimeout'
-import { MAX_IMAGE_BYTES, sniffImageFormat } from './uploads'
+import { MAX_IMAGE_BYTES } from './uploads/limits'
+import { sniffImageFormat } from './uploads/sniff/image'
 
 export interface CoverImage {
   // 保存 (imageStore) にそのまま渡せる形で持つ

@@ -14,7 +14,7 @@
 // 10MB の ENEX は枠の内側なのでサーバの 413 がちゃんと届く。それでも送る前に
 // 見るのは、届かない可能性を残さないのと、10MB を送り終える前に理由を出せるため。
 //
-// 画像アップロードと同じ枠にする (uploads.ts の MAX_IMAGE_BYTES)。
+// 画像アップロードと同じ枠にする (uploads/limits.ts の MAX_IMAGE_BYTES)。
 //
 // **エッジ (Caddyfile / deploy/nginx) はもうこの値を縛っていない。** ENEX も
 // ZIP と同じ /api/import へ**生のボディ**で送る (multipart で包まない。
@@ -32,7 +32,7 @@ export const MAX_ENEX_BYTES = 10 * 1024 * 1024
 
 // CLI (scripts/importEnex.ts) で受け付ける添付 1 件の上限。
 //
-// Web の口が使う 10MB (uploads.ts の MAX_IMAGE_BYTES) は、HTTP で 1 件ずつ
+// Web の口が使う 10MB (uploads/limits.ts の MAX_IMAGE_BYTES) は、HTTP で 1 件ずつ
 // 受け取る経路の都合で決めた枠であって、**DB に置ける大きさの上限ではない**。
 // ファイルから直接読む CLI は HTTP を通らないので、その制限を持ち込まない。
 //

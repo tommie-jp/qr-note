@@ -5,7 +5,7 @@
 // なった。**足し忘れは例外にならず黙って壊れる** (その形式だけ <audio> に
 // ならない・OCR に回ってしまう) ので、一覧はここ 1 つにする。
 //
-// MIME の一覧はここに置かない。サーバの保存 mime (uploads.ts の
+// MIME の一覧はここに置かない。サーバの保存 mime (uploads/names.ts の
 // AUDIO_MIME_TO_EXT) とファイル選択ダイアログのヒント (MemoEditorInner の
 // ACCEPTED_AUDIO_TYPES) は**意図的に食い違わせている** — 後者は
 // audio/x-m4a のような別名まで許して選ばせ、実際の可否はサーバが中身を見て

@@ -18,7 +18,7 @@
 // 受け取った絵を作り直す (poster は makeThumbnail、コマは makeVideoAnim) ので、
 // ここの縮小は「送信量を抑える前処理」でよく、寸法を厳密に揃える必要はない。
 
-import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads'
+import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads/limits'
 import { FIRST_FRAME_SEC, frameTimes } from './frameTimes'
 
 // クライアント側の静止サムネの一辺 (px)。サーバの THUMB_MAX_PX (384) と
@@ -51,7 +51,7 @@ const SEEK_EPSILON_SEC = 0.001
 
 // 出力は **JPEG**。canvas.toBlob('image/webp') は Safari (iOS) が出せず
 // PNG に化けるため、全ブラウザが確実に出せる JPEG にする。サーバが sharp で
-// webp へ作り直すので (uploads.ts isValidVideoThumb / isValidVideoAnimFrame)、
+// webp へ作り直すので (uploads/sniff/video.ts の isValidVideoThumb / isValidVideoAnimFrame)、
 // ここが webp である必要はない。
 const POSTER_MIME = 'image/jpeg'
 const POSTER_QUALITY = 0.85

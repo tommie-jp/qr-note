@@ -26,7 +26,7 @@ import { timestampFileName, timestampLabel } from '../datetime'
 // 素の `audio/mp4` は Chrome も対応と答えるので、**必ず webm より後ろに置く**
 // (前に出すと Chrome まで mp4 になり、検証済みの webm 経路を手放すことになる)。
 //
-// **サーバが受けられる形式だけを並べる** — ここに増やすなら uploads.ts の
+// **サーバが受けられる形式だけを並べる** — ここに増やすなら uploads/sniff/audio.ts の
 // sniffAudioFormat も一緒に広げること。
 const MIME_CANDIDATES = [
   'audio/mp4;codecs=mp4a.40.2',

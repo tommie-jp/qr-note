@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { MAX_VIDEO_BYTES } from '../uploads'
+import { MAX_VIDEO_BYTES } from '../uploads/limits'
 import {
   AUDIO_BITS_PER_SECOND,
   estimatedBytes,

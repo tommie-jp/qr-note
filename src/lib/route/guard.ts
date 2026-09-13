@@ -43,7 +43,7 @@ export async function guardRequest(
     return { ok: false, response: demoDenied }
   }
 
-  // ログインが先、クロスサイトが後 (uploads.ts と同じ流儀)
+  // ログインが先、クロスサイトが後 (uploads/request.ts と同じ流儀)
   const user = await currentUser()
   if (user === null) {
     return { ok: false, response: apiFail('ログインが必要です', 401) }

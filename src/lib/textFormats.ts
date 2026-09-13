@@ -7,7 +7,7 @@
 // この 3 つに絞るのは安全のためでもある。テキストには署名が無く「中身が
 // テキストか」しか判定できないので、HTML や SVG も素通りする。**保存名の
 // 拡張子をここに限り、text/plain 系 + nosniff で配る**ことで、
-// スクリプトとして解釈される経路そのものを塞いでいる (uploads.ts textSaveInfo)。
+// スクリプトとして解釈される経路そのものを塞いでいる (uploads/sniff/text.ts の textSaveInfo)。
 
 import { defineFormats } from './defineFormats'
 

@@ -5,7 +5,7 @@ import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
 import { errorText } from '@/lib/errorMessage'
 import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
-import { checkUploadRequest } from '@/lib/uploads'
+import { checkUploadRequest } from '@/lib/uploads/request'
 import {
   CONFLICT_POLICY_ERROR,
   type ConflictPolicy,

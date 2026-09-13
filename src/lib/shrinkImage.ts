@@ -17,7 +17,7 @@ import { redrawImage } from './imageCanvas'
 const MAX_EDGE = 2048
 
 // 書き出す形式。**WebP にしない** — iOS の canvas は WebP を書き出せず、黙って
-// PNG を返す。それでは縮めた意味が薄れる (uploads.ts の poster 検証と同じ罠)
+// PNG を返す。それでは縮めた意味が薄れる (uploads/sniff/video.ts の poster 検証と同じ罠)
 const OUT_TYPE = 'image/jpeg'
 const OUT_EXT = 'jpg'
 const QUALITY = 0.85

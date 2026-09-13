@@ -5,7 +5,6 @@ import { guardRequest } from '@/lib/route/guard'
 import { parseFormBody } from '@/lib/route/parse'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import {
-  checkUploadRequest,
   maxAttachmentBytes,
   MAX_VIDEO_ANIM_FRAME_BYTES,
   MAX_VIDEO_ANIM_FRAMES,
@@ -13,7 +12,8 @@ import {
   maxUploadBytes,
   megabytesLabel,
   tooLargeMessage,
-} from '@/lib/uploads'
+} from '@/lib/uploads/limits'
+import { checkUploadRequest } from '@/lib/uploads/request'
 
 // memo エディタからの画像アップロード。UUID 名で images テーブルに保存し、
 // 参照用の URL (/api/images/<name>) を返す。

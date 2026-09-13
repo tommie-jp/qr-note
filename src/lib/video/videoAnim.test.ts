@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { expect, test } from 'vitest'
-import { MAX_VIDEO_ANIM_FRAMES } from '../uploads'
+import { MAX_VIDEO_ANIM_FRAMES } from '../uploads/limits'
 import {
   isAnimatedWebp,
   makeVideoAnim,

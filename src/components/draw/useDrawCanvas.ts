@@ -49,7 +49,7 @@ const MARKER_SCALE = 3;
 const SNAPSHOT_DEBOUNCE_MS = 150;
 
 // 書き出しは WebP を第一候補にする。写真に注釈を入れると PNG では
-// 10MB の投稿上限 (src/lib/uploads.ts) に届きうるため
+// 10MB の投稿上限 (src/lib/uploads/limits.ts) に届きうるため
 const WEBP_QUALITY = 0.92;
 
 // 白紙の下地。透過のままだと、貼った先の背景次第で線が見えなくなる

@@ -7,11 +7,11 @@
 //
 // このファイルはブラウザからも import する。**サーバ専用のものを import
 // しないこと** (thumbnail.ts が sharp を編集画面に漏らした轍)。上限の元に
-// する uploads.ts はサーバ専用の依存を持たない (uploadSizeCheck.ts や
+// する uploads/limits.ts はサーバ専用の依存を持たない (uploadSizeCheck.ts や
 // video/videoRecorder.ts もブラウザから読んでいる)。持ち込んだ日には
 // `server-only` の印が next build で落として知らせる。
 
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './uploads'
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './uploads/limits'
 
 // 断片本文の種別。中身は markdown で、通常のメモと同じ描画パイプラインを通す
 export const SECRET_TEXT_MIME = 'text/markdown'
@@ -52,7 +52,7 @@ const SECRET_VIDEO_MIMES = new Set([
 const SECRET_ENVELOPE_SLACK_BYTES = 1024
 
 // 1 断片の上限 (**暗号化した後のバイト列**に対する)。種別で分けるのは通常の
-// 添付と同じ考え方で、動画だけ枠が大きい (uploads.ts の MAX_IMAGE_BYTES /
+// 添付と同じ考え方で、動画だけ枠が大きい (uploads/limits.ts の MAX_IMAGE_BYTES /
 // MAX_VIDEO_BYTES = 10MB / 30MB にエンベロープの余白を足したもの)。
 // この値はブラウザ側の事前チェックでも使う (冒頭のとおり)。
 export const MAX_SECRET_BYTES = MAX_IMAGE_BYTES + SECRET_ENVELOPE_SLACK_BYTES
@@ -110,7 +110,7 @@ function maxBytesFor(mime: string): number {
     : MAX_SECRET_BYTES
 }
 
-// 保存してよい申告か。問題なければ null (uploads.ts の checkUploadRequest と
+// 保存してよい申告か。問題なければ null (uploads/request.ts の checkUploadRequest と
 // 同じ形にして、route 側の書き方を揃える)。
 export function checkSecretPayload(
   mime: string,

@@ -5,7 +5,7 @@
 // 残るので、`(typeof list)[number]` で形式名の型を作れる。
 //
 // alternation は "mp3|m4a|wav|webm" のような文字列で、保存名の正規表現
-// (uploads.ts の uuidNamePattern) に埋める。拡張子は英数字だけなので
+// (uploads/names.ts の uuidNamePattern) に埋める。拡張子は英数字だけなので
 // 正規表現のエスケープは要らない (増やすときもその範囲に収めること)
 export function defineFormats<const T extends readonly string[]>(
   list: T,

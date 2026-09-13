@@ -16,7 +16,7 @@ export interface EnexResource {
   // **base64 のまま持つ**。復号したバイト列を全件ぶん抱えないための形
   // (decodeResourceData のコメント参照)
   base64: string
-  // ENEX の申告。**信用しない** — 保存側は先頭バイトで判定し直す (uploads.ts)
+  // ENEX の申告。**信用しない** — 保存側は先頭バイトで判定し直す (uploads/sniff/)
   mime: string
   fileName: string | null
   // 本文の <en-media hash="..."> と突き合わせる鍵。ENEX には入っていないので

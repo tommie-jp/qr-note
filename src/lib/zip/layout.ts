@@ -9,7 +9,7 @@
 // 読む側 (classifyEntry) は防波堤も兼ねる。ZIP の項目名は書き手が自由に
 // 決められるので、`../` や `notes/sub/` のような形はここで断つ。
 
-import { isValidAttachmentName } from '@/lib/uploads'
+import { isValidAttachmentName } from '@/lib/uploads/names'
 import { isValidItemNo } from '@/lib/validation'
 
 const NOTES_DIR = 'notes'

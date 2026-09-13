@@ -13,7 +13,7 @@ import { timestampFileName, timestampLabel } from '../datetime'
 // 器の画素数がそのまま体感の重さになる。2400px では実機で引っかかったため
 // 白紙と同じ 1600px に揃えた。ノートの表示は 600px 程度、拡大表示でも画面幅
 // なので、注釈付き写真として読める解像度は保てている。
-// 10MB の投稿上限 (src/lib/uploads.ts) にも余裕をもって収まる
+// 10MB の投稿上限 (src/lib/uploads/limits.ts) にも余裕をもって収まる
 export const MAX_DRAWING_EDGE = 1600
 
 // 白紙の論理サイズ。表示領域の縦横比は活かしつつ、長辺をこの値に伸ばす

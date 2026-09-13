@@ -5,11 +5,7 @@ import { byteHeaders, bytesResponse, rangedBytesResponse } from '@/lib/route/byt
 import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
 import { currentUser } from '@/lib/session'
 import { THUMB_MIME } from '@/lib/images/thumbConfig'
-import {
-  isAllowedContentMime,
-  isValidAttachmentName,
-  isValidVideoName,
-} from '@/lib/uploads'
+import { isAllowedContentMime, isValidAttachmentName, isValidVideoName } from '@/lib/uploads/names'
 
 interface RouteContext {
   params: Promise<{ name: string }>
@@ -142,7 +138,7 @@ function attachmentHeaders(contentType: string, cacheControl: string): Record<st
 // 配ってよい画像か。ログイン中なら全部、未ログインなら公開ノートに
 // 貼られているものだけ。
 //
-// ログイン検査を先に置く (uploads.ts と同じ流儀)。持ち主の閲覧で毎回
+// ログイン検査を先に置く (uploads/request.ts と同じ流儀)。持ち主の閲覧で毎回
 // items を走査しないため
 async function canView(name: string): Promise<boolean> {
   if ((await currentUser()) !== null) {

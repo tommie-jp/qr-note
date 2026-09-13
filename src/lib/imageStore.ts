@@ -15,12 +15,12 @@ import {
   generateEmbeddingInBackground,
 } from './embedding/embedImageServer'
 import { makeThumbnail } from './thumbnail'
-import { isValidImageName } from './uploads'
+import { isValidImageName } from './uploads/names'
 
 // 画像を保存し、本文から参照する URL を返す。
 //
 // 名前は「サーバが生成した UUID + 対応拡張子」のみ。クライアント由来の
-// 文字列をパスに使わない (uploads.ts の isValidImageName と対になっている)。
+// 文字列をパスに使わない (uploads/names.ts の isValidImageName と対になっている)。
 //
 // 一覧用のサムネもここで作る。**画像の行を作る入口はこのファイルの 3 つだけ**
 // なので (saveImage / savePlainAttachment / restoreAttachmentRow。

@@ -102,7 +102,7 @@ test('空ファイルは拒否する (中身が無いので添付する意味が
 
 // SVG・HTML は「テキストとしては妥当」なので、**この関数は通す**。
 // 中身だけでは区別できないため、止めるのは名前側の関門
-// (uploads.ts の textSaveInfo が txt/csv/md 以外を受けない)。
+// (uploads/sniff/text.ts の textSaveInfo が txt/csv/md 以外を受けない)。
 // 判定を 2 つに分けているので、どちらの意図もそれぞれの場所で読める
 test('HTML や SVG も中身としてはテキスト (名前の関門で弾く担当ではない)', () => {
   const svg = utf8('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>')

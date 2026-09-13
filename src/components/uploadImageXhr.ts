@@ -20,7 +20,7 @@ export function uploadImageWithProgress(
   // 動画のときサムネの材料を同送する (41-QR-search/docs/14 §Phase3,
   // docs/72-動画アニメサムネ計画.md)。poster は静止サムネ、frames は
   // 動くサムネの材料。サーバは動画判定時だけ使い、種別と大きさの検査に
-  // 通らないものは捨てる (uploads.ts)
+  // 通らないものは捨てる (uploads/sniff/video.ts)
   thumbs?: VideoThumbs | null,
 ): Promise<string> {
   return new Promise((resolve, reject) => {

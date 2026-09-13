@@ -20,7 +20,7 @@
 import 'server-only'
 import sharp from 'sharp'
 import { MAX_INPUT_PIXELS } from '../images/thumbConfig'
-import { MAX_VIDEO_ANIM_FRAMES } from '../uploads'
+import { MAX_VIDEO_ANIM_FRAMES } from '../uploads/limits'
 
 // 出力の一辺 (px)。静止サムネ (THUMB_MAX_PX = 384) より一段小さくする。
 // 差し替えは「動いていることが判る」ためのもので、細部を読ませる用途ではない。

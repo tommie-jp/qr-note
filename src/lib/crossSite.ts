@@ -9,7 +9,7 @@
 // と書いてあるだけで /api/books が本人として動き、外部 API のクォータを
 // 使い、書影を DB に溜める (docs/19-書影取得計画.md)。
 //
-// アップロード (POST) は Origin で見分けている (uploads.ts) が、**GET の
+// アップロード (POST) は Origin で見分けている (uploads/request.ts) が、**GET の
 // <img> は Origin を送らない** (単純リクエスト)。そこで Fetch Metadata を見る。
 // Sec-Fetch-Site はブラウザが自分で付けるヘッダで、JS からは書き換えられない
 // (Sec- で始まる名前は禁止ヘッダ名)。

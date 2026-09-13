@@ -6,7 +6,7 @@
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
 import { makeThumbnail } from '@/lib/thumbnail'
-import { sniffImageFormat } from '@/lib/uploads'
+import { sniffImageFormat } from '@/lib/uploads/sniff/image'
 
 async function main(): Promise<void> {
   const force = process.argv.includes('--force')

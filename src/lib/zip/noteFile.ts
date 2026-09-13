@@ -7,7 +7,7 @@
 // DB には触らない純関数だけを置く。保存経路は既存の upsertItem を通す
 // (インポート専用の保存経路を作らない = §4 の方針をそのまま引き継ぐ)。
 
-import { isValidAttachmentName } from '@/lib/uploads'
+import { isValidAttachmentName } from '@/lib/uploads/names'
 import {
   isValidItemNo,
   MAX_TEXT_LENGTH,

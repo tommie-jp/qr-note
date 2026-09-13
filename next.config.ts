@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { MAX_VIDEO_BYTES, MULTIPART_OVERHEAD_BYTES } from "./src/lib/uploads";
+import { MAX_VIDEO_BYTES, MULTIPART_OVERHEAD_BYTES } from "./src/lib/uploads/limits";
 
 const nextConfig: NextConfig = {
   // Docker 用の自己完結ビルド (.next/standalone)
@@ -42,16 +42,16 @@ const nextConfig: NextConfig = {
     // 「multipart/form-data で file を送信して下さい」という見当違いの 400 しか
     // 出ない — 本当の理由 (本文が途中で捨てられた) がどこにも出ない。
     //
-    // **値は uploads.ts の checkUploadRequest の門と同じにする** =
+    // **値は uploads/request.ts の checkUploadRequest の門と同じにする** =
     // maxUploadBytes() (動画 30MB) + MULTIPART_OVERHEAD_BYTES (1MB)。揃えると
     // 「本文が切られるのは 413 で断った後だけ」になり、切られた本文が route に
     // 届くことがなくなる。片方だけ動かすと上の不具合が戻るので、
-    // 手で書き写さず uploads.ts の定数から導き、src/lib/uploads.test.ts が
-    // maxUploadBytes() との一致を見張る (動画より大きい種別が増えたらそこで落ちる)。
+    // 手で書き写さず uploads/limits.ts の定数から導き、src/lib/uploads/request.test.ts
+    // が maxUploadBytes() との一致を見張る (動画より大きい種別が増えたらそこで落ちる)。
     //
     // maxUploadBytes() そのものを呼ばないのは、DEMO_MODE で値が変わる関数だから。
     // ここはデモでも 31MB のまま (デモの門 3MB より大きいので本文は切られない)。
-    // import できるのは uploads.ts の依存 (appEnv・*Formats) が副作用なしの
+    // import できるのは uploads/limits.ts の依存 (appEnv) が副作用なしの
     // 相対 import だけだから。Next は next.config.ts を SWC + require フックで
     // 読む (--experimental-next-config-strip-types は使っていない)。
     //

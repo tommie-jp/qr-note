@@ -14,7 +14,7 @@ import 'server-only'
 import { all as decodeHeicAll } from 'heic-decode'
 import sharp from 'sharp'
 import { MAX_INPUT_PIXELS } from './images/thumbConfig'
-import type { ImageFormat } from './uploads'
+import type { ImageFormat } from './uploads/sniff/image'
 
 export interface NormalizedImage {
   // saveImage にそのまま渡せる形 (Prisma Bytes は ArrayBuffer 実体を要求する)

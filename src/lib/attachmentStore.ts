@@ -3,7 +3,7 @@
 // 手で貼ったアップロード (/api/images の POST)、ENEX インポート
 // (docs/28-エクスポート計画.md §4)、書き出した ZIP の復元 (同 §3) の 3 経路から
 // 呼ぶ。**形式の判定と変換を 3 か所に書くと必ずどれかだけ古くなる** — 実際
-// uploads.ts のコメントが「名前の作り方を 2 通りに散らすと片方だけトラバーサル
+// imageStore.ts のコメントが「名前の作り方を 2 通りに散らすと片方だけトラバーサル
 // 対策が抜ける」と書いているのと同じ理由で、判定側もここへ寄せる。
 //
 // 形式は申告された MIME ではなく**中身のバイト列**で決める。ENEX の
@@ -23,28 +23,26 @@ import { MAX_ZIP_FILE_BYTES } from './zip/limits'
 import { normalizeImage } from './normalizeImage'
 import { makeThumbnail } from './thumbnail'
 import { hasUtf16Bom, normalizeTextBytes } from './normalizeText'
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, tooLargeMessage } from './uploads/limits'
 import {
-  audioSaveInfo,
-  type ImageFormat,
   isValidAudioName,
   isValidImageName,
   isValidPdfName,
-  isValidVideoAnimFrame,
   isValidVideoName,
-  isValidVideoThumb,
-  MAX_IMAGE_BYTES,
-  MAX_VIDEO_BYTES,
   mimeForName,
   PDF_EXT,
   PDF_MIME,
-  sniffAudioFormat,
-  sniffImageFormat,
-  sniffPdf,
+} from './uploads/names'
+import { audioSaveInfo, sniffAudioFormat } from './uploads/sniff/audio'
+import { type ImageFormat, sniffImageFormat } from './uploads/sniff/image'
+import { sniffPdf } from './uploads/sniff/pdf'
+import { textSaveInfo } from './uploads/sniff/text'
+import {
+  isValidVideoAnimFrame,
+  isValidVideoThumb,
   sniffVideoFormat,
-  textSaveInfo,
-  tooLargeMessage,
   videoSaveInfo,
-} from './uploads'
+} from './uploads/sniff/video'
 
 export const UNSUPPORTED_ATTACHMENT_MESSAGE =
   '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md)'
@@ -69,7 +67,7 @@ export interface StoreAttachmentOptions extends SaveImageOptions {
   // 元のファイル名 (アップロードなら File.name、ENEX なら file-name 属性)。
   //
   // **テキストだけがこれを要る。** 画像・音声・PDF は中身から形式が決まるが、
-  // txt / csv / md は中身が同じなので拡張子でしか区別できない (uploads.ts の
+  // txt / csv / md は中身が同じなので拡張子でしか区別できない (uploads/sniff/text.ts の
   // textSaveInfo)。申告をそのまま保存名にはせず、既知の 3 つへ写すだけ。
   // 無ければ txt として保存する
   fileName?: string | null
@@ -115,7 +113,7 @@ export async function storeAttachment(
   // 動画は他形式より上限が大きい (30MB) ので、共通の 10MB 検査より**先に**
   // 判定する。先に maxBytes=10MB で弾くと、30MB まで許すはずの動画が入らない。
   // 音声のみのファイルは映像トラックを持たず sniffVideoFormat が null を返すので、
-  // ここで音声を取り違えることはない (uploads.ts sniffVideoFormat のコメント)。
+  // ここで音声を取り違えることはない (uploads/sniff/video.ts sniffVideoFormat のコメント)。
   const videoFormat = sniffVideoFormat(bytes)
   if (videoFormat) {
     if (bytes.byteLength > MAX_VIDEO_BYTES) {
@@ -201,7 +199,7 @@ export async function storeAttachment(
 }
 
 // テキストとして保存できるか試す。判定は 2 つとも通ったときだけ:
-//   1. 名前が txt/csv/md であること (uploads.ts textSaveInfo)
+//   1. 名前が txt/csv/md であること (uploads/sniff/text.ts textSaveInfo)
 //   2. 中身がテキストとして読めること (normalizeText.ts)
 // 名前だけでは中身がバイナリのものを受けてしまい、中身だけでは HTML や SVG が
 // 名前を偽ったまま通ってしまう。中身は UTF-8 へ正規化されて保存される。

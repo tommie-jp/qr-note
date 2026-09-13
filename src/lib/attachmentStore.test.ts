@@ -4,13 +4,13 @@ import {
   MAX_VIDEO_ANIM_FRAME_BYTES,
   MAX_VIDEO_BYTES,
   MAX_VIDEO_THUMB_BYTES,
-} from './uploads'
+} from './uploads/limits'
 
 // DB (imageStore) と sharp を掴む変換 (normalizeImage・thumbnail・videoAnim)、
 // moov の詰め替え (mp4Faststart) は差し替える。確かめたいのは storeAttachment の
 // 振り分け — どの判定がどの順で効き、何を保存に回し、何を返すか — であって、
 // Postgres や sharp ではない (lib/zip/importZip.test.ts と同じ流儀)。
-// 形式の判定 (uploads) とテキストの正規化 (normalizeText) は本物を通す
+// 形式の判定 (uploads/sniff) とテキストの正規化 (normalizeText) は本物を通す
 const saveImage = vi.fn<(...args: unknown[]) => Promise<string>>()
 const savePlainAttachment = vi.fn<(...args: unknown[]) => Promise<string>>()
 const normalizeImage = vi.fn<(bytes: Uint8Array, format: string) => Promise<unknown>>()

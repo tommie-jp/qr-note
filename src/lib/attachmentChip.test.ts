@@ -11,7 +11,7 @@ import { DEFAULT_SECRET_LABEL } from './secrets'
 // SECRET_NAME_PATTERN)。形の違うものはシークレットとして扱われない
 const SECRET_SRC = '/api/secrets/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d'
 
-// 自前の画像の保存名はサーバが振った UUID + 拡張子 (uploads.ts)
+// 自前の画像の保存名はサーバが振った UUID + 拡張子 (uploads/names.ts)
 const IMAGE_NAME = '0421547b-ee29-4613-a6d4-da0f41f94054.png'
 const IMAGE_SRC = `/api/images/${IMAGE_NAME}`
 

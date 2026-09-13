@@ -8,7 +8,7 @@
 import fixWebmDuration from 'fix-webm-duration'
 import { stopStream } from '../camera/mediaStream'
 import { timestampFileName, timestampLabel } from '../datetime'
-import { MAX_VIDEO_BYTES } from '../uploads'
+import { MAX_VIDEO_BYTES } from '../uploads/limits'
 import {
   applyNearFocusZoom,
   applyTorch,
@@ -29,7 +29,7 @@ export type CameraFacing = 'environment' | 'user'
 // 素の `video/mp4` は Chrome も対応と答えうるので、**必ず webm より後ろに置く**
 // (前に出すと Chrome まで mp4 になり、検証しやすい webm 経路を手放す)。
 //
-// **サーバが受けられる形式だけを並べる** — ここに増やすなら uploads.ts の
+// **サーバが受けられる形式だけを並べる** — ここに増やすなら uploads/sniff/video.ts の
 // sniffVideoFormat も一緒に広げること。
 const MIME_CANDIDATES = [
   'video/mp4;codecs=avc1.42E01E,mp4a.40.2', // Safari / iOS

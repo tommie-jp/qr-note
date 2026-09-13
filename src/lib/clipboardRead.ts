@@ -8,7 +8,7 @@
 
 import { timestampFileName } from './datetime'
 import { errorText } from './errorMessage'
-import { extForMime } from './uploads'
+import { extForMime } from './uploads/names'
 
 // クリップボードに載せる形式として最も素直なもの。iOS のスクリーンショットも
 // Windows の「画像をコピー」もこれで来る

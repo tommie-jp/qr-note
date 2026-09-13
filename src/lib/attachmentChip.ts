@@ -18,7 +18,7 @@ import { parseAltWidth } from './altWidth'
 import { classifyImgSrc } from './imgSrcKind'
 import { attachmentNameFromUrl, thumbUrl } from './memoImages'
 import { DEFAULT_SECRET_LABEL } from './secrets'
-import { isValidImageName } from './uploads'
+import { isValidImageName } from './uploads/names'
 
 // alt が空のときに出す種別の名前。MarkdownView の既定ラベルと揃える
 // (閲覧と編集で同じものが同じ名前で呼ばれる)

@@ -183,7 +183,7 @@ describe('事前入力の口の拒否系 (実 DB・外部 API 不要)', () => {
 
   test('未ログインはクロスサイト判定より先に 401', async () => {
     // 断る理由の順が入れ替わっても、どちらでも断ってはいる。
-    // ログインを先に見るのは既存の流儀 (uploads.ts) に揃えるため
+    // ログインを先に見るのは既存の流儀 (uploads/request.ts) に揃えるため
     mocks.sessionToken = null
     const [request, ctx] = booksRequest({ 'sec-fetch-site': 'cross-site' })
     expect((await books(request, ctx)).status).toBe(401)

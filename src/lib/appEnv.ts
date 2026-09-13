@@ -47,7 +47,7 @@ export function isNodeEnvProduction(): boolean {
 // そのまま返す。空文字を既定へ倒す・欠けを名指しするといった解釈は、理由を
 // 知っている使う側に残す (site.ts の `||` など)。
 //
-// このファイルはブラウザの束にも入る (uploads.ts 経由) が、NEXT_PUBLIC_ で
+// このファイルはブラウザの束にも入る (uploads/limits.ts 経由) が、NEXT_PUBLIC_ で
 // 始まらない env はビルド時に埋め込まれない。ブラウザで呼んでも undefined に
 // なるだけで値は漏れないので、画面に要る値はサーバコンポーネントから props で
 // 降ろす (Next.js の environment-variables.md)。

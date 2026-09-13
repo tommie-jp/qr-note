@@ -191,7 +191,7 @@ const PDF_EXT_RE = /\.pdf$/i;
 
 // テキストの判定は**拡張子だけ**で行う。音声や PDF と違って MIME で広めに
 // 拾わないのは、サーバが受ける条件がまさに「名前が txt/csv/md であること」
-// だから (uploads.ts textSaveInfo)。ここで広く拾うと、選べたのに 400 で
+// だから (uploads/sniff/text.ts の textSaveInfo)。ここで広く拾うと、選べたのに 400 で
 // 断られるものが出てしまう
 const TEXT_EXT_RE = new RegExp(`\\.(?:${TEXT_EXTENSION_ALTERNATION})$`, "i");
 

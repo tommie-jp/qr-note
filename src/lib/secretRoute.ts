@@ -12,7 +12,8 @@ import {
   MAX_SECRET_VIDEO_BYTES,
   SECRET_MIME_HEADER,
 } from './secretPayload'
-import { checkUploadRequest, MULTIPART_OVERHEAD_BYTES } from './uploads'
+import { MULTIPART_OVERHEAD_BYTES } from './uploads/limits'
+import { checkUploadRequest } from './uploads/request'
 
 // どの口にも共通の門番。
 //
@@ -34,7 +35,7 @@ export async function readSecretBody(
   // ここは生のバイト列なので包みは無く、足しておかないと実態と違う文言になる。
   //
   // ここで見るのは**全種別の最大** (動画枠)。種別ごとの上限は下の
-  // checkSecretPayload が実測で絞る (uploads.ts の maxUploadBytes と
+  // checkSecretPayload が実測で絞る (uploads/limits.ts の maxUploadBytes と
   // maxAttachmentBytes を分けているのと同じ二段構え)
   const rejection = checkUploadRequest(
     request,

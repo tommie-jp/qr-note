@@ -10,7 +10,7 @@ import {
   rotateImageBytes,
 } from '@/lib/rotateImage'
 import { prisma } from '@/lib/db'
-import { isValidImageName } from '@/lib/uploads'
+import { isValidImageName } from '@/lib/uploads/names'
 
 interface RouteContext {
   params: Promise<{ name: string }>
@@ -25,7 +25,7 @@ export async function POST(
   request: Request,
   { params }: RouteContext,
 ): Promise<NextResponse> {
-  // ログイン + CSRF。データに触る前に断る (uploads.ts と同じ流儀・順)
+  // ログイン + CSRF。データに触る前に断る (uploads/request.ts と同じ流儀・順)
   const guard = await guardRequest(request, { demo: 'allow' })
   if (!guard.ok) {
     return guard.response

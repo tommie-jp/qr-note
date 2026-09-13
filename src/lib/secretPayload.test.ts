@@ -88,7 +88,7 @@ describe('checkSecretPayload', () => {
     expect(MAX_SECRET_VIDEO_BYTES).toBe(30 * 1024 * 1024 + 1024)
   })
 
-  test('gives video a larger allowance than the rest (uploads.ts と同じ分け方)', () => {
+  test('gives video a larger allowance than the rest (uploads/limits.ts と同じ分け方)', () => {
     const overImage = MAX_SECRET_BYTES + 1
     expect(checkSecretPayload('video/mp4', overImage)).toBe(null)
     expect(checkSecretPayload('image/png', overImage)?.status).toBe(413)

@@ -160,7 +160,7 @@ describe('isSelfGuardedPath', () => {
     expect(isSelfGuardedPath('/api/imagesx/a.png')).toBe(false)
   })
 
-  // 画像名はサーバが発番した UUID + 対応拡張子だけ (uploads.ts と対になる)
+  // 画像名はサーバが発番した UUID + 対応拡張子だけ (uploads/names.ts と対になる)
   test('rejects image names that are not UUID + known extension', () => {
     expect(isSelfGuardedPath('/api/images/x.png')).toBe(false)
     expect(isSelfGuardedPath('/api/images/../../etc/passwd')).toBe(false)

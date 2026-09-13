@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 import type { POST as PostFn } from './route'
 import type { GET as GetFn } from './[name]/route'
 import type { PrismaClient } from '@/generated/prisma/client'
-import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads'
+import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads/limits'
 
 // route を関数として直接呼ぶため、Next.js のリクエストスコープが無く headers() が
 // 投げる。ログイン検査 (lib/session.ts) が headers() を読むので、そこだけ差し替える。
@@ -161,7 +161,7 @@ function boxTypeAt(bytes: Buffer, at: number): string {
 
 // 映像トラック (hdlr = 'vide') を持つ最小の mp4。sniffVideoFormat は
 // ブランドではなくトラック種別で動画と判定するので、moov/trak/mdia/hdlr まで
-// 組む必要がある (uploads.test.ts の mp4WithHandlers と同じ形)
+// 組む必要がある (uploads/sniff/__fixtures__/media.ts の mp4WithHandlers と同じ形)
 const MP4_BYTES = (() => {
   const hdlr = m4aBox('hdlr', (() => {
     const payload = Buffer.alloc(25)

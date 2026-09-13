@@ -11,7 +11,7 @@ import manifest from '@/app/manifest'
 import { PUBLIC_AUTH_PATHS } from './authPaths'
 import { LOGIN_PATH, LOGIN_REQUIRED_PATH } from './loginRedirect'
 import { OFFLINE_PATH } from './offline/params'
-import { isValidAttachmentName } from './uploads'
+import { isValidAttachmentName } from './uploads/names'
 import { isValidItemNo } from './validation'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。

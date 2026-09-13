@@ -9,7 +9,7 @@
 // 移せる (そのときもこの関数が正本の抽出規則として残る)。
 
 import { stripCode } from './tags'
-import { isValidAttachmentName, isValidImageName, isValidVideoName } from './uploads'
+import { isValidAttachmentName, isValidImageName, isValidVideoName } from './uploads/names'
 
 // Markdown の画像記法 `![alt](url)` の url を捕捉する。
 // リンク記法 `[text](url)` は先頭の `!` が無いので外れる — 貼った画像ではなく
@@ -65,7 +65,7 @@ export function firstImageName(memo: string): string | null {
 // thumb を持たないので対象外 (一覧では文字だけ)。
 //
 // **画像検索の索引 (allImageNames) には動画を混ぜない** — あちらは画像だけを
-// 対象にする既存方針 (uploads.ts の isValidImageName のコメント)。ここは
+// 対象にする既存方針 (uploads/names.ts の isValidImageName のコメント)。ここは
 // 「一覧の顔になる絵」を選ぶ別用途なので、poster を持つ動画も含める。
 function* iterThumbAttachments(
   memo: string,
@@ -106,7 +106,7 @@ export function firstThumbInfo(
 //
 // **firstThumbInfo / allImageNames とは用途が違う。** あちらは「一覧の顔」と
 // 「画像検索の索引」で、混ぜると音声や PDF がサムネ候補に紛れ込む
-// (isValidAttachmentName を分けている理由。uploads.ts)。こちらは
+// (isValidAttachmentName を分けている理由。uploads/names.ts)。こちらは
 // 「このノートを圏外で開くのに要るファイル一式」なので、逆に 1 つも
 // 落とせない — 落とすと印を付けたのに開けない添付が残る。
 //
