@@ -40,7 +40,7 @@ export default function AboutPage() {
         <p className="text-gray-600">
           書影 (カバー画像) の取得に、
           {/* 汎用トップではなく、実際に叩いている書籍検索 API のドキュメントへ
-              (URL は SERVICE_LINKS に集約。docs/48) */}
+              (URL は SERVICE_LINKS に集約。docs/95) */}
           <a
             href={SERVICE_LINKS.rakutenBooks.href}
             target="_blank"

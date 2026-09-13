@@ -16,7 +16,7 @@ test("Yahoo! の規定クレジットが載っている", () => {
   );
 });
 
-// 楽天・openBD・NDL のリンク先は SERVICE_LINKS に集約 (docs/48)。ここでは
+// 楽天・openBD・NDL のリンク先は SERVICE_LINKS に集約 (docs/95)。ここでは
 // 総覧ページにその URL 集合が載り続けること (共有の回帰) を見る。
 // 楽天は API ドキュメント (books-book-search) を指す — トップに戻したら落とす
 test("楽天・openBD・NDL の帰属も出す (適切なページへ)", () => {

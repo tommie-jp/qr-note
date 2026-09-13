@@ -118,7 +118,7 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
           </Link>
         </div>
 
-        {/* 使っている Web サービスの帰属フッター (docs/47・docs/48)。
+        {/* 使っている Web サービスの帰属フッター (docs/94・docs/95)。
             JAN 商品情報 (Yahoo!ショッピング API) の結果が実際に現れるのは
             この編集画面の事前入力だけなので、「API を使う画面の下部」を
             ここで満たす。Yahoo の規定クレジット (義務) に加え、出典として
