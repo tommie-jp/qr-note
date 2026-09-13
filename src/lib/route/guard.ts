@@ -13,7 +13,7 @@ import { apiFail } from './respond'
 // 唯一の砦にはしない (Next.js の authentication ガイドが明示している)。
 // データに触る手前でもう一度確かめる。
 //
-// Server Action 側 (actions.ts) は requireUser() で投げてよい。route handler は
+// Server Action 側 (app/actions/_guards.ts) は requireUser() で投げてよい。route handler は
 // 応答そのものを組み立てる場所なので、投げて 500 にするより 401 を返す。
 
 // 通れば誰か、通らなければそのまま返す応答。

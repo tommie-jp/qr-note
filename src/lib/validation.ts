@@ -1,6 +1,6 @@
 export type Mode = 'memo' | 'url'
 
-// memo / url 1 件の文字数上限。フォーム投稿 (actions.ts)・ENEX インポート
+// memo / url 1 件の文字数上限。フォーム投稿 (actionForm.ts)・ENEX インポート
 // (lib/enex/importEnex.ts)・ZIP インポート (lib/zip/noteFile.ts)・編集画面の
 // 打ち止め (MemoEditorInner) が**同じ上限を見る**。片方だけ緩いと、取り込めた
 // のに編集画面から保存し直せないノートができる。

@@ -13,7 +13,7 @@ import { purgeFromTrash, removeE2eNote, searchResults, trashFromSearch } from '.
 // 前の段が作った物を次の段が使うので直列に流す (前が落ちたら後は skip)。
 //
 // 番号は採番 (/new) ではなく /edit/<番号> で直に決める。未登録の番号の
-// 編集画面で「更新」すると、その番号で作られる (actions.ts の updateItemAction)。
+// 編集画面で「更新」すると、その番号で作られる (app/actions/items.ts の updateItemAction)。
 // 採番するとローカル DB の次の番号を食い、片付けても本物の番号列に穴が見える
 const ITEM_NO = `${E2E_ITEM_PREFIX}1`
 

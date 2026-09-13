@@ -27,7 +27,7 @@ interface PublicToggleProps {
 // やめたとき (docs/75 §1) と同じ判断の続き。
 //
 // フォームが送るのは「望む状態」であって「裏返せ」ではない。二重送信や
-// 戻るボタンで意図と逆に倒れないようにするため (actions.ts 側も同じ約束)。
+// 戻るボタンで意図と逆に倒れないようにするため (app/actions/publish.ts 側も同じ約束)。
 export function PublicToggle({
   itemNo,
   publicAt,

@@ -34,7 +34,7 @@ export interface HealthEntry {
 // 記録の書き方をそのまま真似るために取り出す
 const LINE_PREFIX_RE = /^[ \t　]*(?:[-*+][ \t　]+)?/
 
-// 項目名と単位の長さの上限。記録欄は誰でも叩ける POST の口 (actions.ts) の
+// 項目名と単位の長さの上限。記録欄は誰でも叩ける POST の口 (app/actions/items.ts) の
 // 先にあるので、本文へ書く文字列の長さはここで頭打ちにする。
 // 32 文字は「収縮期血圧」のような名前が余裕で入る長さ
 export const MAX_MEASURE_ITEM_LENGTH = 32

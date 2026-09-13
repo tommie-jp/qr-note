@@ -84,7 +84,7 @@ export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
 // CIRCUIT_TIMEOUT_MS) を同期の口に載せると、回路図を書き足した直後の同期だけが
 // 数十秒かかる — しかも待っているのは本文の同期でもある。描くのは
 //   - ノートを開いたとき (ItemView の renderCircuits)
-//   - 印を付けたとき (actions.ts の setItemOfflinePinAction)
+//   - 印を付けたとき (app/actions/offline.ts の setItemOfflinePinAction)
 // の 2 か所で、ここは出来上がっている物を配るだけにする。まだ描かれていない
 // フェンスは圏外でコードブロックとして出る (オンラインで一度開けば揃う)。
 async function loadOfflineCircuits(
