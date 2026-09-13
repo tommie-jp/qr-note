@@ -20,6 +20,7 @@
 // 口も**新しいほう (openapi.rakuten.co.jp) でないと通らない**。旧 app.rakuten.co.jp
 // は新しい形式の鍵を知らず、何を送っても 400 (specify valid applicationId) を返す。
 
+import { rakutenBooksEnv } from './appEnv'
 import { asRecord, asString } from './book'
 
 const ENDPOINT =
@@ -88,9 +89,7 @@ export async function fetchCoverUrl(
   isbn: string,
   signal?: AbortSignal,
 ): Promise<string | null> {
-  const applicationId = process.env.RAKUTEN_APP_ID
-  const accessKey = process.env.RAKUTEN_ACCESS_KEY
-  const origin = process.env.RAKUTEN_APP_ORIGIN
+  const { appId: applicationId, accessKey, origin } = rakutenBooksEnv()
   if (!applicationId || !accessKey || !origin) {
     // 設定漏れは「書影なし」に落とし、新規登録の導線は止めない (docs/19 §3)。
     // ただし黙ると気づけないので 1 行残す。

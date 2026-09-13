@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { isDemoMode } from '@/lib/appEnv'
+import { isDemoMode, isNodeEnvProduction } from '@/lib/appEnv'
 import { parseBulkTagForm } from '@/lib/bulkTags'
 import { renderCircuits } from '@/lib/circuitCache'
 import { isValidCommitOid } from '@/lib/git/notePath'
@@ -565,7 +565,7 @@ export async function setPaneModeAction(formData: FormData): Promise<void> {
   store.set(PANE_MODE_COOKIE, mode, {
     // 中身の作法は表示モードの cookie と同じ (理由はそちらのコメント)
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isNodeEnvProduction(),
     sameSite: 'lax',
     path: '/',
     maxAge: PANE_MODE_COOKIE_MAX_AGE,
@@ -596,7 +596,7 @@ export async function setViewModeAction(formData: FormData): Promise<void> {
     httpOnly: true,
     // HTTPS でだけ送る。ローカル開発は http なので付けない
     // (付けるとローカルで cookie が保存されず、切り替えが効かなくなる)
-    secure: process.env.NODE_ENV === 'production',
+    secure: isNodeEnvProduction(),
     // 他サイトからの遷移で好みが飛ばない程度に緩く。strict にすると
     // 外部リンクから戻ったときだけ既定に見え、消えたと誤解される
     sameSite: 'lax',
@@ -700,7 +700,7 @@ export async function setSortAction(formData: FormData): Promise<void> {
   store.set(SORT_COOKIE, sort, {
     // サーバしか読まない (描画前に読めることがこの方式の要)
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isNodeEnvProduction(),
     // 他サイトからの遷移で好みが飛ばない程度に緩く
     sameSite: 'lax',
     path: '/',
@@ -723,7 +723,7 @@ export async function setTrashSortAction(formData: FormData): Promise<void> {
   store.set(TRASH_SORT_COOKIE, sort, {
     // サーバしか読まない (描画前に読めることがこの方式の要)
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isNodeEnvProduction(),
     // 他サイトからの遷移で好みが飛ばない程度に緩く
     sameSite: 'lax',
     path: '/',

@@ -1,4 +1,4 @@
-import { isDemoMode, isProductionEnv } from "./appEnv";
+import { isDemoMode, isProductionEnv, qrBaseUrlEnv } from "./appEnv";
 
 // サイト名と説明文は <head> の metadata と PWA manifest の両方が使う。
 // 別々に書くと表示名がじわじわ食い違うため、ここを唯一の出どころにする。
@@ -29,13 +29,13 @@ const DEFAULT_QR_BASE_URL = "https://qr.tommie.jp";
 // 絶対 URL に組み立てる起点で、「このサイトはどの URL で見えているか」を
 // 答える点で QR シールと同じ問いなので、別の env を増やさない。
 //
-// サーバ専用。process.env は NEXT_PUBLIC_ 以外クライアントへ渡らないため、
+// サーバ専用。env は NEXT_PUBLIC_ 以外クライアントへ渡らないため (appEnv.ts)、
 // 必要な値はサーバコンポーネントから props で降ろす。
 //
 // ?? ではなく || なのは、.env に `QR_BASE_URL=` と書くと undefined ではなく
 // 空文字が来るため。?? は空文字を素通しし、既定へ倒れない
 export function qrBaseUrl(): string {
-  return process.env.QR_BASE_URL || DEFAULT_QR_BASE_URL;
+  return qrBaseUrlEnv() || DEFAULT_QR_BASE_URL;
 }
 
 // 起点を URL として解釈したもの。OGP の metadataBase (layout.tsx) と、
@@ -54,7 +54,7 @@ export function siteBaseUrl(): URL {
   } catch {
     console.warn(
       `QR_BASE_URL が URL として不正なため既定 (${DEFAULT_QR_BASE_URL}) を使う: ` +
-        `${JSON.stringify(process.env.QR_BASE_URL)}`,
+        `${JSON.stringify(qrBaseUrlEnv())}`,
     );
     return new URL(DEFAULT_QR_BASE_URL);
   }

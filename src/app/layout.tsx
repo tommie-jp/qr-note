@@ -38,6 +38,7 @@ import { rowTintVars } from "@/lib/rowTint";
 import { loadRowTintId } from "@/lib/rowTintStore";
 import { PANE_SIZE_INIT_SCRIPT } from "@/lib/paneSize";
 import {
+  demoLoginHintEnv,
   isDemoMode,
   isProductionEnv,
   LOCAL_THEME_COLOR,
@@ -127,7 +128,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // qrBaseUrl() 経由で読むこと。process.env.QR_BASE_URL を `??` で直読みすると
+  // qrBaseUrl() 経由で読むこと。生の QR_BASE_URL (appEnv.ts の qrBaseUrlEnv) を `??` で受けると
   // `.env` に `QR_BASE_URL=` と空で書いたとき空文字が素通しし、ヘッダの QR が
   // 空 URL になる (site.ts が `||` で既定へ倒しているのはこのため)
   const siteUrl = qrBaseUrl();
@@ -435,7 +436,7 @@ export default async function RootLayout({
             ログイン案内 (docs/39 §4) は env をここで読んで props で降ろす
             (site.ts と同じ流儀。process.env は NEXT_PUBLIC_ 以外クライアントへ
             渡らないため)。未設定 (空文字) なら案内行は出ない */}
-        {isDemo && <DemoBanner loginHint={process.env.DEMO_LOGIN_HINT || null} />}
+        {isDemo && <DemoBanner loginHint={demoLoginHintEnv() || null} />}
         {/* 遷移アニメーションは各ページの <PageTransition> が持つ
             (layout の要素は unmount されず enter/exit が起きないため) */}
         {/* max-w-2xl はメモの本文が読める行長に収めるための上限。

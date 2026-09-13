@@ -2,6 +2,7 @@ import 'server-only'
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { simpleGit, type SimpleGit } from 'simple-git'
+import { pathEnv, qrGitDirEnv } from '../appEnv'
 import { isValidCommitOid, noteFilePath } from './notePath'
 
 // ノート本文の git 履歴 (docs/57-ノートgit履歴計画.md)。
@@ -29,7 +30,7 @@ export interface NoteCommit {
 // (compose.yaml)。開発は data/ (gitignore 済み) の下。テストは
 // QR_GIT_DIR を一時ディレクトリへ向ける。
 function repoDir(): string {
-  return process.env.QR_GIT_DIR ?? join(process.cwd(), 'data', 'git-notes')
+  return qrGitDirEnv() ?? join(process.cwd(), 'data', 'git-notes')
 }
 
 // 書き込みを 1 本に並べるプロセス内キュー (単一コンテナ・単一プロセス前提)。
@@ -73,11 +74,8 @@ const ensuredDirs = new Set<string>()
 //   と同じ条件で動く。identity はリポジトリのローカル設定が持つ (openRepo)。
 // - LC_ALL=C はエラーメッセージをロケール非依存にしてログを読める形に揃える。
 function gitEnv(): Record<string, string> {
-  const env: Record<string, string> = { LC_ALL: 'C' }
-  if (process.env.PATH !== undefined) {
-    env.PATH = process.env.PATH
-  }
-  return env
+  const path = pathEnv()
+  return path === undefined ? { LC_ALL: 'C' } : { LC_ALL: 'C', PATH: path }
 }
 
 async function openRepo(): Promise<{ git: SimpleGit; dir: string }> {

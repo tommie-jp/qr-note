@@ -1,5 +1,18 @@
-import { afterEach, describe, expect, test } from "vitest";
-import { isDemoMode, isProductionEnv } from "./appEnv";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import {
+  basicAuthEnv,
+  databaseUrlEnv,
+  demoLoginHintEnv,
+  isDemoMode,
+  isNodeEnvProduction,
+  isProductionEnv,
+  pathEnv,
+  qrBaseUrlEnv,
+  qrGitDirEnv,
+  rakutenBooksEnv,
+  webauthnEnv,
+  yahooShoppingAppIdEnv,
+} from "./appEnv";
 
 const original = process.env.APP_ENV;
 const originalDemo = process.env.DEMO_MODE;
@@ -79,5 +92,89 @@ describe("isDemoMode", () => {
       process.env.DEMO_MODE = value;
       expect(isDemoMode(), `DEMO_MODE=${JSON.stringify(value)}`).toBe(false);
     }
+  });
+});
+
+describe("isNodeEnvProduction", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test("NODE_ENV=production のときだけ true (APP_ENV には左右されない)", () => {
+    // Arrange
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ENV", "");
+
+    // Act & Assert
+    expect(isNodeEnvProduction()).toBe(true);
+  });
+
+  test("development・test では false", () => {
+    for (const value of ["development", "test"]) {
+      vi.stubEnv("NODE_ENV", value);
+      expect(isNodeEnvProduction(), `NODE_ENV=${value}`).toBe(false);
+    }
+  });
+});
+
+// サーバの設定値は生のまま返す (空文字を既定へ倒すのは使う側の仕事)。
+// **呼んだ時点で読む**ことも性質の一部 — テストが env を差し替えて使う
+describe("サーバの設定値", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const singles: [string, () => string | undefined][] = [
+    ["DATABASE_URL", databaseUrlEnv],
+    ["QR_BASE_URL", qrBaseUrlEnv],
+    ["YAHOO_SHOPPING_APP_ID", yahooShoppingAppIdEnv],
+    ["QR_GIT_DIR", qrGitDirEnv],
+    ["PATH", pathEnv],
+    ["DEMO_LOGIN_HINT", demoLoginHintEnv],
+  ];
+
+  test.each(singles)("%s は呼んだ時点の値をそのまま返す", (name, read) => {
+    // Arrange
+    vi.stubEnv(name, "first");
+    const first = read();
+    vi.stubEnv(name, "");
+
+    // Act
+    const second = read();
+
+    // Assert
+    expect(first).toBe("first");
+    expect(second).toBe("");
+  });
+
+  test.each(singles)("%s が未設定なら undefined", (name, read) => {
+    vi.stubEnv(name, undefined);
+    expect(read()).toBeUndefined();
+  });
+
+  test("ログインの資格情報は 2 つまとめて返す", () => {
+    // Arrange
+    vi.stubEnv("BASIC_AUTH_USER", "tommie");
+    vi.stubEnv("BASIC_AUTH_HASH_B64", undefined);
+
+    // Act & Assert
+    expect(basicAuthEnv()).toEqual({ user: "tommie", hashB64: undefined });
+  });
+
+  test("パスキーの rpID と origin を返す", () => {
+    vi.stubEnv("WEBAUTHN_RP_ID", "qr.example.jp");
+    vi.stubEnv("WEBAUTHN_ORIGIN", "");
+    expect(webauthnEnv()).toEqual({ rpId: "qr.example.jp", origin: "" });
+  });
+
+  test("楽天ブックスの 3 つを返す", () => {
+    vi.stubEnv("RAKUTEN_APP_ID", "id");
+    vi.stubEnv("RAKUTEN_ACCESS_KEY", "key");
+    vi.stubEnv("RAKUTEN_APP_ORIGIN", undefined);
+    expect(rakutenBooksEnv()).toEqual({
+      appId: "id",
+      accessKey: "key",
+      origin: undefined,
+    });
   });
 });

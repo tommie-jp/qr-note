@@ -16,6 +16,7 @@
 // この階層は next/headers に触らないこと。値を渡してもらう側に徹する。
 
 import bcrypt from 'bcryptjs'
+import { basicAuthEnv } from './appEnv'
 
 const BASIC_PREFIX = 'basic '
 
@@ -86,8 +87,7 @@ interface BasicAuthConfig {
 //
 // 生成: npm run hash-password (docs/18-ログイン計画.md)
 function readBasicAuthConfig(): BasicAuthConfig | null {
-  const user = process.env.BASIC_AUTH_USER
-  const hashB64 = process.env.BASIC_AUTH_HASH_B64
+  const { user, hashB64 } = basicAuthEnv()
 
   // 設定漏れは「誰もログインできない」側へ倒す。逆に倒すと、env を書き忘れた
   // 本番が認証なしで開く — 起きてほしくないのはそちら (appEnv.ts と同じ考え方)。

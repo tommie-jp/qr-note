@@ -10,6 +10,7 @@
 
 import 'server-only'
 import { createHash } from 'node:crypto'
+import { webauthnEnv } from './appEnv'
 import { SITE_NAME } from './site'
 
 export interface WebAuthnConfig {
@@ -25,8 +26,9 @@ export interface WebAuthnConfig {
 export function webauthnConfig(): WebAuthnConfig | null {
   // `??` ではなく `||` で受ける。.env に `WEBAUTHN_RP_ID=` と書くと
   // undefined ではなく空文字が来るため (site.ts の qrBaseUrl と同じ理由)
-  const rpId = process.env.WEBAUTHN_RP_ID || ''
-  const rawOrigin = process.env.WEBAUTHN_ORIGIN || ''
+  const env = webauthnEnv()
+  const rpId = env.rpId || ''
+  const rawOrigin = env.origin || ''
 
   if (rpId === '' || rawOrigin === '') {
     logDisabled('WEBAUTHN_RP_ID と WEBAUTHN_ORIGIN の両方が要ります')

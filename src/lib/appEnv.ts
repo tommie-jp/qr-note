@@ -32,6 +32,101 @@ export function isDemoMode(): boolean {
   return process.env.DEMO_MODE === "1";
 }
 
+// NODE_ENV が production か。**isProductionEnv とは別の問い**で、`next build` /
+// `next start` と Docker のコンテナは production、`next dev` とテストはそれ以外に
+// なる (上のコメントのとおり、ローカルを本番相当に起動した経路も production)。
+// 「本番サイトか」ではなく「開発サーバでないか」を見たいとき — HTTPS 前提の
+// cookie の secure や、ホットリロード対策の要否 — にだけ使う。
+export function isNodeEnvProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+// --- サーバの設定値 (docs/93-リファクタリング計画.md §3-1) ---
+//
+// process.env の読み口をここに集める。どれも**呼ばれた時点で**読み、生の値を
+// そのまま返す。空文字を既定へ倒す・欠けを名指しするといった解釈は、理由を
+// 知っている使う側に残す (site.ts の `||` など)。
+//
+// このファイルはブラウザの束にも入る (uploads.ts 経由) が、NEXT_PUBLIC_ で
+// 始まらない env はビルド時に埋め込まれない。ブラウザで呼んでも undefined に
+// なるだけで値は漏れないので、画面に要る値はサーバコンポーネントから props で
+// 降ろす (Next.js の environment-variables.md)。
+//
+// ここを通さない読みが 3 つある:
+//   - instrumentation.ts の NEXT_RUNTIME … ランタイムごとの束から、そのランタイムで
+//     動かない import を落とす手がかり (Next.js の instrumentation.md の作法)。
+//     ビルド時に埋め込まれる前提の書き方で、関数の奥へ隠すと意味が変わる
+//   - offline/register.ts の NODE_ENV … ブラウザ専用のモジュールで、ビルド時に
+//     埋め込まれる値を読む
+//   - embedding/embedder.ts の TMPDIR … ブラウザとサーバの両方で動くモジュールの
+//     サーバ側の枝
+
+// Prisma の接続先 (db.ts)
+export function databaseUrlEnv(): string | undefined {
+  return process.env.DATABASE_URL;
+}
+
+// サイトの URL の起点 (site.ts の qrBaseUrl が既定へ倒して使う)
+export function qrBaseUrlEnv(): string | undefined {
+  return process.env.QR_BASE_URL;
+}
+
+// ログインの資格情報 (auth.ts。ハッシュを base64 で持つ理由はそちら)
+export function basicAuthEnv(): {
+  user: string | undefined;
+  hashB64: string | undefined;
+} {
+  return {
+    user: process.env.BASIC_AUTH_USER,
+    hashB64: process.env.BASIC_AUTH_HASH_B64,
+  };
+}
+
+// パスキーの rpID と origin (webauthnConfig.ts。docs/29-パスキー計画.md §7)
+export function webauthnEnv(): {
+  rpId: string | undefined;
+  origin: string | undefined;
+} {
+  return {
+    rpId: process.env.WEBAUTHN_RP_ID,
+    origin: process.env.WEBAUTHN_ORIGIN,
+  };
+}
+
+// JAN の商品情報を引く Yahoo!ショッピングの Client ID (yahooShopping.ts)
+export function yahooShoppingAppIdEnv(): string | undefined {
+  return process.env.YAHOO_SHOPPING_APP_ID;
+}
+
+// ISBN の書影を引く楽天ブックスの資格情報 (rakutenBooks.ts。3 つ揃って使える)
+export function rakutenBooksEnv(): {
+  appId: string | undefined;
+  accessKey: string | undefined;
+  origin: string | undefined;
+} {
+  return {
+    appId: process.env.RAKUTEN_APP_ID,
+    accessKey: process.env.RAKUTEN_ACCESS_KEY,
+    origin: process.env.RAKUTEN_APP_ORIGIN,
+  };
+}
+
+// ノート履歴の git リポジトリの置き場 (git/notesRepo.ts。テストが一時
+// ディレクトリへ向ける)
+export function qrGitDirEnv(): string | undefined {
+  return process.env.QR_GIT_DIR;
+}
+
+// git 子プロセスへ引き継ぐ PATH (git/notesRepo.ts の gitEnv)
+export function pathEnv(): string | undefined {
+  return process.env.PATH;
+}
+
+// デモのログイン案内 (layout.tsx の DemoBanner。docs/39 §4)
+export function demoLoginHintEnv(): string | undefined {
+  return process.env.DEMO_LOGIN_HINT;
+}
+
 // 非本番の目印に使う色。ヘッダは Tailwind のクラスで塗る一方、
 // meta[theme-color] と PWA manifest は hex の直値しか受け取らないため、
 // 対応する hex をここに控えて両者がずれないようにする。
