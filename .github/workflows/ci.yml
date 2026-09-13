@@ -1,0 +1,119 @@
+# lint / typecheck / test / 文書と環境変数の検査 / ビルドを push と PR ごとに流す
+# (docs/93-リファクタリング計画.md §7-4)。
+#
+# 以前は検査が doDeploy.sh の中 (手順 3/8) にしか無く、「デプロイが CI」だった。
+# ここは配布をしない。イメージのビルドと vps2 への反映は今までどおり doDeploy.sh が持つ。
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# 同じブランチに続けて push したら、古い方の実行は止める
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # onnxruntime-node の install script が CUDA 用の .so (約 315MB) を取りに行くのを止める。
+  # 本番イメージも `npm ci --ignore-scripts` でこれを入れていない (Dockerfile)。
+  # --ignore-scripts にしないのは、postinstall の prisma generate と esbuild の検証は走らせたいから
+  ONNXRUNTIME_NODE_INSTALL: skip
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: npm のダウンロードキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
+      # postinstall で prisma generate が走る。prisma.config.ts は DATABASE_URL が
+      # 無くても空文字で通すので、ここでは DB の URL を渡さない
+      - run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: 文書参照の検査
+        run: node scripts/checkDocLinks.mjs
+      - name: 環境変数と本体サイズ上限の検査
+        run: node scripts/checkEnv.mjs
+
+      # copy:assets (scripts/assets.mjs) の中で唯一ネットワークから取る OCR モデル
+      # (約 21MB、配信元は中国本土で遅い) を持ち回る。複製のスタンプ
+      # (node_modules/.cache/qr-assets) は持ち回らない — npm ci が node_modules を
+      # 消すうえ、複製先の public/ はチェックアウトに無いので、スタンプが一致する
+      # ことが無い (node_modules からの複製自体は 1 秒未満)
+      - name: OCR モデルのキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: public/paddle-ocr
+          key: paddle-ocr-${{ hashFiles('scripts/assets.mjs') }}
+
+      # ビルド時のページデータ収集で db.ts が import されるためダミー URL を渡す
+      # (Dockerfile と同じ。全ページ force-dynamic なので接続は起きない)
+      - name: npm run build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://build:build@127.0.0.1:1/build
+
+  # 実 DB を叩く統合テスト (README「テスト」)。本番と同じ PGroonga 入りのイメージで、
+  # マイグレーションを当ててから流す
+  db-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      db:
+        # compose.yaml の db と同じイメージ (上げるときは両方)
+        image: groonga/pgroonga:4.0.6-alpine-16
+        env:
+          POSTGRES_USER: qr
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: qr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qr -d qr"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: npm のダウンロードキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
+      - run: npm ci
+
+      # PGroonga の索引もマイグレーション自身が張る (docs/56-チェック検索計画.md §4)
+      - run: npx prisma migrate deploy
+
+      # DATABASE_URL と RUN_DB_TESTS=1 が両方あるときだけ走るテスト
+      - name: DB 統合テスト
+        run: npx vitest run src/lib/items.test.ts src/app/api/images/images.test.ts
+        env:
+          RUN_DB_TESTS: '1'

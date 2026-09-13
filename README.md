@@ -89,6 +89,11 @@ RUN_DB_TESTS=1 DATABASE_URL=postgresql://qr:changeme@localhost:5432/qr npm test
 
 テストが作るノートは番号 `zzft` 始まりで、後始末で消す。
 
+push と PR のたびに GitHub Actions
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) が lint・typecheck・
+test・`checkDocLinks.mjs`・`checkEnv.mjs`・`npm run build` と、PGroonga の
+service container を立てた DB 統合テストを流す (配布はしない)。
+
 ### E2E (Playwright)
 
 ブラウザで画面を通すスモーク (`e2e/`。罠と書き方は
