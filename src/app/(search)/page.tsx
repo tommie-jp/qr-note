@@ -52,7 +52,7 @@ import { resolveItemListContext } from "@/lib/itemListContext";
 import { getItem } from "@/lib/items";
 import { queryHasTagTerm, queryTracksTaskProgress } from "@/lib/search";
 import { listQueries } from "@/lib/searchQueryStore";
-import { currentUser } from "@/lib/session";
+import { currentUser, requireUser } from "@/lib/session";
 import { buildItemUrl, buildSearchUrl } from "@/lib/searchUrl";
 import { qrStickerHost } from "@/lib/site";
 import { SORT_COOKIE, resolveSort } from "@/lib/sortMode";
@@ -71,6 +71,18 @@ interface HomeProps {
 }
 
 export default async function Home({ searchParams }: HomeProps) {
+  // 二重目の門番 (docs/18 §4)。proxy.ts も未ログインの画面 GET を止めるが、
+  // それは楽観的な検査であって唯一の砦にはしない (settings 系と同じ判断)。
+  // proxy を通らずにここが描かれる道もある — (search)/default.tsx が Home を
+  // 呼ぶので、proxy が素通しする /item/<番号> への横取り遷移でも children
+  // としてこの画面が描かれる。
+  //
+  // **置き場所は Home の冒頭**。固定部のタグ補完 (listTags) から DB に触るので、
+  // それより前でなければ意味がない。Suspense の後送りは崩れない — Home は
+  // もともと listTags を待ってから返すので、待つものが 1 つ前に増えるだけで、
+  // HomeResults / SearchFolders は相変わらず後から流れる。currentUser は
+  // cache() 済みなので、layout や下の枝が呼んでも照合は 1 回に畳まれる
+  await requireUser();
   const { q = "", page = "1", sort: sortParam } = await searchParams;
   const query = q.trim();
   const cookieStore = await cookies();
@@ -185,8 +197,9 @@ async function SearchFolders({
   query: string;
   sort: Sort;
 }) {
-  // ☆ 登録パターン (docs/59 §7) はユーザーごと。この画面は門番 (proxy) の
-  // 内側だが、万一の未ログインは空で受ける (ペインの他の節は個人情報でない)
+  // ☆ 登録パターン (docs/59 §7) はユーザーごと。この画面は門番 (proxy と
+  // Home 冒頭の requireUser) の内側だが、万一の未ログインは空で受ける
+  // (ペインの他の節は個人情報でない)
   const user = await currentUser();
   const [totals, trashCount, queryLists] = await Promise.all([
     countFolderTotals(),

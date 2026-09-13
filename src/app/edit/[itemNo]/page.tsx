@@ -18,6 +18,7 @@ import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items";
 import { formatBase } from "@/lib/saveBase";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
+import { requireUser } from "@/lib/session";
 import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -28,11 +29,16 @@ interface EditPageProps {
 }
 
 // Ver1 の /edit/:itemNo 相当。mode / memo / url をまとめて編集する
+//
+// proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
+// 唯一の砦にはしない (docs/18 §4)。本文を読む getItem の前に requireUser() で
+// 確かめる。
 export default async function EditPage({ params, searchParams }: EditPageProps) {
   const { itemNo } = await params;
   if (!isValidItemNo(itemNo)) {
     notFound();
   }
+  await requireUser();
   const [item, { code }] = await Promise.all([getItem(itemNo), searchParams]);
   const mode = item?.mode ?? "memo";
 
@@ -56,8 +62,8 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
   return (
     <PageTransition>
       {/* 編集画面を開いたのも「触った」に数える (docs/37-アクセス順計画.md)。
-          この画面は proxy.ts が未ログインを止める口なので、公開ノートの
-          読み手が並びを動かす心配はない */}
+          この画面は proxy.ts が未ログインを止め、上の requireUser() も
+          重ねている口なので、公開ノートの読み手が並びを動かす心配はない */}
       <RecordAccess itemNo={itemNo} action={recordAccessAction} />
       <div className="space-y-4">
         <h1 className="text-xl font-bold">

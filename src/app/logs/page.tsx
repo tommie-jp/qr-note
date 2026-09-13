@@ -5,6 +5,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs } from "@/lib/logBuffer";
+import { requireUser } from "@/lib/session";
 import { ClearLogsButton } from "./ClearLogsButton";
 import { CopyLogsButton } from "./CopyLogsButton";
 import { formatLogsForCopy, LOG_TIME_FORMAT } from "./formatLogsForCopy";
@@ -18,8 +19,10 @@ export const metadata: Metadata = {
 // ログの表示 (docs/21-ログ表示計画.md、docs/30-ブラウザログ計画.md)。
 // 書影・書誌・商品情報の取得失敗はサーバの警告にしか出ず、画像検索や OCR の
 // 失敗はブラウザの console にしか出ない。iPhone は Mac 無しでインスペクタを
-// 繋げないため、どちらもスマホから原因に届くようにする。ログインは proxy が
-// 門番 (publicPaths に無いパスは既定で閉じる)。
+// 繋げないため、どちらもスマホから原因に届くようにする。ログインは二重に
+// 見る: proxy が楽観的な門番 (publicPaths に無いパスは既定で閉じる) で、
+// ページでも requireUser() を重ねる (docs/18 §4。ログには URL や失敗の
+// 中身が載るので、proxy だけを砦にしない)。
 //
 // 読み直しはブラウザの再読み込みで足りる (ポーリングはしない。docs/21 §4)。
 
@@ -37,13 +40,14 @@ const SOURCE_BADGE: Record<string, string> = {
   browser: "bg-sky-100 text-sky-800",
 };
 
-export default function LogsPage() {
+export default async function LogsPage() {
   // デモでは /logs を閉じる (docs/38-デモモード計画.md §4)。共有アカウントでは
   // 他の訪問者の操作痕 (URL・失敗) が見えてしまうため。導線も隠すが、
   // URL 直打ちに備えてページも 404 に倒す
   if (isDemoMode()) {
     notFound();
   }
+  await requireUser();
 
   const logs = recentLogs();
 

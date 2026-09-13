@@ -16,6 +16,7 @@ import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { listTrashedItems } from "@/lib/items";
 import { buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
+import { requireUser } from "@/lib/session";
 import { resolveTrashSort, TRASH_SORT_COOKIE } from "@/lib/sortMode";
 import {
   parseViewMode,
@@ -35,7 +36,11 @@ interface TrashPageProps {
 // 表示形式と並び順は検索一覧と同じ作法で決める (docs/67-ゴミ箱表示形式計画.md):
 //   表示形式 … cookie 1 つを検索一覧と共有 (端末ごとの好み)
 //   並び順   … URL → ゴミ箱用 cookie → 既定 (削除順)
+//
+// proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
+// 唯一の砦にはしない (docs/18 §4)。ここでも requireUser() で確かめる。
 export default async function TrashPage({ searchParams }: TrashPageProps) {
+  await requireUser();
   const { sort: sortParam } = await searchParams;
   const cookieStore = await cookies();
   const sort = resolveTrashSort(
