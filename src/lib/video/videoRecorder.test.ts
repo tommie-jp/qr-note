@@ -197,7 +197,7 @@ describe('VideoRecorder', () => {
     expect(recorder.stream).not.toBeNull()
 
     const result = await recorder.stop()
-    // MemoEditorInner の isVideoFile が video/ で拾えること
+    // editor/attachmentKinds.ts の isVideoFile が video/ で拾えること
     expect(result.file.type).toBe('video/webm;codecs=vp9,opus')
     expect(result.file.name).toMatch(/^video-\d{8}-\d{6}\.webm$/)
     expect(result.file.size).toBeGreaterThan(0)

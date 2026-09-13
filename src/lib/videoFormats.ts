@@ -1,7 +1,7 @@
 // 保存・配信・表示で使う動画の**拡張子**の唯一の出どころ
 // (41-QR-search/docs/14-動画挿入計画.md)。audioFormats.ts と同じ役割で、この一覧は
 // 保存名の検算 (isValidVideoName)・表示の振り分け (MarkdownView の
-// VIDEO_SRC_RE)・挿入種別の判定 (MemoEditorInner) で要る。足し忘れは例外に
+// VIDEO_SRC_RE)・挿入種別の判定 (editor/attachmentKinds.ts) で要る。足し忘れは例外に
 // ならず黙って壊れる (その形式だけ <video> にならない) ので一覧はここ 1 つ。
 //
 // **これは「保存名の拡張子」であって「受け付ける入力形式」ではない。**

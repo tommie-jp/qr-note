@@ -99,7 +99,7 @@ export function pickMimeType(): string | undefined {
 }
 
 // 保存名の拡張子。サーバは中身を見て自分で名前を決めるので、ここで付ける
-// 拡張子は「クライアント側で動画と判る」ためのもの (MemoEditorInner の判定)。
+// 拡張子は「クライアント側で動画と判る」ためのもの (editor/attachmentKinds.ts の判定)。
 export function extensionFor(mimeType: string): string {
   if (mimeType.startsWith('video/webm')) {
     return 'webm'

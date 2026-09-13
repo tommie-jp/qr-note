@@ -258,7 +258,7 @@ function imgRenderer(
       return <VideoPlayer src={src} label={label || "video"} width={width} />;
     }
     if (cls.kind === "pdf") {
-      // alt には挿入時のファイル名が入る (MemoEditorInner の pdfAltText)。
+      // alt には挿入時のファイル名が入る (lib/editor/attachmentKinds.ts の attachmentAltText)。
       // 押すとページ内のモーダルで開く (画面遷移しないので standalone PWA でも
       // 確実にノートへ戻れる。PdfLink.tsx の冒頭に経緯)
       return <PdfLink href={src} label={alt || "PDF"} />;

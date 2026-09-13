@@ -6,7 +6,7 @@
 // ならない・OCR に回ってしまう) ので、一覧はここ 1 つにする。
 //
 // MIME の一覧はここに置かない。サーバの保存 mime (uploads/names.ts の
-// AUDIO_MIME_TO_EXT) とファイル選択ダイアログのヒント (MemoEditorInner の
+// AUDIO_MIME_TO_EXT) とファイル選択ダイアログのヒント (editor/attachmentKinds.ts の
 // ACCEPTED_AUDIO_TYPES) は**意図的に食い違わせている** — 後者は
 // audio/x-m4a のような別名まで許して選ばせ、実際の可否はサーバが中身を見て
 // 決める。無理に 1 つにすると、その遊びが失われる。

@@ -160,7 +160,7 @@ describe('AudioRecorder', () => {
     expect(recorder.isRecording).toBe(true)
 
     const result = await recorder.stop()
-    // MemoEditorInner の isAudioFile が audio/ で拾えること
+    // editor/attachmentKinds.ts の isAudioFile が audio/ で拾えること
     expect(result.file.type).toBe('audio/webm;codecs=opus')
     expect(result.file.name).toMatch(/^recording-\d{8}-\d{6}\.webm$/)
     expect(result.file.size).toBeGreaterThan(0)

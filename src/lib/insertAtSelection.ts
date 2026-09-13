@@ -3,7 +3,7 @@
 //
 // シークレットの入力ダイアログは CodeMirror ではなく素の textarea を使う
 // (平文を持つ場所を最小限にしたいので、拡張の効いたエディタを載せない)。
-// MemoEditorInner の insertText / insertBlock に相当するものを、DOM に
+// editor/cmDoc.ts の insertText / insertBlock に相当するものを、DOM に
 // 触らない形でここに持つ。
 
 export interface Insertion {
@@ -32,7 +32,7 @@ export function insertAtSelection(
 }
 
 // 1 ブロックとして差し込む。前が改行でなければ改行で始め、末尾にも改行を
-// 足して、周りの本文と行が混ざらないようにする (MemoEditorInner の
+// 足して、周りの本文と行が混ざらないようにする (editor/cmDoc.ts の
 // insertBlock と同じ作法 — 画像や引用が前の行に食い込むのを防ぐ)。
 export function insertBlockAtSelection(
   text: string,
