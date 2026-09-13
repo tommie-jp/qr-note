@@ -46,7 +46,7 @@ export async function restoreItems(itemNos: string[]): Promise<number> {
 // 二段階削除の保証はここにある (UI ではなくサーバ側で担保する)。
 // ここで初めて itemNo が解放され、新規ノートに再利用されうる。
 //
-// 戻り値は件数ではなく**実際に消えた itemNo の列**。呼び出し側 (actions.ts) が
+// 戻り値は件数ではなく**実際に消えた itemNo の列**。呼び出し側 (app/actions/trash.ts) が
 // git の墓石コミットの対象を決めるのに使う — 渡された itemNos をそのまま
 // 使うと、ゴミ箱に無くて消えなかったノートの履歴まで墓石が立ってしまう
 // (docs/57-ノートgit履歴計画.md §4)。先に SELECT してから消す間に別タブが
