@@ -13,7 +13,7 @@
 // では 1 コマも描けず、サムネ無しで保存される。
 //
 // **thumbnail.ts / videoAnim.ts (sharp) を import しないこと。** これはクライアント
-// (MemoEditorInner) から読まれるモジュールで、sharp を引き込むと Node 専用の
+// (components/editor/hooks/useAttachmentInsert.ts) から読まれるモジュールで、sharp を引き込むと Node 専用の
 // `fs` がクライアントバンドルに入って壊れる (E2E で 500 になり判明)。サーバは
 // 受け取った絵を作り直す (poster は makeThumbnail、コマは makeVideoAnim) ので、
 // ここの縮小は「送信量を抑える前処理」でよく、寸法を厳密に揃える必要はない。

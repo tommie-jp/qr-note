@@ -262,7 +262,7 @@ export function preloadOcr(): void {
 
 // OCR の Worker を落とし、抱えていたメモリを OS へ返す。
 //
-// 編集画面を離れるとき (MemoEditorInner) と、画像検索を開くとき
+// 編集画面を離れるとき (editor/hooks/useEditorOcr.ts) と、画像検索を開くとき
 // (ImageSearchModal) に呼ぶ。**terminate は realm ごと捨てる**ので、
 // OpenCV と onnxruntime が確保した wasm ヒープがまるごと返る
 // (SDK の dispose() では縮まなかった。冒頭のコメント参照)。

@@ -44,7 +44,7 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
   const inFlightRef = useRef(false);
 
   // OCR の Worker を落としてメモリを空ける。編集画面の unmount でも落として
-  // いる (MemoEditorInner) が、そちらに頼り切ると「落とされないまま来た」経路が
+  // いる (editor/hooks/useEditorOcr.ts) が、そちらに頼り切ると「落とされないまま来た」経路が
   // 1 つでもあれば元のメモリ不足がそのまま再現する。メモリを必要とする側が
   // 自分で要求しておく。
   //

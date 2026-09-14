@@ -17,7 +17,7 @@ import { tableBlocks } from "./tableBlocks";
 
 // 拡張の入れ替え口。**配列ごと差し替えない**のが要点 —
 // @uiw/react-codemirror は extensions の**参照**が変わるたびに拡張一式を
-// 組み直すので (MemoEditorInner の BASIC_SETUP のコメント)、トグルのたびに
+// 組み直すので (hooks/useEditorExtensions.ts の BASIC_SETUP のコメント)、トグルのたびに
 // エディタ全体が再構成されてしまう。Compartment なら参照を保ったまま
 // 中身だけ入れ替えられる。
 //

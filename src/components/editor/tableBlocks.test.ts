@@ -8,7 +8,7 @@ import { buildTableBlocks } from "./tableBlocks";
 
 const TABLE = "| 名前 | 数量 |\n| --- | ---: |\n| りんご | 3 |";
 
-// MemoEditorInner と同じ設定 (GFM。既定の CommonMark では Table が出ない)
+// hooks/useEditorExtensions.ts と同じ設定 (GFM。既定の CommonMark では Table が出ない)
 function stateWith(doc: string, anchor: number, head = anchor): EditorState {
   return EditorState.create({
     doc,

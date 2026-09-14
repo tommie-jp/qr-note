@@ -38,7 +38,8 @@ PWA としてホーム画面から起動できるようになったが、中身�
 
 - form の子コンポーネントでないと `useFormStatus` が効かないため、
   ボタンだけ client component に分ける (ページは server component のまま)
-- MemoEditorInner の「アップロード中は送信ブロック」とは独立に共存する
+- MemoEditorInner の「アップロード中は送信ブロック」(当時のパス。現在は
+  `src/components/editor/hooks/useSubmitBlocker.ts`) とは独立に共存する
   (あちらは submit イベントの preventDefault、こちらは action 実行中の表示)
 
 ### 1-2. リンク遷移の pending 表示

@@ -119,7 +119,7 @@ export function firstMatchFrom(
 
 // 置換後の本文が上限を超えるか。
 //
-// **超える変更は changeFilter (MemoEditorInner) に黙って捨てられる**ので、
+// **超える変更は changeFilter (hooks/useEditorExtensions.ts) に黙って捨てられる**ので、
 // 押したのに何も起きない状態になる。組む前にここで判る
 function exceedsLimit(state: EditorState, delta: number): boolean {
   return state.doc.length + delta > MAX_TEXT_LENGTH;

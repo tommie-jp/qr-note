@@ -16,7 +16,7 @@
 //     `$$` で終わって以降の本文が消える
 //
 // このモジュールは "use client" も react も react-markdown も持たない葉に
-// しておくこと — notePages.ts は編集画面 (MemoEditorInner) からも読まれるので、
+// しておくこと — notePages.ts は編集画面 (editor/hooks/useEditorCommands.ts) からも読まれるので、
 // markdownPipeline.tsx (react-markdown 一式) を経由させるとクライアントの束に
 // それが降る。
 //

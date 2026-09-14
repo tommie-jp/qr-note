@@ -219,7 +219,7 @@ test.each(["mp3", "m4a", "wav", "webm"])("%s も <audio> にする", (ext) => {
   expect(html).toContain("<audio");
 });
 
-// 録音は alt に日時を残す (MemoEditorInner の recordingAltText)。
+// 録音は alt に日時を残す (editor/hooks/useEditorRecordings.ts が付ける recordingAltText)。
 // alt が "audio" でなくても振り分けは src の拡張子で決まる
 test("録音の画像記法 (alt が録音日時) も <audio> にする", () => {
   const html = render("![録音 2026-07-20 14:03:09](/api/images/abc.webm)");

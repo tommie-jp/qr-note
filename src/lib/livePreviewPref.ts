@@ -4,7 +4,7 @@
 // 隠したいはずで、ノートごとに覚えると開くたびに表示が変わって落ち着かない。
 //
 // memoDraft.ts と同じ流儀で、Storage は引数で受ける純関数だけを置く
-// (effect の結線は MemoEditorInner 側)。読み書きの例外の扱いは prefs/storagePref.ts。
+// (結線は components/editor/hooks/useLivePreview.ts と useEditorExtensions.ts 側)。読み書きの例外の扱いは prefs/storagePref.ts。
 
 import 'client-only'
 import { defineBooleanPref, type PrefStorage } from './prefs/storagePref'

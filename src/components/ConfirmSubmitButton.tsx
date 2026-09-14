@@ -18,7 +18,7 @@ interface ConfirmSubmitButtonProps {
 //
 // preventDefault で送信そのものを止める。React の form action は
 // defaultPrevented なら action を実行しないため、これでサーバーへ行かない
-// (MemoEditorInner のアップロード中ブロックと同じ仕掛け)。
+// (editor/hooks/useSubmitBlocker.ts のアップロード中ブロックと同じ仕掛け)。
 export function ConfirmSubmitButton({
   children,
   confirmMessage,

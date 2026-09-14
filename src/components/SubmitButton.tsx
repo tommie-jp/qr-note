@@ -23,7 +23,7 @@ interface SubmitButtonProps {
   icon?: ReactNode;
   // 与えると type="button" になり、押したときにこれを呼ぶ。portal で DOM が
   // form の外に出る置き場 (下部バー) では submit の DOM 関連付けが効かないので、
-  // 呼ぶ側が form.requestSubmit() を明示的に呼ぶ (MemoEditorInner から渡す)。
+  // 呼ぶ側が form.requestSubmit() を明示的に呼ぶ (editor/hooks/useSubmitBlocker.ts の submitForm を渡す)。
   // 無ければ素の type="submit"
   onClick?: () => void;
 }
@@ -35,7 +35,7 @@ interface SubmitButtonProps {
 // ページ (Server Component) からこのボタンだけを client component に切り出す。
 // disabled が二重送信も止める。
 //
-// MemoEditorInner の「アップロード中は submit を preventDefault」とは独立に動く。
+// editor/hooks/useSubmitBlocker.ts の「アップロード中は submit を preventDefault」とは独立に動く。
 // React の form action は defaultPrevented なら action を実行しないため、
 // ブロックされた送信でここが pending のまま固まることはない。
 //

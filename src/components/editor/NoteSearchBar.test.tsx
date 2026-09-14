@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import { NoteSearchBar, type NoteSearchBarProps } from "./NoteSearchBar";
 
 // 帯の見た目 (docs/76-ノート内検索計画.md §2)。押した後の動きは
-// MemoEditorInner が持つので、ここで見るのは「何が出るか / 押せるか」だけ。
+// hooks/useNoteFind.ts が持つので、ここで見るのは「何が出るか / 押せるか」だけ。
 
 const noop = () => {};
 

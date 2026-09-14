@@ -97,7 +97,7 @@ const highlightTheme = EditorView.baseTheme({
 // キーボードとスクロールから React 側を呼ぶ口。
 //
 // **中身を後から差し替えられる可変オブジェクト**にしてある。拡張は編集画面に
-// つき一度しか組まない (MemoEditorInner の useMemo) ので、その場の関数を
+// つき一度しか組まない (hooks/useEditorExtensions.ts の useMemo) ので、その場の関数を
 // 直接渡すと「マウント時の state を見る関数」を永久に掴んだままになる。
 // livePreviewCompartment と同じ「拡張と寿命を揃える」置き方 — 作るのは
 // 拡張を組む場で、書き換えるのは描画のたびの effect。
@@ -158,7 +158,7 @@ function noteSearchExtension(hooks: NoteSearchHooks): Extension {
     highlightTheme,
     EditorView.scrollMargins.of(() => ({ bottom: hooks.bottomMargin() })),
     // 標準の検索キーマップ (searchKeymap) は basicSetup 側で切ってある
-    // (MemoEditorInner の BASIC_SETUP)。**切らないと標準パネルが開く経路が
+    // (hooks/useEditorExtensions.ts の BASIC_SETUP)。**切らないと標準パネルが開く経路が
     // 残る** — F3 / Ctrl+G は検索語が無いとき openSearchPanel へ落ちる作りで、
     // 帯とパネルが同時に出た状態になる。ここで同じ鍵を全部引き受ける。
     // Prec.high … 他の拡張 (補完・括弧) より先に見てもらう

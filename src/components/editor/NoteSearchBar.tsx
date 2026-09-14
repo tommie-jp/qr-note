@@ -19,7 +19,7 @@ import type { NoteSearchNote } from "./noteSearch";
 // 下部バーの差し込み口へ portal されて、開いている間は編集ツールバーと
 // **入れ替わる**。並べると帯が 2 段になり、狭い画面で本文が潰れるため。
 //
-// 状態は持たない (MemoEditorInner が持つ) — 検索語を CodeMirror へ渡すのも
+// 状態は持たない (hooks/useNoteFind.ts が持つ) — 検索語を CodeMirror へ渡すのも
 // 一致を数えるのも向こうの仕事で、ここは受け取って描くだけ。EditToolbar と
 // 同じ役割分担。
 

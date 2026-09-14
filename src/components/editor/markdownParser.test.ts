@@ -14,7 +14,7 @@ import { describe, expect, test } from "vitest";
 // 実際、ライブプレビューのチェックボックスがウィジェットにならず、
 // 実機で見て初めて判った。ここで構文木の中身として固定しておく。
 
-// MemoEditorInner が組んでいるものと同じ設定
+// hooks/useEditorExtensions.ts が組んでいるものと同じ設定
 function nodeNames(doc: string): Set<string> {
   const state = EditorState.create({
     doc,

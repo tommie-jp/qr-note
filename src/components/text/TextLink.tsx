@@ -5,7 +5,7 @@ import { TextViewerModal } from "./TextViewerModal";
 
 interface TextLinkProps {
   href: string;
-  // 挿入時のファイル名 (MemoEditorInner の attachmentAltText)。表示名に使う
+  // 挿入時のファイル名 (lib/editor/attachmentKinds.ts の attachmentAltText)。表示名に使う
   label: string;
 }
 

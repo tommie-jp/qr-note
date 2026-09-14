@@ -126,7 +126,7 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
   正規化表 (`src/lib/ocr/normalizeJapanese.ts`)。Web Worker は未 (下記)
 - **Phase 2: 挿入時 OCR (実装済み)** — 画像挿入後にプレースホルダを差し込み、
   `ocrImageToQuote` で認識 → 引用ブロックに置換。処理中/初回 UI、
-  0 文字・失敗時のメッセージ (`MemoEditorInner.tsx`)
+  0 文字・失敗時のメッセージ (`MemoEditorInner.tsx`。当時のパス。現在は `src/components/editor/hooks/useEditorOcr.ts`)
 - **Phase 3: 後から OCR (実装済み)** — ツールバー「画像をOCR」ボタン。
   カーソル近傍の自前画像を取り直して OCR (Phase 2 と同一関数 `ocrIntoDoc`)
 
@@ -240,7 +240,8 @@ realm ごと捨てるのが**唯一メモリを OS へ返す方法**なので、
 抱えて要求と応答を対応づけるだけ) にした。
 
 - `disposeOcr()` は `worker.terminate()`。呼ぶのは編集画面の unmount
-  (`MemoEditorInner`) と、**画像検索モーダルを開いた時点** (`ImageSearchModal`)。
+  (`MemoEditorInner`。当時のパス。現在は `editor/hooks/useEditorOcr.ts`)
+  と、**画像検索モーダルを開いた時点** (`ImageSearchModal`)。
   後者は「落とされないまま来た」経路が 1 つでもあれば元の症状が出るので、
   メモリを要る側からも要求しておく保険。`ImageSearchModal` では
   **`useImageEmbedder` より前**に置くこと (effect は登録順に走るので、後ろだと

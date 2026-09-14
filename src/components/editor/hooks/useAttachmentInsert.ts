@@ -108,7 +108,7 @@ async function fitToLimit(file: File, allowShrink: boolean): Promise<File> {
 
 // ペースト/ドロップで添付を拾う CodeMirror の口。
 //
-// 拡張は編集画面につき一度しか組まない (MemoEditorInner の useMemo) ので、ここで
+// 拡張は編集画面につき一度しか組まない (useEditorExtensions) ので、ここで
 // 掴む関数は**最新を ref から読む**。描画のたびに作り直される insertFiles を
 // そのまま閉じ込めると、拡張を組んだ時点の関数を永久に使い続けることになる
 // (かつては useMemo の依存から外して lint 警告 1 件を抱えていた)

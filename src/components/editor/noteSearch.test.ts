@@ -202,7 +202,7 @@ function runUndo(state: EditorState): EditorState {
 describe("canUndoReplace", () => {
   const query = buildQuery("抵抗", "レジスタ", false);
 
-  // MemoEditorInner.replaceAll と同じ形 (1 トランザクションにまとめる)
+  // hooks/useNoteFind.ts の replaceAll と同じ形 (1 トランザクションにまとめる)
   const replaceAll = (state: EditorState): EditorState =>
     state.update({
       changes: planReplaceAll(state, query).changes,
