@@ -5,7 +5,7 @@ import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import { LoginButton } from "@/components/LoginButton";
 import { QrIcon } from "@/components/icons";
 import { NoteBody } from "@/components/NoteBody";
-import { MemoPanel } from "@/components/MemoPanel";
+import { MemoPanel } from "@/components/editor/MemoPanel";
 import { PendingLink } from "@/components/PendingLink";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { planCircuits } from "@/lib/circuit/cache";

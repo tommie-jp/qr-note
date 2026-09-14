@@ -9,8 +9,8 @@ import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useBottomBarSlot } from "@/components/bottombar/BottomBarContext";
-import type { EditToolbarEditor } from "@/components/EditToolbar";
-import { PanelActiveContext } from "@/components/PanelActiveContext";
+import type { EditToolbarEditor } from "@/components/editor/EditToolbar";
+import { PanelActiveContext } from "@/components/editor/PanelActiveContext";
 import { ACCEPTED_FILE_TYPES } from "@/lib/editor/attachmentKinds";
 import { busyReason, isEditorBusy } from "@/lib/editor/busyReason";
 import {
@@ -21,25 +21,25 @@ import {
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
-import { EditorBanners } from "./editor/EditorBanners";
-import { EditorBottomBarPortal } from "./editor/EditorBottomBarPortal";
-import { EditorModals } from "./editor/EditorModals";
-import { useAttachmentInsert } from "./editor/hooks/useAttachmentInsert";
-import { useEditorClipboard } from "./editor/hooks/useEditorClipboard";
-import { useEditorCommands } from "./editor/hooks/useEditorCommands";
-import { useEditorDrawing } from "./editor/hooks/useEditorDrawing";
+import { EditorBanners } from "./EditorBanners";
+import { EditorBottomBarPortal } from "./EditorBottomBarPortal";
+import { EditorModals } from "./EditorModals";
+import { useAttachmentInsert } from "./hooks/useAttachmentInsert";
+import { useEditorClipboard } from "./hooks/useEditorClipboard";
+import { useEditorCommands } from "./hooks/useEditorCommands";
+import { useEditorDrawing } from "./hooks/useEditorDrawing";
 import {
   BASIC_SETUP,
   useEditorExtensions,
-} from "./editor/hooks/useEditorExtensions";
-import { useEditorHistory } from "./editor/hooks/useEditorHistory";
-import { useEditorOcr } from "./editor/hooks/useEditorOcr";
-import { useEditorRecordings } from "./editor/hooks/useEditorRecordings";
-import { useEditorScanInsert } from "./editor/hooks/useEditorScanInsert";
-import { useEditorSecret } from "./editor/hooks/useEditorSecret";
-import { useLivePreview } from "./editor/hooks/useLivePreview";
-import { useNoteFind } from "./editor/hooks/useNoteFind";
-import { useSubmitBlocker } from "./editor/hooks/useSubmitBlocker";
+} from "./hooks/useEditorExtensions";
+import { useEditorHistory } from "./hooks/useEditorHistory";
+import { useEditorOcr } from "./hooks/useEditorOcr";
+import { useEditorRecordings } from "./hooks/useEditorRecordings";
+import { useEditorScanInsert } from "./hooks/useEditorScanInsert";
+import { useEditorSecret } from "./hooks/useEditorSecret";
+import { useLivePreview } from "./hooks/useLivePreview";
+import { useNoteFind } from "./hooks/useNoteFind";
+import { useSubmitBlocker } from "./hooks/useSubmitBlocker";
 
 export interface MemoEditorInnerProps {
   value: string;

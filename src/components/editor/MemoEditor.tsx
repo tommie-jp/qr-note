@@ -18,7 +18,7 @@ import {
 import { draftStorageKey, loadDraft } from "@/lib/prefs/memoDraft";
 import { BASE_NEW } from "@/lib/editor/saveBase";
 import type { ConflictServerNote } from "@/lib/editor/saveState";
-import { useDraftAutosave } from "./editor/hooks/useDraftAutosave";
+import { useDraftAutosave } from "./hooks/useDraftAutosave";
 import { SaveFormContext } from "./NoteSaveForm";
 import { SaveConflictBanner } from "./SaveConflictBanner";
 import {
@@ -26,7 +26,7 @@ import {
   BUSY_SPINNER_CLASS,
   MEMO_INPUT_CLASS,
   SECONDARY_BUTTON_CLASS,
-} from "./ui";
+} from "../ui";
 import {
   type PrefillKind,
   type PrefillStatus,

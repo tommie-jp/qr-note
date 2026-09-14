@@ -142,6 +142,10 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
 | `scripts/copyOnnxWasm.mjs` | ort wasm を自前配布 | — |
 | `scripts/fetchPaddleOcrModels.mjs` | 認識モデルを自前配布 | — |
 
+表のパスは当時のパス。現在は次のとおり。
+
+- `src/components/MemoEditorInner.tsx` → `src/components/editor/MemoEditorInner.tsx`
+
 検証済み: 型チェック・eslint・`next build`・ユニットテスト (801 通過)。
 
 **実機 E2E (2026-07-18)**: dev サーバ + Playwright で編集画面に画像を注入し、

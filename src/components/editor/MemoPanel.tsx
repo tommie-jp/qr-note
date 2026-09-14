@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { PanelActiveContext } from "@/components/PanelActiveContext";
+import { PanelActiveContext } from "@/components/editor/PanelActiveContext";
 
 type MemoMode = "markdown" | "text" | "edit";
 

@@ -18,9 +18,9 @@ import {
   QrIcon,
 } from "@/components/icons";
 import { NoteBody } from "@/components/NoteBody";
-import { MemoPanel } from "@/components/MemoPanel";
-import { MemoEditor } from "@/components/MemoEditor";
-import { NoteSaveForm } from "@/components/NoteSaveForm";
+import { MemoPanel } from "@/components/editor/MemoPanel";
+import { MemoEditor } from "@/components/editor/MemoEditor";
+import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
 import { NotePageModeToggle } from "@/components/NotePageModeToggle";
 import { splitPages } from "@/components/notePages";
 import { OfflinePinToggle } from "@/components/item/OfflinePinToggle";
@@ -29,7 +29,7 @@ import { PressTip } from "@/components/item/row-actions/PressTip";
 import { PublicToggle } from "@/components/item/PublicToggle";
 import { SavedToast } from "@/components/SavedToast";
 import { TrashedBanner } from "@/components/TrashedBanner";
-import { UnsavedGuard } from "@/components/UnsavedGuard";
+import { UnsavedGuard } from "@/components/editor/UnsavedGuard";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { planCircuits } from "@/lib/circuit/cache";

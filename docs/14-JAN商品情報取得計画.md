@@ -96,7 +96,8 @@ Client ID は `YAHOO_SHOPPING_APP_ID` としてサーバの環境変数に置き
 - `useBookPrefill.ts` … fetch 先と文言以外は商品でも完全に同じなので、
   コード種別を受け取る形に一般化する (`usePrefill({ kind, code, ... })`)。
   フックは複製しない
-- `MemoEditor.tsx` … `isbn` prop を
+- `MemoEditor.tsx` (当時のパス。現在は `src/components/editor/MemoEditor.tsx`) … `isbn`
+  prop を
   `prefill?: { kind: 'book' | 'product'; code: string }` に一般化。
   取得中の文言は種別で出し分ける (「商品情報を取得中…」)
 - `edit/[itemNo]/page.tsx` … `isIsbn` → 書籍、それ以外で `isJan` → 商品、の分岐

@@ -8,7 +8,7 @@ import type { EditorScanInsert } from "./hooks/useEditorScanInsert";
 import type { EditorSecret } from "./hooks/useEditorSecret";
 
 // fabric 一式は重いので、お絵かきを開くまで読み込まない
-// (CodeMirror を遅延させているのと同じ流儀。MemoEditor.tsx 参照)
+// (CodeMirror を遅延させているのと同じ流儀。components/editor/MemoEditor.tsx 参照)
 const DrawModal = dynamic(() => import("@/components/draw/DrawModal"), {
   ssr: false,
   loading: () => null,

@@ -4,7 +4,7 @@ import type { Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { useLatest } from "@/components/hooks/useLatest";
-import { uploadImageWithProgress } from "@/components/uploadImageXhr";
+import { uploadImageWithProgress } from "@/components/editor/uploadImageXhr";
 import {
   attachmentAlt,
   attachmentKind,

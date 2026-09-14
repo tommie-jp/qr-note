@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { restoreNoteVersionAction } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
-import { NoteDiffView } from "@/components/NoteDiffView";
+import { NoteDiffView } from "@/components/editor/NoteDiffView";
 import { PageTransition } from "@/components/PageTransition";
 import { ACTION_LINK_CLASS, SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";

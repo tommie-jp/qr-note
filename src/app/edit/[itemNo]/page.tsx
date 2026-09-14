@@ -5,14 +5,14 @@ import {
   updateItemAction,
 } from "@/app/actions";
 import { AttributionFooter } from "@/components/AttributionFooter";
-import { EditItemFields } from "@/components/EditItemFields";
+import { EditItemFields } from "@/components/editor/EditItemFields";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
-import { MemoEditor } from "@/components/MemoEditor";
-import { NoteSaveForm } from "@/components/NoteSaveForm";
+import { MemoEditor } from "@/components/editor/MemoEditor";
+import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
 import { PageTransition } from "@/components/PageTransition";
 import { RecordAccess } from "@/components/item/RecordAccess";
 import { TrashedBanner } from "@/components/TrashedBanner";
-import { UnsavedGuard } from "@/components/UnsavedGuard";
+import { UnsavedGuard } from "@/components/editor/UnsavedGuard";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/auth/pageGuard";

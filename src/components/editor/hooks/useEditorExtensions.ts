@@ -13,8 +13,8 @@ import {
   type NoteSearchController,
 } from "@/components/editor/noteSearchHighlight";
 import { quizLinter } from "@/components/editor/quizLinter";
-import { fenceLanguageCompletion } from "@/components/fenceCompletion";
-import { fenceLanguageLinter } from "@/components/fenceLinter";
+import { fenceLanguageCompletion } from "@/components/editor/fenceCompletion";
+import { fenceLanguageLinter } from "@/components/editor/fenceLinter";
 import { loadLivePreviewPref } from "@/lib/prefs/livePreview";
 import { browserStorage } from "@/lib/prefs/storagePref";
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
@@ -101,7 +101,7 @@ export function useEditorExtensions({
       // 一瞬だけ生記法が見える瞬間も無くなる。
       //
       // 描画中に localStorage を読むことになるが、この部品は ssr: false で
-      // 読み込まれる (MemoEditor.tsx) ので hydration はずれない
+      // 読み込まれる (components/editor/MemoEditor.tsx) ので hydration はずれない
       livePreviewCompartment.of(
         livePreviewContent(loadLivePreviewPref(browserStorage())),
       ),

@@ -1,6 +1,6 @@
 // `POST /api/images` の応答 (共通エンベロープ `{success, data, error}`) を
 // 解釈して画像 URL を取り出す。XHR 側の薄いグルーからロジックだけを分けて
-// 単体テストできるようにする (uploadImageXhr.ts)。
+// 単体テストできるようにする (components/editor/uploadImageXhr.ts)。
 //
 // 失敗は例外で返す。成功したのに url が無い応答も「失敗」に倒す —
 // undefined をそのまま通すと本文に `![](undefined)` が入ってしまい、

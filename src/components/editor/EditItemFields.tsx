@@ -4,7 +4,7 @@ import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { ADOPT_SERVER_EVENT, type AdoptServerDetail } from "@/lib/editor/editorEvents";
 import { MAX_TEXT_LENGTH, type Mode } from "@/lib/validation";
 import { SaveFormContext } from "./NoteSaveForm";
-import { MEMO_INPUT_CLASS } from "./ui";
+import { MEMO_INPUT_CLASS } from "../ui";
 
 interface EditItemFieldsProps {
   defaultUrl: string;

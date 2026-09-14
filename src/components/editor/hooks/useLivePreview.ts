@@ -26,7 +26,7 @@ export function useLivePreview({
   editorRef: EditorRef;
   compartment: Compartment;
 }): LivePreview {
-  // この部品は ssr: false で読み込まれる (MemoEditor.tsx) ので、初期値を
+  // この部品は ssr: false で読み込まれる (components/editor/MemoEditor.tsx) ので、初期値を
   // localStorage から同期に読んでも hydration はずれない
   // (触れない環境では既定で動く。例外の扱いは prefs/storagePref.ts)
   const [livePreview, setLivePreview] = useState(() =>

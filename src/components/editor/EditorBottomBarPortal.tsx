@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { EditToolbar, type EditToolbarEditor } from "@/components/EditToolbar";
+import { EditToolbar, type EditToolbarEditor } from "@/components/editor/EditToolbar";
 import { NoteSearchBar } from "./NoteSearchBar";
 import type { NoteFind } from "./hooks/useNoteFind";
 
