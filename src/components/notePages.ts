@@ -9,7 +9,7 @@ import { memoSummary } from "@/lib/markdown/memoSummary";
 //
 // **区切りの判定は remark に任せる**。自前の `/^-{3,}$/` では、段落の直後の
 // 罫線 (`赤LED` + `------` = setext 見出しの下線) まで区切りに見えて、
-// 表が真っ二つになる。circuitFences.ts が正規表現ではなく remark を使うのと
+// 表が真っ二つになる。circuit/fences.ts が正規表現ではなく remark を使うのと
 // 同じ理由で、**表示側と必ず同じ解釈にする**。
 //
 // 解析は描画と**同じプラグイン列**で読む (lib/markdown/parser.ts の

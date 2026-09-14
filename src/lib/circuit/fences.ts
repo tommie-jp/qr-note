@@ -5,8 +5,8 @@ import {
   type CircuitLang,
   circuitKey,
   isCircuitLang,
-} from './markdown/fenceLanguages'
-import { extractFences, uniqueBy } from './markdown/extractFences'
+} from '../markdown/fenceLanguages'
+import { extractFences, uniqueBy } from '../markdown/extractFences'
 
 // 回路フェンスまわりの定義は fenceLanguages に集約 (client も読む葉モジュール)。
 // 本文の解析が要る呼び出し側は、remark を抱えたこちらから一式を受け取れる

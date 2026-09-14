@@ -1,8 +1,8 @@
 // 回路図 SVG キャッシュの主キーと、出力 SVG の検査 (docs/93-リファクタリング計画.md §2-2)。
 //
-// 描画の本体 (circuitikz.ts) から切り出した純粋関数だけを置く。あちらは
+// 描画の本体 (circuit/circuitikz.ts) から切り出した純粋関数だけを置く。あちらは
 // node:child_process で TeX を起動するので、鍵を計算したいだけの読み手
-// (circuitThumbs.ts・offline/syncItems.ts) まで子プロセスの
+// (circuit/thumbs.ts・offline/syncItems.ts) まで子プロセスの
 // 起動部を抱え込まないようにする。**このファイルに child_process や prisma を
 // 足さないこと** (node:crypto だけを使う)
 
@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto'
 import { CircuitRenderError } from './renderError'
 
 // キャッシュキーに混ぜるレンダラの版。
-// node-tikzjax の更新やプリアンブル (circuitikz.ts) の変更で出力が変わったら手で上げる
+// node-tikzjax の更新やプリアンブル (circuit/circuitikz.ts) の変更で出力が変わったら手で上げる
 // (上げ忘れると古い SVG が返り続ける)
 export const RENDERER_VERSION = 'tikzjax-1.0.5-2'
 

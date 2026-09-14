@@ -6,7 +6,7 @@
 //
 // DB もセッションも持ち込まない葉モジュールにしておく。取り出した文字列が
 // そのまま描画結果の鍵になるので、その一致を DB 無しでテストしたい
-// (healthFences.ts の冒頭コメント)
+// (health/healthFences.ts の冒頭コメント)
 
 import type { Code, Root } from 'mdast'
 import remarkParse from 'remark-parse'

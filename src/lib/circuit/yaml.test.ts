@@ -7,7 +7,7 @@ const findUnique = vi.fn()
 const create = vi.fn()
 const renderCircuitDocument = vi.fn()
 
-vi.mock('./db', () => ({
+vi.mock('../db', () => ({
   prisma: {
     circuitSvg: {
       findUnique: (...a: unknown[]) => findUnique(...a),
@@ -24,7 +24,7 @@ vi.mock('./circuitikz', async (importOriginal) => {
   }
 })
 
-const { renderCircuitYaml, circuitYamlHash } = await import('./circuitYaml')
+const { renderCircuitYaml, circuitYamlHash } = await import('./yaml')
 
 // 描けるいちばん短い図
 const SOURCE = `parts:
@@ -83,7 +83,7 @@ describe('renderCircuitYaml', () => {
   })
 
   test('circuitikz フェンスと鍵がぶつからない', async () => {
-    const { circuitHash } = await import('./circuit/hash')
+    const { circuitHash } = await import('./hash')
 
     // 同じ本文でも言語が違えば別の図。版の綴りが違うので鍵も分かれる
     expect(circuitYamlHash(SOURCE)).not.toBe(circuitHash(SOURCE))
@@ -134,7 +134,7 @@ parts:
 describe('注釈を差し込んだ SVG が許可リストを通る', () => {
   test('日本語の注釈つきで仕上げても検査を通る', async () => {
     const { compileCircuit, finishSvg } = await import('circuit-fence/core')
-    const { assertSafeCircuitSvg } = await import('./circuit/hash')
+    const { assertSafeCircuitSvg } = await import('./hash')
 
     const compiled = compileCircuit(`parts:
   R1: resistor a1 a3 10k

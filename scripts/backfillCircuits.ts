@@ -1,6 +1,6 @@
 // 既存の全ノートの ```circuitikz フェンスを描画して circuit_svgs を埋める。
 //
-// 一覧の回路図サムネ (src/lib/circuitThumbs.ts) は「キャッシュを引くだけ」で
+// 一覧の回路図サムネ (src/lib/circuit/thumbs.ts) は「キャッシュを引くだけ」で
 // 描画しないため、一度も開かれていないノートの図はこれを流すまでサムネに
 // 出ない (docs/68-一覧回路図サムネ計画.md §6)。導入時に 1 回流せば、以後は
 // ノートの表示時に描かれて自然に揃う。
@@ -12,7 +12,7 @@
 //   (本番/デモへは ./doBackfill.sh circuits 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
-import { getOrRenderCircuit } from '@/lib/circuitCache'
+import { getOrRenderCircuit } from '@/lib/circuit/cache'
 import { circuitHash } from '@/lib/circuit/hash'
 import { MAX_CIRCUITS_PER_MEMO } from '@/lib/circuit/types'
 import {
@@ -20,8 +20,8 @@ import {
   type CircuitFence,
   extractCircuitFences,
   hasNoCircuitFence,
-} from '@/lib/circuitFences'
-import { circuitYamlHash, renderCircuitYaml } from '@/lib/circuitYaml'
+} from '@/lib/circuit/fences'
+import { circuitYamlHash, renderCircuitYaml } from '@/lib/circuit/yaml'
 
 // フェンス 1 つの DB 主キー。**言語ごとに版の混ぜ方が違う** (docs/91 §2)
 const hashOfFence = (fence: CircuitFence): string =>

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { circuitHash } from './circuit/hash'
-import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from './circuitFences'
+import { circuitHash } from './hash'
+import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from './fences'
 
 // DB と TeX の実描画は差し替えて、キャッシュの分岐だけを見る
 const findUnique = vi.fn()
 const create = vi.fn()
 const renderCircuit = vi.fn()
 
-vi.mock('./db', () => ({
+vi.mock('../db', () => ({
   prisma: { circuitSvg: { findUnique: (...a: unknown[]) => findUnique(...a), create: (...a: unknown[]) => create(...a) } },
 }))
 
@@ -16,7 +16,7 @@ vi.mock('./circuitikz', async (importOriginal) => {
   return { ...actual, renderCircuit: (...a: unknown[]) => renderCircuit(...a) }
 })
 
-const { getOrRenderCircuit, planCircuits, renderCircuits } = await import('./circuitCache')
+const { getOrRenderCircuit, planCircuits, renderCircuits } = await import('./cache')
 
 const SOURCE = String.raw`\begin{circuitikz}\draw (0,0) to[R=$R_1$] (2,0);\end{circuitikz}`
 const SVG = '<svg><path/></svg>'

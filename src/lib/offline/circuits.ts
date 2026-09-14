@@ -1,7 +1,7 @@
 // 持ち出した回路図を MarkdownView に渡せる形にする
 // (docs/65-オフライン対応計画.md §8)。
 //
-// 型は葉の circuit/types.ts から借りる。**circuitCache.ts から値を import しては
+// 型は葉の circuit/types.ts から借りる。**circuit/cache.ts から値を import しては
 // いけない** — あちらは prisma と node:child_process を引き込むサーバ専用の
 // module で、クライアントの束に混ざると編集画面ごと 500 になる (thumbnail.ts が
 // sharp を漏らした件と同じ落とし穴)。

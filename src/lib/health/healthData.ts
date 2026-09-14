@@ -1,6 +1,6 @@
 // ```health フェンスを折れ線のデータにする (docs/83-健康管理フェンス計画.md §5)。
 //
-// 進捗の表 (matrixData.ts) と同じ「事前計算を渡す」型。MarkdownView は同期に
+// 進捗の表 (matrix/matrixData.ts) と同じ「事前計算を渡す」型。MarkdownView は同期に
 // 描くので、非同期の集計はページ側でここを await して済ませ、結果を prop で
 // 渡す。鍵はフェンスの中身 (trim 済み) で、同じ内容のフェンスが 2 つあれば
 // 1 回の集計を共有する。
@@ -9,9 +9,9 @@ import { extractHealthSources } from './healthFences'
 import { parseHealthFence } from './healthFence'
 import type { HealthDataLine } from './healthRecords'
 import { buildHealthSeries, type HealthSeries } from './healthSeries'
-import { searchItemHealth } from './health/healthQuery'
-import { buildFenceData, sharePending } from './markdown/fenceData'
-import type { ParseCache } from './markdown/parseCache'
+import { searchItemHealth } from './healthQuery'
+import { buildFenceData, sharePending } from '../markdown/fenceData'
+import type { ParseCache } from '../markdown/parseCache'
 
 // 1 つのメモに置けるグラフの上限 (MAX_MATRICES_PER_MEMO と同じ考え方)。
 // 1 枚につき 1 クエリ走るので、上限が無いと 1 ノートで DB を殴れる。
@@ -44,7 +44,7 @@ export type HealthResult =
 // フェンスの中身 (trim 済み) → グラフ
 export type HealthMap = ReadonlyMap<string, HealthResult>
 
-// フェンスの取り出しは葉モジュール (healthFences.ts) が持つ。
+// フェンスの取り出しは葉モジュール (health/healthFences.ts) が持つ。
 // ここから re-export はしない — 消費側が置き場を直に指すほうが、
 // 「集計は DB を要る側、取り出しは要らない側」という境界が保たれる
 

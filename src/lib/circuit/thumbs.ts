@@ -10,17 +10,17 @@
 // 値を import しないこと。返り値の型 (CircuitThumbMap) は葉の
 // circuit/types.ts に置いてあり、表示側はそちらを import する
 import 'server-only'
-import { prisma } from './db'
-import { assertSafeCircuitSvg, circuitHash } from './circuit/hash'
-import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './circuit/types'
+import { prisma } from '../db'
+import { assertSafeCircuitSvg, circuitHash } from './hash'
+import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './types'
 import {
   CIRCUITIKZ_LANG,
   type CircuitFence,
   extractCircuitFences,
   hasNoCircuitFence,
-} from './circuitFences'
-import { circuitYamlHash } from './circuitYaml'
-import { firstThumbInfo } from './memoImages'
+} from './fences'
+import { circuitYamlHash } from './yaml'
+import { firstThumbInfo } from '../memoImages'
 
 // first … 小/大のサムネ用。画像サムネの無いノートに 1 枚だけ
 // all   … 画像モードのタイル用。ノートの図を全部 (画像タイルと併記)

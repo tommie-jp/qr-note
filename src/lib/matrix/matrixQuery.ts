@@ -1,5 +1,5 @@
 // 進捗の表の元データを DB から引く (docs/77-進捗マトリックス計画.md §4)。
-// 表に畳む (matrixTable.ts) のは DB 非依存の純関数で、DB を触るのはここだけ。
+// 表に畳む (matrix/matrixTable.ts) のは DB 非依存の純関数で、DB を触るのはここだけ。
 // 行の引き方と溢れの作法は items/search.ts の searchItemRows を共有する
 // (docs/93-リファクタリング計画.md §4-1)。
 import 'server-only'
@@ -7,7 +7,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { MATRIX_ROW_LIMIT } from '@/lib/items/limits'
 import { searchItemRows } from '@/lib/items/search'
 import { buildChecksWhere } from '@/lib/items/where'
-import type { MatrixSourceRow } from '@/lib/matrixTable'
+import type { MatrixSourceRow } from '@/lib/matrix/matrixTable'
 import type { Sort } from '@/lib/validation'
 
 export interface ItemChecksResult {

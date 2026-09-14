@@ -14,7 +14,7 @@
 //
 // このモジュールは react-markdown + KaTeX を引き込むサーバ専用。
 // client component からは値を import しないこと (型だけなら可。
-// circuitThumbs.ts / markdown/mathText.ts と同じ線引き)
+// circuit/thumbs.ts / markdown/mathText.ts と同じ線引き)
 
 import type { ReactNode } from "react";
 import Markdown from "react-markdown";

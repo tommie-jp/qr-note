@@ -1,7 +1,7 @@
 // 回路図の描画エラー (docs/93-リファクタリング計画.md §2-2)。
 //
-// 描画 (circuitikz.ts) と SVG の検査 (hash.ts) の両方が投げ、ルート
-// (api/circuits) と circuitCache.ts が instanceof で見分ける。検査側を
+// 描画 (circuit/circuitikz.ts) と SVG の検査 (hash.ts) の両方が投げ、ルート
+// (api/circuits) と circuit/cache.ts が instanceof で見分ける。検査側を
 // 子プロセスの起動部から切り離すため、クラスはどちらにも属さないここに置く
 
 export class CircuitRenderError extends Error {

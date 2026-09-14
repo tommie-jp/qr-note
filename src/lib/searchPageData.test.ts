@@ -27,7 +27,7 @@ vi.mock('@/lib/items/trash', () => ({
   countTrashedMatches: mocks.countTrashedMatches,
 }))
 vi.mock('@/lib/items/read', () => ({ nextItemNo: mocks.nextItemNo }))
-vi.mock('@/lib/circuitThumbs', () => ({
+vi.mock('@/lib/circuit/thumbs', () => ({
   loadCircuitThumbs: mocks.loadCircuitThumbs,
 }))
 vi.mock('@/lib/markdown/mathText', () => ({

@@ -12,7 +12,7 @@ import { TrashActionBar } from "@/components/TrashActionBar";
 import { TrashList } from "@/components/TrashList";
 import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
-import { loadCircuitThumbs } from "@/lib/circuitThumbs";
+import { loadCircuitThumbs } from "@/lib/circuit/thumbs";
 import { listTrashedItems } from "@/lib/items/trash";
 import { buildMathTexts } from "@/lib/markdown/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";

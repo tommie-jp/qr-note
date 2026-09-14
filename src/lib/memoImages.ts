@@ -89,7 +89,7 @@ function* iterThumbAttachments(
 export function firstThumbInfo(
   memo: string,
 ): { name: string; isVideo: boolean } | null {
-  // 添付 URL の気配が無い本文は stripCode ごと飛ばす (circuitThumbs.ts の
+  // 添付 URL の気配が無い本文は stripCode ごと飛ばす (circuit/thumbs.ts の
   // 足切りと同じ)。一覧は全行 (SSR + hydration + プレビュー対象判定) で
   // これを呼ぶので、大半のノートを includes 1 回で済ませる
   if (!memo.includes(IMAGE_PATH_PREFIX)) {

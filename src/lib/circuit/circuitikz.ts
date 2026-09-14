@@ -1,8 +1,8 @@
 import 'server-only'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
-import { assertSafeCircuitSvg } from './circuit/hash'
-import { CircuitRenderError } from './circuit/renderError'
+import { assertSafeCircuitSvg } from './hash'
+import { CircuitRenderError } from './renderError'
 
 // 描画の上限時間。TeX は無限ループを書けてしまい (\def\x{\x}\x)、
 // node-tikzjax 側に timeout が無いため、親が殺すまで永遠に返らない

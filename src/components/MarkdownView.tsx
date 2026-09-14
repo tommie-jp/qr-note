@@ -41,8 +41,8 @@ import {
   isCircuitLang,
 } from "@/lib/markdown/fenceLanguages";
 import type { PendingCircuitMap } from "@/lib/circuit/types";
-import type { HealthMap } from "@/lib/healthData";
-import type { MatrixMap } from "@/lib/matrixData";
+import type { HealthMap } from "@/lib/health/healthData";
+import type { MatrixMap } from "@/lib/matrix/matrixData";
 import { HealthChart } from "@/components/health/HealthChart";
 import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
 import { MatrixTable } from "@/components/matrix/MatrixTable";

@@ -94,7 +94,7 @@ const nextConfig: NextConfig = {
   },
   // node-tikzjax は TeX の core dump などを __dirname 相対で読むため、
   // バンドルせず素のパッケージのまま standalone へ運ばせる。
-  // src/lib/circuitikz.ts の _traceNodeTikzjax がこれと対で効く。
+  // src/lib/circuit/circuitikz.ts の _traceNodeTikzjax がこれと対で効く。
   //
   // 画像検索の埋め込み (docs/25-画像検索計画.md) は Node 側で transformers.js を
   // 使い、その下回りの onnxruntime-node はネイティブ addon (.node) を持つ。

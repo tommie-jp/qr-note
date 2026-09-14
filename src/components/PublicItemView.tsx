@@ -8,7 +8,7 @@ import { NoteBody } from "@/components/NoteBody";
 import { MemoPanel } from "@/components/MemoPanel";
 import { PendingLink } from "@/components/PendingLink";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
-import { planCircuits } from "@/lib/circuitCache";
+import { planCircuits } from "@/lib/circuit/cache";
 
 interface PublicItemViewProps {
   itemNo: string;

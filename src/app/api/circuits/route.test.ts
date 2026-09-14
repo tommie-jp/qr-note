@@ -38,11 +38,11 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/circuitCache', () => ({
+vi.mock('@/lib/circuit/cache', () => ({
   getOrRenderCircuit: (source: string) => mocks.renderTikz(source),
 }))
 
-vi.mock('@/lib/circuitYaml', () => ({
+vi.mock('@/lib/circuit/yaml', () => ({
   renderCircuitYaml: (source: string) => mocks.renderYaml(source),
 }))
 

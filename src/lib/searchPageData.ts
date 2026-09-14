@@ -5,7 +5,7 @@ import 'server-only'
 import { cache } from 'react'
 import { buildNotePreviews, type NotePreviewMap } from '@/components/NotePreviewThumb'
 import type { CircuitThumbMap } from '@/lib/circuit/types'
-import { loadCircuitThumbs } from '@/lib/circuitThumbs'
+import { loadCircuitThumbs } from '@/lib/circuit/thumbs'
 import { nextItemNo } from '@/lib/items/read'
 import {
   countTaskProgress,

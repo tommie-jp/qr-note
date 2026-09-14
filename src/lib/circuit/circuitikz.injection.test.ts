@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CircuitRenderError } from './circuit/renderError'
+import { CircuitRenderError } from './renderError'
 import { renderCircuit } from './circuitikz'
 
 // dvi2html の \special{dvisvgm:raw ...} は中身をエスケープせず SVG へ流し込む。
@@ -8,7 +8,7 @@ import { renderCircuit } from './circuitikz'
 // 実際に描画させたうえで弾けることを確かめる (許可リストの本番相当の検証)。
 //
 // 描画を回すので 1 本あたり 1 秒前後かかる。テストファイルは vitest の並列単位
-// なので、描画の本体 (circuitikz.render.test.ts) とは別ファイルにして同時に
+// なので、描画の本体 (circuit/circuitikz.render.test.ts) とは別ファイルにして同時に
 // 走らせる (docs/80-デプロイ再高速化計画.md §9)。
 
 // TeX の起動込みで 1 枚あたり 1〜2 秒かかるため、既定の 5 秒では足りない

@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import { HealthChart } from "./HealthChart";
-import type { HealthResult } from "@/lib/healthData";
-import { buildHealthSeries } from "@/lib/healthSeries";
+import type { HealthResult } from "@/lib/health/healthData";
+import { buildHealthSeries } from "@/lib/health/healthSeries";
 
 const AUGUST = [
   "- 2026-08-12 体重=66.8kg 体温=36.4",

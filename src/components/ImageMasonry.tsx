@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
 // 型は葉 (circuit/types.ts / markdown/mathTextTypes.ts) から取る — 取得側の
-// circuitThumbs.ts / markdown/mathText.ts はサーバ専用 module で、値の import は不可
+// circuit/thumbs.ts / markdown/mathText.ts はサーバ専用 module で、値の import は不可
 // (offline/circuits.ts と同じ線引き)
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";

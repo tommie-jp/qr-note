@@ -1,10 +1,10 @@
-import type { HealthResult } from "@/lib/healthData";
+import type { HealthResult } from "@/lib/health/healthData";
 import {
   formatMonthDay,
   splitSegments,
   type HealthAxis,
   type HealthPoint,
-} from "@/lib/healthSeries";
+} from "@/lib/health/healthSeries";
 import {
   HealthRecordForm,
   type RecordHealthHandler,

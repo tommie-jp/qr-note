@@ -1,12 +1,12 @@
 import { expect, test } from 'vitest'
-import { CircuitRenderError } from './circuit/renderError'
+import { CircuitRenderError } from './renderError'
 import { CIRCUIT_TIMEOUT_MS, renderCircuit } from './circuitikz'
 
 // 暴走した TeX を上限時間で打ち切れることの回帰テスト。**1 本きりで、丸ごと
 // CIRCUIT_TIMEOUT_MS だけ待つ**ので、他と同居させるとその待ち時間がまるまる
 // テストファイルの所要に積み上がる。vitest はファイル単位で並列化するため、
 // 独立させておけば他のテストの裏に隠れる (理由の詳しくは
-// circuitikz.render.test.ts のヘッダ / docs/80-デプロイ再高速化計画.md §9)。
+// circuit/circuitikz.render.test.ts のヘッダ / docs/80-デプロイ再高速化計画.md §9)。
 //
 // 待ち時間そのものは縮められない — 「上限時間まで待ってから確実に返る」ことが
 // 検査したい性質そのものなので、短くすると何も確かめていないことになる。

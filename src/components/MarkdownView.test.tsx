@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 import { MarkdownView } from "./MarkdownView";
 import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from "@/lib/markdown/fenceLanguages";
-import { extractHealthSources } from "@/lib/healthFences";
-import { buildHealthSeries } from "@/lib/healthSeries";
+import { extractHealthSources } from "@/lib/health/healthFences";
+import { buildHealthSeries } from "@/lib/health/healthSeries";
 
 // 画像 (ZoomableImage) が回転確定後の router.refresh() のために useRouter を
 // 呼ぶ。renderToStaticMarkup には App Router のコンテキストが無く useRouter が

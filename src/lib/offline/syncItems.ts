@@ -16,8 +16,8 @@ import {
   circuitKey,
   extractCircuitFences,
   hasNoCircuitFence,
-} from '@/lib/circuitFences'
-import { circuitYamlHash } from '@/lib/circuitYaml'
+} from '@/lib/circuit/fences'
+import { circuitYamlHash } from '@/lib/circuit/yaml'
 import { circuitHash } from '@/lib/circuit/hash'
 import {
   OFFLINE_CIRCUIT_BUDGET,
@@ -80,7 +80,7 @@ export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
 // 持ち出すノートの ```circuitikz を、描画済みのものだけ集める
 // (docs/65-オフライン対応計画.md §8)。
 //
-// **ここでは描かない。** 1 枚あたり最大 10 秒かかる TeX の描画 (circuitikz.ts の
+// **ここでは描かない。** 1 枚あたり最大 10 秒かかる TeX の描画 (circuit/circuitikz.ts の
 // CIRCUIT_TIMEOUT_MS) を同期の口に載せると、回路図を書き足した直後の同期だけが
 // 数十秒かかる — しかも待っているのは本文の同期でもある。描くのは
 //   - ノートを開いたとき (ItemView の renderCircuits)

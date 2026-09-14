@@ -91,7 +91,8 @@ YAML ソース
 
 - **プリアンブルは二重にしない**。compileCircuit の返す TeX は
   `\usepackage{circuitikz}` から `\end{document}` までの**完全な**
-  node-tikzjax 入力。circuitikz.ts の PREAMBLE / withCircuitEnvironment を
+  node-tikzjax 入力。circuitikz.ts (当時のパス。現在は `src/lib/circuit/circuitikz.ts`) の
+  PREAMBLE / withCircuitEnvironment を
   通さず、そのまま子プロセスへ渡す口を分ける。OPAMP_FONT_FIX も不要
   (circuit-fence は `op amp` を使わず `plain amp` + 手書き ± に置換済み —
   cmmib5 が無い問題を向こうも踏んでいて、回避が織り込まれている)
@@ -146,6 +147,10 @@ docs/83 (健康フェンス) が新フェンス追加の前例。同じ場所を
 表のパスは当時のパス。現在は次のとおり。
 
 - `src/lib/fenceLanguages.ts` → `src/lib/markdown/fenceLanguages.ts`
+- `src/lib/circuitFences.ts` → `src/lib/circuit/fences.ts`
+- `src/lib/circuitikz.ts` → `src/lib/circuit/circuitikz.ts`
+- `src/lib/circuitCache.ts` → `src/lib/circuit/cache.ts`
+- `src/lib/circuitThumbs.ts` → `src/lib/circuit/thumbs.ts`
 
 1 メモあたりの枚数上限 `MAX_CIRCUITS_PER_MEMO` (8 枚) は、
 2 言語の**合算**で数える — 上限の理由は「1 回の表示で走る TeX の総量」

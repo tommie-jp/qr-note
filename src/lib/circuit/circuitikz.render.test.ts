@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { CircuitRenderError } from './circuit/renderError'
+import { CircuitRenderError } from './renderError'
 import { renderCircuit } from './circuitikz'
 
 // renderCircuit の**実際に TeX を回す**ぶん。純粋関数のテストは circuit/hash.test.ts。
 //
 // ファイルを分けているのは速さのため。vitest は forks プールで**ファイル単位に**
 // 並列化するので、1 ファイルに置くと 1 プロセスの中で直列に流れる。しかも
-// node-tikzjax はモジュール状態を持ち、同一プロセス内では circuitikz.ts の
+// node-tikzjax はモジュール状態を持ち、同一プロセス内では circuit/circuitikz.ts の
 // enqueue が呼び出しを 1 本の鎖に繋ぐため、**同じファイルにある限り絶対に
 // 重ならない**。ファイルを分ければプロセスが分かれ、そのまま同時に走る。
 //

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { extractCircuitFences, extractCircuitSources } from './circuitFences'
+import { extractCircuitFences, extractCircuitSources } from './fences'
 
 describe('extractCircuitSources', () => {
   test('extracts a circuitikz fence', () => {

@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import { MatrixTable } from "./MatrixTable";
-import type { MatrixResult } from "@/lib/matrixData";
-import type { MatrixTableData } from "@/lib/matrixTable";
+import type { MatrixResult } from "@/lib/matrix/matrixData";
+import type { MatrixTableData } from "@/lib/matrix/matrixTable";
 
 const TABLE: MatrixTableData = {
   kind: "checks",

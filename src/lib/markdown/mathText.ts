@@ -5,12 +5,12 @@
 // markdown を描かずプレーンテキストに畳んでいる (memoSummary / memoPreview)。
 // そのテキストに残る $...$ だけをここで KaTeX に通し、地の文はエスケープして
 // HTML 文字列に組み立てる。表示側 (MathText.tsx) は埋め込むだけ —
-// 回路図サムネ (circuitThumbs.ts + CircuitThumb.tsx) と同じ型。
+// 回路図サムネ (circuit/thumbs.ts + CircuitThumb.tsx) と同じ型。
 //
 // このモジュールはサーバ専用にする (katex ~280KB をクライアント束に入れない)。
 // client component からは値を import しないこと。返り値の型 (MathTextMap) は
 // 葉の markdown/mathTextTypes.ts に置いてあり、表示側はそちらを import する
-// (circuitThumbs.ts と同じ線引き)
+// (circuit/thumbs.ts と同じ線引き)
 import katex from 'katex'
 import { escapeHtml } from './escapeHtml'
 import { KATEX_OPTIONS } from './katexOptions'
@@ -71,7 +71,7 @@ export function renderInlineMathHtml(text: string): string | null {
   return html.length > MAX_MATH_HTML_CHARS ? null : html
 }
 
-// 一覧に必要な列だけに絞る (circuitThumbs.ts と同じ)
+// 一覧に必要な列だけに絞る (circuit/thumbs.ts と同じ)
 type MathSource = { itemNo: string; memo: string; mode: string }
 
 // ページ内アイテムのタイトル (と mode='both' ならプレビュー) の数式を

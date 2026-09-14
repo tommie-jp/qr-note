@@ -1,6 +1,6 @@
 // circuitikz を SVG に描く子プロセス。1 リクエストだけ処理して終了する。
 //
-// 親 (src/lib/circuitikz.ts) から fork される。ここを別プロセスに切り離すのは
+// 親 (src/lib/circuit/circuitikz.ts) から fork される。ここを別プロセスに切り離すのは
 // 2 つの理由による:
 //   1. TeX の無限ループ (\def\x{\x}\x) は tex2svg では止められず、
 //      外から SIGKILL する以外に停止手段が無い

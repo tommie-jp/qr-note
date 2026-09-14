@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { readItemNo } from '@/lib/actionForm'
-import { renderCircuits } from '@/lib/circuitCache'
+import { renderCircuits } from '@/lib/circuit/cache'
 import { getItem } from '@/lib/items/read'
 import { setItemOfflinePin } from '@/lib/items/flags'
 import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'

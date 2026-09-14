@@ -8,7 +8,7 @@
 //   - mermaid … mermaid.render() がブラウザで SVG 文字列を返すので直接呼ぶ
 //   - circuitikz … 描くのはサーバ (node-tikzjax)。閲覧はページを描くサーバが
 //     先に済ませて props で渡すが、編集画面はその結果を持っていないので
-//     /api/circuits に投げて受け取る (lib/circuitFetch.ts)
+//     /api/circuits に投げて受け取る (lib/circuit/fetch.ts)
 //   - quiz … 描くのは React 部品 (QuizFence)。widget の中で createRoot して
 //     unmount まで面倒みる形になるので、まだ手を付けていない
 // quiz は生のフェンスのまま表示される (閲覧タブで見られるので困らない)。
@@ -31,7 +31,7 @@ import {
   MERMAID_LANG,
   isCircuitLang,
 } from "@/lib/markdown/fenceLanguages";
-import { fetchCircuitSvg } from "@/lib/circuitFetch";
+import { fetchCircuitSvg } from "@/lib/circuit/fetch";
 import { errorText } from "@/lib/errorMessage";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/markdown/mermaidRender";
 

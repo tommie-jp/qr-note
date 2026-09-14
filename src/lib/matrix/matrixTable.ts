@@ -5,10 +5,10 @@
 // オフライン (端末の写しも tags / taskTodo / taskDone を持つ) でも同じ関数が
 // 同じ表を作れる。特性表 (searchItemProps + buildPropsTable) と同じ役割分担。
 
-import type { ParseCache } from './markdown/parseCache'
-import { memoSummary } from './markdown/memoSummary'
+import type { ParseCache } from '../markdown/parseCache'
+import { memoSummary } from '../markdown/memoSummary'
 import { MAX_MATRIX_COLUMNS, normalizeCheckLabel } from './matrixFence'
-import { checkStates, type CheckState } from './markdown/taskCheckbox'
+import { checkStates, type CheckState } from '../markdown/taskCheckbox'
 
 // 列を省いたときに出す 1 列の見出し
 export const STATUS_COLUMN_LABEL = '状態'

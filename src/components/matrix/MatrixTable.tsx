@@ -1,12 +1,12 @@
 import Link from "next/link";
-import type { MatrixResult } from "@/lib/matrixData";
-import type { MatrixMarkSet } from "@/lib/matrixFence";
+import type { MatrixResult } from "@/lib/matrix/matrixData";
+import type { MatrixMarkSet } from "@/lib/matrix/matrixFence";
 import {
   commonTitlePrefix,
   donePercent,
   matrixCountLabel,
   type MatrixCell,
-} from "@/lib/matrixTable";
+} from "@/lib/matrix/matrixTable";
 import { buildItemUrl } from "@/lib/searchUrl";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
 

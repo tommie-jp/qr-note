@@ -32,7 +32,7 @@ interface ItemRowProps {
   footer?: ReactNode;
   // 画像サムネが無いノートの代わりの顔にする回路図
   // (docs/68-一覧回路図サムネ計画.md §3)。サーバで描画・検査済みの SVG 文字列。
-  // 一覧側 (circuitThumbs.ts) が「本文の最初に描画済みの図」を選んで降ろす。
+  // 一覧側 (circuit/thumbs.ts) が「本文の最初に描画済みの図」を選んで降ろす。
   // **画像があるノートでは使わない** — 優先順位の分岐は lib/itemRowDecor.ts の rowFace が持つ
   circuitThumb?: string;
   // 数式入りのタイトル/プレビューの KaTeX 済み HTML (docs/69-一覧数式計画.md)。

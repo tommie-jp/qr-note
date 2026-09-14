@@ -6,6 +6,6 @@
 // **並びも要る**ので配列で持つ — 表の列を本文から拾うときに初出順が、
 // 健康グラフでは同じ日付の後勝ちに文書順が要る。
 //
-// 進捗の表 (matrixTable.ts) はチェック、健康グラフ (healthRecords.ts) は
+// 進捗の表 (matrix/matrixTable.ts) はチェック、健康グラフ (health/healthRecords.ts) は
 // 記録行を入れる
 export type ParseCache<T> = Map<string, readonly T[]>

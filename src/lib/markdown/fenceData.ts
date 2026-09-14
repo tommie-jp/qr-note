@@ -1,5 +1,5 @@
 // フェンスごとの集計を「事前計算を渡す」形のマップにする骨格
-// (進捗の表 matrixData.ts と健康グラフ healthData.ts が共有する)。
+// (進捗の表 matrix/matrixData.ts と健康グラフ health/healthData.ts が共有する)。
 //
 // MarkdownView は同期に描くので、非同期の集計はページ側でここを await して
 // 済ませ、結果を prop で渡す。鍵はフェンスの中身 (trim 済み) で、

@@ -4,11 +4,11 @@ import {
   RENDERER_VERSION,
   assertSafeCircuitSvg,
   circuitHash,
-} from './circuit/hash'
-import type { CircuitResult } from './circuit/types'
+} from './hash'
+import type { CircuitResult } from './types'
 import { renderCircuitDocument } from './circuitikz'
-import { prisma } from './db'
-import { errorText } from './errorMessage'
+import { prisma } from '../db'
+import { errorText } from '../errorMessage'
 
 // 回路 YAML フェンス (docs/91-回路YAMLフェンス計画.md) の描画。
 //

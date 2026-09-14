@@ -1,23 +1,23 @@
 import 'server-only'
-import { prisma } from './db'
-import { errorText } from './errorMessage'
-import { assertSafeCircuitSvg, circuitHash } from './circuit/hash'
-import { CircuitRenderError } from './circuit/renderError'
+import { prisma } from '../db'
+import { errorText } from '../errorMessage'
+import { assertSafeCircuitSvg, circuitHash } from './hash'
+import { CircuitRenderError } from './renderError'
 import {
   type CircuitMap,
   type CircuitResult,
   MAX_CIRCUITS_PER_MEMO,
   type PendingCircuit,
   type PendingCircuitMap,
-} from './circuit/types'
+} from './types'
 import { renderCircuit } from './circuitikz'
 import {
   CIRCUITIKZ_LANG,
   type CircuitFence,
   circuitKey,
   extractCircuitFences,
-} from './circuitFences'
-import { renderCircuitYaml } from './circuitYaml'
+} from './fences'
+import { renderCircuitYaml } from './yaml'
 
 // 進行中の描画 (hash → 約束)。**同じ図を 2 度描かない**
 // (docs/85-回路図表示待ち計画.md §4)。

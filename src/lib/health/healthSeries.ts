@@ -3,7 +3,7 @@
 //
 // **DB から集計せず、ノートの本文を受け取って畳む。** 純関数なので DB 無しで
 // テストでき、オフライン (端末の写しも memo を持つ) でも同じ関数が同じ線を
-// 描ける。進捗の表 (matrixTable.ts) と同じ役割分担。
+// 描ける。進捗の表 (matrix/matrixTable.ts) と同じ役割分担。
 //
 // 「今日」を持ち込まないのもここの約束 — 期間は**いちばん新しい記録日**から
 // 遡って切る (計画 §4)。サーバの時刻・タイムゾーンに依存しないので、
@@ -11,7 +11,7 @@
 
 import { normalizeMeasureLabel } from './healthFence'
 import { healthDataLines, type HealthDataLine } from './healthRecords'
-import type { ParseCache } from './markdown/parseCache'
+import type { ParseCache } from '../markdown/parseCache'
 
 // 線を切る間隔 (日)。これより長く空いた区間は結ばない。
 // 2 週間の空白を直線で結ぶと、測っていない期間を測ったように見せてしまう

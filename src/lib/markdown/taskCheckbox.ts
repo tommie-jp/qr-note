@@ -91,7 +91,7 @@ export function countTasks(memo: string): { todo: number; done: number } {
 // 名前の付いたチェック 1 つ (docs/77-進捗マトリックス計画.md §4)
 export interface CheckState {
   // 書かれたままの名前 (前後の空白だけ落とす)。照合は
-  // normalizeCheckLabel (matrixFence.ts) を通してから行う
+  // normalizeCheckLabel (matrix/matrixFence.ts) を通してから行う
   label: string
   checked: boolean
 }

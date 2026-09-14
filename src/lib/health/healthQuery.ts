@@ -1,10 +1,10 @@
 // 健康グラフの元データを DB から引く (docs/83-健康管理フェンス計画.md §5)。
-// 集計 (healthSeries.ts) は DB 非依存の純関数で、DB を触るのはここだけ。
+// 集計 (health/healthSeries.ts) は DB 非依存の純関数で、DB を触るのはここだけ。
 // 行の引き方と溢れの作法は items/search.ts の searchItemRows を共有する
 // (docs/93-リファクタリング計画.md §4-1)。
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
-import type { HealthSourceRow } from '@/lib/healthSeries'
+import type { HealthSourceRow } from '@/lib/health/healthSeries'
 import { HEALTH_ROW_LIMIT } from '@/lib/items/limits'
 import { searchItemRows } from '@/lib/items/search'
 import { buildWhere } from '@/lib/items/where'

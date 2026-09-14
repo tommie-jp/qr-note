@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Item } from '@/generated/prisma/client'
-import { renderCircuits } from '@/lib/circuitCache'
+import { renderCircuits } from '@/lib/circuit/cache'
 import { commitNote, noteAtCommit, noteHistory, removeNotes } from '@/lib/git/notesRepo'
-import { recordMeasurement } from '@/lib/healthEdit'
+import { recordMeasurement } from '@/lib/health/healthEdit'
 import { getItem } from '@/lib/items/read'
 import { modifyMemo, saveItemIfUnchanged, upsertMemo } from '@/lib/items/write'
 import { recordItemAccess, setItemOfflinePin, setItemPublic } from '@/lib/items/flags'
@@ -116,7 +116,7 @@ vi.mock('@/lib/git/notesRepo', () => ({
   noteHistory: vi.fn(),
   removeNotes: vi.fn(),
 }))
-vi.mock('@/lib/circuitCache', () => ({ renderCircuits: vi.fn() }))
+vi.mock('@/lib/circuit/cache', () => ({ renderCircuits: vi.fn() }))
 vi.mock('@/lib/noteHistoryBackfill', () => ({ backfillAllNotes: vi.fn() }))
 
 const NOW = 1_757_808_000_000

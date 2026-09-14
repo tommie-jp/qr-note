@@ -1,7 +1,7 @@
 // 回路図まわりの型と定数だけを置く葉 (docs/93-リファクタリング計画.md §2-2)。
 //
 // **prisma も node:child_process も引き込まない。** 描画とキャッシュの本体
-// (circuitCache.ts / circuitikz.ts / circuitThumbs.ts) はサーバ専用で、
+// (circuit/cache.ts / circuit/circuitikz.ts / circuit/thumbs.ts) はサーバ専用で、
 // client component (CircuitDiagram・MarkdownView・NoteBody・OfflineNote・
 // 一覧の部品) が欲しいのはここにある型だけ。型の置き場をサーバ側の
 // module と分けておけば、クライアントは合法的にここを import できる。
@@ -12,7 +12,7 @@
 // 本文はもう待たない (planCircuits) が、際限なく並べられると 1 回の表示で
 // 数十枚ぶんの TeX が走り、本番の 2GB / 3 コアを図だけで埋めてしまう
 // (10,000 字あれば数十個書ける)。
-// 一覧サムネの取得 (circuitThumbs.ts) も同じ上限で切り、9 個目以降は
+// 一覧サムネの取得 (circuit/thumbs.ts) も同じ上限で切り、9 個目以降は
 // 「描かれない図」なので引きにも行かない。
 //
 // **2 つの回路フェンス (circuitikz / circuit) の合算で数える** (docs/91 §4)。
@@ -53,7 +53,7 @@ export type CircuitMap = ReadonlyMap<string, CircuitResult>
 // これまでどおり CircuitMap を渡せばよい
 export type PendingCircuitMap = ReadonlyMap<string, PendingCircuit>
 
-// 一覧の回路図サムネ (circuitThumbs.ts の loadCircuitThumbs が作る)。
+// 一覧の回路図サムネ (circuit/thumbs.ts の loadCircuitThumbs が作る)。
 // itemNo → インライン SVG (本文の出現順)。小/大は先頭 1 枚、画像モードは全部。
 // サーバ→クライアント境界を越える prop なので Map ではなく素の Record
 export type CircuitThumbMap = Record<string, string[]>

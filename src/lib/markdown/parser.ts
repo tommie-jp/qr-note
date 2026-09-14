@@ -20,7 +20,7 @@
 // markdownPipeline.tsx (react-markdown 一式) を経由させるとクライアントの束に
 // それが降る。
 //
-// **この列で読んでいない抽出がまだ 3 本ある** (markdown/taskCheckbox.ts・healthRecords.ts
+// **この列で読んでいない抽出がまだ 3 本ある** (markdown/taskCheckbox.ts・health/healthRecords.ts
 // は gfm だけ、extractFences.ts は素の remark-parse)。どれも数式や折りたたみ・
 // 脚注の中で拾うノードがこの列と食い違う (`$$` の中のタスクやフェンス、脚注の
 // 字下げの中のフェンス) ので、寄せると数え方・引き方が変わる。寄せるときは

@@ -7,7 +7,7 @@
 //   - 2026-08-14 体重=66.4 体温=36.5
 //
 // 行番号 (1 始まり) も返す。読むだけなら要らないが、記録欄からの追記
-// (healthEdit.ts) が「その日の行」を書き換えるのに使う — **読む側と書く側で
+// (health/healthEdit.ts) が「その日の行」を書き換えるのに使う — **読む側と書く側で
 // 同じ物差しを使う**ためにここで一緒に返す。
 //
 // **コードの中かどうかはパーサに聞く** (markdown/taskCheckbox.ts と同じ作法)。
@@ -21,8 +21,8 @@ import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
-import type { ParseCache } from './markdown/parseCache'
-import { splitLines } from './markdown/memoLines'
+import type { ParseCache } from '../markdown/parseCache'
+import { splitLines } from '../markdown/memoLines'
 
 // 1 つの測定値。label は書かれたままの綴り (照合は normalizeMeasureLabel を通す)、
 // unit は数値の後ろに書かれた単位 (`66.4kg` の `kg`。無ければ空文字)。
@@ -50,7 +50,7 @@ const DATA_LINE_RE = /^[ \t　]*(?:[-*+][ \t　]+)?(\d{4}-\d{2}-\d{2})(?:[ \t　
 // トークンの区切り (半角/全角の空白)。markdown/props.ts の TOKEN_SEPARATOR と揃える
 const TOKEN_SEPARATOR = /[\s　]+/
 
-// キーと値の区切り。全角の ＝ も認める (healthFence.ts と同じ約束)
+// キーと値の区切り。全角の ＝ も認める (health/healthFence.ts と同じ約束)
 const MEASURE_SEPARATOR = /[=＝]/
 
 // 値の先頭にある数値。全角の数字・小数点・符号も受ける。
@@ -103,7 +103,7 @@ function codeLines(memo: string): Set<number> {
 }
 
 // 記録として書ける日付か (ISO の形 + 暦にある日)。
-// 記録欄から来た日付を書く前に検めるのにも使う (healthEdit.ts)
+// 記録欄から来た日付を書く前に検めるのにも使う (health/healthEdit.ts)
 export function isRecordDate(text: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) && isRealDate(text)
 }

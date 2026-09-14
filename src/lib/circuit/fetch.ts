@@ -8,7 +8,7 @@
 // 中身をキーに覚え、進行中の約束も同じ表で共有する (同じ図が 2 つ並んでいても
 // 要求は 1 本)。
 
-import { CIRCUITIKZ_LANG, type CircuitLang, circuitKey } from './markdown/fenceLanguages'
+import { CIRCUITIKZ_LANG, type CircuitLang, circuitKey } from '../markdown/fenceLanguages'
 
 // お知らせ (docs/91)。図は描けたが思ったとおりには出ていないもの。
 // circuit フェンス (YAML) だけが持つ

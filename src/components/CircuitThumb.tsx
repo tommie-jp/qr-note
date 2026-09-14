@@ -4,7 +4,7 @@
 // そのまま埋め込むだけ。CircuitDiagram と同じくクライアント JS も
 // ローディング状態も無い。
 //
-// 取得側 (src/lib/circuitThumbs.ts) は prisma を引き込むサーバ専用 module
+// 取得側 (src/lib/circuit/thumbs.ts) は prisma を引き込むサーバ専用 module
 // なので、ここから import しないこと (型だけなら可)。
 //
 // 大きさ合わせは CSS に任せる: サーバ生成の SVG は width="222.046" のような

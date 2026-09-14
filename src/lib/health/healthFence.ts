@@ -1,12 +1,12 @@
 // ```health フェンスの設定を読む (DB 非依存の純関数。
 // docs/83-健康管理フェンス計画.md §4)。
 //
-// 文法は ```matrix (matrixFence.ts) と同じ — **1 行目は必ず検索式**として読み、
+// 文法は ```matrix (matrix/matrixFence.ts) と同じ — **1 行目は必ず検索式**として読み、
 // 2 行目以降を `キー=値` として読む。同じ見た目のフェンスが 2 通りの文法を
 // 持たないようにするため、区切り (全角 ＝ を許す)・畳み方 (キーだけ NFKC)・
 // 知らないキーはエラーにする作法まで揃えている。
 
-import { editDistance } from './markdown/fenceLanguages'
+import { editDistance } from '../markdown/fenceLanguages'
 
 // 期間の既定 (日)。BPNote の「1 か月」に当たる
 export const DEFAULT_HEALTH_DAYS = 30

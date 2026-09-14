@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { circuitHash } from './circuit/hash'
+import { circuitHash } from './hash'
 
 // DB は差し替えて、足切り・突き合わせ・予算の分岐だけを見る。
 // 描画 (renderCircuit) はこのモジュールから決して呼ばれない — 一覧は
 // 「引くだけ」の約束 (docs/68-一覧回路図サムネ計画.md §2)
 const findMany = vi.fn()
 
-vi.mock('./db', () => ({
+vi.mock('../db', () => ({
   prisma: { circuitSvg: { findMany: (...a: unknown[]) => findMany(...a) } },
 }))
 
 const { CIRCUIT_THUMB_BUDGET, MAX_CIRCUIT_THUMB_BYTES, loadCircuitThumbs } =
-  await import('./circuitThumbs')
+  await import('./thumbs')
 
 const SVG_A = '<svg><path d="M0 0"/></svg>'
 const SVG_B = '<svg><path d="M1 1"/></svg>'

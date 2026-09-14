@@ -17,7 +17,8 @@
   DB テーブルや API は作らない (タグ・チェックボックスと同じ考え方)。
 - **回路図は既存の ```` ```circuitikz ```` を quiz フェンスの直前に置く。**
   quiz フェンスの中に回路図を埋め込む案は採らない —
-  [circuitFences](../src/lib/circuitFences.ts) の走査はフェンス言語を見ており、
+  [circuitFences](../src/lib/circuitFences.ts) (当時のパス。現在は
+  `src/lib/circuit/fences.ts`) の走査はフェンス言語を見ており、
   入れ子にすると走査とキャッシュの両方に手が入る。並べるだけで見た目は足りる。
 
 ## 2. 記法

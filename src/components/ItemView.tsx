@@ -32,9 +32,9 @@ import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
-import { planCircuits } from "@/lib/circuitCache";
-import { buildHealthCharts } from "@/lib/healthData";
-import { buildMatrices } from "@/lib/matrixData";
+import { planCircuits } from "@/lib/circuit/cache";
+import { buildHealthCharts } from "@/lib/health/healthData";
+import { buildMatrices } from "@/lib/matrix/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
 import { formatBase } from "@/lib/saveBase";
 
