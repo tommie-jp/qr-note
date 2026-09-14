@@ -1,13 +1,13 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { BusyNotice } from "@/components/BusyNotice";
-import { FolderPane } from "@/components/FolderPane";
+import { FolderPane } from "@/components/search/FolderPane";
 import { PageTransition } from "@/components/PageTransition";
 import PullToRefresh from "@/components/PullToRefresh";
-import { SearchForm } from "@/components/SearchForm";
-import { SearchTools } from "@/components/SearchTools";
-import { SearchNavProvider } from "@/components/SearchNav";
-import { SelectModeProvider } from "@/components/SelectModeProvider";
+import { SearchForm } from "@/components/search/SearchForm";
+import { SearchTools } from "@/components/search/SearchTools";
+import { SearchNavProvider } from "@/components/search/SearchNav";
+import { SelectModeProvider } from "@/components/search/SelectModeProvider";
 import { isDemoMode } from "@/lib/appEnv";
 import { listTags } from "@/lib/items/read";
 import { showsFolderPane } from "@/lib/prefs/paneMode";

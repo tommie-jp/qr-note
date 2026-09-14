@@ -8,7 +8,7 @@ import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
 // スマホでは開けない。
 //
 // 選択したぶんだけ書き出す口は検索結果の選択モードにある
-// (components/BulkTagToolbar.tsx)。送り先は同じ /api/export。
+// (components/search/BulkTagToolbar.tsx)。送り先は同じ /api/export。
 export function NotesExporter() {
   return (
     <form method="post" action="/api/export" className="space-y-3">

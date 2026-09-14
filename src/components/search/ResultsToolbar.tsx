@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { SelectIcon } from "@/components/icons";
-import { useSelectMode } from "@/components/SelectModeProvider";
+import { useSelectMode } from "@/components/search/SelectModeProvider";
 import { SlotIcon } from "@/components/SlotIcon";
 import { SortSlot } from "@/components/SortSlot";
 import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";

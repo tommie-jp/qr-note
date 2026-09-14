@@ -1,4 +1,4 @@
-import { FolderPane } from "@/components/FolderPane";
+import { FolderPane } from "@/components/search/FolderPane";
 import { countFolderTotals, type TagCount } from "@/lib/items/read";
 import { countTrashedItemsOnce } from "@/lib/search/pageData";
 import { listQueries } from "@/lib/search/queryStore";

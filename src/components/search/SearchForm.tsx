@@ -9,7 +9,7 @@ import { SuggestionList } from "@/components/search/SuggestionList";
 import { useSavedQueries } from "@/components/search/useSavedQueries";
 import { useSearchDebounce } from "@/components/search/useSearchDebounce";
 import { useSuggestDropdown } from "@/components/search/useSuggestDropdown";
-import { useSearchNav } from "@/components/SearchNav";
+import { useSearchNav } from "@/components/search/SearchNav";
 import {
   COMPACT_ICON_BUTTON_CLASS,
   COMPACT_INPUT_CLASS,

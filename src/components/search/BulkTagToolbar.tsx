@@ -2,8 +2,8 @@
 
 import type { Item } from "@/generated/prisma/client";
 import { selectedTagsUnion } from "@/lib/markdown/tags/bulk";
-import { OfflinePinIcon, TrashIcon } from "./icons";
-import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "./ui";
+import { OfflinePinIcon, TrashIcon } from "../icons";
+import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "../ui";
 
 interface BulkTagToolbarProps {
   items: Item[];

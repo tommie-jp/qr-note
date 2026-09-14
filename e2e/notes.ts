@@ -15,7 +15,7 @@ export function assertE2eItemNo(itemNo: string): void {
   }
 }
 
-// 検索結果の器 (SearchNav.tsx の SearchResults)
+// 検索結果の器 (components/search/SearchNav.tsx の SearchResults)
 export function searchResults(page: Page): Locator {
   return page.locator('[data-search-results]')
 }

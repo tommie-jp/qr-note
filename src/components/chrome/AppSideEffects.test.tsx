@@ -4,7 +4,7 @@ import { BootTimingReport } from "@/components/BootTimingReport";
 import { ClientLogCapture } from "@/components/ClientLogCapture";
 import { DebugConsole } from "@/components/DebugConsole";
 import { OfflineSync } from "@/components/OfflineSync";
-import { RecordTagSearch } from "@/components/RecordTagSearch";
+import { RecordTagSearch } from "@/components/search/RecordTagSearch";
 import { AppSideEffects } from "./AppSideEffects";
 
 // どれも何も描かない部品なので、静的描画ではなく「どの部品をどの順で

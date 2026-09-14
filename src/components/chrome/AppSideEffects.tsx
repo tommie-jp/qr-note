@@ -3,7 +3,7 @@ import { BootTimingReport } from "@/components/BootTimingReport";
 import { ClientLogCapture } from "@/components/ClientLogCapture";
 import { DebugConsole } from "@/components/DebugConsole";
 import { OfflineSync } from "@/components/OfflineSync";
-import { RecordTagSearch } from "@/components/RecordTagSearch";
+import { RecordTagSearch } from "@/components/search/RecordTagSearch";
 
 interface AppSideEffectsProps {
   // ログイン中のユーザー名。未ログインは null

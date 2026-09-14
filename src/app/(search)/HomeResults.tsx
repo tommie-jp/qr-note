@@ -6,13 +6,13 @@ import {
   setViewModeAction,
   trashItemsAction,
 } from "@/app/actions";
-import { AutoLoadMore } from "@/components/AutoLoadMore";
+import { AutoLoadMore } from "@/components/search/AutoLoadMore";
 import { ItemDetail } from "@/components/item/ItemDetail";
 import { ItemList } from "@/components/item/ItemList";
 import { TrashIcon } from "@/components/icons";
 import { PropsTable } from "@/components/PropsTable";
-import { ResultsToolbar } from "@/components/ResultsToolbar";
-import { SearchResults } from "@/components/SearchNav";
+import { ResultsToolbar } from "@/components/search/ResultsToolbar";
+import { SearchResults } from "@/components/search/SearchNav";
 import { TaskProgress } from "@/components/TaskProgress";
 import { showsAutoNote, type PaneMode } from "@/lib/prefs/paneMode";
 import { loadSearchResults } from "@/lib/search/pageData";

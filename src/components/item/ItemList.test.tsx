@@ -3,7 +3,7 @@ import { expect, test, vi } from "vitest";
 import type { Item } from "@/generated/prisma/client";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import { ItemList } from "./ItemList";
-import { SelectModeProvider } from "../SelectModeProvider";
+import { SelectModeProvider } from "../search/SelectModeProvider";
 
 // ItemList がプレビュー中のノート (docs/86 §4) を usePathname から導くため、
 // router の外でも描けるようにモックする。unstable_rethrow は
