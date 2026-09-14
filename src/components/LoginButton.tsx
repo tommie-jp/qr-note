@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LOGIN_PATH, loginHref } from "@/lib/loginRedirect";
+import { LOGIN_PATH, loginHref } from "@/lib/auth/loginRedirect";
 import { LoginIcon } from "@/components/icons";
 import {
   BUSY_NOTICE_CLASS,

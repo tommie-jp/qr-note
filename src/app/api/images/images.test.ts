@@ -7,7 +7,7 @@ import type { PrismaClient } from '@/generated/prisma/client'
 import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads/limits'
 
 // route を関数として直接呼ぶため、Next.js のリクエストスコープが無く headers() が
-// 投げる。ログイン検査 (lib/session.ts) が headers() を読むので、そこだけ差し替える。
+// 投げる。ログイン検査 (lib/auth/session.ts) が headers() を読むので、そこだけ差し替える。
 // 検査そのもの (bcrypt 照合) は本物を通す — モックすると、認証が壊れていても
 // 拒否系のテストが緑のままになる
 const mocks = vi.hoisted(() => ({
@@ -22,11 +22,11 @@ const mocks = vi.hoisted(() => ({
 // cookies() が投げる。そこだけ差し替える。
 //
 // 認証はセッション Cookie で行う (docs/18-ログイン計画.md §11)。
-// 判定そのもの (requestAuth.ts) は本物を通し、DB を叩く findActiveSession
+// 判定そのもの (auth/requestAuth.ts) は本物を通し、DB を叩く findActiveSession
 // だけを差し替える — 判定ごとモックすると、認証が壊れていても拒否系の
 // テストが緑のままになる
 vi.mock('next/headers', async () => {
-  const { SESSION_COOKIE_NAME } = await import('@/lib/sessionToken')
+  const { SESSION_COOKIE_NAME } = await import('@/lib/auth/sessionToken')
   return {
     headers: async () => new Headers(),
     cookies: async () => ({
@@ -38,7 +38,7 @@ vi.mock('next/headers', async () => {
   }
 })
 
-vi.mock('@/lib/sessionStore', () => ({
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
       ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }

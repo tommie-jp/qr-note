@@ -1,4 +1,4 @@
-import { currentUser } from "@/lib/session";
+import { currentUser } from "@/lib/auth/session";
 import Home from "./page";
 
 // (search) の外からのソフト遷移 (例: /edit で保存 → /item へ redirect) で

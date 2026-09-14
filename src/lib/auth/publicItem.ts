@@ -2,13 +2,13 @@
 //
 // ここが公開判定の**正本**。ページ (item / print)、route handler (画像配信)、
 // テストのすべてがこれを呼ぶ。同じ問いに答える場所が増えると、片方だけ直して
-// 穴が開く (publicPaths.ts が「エッジとアプリに散らさない」と言っているのと同じ)。
+// 穴が開く (auth/publicPaths.ts が「エッジとアプリに散らさない」と言っているのと同じ)。
 //
-// DB にも next/headers にも触らない純粋な層にする (auth.ts と同じ流儀)。
+// DB にも next/headers にも触らない純粋な層にする (auth/basicAuth.ts と同じ流儀)。
 // 行を取ってくるのは items/read.ts、リクエストと結びつけるのはページの役目。
 // (env の参照は純粋な層のまま — appEnv.ts / site.ts と同じ扱い)
 
-import { isDemoMode } from "./appEnv"
+import { isDemoMode } from "../appEnv"
 
 // getItem() の返り値 (Item) をそのまま渡せる形にしておく。判定に要る 2 列だけを
 // 求めることで、$queryRaw で列を絞った行からも呼べる

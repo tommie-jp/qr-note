@@ -7,8 +7,8 @@
 //
 // 照合そのものは下の層が持つ。ここはリクエストと結びつける役だけ:
 //
-//   sessionStore.ts … セッションの照合
-//   requestAuth.ts  … 判定の正本 (セッション Cookie だけを見る。docs/18 §11)
+//   auth/sessionStore.ts … セッションの照合
+//   auth/requestAuth.ts  … 判定の正本 (セッション Cookie だけを見る。docs/18 §11)
 //
 // Authorization ヘッダはここでは読まない。資格情報を検証してよいのは
 // app/login/route.ts だけで、あちらが通ったらセッションを発行する。

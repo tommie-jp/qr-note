@@ -1,5 +1,5 @@
 import { isDemoMode } from '@/lib/appEnv'
-import { requireUser } from '@/lib/session'
+import { requireUser } from '@/lib/auth/session'
 
 // サーバーアクションの門番 (docs/18-ログイン計画.md)。
 //

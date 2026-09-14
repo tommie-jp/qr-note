@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { renewSession, findActiveSession } from '@/lib/sessionStore'
-import { SESSION_RENEW_AFTER_MS, SESSION_TTL_MS } from '@/lib/sessionToken'
+import { renewSession, findActiveSession } from '@/lib/auth/sessionStore'
+import { SESSION_RENEW_AFTER_MS, SESSION_TTL_MS } from '@/lib/auth/sessionToken'
 import { failEnvelope, jsonContract, responseContract } from '@/test/routeResponse'
 import { proxy } from './proxy'
 
-// セッションの DB だけを差し替える。照合の正本 (requestAuth.ts) と、公開パスの
-// 一覧 (publicPaths.ts)・ループバックの判定は本物を通す
-vi.mock('@/lib/sessionStore', () => ({
+// セッションの DB だけを差し替える。照合の正本 (auth/requestAuth.ts) と、公開パスの
+// 一覧 (auth/publicPaths.ts)・ループバックの判定は本物を通す
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: vi.fn(),
   renewSession: vi.fn(),
 }))
@@ -102,7 +102,7 @@ describe('未ログインの案内は noindex', () => {
   })
 
   // オフラインの画面も同じ。ノートを 1 件も含まない殻で、中身は端末の
-  // IndexedDB からしか来ない (publicPaths.ts) — 載っても空の紙が並ぶだけ
+  // IndexedDB からしか来ない (auth/publicPaths.ts) — 載っても空の紙が並ぶだけ
   test('/offline (中身の無い殻) も noindex', async () => {
     const res = await proxy(pageRequest('/offline'))
     expect(res.headers.get('x-robots-tag')).toBe('noindex')
@@ -115,7 +115,7 @@ describe('未ログインの案内は noindex', () => {
   })
 })
 
-// ループバック IP で開かれたら localhost へ送り直す (loopbackRedirect.ts)。
+// ループバック IP で開かれたら localhost へ送り直す (auth/loopbackRedirect.ts)。
 // パスキーは 127.0.0.1 では使えないので、ログインの検査より先に割り込む
 describe('ループバックの送り直し', () => {
   test.each([

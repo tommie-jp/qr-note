@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "オフライン" };
 // ノートは IndexedDB にあり、描画に要るのはこの殻だけ。だからこそ Service
 // Worker が 1 枚の HTML として保存でき、圏外でもそのまま開ける。
 //
-// publicPaths.ts に載せてログイン不要にしてある。理由は 2 つ:
+// auth/publicPaths.ts に載せてログイン不要にしてある。理由は 2 つ:
 //
 //   1. **殻の保存を確実にするため。** 未ログインだと proxy.ts が 200 のまま
 //      ログイン案内へ差し替えるので、閉じたままだと「ノートのつもりで

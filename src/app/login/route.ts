@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyBasicAuthUser } from '@/lib/auth'
-import { safeNextPath } from '@/lib/loginRedirect'
-import { issueSession } from '@/lib/sessionStore'
-import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
+import { verifyBasicAuthUser } from '@/lib/auth/basicAuth'
+import { safeNextPath } from '@/lib/auth/loginRedirect'
+import { issueSession } from '@/lib/auth/sessionStore'
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
 import { loginCancelledPage } from './cancelledPage'
 
 // ログインの口 (docs/18-ログイン計画.md)。
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // 資格情報が正しいと確かめたこの 1 回だけ、セッションを発行する。
-  // 以後 requestAuth.ts はこの Cookie だけを見る
+  // 以後 auth/requestAuth.ts はこの Cookie だけを見る
   const session = await issueSession(user)
 
   // Location は相対パスのまま返す (RFC 7231 が認めている)。

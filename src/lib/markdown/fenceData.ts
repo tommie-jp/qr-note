@@ -8,7 +8,7 @@
 // 取り出し (extractFences.ts) と分けてあるのは、こちらがセッションを掴むため。
 // 取り出しは DB もセッションも無しでテストできる葉のままにしておく
 
-import { requireUser } from '@/lib/session'
+import { requireUser } from '@/lib/auth/session'
 
 // 1 つのフェンスが集計できなかったときの結果
 export interface FenceError {

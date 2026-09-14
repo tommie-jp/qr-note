@@ -14,7 +14,7 @@
 //     1 回の照合に 7 秒かかった (実測)。ここは 12 (vps2 で約 1.75 秒)
 //  3. base64 まで一息でやる。生の bcrypt ハッシュ ($2b$12$…) を .env に
 //     書くと Next.js の env 展開が $ を変数として食って値が壊れる
-//     (src/lib/auth.ts のコメント参照)
+//     (src/lib/auth/basicAuth.ts のコメント参照)
 //
 // 照合に使うのと同じ bcryptjs で作るので、生成側と検証側がずれない。
 
@@ -59,7 +59,7 @@ function askPassword(query) {
 
 const password = await askPassword('パスワード: ')
 
-// 空パスワードは auth.ts が必ず弾く。ここで作れてしまうと
+// 空パスワードは auth/basicAuth.ts が必ず弾く。ここで作れてしまうと
 // 「設定したのに入れない」で悩むことになるので、作らせない
 if (password.length === 0) {
   console.error('パスワードが空です。中止しました。')

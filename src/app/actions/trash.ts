@@ -5,7 +5,7 @@ import { isDemoMode } from '@/lib/appEnv'
 import { removeNotes } from '@/lib/git/notesRepo'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
 import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'
-import { requireUser } from '@/lib/session'
+import { requireUser } from '@/lib/auth/session'
 import { revalidateItem, revalidateLists } from './_revalidate'
 
 // --- ゴミ箱 (二段階削除。docs/12-ゴミ箱計画.md) ---

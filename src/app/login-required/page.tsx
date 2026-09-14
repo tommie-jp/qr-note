@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 // proxy.ts がここへ rewrite する。redirect ではないのでアドレス欄は元の URL
 // (例: /item/ABC123) のまま。ログインすれば再読み込みだけでその場に戻る。
 //
-// 直接 /login-required を開くこともできる (publicPaths.ts で公開している) が、
+// 直接 /login-required を開くこともできる (auth/publicPaths.ts で公開している) が、
 // 出るのはこの案内だけなので害はない。
 //
 // 中身は LoginRequiredNotice に置いた。/item と /print は proxy が素通しする

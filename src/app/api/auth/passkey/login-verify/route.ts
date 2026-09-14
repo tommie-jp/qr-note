@@ -1,18 +1,18 @@
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { apiPasskeyDisabled } from '@/lib/authApi'
-import { findCredential, touchPasskey } from '@/lib/passkeys'
+import { apiPasskeyDisabled } from '@/lib/auth/api'
+import { findCredential, touchPasskey } from '@/lib/auth/passkeys'
 import { denyCrossSite } from '@/lib/route/guard'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { issueSession } from '@/lib/sessionStore'
-import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
+import { issueSession } from '@/lib/auth/sessionStore'
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
 import {
   consumeChallenge,
   consumeChallengeFromClientData,
-} from '@/lib/webauthnChallenge'
-import { webauthnConfig } from '@/lib/webauthnConfig'
+} from '@/lib/auth/webauthnChallenge'
+import { webauthnConfig } from '@/lib/auth/webauthnConfig'
 
 // 失敗はどれもこの 1 つの文言で返す (区別しない理由は POST の説明)
 const LOGIN_FAILED = 'ログインできませんでした。もう一度お試しください'

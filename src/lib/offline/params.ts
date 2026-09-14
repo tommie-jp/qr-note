@@ -28,7 +28,7 @@ export interface OfflineRoute {
 // location.search (先頭の ? を含んでよい) から画面状態を読む。
 //
 // URL は誰でも書き換えられる外部入力なので、itemNo は書式を確かめてから使う
-// (publicPaths.ts が /item/:itemNo に isValidItemNo を通すのと同じ線引き)。
+// (auth/publicPaths.ts が /item/:itemNo に isValidItemNo を通すのと同じ線引き)。
 export function readOfflineRoute(search: string): OfflineRoute {
   const params = new URLSearchParams(search)
   const itemNo = params.get('item') ?? ''

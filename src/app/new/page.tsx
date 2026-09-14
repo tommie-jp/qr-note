@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { nextItemNo } from "@/lib/items/read";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/auth/session";
 
 // 「+」から空ノートを作る入口 (docs/27-新規ノート追加計画.md)。
 //
@@ -14,7 +14,7 @@ import { requireUser } from "@/lib/session";
 // (採番は nextItemNo() に集約)。
 //
 // 認証は二重に見る。/new は publicPaths に載せていないので proxy が既定で
-// 未ログインを止める (src/lib/publicPaths.ts)。ただしそれは楽観的な検査で
+// 未ログインを止める (src/lib/auth/publicPaths.ts)。ただしそれは楽観的な検査で
 // あって唯一の砦にはしない (docs/18 §4) ので、採番の前に requireUser() でも
 // 確かめる。
 export const dynamic = "force-dynamic";

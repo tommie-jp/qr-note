@@ -128,7 +128,8 @@ UI はリンクごと出さず、Server Action と履歴ページでも拒む
   将来の 3-way マージ UI (衝突解決) も同じ部品で作れる。
 - 入口は ItemView のヘッダー行に「履歴」リンク (デモでは出さない)。
 
-認証: `/item/<itemNo>/history` は [publicPaths.ts](../src/lib/publicPaths.ts) の
+認証: `/item/<itemNo>/history` は [publicPaths.ts](../src/lib/publicPaths.ts)
+(当時のパス。現在は `src/lib/auth/publicPaths.ts`) の
 完全一致判定に**当たらない**ので、proxy が未ログインを止める (/edit と同じ構図)。
 公開ノートの読み手に履歴は見えない — 公開しているのは現在の本文だけで、
 過去の版まで公開した覚えはないため、これが正しい既定。

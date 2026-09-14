@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { parseBasicAuthUser, verifyBasicAuthUser } from './auth'
+import { parseBasicAuthUser, verifyBasicAuthUser } from './basicAuth'
 
 // base64 は Buffer で組み立てる (テスト側で手書きしないことで意図を明確にする)
 function basicHeader(credentials: string): string {
@@ -62,7 +62,7 @@ describe('verifyBasicAuthUser', () => {
   const PASSWORD = 'correct horse'
   const HASH = bcrypt.hashSync(PASSWORD, 4)
 
-  // 設定に入れるのは bcrypt ハッシュそのものではなく base64 (auth.ts の説明を参照)
+  // 設定に入れるのは bcrypt ハッシュそのものではなく base64 (auth/basicAuth.ts の説明を参照)
   const b64 = (hash: string) => Buffer.from(hash, 'utf8').toString('base64')
 
   beforeEach(() => {

@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { deletePasskey } from '@/lib/passkeys'
+import { deletePasskey } from '@/lib/auth/passkeys'
 import { guardRequest } from '@/lib/route/guard'
 
 // 登録済みパスキーを 1 つ消す (docs/29-パスキー計画.md §6, §8)。

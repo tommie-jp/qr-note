@@ -87,7 +87,7 @@ docker compose up -d app
 
 log "ヘルスチェック ($HEALTH_URL)"
 # -L で転送を追う。非本番の app は 127.0.0.1 を localhost へ 307 で
-# 送り返すため (パスキーが IP では使えないので。src/lib/loopbackRedirect.ts)、
+# 送り返すため (パスキーが IP では使えないので。src/lib/auth/loopbackRedirect.ts)、
 # 追わないとヘルスチェックが 307 のまま失敗する
 if wait_healthy local_http_status -fsSL "$HEALTH_URL"; then
   log "起動完了: $APP_URL"

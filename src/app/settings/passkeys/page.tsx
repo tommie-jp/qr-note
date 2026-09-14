@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { PasskeyManager, type PasskeyRow } from "@/components/PasskeyManager";
 import { formatJstDateTime } from "@/lib/datetime";
 import { requireSettingsPage } from "@/lib/pageGuard";
-import { listPasskeys } from "@/lib/passkeys";
-import { isPasskeyEnabled } from "@/lib/webauthnConfig";
+import { listPasskeys } from "@/lib/auth/passkeys";
+import { isPasskeyEnabled } from "@/lib/auth/webauthnConfig";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {

@@ -146,7 +146,7 @@ export function SecretBlock({
         },
         (cause) => {
           if (cause instanceof SecretCancelledError) {
-            return null; // 自分でやめた操作は失敗として出さない (passkeyClient.ts と同じ)
+            return null; // 自分でやめた操作は失敗として出さない (auth/passkeyClient.ts と同じ)
           }
           console.error(`シークレットを開けませんでした (${name})`, cause);
           return cause instanceof Error && !(cause instanceof SecretLockedError)

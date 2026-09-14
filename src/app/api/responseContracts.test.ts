@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('next/headers', async () => {
-  const { SESSION_COOKIE_NAME } = await import('@/lib/sessionToken')
+  const { SESSION_COOKIE_NAME } = await import('@/lib/auth/sessionToken')
   return {
     headers: async () => new Headers(),
     cookies: async () => ({
@@ -35,7 +35,7 @@ vi.mock('next/headers', async () => {
   }
 })
 
-vi.mock('@/lib/sessionStore', () => ({
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
       ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }

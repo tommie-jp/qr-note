@@ -71,7 +71,7 @@ export function qrBaseUrlEnv(): string | undefined {
   return process.env.QR_BASE_URL;
 }
 
-// ログインの資格情報 (auth.ts。ハッシュを base64 で持つ理由はそちら)
+// ログインの資格情報 (auth/basicAuth.ts。ハッシュを base64 で持つ理由はそちら)
 export function basicAuthEnv(): {
   user: string | undefined;
   hashB64: string | undefined;
@@ -82,7 +82,7 @@ export function basicAuthEnv(): {
   };
 }
 
-// パスキーの rpID と origin (webauthnConfig.ts。docs/29-パスキー計画.md §7)
+// パスキーの rpID と origin (auth/webauthnConfig.ts。docs/29-パスキー計画.md §7)
 export function webauthnEnv(): {
   rpId: string | undefined;
   origin: string | undefined;

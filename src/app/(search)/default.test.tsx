@@ -1,12 +1,12 @@
 import { beforeEach, expect, test, vi } from "vitest";
 
 // 横取り遷移の children (docs/86)。未ログインなら一覧を伏せ、@detail 側の
-// ログイン案内・公開ノートを残す。session.ts は cookies() を呼ぶので差し替える
+// ログイン案内・公開ノートを残す。auth/session.ts は cookies() を呼ぶので差し替える
 const mocks = vi.hoisted(() => ({
   user: "tommie" as string | null,
 }));
 
-vi.mock("@/lib/session", () => ({
+vi.mock("@/lib/auth/session", () => ({
   currentUser: async () => mocks.user,
 }));
 

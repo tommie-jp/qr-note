@@ -270,7 +270,7 @@ Basic 認証のパスワードファイル `/etc/nginx/.htpasswd-qr` は
 
 パスワードのハッシュは `npm run hash-password` で作る。生の bcrypt ハッシュを
 `.env` に書くと `$` が変数展開されて壊れるため、base64 で持つ(理由は
-`src/lib/auth.ts` のコメント)。
+`src/lib/auth/basicAuth.ts` のコメント)。
 
 どちらの手段でログインしても**セッション Cookie が発行され**、以後の判定は
 それだけで行う。`Authorization` ヘッダを見るのは `/login` の 1 か所だけで、

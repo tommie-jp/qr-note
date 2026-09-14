@@ -9,13 +9,13 @@
 // 「NotAllowedError」のように理由も分からない。
 
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
-import { ApiError, fetchEnvelope } from './api/envelope'
+import { ApiError, fetchEnvelope } from '../api/envelope'
 import {
   PASSKEY_LOGIN_OPTIONS_PATH,
   PASSKEY_LOGIN_VERIFY_PATH,
   PASSKEY_REGISTER_OPTIONS_PATH,
   PASSKEY_REGISTER_VERIFY_PATH,
-} from './authPaths'
+} from './paths'
 import { clearPasskeyHint, markPasskeyUsedHere } from './passkeyHint'
 
 // 利用者が Face ID のダイアログを閉じた・時間切れになった、のいずれか。

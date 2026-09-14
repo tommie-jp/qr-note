@@ -13,7 +13,7 @@
 
 import { LOGIN_REQUIRED_PATH } from './loginRedirect'
 import { loopbackRedirectUrl } from './loopbackRedirect'
-import { OFFLINE_PATH } from './offline/params'
+import { OFFLINE_PATH } from '../offline/params'
 import { isPublicPath, isSelfGuardedPath } from './publicPaths'
 import { isPageRequest, isReadRequest } from './requestKind'
 import { shouldRenewSession } from './sessionToken'
@@ -54,7 +54,7 @@ const SITE_ROOT = '/'
 //
 //   /login-required … ログインの案内。rewrite 経由と直接アクセスで扱いを揃える
 //   /offline        … オフラインの画面。ノートは 1 件も含まず、中身は端末の
-//                     IndexedDB からしか来ない (publicPaths.ts)
+//                     IndexedDB からしか来ない (auth/publicPaths.ts)
 //
 // 残りの公開パス (使い方の説明・PWA の manifest とアイコン・sw.js) は
 // そのまま。説明は読まれて困るものではないし、機械が取りに来るものに
@@ -67,7 +67,7 @@ export function decideWithoutSession(request: ProxyRequest): ProxyDecision | nul
   // ループバック IP で開かれたら localhost へ送り直す (非本番だけ)。
   // パスキーは rpID にドメイン名を要求し 127.0.0.1 では使えないのに、
   // VS Code の「Open in Browser」は必ず 127.0.0.1 を開くため
-  // (理由と出典は loopbackRedirect.ts)。
+  // (理由と出典は auth/loopbackRedirect.ts)。
   //
   // ログイン検査より前に置く。未ログインの案内を 127.0.0.1 で見せてから
   // 送り直しても、そこで押したログインが結局使えない
@@ -83,7 +83,7 @@ export function decideWithoutSession(request: ProxyRequest): ProxyDecision | nul
   // 公開かどうかがデータで決まる口 (docs/22-ノート公開計画.md §1)。
   // 公開ノートは未ログインでも読めるが、それを判断できるのは行を見た後なので、
   // ここでは決められない。**読み取りだけ**通し、判定はページ / route handler の
-  // isPublicItem() に委ねる。委ね先は publicPaths.ts の一覧に明記されているので、
+  // isPublicItem() に委ねる。委ね先は auth/publicPaths.ts の一覧に明記されているので、
   // 「新しいページを足したら黙って公開されていた」は起きない。
   //
   // 書き込み (Server Action の POST) をここで通さないのが要点。通すと
@@ -97,7 +97,7 @@ export function decideWithoutSession(request: ProxyRequest): ProxyDecision | nul
 }
 
 // session は照合の結果 (無効・期限切れ・Cookie 無しは null)。
-// 照合そのもの (セッション Cookie だけを見る) は requestAuth.ts が持つ。
+// 照合そのもの (セッション Cookie だけを見る) は auth/requestAuth.ts が持つ。
 // ここと session.ts の二か所に書くと、片方だけ直して穴が開く
 export function decideWithSession(
   request: ProxyRequest,

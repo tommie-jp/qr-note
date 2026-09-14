@@ -36,7 +36,7 @@ export async function loadOfflineSnapshot(): Promise<OfflineSyncPayload | null> 
 // 平文なので、少なくとも「ログアウトしたのに読める」状態は作らない。
 //
 // **これを呼ばないとログアウトが穴になる。** /offline はログイン不要で開ける
-// ようにしてある (publicPaths.ts) ので、消さずに残すと「ログアウトしたのに
+// ようにしてある (auth/publicPaths.ts) ので、消さずに残すと「ログアウトしたのに
 // 端末を触れば全ノートを読めて検索もできる」状態になる。呼び出しは
 // LogoutButton (clearOfflineData) が持つ。
 export async function clearOfflineSnapshot(): Promise<void> {

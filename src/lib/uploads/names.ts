@@ -76,7 +76,7 @@ export function isValidAudioName(name: string): boolean {
 }
 
 // 画像・音声・PDF のいずれの保存名も許すか。配信ゲート (route.ts) と proxy の
-// 素通し判定 (publicPaths.ts) が使う。**memoImages などの「画像だけ」を
+// 素通し判定 (auth/publicPaths.ts) が使う。**memoImages などの「画像だけ」を
 // 拾う経路は isValidImageName のままにする** — 音声や PDF を一覧サムネや画像
 // 検索の対象に混ぜないため (この 2 つを分けているのが肝)。
 export function isValidAttachmentName(name: string): boolean {

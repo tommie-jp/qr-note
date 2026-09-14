@@ -1,11 +1,11 @@
 import { generateRegistrationOptions } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { apiPasskeyDisabled } from '@/lib/authApi'
-import { listCredentialDescriptors } from '@/lib/passkeys'
+import { apiPasskeyDisabled } from '@/lib/auth/api'
+import { listCredentialDescriptors } from '@/lib/auth/passkeys'
 import { guardRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
-import { rememberChallenge } from '@/lib/webauthnChallenge'
-import { stableUserHandle, webauthnConfig } from '@/lib/webauthnConfig'
+import { rememberChallenge } from '@/lib/auth/webauthnChallenge'
+import { stableUserHandle, webauthnConfig } from '@/lib/auth/webauthnConfig'
 
 // パスキー登録の 1 歩目 — チャレンジを配る (docs/29-パスキー計画.md §6)。
 //

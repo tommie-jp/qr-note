@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   __resetChallengesForTest,
   consumeChallenge,
-} from '@/lib/webauthnChallenge'
+} from '@/lib/auth/webauthnChallenge'
 import { failEnvelope, jsonContract, responseContract } from '@/test/routeResponse'
 
 // ログインの 1 歩目 (docs/29-パスキー計画.md §6)。
@@ -17,11 +17,11 @@ vi.mock('next/headers', () => ({
   cookies: async () => ({ get: () => undefined }),
 }))
 
-vi.mock('@/lib/sessionStore', () => ({
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async () => null,
 }))
 
-vi.mock('@/lib/passkeys', () => ({
+vi.mock('@/lib/auth/passkeys', () => ({
   listCredentialDescriptors: async () => mocks.descriptors,
 }))
 

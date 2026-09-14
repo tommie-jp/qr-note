@@ -20,7 +20,7 @@ const SERVER_START_TIMEOUT_MS = 300_000
 
 // webServer に渡す BASIC_AUTH_HASH_B64 (npm run hash-password と同じ形)。
 // 生の bcrypt ハッシュは `$` を含み env の読み込みで壊れるので base64 で渡す
-// (理由は src/lib/auth.ts)。コストはアプリの検算に従うので 10 で足りる
+// (理由は src/lib/auth/basicAuth.ts)。コストはアプリの検算に従うので 10 で足りる
 const E2E_HASH_COST = 10
 
 function basicAuthHashB64(password: string): string {
@@ -65,7 +65,7 @@ export default defineConfig({
   webServer: shouldStartServer
     ? {
         command: `npm run dev -- -p ${new URL(BASE_URL).port || '3210'}`,
-        // 公開パス (publicPaths.ts)。ログインしていなくても 200 が返る
+        // 公開パス (auth/publicPaths.ts)。ログインしていなくても 200 が返る
         url: `${BASE_URL}/login-required`,
         reuseExistingServer: false,
         timeout: SERVER_START_TIMEOUT_MS,

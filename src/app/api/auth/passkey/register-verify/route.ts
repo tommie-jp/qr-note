@@ -1,14 +1,14 @@
 import { verifyRegistrationResponse } from '@simplewebauthn/server'
 import type { RegistrationResponseJSON } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
-import { apiPasskeyDisabled } from '@/lib/authApi'
-import { normalizePasskeyLabel } from '@/lib/passkeyLabel'
-import { savePasskey } from '@/lib/passkeys'
+import { apiPasskeyDisabled } from '@/lib/auth/api'
+import { normalizePasskeyLabel } from '@/lib/auth/passkeyLabel'
+import { savePasskey } from '@/lib/auth/passkeys'
 import { guardRequest } from '@/lib/route/guard'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { consumeChallenge } from '@/lib/webauthnChallenge'
-import { webauthnConfig } from '@/lib/webauthnConfig'
+import { consumeChallenge } from '@/lib/auth/webauthnChallenge'
+import { webauthnConfig } from '@/lib/auth/webauthnConfig'
 
 // パスキー登録の 2 歩目 — 認証器が作った公開鍵を確かめて保存する
 // (docs/29-パスキー計画.md §6)。

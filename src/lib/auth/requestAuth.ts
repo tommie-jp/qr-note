@@ -16,7 +16,7 @@
 // 送り続けるが、アプリが見ないのでただの無視されるヘッダになる。
 //
 // proxy.ts と session.ts の両方がここを呼ぶ。判定を二か所に書くと片方だけ
-// 直して穴が開くため (publicPaths.ts をエッジから移したときと同じ理由)。
+// 直して穴が開くため (auth/publicPaths.ts をエッジから移したときと同じ理由)。
 //
 // この階層は next/headers に触らない。Cookie の値を渡してもらう側に徹する
 // ことで、proxy.ts (リクエスト前) と route handler / Server Component
@@ -26,7 +26,7 @@ import { findActiveSession, type ActiveSession } from './sessionStore'
 
 export type RequestSession = ActiveSession
 
-// expiresAt まで返すのは、proxy の門番 (proxyDecision.ts) が期限の延長を判断するのに要るため。
+// expiresAt まで返すのは、proxy の門番 (auth/proxyDecision.ts) が期限の延長を判断するのに要るため。
 export async function resolveSession(
   sessionToken: string | null,
 ): Promise<RequestSession | null> {

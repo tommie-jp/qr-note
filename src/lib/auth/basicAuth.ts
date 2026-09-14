@@ -11,12 +11,12 @@
 // **この照合を通してよいのは app/login/route.ts だけ** (docs/18 §11)。
 // 毎リクエスト見てしまうと、ブラウザが自動で付け直すヘッダによって
 // ログアウトが成立しなくなる。あちらは通ったらセッションを発行し、
-// 以後の判定は requestAuth.ts が Cookie だけで行う。
+// 以後の判定は auth/requestAuth.ts が Cookie だけで行う。
 //
 // この階層は next/headers に触らないこと。値を渡してもらう側に徹する。
 
 import bcrypt from 'bcryptjs'
-import { basicAuthEnv } from './appEnv'
+import { basicAuthEnv } from '../appEnv'
 
 const BASIC_PREFIX = 'basic '
 

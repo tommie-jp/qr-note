@@ -15,7 +15,7 @@
 // **すべて「無し」に倒れる**。自動が出なくなるだけで、手動のログインは無傷。
 
 import 'client-only'
-import { browserStorage, defineBooleanPref } from './prefs/storagePref'
+import { browserStorage, defineBooleanPref } from '../prefs/storagePref'
 
 const HINT_KEY = 'qr-passkey-used-here'
 const SUPPRESS_KEY = 'qr-passkey-auto-suppressed'

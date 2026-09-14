@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-// session.ts は cookies() を呼ぶので差し替える。notFound() は本物 —
+// auth/session.ts は cookies() を呼ぶので差し替える。notFound() は本物 —
 // Next が 404 に読み替える印 (digest) を持った例外を投げる
 const mocks = vi.hoisted(() => ({ requireUser: vi.fn() }))
 
-vi.mock('@/lib/session', () => ({ requireUser: mocks.requireUser }))
+vi.mock('@/lib/auth/session', () => ({ requireUser: mocks.requireUser }))
 
 const { guardItemPage, requireSettingsPage } = await import('./pageGuard')
 

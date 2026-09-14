@@ -8,11 +8,11 @@
 // '/docs' で始まるものを通すと '/docsecret' まで開いてしまう。
 
 import manifest from '@/app/manifest'
-import { PUBLIC_AUTH_PATHS } from './authPaths'
+import { PUBLIC_AUTH_PATHS } from './paths'
 import { LOGIN_PATH, LOGIN_REQUIRED_PATH } from './loginRedirect'
-import { OFFLINE_PATH } from './offline/params'
-import { isValidAttachmentName } from './uploads/names'
-import { isValidItemNo } from './validation'
+import { OFFLINE_PATH } from '../offline/params'
+import { isValidAttachmentName } from '../uploads/names'
+import { isValidItemNo } from '../validation'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。
 // 閉じると 401 になり「インストール可能」と判定されない。
@@ -62,13 +62,13 @@ const DOCS_PATHS = new Set(['/docs/search', '/docs/memo'])
 // **閉じると症状が分かりにくい**: メタタグは出るのに画像の取得だけ案内 HTML に
 // 化けるので、カードは「出るが画像が無い」形になり、原因が見えない。
 // 配信 URL には Next が ?<contenthash> を付けるが、ここの判定は pathname だけを
-// 見る (proxyDecision.ts が request.nextUrl.pathname を渡す) ので完全一致でよい。
+// 見る (auth/proxyDecision.ts が request.nextUrl.pathname を渡す) ので完全一致でよい。
 const CRAWLER_PATHS = new Set(['/robots.txt', '/opengraph-image.png'])
 
 // ログインの入口そのもの。閉じるとログインできない。
 //
 // パスキーのログイン 2 口もここに入る (docs/29-パスキー計画.md §6)。
-// **登録の口は入らない** — 一覧は authPaths.ts の PUBLIC_AUTH_PATHS が正本で、
+// **登録の口は入らない** — 一覧は auth/paths.ts の PUBLIC_AUTH_PATHS が正本で、
 // あちらに「登録側を入れてはいけない」理由を書いた
 const LOGIN_PATHS = new Set([LOGIN_PATH, LOGIN_REQUIRED_PATH, ...PUBLIC_AUTH_PATHS])
 
@@ -99,7 +99,7 @@ export function isPublicPath(pathname: string): boolean {
 // 逆に、一覧に書いてある口だけが素通しされるので、新しいページを足したときに
 // 黙って公開されることはない (既定が閉じている、は保たれる)。
 //
-// 素通しするのは GET/HEAD だけ (proxyDecision.ts)。書き込み (Server Action の POST) は
+// 素通しするのは GET/HEAD だけ (auth/proxyDecision.ts)。書き込み (Server Action の POST) は
 // 門番で止める。公開ノートは読み取り専用であって、誰でも書ける口にはしない。
 
 // パスの末尾に itemNo を取るもの。/item は本文、/print は QR シール

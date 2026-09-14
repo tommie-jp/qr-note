@@ -76,9 +76,9 @@ vi.mock('next/server', async (importOriginal) => ({
     mocks.afterTasks.push(task)
   },
 }))
-vi.mock('@/lib/session', () => ({
+vi.mock('@/lib/auth/session', () => ({
   currentUser: async () => mocks.user,
-  // 本物と同じ文言で投げる (session.ts の UnauthorizedError)
+  // 本物と同じ文言で投げる (auth/session.ts の UnauthorizedError)
   requireUser: async () => {
     if (mocks.user === null) {
       throw new Error('ログインが必要です')

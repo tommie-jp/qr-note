@@ -7,9 +7,9 @@
 # 設定を変えたら vps2 の nginx にも同じ設定を入れること (deploy/nginx/qr.tommie.jp.conf)。
 #
 # 認証はここではやらない (docs/18-ログイン計画.md)。ログインしなくても
-# ヘッダの帯を出すため、Basic 認証はアプリへ移した (src/proxy.ts と src/lib/auth.ts)。
+# ヘッダの帯を出すため、Basic 認証はアプリへ移した (src/proxy.ts と src/lib/auth/basicAuth.ts)。
 # ここに basic_auth を戻すと、どのページを開いてもいきなり認証ダイアログが出る
-# 昔の挙動に戻る。公開してよいパスの一覧も src/lib/publicPaths.ts が正本
+# 昔の挙動に戻る。公開してよいパスの一覧も src/lib/auth/publicPaths.ts が正本
 # (かつてここにあった @pwa_public の移設先)。
 {$SITE_ADDRESS:localhost} {
 	# 添付アップロード (動画 30MB) + multipart オーバーヘッドを許容しつつ、

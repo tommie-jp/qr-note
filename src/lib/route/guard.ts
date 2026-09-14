@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
-import { isCrossSiteRequest } from '@/lib/crossSite'
-import { currentUser } from '@/lib/session'
+import { isCrossSiteRequest } from '@/lib/auth/crossSite'
+import { currentUser } from '@/lib/auth/session'
 import { apiFail } from './respond'
 
 // route handler 用の門番 (docs/18-ログイン計画.md)。
@@ -62,7 +62,7 @@ export async function guardRequest(
 // **ログイン検査だけでは足りない**。Basic 認証は Cookie を使わないので
 // SameSite が効かず、ログイン済みのブラウザは第三者のページに置かれた
 // <img src="/api/books/…"> にも認証情報を付けてしまう。判定の理由は
-// crossSite.ts に書いた。
+// auth/crossSite.ts に書いた。
 //
 // guardRequest の 3 つ目の検査。ログインするための口 (パスキーのログイン・
 // ログアウト) はログイン検査を持たないので、これだけを単独で呼ぶ。

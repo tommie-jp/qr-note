@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   user: 'tommie' as string | null,
 }))
 
-vi.mock('@/lib/session', () => ({
+vi.mock('@/lib/auth/session', () => ({
   currentUser: async () => mocks.user,
 }))
 

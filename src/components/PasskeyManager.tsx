@@ -8,10 +8,10 @@ import {
   MEMO_INPUT_CLASS,
   PRIMARY_BUTTON_CLASS,
 } from "@/components/ui";
-import { PASSKEYS_PATH } from "@/lib/authPaths";
+import { PASSKEYS_PATH } from "@/lib/auth/paths";
 import { errorText } from "@/lib/errorMessage";
-import { PASSKEY_LABEL_MAX } from "@/lib/passkeyLabel";
-import { PasskeyCancelledError, registerPasskey } from "@/lib/passkeyClient";
+import { PASSKEY_LABEL_MAX } from "@/lib/auth/passkeyLabel";
+import { PasskeyCancelledError, registerPasskey } from "@/lib/auth/passkeyClient";
 
 // 一覧は Server Component が渡す (docs/29-パスキー計画.md §8)。
 // 日付は文字列にして降ろす — Date をそのまま渡すと、サーバとクライアントで

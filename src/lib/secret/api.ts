@@ -3,7 +3,7 @@
 // 断片そのものは application/octet-stream で生のまま運ぶ (base64 は 33% 太る)。
 // 鍵まわりだけは数十バイトなので JSON + base64 にする。
 //
-// **例外の文言はここで日本語にして投げる** (passkeyClient.ts と同じ流儀)。
+// **例外の文言はここで日本語にして投げる** (auth/passkeyClient.ts と同じ流儀)。
 // 呼ぶ側がそのまま画面に出せるようにするため。
 
 import { apiFetch, ApiError, fetchEnvelope } from '../api/envelope'
@@ -14,7 +14,7 @@ import { secretUrl } from './secrets'
 const KEYRING_PATH = '/api/secrets/keyring'
 
 // 旧名。封筒の読み手を api/envelope.ts の 1 本にしたので、中身は ApiError そのもの
-// (passkeyClient.ts の PasskeyApiError も同じ)
+// (auth/passkeyClient.ts の PasskeyApiError も同じ)
 export { ApiError as SecretApiError }
 
 export interface KeyWrapInfo {

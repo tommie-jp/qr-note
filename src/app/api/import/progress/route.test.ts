@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   demo: false,
 }))
 
-vi.mock('@/lib/session', () => ({
+vi.mock('@/lib/auth/session', () => ({
   currentUser: async () => mocks.user,
 }))
 

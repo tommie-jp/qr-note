@@ -18,7 +18,7 @@ const NO_STORE = 'no-store'
 // 断片の配信。**ログイン必須** — 公開ノート (publicAt) に参照が書かれていても、
 // 未ログインの閲覧者には暗号文すら配らない (docs/51 §10)。
 //
-// publicPaths.ts の isSelfGuardedPath に /api/secrets/ を載せていないので
+// auth/publicPaths.ts の isSelfGuardedPath に /api/secrets/ を載せていないので
 // proxy.ts が先に 401 で止めるが、そこを唯一の砦にはしない (route/guard.ts の作法)。
 export async function GET(
   request: Request,

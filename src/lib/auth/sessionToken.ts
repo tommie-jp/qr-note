@@ -5,7 +5,7 @@
 // 誰と結びつけるかを自前で持つ必要があり、それがこのトークン。
 //
 // この階層は DB にも next/headers にも触らない (純粋な計算だけ)。
-// 行の読み書きは sessionStore.ts、リクエストとの結びつけは requestAuth.ts。
+// 行の読み書きは auth/sessionStore.ts、リクエストとの結びつけは auth/requestAuth.ts。
 
 import 'server-only'
 import { createHash, randomBytes } from 'node:crypto'

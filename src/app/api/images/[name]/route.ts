@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { isPublicImageName } from '@/lib/items/read'
 import { byteHeaders, bytesResponse, rangedBytesResponse } from '@/lib/route/bytes'
 import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
-import { currentUser } from '@/lib/session'
+import { currentUser } from '@/lib/auth/session'
 import { THUMB_MIME } from '@/lib/images/thumbConfig'
 import { isAllowedContentMime, isValidAttachmentName, isValidVideoName } from '@/lib/uploads/names'
 

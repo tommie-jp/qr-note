@@ -2,7 +2,7 @@ import { FolderPane } from "@/components/FolderPane";
 import { countFolderTotals, type TagCount } from "@/lib/items/read";
 import { countTrashedItemsOnce } from "@/lib/searchPageData";
 import { listQueries } from "@/lib/searchQueryStore";
-import { currentUser } from "@/lib/session";
+import { currentUser } from "@/lib/auth/session";
 import type { Sort } from "@/lib/validation";
 
 // 検索フォルダーの件数を引いて描く (docs/86 §5)。HomeResults と同じ

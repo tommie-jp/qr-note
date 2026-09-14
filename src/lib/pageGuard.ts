@@ -8,7 +8,7 @@
 import 'server-only'
 import { notFound } from 'next/navigation'
 import { isDemoMode } from './appEnv'
-import { requireUser } from './session'
+import { requireUser } from './auth/session'
 import { isValidItemNo } from './validation'
 
 // ノート番号を URL に持つページ (/item・/print・/edit・/item/…/history)。

@@ -21,12 +21,12 @@ vi.mock('next/headers', () => ({
   cookies: async () => ({ get: () => undefined }),
 }))
 
-vi.mock('@/lib/sessionStore', () => ({
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async () => null,
   issueSession: (userName: string) => mocks.issueSession(userName),
 }))
 
-vi.mock('@/lib/passkeys', () => ({
+vi.mock('@/lib/auth/passkeys', () => ({
   findCredential: async () => mocks.stored,
   touchPasskey: (id: string, counter: number) => mocks.touchPasskey(id, counter),
 }))

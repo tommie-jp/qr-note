@@ -17,7 +17,7 @@ import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { RowTintMenuItem } from "@/components/RowTintMenuItem";
 import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
-import { PASSKEY_SETTINGS_PATH } from "@/lib/authPaths";
+import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import type { RowTintId } from "@/lib/rowTint";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
 

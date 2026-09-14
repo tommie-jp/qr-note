@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // checkUploadRequest の Origin 検査と役目は重なる — Sec-Fetch-Site を送る
   // ブラウザは POST に必ず Origin も付けるので、ここで増えて断る正規の要求は
   // ない。それでも他の口と同じ門番を通し、口ごとの流儀の差を作らない
-  // (docs/18 §9、判定の理由は crossSite.ts)
+  // (docs/18 §9、判定の理由は auth/crossSite.ts)
   const guard = await guardRequest(request, { demo: 'allow' })
   if (!guard.ok) {
     return guard.response

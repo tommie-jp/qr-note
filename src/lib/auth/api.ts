@@ -4,7 +4,7 @@
 // route/parse.ts が持つ。
 
 import type { NextResponse } from 'next/server'
-import { apiFail } from './route/respond'
+import { apiFail } from '../route/respond'
 
 // 設定 (WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN) が無いとき。
 //

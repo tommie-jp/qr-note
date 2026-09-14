@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SecretKeyringManager } from "@/components/secret/SecretKeyringManager";
 import { requireSettingsPage } from "@/lib/pageGuard";
-import { isPasskeyEnabled } from "@/lib/webauthnConfig";
+import { isPasskeyEnabled } from "@/lib/auth/webauthnConfig";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {

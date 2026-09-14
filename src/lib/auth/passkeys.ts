@@ -8,7 +8,7 @@
 
 import 'server-only'
 import type { AuthenticatorTransportFuture, WebAuthnCredential } from '@simplewebauthn/server'
-import { prisma } from './db'
+import { prisma } from '../db'
 
 // 画面に出すぶんだけ。公開鍵とカウンタは見せない (見せる意味がない)
 export interface PasskeySummary {

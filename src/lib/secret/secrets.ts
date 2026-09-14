@@ -16,7 +16,7 @@ import { stripCode } from '../tags'
 export const SECRET_PATH_PREFIX = '/api/secrets/'
 
 // 鍵の設定画面 (初回設定・解錠・復旧キー)。ヘッダのメニューとページの
-// 両方が同じ文字列を要るので、authPaths.ts と同じ理由でここに一度だけ書く
+// 両方が同じ文字列を要るので、auth/paths.ts と同じ理由でここに一度だけ書く
 export const SECRET_SETTINGS_PATH = '/settings/secrets'
 
 // 保存名はサーバが振った UUID だけ。**拡張子を持たない**のが画像・音声との

@@ -10,15 +10,15 @@ import LogsPage from "./page";
 
 // バッファに実際に積んで、ページに出ることを見る (docs/21-ログ表示計画.md §5)。
 // ログインは proxy (楽観的な門番) とページの requireUser() の二重で見る。
-// session.ts は next/headers の cookies() を呼ぶのでテストでは描けない —
+// auth/session.ts は next/headers の cookies() を呼ぶのでテストでは描けない —
 // requireUser() だけを差し替え、既定はログイン済みにして表示を見る
 
 const mocks = vi.hoisted(() => ({
   user: "tommie" as string | null,
 }));
 
-// 本物 (session.ts) と同じく「未ログインなら投げる」だけを持たせる
-vi.mock("@/lib/session", () => ({
+// 本物 (auth/session.ts) と同じく「未ログインなら投げる」だけを持たせる
+vi.mock("@/lib/auth/session", () => ({
   requireUser: async () => {
     if (mocks.user === null) {
       throw new Error("ログインが必要です");

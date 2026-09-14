@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { POST as PostFn } from './route'
 
 // route を関数として直接呼ぶため Next.js のリクエストスコープが無い。
-// ログイン検査 (lib/session.ts / sessionStore) が cookies() / DB を読むので、
+// ログイン検査 (lib/auth/session.ts / sessionStore) が cookies() / DB を読むので、
 // そこだけ差し替える。判定そのものは本物を通す (images.test.ts と同じ流儀)。
 const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('next/headers', async () => {
-  const { SESSION_COOKIE_NAME } = await import('@/lib/sessionToken')
+  const { SESSION_COOKIE_NAME } = await import('@/lib/auth/sessionToken')
   return {
     headers: async () => new Headers(),
     cookies: async () => ({
@@ -22,7 +22,7 @@ vi.mock('next/headers', async () => {
   }
 })
 
-vi.mock('@/lib/sessionStore', () => ({
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
       ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }

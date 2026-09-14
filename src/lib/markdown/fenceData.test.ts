@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const requireUser = vi.fn<() => Promise<string>>()
-vi.mock('@/lib/session', () => ({
+vi.mock('@/lib/auth/session', () => ({
   requireUser: () => requireUser(),
 }))
 

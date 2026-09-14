@@ -5,7 +5,7 @@ import { PageTransition } from "@/components/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs } from "@/lib/logBuffer";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/auth/session";
 import { ClearLogsButton } from "./ClearLogsButton";
 import { CopyLogsButton } from "./CopyLogsButton";
 import { formatLogsForCopy, LOG_TIME_FORMAT } from "./formatLogsForCopy";

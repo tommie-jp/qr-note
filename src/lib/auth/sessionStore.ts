@@ -3,11 +3,11 @@
 // 生のトークンはブラウザの Cookie にしかない。ここが扱うのは常に
 // sha256 したほうで、DB にも決してトークンそのものを渡さない。
 //
-// トークンの作り方と寿命の計算は sessionToken.ts (純粋な層)。
-// リクエストとの結びつけは requestAuth.ts。
+// トークンの作り方と寿命の計算は auth/sessionToken.ts (純粋な層)。
+// リクエストとの結びつけは auth/requestAuth.ts。
 
 import 'server-only'
-import { prisma } from './db'
+import { prisma } from '../db'
 import {
   createSessionToken,
   hashSessionToken,
@@ -76,7 +76,7 @@ export async function findActiveSession(
   return { userName: row.userName, expiresAt: row.expiresAt }
 }
 
-// 期限を延ばす。呼ぶ頃合いの判定は shouldRenewSession() (sessionToken.ts)。
+// 期限を延ばす。呼ぶ頃合いの判定は shouldRenewSession() (auth/sessionToken.ts)。
 // 延ばした後の期限を返す。
 export async function renewSession(
   token: string,

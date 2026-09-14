@@ -12,7 +12,7 @@ import { isDemoMode } from "@/lib/appEnv";
 import { listTags } from "@/lib/items/read";
 import { showsFolderPane } from "@/lib/paneMode";
 import { readSearchPrefs } from "@/lib/searchPrefs";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/auth/session";
 import { qrStickerHost } from "@/lib/site";
 import { HomeResults } from "./HomeResults";
 import { SearchFolders } from "./SearchFolders";

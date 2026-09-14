@@ -17,7 +17,7 @@ import { listTrashedItems } from "@/lib/items/trash";
 import { buildMathTexts } from "@/lib/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { readTrashPrefs } from "@/lib/searchPrefs";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/auth/session";
 import { usesWideResults } from "@/lib/viewMode";
 
 export const dynamic = "force-dynamic";

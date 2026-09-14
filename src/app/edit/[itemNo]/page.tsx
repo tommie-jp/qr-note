@@ -18,7 +18,7 @@ import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/pageGuard";
 import { formatBase } from "@/lib/saveBase";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 

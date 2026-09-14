@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { GET } from './route'
-import { issueSession } from '@/lib/sessionStore'
-import { SESSION_COOKIE_NAME } from '@/lib/sessionToken'
+import { issueSession } from '@/lib/auth/sessionStore'
+import { SESSION_COOKIE_NAME } from '@/lib/auth/sessionToken'
 
 // セッション発行は DB を叩くので差し替える。Basic 照合 (bcrypt) は本物を通す
 // —— モックすると「資格情報が違っても通る」不具合が緑のまま隠れるため
-vi.mock('@/lib/sessionStore', () => ({ issueSession: vi.fn() }))
+vi.mock('@/lib/auth/sessionStore', () => ({ issueSession: vi.fn() }))
 
 const issueSessionMock = vi.mocked(issueSession)
 

@@ -13,6 +13,10 @@ X (Twitter) に URL を貼ったとき、サムネ付きのカードを出す。
 | §4 | `src/lib/publicPaths.ts` | クローラーが画像を認証なしで取れること |
 | §5 | `src/app/robots.ts` | デモのカード生成と guest 保護の両立 |
 
+表のパスは当時のパス。現在は次のとおり。
+
+- `src/lib/publicPaths.ts` → `src/lib/auth/publicPaths.ts`
+
 本番とデモは**同一イメージ**なので、アプリ側の変更は 1 回で両方に効く。
 
 OGP は検索順位とは無関係で、効くのは「共有されたときの見た目」だけ。

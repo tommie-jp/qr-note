@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   lookups: 0,
 }))
 
-vi.mock('@/lib/session', () => ({
+vi.mock('@/lib/auth/session', () => ({
   currentUser: async () => {
     mocks.lookups += 1
     return mocks.user
@@ -119,7 +119,7 @@ describe('guardRequest', () => {
     }
   })
 
-  // curl など Sec-Fetch-Site を送らない相手は通す (crossSite.ts)
+  // curl など Sec-Fetch-Site を送らない相手は通す (auth/crossSite.ts)
   test('Sec-Fetch-Site の無い呼び出しは通す', async () => {
     expect(await guardRequest(request(), { demo: 'deny' })).toEqual({ ok: true, user: 'tommie' })
   })

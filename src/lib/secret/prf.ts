@@ -32,7 +32,7 @@ export interface PrfAssertion {
   prfOutput: Uint8Array
 }
 
-// 利用者が Face ID を閉じた・時間切れ (passkeyClient.ts と同じ扱い方)。
+// 利用者が Face ID を閉じた・時間切れ (auth/passkeyClient.ts と同じ扱い方)。
 // **失敗として赤く出さない** — 自分でやめた操作を叱られるのは不快なため。
 export class SecretCancelledError extends Error {
   constructor() {

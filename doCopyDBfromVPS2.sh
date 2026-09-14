@@ -148,7 +148,7 @@ docker compose up -d app
 APP_PORT="$(grep -oP '^APP_PORT=\K.*' .env || true)"
 # **127.0.0.1 ではなく localhost で叩く**。非本番の proxy.ts は 127.0.0.1 での
 # アクセスを localhost へ 307 で送り返す (パスキーが rpID にドメイン名を要求し、
-# 127.0.0.1 では使えないため。src/lib/loopbackRedirect.ts)。127.0.0.1 のままだと
+# 127.0.0.1 では使えないため。src/lib/auth/loopbackRedirect.ts)。127.0.0.1 のままだと
 # 転送を追わない curl が常に 307 を受け取り、コピーが成功していてもヘルス
 # チェックだけが 30 回失敗する。
 # doDeploy.sh 側が 127.0.0.1 のままでよいのは、本番 (APP_ENV=production) では

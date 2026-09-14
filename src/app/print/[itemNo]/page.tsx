@@ -4,8 +4,8 @@ import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
 import { PrintButton } from "@/components/PrintButton";
 import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/pageGuard";
-import { isPublicItem } from "@/lib/publicItem";
-import { currentUser } from "@/lib/session";
+import { isPublicItem } from "@/lib/auth/publicItem";
+import { currentUser } from "@/lib/auth/session";
 import { qrBaseUrl } from "@/lib/site";
 import { buildItemUrl } from "@/lib/validation";
 

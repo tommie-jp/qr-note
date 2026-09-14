@@ -3,12 +3,12 @@
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { useEffect, useRef, useState } from "react";
 import { errorText } from "@/lib/errorMessage";
-import { loginWithPasskey, PasskeyCancelledError } from "@/lib/passkeyClient";
+import { loginWithPasskey, PasskeyCancelledError } from "@/lib/auth/passkeyClient";
 import {
   hasPasskeyHint,
   isAutoLoginSuppressed,
   suppressAutoLogin,
-} from "@/lib/passkeyHint";
+} from "@/lib/auth/passkeyHint";
 import { KeyIcon } from "@/components/icons";
 import {
   HEADER_MENU_ITEM_CLASS,

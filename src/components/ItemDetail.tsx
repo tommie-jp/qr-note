@@ -14,9 +14,9 @@ import {
   resolveItemListContext,
   type ItemListContext,
 } from "@/lib/itemListContext";
-import { isPublicItem } from "@/lib/publicItem";
+import { isPublicItem } from "@/lib/auth/publicItem";
 import { buildItemUrl } from "@/lib/searchUrl";
-import { currentUser } from "@/lib/session";
+import { currentUser } from "@/lib/auth/session";
 
 // 1 ノートの詳細 (本文 + 一覧の中の前後) を、置き場所ごとの器に入れて描く
 // (docs/93-リファクタリング計画.md §4-8)。器は 3 つあり、中身の組み合わせは

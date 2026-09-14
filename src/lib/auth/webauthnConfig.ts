@@ -10,8 +10,8 @@
 
 import 'server-only'
 import { createHash } from 'node:crypto'
-import { webauthnEnv } from './appEnv'
-import { SITE_NAME } from './site'
+import { webauthnEnv } from '../appEnv'
+import { SITE_NAME } from '../site'
 
 export interface WebAuthnConfig {
   // rpID。https:// を除いたドメイン名。パスキーはこの値に紐づいて保存され、

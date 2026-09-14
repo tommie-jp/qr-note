@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { parseBulkTagForm } from '@/lib/bulkTags'
 import { modifyMemo } from '@/lib/items/write'
-import { requireUser } from '@/lib/session'
+import { requireUser } from '@/lib/auth/session'
 import { addTagsToMemo, removeTagsFromMemo } from '@/lib/tagEdit'
 
 // 検索結果で選択した複数ノートへ、タグをまとめて追加/削除する。

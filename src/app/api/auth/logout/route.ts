@@ -2,8 +2,8 @@ import { cookies } from 'next/headers'
 import type { NextResponse } from 'next/server'
 import { denyCrossSite } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
-import { destroySession } from '@/lib/sessionStore'
-import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
+import { destroySession } from '@/lib/auth/sessionStore'
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
 
 // ログアウト (docs/29-パスキー計画.md §4)。
 //

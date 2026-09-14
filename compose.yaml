@@ -56,7 +56,7 @@ services:
       # :? で必須にする — 空だと誰もログインできず、全ページが「ログインが
       # 必要です」になる。起動時に落として気づけるようにする。
       #
-      # ハッシュを base64 で持つのは `$` 対策 (src/lib/auth.ts に理由を書いた)。
+      # ハッシュを base64 で持つのは `$` 対策 (src/lib/auth/basicAuth.ts に理由を書いた)。
       # 生 bcrypt を .env に置くと Next.js の env 展開が `$2b$10$…` を
       # 変数参照とみなして値を壊す
       BASIC_AUTH_USER: ${BASIC_AUTH_USER:?BASIC_AUTH_USER is required}

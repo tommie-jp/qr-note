@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   __resetChallengesForTest,
   consumeChallenge,
-} from '@/lib/webauthnChallenge'
+} from '@/lib/auth/webauthnChallenge'
 import { failEnvelope, jsonContract, responseContract } from '@/test/routeResponse'
 
 // パスキー登録の 1 歩目 (docs/29-パスキー計画.md §6)。
@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('next/headers', async () => {
-  const { SESSION_COOKIE_NAME } = await import('@/lib/sessionToken')
+  const { SESSION_COOKIE_NAME } = await import('@/lib/auth/sessionToken')
   return {
     headers: async () => new Headers(),
     cookies: async () => ({
@@ -27,14 +27,14 @@ vi.mock('next/headers', async () => {
   }
 })
 
-vi.mock('@/lib/sessionStore', () => ({
+vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
       ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
       : null,
 }))
 
-vi.mock('@/lib/passkeys', () => ({
+vi.mock('@/lib/auth/passkeys', () => ({
   listCredentialDescriptors: async () => mocks.descriptors,
 }))
 

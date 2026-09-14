@@ -11,7 +11,7 @@ import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/paneMode";
 import { rowTintVars } from "@/lib/rowTint";
 import { loadRowTintId } from "@/lib/rowTintStore";
 import { demoLoginHintEnv, isDemoMode, isProductionEnv } from "@/lib/appEnv";
-import { currentUser } from "@/lib/session";
+import { currentUser } from "@/lib/auth/session";
 import { qrBaseUrl } from "@/lib/site";
 import "./globals.css";
 

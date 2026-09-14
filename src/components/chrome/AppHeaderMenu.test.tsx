@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { PASSKEY_SETTINGS_PATH } from "@/lib/authPaths";
+import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
 import { AppHeaderMenu } from "./AppHeaderMenu";
 

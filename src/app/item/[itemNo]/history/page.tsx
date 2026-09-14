@@ -13,7 +13,7 @@ import { formatJstDateTime } from "@/lib/datetime";
 import { noteAtHead, noteHistory } from "@/lib/git/notesRepo";
 import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/pageGuard";
-import { requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ interface HistoryPageProps {
 
 // ノートのコミット履歴 (docs/57-ノートgit履歴計画.md §5)。
 //
-// このパスは publicPaths.ts の完全一致判定に当たらないので、proxy.ts が
+// このパスは auth/publicPaths.ts の完全一致判定に当たらないので、proxy.ts が
 // 未ログインを止める (/edit と同じ構図)。公開ノートでも履歴は見せない —
 // 公開したのは現在の本文だけで、過去の版まで公開した覚えはないため。
 // それでも requireUser() を重ねるのは settings 系と同じ判断 — proxy は

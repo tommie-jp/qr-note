@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isProductionEnv } from '@/lib/appEnv'
-import { LOGIN_REQUIRED_PATH } from '@/lib/loginRedirect'
+import { LOGIN_REQUIRED_PATH } from '@/lib/auth/loginRedirect'
 import {
   decideWithoutSession,
   decideWithSession,
   type ProxyDecision,
   type ProxyRequest,
   type ProxySession,
-} from '@/lib/proxyDecision'
-import { resolveSession } from '@/lib/requestAuth'
+} from '@/lib/auth/proxyDecision'
+import { resolveSession } from '@/lib/auth/requestAuth'
 import { apiFail } from '@/lib/route/respond'
-import { renewSession } from '@/lib/sessionStore'
-import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
+import { renewSession } from '@/lib/auth/sessionStore'
+import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
 
 // ログインの門番 (docs/18-ログイン計画.md)。
 //
@@ -23,13 +23,13 @@ import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/sessionToken'
 // なぜ「ここ」なのか: 認証をエッジ (nginx / Caddy) から外したのは、ログイン
 // しなくてもヘッダの帯を出すため。外した以上 401 を返す誰かが要る。ここに
 // 置けば、新しいページを足したとき黙って公開されることがない
-// (公開したいものだけを publicPaths.ts に明記する = 既定が閉じている)。
+// (公開したいものだけを auth/publicPaths.ts に明記する = 既定が閉じている)。
 //
 // ただしこれは Next.js の言う「楽観的な検査」であって唯一の砦ではない
-// (01-app/02-guides/authentication.md)。データに触る入口では session.ts の
+// (01-app/02-guides/authentication.md)。データに触る入口では auth/session.ts の
 // requireUser() がもう一度確かめる。
 //
-// 分岐の判定は lib/proxyDecision.ts が持つ。ここはリクエストから入力を集め、
+// 分岐の判定は lib/auth/proxyDecision.ts が持つ。ここはリクエストから入力を集め、
 // 判定を NextResponse に写すだけ (docs/93-リファクタリング計画.md §4-9)
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -75,17 +75,17 @@ async function respond(request: NextRequest, decision: ProxyDecision): Promise<N
   }
 }
 
-// 検索エンジンに載せない印 (どこに付けるかの理由は proxyDecision.ts)
+// 検索エンジンに載せない印 (どこに付けるかの理由は auth/proxyDecision.ts)
 function denyIndexing(response: NextResponse): NextResponse {
   response.headers.set('X-Robots-Tag', 'noindex')
   return response
 }
 
 // セッションの期限を延ばす (docs/29-パスキー計画.md §4)。延ばす頃合いの判定は
-// proxyDecision.ts が済ませている。
+// auth/proxyDecision.ts が済ませている。
 //
 // **延長をここでしか行わないのは、Cookie を貼り直せる場所がここだけだから**。
-// Server Component (session.ts の currentUser) からは Cookie を書けない。
+// Server Component (auth/session.ts の currentUser) からは Cookie を書けない。
 //
 // 失敗しても素通しする。延長は「90 日が 90 日に戻らなかった」だけの話で、
 // そのためにログイン済みの人を締め出す理由はない
@@ -126,6 +126,6 @@ export const config = {
   //                壊れて見える」を踏んだ
   //
   // 画面と API はここに残す = 既定で門番を通る。ログイン不要なものは
-  // publicPaths.ts に明記する
+  // auth/publicPaths.ts に明記する
   matcher: ['/((?!_next/static|_next/image|favicon.ico|api/import$).*)'],
 }

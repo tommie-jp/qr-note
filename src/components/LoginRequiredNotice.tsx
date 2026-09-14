@@ -1,7 +1,7 @@
 import { LoginButton } from "@/components/LoginButton";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
 import { BOX_CLASS } from "@/components/ui";
-import { isPasskeyEnabled } from "@/lib/webauthnConfig";
+import { isPasskeyEnabled } from "@/lib/auth/webauthnConfig";
 
 // 「ログインが必要です」の案内 (docs/18-ログイン計画.md, docs/22-ノート公開計画.md §4)。
 //
