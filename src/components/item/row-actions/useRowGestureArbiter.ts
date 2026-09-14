@@ -4,7 +4,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
-import type { MenuPoint } from "@/lib/rowActionMenu";
+import type { MenuPoint } from "@/lib/gesture/rowActionMenu";
 import { ROW_ACTION_SELECTOR } from "@/components/RowActions";
 import { useLongPress } from "@/components/useLongPress";
 import type { useSwipeDrawer } from "./useSwipeDrawer";

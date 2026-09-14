@@ -1,7 +1,7 @@
 "use client";
 
 // 引っ張って更新 (pull-to-refresh)。一覧の先頭で下へ引くと再読み込みする
-// (docs/47-引っ張って更新計画.md)。判定は純関数 (lib/pullToRefresh) に寄せ、
+// (docs/47-引っ張って更新計画.md)。判定は純関数 (lib/gesture/pullToRefresh) に寄せ、
 // ここは touch イベントの配線・インジケータ描画・router.refresh の呼び出しだけ。
 //
 // なぜ自前か: globals.css で overscroll-behavior:none にして iOS/Android の
@@ -18,7 +18,7 @@ import {
   movePull,
   resolveRefresh,
   type PullState,
-} from "@/lib/pullToRefresh";
+} from "@/lib/gesture/pullToRefresh";
 
 // 触れた場所がスクロールできる入れ子 (モーダル本文など) の中なら PTR は出さない。
 // その入れ子の縦スクロールを横取りしないため。body まで遡って無ければ false。

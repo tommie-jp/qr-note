@@ -392,7 +392,7 @@ describe('/api/images の拒否系 (実 DB 不要)', () => {
   // デモの総量クォータ (docs/39-デモ公開計画.md §2-1)。DEMO_MODE のときだけ、
   // 保存前に合計を見て上限超過なら 507。storeAttachment (DB) より手前で返るので
   // 実 DB なしで検証できる。デモでないときの素通しは合計を見た後に DB へ進むため、
-  // この describe (実 DB 不要) では確かめられない — 境界は demoLimits.test.ts が持つ
+  // この describe (実 DB 不要) では確かめられない — 境界は demo/demoLimits.test.ts が持つ
   describe('デモの総量クォータ', () => {
     test('総量が上限ちょうどで、さらに 1 枚上げようとすると 507 を返す', async () => {
       vi.stubEnv('DEMO_MODE', '1')

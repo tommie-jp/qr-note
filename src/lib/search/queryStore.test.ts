@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-// search_queries 表の代役。demoQuota.test.ts と同じく @/lib/db を差し替えるが、
+// search_queries 表の代役。demo/demoQuota.test.ts と同じく @/lib/db を差し替えるが、
 // ここは並びと差分の書き込みそのものが試験対象なので、行を持つ本物らしい
 // 偽物を用意する (findMany の order / deleteMany の in / upsert の複合キー)。
 interface Row {

@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { checkDemoUploadQuota } from '@/lib/demoQuota'
+import { checkDemoUploadQuota } from '@/lib/demo/demoQuota'
 import { saveImage } from '@/lib/images/imageStore'
 import { rewriteImageReference } from '@/lib/items/write'
 import { guardRequest } from '@/lib/route/guard'

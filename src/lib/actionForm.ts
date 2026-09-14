@@ -5,8 +5,8 @@
 // ファイルには置かない** — そこで export した関数はすべて外から呼べる口になる
 
 import type { Item } from '@/generated/prisma/client'
-import { parseBase, type SaveBase } from '@/lib/saveBase'
-import { noteSnapshot, type SaveState } from '@/lib/saveState'
+import { parseBase, type SaveBase } from '@/lib/editor/saveBase'
+import { noteSnapshot, type SaveState } from '@/lib/editor/saveState'
 import { isValidItemNo, MAX_TEXT_LENGTH } from '@/lib/validation'
 
 export function readText(formData: FormData, key: string): string {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { backfillHistoryAction } from "@/app/actions";
 import { PRIMARY_BUTTON_CLASS } from "@/components/ui";
-import { requireSettingsPage } from "@/lib/pageGuard";
+import { requireSettingsPage } from "@/lib/auth/pageGuard";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {

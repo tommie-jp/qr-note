@@ -5,7 +5,7 @@
 // JSON ではないので、ヘッダの揃え方だけをここに置く。
 
 import { NextResponse } from 'next/server'
-import { resolveByteRange } from '@/lib/httpRange'
+import { resolveByteRange } from '@/lib/route/httpRange'
 
 export interface ByteHeaderOptions {
   readonly contentType: string

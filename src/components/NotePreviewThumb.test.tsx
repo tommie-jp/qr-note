@@ -123,7 +123,7 @@ test("details は閉じたまま出す", () => {
   expect(html).not.toContain("open");
 });
 
-// buildNotePreviews (対象の選別。優先順位の正本は lib/itemRowDecor.ts の rowFace)
+// buildNotePreviews (対象の選別。優先順位の正本は lib/items/itemRowDecor.ts の rowFace)
 
 const item = (itemNo: string, memo: string, mode = "memo") => ({
   itemNo,

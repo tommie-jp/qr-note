@@ -15,8 +15,8 @@ import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items/read";
-import { guardItemPage } from "@/lib/pageGuard";
-import { formatBase } from "@/lib/saveBase";
+import { guardItemPage } from "@/lib/auth/pageGuard";
+import { formatBase } from "@/lib/editor/saveBase";
 import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/external/scanRegister";
 import { requireUser } from "@/lib/auth/session";
 

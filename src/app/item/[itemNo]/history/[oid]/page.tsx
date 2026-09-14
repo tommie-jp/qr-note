@@ -9,7 +9,7 @@ import { isDemoMode } from "@/lib/appEnv";
 import { formatJstDateTime } from "@/lib/datetime";
 import { isValidCommitOid } from "@/lib/git/notePath";
 import { noteAtCommit, noteHistory } from "@/lib/git/notesRepo";
-import { guardItemPage } from "@/lib/pageGuard";
+import { guardItemPage } from "@/lib/auth/pageGuard";
 import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";

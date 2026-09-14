@@ -55,7 +55,7 @@ interface ItemListProps {
   mathTexts?: MathTextMap;
   // itemNo → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
   // page.tsx (サーバ) が buildNotePreviews で描いて降ろす。画像も回路図も
-  // 無いノートの顔になる (優先順位は lib/itemRowDecor.ts の rowFace が持つ)
+  // 無いノートの顔になる (優先順位は lib/items/itemRowDecor.ts の rowFace が持つ)
   notePreviews?: NotePreviewMap;
 }
 

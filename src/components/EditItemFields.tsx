@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { ADOPT_SERVER_EVENT, type AdoptServerDetail } from "@/lib/editorEvents";
+import { ADOPT_SERVER_EVENT, type AdoptServerDetail } from "@/lib/editor/editorEvents";
 import { MAX_TEXT_LENGTH, type Mode } from "@/lib/validation";
 import { SaveFormContext } from "./NoteSaveForm";
 import { MEMO_INPUT_CLASS } from "./ui";
@@ -28,7 +28,7 @@ interface EditItemFieldsProps {
 // 結果が返るたびに DOM へ当て直して食い違いを消す。
 //
 // 「別の版を読み込む」もここで受ける。バナーは MemoEditor の中にあるので、
-// 同じフォームへ飛ぶ DOM イベントで揃える (lib/editorEvents.ts)。
+// 同じフォームへ飛ぶ DOM イベントで揃える (lib/editor/editorEvents.ts)。
 export function EditItemFields({
   defaultUrl,
   defaultMode,

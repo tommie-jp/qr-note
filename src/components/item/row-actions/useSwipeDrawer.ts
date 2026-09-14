@@ -15,11 +15,11 @@ import {
   resolveOpen,
   settleSwipe,
   type SwipeState,
-} from "@/lib/swipeRow";
+} from "@/lib/gesture/swipeRow";
 
 // 左スワイプで右端の「削除」を露出させる引き出し (docs/43-スワイプ削除計画.md)。
 //
-// 判定ロジックは lib/swipeRow.ts の純関数に任せ、ここは pointer の座標と
+// 判定ロジックは lib/gesture/swipeRow.ts の純関数に任せ、ここは pointer の座標と
 // DOM/React state の橋渡しに徹する。長押しやボタン列との取り合い
 // (どの押下をこちらへ渡すか) は useRowGestureArbiter が決める。
 //

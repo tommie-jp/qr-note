@@ -7,9 +7,9 @@
 // 唯一の砦にはしない (docs/18 §4)。
 import 'server-only'
 import { notFound } from 'next/navigation'
-import { isDemoMode } from './appEnv'
-import { requireUser } from './auth/session'
-import { isValidItemNo } from './validation'
+import { isDemoMode } from '../appEnv'
+import { requireUser } from './session'
+import { isValidItemNo } from '../validation'
 
 // ノート番号を URL に持つページ (/item・/print・/edit・/item/…/history)。
 // 形の合わない番号は DB を引くまでもなく 404

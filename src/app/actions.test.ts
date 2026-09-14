@@ -7,7 +7,7 @@ import { getItem } from '@/lib/items/read'
 import { modifyMemo, saveItemIfUnchanged, upsertMemo } from '@/lib/items/write'
 import { recordItemAccess, setItemOfflinePin, setItemPublic } from '@/lib/items/flags'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
-import { backfillAllNotes } from '@/lib/noteHistoryBackfill'
+import { backfillAllNotes } from '@/lib/git/noteHistoryBackfill'
 import { addTagsToMemo, removeTagsFromMemo } from '@/lib/markdown/tags/edit'
 import { differsOnlyInTaskMarks } from '@/lib/markdown/taskCheckbox'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
@@ -117,7 +117,7 @@ vi.mock('@/lib/git/notesRepo', () => ({
   removeNotes: vi.fn(),
 }))
 vi.mock('@/lib/circuit/cache', () => ({ renderCircuits: vi.fn() }))
-vi.mock('@/lib/noteHistoryBackfill', () => ({ backfillAllNotes: vi.fn() }))
+vi.mock('@/lib/git/noteHistoryBackfill', () => ({ backfillAllNotes: vi.fn() }))
 
 const NOW = 1_757_808_000_000
 const OID = 'a'.repeat(40)

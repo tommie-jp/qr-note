@@ -5,7 +5,7 @@ import {
   hasLeftPressArea,
   LONG_PRESS_MS,
   type PressPoint,
-} from "@/lib/longPress";
+} from "@/lib/gesture/longPress";
 
 // 長押しでメニューを開くための手 (docs/62-下部バー長押し計画.md)。
 //
@@ -15,7 +15,7 @@ import {
 // 要点は 3 つ:
 //
 //   1. 指が動いたら取り消す … バーの真上を指がかすめてスクロールするたびに
-//      メニューが出ては使い物にならない (lib/longPress.ts の閾値)。
+//      メニューが出ては使い物にならない (lib/gesture/longPress.ts の閾値)。
 //   2. 長押しが成立したら click を握り潰す … スロットはフォームの submit
 //      ボタンで、放した指がそのまま送信すると「メニューを出したのに
 //      表示モードも切り替わっていた」になる。

@@ -15,11 +15,11 @@ import {
   THUMB_SIZE_CLASS,
   type RowText,
   type RowViewMode,
-} from "@/lib/itemRowDecor";
+} from "@/lib/items/itemRowDecor";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
 
 // カードと小・中表示の行が共通に並べる部品 (ItemRow が 1 度だけ組む)。
-// 何を出すかの判断は lib/itemRowDecor.ts、ここは React の形にするだけ
+// 何を出すかの判断は lib/items/itemRowDecor.ts、ここは React の形にするだけ
 export interface RowParts {
   itemNo: string;
   // ノートを開くリンク先 (ItemRow の href)
@@ -75,7 +75,7 @@ function RowTags({ tags }: { tags: readonly string[] }) {
   );
 }
 
-// 顔の優先順位は rowFace (lib/itemRowDecor.ts) が持つ
+// 顔の優先順位は rowFace (lib/items/itemRowDecor.ts) が持つ
 function renderThumb(
   input: Pick<RowPartsInput, "item" | "view" | "circuitThumb" | "notePreview">,
 ): ReactNode {

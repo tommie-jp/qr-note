@@ -15,7 +15,7 @@ import {
 } from "@/lib/editor/attachmentKinds";
 import { insertText, replaceToken } from "@/lib/editor/cmDoc";
 import { errorText } from "@/lib/errorMessage";
-import type { UploadProgress } from "@/lib/progressLabels";
+import type { UploadProgress } from "@/lib/progress/progressLabels";
 import { canShrink, shrinkImageFile } from "@/lib/images/shrinkImage";
 import { uploadTooLargeMessage } from "@/lib/uploads/uploadSizeCheck";
 import { makeVideoThumbs } from "@/lib/video/videoPoster";
@@ -194,7 +194,7 @@ export function useAttachmentInsert({
     insertText(view, token);
     // 送信が始まるまでは % を出さない (percent: null →「アップロード中…」)。
     // 動画では下のコマ抽出に数秒かかることがあり、0% に張り付いて見えるより
-    // % 無しの方がましなため (progressLabels.ts の同旨の判断と揃える)
+    // % 無しの方がましなため (progress/progressLabels.ts の同旨の判断と揃える)
     setUpload({ ...position, percent: null });
     try {
       // 上限超えは**送る前に**断る。送ってしまうと、エッジ (nginx / Caddy) か

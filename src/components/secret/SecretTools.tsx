@@ -8,7 +8,7 @@ import { useAudioRecording } from "@/components/useAudioRecording";
 import { useVideoRecording } from "@/components/useVideoRecording";
 import { recordingAltText } from "@/lib/audio/audioRecorder";
 import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
-import { ocrButtonLabel, recordButtonLabel } from "@/lib/progressLabels";
+import { ocrButtonLabel, recordButtonLabel } from "@/lib/progress/progressLabels";
 import { loadSecret, newSecretName, saveSecretMedia } from "@/lib/secret/content";
 import { prepareSecretImage } from "@/lib/secret/image";
 import { secretMimeKind } from "@/lib/secret/payload";

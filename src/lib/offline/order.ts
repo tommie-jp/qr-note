@@ -41,7 +41,7 @@ function compareNullsLast<T>(
 }
 
 // 一覧の見出しとして並べる鍵。**URL モードの行だけ url を見る**のは
-// itemRowDecor.ts (rowTitle) / prefs/sortOrder.ts と同じ切り分けで、ここを揃えないと
+// items/itemRowDecor.ts (rowTitle) / prefs/sortOrder.ts と同じ切り分けで、ここを揃えないと
 // 「画面に出ている見出しと違う順」になる。
 // 空文字は NULLIF と同じく null に倒し、末尾へ回す
 function titleKey(item: OfflineItem): string | null {

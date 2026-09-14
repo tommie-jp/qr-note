@@ -2,8 +2,8 @@
 // 一括タグ (markdown/tags/bulk.ts) とゴミ箱行き (app/actions/trash.ts の trashItemsAction) が
 // 同じ形のフォーム (itemNo[] + q/page/sort) を送るため、解釈をここに集約する。
 
-import { buildSearchUrl } from './search/url'
-import { isValidItemNo, parseSort } from './validation'
+import { buildSearchUrl } from '../search/url'
+import { isValidItemNo, parseSort } from '../validation'
 
 // 1 回の一括操作で処理する最大アイテム数。オンデマンド表示 (docs/33) で
 // 選択は読み込んだ全件に及ぶようになったため、全ノート規模 (数百〜数千)

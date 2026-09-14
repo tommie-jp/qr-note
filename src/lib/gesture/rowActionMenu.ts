@@ -3,7 +3,7 @@
 // 位置決めだけを純関数にして、この土台 (vitest.config.ts の
 // environment: 'node') でも検査できるようにする。DOM も React も触らない —
 // 実寸を測るのは RowActionMenu の役目で、ここは測った数だけを受け取る
-// (lib/swipeRow.ts・lib/longPress.ts と同じ分担)。
+// (lib/gesture/swipeRow.ts・lib/gesture/longPress.ts と同じ分担)。
 
 // 画面の縁とメニューの間に必ず残す余白 (px)。0 にすると角の丸みが切れて、
 // メニューが画面の外へ続いているように見える

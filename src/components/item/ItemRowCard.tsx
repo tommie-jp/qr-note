@@ -4,7 +4,7 @@ import {
   CARD_FRAME_CLASS,
   hasRowText,
   type RowText,
-} from "@/lib/itemRowDecor";
+} from "@/lib/items/itemRowDecor";
 import { MaybeSwipeRow } from "./MaybeSwipeRow";
 import { renderRowText, type RowParts } from "./rowParts";
 

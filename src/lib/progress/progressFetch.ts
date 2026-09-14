@@ -2,7 +2,7 @@
 // PaddleOCR SDK の `fetch` オプションに渡し、モデル (.tar) ダウンロードの
 // 進捗 % を出すのに使う (ocrService.ts)。SDK は det/rec の 2 本を並行で
 // 取るため、onProgress には「その時点の全ダウンロードのスナップショット」を
-// 渡す (% への合算は progress.ts の aggregatePercent)。
+// 渡す (% への合算は progress/progress.ts の aggregatePercent)。
 
 import type { DownloadState } from './progress'
 

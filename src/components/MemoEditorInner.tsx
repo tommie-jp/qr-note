@@ -17,7 +17,7 @@ import {
   ocrButtonLabel,
   recordButtonLabel,
   uploadButtonLabel,
-} from "@/lib/progressLabels";
+} from "@/lib/progress/progressLabels";
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)
 import { MAX_TEXT_LENGTH } from "@/lib/validation";

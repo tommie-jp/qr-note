@@ -4,10 +4,10 @@ import { ItemRowCard } from "./item/ItemRowCard";
 import { ItemRowCompact } from "./item/ItemRowCompact";
 import { buildRowParts } from "./item/rowParts";
 import type { RowSwipe } from "./SwipeToTrashRow";
-import { rowPreview, type RowViewMode } from "@/lib/itemRowDecor";
+import { rowPreview, type RowViewMode } from "@/lib/items/itemRowDecor";
 import { DEFAULT_VIEW_MODE } from "@/lib/prefs/viewMode";
 
-export type { RowViewMode } from "@/lib/itemRowDecor";
+export type { RowViewMode } from "@/lib/items/itemRowDecor";
 
 interface ItemRowProps {
   item: Item;
@@ -33,7 +33,7 @@ interface ItemRowProps {
   // 画像サムネが無いノートの代わりの顔にする回路図
   // (docs/68-一覧回路図サムネ計画.md §3)。サーバで描画・検査済みの SVG 文字列。
   // 一覧側 (circuit/thumbs.ts) が「本文の最初に描画済みの図」を選んで降ろす。
-  // **画像があるノートでは使わない** — 優先順位の分岐は lib/itemRowDecor.ts の rowFace が持つ
+  // **画像があるノートでは使わない** — 優先順位の分岐は lib/items/itemRowDecor.ts の rowFace が持つ
   circuitThumb?: string;
   // 数式入りのタイトル/プレビューの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
   // サーバ (markdown/mathText.ts) が数式を含むノートにだけ作って降ろす。
@@ -57,7 +57,7 @@ interface ItemRowProps {
 //   card    … + 本文プレビュー 3 行 + 大きめのサムネ。
 //
 // 描き分けは item/ItemRowCard (大) と item/ItemRowCompact (小・中)、共通の部品は
-// item/rowParts.tsx が組み、何を出すかの判断は lib/itemRowDecor.ts が持つ。
+// item/rowParts.tsx が組み、何を出すかの判断は lib/items/itemRowDecor.ts が持つ。
 //
 // タイトル (memoSummary) と本文 (memoPreview) は同じ規則で切り分けてあり、
 // 本文には 1 行目・タグ・プロパティ・画像が出てこない。カードの 3 行に

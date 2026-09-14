@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { MenuPoint } from "@/lib/rowActionMenu";
-import { SWIPE_BUTTON_WIDTH } from "@/lib/swipeRow";
+import type { MenuPoint } from "@/lib/gesture/rowActionMenu";
+import { SWIPE_BUTTON_WIDTH } from "@/lib/gesture/swipeRow";
 import { useRowGestureArbiter } from "./item/row-actions/useRowGestureArbiter";
 import {
   useRowTrash,

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, test, vi } from "vitest";
-import { LONG_PRESS_MS, type PressPoint } from "@/lib/longPress";
+import { LONG_PRESS_MS, type PressPoint } from "@/lib/gesture/longPress";
 import { useLongPress, type LongPressOptions } from "./useLongPress";
 
 type Press = ReturnType<typeof useLongPress>;

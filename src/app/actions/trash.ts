@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { isDemoMode } from '@/lib/appEnv'
 import { removeNotes } from '@/lib/git/notesRepo'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
-import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'
+import { parseBackUrl, parseSelectedItemNos } from '@/lib/items/itemSelection'
 import { requireUser } from '@/lib/auth/session'
 import { revalidateItem, revalidateLists } from './_revalidate'
 

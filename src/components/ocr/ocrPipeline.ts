@@ -8,8 +8,8 @@
 import { formatOcrQuote } from '@/lib/ocr/ocrQuote'
 import { orderOcrItems } from '@/lib/ocr/orderOcrItems'
 import { quietOrtSessionLogs } from '@/lib/ort/quietOrtLogs'
-import { aggregatePercent } from '@/lib/progress'
-import { createProgressFetch } from '@/lib/progressFetch'
+import { aggregatePercent } from '@/lib/progress/progress'
+import { createProgressFetch } from '@/lib/progress/progressFetch'
 
 // onnxruntime-web は既定で .wasm を CDN から取りに行く。自前配布した
 // public/onnxruntime/ を指して外部依存を断つ (scripts/assets.mjs)。

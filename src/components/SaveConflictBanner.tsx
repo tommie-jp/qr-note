@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { formatJstDateTime } from "@/lib/datetime";
-import type { SaveState } from "@/lib/saveState";
+import type { SaveState } from "@/lib/editor/saveState";
 import { SECONDARY_BUTTON_CLASS } from "./ui";
 
 // 差分は @codemirror/merge を引く。押されるまで読み込まない

@@ -138,6 +138,7 @@ UI はリンクごと出さず、Server Action と履歴ページでも拒む
 
 既存の全ノート (ゴミ箱含む。復元できるものはすべて) を 1 コミットで取り込み、
 履歴の起点を作る。実体は [noteHistoryBackfill.ts](../src/lib/noteHistoryBackfill.ts)
+(当時のパス。現在は `src/lib/git/noteHistoryBackfill.ts`)
 の `backfillAllNotes()` で、入口は 2 つ:
 
 - **設定ページ /settings/history** (メニュー「履歴取り込み」) — 本番はビルド済み

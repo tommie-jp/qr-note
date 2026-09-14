@@ -2,7 +2,7 @@
 //
 // items/ ではなくここに置くのは、items/ のクエリ側 (read.ts など) が db.ts
 // 経由で DATABASE_URL を要求するため。純関数として切り出せばテストできる
-// (itemNo.ts と同じ理由)。
+// (items/itemNo.ts と同じ理由)。
 //
 // 並びの設計 (docs/37-アクセス順計画.md):
 //   番号順      … シールに印刷した番号を辿るとき
@@ -56,7 +56,7 @@ export function orderByClause(sort: TrashSort): string {
       return 'updated_at ASC, item_no ASC'
     case 'title':
       // 並べる鍵は**一覧に出ている見出しそのもの**にする。URL モードの行だけ
-      // 見出しが url なのは itemRowDecor.ts (rowTitle) と同じ切り分けで、ここを揃えないと
+      // 見出しが url なのは items/itemRowDecor.ts (rowTitle) と同じ切り分けで、ここを揃えないと
       // 「画面の並びと違う順」になる (title 列は memo 由来なので url を知らない)。
       //
       // 見出しの無いノート (空メモ・画像だけ) は '' になる。空文字は照合順序上

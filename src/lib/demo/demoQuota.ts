@@ -1,14 +1,14 @@
 // デモの総量クォータの門番 (docs/39-デモ公開計画.md §2)。
 //
 // 「デモかどうか」の分岐と DB 参照をここに集める。境界の判定そのものは
-// demoLimits.ts の純関数 (exceedsUploadQuota / exceedsItemQuota) が持ち、
+// demo/demoLimits.ts の純関数 (exceedsUploadQuota / exceedsItemQuota) が持ち、
 // 合計・件数を DB から取るのがこの層の役目。route / items は結果を使うだけ。
 
 import 'server-only'
-import { isDemoMode } from './appEnv'
-import { prisma } from './db'
+import { isDemoMode } from '../appEnv'
+import { prisma } from '../db'
 import { exceedsItemQuota, exceedsUploadQuota } from './demoLimits'
-import { totalAttachmentBytes } from './images/imageStore'
+import { totalAttachmentBytes } from '../images/imageStore'
 
 export interface QuotaRejection {
   status: number

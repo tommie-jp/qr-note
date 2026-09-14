@@ -2,7 +2,7 @@
 // タグの抽出・正規化は tags.ts に委ね、ここは「入力の解釈」と
 // 「選択アイテムのタグ集計」だけを担う。
 
-import { parseBackUrl, parseSelectedItemNos } from '../../itemSelection'
+import { parseBackUrl, parseSelectedItemNos } from '../../items/itemSelection'
 import { parseTagToken } from './tags'
 
 // タグ入力の上限。itemNo と同様、細工された巨大入力で 1 回の操作が

@@ -10,7 +10,7 @@
 
 import 'client-only'
 import type { PrefStorage } from './storagePref'
-import { BASE_STALE } from '../saveBase'
+import { BASE_STALE } from '../editor/saveBase'
 
 export interface MemoDraft {
   value: string

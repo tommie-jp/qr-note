@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { OfflineSyncPayload } from "@/lib/offline/item";
 import { syncPinnedAssets } from "@/lib/offline/pinCache";
 import { registerOfflineWorker, warmOfflineShell } from "@/lib/offline/register";
-import { onPageLoaded } from "@/lib/pageLoad";
+import { onPageLoaded } from "@/lib/offline/pageLoad";
 import {
   LAST_SYNC_ATTEMPT_KEY,
   LAST_WARM_VERSION_KEY,

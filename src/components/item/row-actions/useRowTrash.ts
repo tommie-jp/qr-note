@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { unstable_rethrow } from "next/navigation";
-import { buildTrashFormData } from "@/lib/itemSelection";
+import { buildTrashFormData } from "@/lib/items/itemSelection";
 
 // 削除後に戻る検索状態。trashItemsAction は最後に redirect(parseBackUrl(...)) を
 // 呼ぶので、これを送らないと素の / へ飛ばされ、検索語もページも失われる

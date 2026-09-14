@@ -6,7 +6,7 @@ import { readItemNo } from '@/lib/actionForm'
 import { renderCircuits } from '@/lib/circuit/cache'
 import { getItem } from '@/lib/items/read'
 import { setItemOfflinePin } from '@/lib/items/flags'
-import { parseBackUrl, parseSelectedItemNos } from '@/lib/itemSelection'
+import { parseBackUrl, parseSelectedItemNos } from '@/lib/items/itemSelection'
 import { requireUserOutsideDemo } from './_guards'
 import { revalidateItem } from './_revalidate'
 

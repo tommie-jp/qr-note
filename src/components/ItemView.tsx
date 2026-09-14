@@ -36,7 +36,7 @@ import { planCircuits } from "@/lib/circuit/cache";
 import { buildHealthCharts } from "@/lib/health/healthData";
 import { buildMatrices } from "@/lib/matrix/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
-import { formatBase } from "@/lib/saveBase";
+import { formatBase } from "@/lib/editor/saveBase";
 
 interface ItemViewProps {
   itemNo: string;

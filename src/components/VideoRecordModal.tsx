@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { formatElapsed } from "@/lib/progressLabels";
+import { formatElapsed } from "@/lib/progress/progressLabels";
 import { cameraControlClass } from "./cameraControlButton";
 import { useLatest } from "./hooks/useLatest";
 import { useEscapeKey } from "./modal/useEscapeKey";

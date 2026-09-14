@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PasskeyManager, type PasskeyRow } from "@/components/PasskeyManager";
 import { formatJstDateTime } from "@/lib/datetime";
-import { requireSettingsPage } from "@/lib/pageGuard";
+import { requireSettingsPage } from "@/lib/auth/pageGuard";
 import { listPasskeys } from "@/lib/auth/passkeys";
 import { isPasskeyEnabled } from "@/lib/auth/webauthnConfig";
 

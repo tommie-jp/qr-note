@@ -6,7 +6,7 @@ import {
   placeRowActionMenu,
   type MenuPoint,
   type MenuPosition,
-} from "@/lib/rowActionMenu";
+} from "@/lib/gesture/rowActionMenu";
 import type { RowAction } from "./RowActions";
 import {
   ROW_MENU_ICON_ITEM_CLASS,

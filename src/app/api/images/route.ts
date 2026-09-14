@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { storeAttachment } from '@/lib/attachments/store'
-import { checkDemoUploadQuota } from '@/lib/demoQuota'
+import { checkDemoUploadQuota } from '@/lib/demo/demoQuota'
 import { guardRequest } from '@/lib/route/guard'
 import { parseFormBody } from '@/lib/route/parse'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'

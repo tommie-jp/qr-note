@@ -14,10 +14,10 @@ import {
   ADOPT_SERVER_EVENT,
   MEMO_BASELINE_EVENT,
   type AdoptServerDetail,
-} from "@/lib/editorEvents";
+} from "@/lib/editor/editorEvents";
 import { draftStorageKey, loadDraft } from "@/lib/prefs/memoDraft";
-import { BASE_NEW } from "@/lib/saveBase";
-import type { ConflictServerNote } from "@/lib/saveState";
+import { BASE_NEW } from "@/lib/editor/saveBase";
+import type { ConflictServerNote } from "@/lib/editor/saveState";
 import { useDraftAutosave } from "./editor/hooks/useDraftAutosave";
 import { SaveFormContext } from "./NoteSaveForm";
 import { SaveConflictBanner } from "./SaveConflictBanner";

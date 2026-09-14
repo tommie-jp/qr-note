@@ -3,7 +3,7 @@
 //
 // videoPoster.ts (DOM を触る側) から切り出した純関数。<video> の実体が無いと
 // 動かない部分と、時刻の決め方そのものを分けておくと、後者だけをテストできる
-// (lib/progress を uploadImageXhr から分けているのと同じ流儀)。
+// (lib/progress/progress を uploadImageXhr から分けているのと同じ流儀)。
 
 // 先頭コマの位置 (秒)。
 //

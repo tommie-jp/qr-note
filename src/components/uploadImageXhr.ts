@@ -1,10 +1,10 @@
 // 進捗 % 付きの画像アップロード。fetch は送信進捗を取れないため、ここだけ
 // XMLHttpRequest を使う (xhr.upload.onprogress)。ワイヤ上は従来の
 // `POST /api/images` + FormData("file") と完全互換。
-// 応答の解釈は lib/uploads/uploadResponse (テスト済み)、% 計算は lib/progress に置き、
+// 応答の解釈は lib/uploads/uploadResponse (テスト済み)、% 計算は lib/progress/progress に置き、
 // ここはブラウザ API の糊だけに保つ。
 
-import { cappedPercent } from "@/lib/progress";
+import { cappedPercent } from "@/lib/progress/progress";
 import { parseUploadResponse } from "@/lib/uploads/uploadResponse";
 import type { VideoThumbs } from "@/lib/video/videoPoster";
 

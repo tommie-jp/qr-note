@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
 import { PrintButton } from "@/components/PrintButton";
 import { getItem } from "@/lib/items/read";
-import { guardItemPage } from "@/lib/pageGuard";
+import { guardItemPage } from "@/lib/auth/pageGuard";
 import { isPublicItem } from "@/lib/auth/publicItem";
 import { currentUser } from "@/lib/auth/session";
 import { qrBaseUrl } from "@/lib/site";

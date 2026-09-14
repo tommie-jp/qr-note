@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useActionState, type ReactNode } from "react";
-import type { SaveState } from "@/lib/saveState";
+import type { SaveState } from "@/lib/editor/saveState";
 
 // 保存の結果 (競合したときだけ非 null) をフォームの中へ配る。
 // MemoEditor がバナーを、EditItemFields が url / mode の違いを読む

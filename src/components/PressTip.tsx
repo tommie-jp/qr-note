@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLongPress } from "@/components/useLongPress";
-import type { PressPoint } from "@/lib/longPress";
+import type { PressPoint } from "@/lib/gesture/longPress";
 
 // 長押しで出る吹き出し (docs/82-ノート操作アイコン計画.md §5)。
 //

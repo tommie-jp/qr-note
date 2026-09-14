@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MEMO_BASELINE_EVENT } from "@/lib/editorEvents";
+import { MEMO_BASELINE_EVENT } from "@/lib/editor/editorEvents";
 
 // フォームの内容を比較用の文字列にする。File は編集対象でないので捨てる
 // (MemoEditorInner の画像選択 input は name を持たず、そもそも入ってこない)

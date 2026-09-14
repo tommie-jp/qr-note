@@ -7,7 +7,7 @@
 //   (直接: npx tsx --conditions=react-server scripts/backfillGitHistory.ts)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
-import { backfillAllNotes } from '@/lib/noteHistoryBackfill'
+import { backfillAllNotes } from '@/lib/git/noteHistoryBackfill'
 
 async function main(): Promise<void> {
   const { count, oid } = await backfillAllNotes()

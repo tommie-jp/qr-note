@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NotesExporter } from "@/components/NotesExporter";
 import { NotesImporter } from "@/components/NotesImporter";
 import { BOX_CLASS } from "@/components/ui";
-import { requireSettingsPage } from "@/lib/pageGuard";
+import { requireSettingsPage } from "@/lib/auth/pageGuard";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {
