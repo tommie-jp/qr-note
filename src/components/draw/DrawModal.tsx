@@ -24,7 +24,7 @@ import {
   setActive,
   toggleHidden,
 } from "@/lib/draw/layers";
-import { BusyNotice } from "@/components/BusyNotice";
+import { BusyNotice } from "@/components/chrome/BusyNotice";
 import { BUSY_SPINNER_CLASS } from "@/components/ui";
 import { DrawLayerPanel } from "./DrawLayerPanel";
 import type { DrawTool } from "./drawTools";

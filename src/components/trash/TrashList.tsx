@@ -5,13 +5,13 @@ import type { Item } from "@/generated/prisma/client";
 // 型だけの葉 (circuit/types.ts / markdown/mathTextTypes.ts) から取る
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
-import type { NotePreviewMap } from "./item/NotePreviewThumb";
+import type { NotePreviewMap } from "../item/NotePreviewThumb";
 import { formatJstDateTime } from "@/lib/datetime";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
-import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
-import { ImageMasonry } from "./item/ImageMasonry";
-import { ItemRow } from "./item/ItemRow";
-import { ACTION_LINK_CLASS, DANGER_BUTTON_CLASS } from "./ui";
+import { ConfirmSubmitButton } from "../chrome/ConfirmSubmitButton";
+import { ImageMasonry } from "../item/ImageMasonry";
+import { ItemRow } from "../item/ItemRow";
+import { ACTION_LINK_CLASS, DANGER_BUTTON_CLASS } from "../ui";
 
 type TrashAction = (formData: FormData) => void | Promise<void>;
 

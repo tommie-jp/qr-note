@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { commitNoteAction } from "@/app/actions";
 import { NoteDiffView } from "@/components/editor/NoteDiffView";
-import { PageTransition } from "@/components/PageTransition";
+import { PageTransition } from "@/components/chrome/PageTransition";
 import {
   ACTION_LINK_CLASS,
   BOX_CLASS,

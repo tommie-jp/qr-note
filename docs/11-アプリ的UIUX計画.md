@@ -117,7 +117,8 @@ CodeMirror の history は既定で有効なので、エディタ下のツール
 当初は `@media (display-mode: standalone)` のときだけヘッダに「←戻る」を出し
 (`history.back()`)、ブラウザで開いたときは出さない設計だった。その後、ハンバーガー
 メニューの右に「←戻る」「→進む」を **ブラウザ・standalone を問わず常時出す** ように
-変更した (`src/components/HistoryNav.tsx`。旧 `StandaloneBackButton.tsx` を置き換え)。
+変更した (`src/components/HistoryNav.tsx` (当時のパス。現在は
+`src/components/chrome/HistoryNav.tsx`)。旧 `StandaloneBackButton.tsx` を置き換え)。
 
 - 戻る/進む先がない向きはボタンを `disabled` にして薄く見せる。可否の判定は
   Navigation API (`navigation.canGoBack` / `navigation.canGoForward`) を使う。
@@ -132,7 +133,8 @@ CodeMirror の history は既定で有効なので、エディタ下のツール
 
 `docs/31-下部操作バー計画.md` で下部バーを入れたとき、戻る/進むも「親指が届く」
 下端へ移した。その後ヘッダーへ戻し、あわせて見た目を作り直した
-(`src/components/HistoryNav.tsx`)。
+(`src/components/HistoryNav.tsx` (当時のパス。現在は
+`src/components/chrome/HistoryNav.tsx`))。
 
 置き場所は **サイト名・バージョン (`QR search v0.22.x`) のすぐ右**。
 
@@ -186,7 +188,8 @@ CodeMirror の history は既定で有効なので、エディタ下のツール
 ## 6. ヘッダーのハンバーガーメニュー (2026-07-19 追加)
 
 ヘッダー右側の項目をハンバーガーメニューに畳んだ
-(`src/components/HeaderMenu.tsx`)。
+(`src/components/HeaderMenu.tsx` (当時のパス。現在は
+`src/components/chrome/HeaderMenu.tsx`))。
 
 ### なぜ
 
@@ -331,7 +334,8 @@ docs/61 の「横スクロールにするのではなく折り返す」に対す
 
 ### テストの範囲
 
-`HeaderMenu.test.tsx` は**閉じている状態の描画**しか確かめない
+`HeaderMenu.test.tsx` (当時のパス。現在は `src/components/chrome/HeaderMenu.test.tsx`)
+は**閉じている状態の描画**しか確かめない
 (開閉ボタンの aria 属性、閉じている間は項目を描かないこと)。
 docs/09 §7 と同じ理由で、このリポジトリは操作を伴うテストの土台
 (jsdom / testing-library) を持たないため。開閉・Escape・外側タップ・
@@ -385,7 +389,8 @@ docs/09 §7 と同じ理由で、このリポジトリは操作を伴うテス�
 
 layout に置くと **startViewTransition が一度も呼ばれない** (実測)。layout の
 要素は遷移しても unmount されず、enter / exit が起きないため。
-`components/PageTransition.tsx` に切り出し、各ページの本体を包んだ。
+`components/PageTransition.tsx` (当時のパス。現在は
+`src/components/chrome/PageTransition.tsx`) に切り出し、各ページの本体を包んだ。
 
 副作用として都合がよかった点: ページ単位なので、検索で searchParams だけが
 変わる遷移では動かない。打つたびに一覧がスライドしたら鬱陶しい。

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MenuToggleIcon } from "@/components/icons";
-import { useBodyScrollLock } from "./modal/useBodyScrollLock";
-import { useEscapeKey } from "./modal/useEscapeKey";
+import { useBodyScrollLock } from "../modal/useBodyScrollLock";
+import { useEscapeKey } from "../modal/useEscapeKey";
 
 // ヘッダーのハンバーガーメニュー (docs/11-アプリ的UIUX計画.md §6)。
 //

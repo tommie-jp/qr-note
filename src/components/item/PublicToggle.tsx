@@ -1,4 +1,4 @@
-import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ConfirmSubmitButton } from "@/components/chrome/ConfirmSubmitButton";
 import { PrivateIcon, PublicIcon } from "@/components/icons";
 import { PressTip } from "@/components/item/row-actions/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";

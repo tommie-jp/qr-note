@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { BusyNotice } from "@/components/BusyNotice";
+import { BusyNotice } from "@/components/chrome/BusyNotice";
 
 // カメラビューと中央のガイド枠 (= 実質センタークロップ)。
 // max-w を視界の高さ (dvh) でも縛るのは ScannerModal と同じ理由 —

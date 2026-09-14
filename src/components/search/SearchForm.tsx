@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { PlusIcon, SearchIcon } from "@/components/icons";
 import { useKeyboardDismissOnScroll } from "@/components/hooks/useKeyboardDismissOnScroll";
-import { PendingLink } from "@/components/PendingLink";
+import { PendingLink } from "@/components/chrome/PendingLink";
 import { SearchClearButton } from "@/components/search/SearchClearButton";
 import { SuggestionList } from "@/components/search/SuggestionList";
 import { useSavedQueries } from "@/components/search/useSavedQueries";

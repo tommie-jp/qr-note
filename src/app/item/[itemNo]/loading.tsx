@@ -1,4 +1,4 @@
-import { SkeletonBox, SkeletonLine } from "@/components/Skeleton";
+import { SkeletonBox, SkeletonLine } from "@/components/chrome/Skeleton";
 
 // /item/:itemNo の遷移中に即座に出す骨組み (docs/11-アプリ的UIUX計画.md §1-3)。
 //

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useTransition } from "react";
-import { PendingLink } from "@/components/PendingLink";
+import { PendingLink } from "@/components/chrome/PendingLink";
 import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。

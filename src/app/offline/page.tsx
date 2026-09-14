@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { OfflineApp } from "@/components/offline/OfflineApp";
-import { PageTransition } from "@/components/PageTransition";
+import { PageTransition } from "@/components/chrome/PageTransition";
 
 export const metadata: Metadata = { title: "オフライン" };
 

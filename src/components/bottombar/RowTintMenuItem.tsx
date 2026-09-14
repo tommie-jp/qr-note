@@ -88,7 +88,7 @@ export function RowTintMenuItem({ value }: { value: RowTintId }) {
 
   return (
     // **クリックをここで止める。** シートは「項目を押したら閉じる」を親の
-    // バブリング 1 か所で受けているので (HeaderMenu.tsx)、素通しすると 1 色
+    // バブリング 1 か所で受けているので (components/chrome/HeaderMenu.tsx)、素通しすると 1 色
     // 押しただけで閉じてしまい、色を押し比べられない (TextSizeMenuItem と同じ)。
     // 開いたままなら、暗くした覆いの向こうに一覧の色の変化も見える。
     // flex-wrap … テキストサイズを上げるとこの行も大きくなり、狭い端末では

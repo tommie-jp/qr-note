@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { BusyNotice } from "./BusyNotice";
-import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "./ui";
+import { BUSY_NOTICE_CLASS, BUSY_SPINNER_CLASS } from "../ui";
 
 const SPINNER = `<span aria-hidden="true" class="${BUSY_SPINNER_CLASS}"></span>`;
 

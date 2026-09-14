@@ -1,5 +1,5 @@
-import { LoginButton } from "@/components/LoginButton";
-import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
+import { LoginButton } from "@/components/auth/LoginButton";
+import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 import { BOX_CLASS } from "@/components/ui";
 import { isPasskeyEnabled } from "@/lib/auth/webauthnConfig";
 

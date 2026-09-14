@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { PreviewPane } from "@/components/PreviewPane";
-import { usePaneMode } from "@/components/PaneModeProvider";
+import { PreviewPane } from "@/components/panes/PreviewPane";
+import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { showsAutoNote } from "@/lib/prefs/paneMode";
 
 // ノートのペインを持つ構成 (3 / 2) で「まだ何も選んでいないとき」に出る

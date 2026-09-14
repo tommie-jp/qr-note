@@ -1,7 +1,7 @@
 import pkg from "../../../package.json";
-import { BootTimingReport } from "@/components/BootTimingReport";
-import { ClientLogCapture } from "@/components/ClientLogCapture";
-import { DebugConsole } from "@/components/DebugConsole";
+import { BootTimingReport } from "@/components/diag/BootTimingReport";
+import { ClientLogCapture } from "@/components/diag/ClientLogCapture";
+import { DebugConsole } from "@/components/diag/DebugConsole";
 import { OfflineSync } from "@/components/offline/OfflineSync";
 import { RecordTagSearch } from "@/components/search/RecordTagSearch";
 
@@ -45,7 +45,7 @@ export function AppSideEffects({ user, isDemo }: AppSideEffectsProps) {
           (転送の受け口が同じなので、ログイン中・デモ以外) */}
       {reportsToServer && <BootTimingReport version={pkg.version} />}
       {/* ?debug=1 の eruda (docs/30 §2)。ログイン状態に依らず置く
-          (理由は DebugConsole.tsx) */}
+          (理由は components/diag/DebugConsole.tsx) */}
       <DebugConsole />
     </>
   );

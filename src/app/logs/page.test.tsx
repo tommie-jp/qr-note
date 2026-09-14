@@ -30,7 +30,7 @@ vi.mock("@/lib/auth/session", () => ({
 // PageTransition は React canary の ViewTransition を使い、テストの
 // 静的レンダラ (renderToStaticMarkup) では描けない。見た目の遷移だけの
 // 部品なので素通しにする
-vi.mock("@/components/PageTransition", () => ({
+vi.mock("@/components/chrome/PageTransition", () => ({
   PageTransition: ({ children }: { children: React.ReactNode }) => children,
 }));
 

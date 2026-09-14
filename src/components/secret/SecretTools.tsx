@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
-import { BusyNotice } from "@/components/BusyNotice";
+import { BusyNotice } from "@/components/chrome/BusyNotice";
 import { VideoRecordModal } from "@/components/video/VideoRecordModal";
 import { useAudioRecording } from "@/components/audio/useAudioRecording";
 import { useVideoRecording } from "@/components/video/useVideoRecording";

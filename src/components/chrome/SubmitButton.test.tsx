@@ -5,10 +5,10 @@ import {
   PRIMARY_BUTTON_CLASS,
   SUBMIT_ICON_SPINNER_CLASS,
   SUBMIT_SPINNER_CLASS,
-} from "./ui";
+} from "../ui";
 
 // useFormStatus は <form> の外で描くと常に pending: false を返し、静的描画では
-// 送信中を作れない (このリポジトリは jsdom を持たない。HeaderMenu.test.tsx と
+// 送信中を作れない (このリポジトリは jsdom を持たない。components/chrome/HeaderMenu.test.tsx と
 // 同じ制約)。送信中の見た目を確かめるため、react-dom の useFormStatus だけを
 // 差し替える。本物の送信 (二重送信の防止など) はブラウザで確認する
 const mocks = vi.hoisted(() => ({ pending: false }));

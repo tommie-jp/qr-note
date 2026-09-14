@@ -4,7 +4,7 @@ import { BottomBarProvider } from "@/components/bottombar/BottomBarContext";
 import { AppHeader } from "@/components/chrome/AppHeader";
 import { AppSideEffects } from "@/components/chrome/AppSideEffects";
 import { PreHydrationScripts } from "@/components/chrome/PreHydrationScripts";
-import { DemoBanner } from "@/components/DemoBanner";
+import { DemoBanner } from "@/components/chrome/DemoBanner";
 import { PageBottomBar } from "@/components/bottombar/PageBottomBar";
 import { setPaneModeAction } from "@/app/actions";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";

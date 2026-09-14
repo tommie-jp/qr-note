@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
-import { BusyNotice } from "@/components/BusyNotice";
+import { BusyNotice } from "@/components/chrome/BusyNotice";
 import { FolderPane } from "@/components/search/FolderPane";
-import { PageTransition } from "@/components/PageTransition";
-import PullToRefresh from "@/components/PullToRefresh";
+import { PageTransition } from "@/components/chrome/PageTransition";
+import PullToRefresh from "@/components/chrome/PullToRefresh";
 import { SearchForm } from "@/components/search/SearchForm";
 import { SearchTools } from "@/components/search/SearchTools";
 import { SearchNavProvider } from "@/components/search/SearchNav";

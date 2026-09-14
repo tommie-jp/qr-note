@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { TextSizeMenuItem } from "./TextSizeMenuItem";
 
-// HeaderMenu.test.tsx と同じ制約 — このリポジトリは jsdom を持たないので、
+// components/chrome/HeaderMenu.test.tsx と同じ制約 — このリポジトリは jsdom を持たないので、
 // 確かめられるのは「開いた直後の描画」まで。＋ / − の押し心地と、
 // 押してもシートが閉じないことはブラウザで実物を通して確認する
 // (docs/61-テキストサイズ計画.md §5)

@@ -1,8 +1,8 @@
 import { isValidElement, type ReactNode } from "react";
 import { expect, test } from "vitest";
-import { BootTimingReport } from "@/components/BootTimingReport";
-import { ClientLogCapture } from "@/components/ClientLogCapture";
-import { DebugConsole } from "@/components/DebugConsole";
+import { BootTimingReport } from "@/components/diag/BootTimingReport";
+import { ClientLogCapture } from "@/components/diag/ClientLogCapture";
+import { DebugConsole } from "@/components/diag/DebugConsole";
 import { OfflineSync } from "@/components/offline/OfflineSync";
 import { RecordTagSearch } from "@/components/search/RecordTagSearch";
 import { AppSideEffects } from "./AppSideEffects";

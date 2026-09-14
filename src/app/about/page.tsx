@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { SERVICE_LINKS } from "@/components/AttributionFooter";
-import { YahooAttribution } from "@/components/YahooAttribution";
+import { SERVICE_LINKS } from "@/components/chrome/AttributionFooter";
+import { YahooAttribution } from "@/components/chrome/YahooAttribution";
 
 // クレジット / 帰属表示のページ (docs/46-クレジット表記計画.md)。
 //

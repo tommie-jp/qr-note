@@ -10,7 +10,7 @@ import type { ClientLogItem } from './clientPayload'
 import { LOG_TEXT_LIMIT } from './entry'
 
 // ブラウザの拾い手を node のまま試す (docs/30-ブラウザログ計画.md §5)。
-// このリポジトリは jsdom を持たない (HeaderMenu.test.tsx と同じ方針) ので、
+// このリポジトリは jsdom を持たない (components/chrome/HeaderMenu.test.tsx と同じ方針) ので、
 // window の代わりに偽の scope を渡す。拾い手が window に依存しない作りなのは
 // Worker からも同じ install を呼ぶためで、テストのしやすさはその副産物
 

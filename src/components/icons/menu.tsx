@@ -164,7 +164,7 @@ export function GithubIcon() {
 }
 
 // 虫のアイコン (デバッグコンソールの出し入れ。docs/30-ブラウザログ計画.md §2)。
-// もとは DebugConsoleButton.tsx の中の inline svg。行頭アイコンの作法
+// もとは components/diag/DebugConsoleButton.tsx の中の inline svg。行頭アイコンの作法
 // (currentColor の線画・aria-hidden・機能色をアイコン側に持つ・面シェイプへ
 // 薄いティント) はこのファイルの他のアイコンと揃えてある
 // (docs/31-下部操作バー計画.md §11-4)。

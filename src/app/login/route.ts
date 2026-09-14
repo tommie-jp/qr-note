@@ -11,7 +11,7 @@ import { loginCancelledPage } from './cancelledPage'
 // 資格情報がなければ 401 + WWW-Authenticate を返し、ブラウザに認証ダイアログを
 // 出させる。ダイアログを出す手段はこれしかない — だからログインは
 // 「ここへ普通に画面遷移する」形にしてある (fetch や router.push では
-// ダイアログが出ない。LoginButton.tsx のコメントも参照)。
+// ダイアログが出ない。components/auth/LoginButton.tsx のコメントも参照)。
 //
 // **Authorization ヘッダを認証として見てよいのはこの route だけ**
 // (docs/18 §11)。通ったらパスキーと同じセッションを発行し、以後の

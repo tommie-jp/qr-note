@@ -67,7 +67,7 @@ export function TextSizeMenuItem() {
 
   return (
     // **クリックをここで止める。** メニューのシートは「項目を押したら閉じる」
-    // を親のバブリング 1 か所で受けているので (HeaderMenu.tsx)、素通しすると
+    // を親のバブリング 1 か所で受けているので (components/chrome/HeaderMenu.tsx)、素通しすると
     // ＋ を 1 回押しただけで閉じてしまい、続けて押せない。HeaderQrButton と
     // 同じ「自前の状態を持つ項目」の扱い。
     // 開いたままなら、暗くした覆いの向こうに本文の変化も見える

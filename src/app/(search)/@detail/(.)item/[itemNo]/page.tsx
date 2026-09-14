@@ -1,5 +1,5 @@
 import { ItemDetail, paneBgClass } from "@/components/item/ItemDetail";
-import { PreviewPane } from "@/components/PreviewPane";
+import { PreviewPane } from "@/components/panes/PreviewPane";
 import { isValidItemNo } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";

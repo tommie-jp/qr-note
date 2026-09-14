@@ -4,7 +4,7 @@ import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
 import { AppHeaderMenu } from "./AppHeaderMenu";
 
-// HeaderMenu は閉じている間は項目を描かない (HeaderMenu.test.tsx)。ここでは
+// HeaderMenu は閉じている間は項目を描かない (components/chrome/HeaderMenu.test.tsx)。ここでは
 // AppHeaderMenu が HeaderMenu に渡す children (= 開いたときに並ぶ項目) を
 // 取り出して静的描画し、ログイン状態・デモごとの出し分けを見る
 const renderItems = (

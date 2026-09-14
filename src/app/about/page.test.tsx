@@ -8,7 +8,7 @@ import AboutPage from "./page";
 
 const html = () => renderToStaticMarkup(<AboutPage />);
 
-// Yahoo! の規定 HTML の一字一句の固定は YahooAttribution.test.tsx が持つ。
+// Yahoo! の規定 HTML の一字一句の固定は components/chrome/YahooAttribution.test.tsx が持つ。
 // ここでは総覧ページにそれが載っている (コンポーネントが繋がっている) ことだけ見る
 test("Yahoo! の規定クレジットが載っている", () => {
   expect(html()).toContain(

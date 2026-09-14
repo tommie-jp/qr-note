@@ -7,9 +7,9 @@ import {
   setTrashSortAction,
   setViewModeAction,
 } from "@/app/actions";
-import { PageTransition } from "@/components/PageTransition";
+import { PageTransition } from "@/components/chrome/PageTransition";
 import { TrashActionBar } from "@/components/bottombar/TrashActionBar";
-import { TrashList } from "@/components/TrashList";
+import { TrashList } from "@/components/trash/TrashList";
 import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuit/thumbs";

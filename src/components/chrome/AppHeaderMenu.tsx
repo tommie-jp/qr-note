@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { DebugConsoleButton } from "@/components/DebugConsoleButton";
-import { HeaderMenu } from "@/components/HeaderMenu";
-import { HeaderQrButton } from "@/components/HeaderQrButton";
-import { LoginButton } from "@/components/LoginButton";
-import { LogoutButton } from "@/components/LogoutButton";
+import { DebugConsoleButton } from "@/components/diag/DebugConsoleButton";
+import { HeaderMenu } from "@/components/chrome/HeaderMenu";
+import { HeaderQrButton } from "@/components/chrome/HeaderQrButton";
+import { LoginButton } from "@/components/auth/LoginButton";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import {
   GithubIcon,
   HistoryIcon,
@@ -13,7 +13,7 @@ import {
   LockIcon,
   LogIcon,
 } from "@/components/icons";
-import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
+import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";

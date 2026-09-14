@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { PaneModeProvider } from "@/components/PaneModeProvider";
+import { PaneModeProvider } from "@/components/panes/PaneModeProvider";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 
 // 検索 3 ペインの layout (docs/86 §2)。検索ページ (children) と、/item への

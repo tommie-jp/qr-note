@@ -6,7 +6,7 @@ import {
   PRIMARY_BUTTON_CLASS,
   SUBMIT_ICON_SPINNER_CLASS,
   SUBMIT_SPINNER_CLASS,
-} from "./ui";
+} from "../ui";
 
 interface SubmitButtonProps {
   children: ReactNode;

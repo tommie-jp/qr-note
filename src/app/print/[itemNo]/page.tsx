@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import QRCode from "qrcode";
-import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
+import { LoginRequiredNotice } from "@/components/auth/LoginRequiredNotice";
 import { PrintButton } from "@/components/item/PrintButton";
 import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/auth/pageGuard";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PasskeyManager, type PasskeyRow } from "@/components/PasskeyManager";
+import { PasskeyManager, type PasskeyRow } from "@/components/auth/PasskeyManager";
 import { formatJstDateTime } from "@/lib/datetime";
 import { requireSettingsPage } from "@/lib/auth/pageGuard";
 import { listPasskeys } from "@/lib/auth/passkeys";

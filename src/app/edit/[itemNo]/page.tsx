@@ -4,14 +4,14 @@ import {
   restoreItemsAction,
   updateItemAction,
 } from "@/app/actions";
-import { AttributionFooter } from "@/components/AttributionFooter";
+import { AttributionFooter } from "@/components/chrome/AttributionFooter";
 import { EditItemFields } from "@/components/editor/EditItemFields";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
 import { MemoEditor } from "@/components/editor/MemoEditor";
 import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
-import { PageTransition } from "@/components/PageTransition";
+import { PageTransition } from "@/components/chrome/PageTransition";
 import { RecordAccess } from "@/components/item/RecordAccess";
-import { TrashedBanner } from "@/components/TrashedBanner";
+import { TrashedBanner } from "@/components/trash/TrashedBanner";
 import { UnsavedGuard } from "@/components/editor/UnsavedGuard";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items/read";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { BusyNotice } from "@/components/BusyNotice";
+import { BusyNotice } from "@/components/chrome/BusyNotice";
 import { BOX_CLASS } from "@/components/ui";
 import { offlineCircuitMap } from "@/lib/offline/circuits";
 import { loadOfflineSnapshot } from "@/lib/offline/snapshotDb";

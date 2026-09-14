@@ -25,9 +25,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // 画面遷移のアニメーション (docs/11-アプリ的UIUX計画.md §4)。
-  // experimental なので、壊れたらこの 1 行と src/components/PageTransition.tsx の
+  // experimental なので、壊れたらこの 1 行と src/components/chrome/PageTransition.tsx の
   // <ViewTransition> (各ページが <PageTransition> で包んでいる) を外せば元に戻る。
-  // layout ではなくページごとに置く理由は PageTransition.tsx の注。
+  // layout ではなくページごとに置く理由は components/chrome/PageTransition.tsx の注。
   // 非対応ブラウザではアニメーションなしで普通に動く
   experimental: {
     viewTransition: true,

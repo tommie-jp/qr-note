@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageTransition } from "@/components/PageTransition";
+import { PageTransition } from "@/components/chrome/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs } from "@/lib/logging/buffer";

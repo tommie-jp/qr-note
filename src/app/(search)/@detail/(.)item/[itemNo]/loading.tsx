@@ -1,5 +1,5 @@
-import { PreviewPane } from "@/components/PreviewPane";
-import { SkeletonBox, SkeletonLine } from "@/components/Skeleton";
+import { PreviewPane } from "@/components/panes/PreviewPane";
+import { SkeletonBox, SkeletonLine } from "@/components/chrome/Skeleton";
 import { isProductionEnv } from "@/lib/appEnv";
 
 // プレビューの読み込み中も器 (PreviewPane) ごと出す。骨組みだけを流すと、

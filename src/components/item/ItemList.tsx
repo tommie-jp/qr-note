@@ -17,7 +17,7 @@ import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { BulkTagToolbar } from "../search/BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";
-import { usePaneMode } from "../PaneModeProvider";
+import { usePaneMode } from "../panes/PaneModeProvider";
 import { TrashIcon } from "../icons";
 import { useSelectMode } from "../search/SelectModeProvider";
 import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "../ui";

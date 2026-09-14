@@ -2,11 +2,11 @@ import type { Item } from "@/generated/prisma/client";
 import { ItemTags } from "@/components/item/ItemTags";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
 import { ItemUrlBox } from "@/components/item/ItemUrlBox";
-import { LoginButton } from "@/components/LoginButton";
+import { LoginButton } from "@/components/auth/LoginButton";
 import { QrIcon } from "@/components/icons";
 import { NoteBody } from "@/components/markdown/NoteBody";
 import { MemoPanel } from "@/components/editor/MemoPanel";
-import { PendingLink } from "@/components/PendingLink";
+import { PendingLink } from "@/components/chrome/PendingLink";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { planCircuits } from "@/lib/circuit/cache";
 

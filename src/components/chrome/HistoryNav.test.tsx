@@ -4,7 +4,7 @@ import { HistoryNav } from "./HistoryNav";
 
 // このリポジトリのコンポーネントテストは renderToStaticMarkup の静的描画だけで、
 // 操作を伴うテストの土台 (jsdom / testing-library) を持たない
-// (HeaderMenu.test.tsx と同じ方針)。ここで確かめられるのは初回描画までで、
+// (components/chrome/HeaderMenu.test.tsx と同じ方針)。ここで確かめられるのは初回描画までで、
 // Navigation API による活性/非活性の切り替えはブラウザで実物を通して確認する。
 const render = () => renderToStaticMarkup(<HistoryNav />);
 

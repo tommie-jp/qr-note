@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
+import { LoginRequiredNotice } from "@/components/auth/LoginRequiredNotice";
 
 // サイト名は付けない。root layout の title.template が付ける
 // (手で連結すると非本番の [LOCAL] が抜け落ちる)

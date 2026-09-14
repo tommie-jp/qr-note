@@ -45,13 +45,13 @@ vi.mock("@/lib/prefs/itemListContext", () => ({
 vi.mock("@/components/notepage/AutoNotePane", () => ({ AutoNotePane: mocks.stub("AutoNotePane") }));
 vi.mock("@/components/item/ItemListNav", () => ({ ItemListNav: mocks.stub("ItemListNav") }));
 vi.mock("@/components/item/ItemView", () => ({ ItemView: mocks.stub("ItemView") }));
-vi.mock("@/components/LoginRequiredNotice", () => ({
+vi.mock("@/components/auth/LoginRequiredNotice", () => ({
   LoginRequiredNotice: mocks.stub("LoginRequiredNotice"),
 }));
-vi.mock("@/components/PageTransition", () => ({
+vi.mock("@/components/chrome/PageTransition", () => ({
   PageTransition: mocks.stub("PageTransition"),
 }));
-vi.mock("@/components/PreviewPane", () => ({ PreviewPane: mocks.stub("PreviewPane") }));
+vi.mock("@/components/panes/PreviewPane", () => ({ PreviewPane: mocks.stub("PreviewPane") }));
 vi.mock("@/components/item/PublicItemView", () => ({
   PublicItemView: mocks.stub("PublicItemView"),
 }));
@@ -61,9 +61,9 @@ const { ItemDetail } = await import("./ItemDetail");
 const { AutoNotePane } = await import("@/components/notepage/AutoNotePane");
 const { ItemListNav } = await import("@/components/item/ItemListNav");
 const { ItemView } = await import("@/components/item/ItemView");
-const { LoginRequiredNotice } = await import("@/components/LoginRequiredNotice");
-const { PageTransition } = await import("@/components/PageTransition");
-const { PreviewPane } = await import("@/components/PreviewPane");
+const { LoginRequiredNotice } = await import("@/components/auth/LoginRequiredNotice");
+const { PageTransition } = await import("@/components/chrome/PageTransition");
+const { PreviewPane } = await import("@/components/panes/PreviewPane");
 const { PublicItemView } = await import("@/components/item/PublicItemView");
 const { RecordAccess } = await import("@/components/item/RecordAccess");
 

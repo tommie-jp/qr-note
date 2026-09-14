@@ -1,4 +1,4 @@
-import { BusyNotice } from "@/components/BusyNotice";
+import { BusyNotice } from "@/components/chrome/BusyNotice";
 import type { EditorOcr } from "./hooks/useEditorOcr";
 import type { EditorScanInsert } from "./hooks/useEditorScanInsert";
 
