@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import type { ItemPropsRow } from "@/lib/props";
+import type { ItemPropsRow } from "@/lib/markdown/props";
 import { PropsTable } from "./PropsTable";
 
 const rows: ItemPropsRow[] = [
@@ -74,7 +74,7 @@ describe("PropsTable", () => {
   });
 });
 
-// 数式入りの要約列 (docs/69-一覧数式計画.md)。HTML はサーバ (mathText.ts) が
+// 数式入りの要約列 (docs/69-一覧数式計画.md)。HTML はサーバ (markdown/mathText.ts) が
 // KaTeX+エスケープ済みで降ろす。無い行はプレーンテキストのまま
 describe("PropsTable math summaries", () => {
   test("mathSummaries があれば要約を KaTeX の HTML で出す", () => {

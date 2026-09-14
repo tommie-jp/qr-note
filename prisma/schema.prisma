@@ -30,7 +30,7 @@ model Item {
   // memo から抽出したタグ (正規化済み) の派生キャッシュ。検索・補完に使う。
   tags      String[] @default([])
   // memo のプロパティ行 (hFE=208 など) から抽出した派生キャッシュ。
-  // [{ key, label, value }] の配列でタグ検索時の特性表に使う (src/lib/props.ts)。
+  // [{ key, label, value }] の配列でタグ検索時の特性表に使う (src/lib/markdown/props.ts)。
   props     Json     @default("[]")
   // memo のタスクリスト (`- [ ]` / `- [x]`) の個数の派生キャッシュ
   // (docs/56-チェック検索計画.md)。検索の is:todo / is:done で使う。

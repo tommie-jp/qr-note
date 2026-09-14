@@ -16,8 +16,8 @@ import {
   type TaskProgress,
 } from '@/lib/items/search'
 import { countTrashedItems, countTrashedMatches } from '@/lib/items/trash'
-import { buildMathSummaries, buildMathTexts } from '@/lib/mathText'
-import type { MathTextMap } from '@/lib/mathTextTypes'
+import { buildMathSummaries, buildMathTexts } from '@/lib/markdown/mathText'
+import type { MathTextMap } from '@/lib/markdown/mathTextTypes'
 import { queryHasTagTerm, queryTracksTaskProgress } from '@/lib/search/rewrite'
 import { isTaggableCode, scanRegisterHref } from '@/lib/scanRegister'
 import type { Sort } from '@/lib/validation'

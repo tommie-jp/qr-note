@@ -11,7 +11,7 @@
 // **ラベルは平文のまま本文に残る**。全文検索・タグ集計はそのまま効き、その
 // 代わり「何のシークレットか」はサーバ管理者にも見える (docs/51 §1 の割り切り)。
 
-import { stripCode } from '../tags'
+import { stripCode } from '../markdown/tags/tags'
 
 export const SECRET_PATH_PREFIX = '/api/secrets/'
 
@@ -150,7 +150,7 @@ export function findSecretNotation(
 }
 
 // 本文が参照しているシークレットの名前を出現順・重複なしで返す。
-// コードフェンス・インラインコードの中は対象外 (tags.ts / memoImages.ts と同じ)。
+// コードフェンス・インラインコードの中は対象外 (markdown/tags/tags.ts / memoImages.ts と同じ)。
 //
 // 用途は 2 つ: 断片の GC (docs/51 §11) と、閲覧前に「このノートに鍵の要る
 // 断片がいくつあるか」を数えること。

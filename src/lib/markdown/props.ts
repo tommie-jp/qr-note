@@ -1,6 +1,6 @@
 // メモ本文中のプロパティ行 (hFE=208 Vf=700mV) の抽出・集計ユーティリティ。
 // プロパティの正本はメモ本文であり、items.props カラムは表示用の派生キャッシュ。
-// tags.ts と同じく DB 非依存の純関数として置く。
+// markdown/tags/tags.ts と同じく DB 非依存の純関数として置く。
 //
 // プロパティ記法 (詳細は docs/08-プロパティ計画.md / docs/メモ記法.md):
 //   - 「行全体が空白区切りの key=value トークンだけで構成される行」をプロパティ行と
@@ -8,7 +8,7 @@
 //     散文が混ざった行 (`実測では hFE=195 だった`) は行ごと対象外。これにより
 //     本文中の key=value と誤解なく共存できる。
 //   - key=value は空白を挟まない (`hFE = 208` は不可)。
-//   - キーは英字始まりの英数字・`_`・`-`。正規化は tags.ts と同じ NFKC + 小文字化
+//   - キーは英字始まりの英数字・`_`・`-`。正規化は markdown/tags/tags.ts と同じ NFKC + 小文字化
 //     (hFE と HFE は同じ列)。表示は書いた綴りのまま (label)。
 //   - 値は空白と `=` を含まない 1 文字以上。表には書いたまま出し、ソートのときだけ
 //     数値部を見る (208 / 700mV / 0.7V / -40 / 120～200 / TO-92 / 2SC1815)。
@@ -21,8 +21,8 @@
 // (エラーにならず黙って消える)。実メモに device=2N5551 / hFE=120～200 のような
 // 書き方が既にあるため、値は緩く受けて表示はそのまま、判断は人に委ねる。
 
-import { INLINE_MATH } from '@/lib/memoSummary'
-import { normalizeTag, stripCode } from '@/lib/tags'
+import { INLINE_MATH } from '@/lib/markdown/memoSummary'
+import { normalizeTag, stripCode } from '@/lib/markdown/tags/tags'
 
 // メモ本文から抽出した 1 プロパティ。
 // key は比較・列マージ用の正規化キー、label は表ヘッダ用の元の綴り、
@@ -53,7 +53,7 @@ const PLACEHOLDER = '￼'
 const VALUE_PATTERN = new RegExp(`^[^\\s=＝${PLACEHOLDER}]+$`, 'u')
 
 // 値の末尾の読点・コンマ。`hFE=440, Vf=696mV` のような区切りの名残であって
-// 値の一部ではないので落とす (tags.ts が `#抵抗。` を「抵抗」で切るのと同じ考え)。
+// 値の一部ではないので落とす (markdown/tags/tags.ts が `#抵抗。` を「抵抗」で切るのと同じ考え)。
 const VALUE_TRAILING_PUNCT = /[,、]+$/u
 
 // key と value の区切り (全角 ＝ は NFKC で = に畳まれるが、元トークンの分割にも使う)。
@@ -63,7 +63,7 @@ const SEPARATOR = /[=＝]/
 const TOKEN_SEPARATOR = /[\s　]+/
 
 // 比較・保存のための正規化キー。正規化の規則 (NFKC + 小文字化) はタグと同じで、
-// 全文検索の NormalizerAuto に揃えるためのものなので tags.ts の 1 箇所に持たせる。
+// 全文検索の NormalizerAuto に揃えるためのものなので markdown/tags/tags.ts の 1 箇所に持たせる。
 function normalizeKey(raw: string): string {
   return normalizeTag(raw)
 }

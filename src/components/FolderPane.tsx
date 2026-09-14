@@ -4,7 +4,7 @@ import { TrashIcon } from "@/components/icons";
 import { PaneResizer } from "@/components/PaneResizer";
 import type { FolderTotals, TagCount } from "@/lib/items/read";
 import { UNTAGGED_TOKEN } from "@/lib/search/types";
-import { normalizeTag, tagSearchHref } from "@/lib/tags";
+import { normalizeTag, tagSearchHref } from "@/lib/markdown/tags/tags";
 import type { Sort } from "@/lib/validation";
 
 interface FolderPaneProps {

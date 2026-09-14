@@ -8,7 +8,7 @@
 // 遅くなったら tags / props と同じく「保存時に計算する派生キャッシュ列」へ
 // 移せる (そのときもこの関数が正本の抽出規則として残る)。
 
-import { stripCode } from './tags'
+import { stripCode } from './markdown/tags/tags'
 import { isValidAttachmentName, isValidImageName, isValidVideoName } from './uploads/names'
 
 // Markdown の画像記法 `![alt](url)` の url を捕捉する。
@@ -38,7 +38,7 @@ export function replaceImageName(
 }
 
 // 本文に貼られた自前画像の名前を出てくる順に列挙する。
-// コードフェンス・インラインコードの中は対象外 (tags.ts / props.ts と同じ流儀)。
+// コードフェンス・インラインコードの中は対象外 (markdown/tags/tags.ts / markdown/props.ts と同じ流儀)。
 // firstImageName / allImageNames の共通の抽出規則。
 function* iterImageNames(memo: string): Generator<string> {
   for (const match of stripCode(memo).matchAll(IMAGE_SYNTAX)) {

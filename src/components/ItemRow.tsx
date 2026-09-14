@@ -36,7 +36,7 @@ interface ItemRowProps {
   // **画像があるノートでは使わない** — 優先順位の分岐は lib/itemRowDecor.ts の rowFace が持つ
   circuitThumb?: string;
   // 数式入りのタイトル/プレビューの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
-  // サーバ (mathText.ts) が数式を含むノートにだけ作って降ろす。
+  // サーバ (markdown/mathText.ts) が数式を含むノートにだけ作って降ろす。
   // 無ければ従来どおりプレーンテキスト (title / preview) で出す
   mathTitle?: string;
   mathPreview?: string;
@@ -61,7 +61,7 @@ interface ItemRowProps {
 //
 // タイトル (memoSummary) と本文 (memoPreview) は同じ規則で切り分けてあり、
 // 本文には 1 行目・タグ・プロパティ・画像が出てこない。カードの 3 行に
-// 「他の場所で既に見えているもの」を流さないため (memoPreview.ts 参照)。
+// 「他の場所で既に見えているもの」を流さないため (markdown/memoPreview.ts 参照)。
 //
 // **"use client" を付けない。** 検索一覧 (client の ItemList) とゴミ箱
 // (server の TrashList) の両方から描かれるので、hooks も context も持たない。

@@ -2,10 +2,10 @@
 
 import { useEffect, useId, useState } from "react";
 import { errorText } from "@/lib/errorMessage";
-import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
+import { mermaidRenderId, renderMermaidSvg } from "@/lib/markdown/mermaidRender";
 import { ERROR_SOURCE_CLASS } from "./ui";
 
-// 読み込み・初期化・描画は @/lib/mermaidRender に寄せた。編集画面の
+// 読み込み・初期化・描画は @/lib/markdown/mermaidRender に寄せた。編集画面の
 // ライブプレビュー (docs/70 §7) も同じ図を描くため — initialize が
 // 二重に走らないよう、出どころを 1 つにする
 

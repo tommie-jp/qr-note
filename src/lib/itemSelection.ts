@@ -1,5 +1,5 @@
 // 検索結果で選択したノートに対する一括操作フォームの共通部分 (DB 非依存)。
-// 一括タグ (bulkTags.ts) とゴミ箱行き (app/actions/trash.ts の trashItemsAction) が
+// 一括タグ (markdown/tags/bulk.ts) とゴミ箱行き (app/actions/trash.ts の trashItemsAction) が
 // 同じ形のフォーム (itemNo[] + q/page/sort) を送るため、解釈をここに集約する。
 
 import { buildSearchUrl } from './searchUrl'

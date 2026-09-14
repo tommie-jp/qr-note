@@ -1,6 +1,6 @@
 import type { BookSummary } from './book'
 import type { ProductSummary } from './product'
-import { parseTagToken } from './tags'
+import { parseTagToken } from './markdown/tags/tags'
 
 // スキャンした未登録コードから新規ノートを作る導線の組み立て
 // (設計は docs/10-スキャン新規登録計画.md)。
@@ -11,7 +11,7 @@ import { parseTagToken } from './tags'
 
 // このコードをタグとして本文に置けるか。
 //
-// 判定は tags.ts の parseTagToken に委ねる。タグ記法の正規表現をここへ
+// 判定は markdown/tags/tags.ts の parseTagToken に委ねる。タグ記法の正規表現をここへ
 // 書き写すと、tags 側が変わったとき「ボタンは出るのにタグにならない」
 // (逆も) が黙って起きる。#付きで渡して「タグ 1 個ちょうど」かを聞く。
 export function isTaggableCode(code: string): boolean {

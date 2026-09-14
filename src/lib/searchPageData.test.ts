@@ -30,7 +30,7 @@ vi.mock('@/lib/items/read', () => ({ nextItemNo: mocks.nextItemNo }))
 vi.mock('@/lib/circuitThumbs', () => ({
   loadCircuitThumbs: mocks.loadCircuitThumbs,
 }))
-vi.mock('@/lib/mathText', () => ({
+vi.mock('@/lib/markdown/mathText', () => ({
   buildMathTexts: mocks.buildMathTexts,
   buildMathSummaries: mocks.buildMathSummaries,
 }))

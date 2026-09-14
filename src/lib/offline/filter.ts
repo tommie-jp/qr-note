@@ -21,7 +21,7 @@
 
 import { parseSearchExpr } from '@/lib/search/parse'
 import type { SearchExpr, SearchTerm } from '@/lib/search/types'
-import { normalizeTag } from '@/lib/tags'
+import { normalizeTag } from '@/lib/markdown/tags/tags'
 import type { OfflineItem } from './item'
 
 // ノート 1 件と、その検索対象を正規化して畳んだもの。

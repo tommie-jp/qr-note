@@ -14,7 +14,7 @@ import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuitThumbs";
 import { listTrashedItems } from "@/lib/items/trash";
-import { buildMathTexts } from "@/lib/mathText";
+import { buildMathTexts } from "@/lib/markdown/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
 import { readTrashPrefs } from "@/lib/searchPrefs";
 import { requireUser } from "@/lib/auth/session";

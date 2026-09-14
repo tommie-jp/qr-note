@@ -14,11 +14,11 @@ import {
   type CompleteRange,
   type Completion,
 } from '@/lib/queryComplete'
-import { normalizeTag } from '@/lib/tags'
+import { normalizeTag } from '@/lib/markdown/tags/tags'
 
 export type { Completion }
 
-// タグ名に使える 1 文字 (tags.ts の TAG_INNER と一致させる)。
+// タグ名に使える 1 文字 (markdown/tags/tags.ts の TAG_INNER と一致させる)。
 const TAG_CHAR = /[\p{L}\p{N}\p{M}_-]/u
 const TAG_MARKER = /[#＃]/
 
@@ -44,7 +44,7 @@ export function tagContextAtCursor(query: string, cursor: number): TagContext | 
   const markerPos = i - 1
   if (markerPos < 0 || !TAG_MARKER.test(query[markerPos])) return null
   // マーカー直前が「行頭・空白・演算子」ならタグの開始とみなす
-  // (C# のような語中の # を除外する)。メモ本文のタグ抽出 (tags.ts) は空白
+  // (C# のような語中の # を除外する)。メモ本文のタグ抽出 (markdown/tags/tags.ts) は空白
   // 区切りだけで、こちらより狭いことに注意 — 本文の `C#` を拾わないため。
   // 検索窓には演算子があるので条件が違う。
   if (!isTokenBoundary(query[markerPos - 1])) return null

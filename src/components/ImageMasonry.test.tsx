@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Item } from "@/generated/prisma/client";
-import { tagSearchHref } from "@/lib/tags";
+import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { ImageMasonry } from "./ImageMasonry";
 
 const IMAGE_1 = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";

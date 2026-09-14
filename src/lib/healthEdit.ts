@@ -18,7 +18,7 @@ import {
   matchDataLine,
   parseMeasureToken,
 } from './healthRecords'
-import { joinLines, splitLines } from './memoLines'
+import { joinLines, splitLines } from './markdown/memoLines'
 
 export interface HealthEntry {
   date: string

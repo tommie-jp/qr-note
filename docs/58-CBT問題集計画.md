@@ -55,7 +55,8 @@
   [CircuitDiagram.tsx](../src/components/CircuitDiagram.tsx) と同じ作法で
   「何が悪いか + 元ソース」を表示する。黙ってコードブロックに落とさない。
   `正解:` の後ろに宙に浮いた行があるとき (「解説」の打ち間違い) も知らせる。
-- [fenceLanguages.ts](../src/lib/fenceLanguages.ts) の `RENDERED_LANGS` にも
+- [fenceLanguages.ts](../src/lib/fenceLanguages.ts) (当時のパス。現在は
+  `src/lib/markdown/fenceLanguages.ts`) の `RENDERED_LANGS` にも
   足し、打ち間違い (`quis` 等) を linter が警告するようにする。補完
   (`FENCE_LANGUAGES`) にも足す。
 

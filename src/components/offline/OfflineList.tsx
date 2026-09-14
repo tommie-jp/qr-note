@@ -2,7 +2,7 @@
 
 import { RowThumb } from "@/components/RowThumb";
 import { firstThumbInfo } from "@/lib/memoImages";
-import { memoSummary } from "@/lib/memoSummary";
+import { memoSummary } from "@/lib/markdown/memoSummary";
 import type { OfflineItem } from "@/lib/offline/item";
 
 interface OfflineListProps {

@@ -1,9 +1,9 @@
 // 一覧の要約表示用に、memo の先頭行から Markdown 記法を取り除く。
 // 表示専用の簡易変換 (正確なパースは表示側の react-markdown が担う)
 
-import { stripAnswerSpoilers } from './answerSpoiler'
+import { stripAnswerSpoilers } from '../answerSpoiler'
 import { RENDERED_LANGS } from './fenceLanguages'
-import { readAlertMarker } from './markdownAlerts'
+import { readAlertMarker } from './alerts'
 
 // 行頭の記法: 見出し / 引用 / 箇条書き / 番号リスト / チェックボックス /
 // 脚注の定義 (`[^1]: 出典`)
@@ -23,7 +23,7 @@ const INLINE_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
 ]
 
 // インライン数式 ($...$)。remark-math の解釈の行単位近似で、一覧側の数式の
-// 見つけ方はこの 1 本に揃える (マスク・打ち切り・KaTeX 描画・props.ts の
+// 見つけ方はこの 1 本に揃える (マスク・打ち切り・KaTeX 描画・markdown/props.ts の
 // stripNonProse で別々の正規表現を持つと壊れ方が食い違う)。
 //   - 改行は跨がない (数式は行内で閉じる)
 //   - \$ エスケープ (通貨。docs/メモ記法.md §数式) は開き・閉じどちらの
@@ -60,7 +60,7 @@ const FENCE_MARKER = /^\s*(```|~~~)/
 const FENCE_LANG = /^\s*(```|~~~)\s*(\S*)/
 
 // フェンス (```) と行を跨ぐブロック数式 ($$) の開閉を追う行単位の状態機械。
-// hiddenLineSkipper (この下) と notePreviewSource (notePreview.ts) が共有する
+// hiddenLineSkipper (この下) と notePreviewSource (markdown/notePreview.ts) が共有する
 // 唯一の実装 — INLINE_MATH と同じく「一覧側の見つけ方はこの 1 本に揃える」。
 // 別々に持つと、要約が隠した行をプレビューが描く (逆も) 壊れ方になる。
 //
@@ -174,7 +174,7 @@ const DIRECTIVE_LABEL = /^\s*:{3,}[\w-]*\[(.*)\]\s*$/
 //
 // **段落の直後の罫線 (`赤LED` + `------`) はここに来ない。** CommonMark では
 // setext 見出しの下線として読まれ、要約は上の行を返して先に抜けるため
-// (既存ノートの罫線付きの表がこの形。memoSummary.test.ts で固定してある)
+// (既存ノートの罫線付きの表がこの形。markdown/memoSummary.test.ts で固定してある)
 const THEMATIC_BREAK = /^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/
 
 // 中身ではなく囲い (フェンス・折りたたみ・ページの区切り) の行か。
@@ -193,7 +193,7 @@ export function isStructureLine(line: string): boolean {
 
 // 1 行から Markdown 記法を取り除いて表示用のテキストにする。
 // memoPreview (一覧の本文プレビュー) も同じ剥がし方を使うので公開している。
-// 数式の退避先の目印。本文には現れない置換文字 (props.ts の PLACEHOLDER と
+// 数式の退避先の目印。本文には現れない置換文字 (markdown/props.ts の PLACEHOLDER と
 // 同じ選択)。番号で挟む (￼3￼) のは復元を位置合わせに頼らないため —
 // リンク剥がしが URL の中の退避印ごと消しても、残った印は自分の数式に戻る
 const MATH_MASK_CHAR = '￼'

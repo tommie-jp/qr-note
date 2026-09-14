@@ -5,7 +5,7 @@
 // 済ませ、結果を prop で渡す。鍵はフェンスの中身 (trim 済み) で、
 // 同じ内容のフェンスが 2 つあれば 1 回の集計を共有する。
 
-import { MATRIX_LANG } from './fenceLanguages'
+import { MATRIX_LANG } from './markdown/fenceLanguages'
 import { searchItemChecks } from './matrix/matrixQuery'
 import { extractFenceSources } from './markdown/extractFences'
 import { buildFenceData } from './markdown/fenceData'
@@ -13,7 +13,7 @@ import type { ParseCache } from './markdown/parseCache'
 import { parseMatrixFence, type MatrixMarkSet } from './matrixFence'
 import { buildMatrixTable, type MatrixTableData } from './matrixTable'
 import { narrowToChecks } from './search/rewrite'
-import type { CheckState } from './taskCheckbox'
+import type { CheckState } from './markdown/taskCheckbox'
 import type { Sort } from './validation'
 
 // 1 つのメモに置ける表の上限。1 つの表につき 1 クエリ走るので、

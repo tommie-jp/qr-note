@@ -2,7 +2,7 @@
 //
 // 何を変えるか (TransactionSpec) は EditorState だけから決める純関数にし、
 // view へ流す薄い包みを隣に置く。純関数の側は EditorState.create で試せる。
-// 素の textarea 向けの同じ作法は insertAtSelection.ts (シークレットの入力ダイアログ用)。
+// 素の textarea 向けの同じ作法は editor/insertAtSelection.ts (シークレットの入力ダイアログ用)。
 
 import type { EditorState, TransactionSpec } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'

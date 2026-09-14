@@ -1,13 +1,13 @@
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
-// 型は葉 (circuit/types.ts / mathTextTypes.ts) から取る — 取得側の
-// circuitThumbs.ts / mathText.ts はサーバ専用 module で、値の import は不可
+// 型は葉 (circuit/types.ts / markdown/mathTextTypes.ts) から取る — 取得側の
+// circuitThumbs.ts / markdown/mathText.ts はサーバ専用 module で、値の import は不可
 // (offline/circuits.ts と同じ線引き)
 import type { CircuitThumbMap } from "@/lib/circuit/types";
-import type { MathTextMap } from "@/lib/mathTextTypes";
+import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
 import { allImageNames, thumbUrl } from "@/lib/memoImages";
-import { memoSummary } from "@/lib/memoSummary";
-import { tagSearchHref } from "@/lib/tags";
+import { memoSummary } from "@/lib/markdown/memoSummary";
+import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { CircuitThumb } from "./CircuitThumb";
 import { MathText } from "./MathText";
 

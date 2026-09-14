@@ -5,7 +5,7 @@ import {
   addTagsToMemo,
   removeTagFromMemo,
   removeTagsFromMemo,
-} from './tagEdit'
+} from './edit'
 
 describe('addTagToMemo', () => {
   test('空メモはタグ単独行にする (先頭に空行を作らない)', () => {

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
 import { offlineCircuitMap } from './circuits'
-import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from '@/lib/fenceLanguages'
+import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from '@/lib/markdown/fenceLanguages'
 
 // MarkdownView が引く鍵は**言語 + フェンスの中身 (trim 済み)**。
 // ここがずれると図を引けず、圏外でだけコードブロックのまま出る

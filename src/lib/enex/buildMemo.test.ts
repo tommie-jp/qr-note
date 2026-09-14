@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { extractTags } from '@/lib/tags'
+import { extractTags } from '@/lib/markdown/tags/tags'
 import { buildMemo, enexTagToMemoTag } from './buildMemo'
 
 // --- タグの変換 ---
@@ -11,7 +11,7 @@ test('そのままタグにできる文字はそのまま (正規化のみ)', ()
 })
 
 // Evernote のタグは空白や記号を含められるが、このアプリの #タグ は
-// 文字・数字・`_`・`-` しか使えない (tags.ts)。壊れた記法を書き込まないよう寄せる
+// 文字・数字・`_`・`-` しか使えない (markdown/tags/tags.ts)。壊れた記法を書き込まないよう寄せる
 test('タグに使えない文字は - に寄せる', () => {
   expect(enexTagToMemoTag('電子 工作')).toBe('電子-工作')
   expect(enexTagToMemoTag('部品/抵抗')).toBe('部品-抵抗')

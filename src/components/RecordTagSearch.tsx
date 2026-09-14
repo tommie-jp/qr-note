@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { recordQueryUse } from "@/lib/searchQueryClient";
-import { tagSearchQuery } from "@/lib/tags";
+import { tagSearchQuery } from "@/lib/markdown/tags/tags";
 
 // タグ (#…) を押したときの検索を履歴に残す (docs/59-検索候補計画.md §2)。
 // RecordAccess と同じく何も描画しない。

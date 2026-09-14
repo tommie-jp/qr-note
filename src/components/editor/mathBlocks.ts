@@ -4,7 +4,7 @@
 // テーブル・フェンスと同じ**読み取り専用**の作り — カーソルが触れれば生の
 // `$...$` に戻り、直すのは原文の上で行う。本文は書き換えない。
 //
-// **見つけ方は本文と同じ 1 本を使う** (memoSummary.ts の INLINE_MATH)。
+// **見つけ方は本文と同じ 1 本を使う** (markdown/memoSummary.ts の INLINE_MATH)。
 // 一覧の要約・プレビューと編集画面で「どこからどこまでが数式か」がずれると、
 // 一覧では数式なのに編集では生の $ のまま、という食い違いが出る。
 //
@@ -31,8 +31,8 @@ import {
   type DecorationSet,
 } from "@codemirror/view";
 import katex from "katex";
-import { KATEX_OPTIONS } from "@/lib/katexOptions";
-import { inlineMathRanges, SINGLE_LINE_BLOCK_MATH } from "@/lib/memoSummary";
+import { KATEX_OPTIONS } from "@/lib/markdown/katexOptions";
+import { inlineMathRanges, SINGLE_LINE_BLOCK_MATH } from "@/lib/markdown/memoSummary";
 
 export interface MathRange {
   start: number;

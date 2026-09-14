@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseMarkdownTable, splitTableRow } from './markdownTable'
+import { parseMarkdownTable, splitTableRow } from './table'
 
 describe('splitTableRow', () => {
   test('前後のパイプは飾りとして落とす', () => {

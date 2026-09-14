@@ -17,7 +17,7 @@
 import { syntaxTree } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import type { EditorView } from "@codemirror/view";
-import { QUIZ_LANG } from "@/lib/fenceLanguages";
+import { QUIZ_LANG } from "@/lib/markdown/fenceLanguages";
 import { parseQuiz } from "@/lib/quizParse";
 
 // フェンスの原文から言語名と中身を割る。開きと閉じの行は中身に含めない

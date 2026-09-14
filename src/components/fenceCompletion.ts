@@ -3,7 +3,7 @@ import type {
   CompletionResult,
 } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
-import { FENCE_LANGUAGES } from "@/lib/fenceLanguages";
+import { FENCE_LANGUAGES } from "@/lib/markdown/fenceLanguages";
 
 // フェンス開始行 (``` または ~~~ の直後に言語名の途中まで) にマッチする。
 // context.matchBefore は行頭から 250 文字までしか遡らないため使わず、

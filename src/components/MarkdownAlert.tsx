@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AlertType } from "@/lib/markdownAlerts";
+import type { AlertType } from "@/lib/markdown/alerts";
 
 // アラート (`> [!NOTE]`) の見た目 (docs/54-markdown表示拡張計画.md §2)。
 // 色は GitHub に合わせる — 同じ記法を GitHub にも貼るので、見え方が揃っていた

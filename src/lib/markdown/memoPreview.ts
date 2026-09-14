@@ -19,7 +19,7 @@ import {
   stripLineMarkdown,
 } from './memoSummary'
 import { isPropLine } from './props'
-import { parseTagToken } from './tags'
+import { parseTagToken } from './tags/tags'
 
 // プレビューとして返す最大文字数。
 //
@@ -33,7 +33,7 @@ export const MEMO_PREVIEW_MAX_LENGTH = 200
 // 絵ごと落とす — サムネがカード右端に出ているので、alt は重複でしかない。
 const IMAGE_SYNTAX = /!\[[^\]]*\]\([^)]*\)/g
 
-// 半角空白 (\s) と全角空白 (　) の連続。props.ts の TOKEN_SEPARATOR と揃える。
+// 半角空白 (\s) と全角空白 (　) の連続。markdown/props.ts の TOKEN_SEPARATOR と揃える。
 const TOKEN_SEPARATOR = /[\s　]+/
 const WHITESPACE_RUN = /[\s　]+/g
 

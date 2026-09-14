@@ -17,7 +17,7 @@ import {
   CIRCUITIKZ_LANG,
   type CircuitLang,
   isCircuitLang,
-} from '@/lib/fenceLanguages'
+} from '@/lib/markdown/fenceLanguages'
 
 // 同期の口。クライアントとテストが同じ定数を見る
 export const SYNC_ITEMS_PATH = '/api/sync/items'

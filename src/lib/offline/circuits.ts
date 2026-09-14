@@ -7,7 +7,7 @@
 // sharp を漏らした件と同じ落とし穴)。
 
 import type { CircuitMap } from '@/lib/circuit/types'
-import { circuitKey } from '@/lib/fenceLanguages'
+import { circuitKey } from '@/lib/markdown/fenceLanguages'
 import type { OfflineCircuit } from './item'
 
 // 描けなかった図はそもそも運ばれてこない (syncItems.ts は成功した SVG しか

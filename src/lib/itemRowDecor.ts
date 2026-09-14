@@ -6,8 +6,8 @@
 
 import type { Item } from '@/generated/prisma/client'
 import { firstThumbInfo } from '@/lib/memoImages'
-import { memoPreview } from '@/lib/memoPreview'
-import { memoSummary } from '@/lib/memoSummary'
+import { memoPreview } from '@/lib/markdown/memoPreview'
+import { memoSummary } from '@/lib/markdown/memoSummary'
 import type { ViewMode } from '@/lib/viewMode'
 
 // 画像モードは ImageMasonry が描くのでここには来ない (ItemList が
@@ -51,7 +51,7 @@ export type RowText =
 // 見出しのリンクは stretched link の基準 (::after inset-0) なので、中身が
 // 空だと箱ごと高さ 0 になり、行のどこを押してもノートが開かなくなる。
 // 画像だけのノートやゴミ箱の空ノートで実際に起きる。
-// mathTitle が来るのは要約が数式を含むとき (mathText.ts の足切り) なので、
+// mathTitle が来るのは要約が数式を含むとき (markdown/mathText.ts の足切り) なので、
 // 「(空のノート)」の受け皿と衝突しない
 export function rowTitle(item: RowItem, mathTitle?: string): RowText {
   if (mathTitle) {

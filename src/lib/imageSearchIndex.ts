@@ -10,7 +10,7 @@
 import 'server-only'
 import { prisma } from './db'
 import { allImageNames } from './memoImages'
-import { memoSummary } from './memoSummary'
+import { memoSummary } from './markdown/memoSummary'
 
 export interface ImageSearchIndexEntry {
   itemNo: string

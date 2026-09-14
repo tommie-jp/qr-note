@@ -18,7 +18,7 @@
 //   (本番/デモへは ./doBackfill.sh titles 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
-import { memoSummary } from '@/lib/memoSummary'
+import { memoSummary } from '@/lib/markdown/memoSummary'
 
 async function main(): Promise<void> {
   const items = await prisma.item.findMany({

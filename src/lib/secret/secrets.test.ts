@@ -70,7 +70,7 @@ describe('allSecretNames', () => {
     expect(allSecretNames(memo)).toEqual([NAME, OTHER])
   })
 
-  test('ignores references inside code fences (tags.ts と同じ流儀)', () => {
+  test('ignores references inside code fences (markdown/tags/tags.ts と同じ流儀)', () => {
     const memo = ['```', `![x](${secretUrl(NAME)})`, '```'].join('\n')
     expect(allSecretNames(memo)).toEqual([])
   })

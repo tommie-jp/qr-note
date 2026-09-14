@@ -3,7 +3,7 @@ import {
   parseBulkTagForm,
   parseTagInput,
   selectedTagsUnion,
-} from './bulkTags'
+} from './bulk'
 
 function form(entries: Array<[string, string]>): FormData {
   const fd = new FormData()

@@ -1,5 +1,5 @@
 import type { Link, Parent, Root, RootContent, Text } from "mdast";
-import { findTags, tagSearchHref } from "@/lib/tags";
+import { findTags, tagSearchHref } from "@/lib/markdown/tags/tags";
 
 // メモ本文中の #タグ を検索リンク (/?q=%23タグ名) に変換する remark プラグイン。
 // mdast の text ノードだけを対象にするため、コード (code / inlineCode) や

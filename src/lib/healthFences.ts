@@ -1,4 +1,4 @@
-import { HEALTH_LANG } from './fenceLanguages'
+import { HEALTH_LANG } from './markdown/fenceLanguages'
 import { extractFenceSources } from './markdown/extractFences'
 
 // memo 本文で健康グラフを書くときのフェンス言語 (定義は fenceLanguages に集約)

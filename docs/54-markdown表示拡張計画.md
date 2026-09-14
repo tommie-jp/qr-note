@@ -132,8 +132,10 @@ details 以外の directive が素通しすること。
 一覧の要約 (`memoSummary` / `memoPreview`) も直した。さもないとアラートで
 始まるノートの要約が「[!NOTE]」になる。
 
-- 目印の語彙は `src/lib/markdownAlerts.ts` に単一ソースとして置き、表示側
-  (`remarkAlerts`) と要約側の両方から読む (`fenceLanguages.ts` と同じ作法)。
+- 目印の語彙は `src/lib/markdownAlerts.ts` (当時のパス。現在は `src/lib/markdown/alerts.ts`)
+  に単一ソースとして置き、表示側
+  (`remarkAlerts`) と要約側の両方から読む (`fenceLanguages.ts` (当時のパス。現在は
+  `src/lib/markdown/fenceLanguages.ts`) と同じ作法)。
   別々に持つと「詳細画面には `[!FOO]` と出るのに要約からは消える」といった
   食い違いが起きる。
 - `:::` の行はコードフェンスと同じ扱いで飛ばす。ただし

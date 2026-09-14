@@ -9,7 +9,7 @@
 //
 // このモジュールはサーバ専用にする (katex ~280KB をクライアント束に入れない)。
 // client component からは値を import しないこと。返り値の型 (MathTextMap) は
-// 葉の mathTextTypes.ts に置いてあり、表示側はそちらを import する
+// 葉の markdown/mathTextTypes.ts に置いてあり、表示側はそちらを import する
 // (circuitThumbs.ts と同じ線引き)
 import katex from 'katex'
 import { escapeHtml } from './escapeHtml'

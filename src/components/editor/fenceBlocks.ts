@@ -30,10 +30,10 @@ import {
   type CircuitLang,
   MERMAID_LANG,
   isCircuitLang,
-} from "@/lib/fenceLanguages";
+} from "@/lib/markdown/fenceLanguages";
 import { fetchCircuitSvg } from "@/lib/circuitFetch";
 import { errorText } from "@/lib/errorMessage";
-import { mermaidRenderId, renderMermaidSvg } from "@/lib/mermaidRender";
+import { mermaidRenderId, renderMermaidSvg } from "@/lib/markdown/mermaidRender";
 
 const PARSE_BUDGET_MS = 200;
 

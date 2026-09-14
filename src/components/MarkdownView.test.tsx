@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 import { MarkdownView } from "./MarkdownView";
-import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from "@/lib/fenceLanguages";
+import { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey } from "@/lib/markdown/fenceLanguages";
 import { extractHealthSources } from "@/lib/healthFences";
 import { buildHealthSeries } from "@/lib/healthSeries";
 

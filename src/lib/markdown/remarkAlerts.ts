@@ -4,7 +4,7 @@ import {
   ALERT_TYPES,
   readAlertMarker,
   type AlertType,
-} from "@/lib/markdownAlerts";
+} from "@/lib/markdown/alerts";
 
 // GitHub 互換のアラート記法 (`> [!NOTE]`) を blockquote の class に写す
 // remark プラグイン (docs/54-markdown表示拡張計画.md §2)。
@@ -16,7 +16,7 @@ import {
 // 通そうとすると増える攻撃面のほうが先に大きくなる。
 //
 // 記法そのものはただの引用なので、GitHub や Obsidian に貼っても壊れない。
-// 目印の綴り (どれが有効な種類か) は @/lib/markdownAlerts が持つ。
+// 目印の綴り (どれが有効な種類か) は @/lib/markdown/alerts が持つ。
 
 // blockquote に刻む class。`alert-<種類>` の形だけを許可リストに載せる
 // (MarkdownView の sanitizeSchema)

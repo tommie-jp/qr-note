@@ -28,7 +28,7 @@ import rehypeSanitize, { defaultSchema, type Options } from "rehype-sanitize";
 import { ALERT_CLASS_PREFIX, alertTypeFromClassName } from "@/lib/markdown/remarkAlerts";
 import { NOTE_REMARK_PLUGINS } from "@/lib/markdown/parser";
 import { MarkdownAlert } from "./MarkdownAlert";
-import { KATEX_OPTIONS } from "@/lib/katexOptions";
+import { KATEX_OPTIONS } from "@/lib/markdown/katexOptions";
 import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
 import { AnswerSpoiler } from "./answer/AnswerSpoiler";
 import { ttsWordOf } from "./rehypeAnswerTts";
@@ -84,7 +84,7 @@ export const sanitizeSchema = {
   },
 } satisfies Options;
 
-// KaTeX のオプションは葉モジュールに置いてある (一覧のサーバ描画 mathText.ts
+// KaTeX のオプションは葉モジュールに置いてある (一覧のサーバ描画 markdown/mathText.ts
 // と共有するため。あちらがここを import すると react-markdown ごと引き込む)。
 // 既存の import 元 (MarkdownView / QuizMarkdown) のためにここから再輸出する
 export { KATEX_OPTIONS };

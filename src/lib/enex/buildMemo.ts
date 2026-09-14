@@ -1,12 +1,12 @@
 // ENEX の 1 ノートを、このアプリの memo 本文 1 枚に組み立てる (DB 非依存の純関数)。
 //
 // このアプリに題名の列は無く、一覧の要約は memo の 1 行目から作られる
-// (memoSummary.ts)。そのため題名は**本文の 1 行目**として書く
+// (markdown/memoSummary.ts)。そのため題名は**本文の 1 行目**として書く
 // (docs/28-エクスポート計画.md §4 の対応表)。
 
-import { normalizeTag, parseTagToken } from '@/lib/tags'
+import { normalizeTag, parseTagToken } from '@/lib/markdown/tags/tags'
 
-// タグ名に使えない文字。tags.ts の TAG_INNER (`[\p{L}\p{N}\p{M}_-]`) の裏返し
+// タグ名に使えない文字。markdown/tags/tags.ts の TAG_INNER (`[\p{L}\p{N}\p{M}_-]`) の裏返し
 const NOT_TAG_CHAR = /[^\p{L}\p{N}\p{M}_-]+/gu
 
 // Evernote のタグをこのアプリの `#タグ` に使える名前へ寄せる。
@@ -22,7 +22,7 @@ export function enexTagToMemoTag(raw: string): string | null {
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '')
 
-  // 正規化後の名前が再びタグとして読めるものだけ採用する (bulkTags.ts と同じ
+  // 正規化後の名前が再びタグとして読めるものだけ採用する (markdown/tags/bulk.ts と同じ
   // 考え方)。読めないものを書いても extractTags が拾わず、タグ検索に出てこない
   return parseTagToken(`#${name}`) === name ? name : null
 }
@@ -31,7 +31,7 @@ export function enexTagToMemoTag(raw: string): string | null {
 //
 // **タグ行を本文より前に置く**のが要点。本文がコードフェンスで始まる/終わる
 // ノートだと、後ろに置いたタグ行がフェンスの内側に落ちて extractTags に
-// 拾われなくなる (tags.ts の stripCode がコード内を対象外にするため)。
+// 拾われなくなる (markdown/tags/tags.ts の stripCode がコード内を対象外にするため)。
 export function buildMemo(
   title: string,
   body: string,

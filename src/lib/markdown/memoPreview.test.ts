@@ -37,7 +37,7 @@ test('key=value 行は除く (特性表に出るので重複する)', () => {
 })
 
 test('散文に混じった key=value は残す (行全体が key=value のときだけ落とす)', () => {
-  // props.ts の「行全体が key=value」判定と同じ線引き
+  // markdown/props.ts の「行全体が key=value」判定と同じ線引き
   expect(memoPreview('2SC1815\n実測では hFE=195 だった')).toBe(
     '実測では hFE=195 だった',
   )

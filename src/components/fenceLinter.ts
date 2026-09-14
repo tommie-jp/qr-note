@@ -1,7 +1,7 @@
 import { syntaxTree } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import type { EditorView } from "@codemirror/view";
-import { suggestFenceLang } from "@/lib/fenceLanguages";
+import { suggestFenceLang } from "@/lib/markdown/fenceLanguages";
 
 // フェンスの言語名 (CodeInfo) を走査し、図やカードになる言語 (RENDERED_LANGS)
 // の打ち間違いっぽいものに「◯◯ の間違いでは?」と警告する。

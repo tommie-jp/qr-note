@@ -16,7 +16,7 @@ import {
   type RowText,
   type RowViewMode,
 } from "@/lib/itemRowDecor";
-import { tagSearchHref } from "@/lib/tags";
+import { tagSearchHref } from "@/lib/markdown/tags/tags";
 
 // カードと小・中表示の行が共通に並べる部品 (ItemRow が 1 度だけ組む)。
 // 何を出すかの判断は lib/itemRowDecor.ts、ここは React の形にするだけ

@@ -28,7 +28,7 @@ export function normalizeTag(raw: string): string {
 // コードフェンスとインラインコードを潰し、コード内の記法 (#tag など) を除外する。
 // フェンスは改行へ、インラインコードは inlineReplacement へ置換して前後トークンの
 // 境界を保つ (隣接文字が結合しないように)。
-// インラインコードの置換文字を差し替えられるのは props.ts のため。タグは「行内に
+// インラインコードの置換文字を差し替えられるのは markdown/props.ts のため。タグは「行内に
 // タグがあるか」だけを見るので空白でよいが、プロパティは「行全体が key=value か」を
 // 見るので、コードの痕跡が空白だと行が条件をすり抜けてしまう (docs/08-プロパティ計画.md)。
 export function stripCode(text: string, inlineReplacement = ' '): string {

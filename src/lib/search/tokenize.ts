@@ -3,7 +3,7 @@
 // 後段のパーサ (parse.ts) は種別の付いたトークンだけを見る。
 // 文法の全体像は parse.ts 冒頭を参照。
 
-import { normalizeTag, parseTagToken } from '@/lib/tags'
+import { normalizeTag, parseTagToken } from '@/lib/markdown/tags/tags'
 import { UNTAGGED_TOKEN, type SearchTerm } from './types'
 
 // 引用されていない単独語がこれ (全半角・大小を吸収して比較) のとき OR 演算子。

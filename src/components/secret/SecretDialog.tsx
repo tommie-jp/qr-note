@@ -9,7 +9,7 @@ import {
 } from "@/components/ui";
 import { ModalOverlay } from "@/components/modal/ModalOverlay";
 import { useEscapeKey } from "@/components/modal/useEscapeKey";
-import { insertBlockAtSelection } from "@/lib/insertAtSelection";
+import { insertBlockAtSelection } from "@/lib/editor/insertAtSelection";
 import {
   loadSecret,
   newSecretName,

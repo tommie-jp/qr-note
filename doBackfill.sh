@@ -11,12 +11,12 @@
 #   titles      items.title を本文から切り出し直す (docs/63-タイトル順計画.md §4)。
 #               **列を足したデプロイの直後に 1 回流すこと。** マイグレーションは既存行を
 #               '' のまま置くので、流さないと「タイトル順」が全件同着 (= 番号順) にしか
-#               見えない。見出しの切り出し (src/lib/memoSummary.ts) は Markdown の解析
+#               見えない。見出しの切り出し (src/lib/markdown/memoSummary.ts) は Markdown の解析
 #               なので SQL では代用できない。
 #   taskcounts  items.task_todo / task_done を本文から数え直す (docs/56-チェック検索計画.md §4)。
 #               **列を足したデプロイの直後に 1 回流すこと。** マイグレーションは既存行を
 #               0 のまま置くので、流さないと `is:todo` が常に 0 件になる (検索が壊れて
-#               見える)。数え方 (src/lib/taskCheckbox.ts の countTasks) は remark を通す JS。
+#               見える)。数え方 (src/lib/markdown/taskCheckbox.ts の countTasks) は remark を通す JS。
 #   thumbs      images.thumb を --force で作り直す。THUMB_MAX_PX や fit などサムネ生成
 #               パラメータを変えた後に使う (docs/32 §1)。このとき memoImages.ts の
 #               THUMB_VERSION も上げてキャッシュを割ること。版だけ上げても DB の thumb を

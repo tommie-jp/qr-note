@@ -10,7 +10,7 @@
 // (healthEdit.ts) が「その日の行」を書き換えるのに使う — **読む側と書く側で
 // 同じ物差しを使う**ためにここで一緒に返す。
 //
-// **コードの中かどうかはパーサに聞く** (taskCheckbox.ts と同じ作法)。
+// **コードの中かどうかはパーサに聞く** (markdown/taskCheckbox.ts と同じ作法)。
 // 記号を数える自前の走査では、番号付きリストの中のフェンス (CommonMark では
 // 4 字下げが正しい書き方) を見落とす。見落とすと記法の説明を書いたノートの
 // 用例が記録として読まれ、しかも**記録欄がその説明文の数字を書き換える**
@@ -22,7 +22,7 @@ import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
 import type { ParseCache } from './markdown/parseCache'
-import { splitLines } from './memoLines'
+import { splitLines } from './markdown/memoLines'
 
 // 1 つの測定値。label は書かれたままの綴り (照合は normalizeMeasureLabel を通す)、
 // unit は数値の後ろに書かれた単位 (`66.4kg` の `kg`。無ければ空文字)。
@@ -47,7 +47,7 @@ export interface HealthDataLine {
 // 限る。`2026-08-14の記録` のような散文を記録として読まないため
 const DATA_LINE_RE = /^[ \t　]*(?:[-*+][ \t　]+)?(\d{4}-\d{2}-\d{2})(?:[ \t　]+(.*))?$/
 
-// トークンの区切り (半角/全角の空白)。props.ts の TOKEN_SEPARATOR と揃える
+// トークンの区切り (半角/全角の空白)。markdown/props.ts の TOKEN_SEPARATOR と揃える
 const TOKEN_SEPARATOR = /[\s　]+/
 
 // キーと値の区切り。全角の ＝ も認める (healthFence.ts と同じ約束)
@@ -81,7 +81,7 @@ const ONLY_SEPARATORS_RE = /^[/／]+$/
 // **上限を持つのは、区切りの多い文字列を黙って何本もの線にしないため**
 export const MAX_MEASURE_VALUES = 3
 
-// 解析は毎回同じ構成なので使い回す (taskCheckbox.ts の MEMO_PARSER と同じ)。
+// 解析は毎回同じ構成なので使い回す (markdown/taskCheckbox.ts の MEMO_PARSER と同じ)。
 // gfm を入れるのは、表やタスクリストの中の行位置を本文と揃えるため
 const MEMO_PARSER = unified().use(remarkParse).use(remarkGfm).freeze()
 

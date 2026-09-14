@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import { buildTableBlocks } from "./tableBlocks";
 
 // 表を「いつ畳んで、いつ原文に戻すか」だけを見る (widget の中身は
-// markdownTable.test.ts が持つ。DOM は node に無いので toDOM は呼ばれない)。
+// markdown/table.test.ts が持つ。DOM は node に無いので toDOM は呼ばれない)。
 
 const TABLE = "| 名前 | 数量 |\n| --- | ---: |\n| りんご | 3 |";
 

@@ -4,7 +4,7 @@
 // **読み取り専用**。カーソルが入れば生の markdown に戻り、そこで直接直す。
 // セルを contenteditable にして本文へ書き戻す道 (@atomic-editor/editor の
 // tables) は採らない — 書き戻しのたびに寄せが潰れ、テーブル全体が整形し
-// なおされる (経緯は lib/markdownTable.ts の冒頭)。
+// なおされる (経緯は lib/markdown/table.ts の冒頭)。
 //
 // 添付チップ (attachmentBlocks.ts) との違いは、**選択に応じて出し入れする**
 // こと。あちらは記法が inlinePreview に隠されるので常に出すが、こちらは
@@ -24,7 +24,7 @@ import {
   WidgetType,
   type DecorationSet,
 } from "@codemirror/view";
-import { parseMarkdownTable, type CellAlign } from "@/lib/markdownTable";
+import { parseMarkdownTable, type CellAlign } from "@/lib/markdown/table";
 
 // attachmentBlocks と同じ理由 (画面外の表も描くため全文まで解析を進める)
 const PARSE_BUDGET_MS = 200;

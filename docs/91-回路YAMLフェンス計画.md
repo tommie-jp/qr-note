@@ -113,7 +113,8 @@ YAML ソース
 
 ## 3. フェンス言語の名前 — 定数の整理が先
 
-fenceLanguages.ts の `CIRCUIT_LANG` は今 `'circuitikz'` を指している。
+fenceLanguages.ts (当時のパス。現在は `src/lib/markdown/fenceLanguages.ts`) の
+`CIRCUIT_LANG` は今 `'circuitikz'` を指している。
 新フェンスは `'circuit'` なので、先に定数名を実体に合わせて直す:
 
 - `CIRCUITIKZ_LANG = 'circuitikz'` (rename。使用箇所は機械的に追える)
@@ -141,6 +142,10 @@ docs/83 (健康フェンス) が新フェンス追加の前例。同じ場所を
 | offline (syncItems / item) | 先読みの対象に含める (docs/65) |
 | scripts/backfillCircuits.ts | 一括描画の対象に含める (docs/68 §6) |
 | editor/fenceBlocks.ts | CodeMirror のブロック表示。中身は YAML としてハイライト |
+
+表のパスは当時のパス。現在は次のとおり。
+
+- `src/lib/fenceLanguages.ts` → `src/lib/markdown/fenceLanguages.ts`
 
 1 メモあたりの枚数上限 `MAX_CIRCUITS_PER_MEMO` (8 枚) は、
 2 言語の**合算**で数える — 上限の理由は「1 回の表示で走る TeX の総量」

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { tagSearchHref } from "@/lib/tags";
+import { tagSearchHref } from "@/lib/markdown/tags/tags";
 
 interface ItemTagsProps {
   tags: string[];

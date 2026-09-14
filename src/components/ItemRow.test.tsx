@@ -452,7 +452,7 @@ test("footer は stretched link の膜より前に出す", () => {
 });
 
 // 数式入りタイトル/プレビュー (docs/69-一覧数式計画.md)。
-// HTML はサーバ (mathText.ts) が KaTeX+エスケープ済みで降ろす前提
+// HTML はサーバ (markdown/mathText.ts) が KaTeX+エスケープ済みで降ろす前提
 
 const MATH_HTML = '<span class="katex">E=100</span>';
 

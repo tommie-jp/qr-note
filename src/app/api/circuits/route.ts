@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
 import { getOrRenderCircuit } from '@/lib/circuitCache'
 import { renderCircuitYaml } from '@/lib/circuitYaml'
-import { CIRCUIT_LANG, isCircuitLang } from '@/lib/fenceLanguages'
+import { CIRCUIT_LANG, isCircuitLang } from '@/lib/markdown/fenceLanguages'
 import { CircuitRenderError } from '@/lib/circuit/renderError'
 import { guardRequest } from '@/lib/route/guard'
 import { readJsonObject } from '@/lib/route/parse'

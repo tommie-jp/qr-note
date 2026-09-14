@@ -1,15 +1,15 @@
 // 一覧のノート全体プレビュー (docs/71-一覧ノートプレビュー計画.md) の
 // ソース切り詰めと対象判定。描画そのものは components/NotePreviewThumb.tsx。
 //
-// prisma も react も引き込まない純粋関数の葉 (memoSummary.ts と同じ線)。
+// prisma も react も引き込まない純粋関数の葉 (markdown/memoSummary.ts と同じ線)。
 
-import { firstThumbInfo } from './memoImages'
+import { firstThumbInfo } from '../memoImages'
 import { fenceMathTracker } from './memoSummary'
 
 // パースへ渡すソースの上限。縮小前の仮想キャンバス (NotePreviewFrame の
 // 20rem = 320px 四方) の prose-sm (14px) に見えるのはせいぜい 21 行 ×
 // 35 字 ≈ 700 字で、それ以上はパースしても切り捨てられるだけ。KaTeX の
-// HTML 膨張 (mathText.ts の予算と同じ事情) もこれで抑える。
+// HTML 膨張 (markdown/mathText.ts の予算と同じ事情) もこれで抑える。
 //
 // 小表示 (40px) は文字が模様にしかならないので、さらに半分に足切りする
 // (buildMathTexts が view で title/both を出し分けるのと同じ考え)
@@ -27,7 +27,7 @@ export const NOTE_PREVIEW_MAX_FENCE_LINES = 8
 // ソースは上の文字数上限で切ってあるため、件数さえ抑えれば合計も抑まる
 export const NOTE_PREVIEW_MAX_ITEMS = 60
 
-// 1 行で閉じるブロック数式の対 (memoSummary.ts と同じ近似)。切り詰めで
+// 1 行で閉じるブロック数式の対 (markdown/memoSummary.ts と同じ近似)。切り詰めで
 // 対が割れていないかの検査に使う
 const BLOCK_MATH_PAIR = /\$\$.*?\$\$/g
 
@@ -47,7 +47,7 @@ function sliceAtBudget(line: string, room: number): string {
 }
 
 // プレビュー用に memo の先頭を切り出す。行単位で拾い、フェンス (```) と
-// ブロック数式 ($$) の開閉を memoSummary.ts の fenceMathTracker (要約・
+// ブロック数式 ($$) の開閉を markdown/memoSummary.ts の fenceMathTracker (要約・
 // プレビューと同じ 1 本) で追う。途中で切れたら閉じ行を補う — 補わないと、
 // 打ち切った尻尾が「フェンスの続き」としてパースされ、プレビュー全体が
 // コードに化ける

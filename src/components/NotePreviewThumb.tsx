@@ -14,7 +14,7 @@
 //
 // このモジュールは react-markdown + KaTeX を引き込むサーバ専用。
 // client component からは値を import しないこと (型だけなら可。
-// circuitThumbs.ts / mathText.ts と同じ線引き)
+// circuitThumbs.ts / markdown/mathText.ts と同じ線引き)
 
 import type { ReactNode } from "react";
 import Markdown from "react-markdown";
@@ -33,7 +33,7 @@ import {
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
-import { RENDERED_LANGS } from "@/lib/fenceLanguages";
+import { RENDERED_LANGS } from "@/lib/markdown/fenceLanguages";
 import { attachmentNameFromUrl, thumbUrl } from "@/lib/memoImages";
 import {
   NOTE_PREVIEW_COMPACT_SOURCE_CHARS,
@@ -41,7 +41,7 @@ import {
   NOTE_PREVIEW_MAX_SOURCE_CHARS,
   notePreviewSource,
   wantsNotePreview,
-} from "@/lib/notePreview";
+} from "@/lib/markdown/notePreview";
 import { firstPageSource } from "@/components/notePages";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
 import { isValidImageName } from "@/lib/uploads/names";

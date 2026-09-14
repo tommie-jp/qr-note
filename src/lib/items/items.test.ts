@@ -27,7 +27,7 @@ import type {
   upsertMemo as UpsertMemoFn,
 } from './write'
 import type { searchItemChecks as SearchItemChecksFn } from '@/lib/matrix/matrixQuery'
-import { differsOnlyInTaskMarks, toggleTaskLine } from '@/lib/taskCheckbox'
+import { differsOnlyInTaskMarks, toggleTaskLine } from '@/lib/markdown/taskCheckbox'
 import type { PrismaClient } from '@/generated/prisma/client'
 
 // DB を実際に叩く統合テスト。

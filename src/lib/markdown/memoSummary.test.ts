@@ -59,7 +59,7 @@ test('アラートの目印を除去する', () => {
   expect(memoSummary('> [!WARNING] 火傷に注意')).toBe('火傷に注意')
 })
 
-// 表示側と同じ語彙を使う (src/lib/markdownAlerts.ts)。知らない種類まで
+// 表示側と同じ語彙を使う (src/lib/markdown/alerts.ts)。知らない種類まで
 // 剥がすと、詳細画面には [!FOO] と出るのに要約からは消える
 test('知らない種類の目印は本文として残す', () => {
   expect(memoSummary('> [!FOO] 本文')).toBe('[!FOO] 本文')

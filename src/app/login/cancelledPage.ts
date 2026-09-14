@@ -14,7 +14,7 @@
 
 // next は safeNextPath を通っていて出どころは検算済みだが、'"' や '<' は
 // 通り抜ける。属性の中に生で置くと属性を閉じられるので必ず包む
-import { escapeHtml } from '@/lib/escapeHtml'
+import { escapeHtml } from '@/lib/markdown/escapeHtml'
 
 // 戻り先 (safeNextPath を通した値) を受け取り、401 のボディを組む
 export function loginCancelledPage(next: string): string {

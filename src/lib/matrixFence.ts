@@ -9,7 +9,7 @@
 // (docs/64、`itemNoDesc` など)、日本語の呼び名では逆順が 1 語で書けない。
 // そして 1 行目の検索式が既に `is:todo` / `OR` / `!` と英語である。
 
-import { editDistance } from './fenceLanguages'
+import { editDistance } from './markdown/fenceLanguages'
 import { SORTS, type Sort } from './validation'
 
 // 1 つの表に並べる列の上限。横に伸びた表はスマホで読めないうえ、

@@ -20,7 +20,7 @@ import { joinLines, splitLines } from './memoLines'
 // 番号付き (1. / 1))。GFM は `]` の後に空白を要求する (`- [ ]apple` は
 // タスクではない) ので、そこまでを含めて一致させる。
 //
-// 似た前置きの正規表現が memoSummary.ts の LINE_PREFIX にもあるが、あちらは
+// 似た前置きの正規表現が markdown/memoSummary.ts の LINE_PREFIX にもあるが、あちらは
 // 一覧の要約で飾りを**削る**ためのもの。こちらは書き換える桁を知るために
 // 割る必要があるので、共有せず別に持つ。
 const TASK_MARKER_RE = /^([ \t]*(?:>[ \t]*)*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([ xX])(\][ \t])/

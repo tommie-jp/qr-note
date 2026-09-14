@@ -14,7 +14,7 @@ import { useNotePagerPaged } from "@/lib/notePagerPref";
 //
 // 隠したページも DOM には置く。ブラウザのページ内検索が全ページに効き、
 // 印刷では全ページが紙に出る。mermaid は body の一時要素で描かれるので
-// (mermaidRender.ts)、隠れた枠の中でも図が壊れることはない。
+// (markdown/mermaidRender.ts)、隠れた枠の中でも図が壊れることはない。
 //
 // **ページ送りをやめて通しで読むこともできる** (docs/82 §3)。切り替えるのは
 // 見出し行のボタン (NotePageModeToggle) で、設定の正本は localStorage

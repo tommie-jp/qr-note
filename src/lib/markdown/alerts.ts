@@ -1,9 +1,9 @@
 // アラート記法 (`> [!NOTE]`) の語彙の単一ソース
 // (docs/54-markdown表示拡張計画.md §2)。
 //
-// 表示側 (markdown/remarkAlerts.ts) と一覧の要約 (memoSummary.ts) の両方が
+// 表示側 (markdown/remarkAlerts.ts) と一覧の要約 (markdown/memoSummary.ts) の両方が
 // 「どれが目印か」を知る必要があるため、どちらにも依存しない葉モジュールに
-// 置く (fenceLanguages.ts と同じ作法)。remarkAlerts を直接読ませると
+// 置く (markdown/fenceLanguages.ts と同じ作法)。remarkAlerts を直接読ませると
 // unist-util-visit と mdast が一覧の描画経路にまで付いてくる。
 //
 // 分けておかないと、片方だけが知らない種類まで剥がして「詳細画面には

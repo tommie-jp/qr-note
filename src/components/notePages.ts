@@ -1,6 +1,6 @@
 import type { Root, RootContent, ThematicBreak } from "mdast";
 import { createNoteParser } from "@/lib/markdown/parser";
-import { memoSummary } from "@/lib/memoSummary";
+import { memoSummary } from "@/lib/markdown/memoSummary";
 
 // ノートをページに分ける (docs/74-ページ計画.md)。
 //

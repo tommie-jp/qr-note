@@ -12,7 +12,7 @@
 //     行が空になればその行ごと消す。
 //   - 文章中に混ざったタグ (例: "RITEX #1612 隣家前") は壊さないため対象外。
 
-import { joinLines, newlineOf, splitLines } from './memoLines'
+import { joinLines, newlineOf, splitLines } from '../memoLines'
 import { extractTags, normalizeTag, parseTagToken } from './tags'
 
 // 行が「タグだけの行」なら空白区切りのトークン列を、そうでなければ null を返す。

@@ -39,7 +39,7 @@ import {
   QUIZ_LANG,
   circuitKey,
   isCircuitLang,
-} from "@/lib/fenceLanguages";
+} from "@/lib/markdown/fenceLanguages";
 import type { PendingCircuitMap } from "@/lib/circuit/types";
 import type { HealthMap } from "@/lib/healthData";
 import type { MatrixMap } from "@/lib/matrixData";

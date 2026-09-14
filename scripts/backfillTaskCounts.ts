@@ -13,7 +13,7 @@
 //   (本番/デモへは ./doBackfill.sh taskcounts 経由。リモートにはソースが無い)
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
-import { countTasks } from '@/lib/taskCheckbox'
+import { countTasks } from '@/lib/markdown/taskCheckbox'
 
 async function main(): Promise<void> {
   const items = await prisma.item.findMany({
