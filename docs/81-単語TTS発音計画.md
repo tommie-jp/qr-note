@@ -99,6 +99,10 @@ components/answer/VocabAnswer.tsx 開いた答えを組み立てる
 
 上のブロックのパスは当時のパス。現在は次のとおり。
 
+- `src/components/rehypeAnswerTts.ts` → `src/components/markdown/plugins/rehypeAnswerTts.ts`
+
+上のブロックのパスは当時のパス。現在は次のとおり。
+
 - `src/lib/vocabTts.ts` → `src/lib/vocab/tts.ts`
 
 ### 4-1. 見出し語は rehype で刻む
@@ -376,7 +380,9 @@ iPhone で鳴らす方法は無いと考えてよい。
   **知らせが 1 度だけ**であること (§6-4) を固定する。`TtsButton.test.tsx` は
   jsdom が無いので押下のフックだけを取り出し、同期に失敗した回でも次の
   1 押しで鳴らし直せることを見る
-- 結合: `rehypeAnswerTts.test.tsx` は本文と同じプラグイン列 (sanitize 込み)
+- 結合: `rehypeAnswerTts.test.tsx` (当時のパス。現在は
+  `src/components/markdown/plugins/rehypeAnswerTts.test.tsx`) は本文と同じプラグイン列
+  (sanitize 込み)
   を通し、刻んだ見出し語が生き残るかまで見る
 - 実機 iPhone … 消音スイッチ / PWA (ホーム画面から起動) / 拡張音声を
   入れる前と後

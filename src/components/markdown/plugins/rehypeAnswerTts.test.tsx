@@ -1,7 +1,7 @@
 import Markdown from "react-markdown";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { BASE_REHYPE_PLUGINS, NOTE_REMARK_PLUGINS } from "./markdownPipeline";
+import { BASE_REHYPE_PLUGINS, NOTE_REMARK_PLUGINS } from "../markdownPipeline";
 import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
 import { rehypeAnswerTts, ttsWordOf } from "./rehypeAnswerTts";
 import { ANSWER_SPOILER_CLASS } from "@/lib/vocab/answerSpoiler";

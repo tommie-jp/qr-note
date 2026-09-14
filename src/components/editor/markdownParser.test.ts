@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
 //
 // **既定の markdown() は CommonMark だけ**で、`- [ ] ` も `~~消し~~` も表も
 // 構文木に出ない。本文の描画は remark-gfm で GFM として解釈している
-// (markdownPipeline.tsx) ので、エディタ側だけ CommonMark だと食い違う。
+// (components/markdown/markdownPipeline.tsx) ので、エディタ側だけ CommonMark だと食い違う。
 //
 // 食い違いは「装飾が付かない」形でしか表に出ないため気づきにくい —
 // 実際、ライブプレビューのチェックボックスがウィジェットにならず、

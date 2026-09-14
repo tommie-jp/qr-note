@@ -151,6 +151,7 @@ docs/83 (健康フェンス) が新フェンス追加の前例。同じ場所を
 - `src/lib/circuitikz.ts` → `src/lib/circuit/circuitikz.ts`
 - `src/lib/circuitCache.ts` → `src/lib/circuit/cache.ts`
 - `src/lib/circuitThumbs.ts` → `src/lib/circuit/thumbs.ts`
+- `src/components/MarkdownView.tsx` → `src/components/markdown/MarkdownView.tsx`
 
 1 メモあたりの枚数上限 `MAX_CIRCUITS_PER_MEMO` (8 枚) は、
 2 言語の**合算**で数える — 上限の理由は「1 回の表示で走る TeX の総量」

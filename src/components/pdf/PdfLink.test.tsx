@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { MarkdownView } from "../MarkdownView";
+import { MarkdownView } from "../markdown/MarkdownView";
 import { PdfLink } from "./PdfLink";
 
 const render = (href: string, label: string) =>

@@ -10,7 +10,7 @@ import {
   linkWithTarget,
   sanitizeSchema,
   urlTransform,
-} from "../markdownPipeline";
+} from "../markdown/markdownPipeline";
 
 // <button> の中身は phrasing content に限られるので、選択肢を描くときは
 // ブロック要素を**中身だけ残して**取り除く (unwrapDisallowed)。

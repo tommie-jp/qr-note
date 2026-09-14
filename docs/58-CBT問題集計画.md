@@ -10,7 +10,8 @@
 ## 1. 方針 — 図と同じ「特別なフェンス」を増やす
 
 `mermaid` / `circuitikz` と同じ作法で ```` ```quiz ```` フェンスを足す。
-描画の差し替え点は [MarkdownView.tsx](../src/components/MarkdownView.tsx) の
+描画の差し替え点は [MarkdownView.tsx](../src/components/MarkdownView.tsx) (当時のパス。現在は
+`src/components/markdown/MarkdownView.tsx`) の
 `preOrDiagram` の分岐 1 つ。
 
 - **正本はメモ本文。** 問題・正解・解説はすべてフェンス内のテキストで、専用の
@@ -53,7 +54,8 @@
 - **`解説:` は省略できる。** 単語帳のような軽い出題では要らない
   (`問:` `選択肢` `正解:` は必須)。
 - 形式エラー (選択肢が足りない・正解番号が範囲外・欠落・重複) は
-  [CircuitDiagram.tsx](../src/components/CircuitDiagram.tsx) と同じ作法で
+  [CircuitDiagram.tsx](../src/components/CircuitDiagram.tsx) (当時のパス。現在は
+  `src/components/markdown/CircuitDiagram.tsx`) と同じ作法で
   「何が悪いか + 元ソース」を表示する。黙ってコードブロックに落とさない。
   `正解:` の後ろに宙に浮いた行があるとき (「解説」の打ち間違い) も知らせる。
 - [fenceLanguages.ts](../src/lib/fenceLanguages.ts) (当時のパス。現在は

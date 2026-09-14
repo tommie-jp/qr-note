@@ -8,7 +8,7 @@ import { createNoteParser } from './parser'
 import { remarkAlerts } from './remarkAlerts'
 import { remarkDetails, remarkDetailsSyntax } from './remarkDetails'
 
-// 移行前の組み方。notePages.ts が呼ぶたびに組んでいた列で、描画側
+// 移行前の組み方。components/notepage/notePages.ts が呼ぶたびに組んでいた列で、描画側
 // (react-markdown) にも同じ列が渡っていた (components/remarkPlugins.ts の
 // BASE_REMARK_PLUGINS。parser.ts へ移して削除した)
 const legacyParser = () =>

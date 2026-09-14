@@ -1,7 +1,7 @@
-// 画像記法の alt に混ぜた表示幅の記法 (markdownPipeline.tsx から移設)。
+// 画像記法の alt に混ぜた表示幅の記法 (components/markdown/markdownPipeline.tsx から移設)。
 //
 // **クライアントからも読むためにここへ移した。** 移設前の置き場
-// (markdownPipeline.tsx) は Server Component 用の入れ物で、react-markdown・
+// (components/markdown/markdownPipeline.tsx) は Server Component 用の入れ物で、react-markdown・
 // rehype-katex・remark 一式を抱えている。編集画面 (client) の添付チップが
 // そこから import すると、その一式が丸ごとブラウザへ降ってくる
 // (classifyImgSrc を images/imgSrcKind.ts へ移したのと同じ事情。docs/70 §5)。

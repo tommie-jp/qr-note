@@ -2,15 +2,15 @@ import type { Element } from "hast";
 import type { PluggableList } from "unified";
 import Markdown from "react-markdown";
 import rehypeSlug from "rehype-slug";
-import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
-import { remarkTagLinks } from "./remarkTagLinks";
+import { remarkAnswerSpoiler } from "./plugins/remarkAnswerSpoiler";
+import { remarkTagLinks } from "./plugins/remarkTagLinks";
 import { CodeBlock } from "./CodeBlock";
-import { rehypeAnswerTts } from "./rehypeAnswerTts";
-import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./rehypeTaskLines";
+import { rehypeAnswerTts } from "./plugins/rehypeAnswerTts";
+import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./plugins/rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { CircuitDiagram } from "./CircuitDiagram";
-import { QuizFence } from "./quiz/QuizFence";
+import { QuizFence } from "../quiz/QuizFence";
 import {
   BASE_REHYPE_PLUGINS,
   NOTE_REMARK_PLUGINS,
@@ -23,12 +23,12 @@ import {
   urlTransform,
 } from "./markdownPipeline";
 import { ZoomableImage } from "./ZoomableImage";
-import { PdfLink } from "./pdf/PdfLink";
-import { AudioPlayer } from "./audio/AudioPlayer";
-import { VideoPlayer } from "./video/VideoPlayer";
-import { TextLink } from "./text/TextLink";
-import { SecretBlock } from "./secret/SecretBlock";
-import { BOX_CLASS } from "./ui";
+import { PdfLink } from "../pdf/PdfLink";
+import { AudioPlayer } from "../audio/AudioPlayer";
+import { VideoPlayer } from "../video/VideoPlayer";
+import { TextLink } from "../text/TextLink";
+import { SecretBlock } from "../secret/SecretBlock";
+import { BOX_CLASS } from "../ui";
 import { parseAltWidth } from "@/lib/images/altWidth";
 import { classifyImgSrc } from "@/lib/images/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
@@ -115,7 +115,7 @@ interface MarkdownViewProps {
   // **ノート本文では決して true にしない。** sanitizeSchema が
   // `clobberPrefix: ""` を置けている根拠は「本文から任意の id は書けず、
   // id を作るのは remark-rehype (脚注) と KaTeX だけ」という不変条件で
-  // (markdownPipeline.tsx)、見出しから id を作るとこれが崩れる。
+  // (components/markdown/markdownPipeline.tsx)、見出しから id を作るとこれが崩れる。
   // 脚注そのものは `user-content-` 付きなので当たりにくいが、脚注の塊に付く
   // `id="footnote-label"` は前置きなしで出ており、その語を見出しに書いた
   // ノートは aria-describedby の指し先を乗っ取れる。true にしてよいのは
@@ -219,7 +219,7 @@ function preOrDiagram(
 }
 
 // 画像記法の src を種別ごとの部品に振り分ける。判定順は classifyImgSrc
-// (markdownPipeline.tsx) に一本化 — 一覧のプレビュー (NotePreviewThumb の
+// (components/markdown/markdownPipeline.tsx) に一本化 — 一覧のプレビュー (NotePreviewThumb の
 // previewImg) も同じ判定で描くので、順や種類はここでいじらない。
 // 画像はクリックで拡大できるよう ZoomableImage で描画し、alt 末尾の
 // 幅記法 (parseAltWidth) を表示幅にする。**幅記法を読むのは画像と動画だけ** —
@@ -371,7 +371,7 @@ export function MarkdownView({
   headingAnchors = false,
   lineOffset = 0,
 }: MarkdownViewProps) {
-  // プラグイン列の土台は markdownPipeline.tsx (一覧のプレビューと共有)。
+  // プラグイン列の土台は components/markdown/markdownPipeline.tsx (一覧のプレビューと共有)。
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
   // 残るので、本文の見た目は「リンクでない #タグ」になる
   const remarkPlugins: PluggableList = [

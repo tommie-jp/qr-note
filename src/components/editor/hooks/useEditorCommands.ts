@@ -41,7 +41,7 @@ export function useEditorCommands({
   // 間に打鍵が続いても、位置が古い本文のままにならないように
   const addPage = async () => {
     try {
-      const { newPageInsertion } = await import("@/components/notePages");
+      const { newPageInsertion } = await import("@/components/notepage/notePages");
       const view = editorRef.current?.view;
       if (!view) {
         return;

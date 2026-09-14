@@ -28,7 +28,7 @@ import { allSecretNames, secretUrl } from "@/lib/secret/secrets";
 //   シークレットを使わないノートの表示は今までどおり軽いまま
 //   (DrawModal / ScannerModal と同じ流儀)。
 const MarkdownView = dynamic(
-  () => import("@/components/MarkdownView").then((m) => m.MarkdownView),
+  () => import("@/components/markdown/MarkdownView").then((m) => m.MarkdownView),
   { ssr: false, loading: () => null },
 );
 

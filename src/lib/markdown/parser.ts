@@ -2,8 +2,8 @@
 // (docs/93-リファクタリング計画.md §4-10)。
 //
 // **描く側と構造を読む側で必ず同じ列を使う**ために、ここ 1 か所に置く。
-// 描画は markdownPipeline.tsx (react-markdown に NOTE_REMARK_PLUGINS を渡す)、
-// 構造を読むのは notePages.ts (ページの区切り。createNoteParser で読む)。
+// 描画は components/markdown/markdownPipeline.tsx (react-markdown に NOTE_REMARK_PLUGINS を渡す)、
+// 構造を読むのは components/notepage/notePages.ts (ページの区切り。createNoteParser で読む)。
 //
 // 分けて持っていたときは、描画側に remark-gfm と remark-math を足しても
 // notePages 側が付いてこず、**同じ本文が画面とページ分割で違う形に読まれた**:
@@ -16,8 +16,8 @@
 //     `$$` で終わって以降の本文が消える
 //
 // このモジュールは "use client" も react も react-markdown も持たない葉に
-// しておくこと — notePages.ts は編集画面 (editor/hooks/useEditorCommands.ts) からも読まれるので、
-// markdownPipeline.tsx (react-markdown 一式) を経由させるとクライアントの束に
+// しておくこと — components/notepage/notePages.ts は編集画面 (editor/hooks/useEditorCommands.ts) からも読まれるので、
+// components/markdown/markdownPipeline.tsx (react-markdown 一式) を経由させるとクライアントの束に
 // それが降る。
 //
 // **この列で読んでいない抽出がまだ 3 本ある** (markdown/taskCheckbox.ts・health/healthRecords.ts

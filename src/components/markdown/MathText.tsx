@@ -5,7 +5,7 @@
 // クライアント JS もローディング状態も無い。
 // 生成側 (サーバ専用 module) をここから import しないこと (型だけなら可)。
 //
-// CSS の import はプロジェクトで MarkdownView.tsx に次ぐ 2 か所目。
+// CSS の import はプロジェクトで components/markdown/MarkdownView.tsx に次ぐ 2 か所目。
 // これで検索/ゴミ箱など一覧ルートにも KaTeX の CSS とフォントが載る
 // (無いと数式が素の文字で崩れて出る)
 import "katex/dist/katex.min.css";

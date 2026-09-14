@@ -17,12 +17,12 @@ import {
   NotationIcon,
   QrIcon,
 } from "@/components/icons";
-import { NoteBody } from "@/components/NoteBody";
+import { NoteBody } from "@/components/markdown/NoteBody";
 import { MemoPanel } from "@/components/editor/MemoPanel";
 import { MemoEditor } from "@/components/editor/MemoEditor";
 import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
-import { NotePageModeToggle } from "@/components/NotePageModeToggle";
-import { splitPages } from "@/components/notePages";
+import { NotePageModeToggle } from "@/components/notepage/NotePageModeToggle";
+import { splitPages } from "@/components/notepage/notePages";
 import { OfflinePinToggle } from "@/components/item/OfflinePinToggle";
 import { PendingLink } from "@/components/PendingLink";
 import { PressTip } from "@/components/item/row-actions/PressTip";
@@ -80,7 +80,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
   // 見た目が変わらないボタンになる)。**ここで数えるのが素直** — 本文を
   // 描く NoteBody は本文パネルの奥に居て、ページ数を見出し行へ返す道が無い。
   // 区切りになりうる行が無ければ remark を通さない近道があるので
-  // (notePages.ts)、大多数のノートでは行を舐めるだけで済む
+  // (components/notepage/notePages.ts)、大多数のノートでは行を舐めるだけで済む
   const hasPages = splitPages(memo).length > 1;
 
   return (

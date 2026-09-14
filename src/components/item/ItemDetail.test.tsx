@@ -42,7 +42,7 @@ vi.mock("@/lib/prefs/itemListContext", () => ({
   },
 }));
 
-vi.mock("@/components/AutoNotePane", () => ({ AutoNotePane: mocks.stub("AutoNotePane") }));
+vi.mock("@/components/notepage/AutoNotePane", () => ({ AutoNotePane: mocks.stub("AutoNotePane") }));
 vi.mock("@/components/item/ItemListNav", () => ({ ItemListNav: mocks.stub("ItemListNav") }));
 vi.mock("@/components/item/ItemView", () => ({ ItemView: mocks.stub("ItemView") }));
 vi.mock("@/components/LoginRequiredNotice", () => ({
@@ -58,7 +58,7 @@ vi.mock("@/components/item/PublicItemView", () => ({
 vi.mock("@/components/item/RecordAccess", () => ({ RecordAccess: mocks.stub("RecordAccess") }));
 
 const { ItemDetail } = await import("./ItemDetail");
-const { AutoNotePane } = await import("@/components/AutoNotePane");
+const { AutoNotePane } = await import("@/components/notepage/AutoNotePane");
 const { ItemListNav } = await import("@/components/item/ItemListNav");
 const { ItemView } = await import("@/components/item/ItemView");
 const { LoginRequiredNotice } = await import("@/components/LoginRequiredNotice");

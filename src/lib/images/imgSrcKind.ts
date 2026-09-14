@@ -1,7 +1,7 @@
-// 画像記法 `![alt](src)` の src が指す添付の種別 (markdownPipeline.tsx から移設)。
+// 画像記法 `![alt](src)` の src が指す添付の種別 (components/markdown/markdownPipeline.tsx から移設)。
 //
 // **クライアントからも読むためにここへ移した** (docs/70-編集ライブプレビュー計画.md
-// §5)。移設前の置き場 (markdownPipeline.tsx) は Server Component 用の入れ物で、
+// §5)。移設前の置き場 (components/markdown/markdownPipeline.tsx) は Server Component 用の入れ物で、
 // react-markdown・rehype-katex・remark 一式を抱えている。編集画面 (client) の
 // 添付チップがそこから import すると、その一式が丸ごとブラウザへ降ってくる —
 // 閲覧は Server Component なので、今はクライアントに 1 バイトも送っていない。

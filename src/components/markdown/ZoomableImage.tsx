@@ -12,10 +12,10 @@ import { errorText } from "@/lib/errorMessage";
 import { pendingRotation } from "@/lib/images/rotationState";
 import { parseUploadResponse } from "@/lib/uploads/uploadResponse";
 import { CopyImageButton } from "./CopyImageButton";
-import { useAsyncAction } from "./hooks/useAsyncAction";
-import { ModalOverlay } from "./modal/ModalOverlay";
-import { useEscapeKey } from "./modal/useEscapeKey";
-import { IMAGE_OVERLAY_BUTTON_CLASS } from "./ui";
+import { useAsyncAction } from "../hooks/useAsyncAction";
+import { ModalOverlay } from "../modal/ModalOverlay";
+import { useEscapeKey } from "../modal/useEscapeKey";
+import { IMAGE_OVERLAY_BUTTON_CLASS } from "../ui";
 
 type ZoomableImageProps = ComponentProps<"img"> & {
   // 拡大表示に 90° 回転ボタンを出すか (docs/49-画像回転計画.md §2)。

@@ -1,6 +1,7 @@
 # Markdown 表示拡張計画 (コードコピー・アラート・脚注・折りたたみ)
 
-[MarkdownView.tsx](../src/components/MarkdownView.tsx) に読み取り専用の
+[MarkdownView.tsx](../src/components/MarkdownView.tsx) (当時のパス。現在は
+`src/components/markdown/MarkdownView.tsx`) に読み取り専用の
 表現・インタラクションを 4 つ足す。チェックボックスのクリック対応 (別計画) とは
 独立して進められる。
 
@@ -14,7 +15,8 @@ markdown 記法ではなくレンダラー側の機能。iPhone でコードブ�
 するのは苦行なので、費用対効果がいちばん高い。依存追加もパーサ変更も無いため
 最初にやる。
 
-- `preOrDiagram` で素の `<pre>` に落ちる経路を `CodeBlock.tsx`
+- `preOrDiagram` で素の `<pre>` に落ちる経路を `CodeBlock.tsx` (当時のパス。現在は
+  `src/components/markdown/CodeBlock.tsx`)
   (client component) に差し替え、右上にコピーボタンを重ねる。
   mermaid / circuitikz フェンスは図になるので対象外。
 - コピー文字列は `readFence` と同様に子の文字列を連結して得る。ただし
@@ -125,7 +127,8 @@ details 以外の directive が素通しすること。
 1. コピーボタン — `CodeBlock.tsx`。`readFence` は言語なしフェンスで null を
    返していたので、`lang: string | null` を返す形に変えて字下げコードにも出す
 2. アラート — `remarkAlerts.ts` (当時のパス。現在は `src/lib/markdown/`。
-   `remarkDetails.ts` も同じ) + `MarkdownAlert.tsx` + blockquote 差し替え
+   `remarkDetails.ts` も同じ) + `MarkdownAlert.tsx` (当時のパス。現在は
+   `src/components/markdown/MarkdownAlert.tsx`) + blockquote 差し替え
 3. 脚注 — 壊れ方をテストで固定 → `clobberPrefix: ""` + `footnoteLabel`
 4. 折りたたみ — remark-directive 導入 + `remarkDetails.ts`
 

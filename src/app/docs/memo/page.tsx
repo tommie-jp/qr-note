@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Metadata } from "next";
-import { MarkdownView } from "@/components/MarkdownView";
+import { MarkdownView } from "@/components/markdown/MarkdownView";
 
 // サイト名は付けない。root layout の title.template が付ける
 // (手で連結すると非本番の [LOCAL] が抜け落ちる)

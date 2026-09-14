@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { canCopyImage, copyImageToClipboard } from "@/lib/clipboard/clipboardImage";
-import { IMAGE_OVERLAY_BUTTON_CLASS } from "./ui";
+import { IMAGE_OVERLAY_BUTTON_CLASS } from "../ui";
 
 // 結果の印 (コピー済・失敗) を出しておく時間 (CodeBlock と揃える)。
 // **失敗も時間で消す。** ここはラベルがボタンの文字そのものなので、

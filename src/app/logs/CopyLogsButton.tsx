@@ -5,7 +5,7 @@ import { CheckIcon, CopyIcon } from "@/components/icons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 import { errorText } from "@/lib/errorMessage";
 
-// コピーできた印を出しておく時間 (CodeBlock.tsx と同じ長さ)
+// コピーできた印を出しておく時間 (components/markdown/CodeBlock.tsx と同じ長さ)
 const COPIED_LABEL_MS = 2000;
 
 type CopyState = "idle" | "copied";

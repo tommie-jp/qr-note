@@ -4,7 +4,7 @@ import { ItemTimestamps } from "@/components/item/ItemTimestamps";
 import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import { LoginButton } from "@/components/LoginButton";
 import { QrIcon } from "@/components/icons";
-import { NoteBody } from "@/components/NoteBody";
+import { NoteBody } from "@/components/markdown/NoteBody";
 import { MemoPanel } from "@/components/editor/MemoPanel";
 import { PendingLink } from "@/components/PendingLink";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";

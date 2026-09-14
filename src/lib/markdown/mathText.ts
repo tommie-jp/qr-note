@@ -4,7 +4,7 @@
 // ノート表示 (MarkdownView) は remark-math + rehype-katex で描くが、一覧は
 // markdown を描かずプレーンテキストに畳んでいる (memoSummary / memoPreview)。
 // そのテキストに残る $...$ だけをここで KaTeX に通し、地の文はエスケープして
-// HTML 文字列に組み立てる。表示側 (MathText.tsx) は埋め込むだけ —
+// HTML 文字列に組み立てる。表示側 (components/markdown/MathText.tsx) は埋め込むだけ —
 // 回路図サムネ (circuit/thumbs.ts + components/item/CircuitThumb.tsx) と同じ型。
 //
 // このモジュールはサーバ専用にする (katex ~280KB をクライアント束に入れない)。

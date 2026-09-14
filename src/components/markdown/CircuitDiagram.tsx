@@ -6,7 +6,7 @@ import type {
   CircuitResult,
   PendingCircuit,
 } from "@/lib/circuit/types";
-import { ERROR_SOURCE_CLASS } from "./ui";
+import { ERROR_SOURCE_CLASS } from "../ui";
 
 interface CircuitDiagramProps {
   result: PendingCircuit;

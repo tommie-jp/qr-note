@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
-import { AutoNotePane } from "@/components/AutoNotePane";
+import { AutoNotePane } from "@/components/notepage/AutoNotePane";
 import { ItemListNav } from "@/components/item/ItemListNav";
 import { ItemView } from "@/components/item/ItemView";
 import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";

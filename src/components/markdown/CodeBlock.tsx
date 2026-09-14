@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { OVERLAY_BUTTON_CLASS } from "./ui";
+import { OVERLAY_BUTTON_CLASS } from "../ui";
 
 // コピーできた印を出しておく時間
 const COPIED_LABEL_MS = 2000;

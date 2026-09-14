@@ -1,7 +1,7 @@
-import { MarkdownView, type MarkdownViewOptions } from "@/components/MarkdownView";
+import { MarkdownView, type MarkdownViewOptions } from "@/components/markdown/MarkdownView";
 import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
-import { NotePager } from "@/components/NotePager";
-import { noteDefinitions, splitPages } from "@/components/notePages";
+import { NotePager } from "@/components/notepage/NotePager";
+import { noteDefinitions, splitPages } from "@/components/notepage/notePages";
 import { hasAnswerSpoiler } from "@/lib/vocab/answerSpoiler";
 
 // ノート本文をページに分けて描く (docs/74-ページ計画.md §4)。
@@ -19,7 +19,7 @@ import { hasAnswerSpoiler } from "@/lib/vocab/answerSpoiler";
 //
 // **ページを跨ぐ定義 (脚注・参照リンク) もここで吸収する。** ページごとに
 // パースするので、定義と参照が違うページに落ちると参照は生の `[^1]` の文字に、
-// 定義のほうは何も描かれず注釈の文章がノートから消える (notePages.ts の
+// 定義のほうは何も描かれず注釈の文章がノートから消える (components/notepage/notePages.ts の
 // noteDefinitions)。
 
 // 本文以外は描き方の一式 (MarkdownViewOptions) で、ページごとの MarkdownView へ

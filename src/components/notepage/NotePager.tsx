@@ -248,7 +248,7 @@ export function NotePager({ pages }: NotePagerProps) {
           <span className="shrink-0 text-sm text-gray-500 tabular-nums">
             {current + 1} / {pages.length}
           </span>
-          {/* ページ名は先頭行から作った見出し (notePages.ts)。無題のページも
+          {/* ページ名は先頭行から作った見出し (components/notepage/notePages.ts)。無題のページも
               あるので、名前の有無で帯の高さが変わらないよう枠は常に置く */}
           <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
             {currentPage.name}

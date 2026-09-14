@@ -30,8 +30,8 @@ import { NOTE_REMARK_PLUGINS } from "@/lib/markdown/parser";
 import { MarkdownAlert } from "./MarkdownAlert";
 import { KATEX_OPTIONS } from "@/lib/markdown/katexOptions";
 import { ANSWER_SPOILER_CLASS } from "@/lib/vocab/answerSpoiler";
-import { AnswerSpoiler } from "./answer/AnswerSpoiler";
-import { ttsWordOf } from "./rehypeAnswerTts";
+import { AnswerSpoiler } from "../answer/AnswerSpoiler";
+import { ttsWordOf } from "./plugins/rehypeAnswerTts";
 
 // rehype-katex は code の math-inline / math-display クラスを目印にするため、
 // sanitize で落とされないよう許可する (language-* はデフォルトでも許可)。
@@ -92,7 +92,7 @@ export { KATEX_OPTIONS };
 // 本文とプレビューが共有するプラグイン列の土台 (docs/71 §4)。
 //
 // **remark 側の正本は @/lib/markdown/parser.ts の NOTE_REMARK_PLUGINS。**
-// ページの区切りを読む notePages.ts が同じ列 (createNoteParser) を使うため、
+// ページの区切りを読む components/notepage/notePages.ts が同じ列 (createNoteParser) を使うため、
 // あちらから import できる葉に置いてある (ここを import させると
 // react-markdown 一式が編集画面の束に降る)。描画側の import 元のために
 // ここから再輸出する。

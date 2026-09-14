@@ -10,7 +10,7 @@
 // そもそもリンク・ボタン・プレイヤーを描かなければ事故のしようがない。
 // レンダラの差し替え (PREVIEW_COMPONENTS) がその保証で、規則そのもの
 // (sanitize・URL・プラグイン列・添付の判定) は本文 (MarkdownView) と
-// markdownPipeline.tsx で共有する。
+// components/markdown/markdownPipeline.tsx で共有する。
 //
 // このモジュールは react-markdown + KaTeX を引き込むサーバ専用。
 // client component からは値を import しないこと (型だけなら可。
@@ -20,7 +20,7 @@ import type { ReactNode } from "react";
 import Markdown from "react-markdown";
 import type { PluggableList } from "unified";
 import { DiagramIcon } from "@/components/icons";
-import { remarkAnswerSpoiler } from "@/components/remarkAnswerSpoiler";
+import { remarkAnswerSpoiler } from "@/components/markdown/plugins/remarkAnswerSpoiler";
 import {
   BASE_REHYPE_PLUGINS,
   NOTE_REMARK_PLUGINS,
@@ -29,7 +29,7 @@ import {
   readFence,
   REMARK_REHYPE_OPTIONS,
   urlTransform,
-} from "../markdownPipeline";
+} from "../markdown/markdownPipeline";
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import { parseAltWidth } from "@/lib/images/altWidth";
 import { classifyImgSrc } from "@/lib/images/imgSrcKind";
@@ -42,7 +42,7 @@ import {
   notePreviewSource,
   wantsNotePreview,
 } from "@/lib/markdown/notePreview";
-import { firstPageSource } from "@/components/notePages";
+import { firstPageSource } from "@/components/notepage/notePages";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
 import { isValidImageName } from "@/lib/uploads/names";
 import type { ViewMode } from "@/lib/prefs/viewMode";
@@ -103,7 +103,7 @@ function previewLink({ children }: MarkdownComponentProps<"a">) {
   return <span className="text-blue-700 underline">{children}</span>;
 }
 
-// 画像記法の振り分け。判定は classifyImgSrc (markdownPipeline.tsx) に
+// 画像記法の振り分け。判定は classifyImgSrc (components/markdown/markdownPipeline.tsx) に
 // 一本化してあり、ここが持つのは「種別 → 押せない代役」の対応だけ。
 // 差し替え先がすべて「押せない・取得しに行かない」物になるのがプレビューの流儀
 function previewImg({
@@ -155,7 +155,7 @@ function previewImg({
   return <MediaChip icon="🖼" label={label || "画像"} />;
 }
 
-// 本文と同じ解釈 (markdownPipeline.tsx の土台をそのまま使う)。本文が足す
+// 本文と同じ解釈 (components/markdown/markdownPipeline.tsx の土台をそのまま使う)。本文が足す
 // 2 つ (remarkTagLinks / rehypeTaskLines) はここでは足さない — タグを
 // リンクにせず、チェックボックスは GFM 既定の disabled のままにするため。
 //

@@ -7,7 +7,7 @@ import { buildHealthSeries } from "@/lib/health/healthSeries";
 
 // 画像 (ZoomableImage) が回転確定後の router.refresh() のために useRouter を
 // 呼ぶ。renderToStaticMarkup には App Router のコンテキストが無く useRouter が
-// 投げるので、ここだけ差し替える (ZoomableImage.test.tsx と同じ)
+// 投げるので、ここだけ差し替える (components/markdown/ZoomableImage.test.tsx と同じ)
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: () => {} }),
 }));

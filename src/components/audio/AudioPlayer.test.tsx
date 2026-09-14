@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { MarkdownView } from "../MarkdownView";
+import { MarkdownView } from "../markdown/MarkdownView";
 import { AudioPlayer } from "./AudioPlayer";
 
 const render = (src: string, label: string) =>

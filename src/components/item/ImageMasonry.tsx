@@ -9,7 +9,7 @@ import { allImageNames, thumbUrl } from "@/lib/images/memoImages";
 import { memoSummary } from "@/lib/markdown/memoSummary";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { CircuitThumb } from "./CircuitThumb";
-import { MathText } from "../MathText";
+import { MathText } from "../markdown/MathText";
 
 // 画像表示モード (docs/32-画像表示モード計画.md)。ページ内のノート本文に
 // 貼られた自前画像だけをグリッドで敷き詰め、写真からノートを探す入口にする。

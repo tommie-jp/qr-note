@@ -2,7 +2,7 @@
 
 import { ItemTags } from "@/components/item/ItemTags";
 import { ItemUrlBox } from "@/components/item/ItemUrlBox";
-import { NoteBody } from "@/components/NoteBody";
+import { NoteBody } from "@/components/markdown/NoteBody";
 import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import type { CircuitMap } from "@/lib/circuit/types";
 import { formatJstDateTime } from "@/lib/datetime";
