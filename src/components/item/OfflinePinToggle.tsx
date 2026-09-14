@@ -1,5 +1,5 @@
 import { OfflineOffIcon, OfflinePinIcon } from "@/components/icons";
-import { PressTip } from "@/components/PressTip";
+import { PressTip } from "@/components/item/row-actions/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";
 
 interface OfflinePinToggleProps {

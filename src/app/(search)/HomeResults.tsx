@@ -7,8 +7,8 @@ import {
   trashItemsAction,
 } from "@/app/actions";
 import { AutoLoadMore } from "@/components/AutoLoadMore";
-import { ItemDetail } from "@/components/ItemDetail";
-import { ItemList } from "@/components/ItemList";
+import { ItemDetail } from "@/components/item/ItemDetail";
+import { ItemList } from "@/components/item/ItemList";
 import { TrashIcon } from "@/components/icons";
 import { PropsTable } from "@/components/PropsTable";
 import { ResultsToolbar } from "@/components/ResultsToolbar";

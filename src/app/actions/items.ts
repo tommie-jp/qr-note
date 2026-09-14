@@ -234,7 +234,7 @@ export async function updateItemAction(
 
 // ノートを開いたことを記録する (docs/37-アクセス順計画.md)。
 //
-// **画面の描画時ではなくクライアントのマウント後に呼ぶ** (RecordAccess.tsx)。
+// **画面の描画時ではなくクライアントのマウント後に呼ぶ** (components/item/RecordAccess.tsx)。
 // サーバ側の描画で記録すると、一覧の <Link> を Next.js が先読み (prefetch)
 // しただけで「見た」ことになり、検索結果に並んだ全ノートがアクセス順の
 // 先頭に来てしまう。prefetch はクライアント効果を実行しないので、

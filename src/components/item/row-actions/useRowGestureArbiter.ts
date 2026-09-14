@@ -5,8 +5,8 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import type { MenuPoint } from "@/lib/gesture/rowActionMenu";
-import { ROW_ACTION_SELECTOR } from "@/components/RowActions";
-import { useLongPress } from "@/components/useLongPress";
+import { ROW_ACTION_SELECTOR } from "@/components/item/row-actions/RowActions";
+import { useLongPress } from "@/components/item/row-actions/useLongPress";
 import type { useSwipeDrawer } from "./useSwipeDrawer";
 
 // ボタン列の上で始まった押下は、スワイプにも長押しにも渡さない。

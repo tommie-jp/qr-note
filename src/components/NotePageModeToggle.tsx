@@ -1,7 +1,7 @@
 "use client";
 
 import { ContinuousIcon, PagedIcon } from "@/components/icons";
-import { PressTip } from "@/components/PressTip";
+import { PressTip } from "@/components/item/row-actions/PressTip";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { setNotePagerPaged, useNotePagerPaged } from "@/lib/prefs/notePager";
 

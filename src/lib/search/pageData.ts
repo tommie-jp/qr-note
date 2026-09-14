@@ -3,7 +3,7 @@
 // JSX は持たない — 部品 (HomeResults) の中にあった頃はテストできなかった。
 import 'server-only'
 import { cache } from 'react'
-import { buildNotePreviews, type NotePreviewMap } from '@/components/NotePreviewThumb'
+import { buildNotePreviews, type NotePreviewMap } from '@/components/item/NotePreviewThumb'
 import type { CircuitThumbMap } from '@/lib/circuit/types'
 import { loadCircuitThumbs } from '@/lib/circuit/thumbs'
 import { nextItemNo } from '@/lib/items/read'

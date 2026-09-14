@@ -49,7 +49,7 @@ export function ClearLogsButton() {
       >
         {/* 色は中の span で与える。TrashIcon は色を持たず currentColor で
             描くうえ、ボタン側のクラス (COMPACT_ICON_BUTTON_CLASS) が
-            text-gray-700 を含むため (RowActions.tsx と同じ事情)。
+            text-gray-700 を含むため (components/item/row-actions/RowActions.tsx と同じ事情)。
             red-700 は使わない — ノートを消す DANGER_BUTTON_CLASS と同格に
             見せると、控えを捨てるだけの操作を取り違える (LogoutIcon と同じ判断) */}
         <span className="text-rose-600">

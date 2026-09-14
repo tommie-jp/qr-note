@@ -10,7 +10,7 @@ import {
   SLOT_LABEL_CLASS,
   SLOT_MENU_ITEM_CLASS,
 } from "@/components/ui";
-import { useLongPress } from "@/components/useLongPress";
+import { useLongPress } from "@/components/item/row-actions/useLongPress";
 
 // cookie を書くサーバーアクション。db.ts を巻き込まないよう prop で受ける
 // (ItemList / BottomActionBar と同じ理由)

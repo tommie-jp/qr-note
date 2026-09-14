@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ItemDetail } from "@/components/ItemDetail";
+import { ItemDetail } from "@/components/item/ItemDetail";
 import { recordAccessAction } from "@/app/actions";
 import { guardItemPage } from "@/lib/auth/pageGuard";
 
@@ -32,7 +32,7 @@ interface ItemPageProps {
 // このページは proxy.ts が**未ログインでも素通しする**口
 // (auth/publicPaths.ts の isSelfGuardedPath。docs/22 §1)。素通しした以上、
 // 誰に何を見せるかはこのページ (の ItemDetail) が決める。門番を当てにしない。
-// 見せ分けの表と「未登録・非公開・ゴミ箱を同じ応答に潰す」理由は ItemDetail.tsx
+// 見せ分けの表と「未登録・非公開・ゴミ箱を同じ応答に潰す」理由は components/item/ItemDetail.tsx
 export default async function ItemPage({ params, searchParams }: ItemPageProps) {
   const { itemNo } = await params;
   guardItemPage(itemNo);

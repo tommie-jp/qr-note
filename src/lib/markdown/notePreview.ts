@@ -1,5 +1,5 @@
 // 一覧のノート全体プレビュー (docs/71-一覧ノートプレビュー計画.md) の
-// ソース切り詰めと対象判定。描画そのものは components/NotePreviewThumb.tsx。
+// ソース切り詰めと対象判定。描画そのものは components/item/NotePreviewThumb.tsx。
 //
 // prisma も react も引き込まない純粋関数の葉 (markdown/memoSummary.ts と同じ線)。
 

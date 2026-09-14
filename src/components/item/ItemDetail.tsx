@@ -1,13 +1,13 @@
 import type { ComponentProps, ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { AutoNotePane } from "@/components/AutoNotePane";
-import { ItemListNav } from "@/components/ItemListNav";
-import { ItemView } from "@/components/ItemView";
+import { ItemListNav } from "@/components/item/ItemListNav";
+import { ItemView } from "@/components/item/ItemView";
 import { LoginRequiredNotice } from "@/components/LoginRequiredNotice";
 import { PageTransition } from "@/components/PageTransition";
 import { PreviewPane } from "@/components/PreviewPane";
-import { PublicItemView } from "@/components/PublicItemView";
-import { RecordAccess } from "@/components/RecordAccess";
+import { PublicItemView } from "@/components/item/PublicItemView";
+import { RecordAccess } from "@/components/item/RecordAccess";
 import { isProductionEnv } from "@/lib/appEnv";
 import { getItem } from "@/lib/items/read";
 import {
@@ -139,7 +139,7 @@ export async function ItemDetail({
           {/* 「最近見た順」のための記録 (docs/37-アクセス順計画.md)。
               **ログイン中の枝にだけ置く** — 未ログイン枝 (公開ノート) に
               置くと、他人やクローラが開くたびに自分の並びが書き換わる。
-              描画では記録せずマウント後に呼ぶ理由は RecordAccess.tsx に書いた。
+              描画では記録せずマウント後に呼ぶ理由は components/item/RecordAccess.tsx に書いた。
               ペイン (pane / auto) には置かない (docs/86 §3) */}
           <RecordAccess itemNo={itemNo} action={shell.recordAccessAction} />
           {view}

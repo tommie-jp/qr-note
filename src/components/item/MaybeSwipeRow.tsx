@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SwipeToTrashRow, type RowSwipe } from "@/components/SwipeToTrashRow";
+import { SwipeToTrashRow, type RowSwipe } from "@/components/item/row-actions/SwipeToTrashRow";
 
 interface MaybeSwipeRowProps {
   itemNo: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { COMPACT_ICON_BUTTON_CLASS } from "./ui";
+import { COMPACT_ICON_BUTTON_CLASS } from "../../ui";
 
 // 検索結果の 1 行に対して行える操作 (docs/66-行アクション計画.md §3)。
 //

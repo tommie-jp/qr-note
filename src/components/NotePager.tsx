@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PageNextIcon, PagePrevIcon } from "@/components/icons";
-import { PressTip } from "@/components/PressTip";
+import { PressTip } from "@/components/item/row-actions/PressTip";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
 import { useNotePagerPaged } from "@/lib/prefs/notePager";
 

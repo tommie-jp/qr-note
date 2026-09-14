@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
-import { CircuitThumb } from "@/components/CircuitThumb";
+import { CircuitThumb } from "@/components/item/CircuitThumb";
 import { MathText } from "@/components/MathText";
-import { NotePreviewFrame } from "@/components/NotePreviewFrame";
-import { RowThumb } from "@/components/RowThumb";
+import { NotePreviewFrame } from "@/components/item/NotePreviewFrame";
+import { RowThumb } from "@/components/item/RowThumb";
 import {
   rowFace,
   rowTintClass,

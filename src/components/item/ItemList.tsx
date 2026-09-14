@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
-// 値の import は不可 — NotePreviewThumb.tsx はサーバ専用 module
+// 値の import は不可 — components/item/NotePreviewThumb.tsx はサーバ専用 module
 // (offline/circuits.ts と同じ線引き)。型は erase されるので安全。
 // 回路図サムネと数式の型は、サーバ専用の circuit/thumbs.ts / markdown/mathText.ts ではなく
 // 型だけの葉 (circuit/types.ts / markdown/mathTextTypes.ts) から取る
@@ -14,13 +14,13 @@ import type { NotePreviewMap } from "./NotePreviewThumb";
 import { buildItemUrl, itemNoFromPathname } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
-import { BulkTagToolbar } from "./BulkTagToolbar";
+import { BulkTagToolbar } from "../BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";
-import { usePaneMode } from "./PaneModeProvider";
-import { TrashIcon } from "./icons";
-import { useSelectMode } from "./SelectModeProvider";
-import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "./ui";
+import { usePaneMode } from "../PaneModeProvider";
+import { TrashIcon } from "../icons";
+import { useSelectMode } from "../SelectModeProvider";
+import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "../ui";
 
 // bulkTagAction をそのまま import すると db.ts (DATABASE_URL 必須) まで巻き込み
 // テストが動かないため、サーバーアクションは page.tsx から prop で受け取る。

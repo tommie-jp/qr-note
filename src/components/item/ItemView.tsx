@@ -8,9 +8,9 @@ import {
   toggleMemoTaskAction,
   updateMemoAction,
 } from "@/app/actions";
-import { ItemTags } from "@/components/ItemTags";
-import { ItemTimestamps } from "@/components/ItemTimestamps";
-import { ItemUrlBox } from "@/components/ItemUrlBox";
+import { ItemTags } from "@/components/item/ItemTags";
+import { ItemTimestamps } from "@/components/item/ItemTimestamps";
+import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import {
   EditIcon,
   HistoryIcon,
@@ -23,10 +23,10 @@ import { MemoEditor } from "@/components/MemoEditor";
 import { NoteSaveForm } from "@/components/NoteSaveForm";
 import { NotePageModeToggle } from "@/components/NotePageModeToggle";
 import { splitPages } from "@/components/notePages";
-import { OfflinePinToggle } from "@/components/OfflinePinToggle";
+import { OfflinePinToggle } from "@/components/item/OfflinePinToggle";
 import { PendingLink } from "@/components/PendingLink";
-import { PressTip } from "@/components/PressTip";
-import { PublicToggle } from "@/components/PublicToggle";
+import { PressTip } from "@/components/item/row-actions/PressTip";
+import { PublicToggle } from "@/components/item/PublicToggle";
 import { SavedToast } from "@/components/SavedToast";
 import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";

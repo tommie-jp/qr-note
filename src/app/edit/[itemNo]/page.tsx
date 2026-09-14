@@ -6,11 +6,11 @@ import {
 } from "@/app/actions";
 import { AttributionFooter } from "@/components/AttributionFooter";
 import { EditItemFields } from "@/components/EditItemFields";
-import { ItemTimestamps } from "@/components/ItemTimestamps";
+import { ItemTimestamps } from "@/components/item/ItemTimestamps";
 import { MemoEditor } from "@/components/MemoEditor";
 import { NoteSaveForm } from "@/components/NoteSaveForm";
 import { PageTransition } from "@/components/PageTransition";
-import { RecordAccess } from "@/components/RecordAccess";
+import { RecordAccess } from "@/components/item/RecordAccess";
 import { TrashedBanner } from "@/components/TrashedBanner";
 import { UnsavedGuard } from "@/components/UnsavedGuard";
 import { ACTION_LINK_CLASS } from "@/components/ui";

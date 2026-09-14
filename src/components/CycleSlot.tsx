@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { SlotIcon } from "@/components/SlotIcon";
-import type { useLongPress } from "@/components/useLongPress";
+import type { useLongPress } from "@/components/item/row-actions/useLongPress";
 
 interface CycleSlotProps<T extends string> {
   // cookie 名。submit ボタンの name であり、送信中の FormData から

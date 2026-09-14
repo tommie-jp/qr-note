@@ -3,7 +3,7 @@ import { expect, test, vi } from "vitest";
 import type { Item } from "@/generated/prisma/client";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import { ItemList } from "./ItemList";
-import { SelectModeProvider } from "./SelectModeProvider";
+import { SelectModeProvider } from "../SelectModeProvider";
 
 // ItemList がプレビュー中のノート (docs/86 §4) を usePathname から導くため、
 // router の外でも描けるようにモックする。unstable_rethrow は
@@ -168,7 +168,7 @@ test("0 件の案内はカード表示でも全カラムに渡す", () => {
 });
 
 // 画像表示 (docs/32-画像表示モード計画.md)。描画は ImageMasonry に丸ごと
-// 委譲する (タイルの中身は ImageMasonry.test.tsx が見る)。
+// 委譲する (タイルの中身は components/item/ImageMasonry.test.tsx が見る)。
 //
 // 選択モード中は compact の一覧へ畳む (タイルは画像単位でノート単位ではなく、
 // 画像なしノートが選択対象から漏れるため) が、選択モードの描画は静的には
@@ -199,7 +199,7 @@ test("画像表示は画像だけを Grid で敷き詰め、画像なしノー�
 });
 
 // 回路図サムネの中継 (docs/68-一覧回路図サムネ計画.md §5)。
-// 表示の中身は ItemRow.test.tsx / ImageMasonry.test.tsx が見る。ここは
+// 表示の中身は components/item/ItemRow.test.tsx / components/item/ImageMasonry.test.tsx が見る。ここは
 // prop が正しい部品まで届くことだけを確かめる
 
 const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';

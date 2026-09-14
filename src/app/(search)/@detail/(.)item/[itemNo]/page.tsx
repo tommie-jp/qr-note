@@ -1,4 +1,4 @@
-import { ItemDetail, paneBgClass } from "@/components/ItemDetail";
+import { ItemDetail, paneBgClass } from "@/components/item/ItemDetail";
 import { PreviewPane } from "@/components/PreviewPane";
 import { isValidItemNo } from "@/lib/validation";
 

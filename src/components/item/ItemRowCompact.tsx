@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { RowSwipe } from "@/components/SwipeToTrashRow";
+import type { RowSwipe } from "@/components/item/row-actions/SwipeToTrashRow";
 import { MaybeSwipeRow } from "./MaybeSwipeRow";
 import type { RowParts } from "./rowParts";
 

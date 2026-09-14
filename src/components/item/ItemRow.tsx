@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
-import { ItemRowCard } from "./item/ItemRowCard";
-import { ItemRowCompact } from "./item/ItemRowCompact";
-import { buildRowParts } from "./item/rowParts";
-import type { RowSwipe } from "./SwipeToTrashRow";
+import { ItemRowCard } from "./ItemRowCard";
+import { ItemRowCompact } from "./ItemRowCompact";
+import { buildRowParts } from "./rowParts";
+import type { RowSwipe } from "./row-actions/SwipeToTrashRow";
 import { rowPreview, type RowViewMode } from "@/lib/items/itemRowDecor";
 import { DEFAULT_VIEW_MODE } from "@/lib/prefs/viewMode";
 

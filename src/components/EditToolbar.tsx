@@ -18,7 +18,7 @@ import {
   VideoIcon,
 } from "@/components/icons";
 import { SubmitButton } from "@/components/SubmitButton";
-import { useLongPress } from "@/components/useLongPress";
+import { useLongPress } from "@/components/item/row-actions/useLongPress";
 import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
 import type { FormatAction } from "@/components/editor/markdownFormat";
 

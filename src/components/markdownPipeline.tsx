@@ -8,7 +8,7 @@
 // MarkdownView の循環参照になる。規則そのものはどちらから見ても同じなので、
 // MarkdownView より下の層としてここに置く (循環しない・server/client どちら
 // からも安全 — "use client" も hook も持たない部品しか import しないこと)。
-// 一覧のノート全体プレビュー (NotePreviewThumb.tsx。
+// 一覧のノート全体プレビュー (components/item/NotePreviewThumb.tsx。
 // docs/71-一覧ノートプレビュー計画.md) も同じ規則で描くため、ここを共有する。
 //
 // **入れ子側でも同じものを使うこと**が要点 — 別に緩い規則を持つと、本文では

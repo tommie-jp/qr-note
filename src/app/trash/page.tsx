@@ -15,7 +15,7 @@ import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuit/thumbs";
 import { listTrashedItems } from "@/lib/items/trash";
 import { buildMathTexts } from "@/lib/markdown/mathText";
-import { buildNotePreviews } from "@/components/NotePreviewThumb";
+import { buildNotePreviews } from "@/components/item/NotePreviewThumb";
 import { readTrashPrefs } from "@/lib/prefs/searchPrefs";
 import { requireUser } from "@/lib/auth/session";
 import { usesWideResults } from "@/lib/prefs/viewMode";

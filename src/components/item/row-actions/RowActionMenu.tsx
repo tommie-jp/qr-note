@@ -11,7 +11,7 @@ import type { RowAction } from "./RowActions";
 import {
   ROW_MENU_ICON_ITEM_CLASS,
   ROW_MENU_ICON_ITEM_DANGER_CLASS,
-} from "./ui";
+} from "../../ui";
 
 interface RowActionMenuProps {
   // 読み上げ用。「#12 の操作」

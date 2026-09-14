@@ -12,7 +12,7 @@ export interface ItemListContext {
 // /item を開いたときの「一覧の文脈」(q / sort / 前後) の解決
 // (docs/60-学習進捗計画.md §4)。全画面 (item/[itemNo]/page.tsx) と横取り
 // プレビュー ((search)/@detail) が**同じ規則を共有する**ための 1 か所
-// (どちらも components/ItemDetail.tsx から呼ぶ) —
+// (どちらも components/item/ItemDetail.tsx から呼ぶ) —
 // 別々に育つと、同じ URL なのにペインと全画面で「次」が違うノートを指す。
 //
 // - `?q=a&q=b` と同じ名前を 2 回書いた URL では配列で届くので先頭を採る。

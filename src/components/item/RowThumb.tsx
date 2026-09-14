@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PlayBadgeIcon, VideoThumbIcon } from "@/components/icons";
 import { thumbAnimUrl, thumbUrl } from "@/lib/images/memoImages";
-import { useAnimThumb } from "./useAnimThumb";
+import { useAnimThumb } from "../useAnimThumb";
 
 interface RowThumbProps {
   // 添付の保存名 (`<UUID>.<ext>`)。?thumb=1 で縮小版を配る

@@ -3,14 +3,14 @@
 import { useState, type ReactNode } from "react";
 import type { MenuPoint } from "@/lib/gesture/rowActionMenu";
 import { SWIPE_BUTTON_WIDTH } from "@/lib/gesture/swipeRow";
-import { useRowGestureArbiter } from "./item/row-actions/useRowGestureArbiter";
+import { useRowGestureArbiter } from "./useRowGestureArbiter";
 import {
   useRowTrash,
   type RowSearchState,
   type RowTrashAction,
-} from "./item/row-actions/useRowTrash";
-import { useSwipeDrawer } from "./item/row-actions/useSwipeDrawer";
-import { TrashIcon } from "./icons";
+} from "./useRowTrash";
+import { useSwipeDrawer } from "./useSwipeDrawer";
+import { TrashIcon } from "../../icons";
 import { RowActionMenu } from "./RowActionMenu";
 import { RowActionButtons, type RowAction } from "./RowActions";
 

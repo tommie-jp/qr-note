@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { RowSwipe } from "@/components/SwipeToTrashRow";
+import type { RowSwipe } from "@/components/item/row-actions/SwipeToTrashRow";
 import {
   CARD_FRAME_CLASS,
   hasRowText,

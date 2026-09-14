@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { buildItemUrl, buildSearchUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
-import { ACTION_LINK_CLASS, SECONDARY_BUTTON_CLASS } from "./ui";
+import { ACTION_LINK_CLASS, SECONDARY_BUTTON_CLASS } from "../ui";
 
 interface ItemListNavProps {
   // 一覧での隣 (items/read.ts の findListNeighbors)。端では null

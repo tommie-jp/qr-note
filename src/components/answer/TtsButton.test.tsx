@@ -16,7 +16,7 @@ type Press = ReturnType<typeof useTtsPress>;
 
 // この土台に jsdom は無い (vitest.config.ts の environment: 'node')。
 // フックを静的描画の中で 1 度だけ呼び、返ってきた押下ハンドラを外へ
-// 取り出して直に叩く (useLongPress.test.tsx と同じ作法)。
+// 取り出して直に叩く (components/item/row-actions/useLongPress.test.tsx と同じ作法)。
 //
 // **見るのは state ではなく振る舞い。** 描画が終わった後の setState は
 // サーバ描画では捨てられるので、鳴っている / 鳴っていないは「次の 1 押しが

@@ -34,7 +34,7 @@ vi.mock('@/lib/markdown/mathText', () => ({
   buildMathTexts: mocks.buildMathTexts,
   buildMathSummaries: mocks.buildMathSummaries,
 }))
-vi.mock('@/components/NotePreviewThumb', () => ({
+vi.mock('@/components/item/NotePreviewThumb', () => ({
   buildNotePreviews: mocks.buildNotePreviews,
 }))
 

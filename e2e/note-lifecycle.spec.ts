@@ -66,7 +66,7 @@ test.describe('ノートの一生', () => {
     await searchFor(page, ITEM_NO)
     const results = searchResults(page)
     // 押すのは見出しのリンク。行全体に ::after の当たり判定を広げている
-    // (stretched link。ItemRow.tsx) ので、番号のリンクは膜の下で押せない
+    // (stretched link。components/item/ItemRow.tsx) ので、番号のリンクは膜の下で押せない
     const link = results.getByRole('link', { name: BODY, exact: true })
     // ハードナビゲーションなら window ごと作り直されて消える印
     await page.evaluate(() => {

@@ -1,7 +1,7 @@
 import type { Item } from "@/generated/prisma/client";
-import { ItemTags } from "@/components/ItemTags";
-import { ItemTimestamps } from "@/components/ItemTimestamps";
-import { ItemUrlBox } from "@/components/ItemUrlBox";
+import { ItemTags } from "@/components/item/ItemTags";
+import { ItemTimestamps } from "@/components/item/ItemTimestamps";
+import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import { LoginButton } from "@/components/LoginButton";
 import { QrIcon } from "@/components/icons";
 import { NoteBody } from "@/components/NoteBody";

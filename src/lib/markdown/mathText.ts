@@ -5,7 +5,7 @@
 // markdown を描かずプレーンテキストに畳んでいる (memoSummary / memoPreview)。
 // そのテキストに残る $...$ だけをここで KaTeX に通し、地の文はエスケープして
 // HTML 文字列に組み立てる。表示側 (MathText.tsx) は埋め込むだけ —
-// 回路図サムネ (circuit/thumbs.ts + CircuitThumb.tsx) と同じ型。
+// 回路図サムネ (circuit/thumbs.ts + components/item/CircuitThumb.tsx) と同じ型。
 //
 // このモジュールはサーバ専用にする (katex ~280KB をクライアント束に入れない)。
 // client component からは値を import しないこと。返り値の型 (MathTextMap) は

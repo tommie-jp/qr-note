@@ -1,7 +1,7 @@
 "use client";
 
-import { ItemTags } from "@/components/ItemTags";
-import { ItemUrlBox } from "@/components/ItemUrlBox";
+import { ItemTags } from "@/components/item/ItemTags";
+import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import { NoteBody } from "@/components/NoteBody";
 import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import type { CircuitMap } from "@/lib/circuit/types";
