@@ -11,7 +11,7 @@ import {
   type Recording,
 } from "@/lib/audio/audioRecorder";
 import { errorText } from "@/lib/errorMessage";
-import { useLatest } from "./hooks/useLatest";
+import { useLatest } from "../hooks/useLatest";
 
 // 経過時間の更新間隔。表示は秒単位なので 200ms あれば十分滑らかに見える
 const TICK_MS = 200;

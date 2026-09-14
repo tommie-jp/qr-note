@@ -1,6 +1,6 @@
 "use client";
 
-import type { ImportProgressView } from "@/components/useImportProgress";
+import type { ImportProgressView } from "@/components/transfer/useImportProgress";
 
 // 取り込み中の待ち時間の見せ方 (docs/28-エクスポート計画.md §9)。
 //

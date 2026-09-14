@@ -2,7 +2,7 @@ import pkg from "../../../package.json";
 import { BootTimingReport } from "@/components/BootTimingReport";
 import { ClientLogCapture } from "@/components/ClientLogCapture";
 import { DebugConsole } from "@/components/DebugConsole";
-import { OfflineSync } from "@/components/OfflineSync";
+import { OfflineSync } from "@/components/offline/OfflineSync";
 import { RecordTagSearch } from "@/components/search/RecordTagSearch";
 
 interface AppSideEffectsProps {

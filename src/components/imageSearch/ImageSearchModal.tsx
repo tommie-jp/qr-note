@@ -8,12 +8,12 @@ import {
 } from "@/components/ui";
 import { cameraErrorMessage } from "@/lib/camera/cameraErrors";
 import { stopStream } from "@/lib/camera/mediaStream";
-import { disposeOcr } from "./ocr/ocrService";
-import { CameraViewport } from "./imageSearch/CameraViewport";
-import { ImageSearchResults } from "./imageSearch/ImageSearchResults";
-import { useImageEmbedder } from "./imageSearch/useImageEmbedder";
-import { useLiveImageSearch } from "./imageSearch/useLiveImageSearch";
-import { useEscapeKey } from "./modal/useEscapeKey";
+import { disposeOcr } from "../ocr/ocrService";
+import { CameraViewport } from "./CameraViewport";
+import { ImageSearchResults } from "./ImageSearchResults";
+import { useImageEmbedder } from "./useImageEmbedder";
+import { useLiveImageSearch } from "./useLiveImageSearch";
+import { useEscapeKey } from "../modal/useEscapeKey";
 
 interface ImageSearchModalProps {
   onClose: () => void;

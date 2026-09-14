@@ -3,9 +3,9 @@
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 import { BusyNotice } from "@/components/BusyNotice";
-import { VideoRecordModal } from "@/components/VideoRecordModal";
-import { useAudioRecording } from "@/components/useAudioRecording";
-import { useVideoRecording } from "@/components/useVideoRecording";
+import { VideoRecordModal } from "@/components/video/VideoRecordModal";
+import { useAudioRecording } from "@/components/audio/useAudioRecording";
+import { useVideoRecording } from "@/components/video/useVideoRecording";
 import { recordingAltText } from "@/lib/audio/audioRecorder";
 import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
 import { ocrButtonLabel, recordButtonLabel } from "@/lib/progress/progressLabels";
@@ -25,7 +25,7 @@ const DrawModal = dynamic(() => import("@/components/draw/DrawModal"), {
 });
 
 const ScannerModal = dynamic(
-  () => import("@/components/ScannerModal").then((m) => m.ScannerModal),
+  () => import("@/components/camera/ScannerModal").then((m) => m.ScannerModal),
   { ssr: false, loading: () => null },
 );
 

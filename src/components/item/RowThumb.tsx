@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PlayBadgeIcon, VideoThumbIcon } from "@/components/icons";
 import { thumbAnimUrl, thumbUrl } from "@/lib/images/memoImages";
-import { useAnimThumb } from "../useAnimThumb";
+import { useAnimThumb } from "../video/useAnimThumb";
 
 interface RowThumbProps {
   // 添付の保存名 (`<UUID>.<ext>`)。?thumb=1 で縮小版を配る
@@ -27,7 +27,7 @@ interface RowThumbProps {
 //
 // 動画にはさらに「動くサムネ」がある (docs/72-動画アニメサムネ計画.md)。
 // 既定は静止 poster のままで、ホバー中 (PC) / 画面に入った時 (スマホ) だけ
-// 同じ <img> の src をアニメ WebP へ差し替える (useAnimThumb.ts)。
+// 同じ <img> の src をアニメ WebP へ差し替える (components/video/useAnimThumb.ts)。
 export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
   // 動画で poster が 404 だったら true。アイコン表示に切り替える
   const [posterFailed, setPosterFailed] = useState(false);

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { NotesExporter } from "@/components/NotesExporter";
-import { NotesImporter } from "@/components/NotesImporter";
+import { NotesExporter } from "@/components/transfer/NotesExporter";
+import { NotesImporter } from "@/components/transfer/NotesImporter";
 import { BOX_CLASS } from "@/components/ui";
 import { requireSettingsPage } from "@/lib/auth/pageGuard";
 

@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { VideoRecordingState } from "@/components/useVideoRecording";
-import { VideoRecordModal } from "@/components/VideoRecordModal";
+import type { VideoRecordingState } from "@/components/video/useVideoRecording";
+import { VideoRecordModal } from "@/components/video/VideoRecordModal";
 import type { EditorDrawing } from "./hooks/useEditorDrawing";
 import type { EditorScanInsert } from "./hooks/useEditorScanInsert";
 import type { EditorSecret } from "./hooks/useEditorSecret";
@@ -17,7 +17,7 @@ const DrawModal = dynamic(() => import("@/components/draw/DrawModal"), {
 // スキャナ (カメラ + zxing wasm) も重いので、スキャンを押すまで読み込まない。
 // 検索画面 (BottomActionBar) と同じ部品を、挿入モード (onResult) で使う
 const ScannerModal = dynamic(
-  () => import("@/components/ScannerModal").then((m) => m.ScannerModal),
+  () => import("@/components/camera/ScannerModal").then((m) => m.ScannerModal),
   { ssr: false, loading: () => null },
 );
 

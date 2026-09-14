@@ -90,7 +90,7 @@ const ASSETS = [
   },
   {
     // スキャナの読み取りエンジン (barcode-detector → zxing-wasm)
-    // (ScannerModal.tsx が locateFile: () => '/zxing/zxing_reader.wasm' を渡している)。
+    // (components/camera/ScannerModal.tsx が locateFile: () => '/zxing/zxing_reader.wasm' を渡している)。
     // reader ビルドを使う (読み取り専用。書き込み側は QR 生成の qrcode パッケージが持つ)
     name: 'zxing wasm',
     dest: 'public/zxing',

@@ -14,7 +14,7 @@ import { SCANNER_ERROR_MESSAGES } from "@/lib/camera/cameraErrors";
 import { SCAN_FORMATS } from "@/lib/external/scanFormats";
 import { resolveScanPath } from "@/lib/external/scanResult";
 import { cameraControlClass } from "./cameraControlButton";
-import { useEscapeKey } from "./modal/useEscapeKey";
+import { useEscapeKey } from "../modal/useEscapeKey";
 import { useScannerCamera } from "./useScannerCamera";
 
 // 読み取りエンジン (wasm) の取得先を自前配信へ向ける (docs/09-スキャン計画.md §5)。

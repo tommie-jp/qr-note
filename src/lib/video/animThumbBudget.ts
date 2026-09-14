@@ -6,7 +6,7 @@
 // 最後まで見た人が全件ぶんを引くことになる (13-kick-work では 900 行あり、
 // 実際にこの上限を入れた)。
 //
-// useAnimThumb.ts から切り出した純関数。React の外に出しておくと、勘定の
+// components/video/useAnimThumb.ts から切り出した純関数。React の外に出しておくと、勘定の
 // 規則そのものをテストできる (animThumbBudget.test.ts)。
 
 // 自動再生してよい本数。1 本あたり最大 MAX_VIDEO_ANIM_BYTES (300KB) なので、

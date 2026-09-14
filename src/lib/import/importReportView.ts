@@ -1,4 +1,4 @@
-// 取り込み画面 (components/NotesImporter.tsx・components/transfer/ImportResult.tsx) が
+// 取り込み画面 (components/transfer/NotesImporter.tsx・components/transfer/ImportResult.tsx) が
 // 描くための形と、描く前の判定 (docs/28-エクスポート計画.md §3 / §4)。
 //
 // 型と純関数だけを置き、画面からもテストからもそのまま読めるようにする。

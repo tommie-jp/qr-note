@@ -15,12 +15,12 @@ interface SearchToolsProps {
 // (docs/09-スキャン計画.md §2、docs/25-画像検索計画.md)。
 // ssr: false … camera / document を触るのでサーバでは描画できない
 const ScannerModal = dynamic(
-  () => import("@/components/ScannerModal").then((m) => m.ScannerModal),
+  () => import("@/components/camera/ScannerModal").then((m) => m.ScannerModal),
   { ssr: false },
 );
 
 const ImageSearchModal = dynamic(
-  () => import("@/components/ImageSearchModal").then((m) => m.ImageSearchModal),
+  () => import("@/components/imageSearch/ImageSearchModal").then((m) => m.ImageSearchModal),
   { ssr: false },
 );
 

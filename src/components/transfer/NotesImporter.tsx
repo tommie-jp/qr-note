@@ -8,7 +8,7 @@ import {
 } from "@/components/ui";
 import { ImportProgressBar } from "@/components/transfer/ImportProgressBar";
 import { ImportResult } from "@/components/transfer/ImportResult";
-import { useImportProgress } from "@/components/useImportProgress";
+import { useImportProgress } from "@/components/transfer/useImportProgress";
 import { errorText } from "@/lib/errorMessage";
 import {
   type ImportReport,

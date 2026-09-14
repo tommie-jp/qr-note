@@ -3,11 +3,11 @@
 import {
   useAudioRecording,
   type AudioRecordingState,
-} from "@/components/useAudioRecording";
+} from "@/components/audio/useAudioRecording";
 import {
   useVideoRecording,
   type VideoRecordingState,
-} from "@/components/useVideoRecording";
+} from "@/components/video/useVideoRecording";
 import { recordingAltText } from "@/lib/audio/audioRecorder";
 import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
 import type { InsertFiles } from "./useAttachmentInsert";

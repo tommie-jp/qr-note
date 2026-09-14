@@ -9,9 +9,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { formatElapsed } from "@/lib/progress/progressLabels";
-import { cameraControlClass } from "./cameraControlButton";
-import { useLatest } from "./hooks/useLatest";
-import { useEscapeKey } from "./modal/useEscapeKey";
+import { cameraControlClass } from "../camera/cameraControlButton";
+import { useLatest } from "../hooks/useLatest";
+import { useEscapeKey } from "../modal/useEscapeKey";
 import type { VideoRecordingState } from "./useVideoRecording";
 
 export interface VideoRecordModalProps {

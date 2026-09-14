@@ -1,5 +1,5 @@
 // ノート編集画面の録画ボタンの状態 (41-QR-search/docs/16-録画の近接フォーカス計画.md)。
-// useAudioRecording.ts が原型。録画そのものは lib/video/videoRecorder.ts が持ち、
+// components/audio/useAudioRecording.ts が原型。録画そのものは lib/video/videoRecorder.ts が持ち、
 // ここは React 側の都合 (状態遷移・経過時間の刻み・自動停止・後始末・プレビュー
 // stream の受け渡し) だけを引き受ける。
 //
@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorText } from "@/lib/errorMessage";
-import { useLatest } from "./hooks/useLatest";
+import { useLatest } from "../hooks/useLatest";
 import { NEAR_FOCUS_ZOOM, zoomLevelsFor } from "@/lib/video/cameraSelection";
 import {
   type CameraFacing,

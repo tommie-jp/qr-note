@@ -178,7 +178,7 @@ export function thumbUrl(name: string): string {
 const THUMB_ANIM_VERSION = 1
 
 // 動くサムネの配信 URL。未生成なら配信側が 404 を返し、表示は静止のまま
-// (RowThumb / useAnimThumb.ts)。
+// (RowThumb / components/video/useAnimThumb.ts)。
 export function thumbAnimUrl(name: string): string {
   return `${IMAGE_PATH_PREFIX}${name}?thumb=1&anim=1&v=${THUMB_ANIM_VERSION}`
 }
