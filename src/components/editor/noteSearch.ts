@@ -1,6 +1,6 @@
 import { SearchQuery } from "@codemirror/search";
 import type { EditorState, Text } from "@codemirror/state";
-import { secretNotationRanges } from "@/lib/secrets";
+import { secretNotationRanges } from "@/lib/secret/secrets";
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
 
 // ノート内検索・置換の素の計算 (docs/76-ノート内検索計画.md §8-1)。

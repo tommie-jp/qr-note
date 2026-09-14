@@ -8,7 +8,7 @@ import {
   isSecretMime,
   normalizeSecretMime,
   secretMimeKind,
-} from './secretPayload'
+} from './payload'
 
 describe('isSecretMime', () => {
   test('accepts the fragment body, images, audio and video', () => {

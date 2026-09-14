@@ -43,7 +43,7 @@ import {
   wantsNotePreview,
 } from "@/lib/notePreview";
 import { firstPageSource } from "@/components/notePages";
-import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
+import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
 import { isValidImageName } from "@/lib/uploads/names";
 import type { ViewMode } from "@/lib/viewMode";
 import "katex/dist/katex.min.css";

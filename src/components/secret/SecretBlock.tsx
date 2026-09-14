@@ -9,16 +9,16 @@ import {
   loadSecret,
   secretText,
   type SecretContent,
-} from "@/lib/secretContent";
-import { secretMimeKind, type SecretKind } from "@/lib/secretPayload";
-import { SecretCancelledError } from "@/lib/secretPrf";
+} from "@/lib/secret/content";
+import { secretMimeKind, type SecretKind } from "@/lib/secret/payload";
+import { SecretCancelledError } from "@/lib/secret/prf";
 import {
   isUnlocked,
   subscribeSecretLock,
   useSecretUnlocked,
-} from "@/lib/secretSession";
-import { unlockWithPasskey } from "@/lib/secretUnlock";
-import { allSecretNames, secretUrl } from "@/lib/secrets";
+} from "@/lib/secret/session";
+import { unlockWithPasskey } from "@/lib/secret/unlock";
+import { allSecretNames, secretUrl } from "@/lib/secret/secrets";
 
 // MarkdownView は**動的に読む**。理由は 2 つ:
 //

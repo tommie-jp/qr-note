@@ -13,13 +13,13 @@
 import {
   loadKeyringCache,
   saveKeyringCache,
-} from './offline/keyring'
+} from '../offline/keyring'
 import {
   fetchKeyring,
   initKeyring,
   saveKeyWrap,
   type KeyringState,
-} from './secretApi'
+} from './api'
 import {
   checkVerifier,
   decodeRecoveryKey,
@@ -30,9 +30,9 @@ import {
   makeVerifier,
   unwrapMasterKey,
   wrapMasterKey,
-} from './secretKeyring'
-import { requestPrf } from './secretPrf'
-import { unlockWith, unlockedMasterKeyBytes } from './secretSession'
+} from './keyring'
+import { requestPrf } from './prf'
+import { unlockWith, unlockedMasterKeyBytes } from './session'
 
 // 鍵はあるはずなのに手順が噛み合わなかった、を利用者の言葉で伝える例外。
 export class SecretSetupError extends Error {

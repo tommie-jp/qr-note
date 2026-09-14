@@ -6,9 +6,9 @@
 // **例外の文言はここで日本語にして投げる** (passkeyClient.ts と同じ流儀)。
 // 呼ぶ側がそのまま画面に出せるようにするため。
 
-import { apiFetch, ApiError, fetchEnvelope } from './api/envelope'
-import { base64ToBytes, bytesToBase64 } from './bytesBase64'
-import { SECRET_MIME_HEADER } from './secretPayload'
+import { apiFetch, ApiError, fetchEnvelope } from '../api/envelope'
+import { base64ToBytes, bytesToBase64 } from '../bytesBase64'
+import { SECRET_MIME_HEADER } from './payload'
 import { secretUrl } from './secrets'
 
 const KEYRING_PATH = '/api/secrets/keyring'
@@ -113,7 +113,7 @@ export async function fetchSecretBlob(name: string): Promise<SecretBlob> {
 
 // 断片を保存する (新規も編集も同じ口)。名前は呼ぶ側が決める —
 // エンベロープの AAD が名前に縛られているため、封をする時点で決まっている
-// (secretStore.ts の saveSecret に経緯)。
+// (secret/store.ts の saveSecret に経緯)。
 export async function saveSecret(
   name: string,
   mime: string,
@@ -124,7 +124,7 @@ export async function saveSecret(
 
 function blobRequest(mime: string, bytes: Uint8Array): RequestInit {
   // Uint8Array をそのまま body に渡すと型が噛み合わないため ArrayBuffer 実体を
-  // 明示して確保する (secretEnvelope.ts と同じ理由)
+  // 明示して確保する (secret/envelope.ts と同じ理由)
   const body = new Uint8Array(bytes.byteLength)
   body.set(bytes)
   return {

@@ -5,15 +5,15 @@
 // 33% 太らせないため)。復号後の種別だけをヘッダで申告させる。
 
 import type { NextResponse } from 'next/server'
-import { guardRequest, type GuardResult } from './route/guard'
-import { apiFail } from './route/respond'
+import { guardRequest, type GuardResult } from '../route/guard'
+import { apiFail } from '../route/respond'
 import {
   checkSecretPayload,
   MAX_SECRET_VIDEO_BYTES,
   SECRET_MIME_HEADER,
-} from './secretPayload'
-import { MULTIPART_OVERHEAD_BYTES } from './uploads/limits'
-import { checkUploadRequest } from './uploads/request'
+} from './payload'
+import { MULTIPART_OVERHEAD_BYTES } from '../uploads/limits'
+import { checkUploadRequest } from '../uploads/request'
 
 // どの口にも共通の門番。
 //

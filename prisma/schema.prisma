@@ -174,7 +174,7 @@ model Secret {
   // **暗号化しないメタデータ**で、管理者には「これは画像だ」までは見える
   // (docs/51 §1 の割り切り)。表示側が復号後の描き分けに使う
   mime      String
-  // 暗号エンベロープ (version || iv || AES-256-GCM。src/lib/secretEnvelope.ts)
+  // 暗号エンベロープ (version || iv || AES-256-GCM。src/lib/secret/envelope.ts)
   data      Bytes
   createdAt DateTime @default(now()) @map("created_at")
 

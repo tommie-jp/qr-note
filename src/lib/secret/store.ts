@@ -6,7 +6,7 @@
 
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
-import { prisma } from './db'
+import { prisma } from '../db'
 
 export interface StoredSecret {
   mime: string

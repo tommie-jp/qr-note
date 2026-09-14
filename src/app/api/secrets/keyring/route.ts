@@ -2,7 +2,7 @@ import type { NextResponse } from 'next/server'
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytesBase64'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { guardSecretRequest } from '@/lib/secretRoute'
+import { guardSecretRequest } from '@/lib/secret/route'
 import {
   deleteKeyring,
   findKeyringVerifier,
@@ -10,7 +10,7 @@ import {
   initKeyring,
   listKeyWraps,
   saveKeyWrap,
-} from '@/lib/secretStore'
+} from '@/lib/secret/store'
 
 // 鍵束の口 (docs/51-部分暗号化計画.md §6)。
 //
@@ -68,7 +68,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // **パスキーの存在確認が先**。逆順にすると、知らないパスキーで設定を試みた
   // ときに「鍵束はあるが、それを開ける包みが 1 つも無い」状態が残る。復旧キーは
   // まだ画面に出ていないので誰にも開けられず、しかも初回設定は 409 で断られる
-  // ため作り直せない (secretStore.ts の hasCredential に経緯)
+  // ため作り直せない (secret/store.ts の hasCredential に経緯)
   if (!(await hasCredential(wrap.credentialId))) {
     return apiFail('そのパスキーは登録されていません', 404)
   }

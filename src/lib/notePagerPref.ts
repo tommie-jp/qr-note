@@ -4,7 +4,7 @@
 // 煩わしいはずで、ノートごとに覚えると開くたびに本文の長さが変わって落ち着かない
 // (livePreviewPref.ts と同じ判断)。
 //
-// **正本は React の外に置く** (secretSession.ts と同じ形)。切り替えるボタンは
+// **正本は React の外に置く** (secret/session.ts と同じ形)。切り替えるボタンは
 // 見出し行に、切り替わる本文は本文パネルの奥にあり、間に Server Component が
 // 挟まって props でも context でも繋げない。localStorage をそのまま正本に
 // すれば、購読している部品はどこに居ても一緒に切り替わる。
@@ -54,7 +54,7 @@ export function saveNotePagerPref(
   NOTE_PAGER_PREF.save(storage, paged)
 }
 
-// 以下、購読の口 (secretSession.ts と同じ形。prefs/externalStore.ts)。
+// 以下、購読の口 (secret/session.ts と同じ形。prefs/externalStore.ts)。
 //
 // **window.localStorage を触ること自体が例外になる**ブラウザがある
 // (Cookie を全面禁止した Chrome など)。browserStorage がそれを null (= 既定) に畳む

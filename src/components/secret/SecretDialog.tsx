@@ -15,12 +15,12 @@ import {
   newSecretName,
   saveSecretText,
   secretText,
-} from "@/lib/secretContent";
-import { isSecretImageMime } from "@/lib/secretPayload";
-import { SecretCancelledError } from "@/lib/secretPrf";
-import { isUnlocked, subscribeSecretLock } from "@/lib/secretSession";
-import { unlockWithPasskey } from "@/lib/secretUnlock";
-import { DEFAULT_SECRET_LABEL, secretLabel } from "@/lib/secrets";
+} from "@/lib/secret/content";
+import { isSecretImageMime } from "@/lib/secret/payload";
+import { SecretCancelledError } from "@/lib/secret/prf";
+import { isUnlocked, subscribeSecretLock } from "@/lib/secret/session";
+import { unlockWithPasskey } from "@/lib/secret/unlock";
+import { DEFAULT_SECRET_LABEL, secretLabel } from "@/lib/secret/secrets";
 import { SecretTools, type SecretSelection } from "./SecretTools";
 
 export interface SecretDialogProps {
@@ -90,7 +90,7 @@ export function SecretDialog({
 
   // 施錠されたら閉じる。**開いている間、復号した平文はこの state に居る**ので、
   // 施錠したのに残っていては「施錠 = 手元の復号済みデータは消える」という
-  // secretSession.ts の約束が破れる (SecretBlock が同じ購読で中身を畳むのと対)。
+  // secret/session.ts の約束が破れる (SecretBlock が同じ購読で中身を畳むのと対)。
   //
   // いまの画面構成では編集画面と設定画面が同時に生きる場面は限られるが、
   // 不変条件をルーティングの偶然に預けない

@@ -7,7 +7,7 @@
 //   verifier … 復旧キーの打ち間違いを検出するための検証値
 //   wraps    … パスキー由来の KEK で包んだマスターキー
 //
-// 平文のマスターキーはここに書かない (それはタブのメモリだけ。secretSession.ts)。
+// 平文のマスターキーはここに書かない (それはタブのメモリだけ。secret/session.ts)。
 // 包みを開けるのは PRF 出力を出せる認証器 (= Face ID) か、紙の復旧キーだけで、
 // 端末に写しがあってもその条件は 1 つも緩まない。
 //
@@ -21,7 +21,7 @@
 // 同じ扱いで、オンラインに戻れば取り直せる。
 
 import 'client-only'
-import type { KeyringState, KeyWrapInfo } from '@/lib/secretApi'
+import type { KeyringState, KeyWrapInfo } from '@/lib/secret/api'
 import { deleteRecord, getRecord, putRecord } from './idb'
 
 const KEYRING_KEY = 'state'

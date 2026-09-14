@@ -8,12 +8,12 @@
 // **AAD (追加認証データ) に「文脈」を入れるのが要点**。GCM は中身の改竄を
 // 検知するが、断片 A と断片 B を丸ごと入れ替えるすり替えは検知できない
 // (「銀行のパスワード」の欄に別の値が表示される)。文脈として断片の名前を
-// 縛っておけば、すり替えは復号失敗になる。鍵のラップ (secretKeyring.ts) も
+// 縛っておけば、すり替えは復号失敗になる。鍵のラップ (secret/keyring.ts) も
 // 同じ仕組みでクレデンシャル ID に縛る。
 //
 // WebCrypto しか使わないので、ブラウザ・Node (テスト) の両方で動く。
 
-import { ownedBytes } from './bytes'
+import { ownedBytes } from '../bytes'
 
 export const ENVELOPE_VERSION = 1
 

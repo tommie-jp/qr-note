@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/authPaths";
-import { SECRET_SETTINGS_PATH } from "@/lib/secrets";
+import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
 import { AppHeaderMenu } from "./AppHeaderMenu";
 
 // HeaderMenu は閉じている間は項目を描かない (HeaderMenu.test.tsx)。ここでは

@@ -8,7 +8,7 @@ import {
   secretAtCursor,
   secretNotation,
   secretToolbarLabel,
-} from "@/lib/secrets";
+} from "@/lib/secret/secrets";
 import type { EditorRef } from "./types";
 
 // 開いているシークレットの入力ダイアログ。name が非 null なら既存の断片の

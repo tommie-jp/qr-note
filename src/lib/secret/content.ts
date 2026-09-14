@@ -3,17 +3,17 @@
 // 暗号化・復号はここだけで行い、画面は平文の文字列とバイト列だけを扱う。
 // **平文がサーバへ出る経路はここには無い** — 送るのは必ず封をした後。
 
-import { forgetCachedUrl } from './offline/cacheNames'
-import { fetchSecretBlob, saveSecret } from './secretApi'
-import { openSecret, sealSecret } from './secretEnvelope'
+import { forgetCachedUrl } from '../offline/cacheNames'
+import { fetchSecretBlob, saveSecret } from './api'
+import { openSecret, sealSecret } from './envelope'
 import {
   SECRET_TEXT_MIME,
   isSecretMime,
   normalizeSecretMime,
   secretMimeKind,
-} from './secretPayload'
+} from './payload'
 import { secretUrl } from './secrets'
-import { unlockedKey } from './secretSession'
+import { unlockedKey } from './session'
 
 // 鍵がまだ無い状態で読み書きしようとした。画面は解錠を促す。
 export class SecretLockedError extends Error {

@@ -11,7 +11,7 @@
 // video/videoRecorder.ts もブラウザから読んでいる)。持ち込んだ日には
 // `server-only` の印が next build で落として知らせる。
 
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './uploads/limits'
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from '../uploads/limits'
 
 // 断片本文の種別。中身は markdown で、通常のメモと同じ描画パイプラインを通す
 export const SECRET_TEXT_MIME = 'text/markdown'

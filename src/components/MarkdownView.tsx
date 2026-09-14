@@ -31,7 +31,7 @@ import { SecretBlock } from "./secret/SecretBlock";
 import { BOX_CLASS } from "./ui";
 import { parseAltWidth } from "@/lib/altWidth";
 import { classifyImgSrc } from "@/lib/imgSrcKind";
-import { DEFAULT_SECRET_LABEL } from "@/lib/secrets";
+import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
 import {
   HEALTH_LANG,
   MATRIX_LANG,

@@ -2,7 +2,7 @@ import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
-import { secretNotation } from "@/lib/secrets";
+import { secretNotation } from "@/lib/secret/secrets";
 import {
   buildQuery,
   canUndoReplace,

@@ -8,8 +8,8 @@
 // 表示するときに要る (CryptoKey は非 extractable で取り出せない)。
 
 import { useSyncExternalStore } from 'react'
-import { createExternalStore } from './prefs/externalStore'
-import { importContentKey } from './secretEnvelope'
+import { createExternalStore } from '../prefs/externalStore'
+import { importContentKey } from './envelope'
 
 interface UnlockedSecrets {
   readonly masterKey: CryptoKey

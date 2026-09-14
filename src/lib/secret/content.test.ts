@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { secretContext } from './secretContent'
+import { secretContext } from './content'
 import {
   SecretDecryptError,
   importContentKey,
   openSecret,
   sealSecret,
-} from './secretEnvelope'
-import { SECRET_TEXT_MIME } from './secretPayload'
+} from './envelope'
+import { SECRET_TEXT_MIME } from './payload'
 
 const NAME = '0123abcd-4567-89ab-cdef-0123456789ab'
 const OTHER = 'fedcba98-7654-3210-fedc-ba9876543210'

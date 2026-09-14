@@ -11,7 +11,7 @@
 // **ラベルは平文のまま本文に残る**。全文検索・タグ集計はそのまま効き、その
 // 代わり「何のシークレットか」はサーバ管理者にも見える (docs/51 §1 の割り切り)。
 
-import { stripCode } from './tags'
+import { stripCode } from '../tags'
 
 export const SECRET_PATH_PREFIX = '/api/secrets/'
 

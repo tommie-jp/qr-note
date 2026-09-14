@@ -9,24 +9,24 @@ import {
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
-import { fetchKeyring, type KeyringState } from "@/lib/secretApi";
+import { fetchKeyring, type KeyringState } from "@/lib/secret/api";
 import {
   RECOVERY_KEY_LENGTH,
   encodeRecoveryKey,
   formatRecoveryKey,
-} from "@/lib/secretKeyring";
-import { SecretCancelledError, isWebAuthnAvailable } from "@/lib/secretPrf";
+} from "@/lib/secret/keyring";
+import { SecretCancelledError, isWebAuthnAvailable } from "@/lib/secret/prf";
 import {
   lockSecrets,
   unlockedMasterKeyBytes,
   useSecretUnlocked,
-} from "@/lib/secretSession";
+} from "@/lib/secret/session";
 import {
   enrollThisDevice,
   setupSecrets,
   unlockWithPasskey,
   unlockWithRecoveryKey,
-} from "@/lib/secretUnlock";
+} from "@/lib/secret/unlock";
 
 // シークレットの鍵の設定画面 (docs/51-部分暗号化計画.md §6)。
 //

@@ -11,7 +11,7 @@
 // 部品 (プレイヤーにするかチップにするか) だけを消費側が持つ。
 
 import { AUDIO_EXTENSION_ALTERNATION } from './audioFormats'
-import { secretNameFromUrl } from './secrets'
+import { secretNameFromUrl } from './secret/secrets'
 import { TEXT_EXTENSION_ALTERNATION } from './textFormats'
 import { VIDEO_EXTENSION_ALTERNATION } from './videoFormats'
 

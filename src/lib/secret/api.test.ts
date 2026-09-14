@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { bytesToBase64 } from './bytesBase64'
-import { fetchKeyring, fetchSecretBlob, saveSecret, SecretApiError } from './secretApi'
+import { bytesToBase64 } from '../bytesBase64'
+import { fetchKeyring, fetchSecretBlob, saveSecret, SecretApiError } from './api'
 
 // シークレットの口をブラウザから叩く手順 (docs/51-部分暗号化計画.md §10)。
 // fetch だけを差し替え、画面にそのまま出す例外の文言と status を固定する

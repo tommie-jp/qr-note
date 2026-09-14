@@ -8,8 +8,8 @@
 // 描き直しには副産物として利点もある: EXIF (撮影場所・日時) が落ちる。
 // 隠したい写真の位置情報が暗号文の外に残ることはない。
 
-import { redrawImage } from './imageCanvas'
-import { isSecretImageMime } from './secretPayload'
+import { redrawImage } from '../imageCanvas'
+import { isSecretImageMime } from './payload'
 
 // 長辺の上限。原寸のスマホ写真 (4000px 超) をそのまま抱えると、復号のたびに
 // その画素をメモリに広げることになる。読める大きさは十分に残る

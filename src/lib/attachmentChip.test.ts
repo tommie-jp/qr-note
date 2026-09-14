@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { attachmentChip } from './attachmentChip'
 import { thumbUrl } from './memoImages'
-import { DEFAULT_SECRET_LABEL } from './secrets'
+import { DEFAULT_SECRET_LABEL } from './secret/secrets'
 
 // このチップが要るのは、ライブプレビューが画像記法の生文字を隠すから
 // (attachmentChip.ts の冒頭)。**種別ごとに正しく出し分かること**と、
 // **シークレットを取りに行かないこと**が要点。
 
-// シークレットの保存名はサーバが振った UUID だけ (secrets.ts の
+// シークレットの保存名はサーバが振った UUID だけ (secret/secrets.ts の
 // SECRET_NAME_PATTERN)。形の違うものはシークレットとして扱われない
 const SECRET_SRC = '/api/secrets/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d'
 

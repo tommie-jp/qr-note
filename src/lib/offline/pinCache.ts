@@ -20,7 +20,7 @@
 
 import 'client-only'
 import { allAttachments, attachmentUrl, thumbUrl } from '@/lib/memoImages'
-import { allSecretNames, secretUrl } from '@/lib/secrets'
+import { allSecretNames, secretUrl } from '@/lib/secret/secrets'
 import { PIN_CACHE } from './cacheNames'
 import type { OfflineItem } from './item'
 

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { byteHeaders, bytesResponse } from '@/lib/route/bytes'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { SECRET_MIME_HEADER } from '@/lib/secretPayload'
-import { guardSecretRequest, readSecretBody } from '@/lib/secretRoute'
-import { findSecret, saveSecret } from '@/lib/secretStore'
-import { isValidSecretName } from '@/lib/secrets'
+import { SECRET_MIME_HEADER } from '@/lib/secret/payload'
+import { guardSecretRequest, readSecretBody } from '@/lib/secret/route'
+import { findSecret, saveSecret } from '@/lib/secret/store'
+import { isValidSecretName } from '@/lib/secret/secrets'
 
 interface RouteContext {
   params: Promise<{ name: string }>
@@ -54,7 +54,7 @@ export async function GET(
 // 断片の保存 (新規も編集も同じ口)。
 //
 // **名前はクライアントが決める**。エンベロープの AAD が名前に縛られている以上、
-// 封をする時点で名前が要るため (secretStore.ts の saveSecret に経緯)。
+// 封をする時点で名前が要るため (secret/store.ts の saveSecret に経緯)。
 // 受け付けるのは UUID の書式だけなので、トラバーサルの余地は無い。
 export async function PUT(
   request: Request,

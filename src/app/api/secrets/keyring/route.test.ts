@@ -42,7 +42,7 @@ vi.mock('@/lib/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/secretStore', () => ({
+vi.mock('@/lib/secret/store', () => ({
   findKeyringVerifier: async () => mocks.verifier,
   listKeyWraps: async () => mocks.wraps,
   hasCredential: async (id: string) => {

@@ -13,13 +13,13 @@
 //
 // WebCrypto しか使わないので、ブラウザ・Node (テスト) の両方で動く。
 
-import { ownedBytes } from './bytes'
+import { ownedBytes } from '../bytes'
 import {
   SecretDecryptError,
   importContentKey,
   openSecret,
   sealSecret,
-} from './secretEnvelope'
+} from './envelope'
 
 // 認証器へ渡す PRF の salt。**変えてはいけない** — 変えると PRF 出力が変わり、
 // 保存済みのラップが開けなくなる (復旧キーからやり直しになる)。
@@ -36,7 +36,7 @@ const VERIFIER_PLAINTEXT = new TextEncoder().encode('qr-search-secret-keyring')
 
 const MASTER_KEY_BYTES = 32
 
-// AAD の文脈文字列 (secretEnvelope.ts)。用途ごとに分けることで、鍵のラップを
+// AAD の文脈文字列 (secret/envelope.ts)。用途ごとに分けることで、鍵のラップを
 // 断片として復号させるような取り違えも防ぐ
 const VERIFIER_CONTEXT = 'keyring-verifier'
 const wrapContext = (credentialId: string) => `keyring-wrap:${credentialId}`

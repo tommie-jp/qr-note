@@ -8,7 +8,7 @@ import {
 
 // シークレット断片の口 (docs/51-部分暗号化計画.md §10)。
 // 他の route テストと同じ流儀: next/headers とセッションの DB を差し替え、
-// 門番と本文の検査 (secretRoute.ts) は本物を通す。保存 (secretStore) は偽物
+// 門番と本文の検査 (secret/route.ts) は本物を通す。保存 (secretStore) は偽物
 const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
   validToken: 'valid-session-token',
@@ -36,7 +36,7 @@ vi.mock('@/lib/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/secretStore', () => ({
+vi.mock('@/lib/secret/store', () => ({
   findSecret: async () => mocks.stored,
   saveSecret: async (name: string, mime: string, bytes: Uint8Array) => {
     mocks.saved.push({ name, mime, bytes })

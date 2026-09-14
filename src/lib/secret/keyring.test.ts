@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { SecretDecryptError } from './secretEnvelope'
+import { SecretDecryptError } from './envelope'
 import {
   RECOVERY_KEY_LENGTH,
   checkVerifier,
@@ -11,7 +11,7 @@ import {
   makeVerifier,
   unwrapMasterKey,
   wrapMasterKey,
-} from './secretKeyring'
+} from './keyring'
 
 const CRED = 'credential-id-1'
 const OTHER_CRED = 'credential-id-2'

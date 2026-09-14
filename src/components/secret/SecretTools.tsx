@@ -9,13 +9,13 @@ import { useVideoRecording } from "@/components/useVideoRecording";
 import { recordingAltText } from "@/lib/audio/audioRecorder";
 import { recordingAltText as videoRecordingAltText } from "@/lib/video/videoRecorder";
 import { ocrButtonLabel, recordButtonLabel } from "@/lib/progressLabels";
-import { loadSecret, newSecretName, saveSecretMedia } from "@/lib/secretContent";
-import { prepareSecretImage } from "@/lib/secretImage";
-import { secretMimeKind } from "@/lib/secretPayload";
-import { SecretCancelledError } from "@/lib/secretPrf";
-import { isUnlocked } from "@/lib/secretSession";
-import { unlockWithPasskey } from "@/lib/secretUnlock";
-import { secretAtCursor, secretUrl } from "@/lib/secrets";
+import { loadSecret, newSecretName, saveSecretMedia } from "@/lib/secret/content";
+import { prepareSecretImage } from "@/lib/secret/image";
+import { secretMimeKind } from "@/lib/secret/payload";
+import { SecretCancelledError } from "@/lib/secret/prf";
+import { isUnlocked } from "@/lib/secret/session";
+import { unlockWithPasskey } from "@/lib/secret/unlock";
+import { secretAtCursor, secretUrl } from "@/lib/secret/secrets";
 import { SecretToolbar } from "./SecretToolbar";
 
 // 重い部品は開くまで読まない (編集画面と同じ流儀)

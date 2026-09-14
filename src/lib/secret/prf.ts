@@ -13,8 +13,8 @@
 // 同期されたパスキーは iPhone / iPad / Mac で同じ値を返す。
 
 import 'client-only'
-import { base64UrlToBytes } from './bytesBase64'
-import { PRF_SALT } from './secretKeyring'
+import { base64UrlToBytes } from '../bytesBase64'
+import { PRF_SALT } from './keyring'
 
 // DOM の型定義にはまだ PRF 拡張が無いため、必要な形だけをここで名乗る。
 interface PrfExtensionInput {

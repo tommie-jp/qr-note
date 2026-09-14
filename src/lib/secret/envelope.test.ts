@@ -5,7 +5,7 @@ import {
   importContentKey,
   openSecret,
   sealSecret,
-} from './secretEnvelope'
+} from './envelope'
 
 const NAME = '0123abcd-4567-89ab-cdef-0123456789ab'
 const OTHER = 'fedcba98-7654-3210-fedc-ba9876543210'
