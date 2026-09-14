@@ -38,7 +38,7 @@ export class DemoDisabledError extends Error {}
 // 自分のサーバの /api/books/<isbn> か /api/products/<jan> を引く。
 // 外部 API を直接叩かない理由は各ルート (route.ts) に書いてある
 // (books は NDL の CORS、products はキーの秘匿)。
-// 取得ごとの上限もサーバ側が持つ (sourceTimeout.ts)。
+// 取得ごとの上限もサーバ側が持つ (external/sourceTimeout.ts)。
 export async function fetchPrefillSummary(
   { kind, code }: PrefillTarget,
   signal?: AbortSignal,

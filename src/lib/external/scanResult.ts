@@ -1,5 +1,5 @@
-import { buildSearchUrl } from './searchUrl'
-import { isValidItemNo } from './validation'
+import { buildSearchUrl } from '../searchUrl'
+import { isValidItemNo } from '../validation'
 
 // 読み取ったコードの遷移先を決める (設計は docs/09-スキャン計画.md §3)。
 //

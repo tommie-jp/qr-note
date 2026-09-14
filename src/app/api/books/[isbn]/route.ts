@@ -1,9 +1,9 @@
 import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
-import { lookupBook } from '@/lib/bookLookup'
-import { saveCoverImage } from '@/lib/coverImage'
+import { lookupBook } from '@/lib/external/bookLookup'
+import { saveCoverImage } from '@/lib/external/coverImage'
 import { externalLookup, type ExternalLookupSpec } from '@/lib/route/lookup'
-import { isIsbn } from '@/lib/scanRegister'
+import { isIsbn } from '@/lib/external/scanRegister'
 
 // ISBN の書誌を返す (設計は docs/13-書誌自動取得計画.md)。
 // 書影も付ける (docs/19-書影取得計画.md)。
@@ -24,7 +24,7 @@ const BOOK_LOOKUP: ExternalLookupSpec<'isbn'> = {
   isValidCode: isIsbn,
   invalidCodeMessage: 'ISBN ではありません',
   // **書誌はデモでも引く** (docs/45-デモ書誌開放計画.md) ので demoDisabledMessage は
-  // 持たない。書名・著者は openBD/NDL のキー不要 API で取れる (bookLookup.ts) ので、
+  // 持たない。書名・著者は openBD/NDL のキー不要 API で取れる (external/bookLookup.ts) ので、
   // デモでもスキャンから事前入力まで動かせる。JAN (/api/products) は Yahoo キーが
   // 本質的に要るので、あちらだけ demoDisabled を残す。
   // 書影の扱いだけは lookupBookWithCover でデモを分ける (§4-2)。

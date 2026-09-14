@@ -42,15 +42,15 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/bookLookup', () => ({
+vi.mock('@/lib/external/bookLookup', () => ({
   lookupBook: (isbn: string) => mocks.lookupBook(isbn),
 }))
 
-vi.mock('@/lib/coverImage', () => ({
+vi.mock('@/lib/external/coverImage', () => ({
   saveCoverImage: async () => '/api/images/cover.jpg',
 }))
 
-vi.mock('@/lib/productLookup', () => ({
+vi.mock('@/lib/external/productLookup', () => ({
   lookupProduct: (jan: string) => mocks.lookupProduct(jan),
 }))
 

@@ -26,7 +26,7 @@ test('複数あれば最初のものを返す', () => {
 })
 
 test('alt テキストがあっても読める', () => {
-  // 書影は ![書影|120](url) の形で入る (scanRegister.ts)
+  // 書影は ![書影|120](url) の形で入る (external/scanRegister.ts)
   expect(firstImageName(`書名\n![書影|120](/api/images/${NAME})`)).toBe(NAME)
 })
 

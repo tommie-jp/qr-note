@@ -6,8 +6,8 @@ import {
   DemoDisabledError,
   fetchPrefillSummary,
   prefillTargetFromCode,
-} from "@/lib/prefillSummary";
-import { isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
+} from "@/lib/external/prefillSummary";
+import { isTaggableCode, scanRegisterMemo } from "@/lib/external/scanRegister";
 import type { EditorRef, SetEditorError } from "./types";
 
 export interface EditorScanInsert {

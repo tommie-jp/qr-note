@@ -19,7 +19,7 @@ import { countTrashedItems, countTrashedMatches } from '@/lib/items/trash'
 import { buildMathSummaries, buildMathTexts } from '@/lib/markdown/mathText'
 import type { MathTextMap } from '@/lib/markdown/mathTextTypes'
 import { queryHasTagTerm, queryTracksTaskProgress } from '@/lib/search/rewrite'
-import { isTaggableCode, scanRegisterHref } from '@/lib/scanRegister'
+import { isTaggableCode, scanRegisterHref } from '@/lib/external/scanRegister'
 import type { Sort } from '@/lib/validation'
 import type { ViewMode } from '@/lib/prefs/viewMode'
 

@@ -17,7 +17,7 @@ import { ACTION_LINK_CLASS } from "@/components/ui";
 import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/pageGuard";
 import { formatBase } from "@/lib/saveBase";
-import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/scanRegister";
+import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/external/scanRegister";
 import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";

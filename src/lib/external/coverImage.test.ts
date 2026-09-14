@@ -6,7 +6,7 @@ import { saveCoverImage } from './coverImage'
 const { saveImage } = vi.hoisted(() => ({
   saveImage: vi.fn(async () => '/api/images/0198ee1a-2b3c-4d5e-8f90-1a2b3c4d5e6f.jpg'),
 }))
-vi.mock('./imageStore', () => ({ saveImage }))
+vi.mock('../imageStore', () => ({ saveImage }))
 
 const OPENBD_COVER = 'https://cover.openbd.jp/9784861827754.jpg'
 

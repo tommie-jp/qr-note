@@ -78,9 +78,19 @@ Client ID は `YAHOO_SHOPPING_APP_ID` としてサーバの環境変数に置き
 | `src/lib/productLookup.ts` | `bookLookup.ts` | 8 秒上限。1 ソースなので薄い |
 | `src/app/api/products/[jan]/route.ts` | `api/books/[isbn]/` | `isJan` を検算 |
 
+表のパスは当時のパス。現在は次のとおり。
+
+- `src/lib/product.ts` → `src/lib/external/product.ts`
+- `src/lib/book.ts` → `src/lib/external/book.ts`
+- `src/lib/yahooShopping.ts` → `src/lib/external/yahooShopping.ts`
+- `src/lib/openbd.ts` → `src/lib/external/openbd.ts`
+- `src/lib/productLookup.ts` → `src/lib/external/productLookup.ts`
+- `src/lib/bookLookup.ts` → `src/lib/external/bookLookup.ts`
+
 変更するもの:
 
-- `scanRegister.ts` … `isJan(code)` を足す
+- `scanRegister.ts` (当時のパス。現在は `src/lib/external/scanRegister.ts`) …
+  `isJan(code)` を足す
   (13 桁の数字 + EAN-13 チェックデジット + **`isIsbn` でない**)。
   `scanRegisterMemo` の見出し組み立ては書籍・商品で共用できる形に均す
 - `useBookPrefill.ts` … fetch 先と文言以外は商品でも完全に同じなので、

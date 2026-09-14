@@ -1,6 +1,6 @@
 import type { BookSummary } from './book'
 import type { ProductSummary } from './product'
-import { parseTagToken } from './markdown/tags/tags'
+import { parseTagToken } from '../markdown/tags/tags'
 
 // スキャンした未登録コードから新規ノートを作る導線の組み立て
 // (設計は docs/10-スキャン新規登録計画.md)。

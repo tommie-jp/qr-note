@@ -4,7 +4,7 @@
 // 返す。「1 ファイルだけ対応」は入口 (UI / route) の話であって、ここの形では
 // ない (後から複数ファイルへ広げるときに触らずに済む)。
 //
-// パーサは既に依存にある fast-xml-parser を使う (ndlSearch.ts と同じもの)。
+// パーサは既に依存にある fast-xml-parser を使う (external/ndlSearch.ts と同じもの)。
 // v5 は外部実体参照 (XXE) と引数実体を明示的に拒み、実体展開にも上限がある。
 // **その安全側の既定に乗るため、DOCTYPE を自前で剥がしたりしない**。
 
@@ -68,7 +68,7 @@ export interface EnexNote {
 
 const parser = new XMLParser({
   // 既定では値を数値へ変換してしまい、題名 "1996.10" が 1996.1 に化ける
-  // (ndlSearch.ts と同じ罠)。ENEX の中身はすべて文字列として読む
+  // (external/ndlSearch.ts と同じ罠)。ENEX の中身はすべて文字列として読む
   parseTagValue: false,
   // <data encoding="base64"> の encoding を見るために属性も読む
   ignoreAttributes: false,

@@ -11,8 +11,8 @@ import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { SCANNER_ERROR_MESSAGES } from "@/lib/camera/cameraErrors";
-import { SCAN_FORMATS } from "@/lib/scanFormats";
-import { resolveScanPath } from "@/lib/scanResult";
+import { SCAN_FORMATS } from "@/lib/external/scanFormats";
+import { resolveScanPath } from "@/lib/external/scanResult";
 import { cameraControlClass } from "./cameraControlButton";
 import { useEscapeKey } from "./modal/useEscapeKey";
 import { useScannerCamera } from "./useScannerCamera";
@@ -44,7 +44,7 @@ interface ScannerModalProps {
 }
 
 // 全画面のカメラビュー。QR / バーコードを 1 つ読んだら閉じる。
-// 既定 (検索モード) は遷移先を lib/scanResult.ts の純関数で決めて router.push。
+// 既定 (検索モード) は遷移先を lib/external/scanResult.ts の純関数で決めて router.push。
 // onResult を渡すと挿入モードになり、読み取った生値を呼び出し側へ返すだけ。
 export function ScannerModal({
   stickerHost,

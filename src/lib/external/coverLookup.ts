@@ -10,11 +10,11 @@
 // throw しない (bookLookup とわざと違う)。書影が載らないだけで、書名・著者は
 // 今までどおり入る。
 
-import { normalizeImage } from './normalizeImage'
+import { normalizeImage } from '../normalizeImage'
 import { fetchCoverUrl as fetchRakutenCoverUrl } from './rakutenBooks'
 import { withSourceTimeout } from './sourceTimeout'
-import { MAX_IMAGE_BYTES } from './uploads/limits'
-import { sniffImageFormat } from './uploads/sniff/image'
+import { MAX_IMAGE_BYTES } from '../uploads/limits'
+import { sniffImageFormat } from '../uploads/sniff/image'
 
 export interface CoverImage {
   // 保存 (imageStore) にそのまま渡せる形で持つ

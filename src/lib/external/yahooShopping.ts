@@ -5,7 +5,7 @@
 // openBD/NDL と違って Client ID が要り、ブラウザから直接引くと全員に見える。
 // キーの秘匿のためサーバでだけ動く (/api/products/[jan] から呼ばれる)。
 
-import { yahooShoppingAppIdEnv } from './appEnv'
+import { yahooShoppingAppIdEnv } from '../appEnv'
 import { asRecord, asString } from './book'
 import type { ProductSummary } from './product'
 
@@ -36,7 +36,7 @@ export function parseYahooShoppingResponse(json: unknown): ProductSummary | null
 }
 
 // JAN の商品情報を引く。収録漏れのときは null (エラーではない)。
-// タイムアウトは呼び出し側が signal で持つ (productLookup.ts)。
+// タイムアウトは呼び出し側が signal で持つ (external/productLookup.ts)。
 export async function fetchProduct(
   jan: string,
   signal?: AbortSignal,

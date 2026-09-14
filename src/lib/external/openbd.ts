@@ -7,7 +7,7 @@
 //
 // 新刊・近刊に強い一方、**古い本はほとんど持っていない** (実測: 1990 年代の
 // 本の収録率 1/12、2012-2016 年は 25/25)。落ちた分は NDL サーチが拾う
-// (bookLookup.ts)。
+// (external/bookLookup.ts)。
 
 import { asRecord, asString, type BookSummary, formatPubdate } from './book'
 
@@ -56,13 +56,13 @@ export function parseOpenBdResponse(json: unknown): BookSummary | null {
     publisher: asString(summary.publisher),
     pubdate: formatPubdate(asString(summary.pubdate)),
     // 書影の URL。JPRO の規約改定以降、ここが入るのはホワイトリスト版元だけで、
-    // 空のほうが多数派 (実測 1/11)。落ちたぶんは楽天が拾う (coverLookup.ts)
+    // 空のほうが多数派 (実測 1/11)。落ちたぶんは楽天が拾う (external/coverLookup.ts)
     coverUrl: asString(summary.cover) || undefined,
   }
 }
 
 // ISBN の書誌を引く。収録漏れのときは null (エラーではない)。
-// タイムアウトは呼び出し側が signal で持つ (bookLookup.ts)。
+// タイムアウトは呼び出し側が signal で持つ (external/bookLookup.ts)。
 export async function fetchBook(
   isbn: string,
   signal?: AbortSignal,

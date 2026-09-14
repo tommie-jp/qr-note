@@ -93,12 +93,12 @@ export function webauthnEnv(): {
   };
 }
 
-// JAN の商品情報を引く Yahoo!ショッピングの Client ID (yahooShopping.ts)
+// JAN の商品情報を引く Yahoo!ショッピングの Client ID (external/yahooShopping.ts)
 export function yahooShoppingAppIdEnv(): string | undefined {
   return process.env.YAHOO_SHOPPING_APP_ID;
 }
 
-// ISBN の書影を引く楽天ブックスの資格情報 (rakutenBooks.ts。3 つ揃って使える)
+// ISBN の書影を引く楽天ブックスの資格情報 (external/rakutenBooks.ts。3 つ揃って使える)
 export function rakutenBooksEnv(): {
   appId: string | undefined;
   accessKey: string | undefined;

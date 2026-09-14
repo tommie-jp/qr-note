@@ -46,7 +46,7 @@ export function apiFail(
 // デモで閉じた機能を画面に伝える封筒 (docs/39-デモ公開計画.md §5)。
 //
 // 失敗の封筒に 5 番目の demoDisabled を足し、HTTP は 200 のまま返す。
-// 事前入力 (usePrefill.ts / prefillSummary.ts) はこの印を見て「デモ版では
+// 事前入力 (usePrefill.ts / external/prefillSummary.ts) はこの印を見て「デモ版では
 // 使えない」と出し分ける — 普通の失敗と同じ形にすると「取得に失敗」に見える
 export function apiDemoDisabled(error: string): NextResponse {
   return envelopeResponse(

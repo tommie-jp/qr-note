@@ -1,7 +1,7 @@
 // 書誌の共通の型と整形 (設計は docs/13-書誌自動取得計画.md)。
 //
 // openBD と NDL サーチという 2 つの API から同じ形に均して受け取るため、
-// どちらの境界モジュール (openbd.ts / ndl.ts) からも参照できるここに置く。
+// どちらの境界モジュール (external/openbd.ts / ndl.ts) からも参照できるここに置く。
 // この 2 つは互いの API を知らず、循環 import も作らない。
 
 export interface BookSummary {
@@ -22,7 +22,7 @@ export interface BookSummary {
 
 // 外部データの型を信用しないための入口 (JSON も XML も何でも来る)。
 // 読めない値は「無い」ものとして扱い、部分的にでも書誌を組み立てる。
-// 商品情報の境界 (yahooShopping.ts) もここを共用する (二重定義しない)。
+// 商品情報の境界 (external/yahooShopping.ts) もここを共用する (二重定義しない)。
 export function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }

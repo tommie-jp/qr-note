@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server'
-import { lookupProduct } from '@/lib/productLookup'
+import { lookupProduct } from '@/lib/external/productLookup'
 import { externalLookup, type ExternalLookupSpec } from '@/lib/route/lookup'
-import { isJan } from '@/lib/scanRegister'
+import { isJan } from '@/lib/external/scanRegister'
 
 // JAN の商品情報を返す (設計は docs/14-JAN商品情報取得計画.md)。
 // /api/books/[isbn] の商品版で、スキャンした JAN の商品名・ブランドを
@@ -11,7 +11,7 @@ import { isJan } from '@/lib/scanRegister'
 // ブラウザから使うと全員に見える (books の CORS とは理由が違う)。
 //
 // 見つからない (data: null) はエラーではない。キー未設定もここに落ちる
-// (yahooShopping.ts)。呼び出し側は事前入力のまま手で書けばよく、導線は止まらない。
+// (external/yahooShopping.ts)。呼び出し側は事前入力のまま手で書けばよく、導線は止まらない。
 const PRODUCT_LOOKUP: ExternalLookupSpec<'jan'> = {
   param: 'jan',
   // 外から来る値なので必ず検算する。13 桁の数字だけを外部 API の URL に

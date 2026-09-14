@@ -111,4 +111,4 @@ test('書影が空・文字列でないときは書影 URL を付けない', () 
   expect(parseOpenBdResponse(response({ cover: 42 }))?.coverUrl).toBeUndefined()
 })
 
-// 刊行日の整形 (formatPubdate) は NDL と共通なので book.test.ts で見る
+// 刊行日の整形 (formatPubdate) は NDL と共通なので external/book.test.ts で見る

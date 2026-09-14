@@ -7,7 +7,7 @@
 // 今までどおり入る (docs/19 §3)。
 
 import { lookupCover } from './coverLookup'
-import { saveImage } from './imageStore'
+import { saveImage } from '../imageStore'
 import { withSourceTimeout } from './sourceTimeout'
 
 // 書影の取得ぜんぶに与える上限。**書誌の事前入力が届くまでの時間**に

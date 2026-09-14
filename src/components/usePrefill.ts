@@ -6,8 +6,8 @@ import {
   fetchPrefillSummary,
   type PrefillKind,
   type PrefillTarget,
-} from "@/lib/prefillSummary";
-import { scanRegisterMemo } from "@/lib/scanRegister";
+} from "@/lib/external/prefillSummary";
+import { scanRegisterMemo } from "@/lib/external/scanRegister";
 import { useLatest } from "./hooks/useLatest";
 
 // 型は取得ロジックと同じ場所 (prefillSummary) に置いた。従来ここから import して

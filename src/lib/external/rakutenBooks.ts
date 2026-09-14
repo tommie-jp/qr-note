@@ -20,7 +20,7 @@
 // 口も**新しいほう (openapi.rakuten.co.jp) でないと通らない**。旧 app.rakuten.co.jp
 // は新しい形式の鍵を知らず、何を送っても 400 (specify valid applicationId) を返す。
 
-import { rakutenBooksEnv } from './appEnv'
+import { rakutenBooksEnv } from '../appEnv'
 import { asRecord, asString } from './book'
 
 const ENDPOINT =
@@ -84,7 +84,7 @@ async function readErrorMessage(res: Response): Promise<string> {
 }
 
 // ISBN の書影 URL を引く。書影が無い・設定が足りなければ null (エラーではない)。
-// タイムアウトは呼び出し側が signal で持つ (coverLookup.ts)。
+// タイムアウトは呼び出し側が signal で持つ (external/coverLookup.ts)。
 export async function fetchCoverUrl(
   isbn: string,
   signal?: AbortSignal,

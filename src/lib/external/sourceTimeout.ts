@@ -11,7 +11,7 @@ export const SOURCE_TIMEOUT_MS = 8000
 // AbortSignal.any は環境によっては無いため、素の AbortController で組む。
 //
 // timeoutMs は既定 (1 つの API に 8 秒) 以外を使うときだけ渡す。書影は
-// おまけなので、取得ぜんぶで書誌より短い上限にしている (coverImage.ts)。
+// おまけなので、取得ぜんぶで書誌より短い上限にしている (external/coverImage.ts)。
 export async function withSourceTimeout<T>(
   signal: AbortSignal | undefined,
   run: (signal: AbortSignal) => Promise<T>,
