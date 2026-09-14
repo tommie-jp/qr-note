@@ -13,7 +13,7 @@ import {
 // 画面下部の帯 (PageBottomBar) と、その中に編集ボタンを差し込む側
 // (MemoEditorInner) をつなぐ context。
 //
-// 編集ボタンの状態・ハンドラは MemoEditorInner に残したまま、DOM の置き場所だけ
+// 編集ボタンの状態・ハンドラは編集側 (MemoEditorInner と editor/hooks/) に残したまま、DOM の置き場所だけ
 // 帯へ移したい (createPortal)。そのために「差し込み口の DOM」をこの context
 // 経由で受け渡す。
 //

@@ -23,12 +23,14 @@ import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
 import type { FormatAction } from "@/components/editor/markdownFormat";
 
 // ノート編集の操作を下部バーへ差し込むツールバー (docs/31-下部操作バー計画.md の
-// 続き)。MemoEditorInner が createPortal で PageBottomBar の中へ入れる。
+// 続き)。MemoEditorInner の editor/EditorBottomBarPortal が createPortal で
+// PageBottomBar の中へ入れる。
 //
 // 並びは ← → の右に「更新」を固定し、残り 7 つ (元に戻す/やり直す/画像/録音/録画/
 // お絵かき/OCR) を横スクロールの帯にする。← → と更新は常に見え、片手で届く。
 //
-// 状態・ハンドラは MemoEditorInner が持ち、ここは受け取って描くだけ。進捗
+// 状態・ハンドラは editor/hooks/ のフックが持ち、MemoEditorInner がまとめた
+// editor (EditToolbarEditor) を受け取って描くだけ。進捗
 // (アップロード%・録音秒数・OCR件数) は progressLabels のラベル文字列で受ける。
 
 // 横スクロール帯のツールボタン。flex-1 にはしない (等幅で潰すと 7 個入らない)。
@@ -116,87 +118,62 @@ function FindButton({ onFind }: { onFind: (withReplace: boolean) => void }) {
   );
 }
 
-export interface EditToolbarProps {
-  // 更新: 囲みの form を送信する (MemoEditorInner が requestSubmit を渡す)
-  onSubmit: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
+// ツールバーが描く・呼ぶもの一式。MemoEditorInner が editor/hooks/ のフックの
+// 戻り値から組んで 1 つで渡す (docs/93-リファクタリング計画.md §5-1)。
+// かつては 27 個の props に平たく並べていた
+export interface EditToolbarEditor {
+  // 更新: 囲みの form を送信する (useSubmitBlocker の submitForm)
+  submit: () => void;
+  // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
+  busy: boolean;
+  history: {
+    canUndo: boolean;
+    canRedo: boolean;
+    undo: () => void;
+    redo: () => void;
+  };
   // 画像・音声・動画・PDF・テキストの挿入 (hidden file input を開く)
-  uploadLabel: string;
-  uploading: boolean;
-  onInsertFile: () => void;
+  upload: { label: string; uploading: boolean; open: () => void };
   // クリップボードから取り込む (docs/92-クリップボード連携計画.md §4)。
   // iPhone でコピーした写真を 1 タップで添付にする口。文字が入っていれば
   // 文字を挿す。**押した時点でしか読めない**ので、出し分けはしない
-  onPasteClipboard: () => void;
+  pasteClipboard: () => void;
   // スキャン: バーコードを読んで書籍・商品情報をカーソル位置へ挿入する
   // (検索はしない)。ラベルは取得中に差し替わる
-  scanLabel: string;
-  onScan: () => void;
+  scan: { label: string; open: () => void };
   // 録音 (トグル)。録音中は busy でも押せる (止められないと終わらない)
-  recordLabel: string;
-  isRecording: boolean;
-  recordDisabled: boolean;
-  onToggleRecord: () => void;
-  onRecordVideo: () => void;
-  onDraw: () => void;
-  ocrLabel: string;
-  onOcr: () => void;
+  record: {
+    label: string;
+    isRecording: boolean;
+    disabled: boolean;
+    toggle: () => void;
+  };
+  recordVideo: () => void;
+  draw: () => void;
+  ocr: { label: string; run: () => void };
   // シークレット挿入 (docs/51-部分暗号化計画.md §8)。選択範囲があれば
   // それを引き継いでダイアログを開く。
   // ラベルはカーソル位置で変わる (「秘密」/「秘密を編集」。docs/52 §1) —
-  // 進捗ラベル (uploadLabel など) と同じく呼び出し側が文字列を作る
-  secretLabel: string;
-  onSecret: () => void;
+  // 進捗ラベル (upload.label など) と同じく呼び出し側が文字列を作る
+  secret: { label: string; open: () => void };
   // ライブプレビューの ON/OFF (docs/70-編集ライブプレビュー計画.md §4)。
   // 表示の切り替えだけなので busy でも押せる — 本文にもアップロードにも
   // 触らないため、処理中に止める理由がない
-  livePreview: boolean;
-  onToggleLivePreview: () => void;
+  livePreview: { on: boolean; toggle: () => void };
   // 書式メニュー (docs/70 §6)。選択範囲へ記法を付け外しするだけなので
   // busy でも押せる (アップロードにも通信にも触らない)
-  onFormat: (action: FormatAction) => void;
+  format: (action: FormatAction) => void;
   // 新しいページを足す (docs/74-ページ計画.md §5)。区切り行を 1 つ挿すだけの
   // 本文編集なので、書式と同じく busy でも押せる
-  onAddPage: () => void;
+  addPage: () => void;
   // ノート内検索を開く (docs/76 §2)。引数は置換行も開くか (長押し)。
   // 本文を読むだけなので busy でも押せる
-  onFind: (withReplace: boolean) => void;
-  // アップロード/OCR/録音中の共通 busy (録音以外のボタンを止める)
-  busy: boolean;
+  find: (withReplace: boolean) => void;
 }
 
-export function EditToolbar({
-  onSubmit,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  uploadLabel,
-  uploading,
-  onInsertFile,
-  onPasteClipboard,
-  scanLabel,
-  onScan,
-  recordLabel,
-  isRecording,
-  recordDisabled,
-  onToggleRecord,
-  onRecordVideo,
-  onDraw,
-  ocrLabel,
-  onOcr,
-  secretLabel,
-  onSecret,
-  livePreview,
-  onToggleLivePreview,
-  onFormat,
-  onAddPage,
-  onFind,
-  busy,
-}: EditToolbarProps) {
+export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
+  const { busy, history, upload, scan, record, ocr, secret, livePreview } =
+    editor;
   return (
     <>
       {/* ← → の右に固定する主ボタン。useFormStatus は囲みの <form> の子孫
@@ -204,7 +181,7 @@ export function EditToolbar({
           表示は SubmitButton に任せる。portal で DOM は form の外に出るため、
           送信は onClick で form.requestSubmit() を明示的に呼ぶ */}
       <SubmitButton
-        onClick={onSubmit}
+        onClick={editor.submit}
         overrideClassName={SUBMIT_SLOT}
         icon={<SaveIcon />}
         pendingLabel="更新中"
@@ -219,7 +196,7 @@ export function EditToolbar({
           何も出ないように見える (実機で発生)。
           常に見える位置になるのは書式にとってむしろ好都合 — 打鍵の合間に
           使うもので、スクロールの奥にあると届きにくい */}
-      <FormatMenuButton onFormat={onFormat} className={TOOL_SLOT} />
+      <FormatMenuButton onFormat={editor.format} className={TOOL_SLOT} />
 
       {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる */}
       <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
@@ -227,19 +204,19 @@ export function EditToolbar({
           icon={<UndoIcon />}
           color="text-gray-500"
           label="元に戻す"
-          onClick={onUndo}
-          disabled={!canUndo}
+          onClick={history.undo}
+          disabled={!history.canUndo}
         />
         <ToolButton
           icon={<RedoIcon />}
           color="text-gray-500"
           label="やり直す"
-          onClick={onRedo}
-          disabled={!canRedo}
+          onClick={history.redo}
+          disabled={!history.canRedo}
         />
         {/* ノート内検索 (docs/76 §2)。打鍵の合間に使うものなので、
             undo/redo の隣 (帯の前寄り) に置く */}
-        <FindButton onFind={onFind} />
+        <FindButton onFind={editor.find} />
         {/* 新しいページ (docs/74-ページ計画.md §5)。書式と違いメニューを
             開かないので、帯の中に置いても切り取られる物が無い。挿入系の
             前寄りに置くのは、打鍵の合間に使うため */}
@@ -247,21 +224,21 @@ export function EditToolbar({
           icon={<PlusIcon />}
           color="text-emerald-600"
           label="ページ"
-          onClick={onAddPage}
+          onClick={editor.addPage}
         />
         <ToolButton
           icon={<ScanIcon />}
           color="text-sky-600"
-          label={scanLabel}
-          onClick={onScan}
+          label={scan.label}
+          onClick={scan.open}
           disabled={busy}
         />
         <ToolButton
           icon={<ImageInsertIcon />}
           color="text-violet-600"
-          label={uploadLabel}
-          onClick={onInsertFile}
-          disabled={uploading}
+          label={upload.label}
+          onClick={upload.open}
+          disabled={upload.uploading}
         />
         {/* クリップボードから取り込む (docs/92 §4)。**画像ボタンの隣**に置く —
             どちらも「外から持ってきたものを添付にする」操作で、探す場所が
@@ -270,13 +247,13 @@ export function EditToolbar({
           icon={<PasteIcon />}
           color="text-cyan-600"
           label="貼り付け"
-          onClick={onPasteClipboard}
+          onClick={editor.pasteClipboard}
           disabled={busy}
         />
         <ToolButton
           icon={
             // 録音中は赤い点を重ねて「録れている」ことを示す (従来踏襲)
-            isRecording ? (
+            record.isRecording ? (
               <span
                 aria-hidden
                 className="size-6 flex items-center justify-center"
@@ -288,37 +265,37 @@ export function EditToolbar({
             )
           }
           color="text-rose-600"
-          label={recordLabel}
-          onClick={onToggleRecord}
-          disabled={recordDisabled}
-          pressed={isRecording}
+          label={record.label}
+          onClick={record.toggle}
+          disabled={record.disabled}
+          pressed={record.isRecording}
         />
         <ToolButton
           icon={<VideoIcon />}
           color="text-orange-600"
           label="録画"
-          onClick={onRecordVideo}
+          onClick={editor.recordVideo}
           disabled={busy}
         />
         <ToolButton
           icon={<DrawIcon />}
           color="text-emerald-600"
           label="お絵かき"
-          onClick={onDraw}
+          onClick={editor.draw}
           disabled={busy}
         />
         <ToolButton
           icon={<OcrIcon />}
           color="text-teal-600"
-          label={ocrLabel}
-          onClick={onOcr}
+          label={ocr.label}
+          onClick={ocr.run}
           disabled={busy}
         />
         <ToolButton
           icon={<LockIcon />}
           color="text-amber-600"
-          label={secretLabel}
-          onClick={onSecret}
+          label={secret.label}
+          onClick={secret.open}
           disabled={busy}
         />
         {/* 表示の切り替えなので busy でも押せる (本文にも通信にも触らない)。
@@ -326,10 +303,10 @@ export function EditToolbar({
             打鍵中に使う挿入系のボタンを、スクロールの奥へ押しやらない */}
         <ToolButton
           icon={<LivePreviewIcon />}
-          color={livePreview ? "text-blue-600" : "text-gray-500"}
-          label={livePreview ? "記法を表示" : "装飾表示"}
-          onClick={onToggleLivePreview}
-          pressed={livePreview}
+          color={livePreview.on ? "text-blue-600" : "text-gray-500"}
+          label={livePreview.on ? "記法を表示" : "装飾表示"}
+          onClick={livePreview.toggle}
+          pressed={livePreview.on}
         />
       </div>
     </>

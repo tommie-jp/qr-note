@@ -7,11 +7,9 @@ import "@atomic-editor/editor/styles.css";
 // ここでも読み込む — 無いと数式が素の文字列として崩れて出る
 import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import dynamic from "next/dynamic";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useBottomBarSlot } from "@/components/BottomBarContext";
-import { EditToolbar } from "@/components/EditToolbar";
+import type { EditToolbarEditor } from "@/components/EditToolbar";
 import { PanelActiveContext } from "@/components/PanelActiveContext";
 import { ACCEPTED_FILE_TYPES } from "@/lib/editor/attachmentKinds";
 import { busyReason, isEditorBusy } from "@/lib/editor/busyReason";
@@ -23,7 +21,9 @@ import {
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
-import { NoteSearchBar } from "./editor/NoteSearchBar";
+import { EditorBanners } from "./editor/EditorBanners";
+import { EditorBottomBarPortal } from "./editor/EditorBottomBarPortal";
+import { EditorModals } from "./editor/EditorModals";
 import { useAttachmentInsert } from "./editor/hooks/useAttachmentInsert";
 import { useEditorClipboard } from "./editor/hooks/useEditorClipboard";
 import { useEditorCommands } from "./editor/hooks/useEditorCommands";
@@ -40,29 +40,6 @@ import { useEditorSecret } from "./editor/hooks/useEditorSecret";
 import { useLivePreview } from "./editor/hooks/useLivePreview";
 import { useNoteFind } from "./editor/hooks/useNoteFind";
 import { useSubmitBlocker } from "./editor/hooks/useSubmitBlocker";
-import { BusyNotice } from "./BusyNotice";
-import { VideoRecordModal } from "./VideoRecordModal";
-
-// fabric 一式は重いので、お絵かきを開くまで読み込まない
-// (CodeMirror を遅延させているのと同じ流儀。MemoEditor.tsx 参照)
-const DrawModal = dynamic(() => import("./draw/DrawModal"), {
-  ssr: false,
-  loading: () => null,
-});
-
-// スキャナ (カメラ + zxing wasm) も重いので、スキャンを押すまで読み込まない。
-// 検索画面 (BottomActionBar) と同じ部品を、挿入モード (onResult) で使う
-const ScannerModal = dynamic(
-  () => import("./ScannerModal").then((m) => m.ScannerModal),
-  { ssr: false, loading: () => null },
-);
-
-// シークレットの入力ダイアログ (docs/51-部分暗号化計画.md §8)。
-// 開くまで読み込まない (暗号まわり一式を普段の編集に載せない)
-const SecretDialog = dynamic(
-  () => import("./secret/SecretDialog").then((m) => m.SecretDialog),
-  { ssr: false, loading: () => null },
-);
 
 export interface MemoEditorInnerProps {
   value: string;
@@ -175,6 +152,45 @@ export default function MemoEditorInner({
     [trackHistory, trackFindUpdate, trackSecretLabel],
   );
 
+  // 下部バーのツールバーが描く・呼ぶもの (EditToolbarEditor)。
+  // 進捗は progressLabels のラベル文字列にしてから渡す
+  const toolbar: EditToolbarEditor = {
+    submit: submitForm,
+    busy,
+    history,
+    upload: {
+      label: uploadButtonLabel(upload),
+      uploading,
+      open: openFilePicker,
+    },
+    pasteClipboard: clipboard.importClipboard,
+    scan: {
+      label: scan.scanBusy ? "取得中" : "スキャン",
+      open: scan.openScanner,
+    },
+    record: {
+      label: recordButtonLabel(recording.isRecording, recording.elapsedMs),
+      isRecording: recording.isRecording,
+      // 録音中だけは busy でも押せる。止められないと録音が終わらない
+      disabled: busy && !recording.isRecording,
+      toggle: recording.toggle,
+    },
+    recordVideo: videoRecording.openPreview,
+    draw: drawings.openDrawing,
+    ocr: {
+      label: ocrButtonLabel(ocr.ocrCount),
+      run: () => void ocr.runOcrAtCursor(),
+    },
+    secret: { label: secrets.secretLabel, open: secrets.openSecret },
+    livePreview: {
+      on: preview.livePreview,
+      toggle: preview.toggleLivePreview,
+    },
+    format: commands.applyFormat,
+    addPage: () => void commands.addPage(),
+    find: find.openFind,
+  };
+
   return (
     <div ref={wrapperRef} className="space-y-2">
       <div className="overflow-hidden rounded border border-gray-300 bg-white">
@@ -209,45 +225,13 @@ export default function MemoEditorInner({
           {value.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}
         </span>
       </div>
-      {error && (
-        <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      {/* 自動停止の知らせ。押していないのに止まった理由が判らないと、
-          録音が切れた原因を探せない */}
-      {recording.note && (
-        <BusyNotice aria-live="polite">{recording.note}</BusyNotice>
-      )}
-      {/* 録画は全画面モーダルで行う (プレビュー・録画・カメラ操作すべて)。
-          state と操作は videoRecording が持ち、ここは開閉のきっかけだけ */}
-      <VideoRecordModal video={videoRecording} />
-      {videoRecording.note && (
-        <BusyNotice aria-live="polite">{videoRecording.note}</BusyNotice>
-      )}
-      {ocr.ocrNote && (
-        <BusyNotice
-          aria-live="polite"
-          aria-busy={ocr.ocrCount > 0}
-          busy={ocr.ocrCount > 0}
-        >
-          {ocr.ocrNote}
-          {/* % は aria-hidden で足す: aria-live が毎ティック読み上げないように */}
-          {ocr.modelPercent !== null && (
-            <span aria-hidden> {ocr.modelPercent}%</span>
-          )}
-        </BusyNotice>
-      )}
-      {/* 編集中スキャンの取得中・結果 (OCR と同じ赤バナー) */}
-      {scan.scanNote && (
-        <BusyNotice
-          aria-live="polite"
-          aria-busy={scan.scanBusy}
-          busy={scan.scanBusy}
-        >
-          {scan.scanNote}
-        </BusyNotice>
-      )}
+      <EditorBanners
+        error={error}
+        recordingNote={recording.note}
+        videoRecordingNote={videoRecording.note}
+        ocr={ocr}
+        scan={scan}
+      />
       <input
         ref={fileInputRef}
         type="file"
@@ -256,79 +240,13 @@ export default function MemoEditorInner({
         hidden
         onChange={(e) => handleFilePick(e.target.files)}
       />
-      {drawings.drawing && (
-        <DrawModal
-          sourceImageUrl={drawings.drawing.sourceImageUrl}
-          onCancel={drawings.closeDrawing}
-          onInsert={drawings.insertDrawing}
-        />
-      )}
-      {/* シークレットの入力。**本文の state を経由しない** — ここで書いた
-          平文は封をしてからでないと外へ出ない (docs/51 §8) */}
-      {secrets.secret && (
-        <SecretDialog
-          name={secrets.secret.name}
-          initialText={secrets.secret.text}
-          initialLabel={secrets.secret.label}
-          onSaved={secrets.applySecret}
-          onClose={secrets.closeSecret}
-        />
-      )}
-      {/* 編集中スキャン: 読み取った生値を runScanInsert へ渡すだけ (検索しない) */}
-      {scan.scanning && (
-        <ScannerModal
-          title="書籍・商品バーコードをかざす"
-          onClose={scan.closeScanner}
-          onResult={(rawValue) => void scan.runScanInsert(rawValue)}
-        />
-      )}
-      {/* 操作ボタンを下部バーの差し込み口へ portal する。差し込み口が出来る
-          まで hostEl は null (表向きのタブでない間も null)。portal は React
-          ツリーの親子を保つので、更新ボタンの useFormStatus は囲みの form を
-          拾い、各ハンドラは上の state/ref を触れる。
-          **検索中はツールバーの代わりに検索バーを出す** (docs/76 §2) —
-          並べると帯が 2 段になり、狭い画面で本文が潰れる */}
-      {hostEl &&
-        find.findOpen &&
-        createPortal(<NoteSearchBar {...find.barProps} />, hostEl)}
-      {hostEl &&
-        !find.findOpen &&
-        createPortal(
-          <EditToolbar
-            onSubmit={submitForm}
-            canUndo={history.canUndo}
-            canRedo={history.canRedo}
-            onUndo={history.undo}
-            onRedo={history.redo}
-            uploadLabel={uploadButtonLabel(upload)}
-            uploading={uploading}
-            onInsertFile={openFilePicker}
-            onPasteClipboard={clipboard.importClipboard}
-            scanLabel={scan.scanBusy ? "取得中" : "スキャン"}
-            onScan={scan.openScanner}
-            recordLabel={recordButtonLabel(
-              recording.isRecording,
-              recording.elapsedMs,
-            )}
-            isRecording={recording.isRecording}
-            // 録音中だけは busy でも押せる。止められないと録音が終わらない
-            recordDisabled={busy && !recording.isRecording}
-            onToggleRecord={recording.toggle}
-            onRecordVideo={videoRecording.openPreview}
-            onDraw={drawings.openDrawing}
-            ocrLabel={ocrButtonLabel(ocr.ocrCount)}
-            onOcr={() => void ocr.runOcrAtCursor()}
-            secretLabel={secrets.secretLabel}
-            onSecret={secrets.openSecret}
-            livePreview={preview.livePreview}
-            onToggleLivePreview={preview.toggleLivePreview}
-            onFormat={commands.applyFormat}
-            onAddPage={() => void commands.addPage()}
-            onFind={find.openFind}
-            busy={busy}
-          />,
-          hostEl,
-        )}
+      <EditorModals
+        videoRecording={videoRecording}
+        drawings={drawings}
+        secrets={secrets}
+        scan={scan}
+      />
+      <EditorBottomBarPortal hostEl={hostEl} find={find} toolbar={toolbar} />
     </div>
   );
 }
