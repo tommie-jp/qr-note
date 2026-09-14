@@ -1,16 +1,24 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { flushSync } from "react-dom";
 import {
   ADOPT_SERVER_EVENT,
   MEMO_BASELINE_EVENT,
   type AdoptServerDetail,
 } from "@/lib/editorEvents";
-import { draftStorageKey, loadDraft, persistDraft } from "@/lib/memoDraft";
+import { draftStorageKey, loadDraft } from "@/lib/memoDraft";
 import { BASE_NEW } from "@/lib/saveBase";
 import type { ConflictServerNote } from "@/lib/saveState";
+import { useDraftAutosave } from "./editor/hooks/useDraftAutosave";
 import { SaveFormContext } from "./NoteSaveForm";
 import { SaveConflictBanner } from "./SaveConflictBanner";
 import {
@@ -114,8 +122,17 @@ interface MemoEditorProps {
   draftKey?: string;
 }
 
-// 下書きの保存は打鍵のたびではなく少し待ってから (連打で localStorage を叩かない)
-const DRAFT_SAVE_DELAY_MS = 400;
+// 目印 (hidden の span) から囲みの form を辿る (UnsavedGuard と同じやり方)
+function formOf(marker: RefObject<HTMLSpanElement | null>): HTMLFormElement | null {
+  return marker.current?.closest("form") ?? null;
+}
+
+// 本文をサーバ値へ揃え直したことを、同じフォームの中へ知らせる
+// (UnsavedGuard が比較の基準を取り直す)。描画に依らない (DOM を辿るだけ) ので
+// 部品の外に置く — effect の依存に載せずに済む
+function notifyBaseline(marker: RefObject<HTMLSpanElement | null>): void {
+  formOf(marker)?.dispatchEvent(new CustomEvent(MEMO_BASELINE_EVENT));
+}
 
 // markdown 用 memo エディタ。フォーム送信値は常にここの hidden input が持つため、
 // CodeMirror の読み込み完了前に「更新」を押しても現在値がそのまま送信される
@@ -161,14 +178,6 @@ export function MemoEditor({
   const conflict =
     saveState !== null && saveState.seq !== dismissedSeq ? saveState : null;
 
-  const formOf = () => markerRef.current?.closest("form") ?? null;
-
-  // 本文をサーバ値へ揃え直したことを、同じフォームの中へ知らせる
-  // (UnsavedGuard が比較の基準を取り直す)
-  const notifyBaseline = () => {
-    formOf()?.dispatchEvent(new CustomEvent(MEMO_BASELINE_EVENT));
-  };
-
   // サーバ再描画で (本文, 基点) が動いたときの追随 (docs/87 §2-3)。
   //
   //   打っていない        → 本文・基点とも黙って追随 (失うものが無い)
@@ -177,6 +186,14 @@ export function MemoEditor({
   //
   // value を依存に入れているのは「動いた瞬間の本文」を見るため。打鍵のたびに
   // 走るが、対が揃っていれば即 return する
+  //
+  // 描画中同期 (SearchForm の syncedQuery と同じ形) にはまだしていない。
+  // 揃え直しの知らせ (notifyBaseline) を撃つ時点が変わり、UnsavedGuard の
+  // 基準が変わるため (docs/93-リファクタリング計画.md §5-2)。
+  // いまは effect の中で撃つので、UnsavedGuard は新しい本文が DOM に入る**前**の
+  // form を基準に取る — 黙って追随した直後 (と adoptServer の直後) に画面を
+  // 離れると、何も打っていないのに引き止めが出る (2026-09-14 に実ブラウザで
+  // 確認)。直すなら fix: として、知らせをコミットの後に撃つ形へ移す
   useEffect(() => {
     const synced = syncedRef.current;
     if (synced.text === initialValue && synced.base === baseProp) {
@@ -197,9 +214,7 @@ export function MemoEditor({
       setEditorKey((key) => key + 1);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-    notifyBaseline();
-    // notifyBaseline は描画に依らない (DOM を辿るだけ)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    notifyBaseline(markerRef);
   }, [initialValue, baseProp, value]);
 
   // マウント時に一度だけ、未保存の下書きがあれば復元する。
@@ -231,29 +246,14 @@ export function MemoEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 編集のたびに下書きを退避する (少し待ってから)。初期値に戻れば消す
-  useEffect(() => {
-    if (!draftKey || !draftReady.current) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      try {
-        // 比較の基準は「最後にサーバと揃えた本文」。揃え直した本文に
-        // 戻ったら下書きは要らない
-        persistDraft(
-          window.localStorage,
-          draftKey,
-          value,
-          syncedRef.current.text,
-          base,
-          Date.now(),
-        );
-      } catch {
-        // 書けない環境 (容量・プライベートモード) では諦める
-      }
-    }, DRAFT_SAVE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [draftKey, value, base, initialValue]);
+  useDraftAutosave({
+    draftKey,
+    value,
+    base,
+    initialValue,
+    readyRef: draftReady,
+    syncedRef,
+  });
 
   // 別の版を本文として読み込む (自分の変更は捨てる)。
   // 基点も一緒に差し替え、CodeMirror は作り直して undo 履歴を切る
@@ -265,12 +265,12 @@ export function MemoEditor({
     setServerMoved(false);
     syncedRef.current = { text: server.memo, base: nextBase };
     // /edit の url / mode も揃える (この画面には無いこともある)
-    formOf()?.dispatchEvent(
+    formOf(markerRef)?.dispatchEvent(
       new CustomEvent<AdoptServerDetail>(ADOPT_SERVER_EVENT, {
         detail: { url: server.url, mode: server.mode },
       }),
     );
-    notifyBaseline();
+    notifyBaseline(markerRef);
   };
 
   // いま見せた版の上に自分の本文を載せて送り直す。
@@ -279,7 +279,7 @@ export function MemoEditor({
   // (同期に requestSubmit すると古い基点のまま送られる)。checkpoint は
   // 一発もの — 残すと次の普通の保存が自分の直前版を conflict として刻む
   const resubmit = (nextBase: string, withCheckpoint: boolean) => {
-    const form = formOf();
+    const form = formOf(markerRef);
     if (!form) {
       return;
     }
