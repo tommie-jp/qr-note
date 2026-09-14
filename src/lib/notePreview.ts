@@ -106,7 +106,7 @@ export function notePreviewSource(
 }
 
 // このノートにプレビューを作るか。一覧の顔の優先順位 (画像/動画 → 回路図 →
-// プレビュー。ItemRow の thumb 分岐が正本) の 3 段目に届く候補だけ true。
+// プレビュー。itemRowDecor.ts の rowFace が正本) の 3 段目に届く候補だけ true。
 // 回路図サムネの有無はここでは判らない (DB を引いた結果が要る) ので、
 // その除外は buildNotePreviews が circuitThumbs を見て行う
 export function wantsNotePreview(item: { mode: string; memo: string }): boolean {

@@ -55,7 +55,7 @@ interface ItemListProps {
   mathTexts?: MathTextMap;
   // itemNo → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
   // page.tsx (サーバ) が buildNotePreviews で描いて降ろす。画像も回路図も
-  // 無いノートの顔になる (優先順位は ItemRow の thumb 分岐が持つ)
+  // 無いノートの顔になる (優先順位は lib/itemRowDecor.ts の rowFace が持つ)
   notePreviews?: NotePreviewMap;
 }
 
@@ -235,18 +235,21 @@ export function ItemList({
             key={item.itemNo}
             item={item}
             href={itemHref(item.itemNo)}
-            searchState={searchState}
             view={rowView}
             circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
             mathTitle={mathTexts?.[item.itemNo]?.title}
             mathPreview={mathTexts?.[item.itemNo]?.preview}
             notePreview={notePreviews?.[item.itemNo]}
             selected={item.itemNo === previewItemNo}
-            swipeTrashAction={swipeEnabled ? trashAction : undefined}
-            swipeOpen={openItemNo === item.itemNo}
-            onSwipeOpenChange={
+            swipe={
               swipeEnabled
-                ? (open) => setOpenItemNo(open ? item.itemNo : null)
+                ? {
+                    trashAction,
+                    searchState,
+                    isOpen: openItemNo === item.itemNo,
+                    onOpenChange: (open) =>
+                      setOpenItemNo(open ? item.itemNo : null),
+                  }
                 : undefined
             }
           />
@@ -276,7 +279,6 @@ export function ItemList({
             key={item.itemNo}
             item={item}
             href={itemHref(item.itemNo)}
-            searchState={searchState}
             view={rowView}
             circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
             mathTitle={mathTexts?.[item.itemNo]?.title}

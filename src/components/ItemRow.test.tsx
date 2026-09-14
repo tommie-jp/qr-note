@@ -27,9 +27,6 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
-// 削除後の戻り先。ItemRow が必須で受けるので、テストでも毎回渡す
-const SEARCH_STATE = { q: "", page: 1, sort: "updated" };
-
 const renderRow = (
   item: Item,
   checkbox?: React.ReactNode,
@@ -40,7 +37,6 @@ const renderRow = (
       <ItemRow
         item={item}
         href={`/item/${item.itemNo}`}
-        searchState={SEARCH_STATE}
         checkbox={checkbox}
         view={view}
       />
@@ -203,7 +199,6 @@ const renderCircuitRow = (item: Item, view: RowViewMode = "compact") =>
       <ItemRow
         item={item}
         href={`/item/${item.itemNo}`}
-        searchState={SEARCH_STATE}
         view={view}
         circuitThumb={CIRCUIT_SVG}
       />
@@ -253,7 +248,6 @@ const renderPreviewRow = (item: Item, view: RowViewMode = "compact") =>
       <ItemRow
         item={item}
         href={`/item/${item.itemNo}`}
-        searchState={SEARCH_STATE}
         view={view}
         notePreview={NOTE_PREVIEW}
       />
@@ -306,7 +300,6 @@ test("回路図サムネがあれば回路図を優先し、プレビューは�
       <ItemRow
         item={makeItem({ memo: "RC 回路" })}
         href="/item/1"
-        searchState={SEARCH_STATE}
         circuitThumb={CIRCUIT_SVG}
         notePreview={NOTE_PREVIEW}
       />
@@ -358,17 +351,22 @@ test("URL モードのノートは本文もサムネも持たない", () => {
 
 const noop = () => {};
 
+// スワイプ削除の袋。削除後の戻り先 (searchState) は袋の中で必須
+const SWIPE = {
+  trashAction: noop,
+  searchState: { q: "", page: 1, sort: "updated" },
+  isOpen: false,
+  onOpenChange: noop,
+};
+
 const renderSwipeRow = (item: Item, view: RowViewMode = "compact") =>
   renderToStaticMarkup(
     <ul>
       <ItemRow
         item={item}
         href={`/item/${item.itemNo}`}
-        searchState={SEARCH_STATE}
         view={view}
-        swipeTrashAction={noop}
-        swipeOpen={false}
-        onSwipeOpenChange={noop}
+        swipe={SWIPE}
       />
     </ul>,
   );
@@ -390,11 +388,8 @@ test("選択モード (checkbox) ではスワイプを有効にしない", () =>
       <ItemRow
         item={makeItem({ itemNo: "42" })}
         href="/item/42"
-        searchState={SEARCH_STATE}
         checkbox={<input type="checkbox" name="itemNo" value="42" />}
-        swipeTrashAction={noop}
-        swipeOpen={false}
-        onSwipeOpenChange={noop}
+        swipe={SWIPE}
       />
     </ul>,
   );
@@ -420,12 +415,9 @@ test("カードでも選択モードならスワイプを有効にしない", ()
       <ItemRow
         item={makeItem({ itemNo: "42" })}
         href="/item/42"
-        searchState={SEARCH_STATE}
         view="card"
         checkbox={<input type="checkbox" name="itemNo" value="42" />}
-        swipeTrashAction={noop}
-        swipeOpen={false}
-        onSwipeOpenChange={noop}
+        swipe={SWIPE}
       />
     </ul>,
   );
@@ -470,7 +462,6 @@ test("mathTitle があればタイトルを KaTeX の HTML で出す", () => {
       <ItemRow
         item={makeItem({ memo: "$E=100$ の回路" })}
         href="/item/1"
-        searchState={SEARCH_STATE}
         mathTitle={MATH_HTML}
       />
     </ul>,
@@ -485,7 +476,6 @@ test("mathPreview があればカードの本文プレビューを KaTeX の HTM
       <ItemRow
         item={makeItem({ memo: "タイトル\n定常状態では $I=E/R$ になる" })}
         href="/item/1"
-        searchState={SEARCH_STATE}
         view="card"
         mathPreview={MATH_HTML}
       />

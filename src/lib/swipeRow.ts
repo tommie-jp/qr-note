@@ -2,7 +2,7 @@
 //
 // 「左へスライドすると削除ボタンが現れる」操作の判定だけをここに閉じ込める。
 // DOM も React も触らない純関数にして、テストをこの 1 ファイルに集中させる。
-// コンポーネント (SwipeToTrashRow) は pointer の座標と時刻をそのまま渡すだけ。
+// コンポーネント (SwipeToTrashRow の useSwipeDrawer) は pointer の座標と時刻をそのまま渡すだけ。
 
 // 削除ボタンの幅 (px)。44px (タップ最小) + 「削除」の文字が収まる幅。
 export const SWIPE_BUTTON_WIDTH = 72

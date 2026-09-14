@@ -61,7 +61,7 @@ export async function loadCircuitThumbs(
   // 足切り: remark のパース (extractCircuitSources) は安くないので、
   // フェンスの気配が無いノートは文字列検索だけで外す (syncItems と同じ)。
   // first では画像サムネを持つノートも外す — 一覧の顔は画像が優先で、
-  // 引いても使われない (優先順位の正本は ItemRow の thumb 分岐)
+  // 引いても使われない (優先順位の正本は lib/itemRowDecor.ts の rowFace)
   const wants = items.flatMap((item) => {
     if (item.mode === 'url' || hasNoCircuitFence(item.memo)) {
       return []

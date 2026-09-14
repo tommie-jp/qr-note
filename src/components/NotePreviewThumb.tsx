@@ -216,7 +216,7 @@ export function buildNotePreviews(
       : NOTE_PREVIEW_COMPACT_SOURCE_CHARS;
   // 上限から先は黙って作らない (一覧の後ろのページほど文字だけに戻る。
   // CIRCUIT_THUMB_BUDGET と同じ「先頭から詰める」約束)。
-  // 回路図の判定は ItemRow の分岐 (?.[0]) と同じ形にする — 片方が
+  // 回路図の判定は一覧の分岐 (ItemList の ?.[0] → rowFace) と同じ形にする — 片方が
   // 「図あり」もう片方が「図なし」と読むと、顔が 1 つも出ない行ができる
   const targets = items
     .filter(

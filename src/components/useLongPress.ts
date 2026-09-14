@@ -131,7 +131,7 @@ export function useLongPress(
       // 飛んでくる。素通しで構えを倒すと、そこで長押し成立の印が消えて
       // 続く click が握り潰されず、開いたばかりのメニューを dismissOrCycle が
       // その場で閉じる — スマホで長押しメニューが一瞬光って消える形で出た。
-      // 検索結果の行 (SwipeToTrashRow) が onPointerLeave を繋がないのと同じ事情。
+      // 検索結果の行 (SwipeToTrashRow の useRowGestureArbiter) が onPointerLeave を繋がないのと同じ事情。
       //
       // 押している最中かは start で判る (pointerup の cancel が畳むので、
       // 後始末として来た leave では既に null)。

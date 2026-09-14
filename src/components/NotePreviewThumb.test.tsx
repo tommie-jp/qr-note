@@ -123,7 +123,7 @@ test("details は閉じたまま出す", () => {
   expect(html).not.toContain("open");
 });
 
-// buildNotePreviews (対象の選別。優先順位の正本は ItemRow の thumb 分岐)
+// buildNotePreviews (対象の選別。優先順位の正本は lib/itemRowDecor.ts の rowFace)
 
 const item = (itemNo: string, memo: string, mode = "memo") => ({
   itemNo,
@@ -155,7 +155,7 @@ test("回路図サムネが未描画のノートにはプレビューを作る (
   expect(Object.keys(previews)).toEqual(["3"]);
 });
 
-// 回路図の判定は ItemRow の分岐 (?.[0]) と同じ形にする。片方が「図あり」
+// 回路図の判定は一覧の分岐 (ItemList の ?.[0] → rowFace) と同じ形にする。片方が「図あり」
 // もう片方が「図なし」と読むと、顔が 1 つも出ない行ができる
 test("回路図サムネの配列が空ならプレビューを作る", () => {
   const previews = buildNotePreviews([item("3", "説明")], { "3": [] }, "card");
