@@ -1,47 +1,31 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BusyNotice } from "@/components/BusyNotice";
 import {
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
 } from "@/components/ui";
 import { cameraErrorMessage } from "@/lib/camera/cameraErrors";
 import { stopStream } from "@/lib/camera/mediaStream";
-import { rankItems, type ImageVectorEntry, type ItemMatch } from "@/lib/imageSearch";
-import { thumbUrl } from "@/lib/memoImages";
-import { errorText } from "@/lib/errorMessage";
 import { disposeOcr } from "./ocr/ocrService";
-import { captureSquareBitmap } from "./imageSearch/capture";
-import { fetchImageSearchIndex } from "./imageSearch/fetchIndex";
+import { CameraViewport } from "./imageSearch/CameraViewport";
+import { ImageSearchResults } from "./imageSearch/ImageSearchResults";
 import { useImageEmbedder } from "./imageSearch/useImageEmbedder";
+import { useLiveImageSearch } from "./imageSearch/useLiveImageSearch";
 import { useEscapeKey } from "./modal/useEscapeKey";
-
-// 上位いくつ出すか。1 位一発当てではなく候補から選ばせる (docs/25 §6)。
-const MAX_RESULTS = 5;
-// ライブ検索のフレーム間隔 (ms)。約 2.5fps。詰めると推論が追いつかず詰まる。
-const LIVE_INTERVAL_MS = 400;
-// この類似度未満は候補に出さない。絶対値の当たりは環境依存が強いので、
-// Phase 0 のスパイクで実測して詰める暫定値 (docs/25 §8)。
-const MIN_SCORE = 0.15;
 
 interface ImageSearchModalProps {
   onClose: () => void;
 }
 
 // カメラで部品を映し、登録済みノートの写真と client 側で照合する (docs/25)。
-// 埋め込みは Worker、照合は総当たり cosine。リアルタイムが重い端末では
-// シャッター 1 枚 (または写真選択) で検索できる。
+// 埋め込みは Worker、照合は総当たり cosine (useLiveImageSearch)。リアルタイムが
+// 重い端末ではシャッター 1 枚 (または写真選択) で検索できる。
 export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // 索引はレンダーに出さず、キャプチャループから読むだけなので ref に持つ
-  const indexRef = useRef<ImageVectorEntry[] | null>(null);
-  // 埋め込みが 1 枚処理中か (ライブ中はフレームを間引くのに使う)
-  const inFlightRef = useRef(false);
 
   // OCR の Worker を落としてメモリを空ける。編集画面の unmount でも落として
   // いる (editor/hooks/useEditorOcr.ts) が、そちらに頼り切ると「落とされないまま来た」経路が
@@ -64,41 +48,22 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
 
   const [cameraReady, setCameraReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [indexError, setIndexError] = useState<string | null>(null);
-  const [indexLoaded, setIndexLoaded] = useState(false);
-  const [matches, setMatches] = useState<ItemMatch[]>([]);
-  const [searched, setSearched] = useState(false);
-  const [live, setLive] = useState(true);
-  const [busy, setBusy] = useState(false);
 
   // Esc で閉じる (ScannerModal と同じ)
   useEscapeKey(onClose);
 
-  // 索引の取得 (モーダルを開いた時点で 1 度)
-  useEffect(() => {
-    let cancelled = false;
-    fetchImageSearchIndex()
-      .then((entries) => {
-        if (cancelled) {
-          return;
-        }
-        indexRef.current = entries;
-        setIndexLoaded(true);
-        if (entries.length === 0) {
-          setIndexError(
-            "検索できる画像がまだありません。ノートに写真を貼るか、埋め込みの生成をお待ちください。",
-          );
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setIndexError(errorText(err, "索引を取得できませんでした"));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // 索引の取得 (開いた時点で 1 度) とライブ検索ループ
+  const {
+    indexLoaded,
+    indexError,
+    matches,
+    searched,
+    live,
+    busy,
+    toggleLive,
+    searchCurrentFrame,
+    searchPhoto,
+  } = useLiveImageSearch({ videoRef, embed, cameraReady });
 
   // カメラ起動と後始末
   useEffect(() => {
@@ -144,75 +109,6 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
     };
   }, []);
 
-  // フレーム 1 枚を検索する。force=true はシャッター/写真選択 (待たせて 1 枚)。
-  const runCapture = useCallback(
-    async (source: ImageBitmapSource, width: number, height: number, force: boolean) => {
-      const index = indexRef.current;
-      if (!index || index.length === 0) {
-        return;
-      }
-      if (inFlightRef.current && !force) {
-        return; // ライブ中は 1 枚ずつ。処理中のフレームは飛ばす
-      }
-      inFlightRef.current = true;
-      if (force) {
-        setBusy(true);
-      }
-      try {
-        const bitmap = await captureSquareBitmap(source, width, height);
-        const vector = await embed(bitmap);
-        setMatches(rankItems(vector, index, { limit: MAX_RESULTS, minScore: MIN_SCORE }));
-        setSearched(true);
-      } catch {
-        // 1 枚の失敗は致命ではない (ライブなら次フレームで直る)。
-        // シャッターのときだけ結果表示を「見つからず」に倒す
-        if (force) {
-          setMatches([]);
-          setSearched(true);
-        }
-      } finally {
-        inFlightRef.current = false;
-        if (force) {
-          setBusy(false);
-        }
-      }
-    },
-    [embed],
-  );
-
-  // ライブ検索ループ。カメラ・索引が揃い、live のときだけ回す。
-  useEffect(() => {
-    if (!live || !cameraReady || !indexLoaded) {
-      return;
-    }
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const tick = async () => {
-      const video = videoRef.current;
-      if (video && video.readyState >= 2 && video.videoWidth > 0) {
-        await runCapture(video, video.videoWidth, video.videoHeight, false);
-      }
-      if (!stopped) {
-        timer = setTimeout(tick, LIVE_INTERVAL_MS);
-      }
-    };
-    timer = setTimeout(tick, LIVE_INTERVAL_MS);
-    return () => {
-      stopped = true;
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [live, cameraReady, indexLoaded, runCapture]);
-
-  // シャッター: いまの 1 フレームで検索。
-  const handleShutter = () => {
-    const video = videoRef.current;
-    if (video && video.videoWidth > 0) {
-      void runCapture(video, video.videoWidth, video.videoHeight, true);
-    }
-  };
-
   // 写真を選んで検索 (リアルタイムが重い端末・カメラ不可の逃げ道)。
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -220,11 +116,8 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
     if (!file) {
       return;
     }
-    setLive(false); // 写真検索に切り替える
     try {
-      const bitmap = await createImageBitmap(file);
-      await runCapture(bitmap, bitmap.width, bitmap.height, true);
-      bitmap.close();
+      await searchPhoto(file);
     } catch {
       setError("画像を読み込めませんでした。");
     }
@@ -283,40 +176,15 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
           </p>
         )}
 
-        {/* カメラビューと中央のガイド枠 (= 実質センタークロップ)。
-            max-w を視界の高さ (dvh) でも縛るのは ScannerModal と同じ理由 —
-            スマホ横持ちで映像が縦に溢れると、下のシャッターが画面外に落ちて
-            スクロールしないと押せなくなる (docs/31 §12) */}
-        {!error && (
-          <div className="relative w-full max-w-[min(28rem,75dvh)]">
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              className="w-full rounded bg-black"
-            />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="aspect-square h-auto w-3/4 rounded-lg border-2 border-white/80" />
-            </div>
-            {preparing && (
-              // カメラ映像の上に白文字だけだと埋もれて「固まった」と誤解される。
-              // 初回は数十 MB のモデル取得で待ちが長いので、赤背景で明示する
-              <BusyNotice
-                aria-live="polite"
-                className="absolute inset-x-2 bottom-2 text-center"
-              >
-                モデルを準備しています (初回のみ)…
-              </BusyNotice>
-            )}
-          </div>
-        )}
+        {/* カメラビューと中央のガイド枠 */}
+        {!error && <CameraViewport videoRef={videoRef} preparing={preparing} />}
 
         {/* 操作: シャッター / ライブ切り替え / 写真から */}
         {!error && (
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
-              onClick={handleShutter}
+              onClick={searchCurrentFrame}
               disabled={!cameraReady || !indexLoaded || busy}
               className={PRIMARY_BUTTON_CLASS}
             >
@@ -324,7 +192,7 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
             </button>
             <button
               type="button"
-              onClick={() => setLive((v) => !v)}
+              onClick={toggleLive}
               className={SECONDARY_BUTTON_CLASS}
               aria-pressed={live}
             >
@@ -348,40 +216,12 @@ export function ImageSearchModal({ onClose }: ImageSearchModalProps) {
         )}
 
         {/* 結果 */}
-        <div className="w-full max-w-md">
-          {/* ライブ中はフレームごとに結果が入れ替わるので「見つからず」を出すと
-              チラつく。シャッター/写真での確定検索のときだけ出す */}
-          {searched && !live && matches.length === 0 && (
-            <p className="py-4 text-center text-white/70">
-              似ているノートが見つかりませんでした。
-            </p>
-          )}
-          <ul className="flex flex-col gap-2">
-            {matches.map((m) => (
-              <li key={m.itemNo}>
-                <Link
-                  href={`/item/${m.itemNo}`}
-                  onClick={onClose}
-                  className="flex items-center gap-3 rounded bg-white/10 p-2 transition-colors active:bg-white/20"
-                >
-                  {/* 一覧と同じサムネ配信を使う */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={thumbUrl(m.imageName)}
-                    alt=""
-                    className="h-14 w-14 flex-shrink-0 rounded object-cover"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate">{m.title}</span>
-                    <span className="block text-sm text-white/60">
-                      {m.itemNo}・一致度 {Math.round(m.score * 100)}%
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ImageSearchResults
+          matches={matches}
+          searched={searched}
+          live={live}
+          onSelect={onClose}
+        />
       </div>
     </div>,
     document.body,

@@ -1,7 +1,7 @@
 // 取り込み結果の共通の形 (docs/28-エクスポート計画.md §3 / §4)。
 //
 // ZIP (lib/zip/importZip.ts) と ENEX (lib/enex/importEnex.ts) は入口も規則も
-// 別だが、**利用者に返す報告は 1 つの画面 (components/NotesImporter.tsx) が
+// 別だが、**利用者に返す報告は 1 つの画面 (components/transfer/ImportResult.tsx) が
 // 描く**。3 か所で同じ形を宣言すると、片方に項目を足したときに黙ってずれる。
 //
 // 型は実行時に消えるので、クライアントからもそのまま import できる。

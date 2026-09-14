@@ -4,7 +4,7 @@
 // server 専用の依存 (prisma / node:crypto) を持つファイルに置くと、
 // クライアント (NotesImporter) から読めない。
 //
-// クライアントでも検査する理由 (NotesImporter の tooLargeMessage): エッジ
+// クライアントでも検査する理由 (lib/importReportView.ts の tooLargeMessage): エッジ
 // (nginx / Caddy) の枠を超えたファイルは、そこで 413 とともにボディを読み
 // 捨てられるため、ブラウザからは送信中に接続が切れたようにしか見えず、fetch が
 // "Load failed" で失敗する。サーバの JSON エラーは届かないので、**送る前に**

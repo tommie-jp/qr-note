@@ -13,15 +13,18 @@ const VISIBLE_MS = 2000;
 export function SavedToast({ message = "保存しました" }: { message?: string }) {
   const [visible, setVisible] = useState(true);
 
+  // URL から印を消す。リロードや URL の共有で二度目が出ないように。
+  // Next のルータを通さない replaceState は再レンダリングを起こさない
   useEffect(() => {
-    // URL から印を消す。リロードや URL の共有で二度目が出ないように。
-    // Next のルータを通さない replaceState は再レンダリングを起こさない
     const url = new URL(window.location.href);
     if (url.searchParams.has("saved")) {
       url.searchParams.delete("saved");
       window.history.replaceState(null, "", `${url.pathname}${url.search}`);
     }
+  }, []);
 
+  // 数秒で畳む
+  useEffect(() => {
     const timer = setTimeout(() => setVisible(false), VISIBLE_MS);
     return () => clearTimeout(timer);
   }, []);

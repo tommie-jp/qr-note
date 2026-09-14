@@ -1,13 +1,8 @@
-import { MarkdownView } from "@/components/MarkdownView";
+import { MarkdownView, type MarkdownViewOptions } from "@/components/MarkdownView";
 import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
 import { NotePager } from "@/components/NotePager";
 import { noteDefinitions, splitPages } from "@/components/notePages";
-import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
-import type { ToggleTaskHandler } from "@/components/TaskCheckbox";
 import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
-import type { PendingCircuitMap } from "@/lib/circuit/types";
-import type { HealthMap } from "@/lib/healthData";
-import type { MatrixMap } from "@/lib/matrixData";
 
 // ノート本文をページに分けて描く (docs/74-ページ計画.md §4)。
 //
@@ -27,16 +22,10 @@ import type { MatrixMap } from "@/lib/matrixData";
 // 定義のほうは何も描かれず注釈の文章がノートから消える (notePages.ts の
 // noteDefinitions)。
 
-interface NoteBodyProps {
+// 本文以外は描き方の一式 (MarkdownViewOptions) で、ページごとの MarkdownView へ
+// そのまま渡す。項目を足すときは MarkdownView 側だけを直せばよい
+interface NoteBodyProps extends MarkdownViewOptions {
   memo: string;
-  circuits?: PendingCircuitMap;
-  matrices?: MatrixMap;
-  health?: HealthMap;
-  linkTags?: boolean;
-  allowRotate?: boolean;
-  allowSecretEdit?: boolean;
-  onToggleTask?: ToggleTaskHandler;
-  onRecordHealth?: RecordHealthHandler;
 }
 
 // 定義は**ページの本文の後ろ**に足す。前に足すと、そのページの
@@ -49,17 +38,7 @@ function withDefinitions(body: string, definitions: string): string {
   return definitions === "" ? body : `${body}\n\n${definitions}\n`;
 }
 
-export function NoteBody({
-  memo,
-  circuits,
-  matrices,
-  health,
-  linkTags,
-  allowRotate,
-  allowSecretEdit,
-  onToggleTask,
-  onRecordHealth,
-}: NoteBodyProps) {
+export function NoteBody({ memo, ...options }: NoteBodyProps) {
   const notePages = splitPages(memo);
   // 1 ページのノートは本文まるごとで、定義は元の場所に居る。配る必要が無いので
   // パースも省く (実データの大多数がこのノート)
@@ -69,14 +48,7 @@ export function NoteBody({
     content: (
       <MarkdownView
         markdown={withDefinitions(page.body, definitions)}
-        circuits={circuits}
-        matrices={matrices}
-        health={health}
-        linkTags={linkTags}
-        allowRotate={allowRotate}
-        allowSecretEdit={allowSecretEdit}
-        onToggleTask={onToggleTask}
-        onRecordHealth={onRecordHealth}
+        {...options}
         lineOffset={page.line - 1}
       />
     ),

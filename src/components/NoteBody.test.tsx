@@ -55,3 +55,21 @@ test("区切りの無いノートの脚注は今までどおり", () => {
   // 1 ページのノートはページ送りの帯ごと出さない
   expect(html).not.toContain("1 / 1");
 });
+
+// 描き方の一式 (MarkdownViewOptions) は**全ページ**の MarkdownView へ届く。
+// 1 ページ目にだけ効いて 2 ページ目で既定に戻ると、公開ビューの 2 ページ目に
+// 押すと案内に化けるタグリンクが残る
+test("描き方の指定は 2 ページ目にも届く", () => {
+  const memo = "表紙\n\n---\n\n2ページ目 #抵抗\n\n- [ ] やること\n";
+
+  const plain = renderToStaticMarkup(<NoteBody memo={memo} linkTags={false} />);
+  const toggleable = renderToStaticMarkup(
+    <NoteBody memo={memo} onToggleTask={async () => {}} />,
+  );
+
+  expect(plain).not.toContain("q=%23");
+  expect(plain).toContain("#抵抗");
+  const checkbox = toggleable.match(/<input[^>]*type="checkbox"[^>]*>/)?.[0];
+  expect(checkbox).toBeDefined();
+  expect(checkbox).not.toContain("disabled");
+});

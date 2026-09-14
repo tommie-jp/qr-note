@@ -130,6 +130,22 @@ interface MarkdownViewProps {
   lineOffset?: number;
 }
 
+// 本文を描く画面ごとに変わる「何を描けるか・押せるか」の一式。ノート本文
+// (NoteBody) はこれをページごとの MarkdownView へまとめて素通しする。
+// context にしないのは、MarkdownView がサーバー (ItemView・PublicItemView) からも
+// 描かれるため (docs/93-リファクタリング計画.md §5-6)。各項目の意味は上の props に書く
+export type MarkdownViewOptions = Pick<
+  MarkdownViewProps,
+  | "circuits"
+  | "matrices"
+  | "health"
+  | "linkTags"
+  | "allowRotate"
+  | "allowSecretEdit"
+  | "onToggleTask"
+  | "onRecordHealth"
+>;
+
 // フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
 // quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
 // する (docs/54 §1、docs/58-CBT問題集計画.md §1)

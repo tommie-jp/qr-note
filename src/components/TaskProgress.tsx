@@ -6,7 +6,7 @@
 //
 // 帯は aria-hidden にする。すぐ隣の文が同じ内容を数字で言っているので、
 // role="progressbar" を足すと読み上げが二度同じことを言う
-// (NotesImporter の帯は数字を伴わないので、あちらは progressbar のままでよい)。
+// (transfer/ImportProgressBar の帯は数字を伴わないので、あちらは progressbar のままでよい)。
 export function TaskProgress({ done, total }: { done: number; total: number }) {
   // 母数 0 は「チェックを使っていない検索」。0/0 (NaN%) を出すより何も出さない
   if (total <= 0) {
