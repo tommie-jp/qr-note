@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
-import type { PaneMode } from "@/lib/paneMode";
+import type { PaneMode } from "@/lib/prefs/paneMode";
 import { PaneModeProvider } from "./PaneModeProvider";
 import { PreviewPane } from "./PreviewPane";
 

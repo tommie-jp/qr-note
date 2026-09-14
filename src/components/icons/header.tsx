@@ -3,7 +3,7 @@
 // 色は使う側 (ボタンの文字色) に従う。PaneModeIcon だけは 3 つのペインを
 // 塗り分けるので自前で持つ
 
-import type { PaneMode } from "@/lib/paneMode";
+import type { PaneMode } from "@/lib/prefs/paneMode";
 
 // メニューの開閉ボタン (HeaderMenu) の ☰ / ✕。アイコンは inline SVG で持つ。
 // この 2 本のためにライブラリを足さない (currentColor なので文字色にそのまま

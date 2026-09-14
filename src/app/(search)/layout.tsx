@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { PaneModeProvider } from "@/components/PaneModeProvider";
-import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/paneMode";
+import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 
 // 検索 3 ペインの layout (docs/86 §2)。検索ページ (children) と、/item への
 // ソフト遷移を横取りしたノート (@detail スロット) を並べるだけ。

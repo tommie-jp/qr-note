@@ -3,11 +3,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isNodeEnvProduction } from '@/lib/appEnv'
-import { parsePaneMode, PANE_MODE_COOKIE, PANE_MODE_COOKIE_MAX_AGE } from '@/lib/paneMode'
+import { parsePaneMode, PANE_MODE_COOKIE, PANE_MODE_COOKIE_MAX_AGE } from '@/lib/prefs/paneMode'
 import { buildSearchUrl, buildTrashUrl } from '@/lib/searchUrl'
-import { SORT_COOKIE, SORT_COOKIE_MAX_AGE, TRASH_SORT_COOKIE } from '@/lib/sortMode'
+import { SORT_COOKIE, SORT_COOKIE_MAX_AGE, TRASH_SORT_COOKIE } from '@/lib/prefs/sortMode'
 import { parseSort, parseTrashSort } from '@/lib/validation'
-import { parseViewMode, VIEW_MODE_COOKIE, VIEW_MODE_COOKIE_MAX_AGE } from '@/lib/viewMode'
+import { parseViewMode, VIEW_MODE_COOKIE, VIEW_MODE_COOKIE_MAX_AGE } from '@/lib/prefs/viewMode'
 
 // 見た目の好みを cookie に書くアクション (ペイン構成・表示モード・並び順)。
 //
@@ -79,7 +79,7 @@ export async function setViewModeAction(formData: FormData): Promise<void> {
   // Next が描き直す (Router Cache も一緒に更新される)。
 }
 
-// 一覧の並び順を切り替える (docs/11-アプリ的UIUX計画.md §3、src/lib/sortMode.ts)。
+// 一覧の並び順を切り替える (docs/11-アプリ的UIUX計画.md §3、src/lib/prefs/sortMode.ts)。
 //
 // **cookie に覚えつつ、URL も更新する**のがこのアクションの役目。
 // 表示モード (setViewModeAction) と違って遷移まで行うのは、並び順が
@@ -104,7 +104,7 @@ export async function setSortAction(formData: FormData): Promise<void> {
 // ゴミ箱の並び順を切り替える (docs/67-ゴミ箱表示形式計画.md §2)。
 //
 // setSortAction と同じ形 (cookie に覚えてから URL へ redirect) だが、cookie は
-// 別 (TRASH_SORT_COOKIE) で、持ち回す検索語も無い。分ける理由は sortMode.ts。
+// 別 (TRASH_SORT_COOKIE) で、持ち回す検索語も無い。分ける理由は prefs/sortMode.ts。
 export async function setTrashSortAction(formData: FormData): Promise<void> {
   const sort = parseTrashSort(formData.get(TRASH_SORT_COOKIE))
 

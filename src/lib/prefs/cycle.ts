@@ -6,7 +6,7 @@
 // メニューの上下と短いタップで辿る順が食い違う (押す前に何が起きるか読めなくなる)。
 //
 // Object.fromEntries は string の表しか返せないため、ここで 1 度だけ
-// Record<T, T> と名乗る (sortDirection.ts の bySort と同じ事情)。
+// Record<T, T> と名乗る (prefs/sortDirection.ts の bySort と同じ事情)。
 export function cycleOf<T extends string>(values: readonly T[]): Record<T, T> {
   return Object.fromEntries(
     values.map((value, index) => [value, values[(index + 1) % values.length]]),

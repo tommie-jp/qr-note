@@ -10,12 +10,12 @@ import {
   noteFontScaleLabel,
   normalizeNoteFontScale,
   stepNoteFontScale,
-} from "@/lib/noteFontScale";
+} from "@/lib/prefs/noteFontScale";
 
 // ハンバーガーメニューの「テキストサイズ」(docs/61-テキストサイズ計画.md)。
 //
 // 本文の文字を ＋ / − で 1 段ずつ大きくする。効く先は本文だけで、この行を
-// 含むメニュー自体は大きくならない (noteFontScale.ts の冒頭に理由)。
+// 含むメニュー自体は大きくならない (prefs/noteFontScale.ts の冒頭に理由)。
 //
 // 保存は localStorage。サーバは倍率を知らないので、この部品だけで完結する。
 // 読み込み時の反映は layout の <head> に置いたインラインスクリプト (PreHydrationScripts.tsx) が

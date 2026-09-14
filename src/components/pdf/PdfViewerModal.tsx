@@ -12,7 +12,7 @@ import {
   loadPdfDocument,
   type PdfDocumentHandle,
 } from "./pdfService";
-import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/displayMode";
+import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/offline/displayMode";
 import { errorText } from "@/lib/errorMessage";
 import { isShareAborted, shareFile, shouldOfferShare } from "@/lib/shareFile";
 import { ModalOverlay } from "../modal/ModalOverlay";
@@ -150,7 +150,7 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
   // 「新しいタブ」を出してよいか。**ブラウザだと判るまで出さない**。
   // ホーム画面起動 (standalone) では target="_blank" が効かず、同じ webview が
   // PDF へ遷移して戻れなくなる — このビューアで直したはずの不具合に、
-  // ヘッダの導線から逆戻りしてしまう (displayMode.ts に経緯)。
+  // ヘッダの導線から逆戻りしてしまう (offline/displayMode.ts に経緯)。
   // サーバ側スナップショットは false (= 出さない) にして、判るまで導線を作らない
   const canOpenNewTab = useSyncExternalStore(
     subscribeDisplayMode,

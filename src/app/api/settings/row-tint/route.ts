@@ -2,8 +2,8 @@ import type { NextResponse } from 'next/server'
 import { guardRequest } from '@/lib/route/guard'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiOk } from '@/lib/route/respond'
-import { isRowTintId } from '@/lib/rowTint'
-import { saveRowTintId } from '@/lib/rowTintStore'
+import { isRowTintId } from '@/lib/prefs/rowTint'
+import { saveRowTintId } from '@/lib/prefs/rowTintStore'
 
 // 検索結果で選択中の行の地色を保存する口 (docs/88-選択行の色計画.md)。
 //

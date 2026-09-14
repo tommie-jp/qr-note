@@ -8,7 +8,7 @@ import {
   writeStorageItem,
 } from './storagePref'
 
-// 読み書きの記録だけ取る最小の Storage (livePreviewPref.test.ts と同じ流儀)
+// 読み書きの記録だけ取る最小の Storage (prefs/livePreview.test.ts と同じ流儀)
 function fakeStorage(initial: Record<string, string> = {}) {
   const items = new Map(Object.entries(initial))
   return {

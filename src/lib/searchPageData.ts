@@ -21,7 +21,7 @@ import type { MathTextMap } from '@/lib/markdown/mathTextTypes'
 import { queryHasTagTerm, queryTracksTaskProgress } from '@/lib/search/rewrite'
 import { isTaggableCode, scanRegisterHref } from '@/lib/scanRegister'
 import type { Sort } from '@/lib/validation'
-import type { ViewMode } from '@/lib/viewMode'
+import type { ViewMode } from '@/lib/prefs/viewMode'
 
 // ゴミ箱の件数は HomeResults (0 件時の案内) と SearchFolders (フォルダーの
 // バッジ) の両方が使う。別々の Suspense 枝から呼んでも 1 回の問い合わせに

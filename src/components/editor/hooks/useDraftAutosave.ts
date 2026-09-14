@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
-import { persistDraft } from "@/lib/memoDraft";
+import { persistDraft } from "@/lib/prefs/memoDraft";
 
 // 下書きの保存は打鍵のたびではなく少し待ってから (連打で localStorage を叩かない)
 const DRAFT_SAVE_DELAY_MS = 400;
 
 // 編集のたびに下書きを退避する (少し待ってから)。初期値に戻れば消す
-// (src/lib/memoDraft.ts、docs/87-編集競合対策計画.md §2-6)。
+// (src/lib/prefs/memoDraft.ts、docs/87-編集競合対策計画.md §2-6)。
 //
 // 打鍵のたびに予約し直し、最後の変更から DRAFT_SAVE_DELAY_MS 後に 1 回だけ書く。
 // 2 つの ref は**読む瞬間が違う**:

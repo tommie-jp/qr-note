@@ -11,7 +11,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { parseSearchExpr } from '@/lib/search/parse'
 import { stripTaskTerms } from '@/lib/search/rewrite'
 import type { SearchExpr, SearchTerm } from '@/lib/search/types'
-import { orderByClause } from '@/lib/sortOrder'
+import { orderByClause } from '@/lib/prefs/sortOrder'
 import { escapeLike, type TrashSort } from '@/lib/validation'
 
 // 検索語 1 語ぶんの WHERE 条件を組み立てる。
@@ -167,9 +167,9 @@ export const ITEM_COLUMNS = Prisma.sql`
 // 関連度順は採用せず現行の更新順/番号順/アクセス順を維持する
 // (docs/04-全文検索計画.md §3-4、docs/37-アクセス順計画.md)。
 //
-// 句の組み立ては sortOrder.ts の純関数が持つ (DATABASE_URL 無しでテストする
+// 句の組み立ては prefs/sortOrder.ts の純関数が持つ (DATABASE_URL 無しでテストする
 // ため)。**Prisma.raw に渡してよいのは、あちらが自前の定数しか返さないから** —
-// 引数の文字列が SQL へ混ざる余地はない (sortOrder.ts のコメントと対)。
+// 引数の文字列が SQL へ混ざる余地はない (prefs/sortOrder.ts のコメントと対)。
 export function buildOrderBy(sort: TrashSort): Prisma.Sql {
   return Prisma.raw(`ORDER BY ${orderByClause(sort)}`)
 }

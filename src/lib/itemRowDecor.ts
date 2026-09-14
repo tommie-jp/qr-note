@@ -8,7 +8,7 @@ import type { Item } from '@/generated/prisma/client'
 import { firstThumbInfo } from '@/lib/memoImages'
 import { memoPreview } from '@/lib/markdown/memoPreview'
 import { memoSummary } from '@/lib/markdown/memoSummary'
-import type { ViewMode } from '@/lib/viewMode'
+import type { ViewMode } from '@/lib/prefs/viewMode'
 
 // 画像モードは ImageMasonry が描くのでここには来ない (ItemList が
 // compact に畳んでから渡す)。型で 'image' を締め出して前提を保証する

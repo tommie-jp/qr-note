@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 import type { Item } from "@/generated/prisma/client";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 import { ItemList } from "./ItemList";
 import { SelectModeProvider } from "./SelectModeProvider";
 

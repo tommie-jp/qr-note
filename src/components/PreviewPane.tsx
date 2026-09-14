@@ -10,7 +10,7 @@ import {
   keepsNoteOpen,
   notePaneLayout,
   type NotePaneLayout,
-} from "@/lib/paneMode";
+} from "@/lib/prefs/paneMode";
 import { itemNoFromPathname } from "@/lib/searchUrl";
 
 // 器の置き方。**z の高さが要点** (docs/86 §4-9):

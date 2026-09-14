@@ -7,7 +7,7 @@
 // 表は 5 種別ぶん (ゴミ箱だけの「削除順」を含む)。SortBase は TrashSortBase の
 // 部分集合なので、検索側もこの表をそのまま引ける。
 
-import type { TrashSortBase } from './validation'
+import type { TrashSortBase } from '../validation'
 
 export const SORT_BASE_LABEL: Record<TrashSortBase, string> = {
   deleted: '削除順',

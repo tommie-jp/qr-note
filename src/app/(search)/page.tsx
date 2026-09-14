@@ -10,8 +10,8 @@ import { SearchNavProvider } from "@/components/SearchNav";
 import { SelectModeProvider } from "@/components/SelectModeProvider";
 import { isDemoMode } from "@/lib/appEnv";
 import { listTags } from "@/lib/items/read";
-import { showsFolderPane } from "@/lib/paneMode";
-import { readSearchPrefs } from "@/lib/searchPrefs";
+import { showsFolderPane } from "@/lib/prefs/paneMode";
+import { readSearchPrefs } from "@/lib/prefs/searchPrefs";
 import { requireUser } from "@/lib/auth/session";
 import { qrStickerHost } from "@/lib/site";
 import { HomeResults } from "./HomeResults";
@@ -40,7 +40,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const { q = "", page = "1", sort: sortParam } = await searchParams;
   const query = q.trim();
   // 並び順 (URL → cookie → 既定)・表示モード・ペイン構成 (フォルダーを出すか、
-  // 先頭のノートを自動で選ぶか) を cookie から読む。規則と理由は lib/searchPrefs.ts
+  // 先頭のノートを自動で選ぶか) を cookie から読む。規則と理由は lib/prefs/searchPrefs.ts
   const { sort, view, paneMode } = readSearchPrefs(await cookies(), sortParam);
   // 検索窓のタグ補完だけは固定部と一緒に引く (小さな表 1 つで速い)。
   // 重い検索本体は HomeResults に隔離して Suspense で後から流す —

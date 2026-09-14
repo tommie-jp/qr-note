@@ -14,11 +14,11 @@ import { PropsTable } from "@/components/PropsTable";
 import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { SearchResults } from "@/components/SearchNav";
 import { TaskProgress } from "@/components/TaskProgress";
-import { showsAutoNote, type PaneMode } from "@/lib/paneMode";
+import { showsAutoNote, type PaneMode } from "@/lib/prefs/paneMode";
 import { loadSearchResults } from "@/lib/searchPageData";
 import { buildSearchUrl } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 
 // 検索の重い部分 (DB 問い合わせと結果表示) をまとめた非公開のサーバ
 // コンポーネント。Home 本体はここを await しないので、固定部が先に流れる。

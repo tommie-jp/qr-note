@@ -35,7 +35,7 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/rowTintStore', () => ({
+vi.mock('@/lib/prefs/rowTintStore', () => ({
   saveRowTintId: async (user: string, tint: string) => {
     mocks.saved.push({ user, tint })
   },

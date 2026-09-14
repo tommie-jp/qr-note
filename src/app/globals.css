@@ -48,7 +48,7 @@ html {
    **ここに既定を持たせるのが要点。** 変数が立っていない場面 —
    layout を通さない単体テストや、色を選ぶ前の利用者 — でも
    bg-[var(--row-tint-bg)] が透明にならないようにする。
-   値は rowTint.ts の blue と同じ (Tailwind の blue-50 / 100 / 400)。
+   値は prefs/rowTint.ts の blue と同じ (Tailwind の blue-50 / 100 / 400)。
    **片方だけ変えないこと** — ずれると、色を選ぶ前と選んだ後で違う青になる */
 :root {
   --row-tint-bg: #eff6ff;

@@ -6,10 +6,10 @@
 // 目立ちすぎる。だから色を選べるようにする。
 //
 // **このファイルはクライアントからも import される。** prisma や next/headers
-// を持ち込まないこと (読み書きは rowTintStore.ts。thumbnail.ts で sharp を
+// を持ち込まないこと (読み書きは prefs/rowTintStore.ts。thumbnail.ts で sharp を
 // クライアントへ漏らしたのと同じ罠)。
 //
-// 効かせ方は CSS 変数 3 つ。文字サイズ (noteFontScale.ts) と同じ流儀で
+// 効かせ方は CSS 変数 3 つ。文字サイズ (prefs/noteFontScale.ts) と同じ流儀で
 // html に立て、globals.css が既定値を持つ。クラス名を色ごとに用意しない
 // のが要点 — Tailwind はソース中の完全なクラス名しか拾わないので
 // `bg-${color}-50` は生成されず、6 色ぶんを全部書き並べる羽目になる。

@@ -19,7 +19,7 @@
 // cookie ならサーバコンポーネントが描画前に読めるので、初回描画から正しい
 // レイアウトで出る (localStorage だと一度描いてから跳ねる)。
 //
-// **並び順 (sort) も後から cookie を併用するようになった** (src/lib/sortMode.ts)。
+// **並び順 (sort) も後から cookie を併用するようになった** (src/lib/prefs/sortMode.ts)。
 // 当初は「並び順は何を見ているか」として URL 一本だったが、上の 2 つ目の理由
 // (入るたびに既定へ戻る) が実際に起きたため。あちらは URL があればそちらを
 // 優先する二段構えで、ここ (表示モード) は cookie だけ — 表示モードは
@@ -37,7 +37,7 @@ export const DEFAULT_VIEW_MODE = 'compact' satisfies ViewMode
 
 // 妥当なモードをすべて並べた表。**この並びがそのまま UI の順になる** —
 // 下部バーの短いタップの循環 (小 → 大 → 画像) と長押しメニューの上下を、
-// どちらも cycleOf でここから作る (SORTS と lib/sortDirection.ts の関係と同じ)。
+// どちらも cycleOf でここから作る (SORTS と lib/prefs/sortDirection.ts の関係と同じ)。
 export const VIEW_MODES: readonly ViewMode[] = [
   'compact',
   'medium',

@@ -5,10 +5,10 @@ import {
   loadLivePreviewPref,
   parseLivePreviewPref,
   saveLivePreviewPref,
-} from './livePreviewPref'
-import type { PrefStorage } from './prefs/storagePref'
+} from './livePreview'
+import type { PrefStorage } from './storagePref'
 
-// 読み書きの記録だけ取る最小の Storage (memoDraft.test.ts と同じ流儀)
+// 読み書きの記録だけ取る最小の Storage (prefs/memoDraft.test.ts と同じ流儀)
 function fakeStorage(initial: Record<string, string> = {}) {
   const items = new Map(Object.entries(initial))
   return {

@@ -15,7 +15,7 @@ import {
   MEMO_BASELINE_EVENT,
   type AdoptServerDetail,
 } from "@/lib/editorEvents";
-import { draftStorageKey, loadDraft } from "@/lib/memoDraft";
+import { draftStorageKey, loadDraft } from "@/lib/prefs/memoDraft";
 import { BASE_NEW } from "@/lib/saveBase";
 import type { ConflictServerNote } from "@/lib/saveState";
 import { useDraftAutosave } from "./editor/hooks/useDraftAutosave";
@@ -117,7 +117,7 @@ interface MemoEditorProps {
   // defaultValue を差し替える (docs/13-書誌自動取得計画.md / docs/14)
   prefill?: PrefillTarget;
   // 渡すと編集中の本文を localStorage に退避する (ノートごとに一意な鍵。
-  // 通常は itemNo)。タブが落ちても再訪時に復元できる (src/lib/memoDraft.ts)。
+  // 通常は itemNo)。タブが落ちても再訪時に復元できる (src/lib/prefs/memoDraft.ts)。
   // iPhone は OCR のモデル読み込みでタブごと再起動することがあり、その保険
   draftKey?: string;
 }

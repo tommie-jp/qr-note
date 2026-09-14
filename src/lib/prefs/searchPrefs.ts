@@ -5,9 +5,9 @@
 // cookie に持つ。サーバで読めるから初回描画から正しい見た目で出る。
 // 読み方の規則はそれぞれのモジュールが持ち、ここは束ねるだけ:
 //
-//   並び順     … sortMode.ts   (URL → cookie → 既定)
-//   表示モード … viewMode.ts   (docs/23-検索結果表示モード計画.md §5)
-//   ペイン構成 … paneMode.ts   (docs/86 §4-4)
+//   並び順     … prefs/sortMode.ts   (URL → cookie → 既定)
+//   表示モード … prefs/viewMode.ts   (docs/23-検索結果表示モード計画.md §5)
+//   ペイン構成 … prefs/paneMode.ts   (docs/86 §4-4)
 //
 // cookie の読み口は next/headers の cookies() が返す物をそのまま受ける。
 // 型は get だけの最小形にして、テストでは素のオブジェクトで差し替える
@@ -19,7 +19,7 @@ import {
   SORT_COOKIE,
   TRASH_SORT_COOKIE,
 } from './sortMode'
-import type { Sort, TrashSort } from './validation'
+import type { Sort, TrashSort } from '../validation'
 import { parseViewMode, VIEW_MODE_COOKIE, type ViewMode } from './viewMode'
 
 export interface CookieReader {
@@ -43,7 +43,7 @@ export function readSearchPrefs(
   urlSort: unknown,
 ): SearchPrefs {
   return {
-    // 並び順は URL → cookie → 既定 の順に決める (src/lib/sortMode.ts)。
+    // 並び順は URL → cookie → 既定 の順に決める (src/lib/prefs/sortMode.ts)。
     // URL だけを見ていた頃は、?sort= を持たない入口 (ヘッダーのホーム・
     // 検索フォーム・スキャン・タグリンク) から入るたびに既定へ戻っていた
     sort: resolveSort(urlSort, cookieStore.get(SORT_COOKIE)?.value),

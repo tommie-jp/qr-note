@@ -28,7 +28,7 @@ vi.mock("@/lib/items/read", () => ({
     return mocks.item;
   },
 }));
-vi.mock("@/lib/itemListContext", () => ({
+vi.mock("@/lib/prefs/itemListContext", () => ({
   resolveItemListContext: async (
     _itemNo: string,
     q: string | string[] | undefined,

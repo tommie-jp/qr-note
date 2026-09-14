@@ -4,7 +4,7 @@
 // chrome/PreHydrationScripts.tsx が layout の <head> に置く。useEffect で当てると、サーバが描いた既定の
 // 見た目でひととおり組まれた後に跳ねるので、HTML の解析中に同期で当てる
 // (Next の docs/01-app/02-guides/preventing-flash-before-hydration.md の theme と
-// 同じ手)。テキストサイズ (noteFontScale.ts) とペインの寸法 (paneSize.ts) が
+// 同じ手)。テキストサイズ (prefs/noteFontScale.ts) とペインの寸法 (prefs/paneSize.ts) が
 // 同じ骨格を別々に手で minify していたので、ここで組み立てる。
 //
 // **バンドルの前に走るので TS の関数は import できない。** 寄せ方の実装は

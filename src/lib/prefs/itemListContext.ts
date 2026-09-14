@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { findListNeighbors } from '@/lib/items/read'
-import { SORT_COOKIE, resolveSort } from '@/lib/sortMode'
+import { SORT_COOKIE, resolveSort } from '@/lib/prefs/sortMode'
 import type { Sort } from '@/lib/validation'
 
 export interface ItemListContext {

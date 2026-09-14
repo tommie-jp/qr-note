@@ -7,7 +7,7 @@ import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
 import type { NotePreviewMap } from "./NotePreviewThumb";
 import { formatJstDateTime } from "@/lib/datetime";
-import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
+import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { ConfirmSubmitButton } from "./ConfirmSubmitButton";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";

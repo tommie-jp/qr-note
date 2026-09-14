@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Item } from "@/generated/prisma/client";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 import { TrashList } from "./TrashList";
 
 const noop = () => {};

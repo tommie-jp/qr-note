@@ -296,7 +296,7 @@ describe('ITEM_COLUMNS', () => {
 })
 
 describe('buildOrderBy', () => {
-  test('番号順は sortOrder.ts の句を ORDER BY に載せる', () => {
+  test('番号順は prefs/sortOrder.ts の句を ORDER BY に載せる', () => {
     const orderBy = buildOrderBy('itemNo')
 
     expect(sqlOf(orderBy)).toBe('ORDER BY item_no_num ASC NULLS LAST, item_no ASC')

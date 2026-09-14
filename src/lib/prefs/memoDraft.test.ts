@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { BASE_STALE } from './saveBase'
+import { BASE_STALE } from '../saveBase'
 import {
   draftStorageKey,
   loadDraft,

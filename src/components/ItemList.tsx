@@ -13,7 +13,7 @@ import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
 import type { NotePreviewMap } from "./NotePreviewThumb";
 import { buildItemUrl, itemNoFromPathname } from "@/lib/searchUrl";
 import type { Sort } from "@/lib/validation";
-import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/viewMode";
+import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { BulkTagToolbar } from "./BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { ItemRow } from "./ItemRow";

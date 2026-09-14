@@ -1,5 +1,5 @@
-import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/noteFontScale";
-import { PANE_SIZE_INIT_SCRIPT } from "@/lib/paneSize";
+import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/prefs/noteFontScale";
+import { PANE_SIZE_INIT_SCRIPT } from "@/lib/prefs/paneSize";
 
 // root layout の <head> に置く、hydration より前に同期で走るインラインスクリプト。
 // どちらも端末に置いた好みを初回描画の前に html へ書き足す。書き足された

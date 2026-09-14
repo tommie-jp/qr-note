@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { PreviewPane } from "@/components/PreviewPane";
 import { usePaneMode } from "@/components/PaneModeProvider";
-import { showsAutoNote } from "@/lib/paneMode";
+import { showsAutoNote } from "@/lib/prefs/paneMode";
 
 // ノートのペインを持つ構成 (3 / 2) で「まだ何も選んでいないとき」に出る
 // 先頭ノートのペイン (docs/86 §4-4)。

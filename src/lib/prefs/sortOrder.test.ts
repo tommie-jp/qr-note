@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { orderByClause } from './sortOrder'
-import { TRASH_SORTS } from './validation'
+import { TRASH_SORTS } from '../validation'
 
 test('番号順は item_no_num 昇順 (非数字は末尾)', () => {
   expect(orderByClause('itemNo')).toBe('item_no_num ASC NULLS LAST, item_no ASC')

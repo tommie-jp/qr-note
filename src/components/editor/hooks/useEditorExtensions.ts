@@ -15,7 +15,7 @@ import {
 import { quizLinter } from "@/components/editor/quizLinter";
 import { fenceLanguageCompletion } from "@/components/fenceCompletion";
 import { fenceLanguageLinter } from "@/components/fenceLinter";
-import { loadLivePreviewPref } from "@/lib/livePreviewPref";
+import { loadLivePreviewPref } from "@/lib/prefs/livePreview";
 import { browserStorage } from "@/lib/prefs/storagePref";
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)

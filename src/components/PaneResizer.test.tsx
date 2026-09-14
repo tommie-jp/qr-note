@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { PANE_SIZES } from "@/lib/paneSize";
+import { PANE_SIZES } from "@/lib/prefs/paneSize";
 import { PaneResizer } from "./PaneResizer";
 
 // 器の描画だけを見る (ドラッグ・キー操作はブラウザで確認する)。

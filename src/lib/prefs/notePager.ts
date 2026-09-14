@@ -2,23 +2,23 @@
 //
 // **ノート単位ではなく端末単位**にする。ページ送りが煩わしい人はどのノートでも
 // 煩わしいはずで、ノートごとに覚えると開くたびに本文の長さが変わって落ち着かない
-// (livePreviewPref.ts と同じ判断)。
+// (prefs/livePreview.ts と同じ判断)。
 //
 // **正本は React の外に置く** (secret/session.ts と同じ形)。切り替えるボタンは
 // 見出し行に、切り替わる本文は本文パネルの奥にあり、間に Server Component が
 // 挟まって props でも context でも繋げない。localStorage をそのまま正本に
 // すれば、購読している部品はどこに居ても一緒に切り替わる。
 //
-// 前半は Storage を引数で受ける純関数 (livePreviewPref.ts と同じ流儀)。
+// 前半は Storage を引数で受ける純関数 (prefs/livePreview.ts と同じ流儀)。
 // 後半がその上に載る購読の口。読み書きの例外の扱いは prefs/storagePref.ts。
 
 import 'client-only'
-import { createExternalStore } from './prefs/externalStore'
+import { createExternalStore } from './externalStore'
 import {
   browserStorage,
   defineBooleanPref,
   type PrefStorage,
-} from './prefs/storagePref'
+} from './storagePref'
 
 export const NOTE_PAGER_STORAGE_KEY = 'qr-search:note-pager'
 

@@ -15,7 +15,7 @@ import {
   trashReverseOf,
 } from './sortDirection'
 import { orderByClause } from './sortOrder'
-import { parseSort, SORTS, TRASH_SORTS } from './validation'
+import { parseSort, SORTS, TRASH_SORTS } from '../validation'
 
 // 並び順は「種別 4 つ × 方向 2 つ」を 1 本の文字列で持つ
 // (docs/64-並び順逆順計画.md §2)。基底の 4 値は**その種別の既定の方向**を指し、

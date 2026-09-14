@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PageNextIcon, PagePrevIcon } from "@/components/icons";
 import { PressTip } from "@/components/PressTip";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
-import { useNotePagerPaged } from "@/lib/notePagerPref";
+import { useNotePagerPaged } from "@/lib/prefs/notePager";
 
 // ノートのページ送り (docs/74-ページ計画.md §4)。
 //
@@ -18,7 +18,7 @@ import { useNotePagerPaged } from "@/lib/notePagerPref";
 //
 // **ページ送りをやめて通しで読むこともできる** (docs/82 §3)。切り替えるのは
 // 見出し行のボタン (NotePageModeToggle) で、設定の正本は localStorage
-// (lib/notePagerPref.ts) — 間に Server Component が挟まるので props では
+// (lib/prefs/notePager.ts) — 間に Server Component が挟まるので props では
 // 繋げない。通し表示は「画面が印刷と同じ積み方になる」だけ — 枠も定義の
 // 配り方もそのままで、隠す class を外して区切りの罫線を戻す。
 //

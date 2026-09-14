@@ -8,9 +8,9 @@ import {
   paneSizeFromPointer,
   paneSizeValue,
   type PaneKind,
-} from "@/lib/paneSize";
+} from "@/lib/prefs/paneSize";
 
-// 境界そのものの置き方。**ポインタ → 寸法の計算 (paneSize.ts) と対**で、
+// 境界そのものの置き方。**ポインタ → 寸法の計算 (prefs/paneSize.ts) と対**で、
 // どちらか片方だけ直すと掴む場所と動く量がずれる。
 //
 // 掴む帯は 8px 取り、境界の上に半分ずつ跨がせる (translate) —

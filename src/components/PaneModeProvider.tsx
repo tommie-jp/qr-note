@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_PANE_MODE, type PaneMode } from "@/lib/paneMode";
+import { DEFAULT_PANE_MODE, type PaneMode } from "@/lib/prefs/paneMode";
 
 interface PaneModeState {
   mode: PaneMode;

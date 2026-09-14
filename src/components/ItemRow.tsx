@@ -5,7 +5,7 @@ import { ItemRowCompact } from "./item/ItemRowCompact";
 import { buildRowParts } from "./item/rowParts";
 import type { RowSwipe } from "./SwipeToTrashRow";
 import { rowPreview, type RowViewMode } from "@/lib/itemRowDecor";
-import { DEFAULT_VIEW_MODE } from "@/lib/viewMode";
+import { DEFAULT_VIEW_MODE } from "@/lib/prefs/viewMode";
 
 export type { RowViewMode } from "@/lib/itemRowDecor";
 

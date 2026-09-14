@@ -1,6 +1,6 @@
 // オフライン一覧の並べ替え (docs/65-オフライン対応計画.md §3-3)。
 //
-// sortOrder.ts の ORDER BY 句と**同じ並びを JS で作り直したもの**。片方だけ
+// prefs/sortOrder.ts の ORDER BY 句と**同じ並びを JS で作り直したもの**。片方だけ
 // 直すとオンラインとオフラインで一覧の順が食い違うので、必ず対で直すこと。
 // 書き写しにならざるを得ないのは、あちらが SQL の文字列を返す関数だから
 // (テストは両方に同じ期待を書いてある)。
@@ -27,7 +27,7 @@ function compareText(a: string, b: string): number {
 
 // null を**向きに関わらず末尾**へ回す (SQL の NULLS LAST と同じ)。
 // 逆順にしたとたん、番号として読めない itemNo や見出しの無いノートが先頭を
-// 埋めるのでは、逆順にした意味 (端から辿る) が消える (sortOrder.ts と同じ判断)
+// 埋めるのでは、逆順にした意味 (端から辿る) が消える (prefs/sortOrder.ts と同じ判断)
 function compareNullsLast<T>(
   a: T | null,
   b: T | null,
@@ -41,7 +41,7 @@ function compareNullsLast<T>(
 }
 
 // 一覧の見出しとして並べる鍵。**URL モードの行だけ url を見る**のは
-// itemRowDecor.ts (rowTitle) / sortOrder.ts と同じ切り分けで、ここを揃えないと
+// itemRowDecor.ts (rowTitle) / prefs/sortOrder.ts と同じ切り分けで、ここを揃えないと
 // 「画面に出ている見出しと違う順」になる。
 // 空文字は NULLIF と同じく null に倒し、末尾へ回す
 function titleKey(item: OfflineItem): string | null {

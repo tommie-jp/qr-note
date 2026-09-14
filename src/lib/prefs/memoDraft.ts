@@ -9,8 +9,8 @@
 // effect の結線は MemoEditor 側。
 
 import 'client-only'
-import type { PrefStorage } from './prefs/storagePref'
-import { BASE_STALE } from './saveBase'
+import type { PrefStorage } from './storagePref'
+import { BASE_STALE } from '../saveBase'
 
 export interface MemoDraft {
   value: string

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/displayMode";
+import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/offline/displayMode";
 import { errorText } from "@/lib/errorMessage";
 import { ModalOverlay } from "../modal/ModalOverlay";
 import { useBodyScrollLock } from "../modal/useBodyScrollLock";
@@ -36,7 +36,7 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
 
   // 「新しいタブ」を出してよいか。**ブラウザだと判るまで出さない**。
   // standalone では target="_blank" が効かず、同じ webview がテキストの生表示へ
-  // 遷移して戻れなくなる (displayMode.ts と 41-QR-search/docs/12 に経緯)
+  // 遷移して戻れなくなる (offline/displayMode.ts と 41-QR-search/docs/12 に経緯)
   const canOpenNewTab = useSyncExternalStore(
     subscribeDisplayMode,
     () => !isStandaloneDisplay(),

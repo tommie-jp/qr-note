@@ -18,7 +18,7 @@ import { RowTintMenuItem } from "@/components/RowTintMenuItem";
 import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
-import type { RowTintId } from "@/lib/rowTint";
+import type { RowTintId } from "@/lib/prefs/rowTint";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
 
 const GITHUB_URL = "https://github.com/tommie-jp/qr-note";

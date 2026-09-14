@@ -3,7 +3,7 @@
 import { ContinuousIcon, PagedIcon } from "@/components/icons";
 import { PressTip } from "@/components/PressTip";
 import { ACTION_LINK_CLASS } from "@/components/ui";
-import { setNotePagerPaged, useNotePagerPaged } from "@/lib/notePagerPref";
+import { setNotePagerPaged, useNotePagerPaged } from "@/lib/prefs/notePager";
 
 // ページ送り / 通し表示の切り替え (docs/82-ノート操作アイコン計画.md §3)。
 //
@@ -27,7 +27,7 @@ import { setNotePagerPaged, useNotePagerPaged } from "@/lib/notePagerPref";
 //
 // 本文 (NotePager) との間に props も context も通っていない。設定の正本は
 // localStorage (React の外) で、押した側が書き、読む側が購読する
-// (lib/notePagerPref.ts)。
+// (lib/prefs/notePager.ts)。
 export function NotePageModeToggle() {
   const paged = useNotePagerPaged();
 

@@ -28,7 +28,7 @@ test('検索一覧は並び順・表示モード・ペイン構成を cookie か
   expect(prefs).toEqual({ sort: 'accessed', view: 'card', paneMode: '3' })
 })
 
-// 共有されたリンクを開いた人に、自分の好みを混ぜて見せない (sortMode.ts)
+// 共有されたリンクを開いた人に、自分の好みを混ぜて見せない (prefs/sortMode.ts)
 test('検索一覧の並び順は URL の指定を cookie より優先する', () => {
   // Arrange
   const cookieStore = cookieStoreOf({ sort: 'accessed' })

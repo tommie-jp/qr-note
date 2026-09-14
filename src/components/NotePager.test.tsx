@@ -8,7 +8,7 @@ import {
 } from "./NotePager";
 
 // サーバ描画では設定 (localStorage) を読みようがないので、必ず既定 =
-// ページ送りありで描かれる (lib/notePagerPref.ts の useNotePagerPaged)
+// ページ送りありで描かれる (lib/prefs/notePager.ts の useNotePagerPaged)
 const render = (names: string[]) =>
   renderToStaticMarkup(
     <NotePager

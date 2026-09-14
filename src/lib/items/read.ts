@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 import type { Item } from '@/generated/prisma/client'
 import { firstUnusedNo, MIN_ITEM_NO } from '@/lib/itemNo'
-import { orderByClause } from '@/lib/sortOrder'
+import { orderByClause } from '@/lib/prefs/sortOrder'
 import type { Sort } from '@/lib/validation'
 import { buildNeighborsWhere, termCondition } from './where'
 
@@ -129,7 +129,7 @@ export async function findListNeighbors(
   sort: Sort,
   itemNo: string,
 ): Promise<ListNeighbors> {
-  // 並び順は sortOrder.ts の定数のみ (buildOrderBy と同じ理由で raw に通せる)。
+  // 並び順は prefs/sortOrder.ts の定数のみ (buildOrderBy と同じ理由で raw に通せる)。
   // WINDOW 句で 1 度だけ書き、lag と lead が必ず同じ並びを見るようにする
   const rows = await prisma.$queryRaw<ListNeighbors[]>`
     WITH ordered AS (

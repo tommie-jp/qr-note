@@ -4,8 +4,8 @@ import pkg from "../../../package.json";
 import { AppHeaderMenu } from "@/components/chrome/AppHeaderMenu";
 import { HistoryNav } from "@/components/HistoryNav";
 import { PaneModeButton } from "@/components/PaneModeButton";
-import type { PaneMode } from "@/lib/paneMode";
-import type { RowTintId } from "@/lib/rowTint";
+import type { PaneMode } from "@/lib/prefs/paneMode";
+import type { RowTintId } from "@/lib/prefs/rowTint";
 import { SITE_NAME } from "@/lib/site";
 
 interface AppHeaderProps {

@@ -5,7 +5,7 @@ import {
   NOTE_PAGER_STORAGE_KEY,
   parseNotePagerPref,
   saveNotePagerPref,
-} from './notePagerPref'
+} from './notePager'
 
 // 読み書きだけの偽 Storage (localStorage の全機能は要らない)
 const fakeStorage = (initial: Record<string, string> = {}) => {

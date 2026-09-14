@@ -1,8 +1,8 @@
 // 並び順の「種別」と「方向」の出し入れ (docs/64-並び順逆順計画.md)。
 //
 // Sort は 8 値の文字列だが、UI もラベルも「種別 4 つ × 方向 2 つ」で考える。
-// その畳み込みをここに 1 箇所だけ置く。SQL 側 (sortOrder.ts) と cookie 側
-// (sortMode.ts) は 8 値をそのまま扱うので、この表を見るのは UI だけ。
+// その畳み込みをここに 1 箇所だけ置く。SQL 側 (prefs/sortOrder.ts) と cookie 側
+// (prefs/sortMode.ts) は 8 値をそのまま扱うので、この表を見るのは UI だけ。
 //
 // **逆順を「もう一度押す」に載せる**のがこの設計の理由 —
 // メニューに 8 行並べると、選ぶ前に読む量が倍になる。種別を選ぶ 4 行のまま、
@@ -15,10 +15,10 @@ import {
   type TrashSort,
   type TrashSortBase,
   TRASH_SORTS,
-} from './validation'
+} from '../validation'
 
 // メニューに並べる種別の順。**短いタップの循環もこの並びから作る**
-// (cycle.ts の cycleOf) ので、メニューの上下と辿る順が食い違わない。
+// (prefs/cycle.ts の cycleOf) ので、メニューの上下と辿る順が食い違わない。
 // よく使う 2 つ (更新順・アクセス順) を隣どうしに置いたまま、後から足した
 // タイトル順を末尾に付けてある
 export const SORT_BASES: readonly SortBase[] = [
@@ -74,7 +74,7 @@ export function reverseOf(sort: Sort): Sort {
 //
 // **既定の向きは種別で違う** — 日時は「新しい順」つまり降順が既定で、
 // 番号とタイトルは昇順が既定。逆順かどうかだけでは矢印は描けない。
-// SQL 側 (sortOrder.ts) の ORDER BY と必ず一致させる (sortDirection.test.ts
+// SQL 側 (prefs/sortOrder.ts) の ORDER BY と必ず一致させる (prefs/sortDirection.test.ts
 // が両方を突き合わせている)
 const DESCENDING_BY_DEFAULT: Record<SortBase, boolean> = {
   updated: true,
@@ -93,7 +93,7 @@ export function isDescending(sort: Sort): boolean {
 //
 // Object.fromEntries は string の表しか返せないため、ここで 1 度だけ
 // Record<Sort, V> と名乗る。元が SORTS なので鍵は 8 値ちょうど
-// (sortDirection.test.ts が鍵の集合を照合している)
+// (prefs/sortDirection.test.ts が鍵の集合を照合している)
 export function bySort<V>(of: (sort: Sort) => V): Record<Sort, V> {
   return Object.fromEntries(SORTS.map((sort) => [sort, of(sort)])) as Record<
     Sort,

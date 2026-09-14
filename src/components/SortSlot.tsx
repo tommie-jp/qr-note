@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import { BarSlot } from "@/components/BarSlot";
 import { SortAscIcon, SortDescIcon, SortIcon } from "@/components/icons";
-import { cycleOf } from "@/lib/cycle";
-import type { SortSpec } from "@/lib/sortDirection";
-import { SORT_BASE_LABEL, SORT_DIRECTION_LABEL } from "@/lib/sortLabels";
+import { cycleOf } from "@/lib/prefs/cycle";
+import type { SortSpec } from "@/lib/prefs/sortDirection";
+import { SORT_BASE_LABEL, SORT_DIRECTION_LABEL } from "@/lib/prefs/sortLabels";
 import type { TrashSortBase } from "@/lib/validation";
 
 const SORT_COLOR = "text-amber-600";
@@ -32,7 +32,7 @@ interface SortSlotProps<S extends string, B extends TrashSortBase & S> {
   sort: S;
   // 並び順を cookie に覚えて遷移するサーバーアクション
   action: (formData: FormData) => void | Promise<void>;
-  // cookie 名。検索一覧とゴミ箱で別々に覚える (src/lib/sortMode.ts)
+  // cookie 名。検索一覧とゴミ箱で別々に覚える (src/lib/prefs/sortMode.ts)
   cookieName: string;
   // フォームで持ち回す hidden (検索一覧の検索語)。ゴミ箱には無い
   hidden?: ReactNode;
@@ -47,7 +47,7 @@ interface SortSlotProps<S extends string, B extends TrashSortBase & S> {
 //
 // **リンクではなくフォームなのは cookie に覚えるため** — リンクだと URL しか
 // 変わらず、`?sort=` を持たない入口から入るたびに既定へ戻っていた
-// (src/lib/sortMode.ts)。アクション側が cookie を書いてから `?sort=` 付きの
+// (src/lib/prefs/sortMode.ts)。アクション側が cookie を書いてから `?sort=` 付きの
 // URL へ redirect するので、URL が正なのは変わらない。
 //
 // **逆順は行を増やさない** (docs/64-並び順逆順計画.md)。8 行のメニューと

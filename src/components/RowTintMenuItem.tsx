@@ -8,7 +8,7 @@ import {
   ROW_TINTS,
   type RowTint,
   type RowTintId,
-} from "@/lib/rowTint";
+} from "@/lib/prefs/rowTint";
 
 // ハンバーガーメニューの「選択色」(docs/88-選択行の色計画.md §3)。
 //

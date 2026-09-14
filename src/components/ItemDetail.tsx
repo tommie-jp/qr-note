@@ -13,7 +13,7 @@ import { getItem } from "@/lib/items/read";
 import {
   resolveItemListContext,
   type ItemListContext,
-} from "@/lib/itemListContext";
+} from "@/lib/prefs/itemListContext";
 import { isPublicItem } from "@/lib/auth/publicItem";
 import { buildItemUrl } from "@/lib/searchUrl";
 import { currentUser } from "@/lib/auth/session";

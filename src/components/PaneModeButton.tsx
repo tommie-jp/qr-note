@@ -8,7 +8,7 @@ import {
   parsePaneMode,
   PANE_MODE_COOKIE,
   type PaneMode,
-} from "@/lib/paneMode";
+} from "@/lib/prefs/paneMode";
 
 // ヘッダーのペイン構成ボタン (docs/86 §4-4)。押すと 3 → 2 → 1 → 3 と循環する。
 //

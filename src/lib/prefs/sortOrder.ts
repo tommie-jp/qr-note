@@ -14,7 +14,7 @@
 //   削除順      … ゴミ箱だけの並び (docs/67-ゴミ箱表示形式計画.md)。あちらの
 //                 既定。検索一覧では deleted_at が必ず null なので出てこない
 
-import type { TrashSort } from './validation'
+import type { TrashSort } from '../validation'
 
 // **どの並びも item_no で決着させる**のが要点。同時刻の行 (インポート直後など)
 // で並びが不定になると、ページ送りと前後ナビが読み込みのたびに揺れる

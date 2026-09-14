@@ -8,7 +8,7 @@
 // インラインスクリプト — テキストサイズ (docs/61) と同じ作り。サーバは
 // 寸法を知らないので、この 2 つだけで完結する。
 
-import { makeCssVarInitScript } from "./prefs/cssVarInitScript";
+import { makeCssVarInitScript } from "./cssVarInitScript";
 
 // 動かせる境界。**単位・既定・上下限・刻みは必ずこの表 1 つで持つ**
 // (NotePreviewFrame の FRAME と同じ判断)。CSS 変数の綴りもここが正本で、

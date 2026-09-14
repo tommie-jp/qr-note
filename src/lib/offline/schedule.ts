@@ -30,7 +30,7 @@ export const LAST_WARM_VERSION_KEY = 'qr-search:offline-warmed-version'
 // 前回の試行時刻 (localStorage の生の値) を見て、いま同期すべきかを返す。
 //
 // **読めない値と未来の値は「同期する」に倒す。** localStorage は手で編集
-// できる外部入力で (memoDraft.ts と同じ扱い)、変な値を信じると同期が永久に
+// できる外部入力で (prefs/memoDraft.ts と同じ扱い)、変な値を信じると同期が永久に
 // 止まる — 圏外で開いて初めて気づく壊れ方になる。余分に 1 回撃つほうが安い。
 export function shouldAutoSync(
   lastAttempt: string | null,

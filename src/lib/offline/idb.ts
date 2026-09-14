@@ -116,7 +116,7 @@ async function withStore<T>(
 }
 
 // 保存が無ければ undefined。**読み直した値は外部入力として検算すること**
-// (memoDraft.ts と同じ流儀) — 古い版のアプリが書いた形が残っていることがある
+// (prefs/memoDraft.ts と同じ流儀) — 古い版のアプリが書いた形が残っていることがある
 export function getRecord(name: OfflineStore, key: string): Promise<unknown> {
   return withStore(name, 'readonly', (store) => promisify<unknown>(store.get(key)))
 }

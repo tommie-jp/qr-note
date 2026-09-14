@@ -7,10 +7,10 @@ import { SlotIcon } from "@/components/SlotIcon";
 import { SortSlot } from "@/components/SortSlot";
 import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
 import { ViewSlot } from "@/components/ViewSlot";
-import { SEARCH_SORT_SPEC } from "@/lib/sortDirection";
-import { SORT_COOKIE } from "@/lib/sortMode";
+import { SEARCH_SORT_SPEC } from "@/lib/prefs/sortDirection";
+import { SORT_COOKIE } from "@/lib/prefs/sortMode";
 import type { Sort } from "@/lib/validation";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 
 // cookie を書くサーバーアクション。db.ts を巻き込まないよう prop で受ける
 // (BottomActionBar と同じ理由)

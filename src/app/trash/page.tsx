@@ -16,9 +16,9 @@ import { loadCircuitThumbs } from "@/lib/circuit/thumbs";
 import { listTrashedItems } from "@/lib/items/trash";
 import { buildMathTexts } from "@/lib/markdown/mathText";
 import { buildNotePreviews } from "@/components/NotePreviewThumb";
-import { readTrashPrefs } from "@/lib/searchPrefs";
+import { readTrashPrefs } from "@/lib/prefs/searchPrefs";
 import { requireUser } from "@/lib/auth/session";
-import { usesWideResults } from "@/lib/viewMode";
+import { usesWideResults } from "@/lib/prefs/viewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ interface TrashPageProps {
 // 表示形式と並び順は検索一覧と同じ作法で決める (docs/67-ゴミ箱表示形式計画.md):
 //   表示形式 … cookie 1 つを検索一覧と共有 (端末ごとの好み)
 //   並び順   … URL → ゴミ箱用 cookie → 既定 (削除順)
-// (読み方は lib/searchPrefs.ts の readTrashPrefs)
+// (読み方は lib/prefs/searchPrefs.ts の readTrashPrefs)
 //
 // proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
 // 唯一の砦にはしない (docs/18 §4)。ここでも requireUser() で確かめる。

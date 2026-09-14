@@ -197,7 +197,8 @@ OpenCV の行列に展開される。上限を超えると WebKit がタブご�
 3. **backend を wasm に固定**: iOS WebKit の WebGPU という変数を消す。
    画像検索 embedder の「WASM が基準性能」方針に合わせる
 
-加えて**下書き保護** (`src/lib/memoDraft.ts` + `MemoEditor`): 編集中の本文を
+加えて**下書き保護** (`src/lib/memoDraft.ts` (当時のパス。現在は `src/lib/prefs/memoDraft.ts`) +
+`MemoEditor`): 編集中の本文を
 localStorage に退避 (400ms debounce、ノートごとに `draftKey` = itemNo)。
 再訪時にサーバ値と食い違う下書きがあれば復元して知らせ、「下書きを破棄」で
 保存済みの本文に戻せる。保存が成功すると次回訪問時に下書きは自動で掃除される。

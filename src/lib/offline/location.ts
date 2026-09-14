@@ -49,7 +49,7 @@ export function serverLocationSearch(): string {
 //
 // オンラインの一覧で選んだ並びをそのまま使い、この画面には並び替えの UI を
 // 置かない — 圏外で要るのは「探して読む」であって、並びの調整ではない。
-// 値は利用者が書き換えられる外部入力なので parseSort で畳む (sortMode.ts と同じ)。
+// 値は利用者が書き換えられる外部入力なので parseSort で畳む (prefs/sortMode.ts と同じ)。
 export function readSortCookie(): Sort {
   const match = /(?:^|;\s*)sort=([^;]*)/.exec(document.cookie)
   return parseSort(match ? decodeURIComponent(match[1]) : undefined)

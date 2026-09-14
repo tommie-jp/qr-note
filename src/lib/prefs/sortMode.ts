@@ -6,12 +6,12 @@
 //   それも無ければ既定 (更新順)
 //
 // なぜ cookie を足したか — 当初は「並び順は『何を見ているか』だから URL が正」
-// と決めて URL だけに置いていた (viewMode.ts の対比コメント)。ところが
+// と決めて URL だけに置いていた (prefs/viewMode.ts の対比コメント)。ところが
 // `?sort=` を持たない入口が 4 つあり、そこから入るたびに既定へ戻っていた:
 //
 //   ヘッダーの「QR Note」/ 検索フォームの送信 / スキャン結果 / タグリンク
 //
-// **これは viewMode.ts が cookie を選んだ理由として挙げていた
+// **これは prefs/viewMode.ts が cookie を選んだ理由として挙げていた
 // 「スキャンやタグリンクで入るたびに既定へ戻る」そのもの**。並び順、とくに
 // アクセス順は「最近見た順で探したい」という持続する好みなので、
 // 表示モードと同じく覚えているのが期待どおり。
@@ -22,7 +22,7 @@
 // cookie ならサーバコンポーネントが描画前に読めるので、初回描画から正しい
 // 並びで出る (localStorage だと一度描いてから跳ねる)。
 
-import { parseSort, parseTrashSort, type Sort, type TrashSort } from './validation'
+import { parseSort, parseTrashSort, type Sort, type TrashSort } from '../validation'
 
 export const SORT_COOKIE = 'sort'
 

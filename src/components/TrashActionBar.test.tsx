@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { TrashSort } from "@/lib/validation";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 import { TrashActionBar } from "./TrashActionBar";
 
 const noop = () => {};
@@ -47,7 +47,7 @@ test("表示の切替は検索一覧と同じ cookie に書く", () => {
 });
 
 // 並び順は別 cookie。混ぜると、検索側が知らない「削除順」を既定へ倒すので
-// ゴミ箱を開くたびに検索の並びが巻き戻る (src/lib/sortMode.ts)
+// ゴミ箱を開くたびに検索の並びが巻き戻る (src/lib/prefs/sortMode.ts)
 test("並び順はゴミ箱専用の cookie 名で送る", () => {
   const html = render();
   expect(html).toContain('name="trashSort"');

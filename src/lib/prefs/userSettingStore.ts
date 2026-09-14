@@ -5,13 +5,13 @@
 // 同じ流儀)。
 //
 // **意味づけは持たない。** 値は文字列で出し入れするだけで、既定値も妥当性も
-// 設定ごとの module (rowTint.ts など) が決める。ここに設定名を並べ始めると、
+// 設定ごとの module (prefs/rowTint.ts など) が決める。ここに設定名を並べ始めると、
 // 設定を 1 つ足すたびに 2 か所を直すことになる。
 //
 // **サーバ専用。** prisma を掴むので、クライアント部品から import しないこと
 
 import 'server-only'
-import { prisma } from './db'
+import { prisma } from '../db'
 
 export async function readUserSetting(
   userName: string,

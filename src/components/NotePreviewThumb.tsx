@@ -45,7 +45,7 @@ import {
 import { firstPageSource } from "@/components/notePages";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
 import { isValidImageName } from "@/lib/uploads/names";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 import "katex/dist/katex.min.css";
 
 // itemNo → 描画済みプレビュー。サーバ (page.tsx) が作り、client 境界を

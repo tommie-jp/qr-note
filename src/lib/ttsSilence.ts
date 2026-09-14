@@ -13,7 +13,7 @@
 // のに読み上げだけ無音」という自力では気づきにくい形になる。
 //
 // 聞こえている人には無用なので、**消せる**ようにして端末に覚える
-// (livePreviewPref.ts と同じ流儀で、Storage は引数で受ける純関数にする)。
+// (prefs/livePreview.ts と同じ流儀で、Storage は引数で受ける純関数にする)。
 
 import 'client-only'
 import { defineBooleanPref, type PrefStorage } from './prefs/storagePref'

@@ -3,7 +3,7 @@
 import type { Compartment } from "@codemirror/state";
 import { useState } from "react";
 import { livePreviewContent } from "@/components/editor/livePreview";
-import { loadLivePreviewPref, saveLivePreviewPref } from "@/lib/livePreviewPref";
+import { loadLivePreviewPref, saveLivePreviewPref } from "@/lib/prefs/livePreview";
 import { browserStorage } from "@/lib/prefs/storagePref";
 import type { EditorRef } from "./types";
 

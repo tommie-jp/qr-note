@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Sort } from "@/lib/validation";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 import { ResultsToolbar } from "./ResultsToolbar";
 import { SelectModeProvider } from "./SelectModeProvider";
 
@@ -65,7 +65,7 @@ test("画像表示の次は小に戻る (循環の最後の辺)", () => {
 // 並び順は 更新順 → アクセス順 → 番号順 → タイトル順 の 4 値循環
 // (docs/37-アクセス順計画.md、docs/63-タイトル順計画.md)。表示モードと同じ形。
 // **リンクではなくフォーム送信**にしてあるのは cookie に覚えるため
-// (src/lib/sortMode.ts)。value は循環の次の並び
+// (src/lib/prefs/sortMode.ts)。value は循環の次の並び
 test("更新順の次はアクセス順", () => {
   const html = render("compact", "updated", "npn");
   expect(html).toContain(">更新順<");

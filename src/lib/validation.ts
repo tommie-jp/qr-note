@@ -59,7 +59,7 @@ export type ReversedSort = 'itemNoDesc' | 'updatedAsc' | 'accessedAsc' | 'titleD
 export type Sort = SortBase | ReversedSort
 
 // 妥当な並びをすべて並べた表。parseSort の判定と、UI 側が 8 値ぶんの
-// 表を組み立てるときの元になる (lib/sortDirection.ts の bySort)
+// 表を組み立てるときの元になる (lib/prefs/sortDirection.ts の bySort)
 export const SORTS: readonly Sort[] = [
   'updated',
   'accessed',

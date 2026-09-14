@@ -8,8 +8,8 @@ import {
   ListDetailViewIcon,
   ListViewIcon,
 } from "@/components/icons";
-import { cycleOf } from "@/lib/cycle";
-import { VIEW_MODES, VIEW_MODE_COOKIE, type ViewMode } from "@/lib/viewMode";
+import { cycleOf } from "@/lib/prefs/cycle";
+import { VIEW_MODES, VIEW_MODE_COOKIE, type ViewMode } from "@/lib/prefs/viewMode";
 
 // 表示は 小→大→画像 の 3 値を 1 スロットで循環するトグル (docs/32 §3)。
 // セグメントにはしない。ラベルには**現在の値**を出す — ViewModeToggle が

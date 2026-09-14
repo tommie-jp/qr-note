@@ -8,10 +8,10 @@ import {
   BOTTOM_BAR_SPACER_CLASS,
 } from "@/components/ui";
 import { ViewSlot } from "@/components/ViewSlot";
-import { TRASH_SORT_SPEC } from "@/lib/sortDirection";
-import { TRASH_SORT_COOKIE } from "@/lib/sortMode";
+import { TRASH_SORT_SPEC } from "@/lib/prefs/sortDirection";
+import { TRASH_SORT_COOKIE } from "@/lib/prefs/sortMode";
 import type { TrashSort } from "@/lib/validation";
-import type { ViewMode } from "@/lib/viewMode";
+import type { ViewMode } from "@/lib/prefs/viewMode";
 
 type SlotAction = (formData: FormData) => void | Promise<void>;
 
