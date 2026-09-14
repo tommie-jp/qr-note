@@ -5,7 +5,7 @@ import type { Item } from "@/generated/prisma/client";
 // (offline/circuits.ts と同じ線引き)
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
-import { allImageNames, thumbUrl } from "@/lib/memoImages";
+import { allImageNames, thumbUrl } from "@/lib/images/memoImages";
 import { memoSummary } from "@/lib/markdown/memoSummary";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { CircuitThumb } from "./CircuitThumb";
@@ -92,7 +92,7 @@ export function ImageMasonry({
   return (
     // 行優先で埋まる Grid (1,2 / 3,4 / 5,6)。列数は指定せず、列幅 10rem を
     // 基準に画面が決める — card グリッド (docs/23 §1) と同じ auto-fill 思想。
-    // 10rem はサムネ (長辺 320px, thumbnail.ts) が 2x DPR でほぼ等倍になる幅。
+    // 10rem はサムネ (長辺 320px, images/thumbnail.ts) が 2x DPR でほぼ等倍になる幅。
     // min(10rem,100%) は必須 — 器が 10rem より狭い端末で列が広がり横スクロール
     // が出るのを防ぐ (card で踏んだのと同じ罠)
     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(10rem,100%),1fr))] gap-2">

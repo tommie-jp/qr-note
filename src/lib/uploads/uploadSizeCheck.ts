@@ -19,7 +19,7 @@
 // サーバの 400 (uploads/limits.ts の tooLargeMessage) が断り、デモのエッジ上限は
 // 3MB あるのでその JSON はちゃんと届く。
 
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, megabytesLabel } from './uploads/limits'
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, megabytesLabel } from './limits'
 
 // 送る前に当てる 1 ファイルの上限。動画だけ別枠で大きいのはサーバと同じ
 // (uploads/limits.ts の MAX_VIDEO_BYTES / MAX_IMAGE_BYTES がそのまま正本)。

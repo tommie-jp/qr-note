@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { attachmentChip } from './attachmentChip'
 import { thumbUrl } from './memoImages'
-import { DEFAULT_SECRET_LABEL } from './secret/secrets'
+import { DEFAULT_SECRET_LABEL } from '../secret/secrets'
 
 // このチップが要るのは、ライブプレビューが画像記法の生文字を隠すから
-// (attachmentChip.ts の冒頭)。**種別ごとに正しく出し分かること**と、
+// (images/attachmentChip.ts の冒頭)。**種別ごとに正しく出し分かること**と、
 // **シークレットを取りに行かないこと**が要点。
 
 // シークレットの保存名はサーバが振った UUID だけ (secret/secrets.ts の
@@ -81,7 +81,7 @@ describe('attachmentChip', () => {
   })
 
   test('alt の幅記法はラベルから剥がす', () => {
-    // `![図|200](url)` の 200 は表示幅の指定 (altWidth.ts)。剥がさないと
+    // `![図|200](url)` の 200 は表示幅の指定 (images/altWidth.ts)。剥がさないと
     // チップに「図|200」と出る。閲覧・一覧プレビューは既に剥がしている
     expect(attachmentChip(IMAGE_SRC, '回路図|200').label).toBe('回路図')
     expect(attachmentChip('/api/images/abc.pdf', '仕様書|80').label).toBe(

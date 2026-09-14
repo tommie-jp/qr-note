@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-// demoQuota は @/lib/db (prisma) と @/lib/imageStore (SUM) を引く。どちらも
+// demoQuota は @/lib/db (prisma) と @/lib/images/imageStore (SUM) を引く。どちらも
 // 差し替えて、判定の分岐だけを実 DB なしで確かめる。値はテストから制御する
 const mocks = vi.hoisted(() => ({
   existingItem: null as { itemNo: string } | null,
@@ -17,7 +17,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/imageStore', () => ({
+vi.mock('@/lib/images/imageStore', () => ({
   totalAttachmentBytes: async () => mocks.totalBytes,
 }))
 

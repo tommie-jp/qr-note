@@ -4,13 +4,13 @@
 // (memoImages・attachmentChip) などクライアントからも読むので、バイト列の判定
 // (sniff/) から切り離して軽く保つ。**sniff/ を import しない** (向きは sniff → names)。
 
-import { AUDIO_EXTENSION_ALTERNATION } from '../audioFormats'
+import { AUDIO_EXTENSION_ALTERNATION } from '../audio/audioFormats'
 import {
   TEXT_EXTENSION_ALTERNATION,
   TEXT_EXTENSIONS,
   type TextFormat,
-} from '../textFormats'
-import { VIDEO_EXTENSION_ALTERNATION } from '../videoFormats'
+} from '../text/textFormats'
+import { VIDEO_EXTENSION_ALTERNATION } from '../video/videoFormats'
 
 // 保存できる画像形式 (final mime) → 拡張子。
 // これは「そのまま DB に保存できる = ブラウザが表示できる」形式の表。
@@ -30,7 +30,7 @@ const MIME_TO_EXT: Record<string, string> = {
 // 画像・音声・動画・PDF・テキストの 5 種がすべてこの形で、違うのは拡張子だけ。
 //
 // extAlternation は "png|jpg" のような選択肢をそのまま埋める。拡張子は英数字
-// だけなので正規表現のエスケープは要らない (audioFormats.ts などと同じ前提)。
+// だけなので正規表現のエスケープは要らない (audio/audioFormats.ts などと同じ前提)。
 // UUID は小文字だけを許す (サーバが生成する形そのもの)
 export function uuidNamePattern(extAlternation: string): RegExp {
   return new RegExp(
@@ -133,7 +133,7 @@ export function isValidPdfName(name: string): boolean {
 // --- テキスト系 (41-QR-search/docs/12-添付ファイル種類拡張メモ.md) ---
 //
 // 配信 mime に charset を含めるのは、保存時に必ず UTF-8 へ正規化しているから
-// (normalizeText.ts)。表示側が文字コードを推測する必要が無くなる。
+// (text/normalizeText.ts)。表示側が文字コードを推測する必要が無くなる。
 // 保存する mime / ext を名前から決める側は sniff/text.ts の textSaveInfo。
 export const TEXT_FORMAT_TO_MIME: Record<TextFormat, string> = {
   txt: 'text/plain; charset=utf-8',

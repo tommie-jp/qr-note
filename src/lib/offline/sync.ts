@@ -13,7 +13,7 @@
 
 import 'client-only'
 import { envelopeData } from '@/lib/api/envelope'
-import { firstThumbInfo, thumbUrl } from '@/lib/memoImages'
+import { firstThumbInfo, thumbUrl } from '@/lib/images/memoImages'
 import { saveOfflineSnapshot } from './snapshotDb'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'
 

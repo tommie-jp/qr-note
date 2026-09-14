@@ -6,7 +6,7 @@
 // 目立ちすぎる。だから色を選べるようにする。
 //
 // **このファイルはクライアントからも import される。** prisma や next/headers
-// を持ち込まないこと (読み書きは prefs/rowTintStore.ts。thumbnail.ts で sharp を
+// を持ち込まないこと (読み書きは prefs/rowTintStore.ts。images/thumbnail.ts で sharp を
 // クライアントへ漏らしたのと同じ罠)。
 //
 // 効かせ方は CSS 変数 3 つ。文字サイズ (prefs/noteFontScale.ts) と同じ流儀で

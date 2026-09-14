@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { uploadSizeLimit, uploadTooLargeMessage } from './uploadSizeCheck'
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './uploads/limits'
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from './limits'
 
 function fileLike(name: string, megabytes: number): { name: string; size: number } {
   return { name, size: Math.round(megabytes * 1024 * 1024) }

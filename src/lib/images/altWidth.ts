@@ -4,7 +4,7 @@
 // (markdownPipeline.tsx) は Server Component 用の入れ物で、react-markdown・
 // rehype-katex・remark 一式を抱えている。編集画面 (client) の添付チップが
 // そこから import すると、その一式が丸ごとブラウザへ降ってくる
-// (classifyImgSrc を imgSrcKind.ts へ移したのと同じ事情。docs/70 §5)。
+// (classifyImgSrc を images/imgSrcKind.ts へ移したのと同じ事情。docs/70 §5)。
 //
 // 剥がす規則を 1 か所に置くのが要点。閲覧 (MarkdownView)・一覧プレビュー
 // (NotePreviewThumb)・編集チップ (attachmentChip) の 3 か所が同じ alt を

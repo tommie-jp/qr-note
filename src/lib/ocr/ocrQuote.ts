@@ -10,11 +10,11 @@
 // OCR 由来だと一目で分かり、直しやすく、引用でも全文検索は普通に効く。
 // ここは純粋なテキスト整形だけを持つ (DOM も CodeMirror も触らない)。
 
-import { AUDIO_EXTENSION_ALTERNATION } from '../audioFormats'
-import { TEXT_EXTENSION_ALTERNATION } from '../textFormats'
+import { AUDIO_EXTENSION_ALTERNATION } from '../audio/audioFormats'
+import { TEXT_EXTENSION_ALTERNATION } from '../text/textFormats'
 import { normalizeToJapanese } from './normalizeJapanese'
 
-// 画像記法 `![alt](url)` を捕捉する (memoImages.ts と同じ規則)。
+// 画像記法 `![alt](url)` を捕捉する (images/memoImages.ts と同じ規則)。
 const IMAGE_SYNTAX = /!\[[^\]]*\]\(([^)\s]+)\)/g
 
 // 自前の画像だけを OCR 対象にする。外部画像は fetch できるとは限らず、

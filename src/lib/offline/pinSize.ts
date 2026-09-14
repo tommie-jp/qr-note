@@ -14,7 +14,7 @@
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/db'
-import { allAttachments } from '@/lib/memoImages'
+import { allAttachments } from '@/lib/images/memoImages'
 import { allSecretNames } from '@/lib/secret/secrets'
 
 interface SizeRow {

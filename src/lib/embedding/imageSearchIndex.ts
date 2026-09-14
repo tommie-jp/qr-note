@@ -2,15 +2,15 @@
 //
 // ゴミ箱を除く全ノートの本文から自前画像を列挙し、埋め込み済みのものだけを
 // 集めてクライアントへ渡す。クライアントはこれをカメラフレームのベクトルと
-// 総当たりで突き合わせる (照合ロジックは imageSearch.ts)。
+// 総当たりで突き合わせる (照合ロジックは embedding/imageSearch.ts)。
 //
 // 埋め込みは生バイト列を base64 にして運ぶ (JSON に数値配列で入れるより小さい)。
 // 1 枚 384 次元 × 4 バイト = 1536 バイト → base64 で約 2KB。千枚でも約 2MB。
 
 import 'server-only'
-import { prisma } from './db'
-import { allImageNames } from './memoImages'
-import { memoSummary } from './markdown/memoSummary'
+import { prisma } from '../db'
+import { allImageNames } from '../images/memoImages'
+import { memoSummary } from '../markdown/memoSummary'
 
 export interface ImageSearchIndexEntry {
   itemNo: string

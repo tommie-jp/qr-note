@@ -5,7 +5,7 @@ import {
   clipboardFileName,
   clipboardReadErrorMessage,
   pickClipboardEntry,
-} from "@/lib/clipboardRead";
+} from "@/lib/clipboard/clipboardRead";
 import { insertText } from "@/lib/editor/cmDoc";
 import type { InsertFiles } from "./useAttachmentInsert";
 import type { EditorRef, SetEditorError } from "./types";
@@ -34,7 +34,7 @@ export function useEditorClipboard({
   const [clipboardBusy, setClipboardBusy] = useState(false);
 
   // **read() は同期のうちに呼ぶ。** 先に await を挟むとユーザー操作の扱いが
-  // 切れ、NotAllowedError で弾かれる (shareFile.ts の transient activation と
+  // 切れ、NotAllowedError で弾かれる (clipboard/shareFile.ts の transient activation と
   // 同じ話)。iOS はここで「ペースト」の吹き出しを出し、そのタップが許可になる。
   //
   // 画像が無ければ文字を入れる — コピーしたものが画像でも文字でも、押す

@@ -1,6 +1,6 @@
 // 受け付けるテキスト形式の**唯一の出どころ** (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。
 //
-// audioFormats.ts と同じ役割。この一覧は判定・保存名・表示・OCR 除外・
+// audio/audioFormats.ts と同じ役割。この一覧は判定・保存名・表示・OCR 除外・
 // ファイル選択と 5 か所で要り、**足し忘れは例外にならず黙って壊れる**
 // (その形式だけビューアに振り分かない・OCR に回ってしまう) ため 1 つにまとめる。
 //
@@ -9,7 +9,7 @@
 // 拡張子をここに限り、text/plain 系 + nosniff で配る**ことで、
 // スクリプトとして解釈される経路そのものを塞いでいる (uploads/sniff/text.ts の textSaveInfo)。
 
-import { defineFormats } from './defineFormats'
+import { defineFormats } from '../defineFormats'
 
 const FORMATS = defineFormats(['txt', 'csv', 'md'] as const)
 

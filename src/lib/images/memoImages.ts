@@ -8,8 +8,8 @@
 // 遅くなったら tags / props と同じく「保存時に計算する派生キャッシュ列」へ
 // 移せる (そのときもこの関数が正本の抽出規則として残る)。
 
-import { stripCode } from './markdown/tags/tags'
-import { isValidAttachmentName, isValidImageName, isValidVideoName } from './uploads/names'
+import { stripCode } from '../markdown/tags/tags'
+import { isValidAttachmentName, isValidImageName, isValidVideoName } from '../uploads/names'
 
 // Markdown の画像記法 `![alt](url)` の url を捕捉する。
 // リンク記法 `[text](url)` は先頭の `!` が無いので外れる — 貼った画像ではなく
@@ -151,7 +151,7 @@ export function allImageNames(memo: string): string[] {
   return [...seen]
 }
 
-// サムネ生成パラメータ (thumbnail.ts) の版。パラメータを変えたら上げる。
+// サムネ生成パラメータ (images/thumbnail.ts) の版。パラメータを変えたら上げる。
 //
 // ?thumb=1 は 1 年 immutable でブラウザに焼かれる (route.ts の IMMUTABLE_CACHE)
 // ため、DB の thumb を作り直しても URL が同じだと閲覧者には旧サムネが残る。

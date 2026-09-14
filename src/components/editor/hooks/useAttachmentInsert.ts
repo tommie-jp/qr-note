@@ -16,8 +16,8 @@ import {
 import { insertText, replaceToken } from "@/lib/editor/cmDoc";
 import { errorText } from "@/lib/errorMessage";
 import type { UploadProgress } from "@/lib/progressLabels";
-import { canShrink, shrinkImageFile } from "@/lib/shrinkImage";
-import { uploadTooLargeMessage } from "@/lib/uploadSizeCheck";
+import { canShrink, shrinkImageFile } from "@/lib/images/shrinkImage";
+import { uploadTooLargeMessage } from "@/lib/uploads/uploadSizeCheck";
 import { makeVideoThumbs } from "@/lib/video/videoPoster";
 import type { EditorOcr } from "./useEditorOcr";
 import type { EditorRef, SetEditorError } from "./types";
@@ -199,7 +199,7 @@ export function useAttachmentInsert({
     try {
       // 上限超えは**送る前に**断る。送ってしまうと、エッジ (nginx / Caddy) か
       // Next.js の proxy が本文を途中で捨て、ブラウザには「通信エラー」や
-      // 見当違いの 400 しか返らない (理由は uploadSizeCheck.ts)。
+      // 見当違いの 400 しか返らない (理由は uploads/uploadSizeCheck.ts)。
       // ここで止めれば「何 MB のファイルが上限何 MB を超えた」まで言える。
       // クリップボード由来の画像だけは、断る前に縮めて送り直す (§4)
       const sending = await fitToLimit(file, options.shrinkOversized);

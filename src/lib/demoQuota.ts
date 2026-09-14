@@ -8,7 +8,7 @@ import 'server-only'
 import { isDemoMode } from './appEnv'
 import { prisma } from './db'
 import { exceedsItemQuota, exceedsUploadQuota } from './demoLimits'
-import { totalAttachmentBytes } from './imageStore'
+import { totalAttachmentBytes } from './images/imageStore'
 
 export interface QuotaRejection {
   status: number

@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from 'vitest'
 // 解凍爆弾よけの回帰テスト (security-reviewer 指摘 HIGH)。
 // heic-decode の all() をモックし、「巨大寸法を名乗るが画素は確保していない」
 // ハンドルを返させて、normalizeImage が decode() を呼ぶ前に弾くことを確かめる。
-// 実ファイルを使う変換テストは normalizeImage.test.ts 側にあり、モジュールが
+// 実ファイルを使う変換テストは images/normalizeImage.test.ts 側にあり、モジュールが
 // ファイル単位で隔離される vitest ではこのモックの影響を受けない。
 const decodeSpy = vi.fn(async () => ({
   width: 1,

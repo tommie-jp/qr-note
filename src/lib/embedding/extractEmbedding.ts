@@ -9,7 +9,7 @@
 // モデル読み込み (embedder.ts) から切り出した純関数。テンソルの中身
 // (data/dims) だけを受けるので、transformers.js 無しで単体テストできる。
 
-import { normalize } from '../imageVector'
+import { normalize } from './imageVector'
 
 export interface TensorLike {
   data: Float32Array

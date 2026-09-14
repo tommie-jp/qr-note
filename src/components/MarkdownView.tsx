@@ -29,8 +29,8 @@ import { VideoPlayer } from "./video/VideoPlayer";
 import { TextLink } from "./text/TextLink";
 import { SecretBlock } from "./secret/SecretBlock";
 import { BOX_CLASS } from "./ui";
-import { parseAltWidth } from "@/lib/altWidth";
-import { classifyImgSrc } from "@/lib/imgSrcKind";
+import { parseAltWidth } from "@/lib/images/altWidth";
+import { classifyImgSrc } from "@/lib/images/imgSrcKind";
 import { DEFAULT_SECRET_LABEL } from "@/lib/secret/secrets";
 import {
   HEALTH_LANG,

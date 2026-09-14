@@ -3,7 +3,7 @@
 // txt / csv / md。音声・PDF と同じく変換もサムネも埋め込みもせず、そのまま
 // images テーブルへ保存する。違いは 2 つだけ:
 //
-// - **中身の判定は署名ではなく「テキストとして読めるか」** (normalizeText.ts)。
+// - **中身の判定は署名ではなく「テキストとして読めるか」** (text/normalizeText.ts)。
 // - **保存する拡張子はクライアントの申告 (ファイル名) から決める。** 中身からは
 //   txt / csv / md を区別できないため。ただし申告文字列を保存名に使うのではなく、
 //   既知の 3 つ (names.ts の TEXT_FORMAT_TO_MIME) のいずれかへ**写す**だけなので、
@@ -12,7 +12,7 @@
 // 配信 mime (charset つき) と保存名の規則は names.ts が持つ
 // (docs/93-リファクタリング計画.md §4-2)。
 
-import { TEXT_EXTENSIONS, type TextFormat } from '../../textFormats'
+import { TEXT_EXTENSIONS, type TextFormat } from '../../text/textFormats'
 import { TEXT_FORMAT_TO_MIME } from '../names'
 
 // 元のファイル名から、保存に使う mime / ext を決める。txt/csv/md 以外の

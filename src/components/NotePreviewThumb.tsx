@@ -31,10 +31,10 @@ import {
   urlTransform,
 } from "./markdownPipeline";
 import type { CircuitThumbMap } from "@/lib/circuit/types";
-import { parseAltWidth } from "@/lib/altWidth";
-import { classifyImgSrc } from "@/lib/imgSrcKind";
+import { parseAltWidth } from "@/lib/images/altWidth";
+import { classifyImgSrc } from "@/lib/images/imgSrcKind";
 import { RENDERED_LANGS } from "@/lib/markdown/fenceLanguages";
-import { attachmentNameFromUrl, thumbUrl } from "@/lib/memoImages";
+import { attachmentNameFromUrl, thumbUrl } from "@/lib/images/memoImages";
 import {
   NOTE_PREVIEW_COMPACT_SOURCE_CHARS,
   NOTE_PREVIEW_MAX_ITEMS,
@@ -151,7 +151,7 @@ function previewImg({
     );
   }
   // 外部画像 (https://…) など。一覧を開くだけで外部へ要求を飛ばさない
-  // (memoImages.ts が外部画像をサムネにしないのと同じ方針)
+  // (images/memoImages.ts が外部画像をサムネにしないのと同じ方針)
   return <MediaChip icon="🖼" label={label || "画像"} />;
 }
 

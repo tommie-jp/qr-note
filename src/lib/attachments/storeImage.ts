@@ -1,8 +1,8 @@
 // storeAttachment の画像分岐 (docs/93-リファクタリング計画.md §4-5)。
 // 形式の判定と大きさの検査は store.ts が済ませてから呼ぶ。
 import 'server-only'
-import { saveImage, type SaveImageOptions } from '@/lib/imageStore'
-import { normalizeImage } from '@/lib/normalizeImage'
+import { saveImage, type SaveImageOptions } from '@/lib/images/imageStore'
+import { normalizeImage } from '@/lib/images/normalizeImage'
 import type { ImageFormat } from '@/lib/uploads/sniff/image'
 import { type AttachmentResult, succeed } from './result'
 
@@ -18,7 +18,7 @@ export async function storeImage(
   try {
     normalized = await normalizeImage(bytes, format)
   } catch (error) {
-    // 失敗は握り潰さずログに残す (thumbnail.ts と同じ流儀)。「特定の 1 枚が
+    // 失敗は握り潰さずログに残す (images/thumbnail.ts と同じ流儀)。「特定の 1 枚が
     // 壊れている」のか「HEIC 復号器が丸ごと動いていない」(alpine/musl の
     // イメージ更新後など) のかを、件数と形式で切り分けられるようにする
     console.error(

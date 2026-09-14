@@ -8,7 +8,7 @@ import {
   isShareActivationLost,
   shareFile,
   shouldOfferShare,
-} from "@/lib/shareFile";
+} from "@/lib/clipboard/shareFile";
 import { SECONDARY_BUTTON_CLASS } from "../ui";
 
 interface VideoPlayerProps {
@@ -41,7 +41,7 @@ interface VideoBytes {
 export function VideoPlayer({ src, label, width = null }: VideoPlayerProps) {
   // 共有が「唯一の出口」でありかつ実際に動く iOS でだけボタンを出す
   // (shouldOfferShare)。PC・Android はプレイヤーの ⋮ / 右クリックで保存でき、
-  // しかも Chromium は files 付き share を恒久拒否する (shareFile.ts)
+  // しかも Chromium は files 付き share を恒久拒否する (clipboard/shareFile.ts)
   const canShare = useSyncExternalStore(
     () => () => {},
     () => shouldOfferShare(),
@@ -153,7 +153,7 @@ export function VideoPlayer({ src, label, width = null }: VideoPlayerProps) {
             {phase === "retry" ? "もう一度" : "共有"}
           </button>
         ) : (
-          // iOS 以外: files 付き share は Windows で恒久拒否 (shareFile.ts) なので
+          // iOS 以外: files 付き share は Windows で恒久拒否 (clipboard/shareFile.ts) なので
           // 使わず、素直なダウンロードリンクにする。プレイヤーの ⋮ からも保存
           // できるが、明示ボタンがある方が判りやすい (Android にも口ができる)。
           // 同一オリジンなので download 属性でそのまま保存できる

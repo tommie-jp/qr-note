@@ -3,7 +3,7 @@
 // 色の定義そのものは prefs/rowTint.ts (クライアントからも import される)。
 // こちらは DB に触るので**サーバ専用** — 分けているのは、メニューの部品が
 // 色の一覧を import しただけで prisma がクライアント側へ混ざるのを防ぐため
-// (thumbnail.ts で sharp を漏らしたのと同じ罠)。
+// (images/thumbnail.ts で sharp を漏らしたのと同じ罠)。
 
 import {
   DEFAULT_ROW_TINT_ID,

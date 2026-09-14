@@ -6,7 +6,7 @@
 
 import 'server-only'
 import sharp from 'sharp'
-import { MAX_INPUT_PIXELS } from './images/thumbConfig'
+import { MAX_INPUT_PIXELS } from './thumbConfig'
 
 // 90° 単位のみ許す。任意角は再符号化のたびに補間で滲むので扱わない。
 export type RotateAngle = 90 | 180 | 270
@@ -47,7 +47,7 @@ function encodeAs(pipeline: sharp.Sharp, ext: RotatableExt): sharp.Sharp {
 // その EXIF を見て起こしている。EXIF を残したまま画素だけ rotate すると、
 // 保存後にブラウザが再び EXIF で起こして二重回転になる。autoOrient() で EXIF の
 // 向きを画素へ焼き、sharp が既定でメタデータを落とすことで、出力は画素の向きが
-// 正になる (normalizeImage.ts / thumbnail.ts の .rotate() と同じ狙い)。
+// 正になる (images/normalizeImage.ts / images/thumbnail.ts の .rotate() と同じ狙い)。
 export async function rotateImageBytes(
   bytes: Uint8Array<ArrayBuffer>,
   ext: RotatableExt,

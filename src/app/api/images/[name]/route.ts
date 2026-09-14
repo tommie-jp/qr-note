@@ -32,7 +32,7 @@ const FALLBACK_CACHE = 'private, max-age=60'
 
 // アップロード済み画像の配信。ファイル名は UUID + 拡張子のみ許可し、
 // それ以外 (トラバーサル等) は 400 で弾く。
-// ?thumb=1 は一覧用の縮小版 (src/lib/thumbnail.ts)。
+// ?thumb=1 は一覧用の縮小版 (src/lib/images/thumbnail.ts)。
 export async function GET(
   request: Request,
   { params }: RouteContext,

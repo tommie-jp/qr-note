@@ -2,9 +2,9 @@
 // docs/93-リファクタリング計画.md §4-5)。形式の判定は store.ts が済ませてから呼ぶ。
 // 動画だけは共通の 10MB 検査の前に来るので、大きさ (30MB) はここで見る。
 import 'server-only'
-import { savePlainAttachment } from '@/lib/imageStore'
-import { moveMoovToFront } from '@/lib/mp4Faststart'
-import { makeThumbnail } from '@/lib/thumbnail'
+import { savePlainAttachment } from '@/lib/images/imageStore'
+import { moveMoovToFront } from '@/lib/video/mp4Faststart'
+import { makeThumbnail } from '@/lib/images/thumbnail'
 import { MAX_VIDEO_BYTES, tooLargeMessage } from '@/lib/uploads/limits'
 import {
   isValidVideoAnimFrame,

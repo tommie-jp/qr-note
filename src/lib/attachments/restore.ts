@@ -1,7 +1,7 @@
 // ZIP 復元の入口 (docs/93-リファクタリング計画.md §4-5)。新規保存の入口は store.ts。
 import 'server-only'
-import { restoreAttachmentRow } from '@/lib/imageStore'
-import { normalizeTextBytes } from '@/lib/normalizeText'
+import { restoreAttachmentRow } from '@/lib/images/imageStore'
+import { normalizeTextBytes } from '@/lib/text/normalizeText'
 import { tooLargeMessage } from '@/lib/uploads/limits'
 import {
   isValidAudioName,

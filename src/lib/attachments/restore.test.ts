@@ -4,7 +4,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 // 形式の裏付けと大きさの線引きであって、行の作成ではない
 const restoreAttachmentRow = vi.fn()
 
-vi.mock('@/lib/imageStore', () => ({
+vi.mock('@/lib/images/imageStore', () => ({
   restoreAttachmentRow: (name: string, bytes: Uint8Array, mime: string) =>
     restoreAttachmentRow(name, bytes, mime),
   saveImage: vi.fn(),

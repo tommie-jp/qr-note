@@ -14,7 +14,7 @@ import {
 } from "./pdfService";
 import { isStandaloneDisplay, subscribeDisplayMode } from "@/lib/offline/displayMode";
 import { errorText } from "@/lib/errorMessage";
-import { isShareAborted, shareFile, shouldOfferShare } from "@/lib/shareFile";
+import { isShareAborted, shareFile, shouldOfferShare } from "@/lib/clipboard/shareFile";
 import { ModalOverlay } from "../modal/ModalOverlay";
 import { useBodyScrollLock } from "../modal/useBodyScrollLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
@@ -160,7 +160,7 @@ export function PdfViewerModal({ url, label, onClose }: PdfViewerModalProps) {
 
   // 共有シートへの導線。共有が「唯一の出口」でありかつ実際に動く iOS でだけ
   // 出す (shouldOfferShare)。PC は「新しいタブ」からネイティブビューアで保存でき、
-  // Chromium (Win/Android) は files 付き share を恒久拒否する (shareFile.ts)
+  // Chromium (Win/Android) は files 付き share を恒久拒否する (clipboard/shareFile.ts)
   const canShare = useSyncExternalStore(
     // 対応可否は実行中に変わらないので購読しない
     () => () => {},

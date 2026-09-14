@@ -62,7 +62,7 @@ vi.mock('@/lib/zip/importZip', () => ({
   importZip: (source: unknown, options: unknown) => mocks.importZip(source, options),
 }))
 
-vi.mock('@/lib/imageSearchIndex', () => ({
+vi.mock('@/lib/embedding/imageSearchIndex', () => ({
   buildImageSearchIndex: () => mocks.buildImageSearchIndex(),
 }))
 

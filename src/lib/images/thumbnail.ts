@@ -11,13 +11,13 @@
 
 import 'server-only'
 import sharp from 'sharp'
-import { MAX_INPUT_PIXELS, THUMB_MAX_PX } from './images/thumbConfig'
+import { MAX_INPUT_PIXELS, THUMB_MAX_PX } from './thumbConfig'
 
 // アニメのままサムネにするフレーム数の上限。
 //
 // アニメサムネは全フレームを縮小して再エンコードするため、生成時間も出力バイトも
 // コマ数に比例して伸びる。saveImage はサムネの完成を待ってから応答する
-// (imageStore.ts) ので、長尺 GIF のアップロードで待たせないための上限。
+// (images/imageStore.ts) ので、長尺 GIF のアップロードで待たせないための上限。
 // **上限を超えても静止サムネは作る** (「サムネなし」= 一覧が原寸を配る、には
 // しない)。
 export const MAX_ANIMATION_FRAMES = 100

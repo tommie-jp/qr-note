@@ -5,7 +5,7 @@
 // 使い方: npx tsx --conditions=react-server scripts/backfillThumbs.ts [--force]
 import 'dotenv/config'
 import { prisma } from '@/lib/db'
-import { makeThumbnail } from '@/lib/thumbnail'
+import { makeThumbnail } from '@/lib/images/thumbnail'
 import { sniffImageFormat } from '@/lib/uploads/sniff/image'
 
 async function main(): Promise<void> {

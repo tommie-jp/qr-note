@@ -13,7 +13,7 @@
 //
 // このモジュールはブラウザでのみ呼ぶ。サーバ側からは絶対に import しないこと。
 
-import { pageRenderScale } from '@/lib/pdfScale'
+import { pageRenderScale } from '@/lib/pdf/pdfScale'
 
 // worker とアセットは scripts/assets.mjs が public/pdfjs/ へ複製する。
 // CDN も import.meta.url 相対も使わない (外部依存を作らない / Turbopack が

@@ -27,17 +27,17 @@ const INTENTIONAL_LOGS: ReadonlyArray<{
     prefix: 'エクスポート対象のノートが見つかりません: ',
   },
   {
-    file: 'src/lib/thumbnail.test.ts',
+    file: 'src/lib/images/thumbnail.test.ts',
     test: 'アニメサムネが原寸より重くなるときは静止サムネにする',
     prefix: 'アニメのサムネイルが原寸より重いため静止にします (',
   },
   {
-    file: 'src/lib/thumbnail.test.ts',
+    file: 'src/lib/images/thumbnail.test.ts',
     test: '画像でないバイト列では null を返す (呼び出し側を失敗させない)',
     prefix: 'サムネイル生成に失敗しました (',
   },
   {
-    file: 'src/lib/thumbnail.test.ts',
+    file: 'src/lib/images/thumbnail.test.ts',
     test: '展開すると巨大になる画像は断る (解凍爆弾よけ)',
     prefix: 'サムネイル生成に失敗しました (',
   },

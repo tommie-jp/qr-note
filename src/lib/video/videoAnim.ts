@@ -15,7 +15,7 @@
 //
 // **クライアントから import しないこと。** sharp は Node 専用で、client
 // component から辿ると `fs` がクライアントバンドルに入って壊れる
-// (thumbnail.ts と同じ理由。コマの抽出側は videoPoster.ts に置く)。
+// (images/thumbnail.ts と同じ理由。コマの抽出側は videoPoster.ts に置く)。
 
 import 'server-only'
 import sharp from 'sharp'
@@ -104,7 +104,7 @@ function fitInside(width: number, height: number): { w: number; h: number } {
 export async function makeVideoAnim(
   frames: Uint8Array[],
   // ログに出す手がかり。「この動画だけ」なのか「sharp ごと動いていない」のかを
-  // 切り分けられるようにする (thumbnail.ts と同じ)
+  // 切り分けられるようにする (images/thumbnail.ts と同じ)
   label = '(名前なし)',
 ): Promise<Uint8Array<ArrayBuffer> | null> {
   if (frames.length < MIN_VIDEO_ANIM_FRAMES) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { canCopyImage, copyImageToClipboard } from "@/lib/clipboardImage";
+import { canCopyImage, copyImageToClipboard } from "@/lib/clipboard/clipboardImage";
 import { IMAGE_OVERLAY_BUTTON_CLASS } from "./ui";
 
 // 結果の印 (コピー済・失敗) を出しておく時間 (CodeBlock と揃える)。
@@ -57,7 +57,7 @@ export function CopyImageButton({ src }: { src: string }) {
   const copy = () => {
     setState("busy");
     // **await を挟まない。** 取得と変換は ClipboardItem の中で待たせる
-    // (clipboardImage.ts)。ここで待つと Safari が操作の外と見なして弾く
+    // (clipboard/clipboardImage.ts)。ここで待つと Safari が操作の外と見なして弾く
     copyImageToClipboard(src)
       .then(() => showResult("copied"))
       .catch((cause: unknown) => {

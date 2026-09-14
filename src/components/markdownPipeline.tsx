@@ -164,12 +164,12 @@ export function readFence(
   return { lang, code: code.trim() };
 }
 
-// 添付 URL の振り分け (classifyImgSrc) は @/lib/imgSrcKind へ移した。
+// 添付 URL の振り分け (classifyImgSrc) は @/lib/images/imgSrcKind へ移した。
 // 編集画面の添付チップ (client) からも読むためで、経緯は移設先の冒頭に書いた。
 // ここから re-export はしない — 消費側が置き場を直に指すほうが、
 // 「これは Server Component 用の入れ物」という境界が保たれる
 
-// alt の幅記法の解釈 (parseAltWidth) は @/lib/altWidth へ移した。
+// alt の幅記法の解釈 (parseAltWidth) は @/lib/images/altWidth へ移した。
 // classifyImgSrc と同じく編集画面の添付チップ (client) からも読むためで、
 // 経緯は移設先の冒頭に書いた。ここから re-export はしない
 

@@ -4,7 +4,7 @@ import {
   MAX_INPUT_PIXELS,
   THUMB_MAX_PX,
   THUMB_MIME,
-} from './images/thumbConfig'
+} from './thumbConfig'
 import {
   canAnimateThumbnail,
   makeThumbnail,

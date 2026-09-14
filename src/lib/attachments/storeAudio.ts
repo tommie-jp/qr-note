@@ -2,8 +2,8 @@
 // docs/93-リファクタリング計画.md §4-5)。形式の判定と大きさの検査は store.ts が
 // 済ませてから呼ぶ。
 import 'server-only'
-import { savePlainAttachment } from '@/lib/imageStore'
-import { moveMoovToFront } from '@/lib/mp4Faststart'
+import { savePlainAttachment } from '@/lib/images/imageStore'
+import { moveMoovToFront } from '@/lib/video/mp4Faststart'
 import { type AudioFormat, audioSaveInfo } from '@/lib/uploads/sniff/audio'
 import { type AttachmentResult, succeed } from './result'
 

@@ -8,7 +8,7 @@ import {
   isShareActivationLost,
   shareFile,
   shouldOfferShare,
-} from "@/lib/shareFile";
+} from "@/lib/clipboard/shareFile";
 import { SECONDARY_BUTTON_CLASS } from "../ui";
 
 interface AudioPlayerProps {
@@ -44,7 +44,7 @@ interface AudioBytes {
 export function AudioPlayer({ src, label }: AudioPlayerProps) {
   // 共有が「唯一の出口」でありかつ実際に動く iOS でだけボタンを出す
   // (shouldOfferShare)。PC・Android はプレイヤーの ⋮ / 右クリックで保存でき、
-  // しかも Chromium は files 付き share を恒久拒否する (shareFile.ts)
+  // しかも Chromium は files 付き share を恒久拒否する (clipboard/shareFile.ts)
   const canShare = useSyncExternalStore(
     () => () => {},
     () => shouldOfferShare(),

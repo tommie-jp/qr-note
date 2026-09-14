@@ -48,8 +48,8 @@ vi.mock('@/lib/auth/sessionStore', () => ({
 // 総量クォータの合計だけ差し替える (SUM は DB を引くため)。他の関数
 // (saveImage など) は本物のまま — importOriginal で残す。デモの 507 は
 // storeAttachment より手前で返るので、実 DB なしで検証できる
-vi.mock('@/lib/imageStore', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/imageStore')>()
+vi.mock('@/lib/images/imageStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/images/imageStore')>()
   return { ...actual, totalAttachmentBytes: async () => mocks.totalAttachmentBytes }
 })
 

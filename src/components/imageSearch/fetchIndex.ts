@@ -3,8 +3,8 @@
 // Float32Array へ復号する。
 
 import { EMBEDDING_DIM } from '@/lib/embedding/model'
-import { type ImageVectorEntry } from '@/lib/imageSearch'
-import { deserializeEmbedding } from '@/lib/imageVector'
+import { type ImageVectorEntry } from '@/lib/embedding/imageSearch'
+import { deserializeEmbedding } from '@/lib/embedding/imageVector'
 
 // base64 → Uint8Array (ブラウザの atob 経由)。
 function base64ToBytes(b64: string): Uint8Array {

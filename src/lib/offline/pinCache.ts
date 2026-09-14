@@ -19,7 +19,7 @@
 // 「余りを消す」が書けない。sw.js 側はこの棚を読むだけにしてある (pinnedFirst)。
 
 import 'client-only'
-import { allAttachments, attachmentUrl, thumbUrl } from '@/lib/memoImages'
+import { allAttachments, attachmentUrl, thumbUrl } from '@/lib/images/memoImages'
 import { allSecretNames, secretUrl } from '@/lib/secret/secrets'
 import { PIN_CACHE } from './cacheNames'
 import type { OfflineItem } from './item'

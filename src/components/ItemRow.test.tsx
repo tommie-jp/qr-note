@@ -147,7 +147,7 @@ test("本文に画像があれば縮小版をサムネとして出す", () => {
   const html = renderRow(
     makeItem({ memo: `写真\n![](/api/images/${IMAGE})` }),
   );
-  // 末尾にキャッシュバスターの版 (&v=N) が付く (memoImages.ts の thumbUrl)。
+  // 末尾にキャッシュバスターの版 (&v=N) が付く (images/memoImages.ts の thumbUrl)。
   // HTML 属性なので & は &amp; にエスケープされる (ブラウザは & に戻す)
   expect(html).toContain(`src="/api/images/${IMAGE}?thumb=1&amp;v=`);
 });

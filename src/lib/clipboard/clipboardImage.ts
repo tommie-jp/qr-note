@@ -6,7 +6,7 @@
 // standalone の PWA には右クリックメニューが無く、iPhone の長押しも
 // オーバーレイの中では出ないことがある。押せば必ず同じ結果になる口を 1 つ置く。
 
-import { redrawImage } from './imageCanvas'
+import { redrawImage } from '../images/imageCanvas'
 
 // クリップボードに載せる形式。**png 以外は入れられない** — Chrome の
 // navigator.clipboard.write は image/png しか受けず、webp や jpeg を渡すと
@@ -46,7 +46,7 @@ export function needsPngConversion(mime: string): boolean {
 // ClipboardItem は中身に Promise を取れる。この形にしておくと、器を作って
 // write を呼ぶところまでが同期で済み、取得と変換はその中で待たせられる。
 // 先に await して取得してから write を呼ぶと、Safari は「ユーザー操作の中では
-// ない」として弾く (shareFile.ts の transient activation と同じ話)
+// ない」として弾く (clipboard/shareFile.ts の transient activation と同じ話)
 //
 // **async にしてあるのは投げ方を揃えるため。** `new ClipboardItem` も `write` も
 // 同期で投げうる (ClipboardItem があっても promise 入りの item を受けるとは

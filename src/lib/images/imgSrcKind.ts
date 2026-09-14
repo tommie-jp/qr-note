@@ -10,10 +10,10 @@
 // 落ちると暗号文が割れた画像やチップの取得先として露出する。振り分け先の
 // 部品 (プレイヤーにするかチップにするか) だけを消費側が持つ。
 
-import { AUDIO_EXTENSION_ALTERNATION } from './audioFormats'
-import { secretNameFromUrl } from './secret/secrets'
-import { TEXT_EXTENSION_ALTERNATION } from './textFormats'
-import { VIDEO_EXTENSION_ALTERNATION } from './videoFormats'
+import { AUDIO_EXTENSION_ALTERNATION } from '../audio/audioFormats'
+import { secretNameFromUrl } from '../secret/secrets'
+import { TEXT_EXTENSION_ALTERNATION } from '../text/textFormats'
+import { VIDEO_EXTENSION_ALTERNATION } from '../video/videoFormats'
 
 // 音声の配信 URL (`/api/images/<uuid>.mp3` など)。エディタは音声を画像記法
 // `![audio](url)` で挿入するので (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)、img の
@@ -28,7 +28,7 @@ const AUDIO_SRC_RE = new RegExp(
 // 動画の配信 URL (`/api/images/<uuid>.mp4` など)。エディタは動画を画像記法
 // `![video](url)` で挿入するので (41-QR-search/docs/14-動画挿入計画.md)、img の src が動画なら
 // <video> に振り分ける。保存名の拡張子は mp4|mkv|mov で、音声の .webm とは
-// 重ならない (webm 動画は .mkv で保存される。videoFormats.ts の経緯)。
+// 重ならない (webm 動画は .mkv で保存される。video/videoFormats.ts の経緯)。
 const VIDEO_SRC_RE = new RegExp(
   `\\.(?:${VIDEO_EXTENSION_ALTERNATION})(?:[?#]|$)`,
   'i',

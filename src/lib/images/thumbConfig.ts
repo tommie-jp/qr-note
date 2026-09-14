@@ -1,7 +1,7 @@
 // 一覧サムネイルの形式・寸法と、画像の解凍爆弾よけの上限
 // (docs/93-リファクタリング計画.md §2-2)。
 //
-// **sharp を引き込まない定数だけの葉。** もとは生成本体の thumbnail.ts に
+// **sharp を引き込まない定数だけの葉。** もとは生成本体の images/thumbnail.ts に
 // 同居しており、定数だけのつもりの import で sharp (Node 専用) がクライアントの
 // 束に混ざって編集画面が 500 になった。配信ルートや他の変換処理が欲しいのは
 // この値だけなので、置き場を分けておく。このファイルに sharp を足さないこと
@@ -27,7 +27,7 @@ export const THUMB_MIME = 'image/webp'
 //
 // 生成パラメータを変えたので既存 thumb は作り直しが要る
 // (scripts/backfillThumbs.ts --force)。配信 URL 側もキャッシュを割る
-// (memoImages.ts の thumbUrl の版)。
+// (images/memoImages.ts の thumbUrl の版)。
 export const THUMB_MAX_PX = 384
 
 // 展開後のピクセル数の上限 (解凍爆弾よけ)。
@@ -40,7 +40,7 @@ export const THUMB_MAX_PX = 384
 //
 // sharp の既定 (約 268MP) は「事故で巨大な画像を開かない」ための値で、悪意ある
 // 入力に対しては緩い。50MP は 8000x6000 (48MP) の一眼でも通る大きさなので、
-// 実用上これで困ることはない。超えた画像は例外になり、thumbnail.ts の
+// 実用上これで困ることはない。超えた画像は例外になり、images/thumbnail.ts の
 // makeThumbnail の catch で null になる (= サムネなしで原寸配信。アップロード
 // 自体は成功する)。
 //

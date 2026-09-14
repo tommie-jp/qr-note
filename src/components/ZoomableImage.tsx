@@ -9,8 +9,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { errorText } from "@/lib/errorMessage";
-import { pendingRotation } from "@/lib/rotationState";
-import { parseUploadResponse } from "@/lib/uploadResponse";
+import { pendingRotation } from "@/lib/images/rotationState";
+import { parseUploadResponse } from "@/lib/uploads/uploadResponse";
 import { CopyImageButton } from "./CopyImageButton";
 import { useAsyncAction } from "./hooks/useAsyncAction";
 import { ModalOverlay } from "./modal/ModalOverlay";
@@ -100,7 +100,7 @@ export function ZoomableImage({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ angle }),
         });
-        // アップロードと同じ共通エンベロープ。失敗は例外で返る (uploadResponse.ts)
+        // アップロードと同じ共通エンベロープ。失敗は例外で返る (uploads/uploadResponse.ts)
         const newUrl = parseUploadResponse(res.status, await res.text());
         await preloadImage(newUrl);
         // 差し替えと CSS 回転リセットは同時に (別々だとチラつく)

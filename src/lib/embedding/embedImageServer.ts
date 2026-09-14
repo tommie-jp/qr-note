@@ -10,7 +10,7 @@
 
 import 'server-only'
 import { prisma } from '../db'
-import { serializeEmbedding } from '../imageVector'
+import { serializeEmbedding } from './imageVector'
 import { embed } from './embedder'
 
 // 画像バイト列 → DB 保存用の埋め込みバイト列。作れなければ null。

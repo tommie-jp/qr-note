@@ -2,7 +2,7 @@
 // docs/93-リファクタリング計画.md §4-5)。形式の判定と大きさの検査は store.ts が
 // 済ませてから呼ぶ。
 import 'server-only'
-import { savePlainAttachment } from '@/lib/imageStore'
+import { savePlainAttachment } from '@/lib/images/imageStore'
 import { PDF_EXT, PDF_MIME } from '@/lib/uploads/names'
 import { type AttachmentResult, succeed } from './result'
 

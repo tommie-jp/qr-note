@@ -3,7 +3,7 @@
 //
 // 型は葉の circuit/types.ts から借りる。**circuit/cache.ts から値を import しては
 // いけない** — あちらは prisma と node:child_process を引き込むサーバ専用の
-// module で、クライアントの束に混ざると編集画面ごと 500 になる (thumbnail.ts が
+// module で、クライアントの束に混ざると編集画面ごと 500 になる (images/thumbnail.ts が
 // sharp を漏らした件と同じ落とし穴)。
 
 import type { CircuitMap } from '@/lib/circuit/types'

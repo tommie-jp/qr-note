@@ -17,8 +17,8 @@
 import { parseAltWidth } from './altWidth'
 import { classifyImgSrc } from './imgSrcKind'
 import { attachmentNameFromUrl, thumbUrl } from './memoImages'
-import { DEFAULT_SECRET_LABEL } from './secret/secrets'
-import { isValidImageName } from './uploads/names'
+import { DEFAULT_SECRET_LABEL } from '../secret/secrets'
+import { isValidImageName } from '../uploads/names'
 
 // alt が空のときに出す種別の名前。MarkdownView の既定ラベルと揃える
 // (閲覧と編集で同じものが同じ名前で呼ばれる)
@@ -70,13 +70,13 @@ export interface AttachmentChip {
 // (一覧が原寸を並べないのと同じ理由。docs/23 §2)。
 //
 // **外部画像 (https://…) は出さない。** 編集画面を開くだけで第三者へ要求が
-// 飛ぶ。一覧プレビュー (NotePreviewThumb) と memoImages.ts が外部画像を
+// 飛ぶ。一覧プレビュー (NotePreviewThumb) と images/memoImages.ts が外部画像を
 // サムネにしないのと同じ方針で、ここも絵文字のチップ止まりにする。
 function chipThumbnailUrl(src: string, kind: AttachmentChipKind): string | null {
   if (kind !== 'image') {
     return null
   }
-  // 本文は手で書けるので、拾った文字列をそのまま信じない (memoImages.ts の
+  // 本文は手で書けるので、拾った文字列をそのまま信じない (images/memoImages.ts の
   // 流儀)。書式外れの名前は配信側が 400 で断るだけなので、はじめから出さない
   const name = attachmentNameFromUrl(src)
   return name !== null && isValidImageName(name) ? thumbUrl(name) : null
@@ -87,7 +87,7 @@ function chipThumbnailUrl(src: string, kind: AttachmentChipKind): string | null 
 // alt の幅指定 (`![図|200](url)`) は剥がす。チップは実寸で出さないので幅
 // そのものは使わないが、剥がさないとラベルに「図|200」と出てしまう
 // (閲覧 MarkdownView・一覧プレビュー NotePreviewThumb と同じ規則を
-// altWidth.ts で共有する)
+// images/altWidth.ts で共有する)
 export function attachmentChip(src: string, alt: string): AttachmentChip {
   const cls = classifyImgSrc(src)
   const kind: AttachmentChipKind = cls.kind

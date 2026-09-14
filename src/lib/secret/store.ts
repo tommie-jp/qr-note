@@ -23,7 +23,7 @@ export async function findSecret(name: string): Promise<StoredSecret | null> {
 
 // 断片を保存する (新規も編集も同じ口)。
 //
-// **名前を決めるのはクライアント**で、画像 (imageStore.ts が UUID を振る) とは
+// **名前を決めるのはクライアント**で、画像 (images/imageStore.ts が UUID を振る) とは
 // 逆になっている。暗号エンベロープの AAD が断片の名前に縛られており
 // (docs/51 §7)、封をする時点で名前が決まっていなければならないため。
 // トラバーサル対策は「サーバが振る」ことではなく isValidSecretName の書式検算が

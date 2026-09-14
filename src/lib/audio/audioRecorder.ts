@@ -156,7 +156,7 @@ export function mapCaptureError(e: unknown): AudioCaptureError {
 //
 // **mp4 (Safari) の moov 並べ替えはここでやらない** — サーバの保存経路
 // (api/images/route.ts) に置いてある。録音だけでなく、iPhone のボイスメモを
-// 添付した場合も同じ問題を踏むため (mp4Faststart.ts に経緯)。
+// 添付した場合も同じ問題を踏むため (video/mp4Faststart.ts に経緯)。
 async function prepareForUpload(
   blob: Blob,
   mimeType: string,

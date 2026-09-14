@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PlayBadgeIcon, VideoThumbIcon } from "@/components/icons";
-import { thumbAnimUrl, thumbUrl } from "@/lib/memoImages";
+import { thumbAnimUrl, thumbUrl } from "@/lib/images/memoImages";
 import { useAnimThumb } from "./useAnimThumb";
 
 interface RowThumbProps {
@@ -67,7 +67,7 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
       ) : (
         <>
           {/* next/image は使えない (画像 API はログイン必須で optimizer に
-              Cookie が付かない)。縮小は保存時に済ませてある (thumbnail.ts)。
+              Cookie が付かない)。縮小は保存時に済ませてある (images/thumbnail.ts)。
               alt="" … 装飾。すぐ左のタイトルが中身を説明している */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

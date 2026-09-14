@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { errorText } from "@/lib/errorMessage";
-import { rankItems, type ImageVectorEntry, type ItemMatch } from "@/lib/imageSearch";
+import { rankItems, type ImageVectorEntry, type ItemMatch } from "@/lib/embedding/imageSearch";
 import { captureSquareBitmap } from "./capture";
 import { fetchImageSearchIndex } from "./fetchIndex";
 

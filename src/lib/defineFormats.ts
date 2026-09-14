@@ -1,5 +1,5 @@
 // 形式 (拡張子) の一覧と、正規表現に埋める選択肢を 1 回で作る
-// (audioFormats.ts・videoFormats.ts・textFormats.ts が使う)。
+// (audio/audioFormats.ts・video/videoFormats.ts・text/textFormats.ts が使う)。
 //
 // list は受け取った配列そのもの。`as const` で渡せば要素がリテラル型のまま
 // 残るので、`(typeof list)[number]` で形式名の型を作れる。

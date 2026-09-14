@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest'
-import { AUDIO_EXTENSION_ALTERNATION, AUDIO_EXTENSIONS } from './audioFormats'
+import { AUDIO_EXTENSION_ALTERNATION, AUDIO_EXTENSIONS } from './audio/audioFormats'
 import { defineFormats } from './defineFormats'
-import { TEXT_EXTENSION_ALTERNATION, TEXT_EXTENSIONS } from './textFormats'
-import { VIDEO_EXTENSION_ALTERNATION, VIDEO_EXTENSIONS } from './videoFormats'
+import { TEXT_EXTENSION_ALTERNATION, TEXT_EXTENSIONS } from './text/textFormats'
+import { VIDEO_EXTENSION_ALTERNATION, VIDEO_EXTENSIONS } from './video/videoFormats'
 
 test('一覧をそのまま返し、選択肢は | でつなぐ', () => {
   // Arrange

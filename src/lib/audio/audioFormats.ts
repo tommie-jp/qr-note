@@ -11,7 +11,7 @@
 // audio/x-m4a のような別名まで許して選ばせ、実際の可否はサーバが中身を見て
 // 決める。無理に 1 つにすると、その遊びが失われる。
 
-import { defineFormats } from './defineFormats'
+import { defineFormats } from '../defineFormats'
 
 const FORMATS = defineFormats(['mp3', 'm4a', 'wav', 'webm'] as const)
 

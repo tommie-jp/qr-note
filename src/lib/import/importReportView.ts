@@ -2,15 +2,15 @@
 // 描くための形と、描く前の判定 (docs/28-エクスポート計画.md §3 / §4)。
 //
 // 型と純関数だけを置き、画面からもテストからもそのまま読めるようにする。
-// **server 専用の依存を持ち込まないこと** (lib/importReport.ts と同じ制約)。
+// **server 専用の依存を持ち込まないこと** (lib/import/importReport.ts と同じ制約)。
 
-import { enexTooLargeMessage, MAX_ENEX_BYTES } from './enex/limits'
+import { enexTooLargeMessage, MAX_ENEX_BYTES } from '../enex/limits'
 import type { BaseImportReport } from './importReport'
-import { MAX_ZIP_BYTES, zipTooLargeMessage } from './zip/limits'
+import { MAX_ZIP_BYTES, zipTooLargeMessage } from '../zip/limits'
 
 // /api/import が返すレポート。**format で見分ける判別可能ユニオン**にして、
 // 「ZIP なのに restoredAttachments が無い」ような組み合わせを型で締め出す
-// (共通部分は lib/importReport.ts が正本)。duplicateSkipped は両方が持つが、
+// (共通部分は lib/import/importReport.ts が正本)。duplicateSkipped は両方が持つが、
 // 意味は違う — ENEX は「既に取り込み済み」、ZIP は「衝突したが同内容だった」
 export type ImportReport =
   | ({ format: 'zip' } & BaseImportReport & {

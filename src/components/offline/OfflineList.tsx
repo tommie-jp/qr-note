@@ -1,7 +1,7 @@
 "use client";
 
 import { RowThumb } from "@/components/RowThumb";
-import { firstThumbInfo } from "@/lib/memoImages";
+import { firstThumbInfo } from "@/lib/images/memoImages";
 import { memoSummary } from "@/lib/markdown/memoSummary";
 import type { OfflineItem } from "@/lib/offline/item";
 

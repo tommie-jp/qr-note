@@ -6,8 +6,8 @@
 // 既知のものだけ」「大きさは種別ごとの上限まで」の 2 つだけを門にする。
 //
 // このファイルはブラウザからも import する。**サーバ専用のものを import
-// しないこと** (thumbnail.ts が sharp を編集画面に漏らした轍)。上限の元に
-// する uploads/limits.ts はサーバ専用の依存を持たない (uploadSizeCheck.ts や
+// しないこと** (images/thumbnail.ts が sharp を編集画面に漏らした轍)。上限の元に
+// する uploads/limits.ts はサーバ専用の依存を持たない (uploads/uploadSizeCheck.ts や
 // video/videoRecorder.ts もブラウザから読んでいる)。持ち込んだ日には
 // `server-only` の印が next build で落として知らせる。
 

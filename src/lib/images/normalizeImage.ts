@@ -13,8 +13,8 @@
 import 'server-only'
 import { all as decodeHeicAll } from 'heic-decode'
 import sharp from 'sharp'
-import { MAX_INPUT_PIXELS } from './images/thumbConfig'
-import type { ImageFormat } from './uploads/sniff/image'
+import { MAX_INPUT_PIXELS } from './thumbConfig'
+import type { ImageFormat } from '../uploads/sniff/image'
 
 export interface NormalizedImage {
   // saveImage にそのまま渡せる形 (Prisma Bytes は ArrayBuffer 実体を要求する)
@@ -33,7 +33,7 @@ const PASSTHROUGH_MIME: Partial<Record<ImageFormat, string>> = {
   avif: 'image/avif',
 }
 
-// 変換後の形式。透過を保て、全ブラウザが表示でき、サムネ (thumbnail.ts) と
+// 変換後の形式。透過を保て、全ブラウザが表示でき、サムネ (images/thumbnail.ts) と
 // 同じく実績のある WebP に寄せる
 const CONVERTED_MIME = 'image/webp'
 const CONVERTED_EXT = 'webp'
@@ -93,7 +93,7 @@ async function heicToSharp(bytes: Uint8Array<ArrayBuffer>): Promise<sharp.Sharp>
       throw new Error('HEIC に画像が含まれていません')
     }
     // 画素を確保する decode() の前に、宣言寸法で上限を超えるものを弾く
-    // (thumbnail.ts / TIFF と同じ 50MP 上限を共有する)
+    // (images/thumbnail.ts / TIFF と同じ 50MP 上限を共有する)
     if (primary.width * primary.height > MAX_INPUT_PIXELS) {
       throw new Error(`HEIC の画素数が大きすぎます (${primary.width}x${primary.height})`)
     }

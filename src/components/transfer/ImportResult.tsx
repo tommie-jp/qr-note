@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BOX_CLASS, SECONDARY_BUTTON_CLASS } from "@/components/ui";
-import { countRenumbered, type ImportReport } from "@/lib/importReportView";
+import { countRenumbered, type ImportReport } from "@/lib/import/importReportView";
 
 // 一覧に出す「取り込めなかったもの」の上限。
 //

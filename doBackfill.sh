@@ -18,7 +18,7 @@
 #               0 のまま置くので、流さないと `is:todo` が常に 0 件になる (検索が壊れて
 #               見える)。数え方 (src/lib/markdown/taskCheckbox.ts の countTasks) は remark を通す JS。
 #   thumbs      images.thumb を --force で作り直す。THUMB_MAX_PX や fit などサムネ生成
-#               パラメータを変えた後に使う (docs/32 §1)。このとき memoImages.ts の
+#               パラメータを変えた後に使う (docs/32 §1)。このとき images/memoImages.ts の
 #               THUMB_VERSION も上げてキャッシュを割ること。版だけ上げても DB の thumb を
 #               作り直さないと、割った先で旧サムネを取り直すだけで見た目は変わらない。
 #               画像以外の添付 (.pdf/.m4a/.webm など) は「対象外」として黙って飛ばされる。

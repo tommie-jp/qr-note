@@ -5,7 +5,7 @@
 // 両方から描かれるので、ここにも server-only / client-only は付けない。
 
 import type { Item } from '@/generated/prisma/client'
-import { firstThumbInfo } from '@/lib/memoImages'
+import { firstThumbInfo } from '@/lib/images/memoImages'
 import { memoPreview } from '@/lib/markdown/memoPreview'
 import { memoSummary } from '@/lib/markdown/memoSummary'
 import type { ViewMode } from '@/lib/prefs/viewMode'

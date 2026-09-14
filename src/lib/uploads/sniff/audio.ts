@@ -3,11 +3,11 @@
 // 音声は画像と違い、変換もサムネも埋め込みもしない。ブラウザが直接再生できる
 // 形式 (mp3/m4a/wav) だけを受け付け、images テーブルへそのまま bytes で保存し、
 // そのまま配信する。images テーブルを流用するのは、pg_dump 一発でメモと一緒に
-// バックアップできる利点 (imageStore.ts) を音声にも効かせるため。
+// バックアップできる利点 (images/imageStore.ts) を音声にも効かせるため。
 //
 // 保存名と配信 mime の規則は names.ts が持つ (docs/93-リファクタリング計画.md §4-2)。
 
-import type { AudioFormat } from '../../audioFormats'
+import type { AudioFormat } from '../../audio/audioFormats'
 import { containsMarker, startsWith } from './bytes'
 import { findTopLevelBox, handlerTypesIn, readIsoBmffBrands } from './isoBmff'
 import {
@@ -21,7 +21,7 @@ import {
 // webm はブラウザ内録音の受け皿 (41-QR-search/docs/12「ノート内録音の実装計画」)。
 // Chrome / Android の MediaRecorder は webm/opus しか出せないため、
 // 録音をノートへ挿入するにはこの形式を受ける必要がある。
-// 形式の一覧そのものは audioFormats.ts が持つ (表示・OCR 除外と共有するため)
+// 形式の一覧そのものは audio/audioFormats.ts が持つ (表示・OCR 除外と共有するため)
 export type { AudioFormat }
 
 const AUDIO_FORMAT_TO_MIME: Record<AudioFormat, string> = {

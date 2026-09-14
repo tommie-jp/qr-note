@@ -3,7 +3,7 @@
 //
 // prisma も react も引き込まない純粋関数の葉 (markdown/memoSummary.ts と同じ線)。
 
-import { firstThumbInfo } from '../memoImages'
+import { firstThumbInfo } from '../images/memoImages'
 import { fenceMathTracker } from './memoSummary'
 
 // パースへ渡すソースの上限。縮小前の仮想キャンバス (NotePreviewFrame の

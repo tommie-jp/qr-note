@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { enexTooLargeMessage, MAX_ENEX_BYTES } from './enex/limits'
+import { enexTooLargeMessage, MAX_ENEX_BYTES } from '../enex/limits'
 import { countRenumbered, looksLikeZip, tooLargeMessage } from './importReportView'
-import { MAX_ZIP_BYTES, zipTooLargeMessage } from './zip/limits'
+import { MAX_ZIP_BYTES, zipTooLargeMessage } from '../zip/limits'
 
 describe('looksLikeZip', () => {
   test('treats a .zip name as a ZIP whatever the case', () => {

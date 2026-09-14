@@ -18,7 +18,7 @@ import { findTopLevelBox, handlerTypesIn, readIsoBmffBrands } from './isoBmff'
 import { EBML_MAGIC, WEBM_VIDEO_CODEC_IDS, WEBM_VIDEO_LEADS } from './webm'
 
 // スニッフが返す**中身の形式**。保存拡張子とは分ける — webm 動画は中身は
-// video/webm だが、保存名は `.mkv` に写す (videoFormats.ts の経緯: 音声のみの
+// video/webm だが、保存名は `.mkv` に写す (video/videoFormats.ts の経緯: 音声のみの
 // `.webm` と URL 上で衝突させない)。
 export type VideoFormat = 'mp4' | 'webm' | 'mov'
 

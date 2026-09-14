@@ -1,7 +1,7 @@
 // ラスタ画像を canvas で描き直す (縮小・形式変換)。**クライアント専用** —
 // document を触るのでサーバ側から import しないこと。
 //
-// サーバには sharp があり (thumbnail.ts / normalizeImage.ts)、通常の添付は
+// サーバには sharp があり (images/thumbnail.ts / images/normalizeImage.ts)、通常の添付は
 // そちらで直している。ここが要るのは「サーバへ渡す前に直さないといけない」
 // 場面で、今のところ 3 つある:
 //

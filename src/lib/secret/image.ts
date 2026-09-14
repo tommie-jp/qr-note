@@ -3,12 +3,12 @@
 // **変換はクライアントでしかできない**。通常の画像は sharp がサーバで HEIC →
 // WebP などに直しているが (docs/26)、シークレットはサーバが復号できないので
 // そこに頼れない。canvas で描き直して、ブラウザが必ず出せる形式にする
-// (描き直しそのものは imageCanvas.ts が持つ)。
+// (描き直しそのものは images/imageCanvas.ts が持つ)。
 //
 // 描き直しには副産物として利点もある: EXIF (撮影場所・日時) が落ちる。
 // 隠したい写真の位置情報が暗号文の外に残ることはない。
 
-import { redrawImage } from '../imageCanvas'
+import { redrawImage } from '../images/imageCanvas'
 import { isSecretImageMime } from './payload'
 
 // 長辺の上限。原寸のスマホ写真 (4000px 超) をそのまま抱えると、復号のたびに

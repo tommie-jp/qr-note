@@ -3,7 +3,7 @@
 //
 // **@atomic-editor/editor の imageBlocks の代わり**に使う。あちらは `![](url)` を
 // 素の <img> にするが、この本文の画像記法は画像専用ではない — 音声・動画・
-// PDF・テキストの添付とシークレットが相乗りしている (経緯は lib/attachmentChip.ts)。
+// PDF・テキストの添付とシークレットが相乗りしている (経緯は lib/images/attachmentChip.ts)。
 // 一方 inlinePreview は記法の生文字を隠してしまうので、代わりを描かないと
 // 添付が消えたように見える。両者の隙間を埋めるのがこの拡張。
 //
@@ -18,7 +18,7 @@ import {
   type Range,
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, type DecorationSet } from "@codemirror/view";
-import { attachmentChip } from "@/lib/attachmentChip";
+import { attachmentChip } from "@/lib/images/attachmentChip";
 
 // 構文解析を本文の最後まで進めるときの上限 (ms)。CodeMirror は既定では
 // 画面に見えている範囲までしか解析しないため、これを待たずに組むと

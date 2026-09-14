@@ -8,7 +8,7 @@
 //
 // 封筒の開け方は api/envelope.ts の openEnvelope (XHR なので fetch 側の読み手は使わない)。
 
-import { ApiError, openEnvelope } from './api/envelope'
+import { ApiError, openEnvelope } from '../api/envelope'
 
 export function parseUploadResponse(status: number, responseText: string): string {
   let body: unknown

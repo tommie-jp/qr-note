@@ -1,7 +1,7 @@
 // heic-decode (HEIC/HEIF を RGBA へ復号する) の型。
 //
 // 実体は CJS (`module.exports = one; module.exports.all = all;`) で型を持たない。
-// HEIC 変換 (src/lib/normalizeImage.ts, docs/26-画像形式対応計画.md §3) で使う
+// HEIC 変換 (src/lib/images/normalizeImage.ts, docs/26-画像形式対応計画.md §3) で使う
 // 最小限だけ宣言する。上流が型を同梱したらこのファイルは消す。
 declare module "heic-decode" {
   interface DecodedImage {

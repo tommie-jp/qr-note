@@ -18,17 +18,17 @@ const makeThumbnail = vi.fn<(bytes: Uint8Array, label?: string) => Promise<Uint8
 const makeVideoAnim = vi.fn<(frames: Uint8Array[], label?: string) => Promise<Uint8Array | null>>()
 const moveMoovToFront = vi.fn<(bytes: Uint8Array) => Uint8Array | null>()
 
-vi.mock('@/lib/imageStore', () => ({
+vi.mock('@/lib/images/imageStore', () => ({
   saveImage: (...args: unknown[]) => saveImage(...args),
   savePlainAttachment: (...args: unknown[]) => savePlainAttachment(...args),
   restoreAttachmentRow: vi.fn(),
 }))
 
-vi.mock('@/lib/normalizeImage', () => ({
+vi.mock('@/lib/images/normalizeImage', () => ({
   normalizeImage: (bytes: Uint8Array, format: string) => normalizeImage(bytes, format),
 }))
 
-vi.mock('@/lib/thumbnail', () => ({
+vi.mock('@/lib/images/thumbnail', () => ({
   makeThumbnail: (...args: [Uint8Array, string?]) => makeThumbnail(...args),
 }))
 
@@ -36,7 +36,7 @@ vi.mock('@/lib/video/videoAnim', () => ({
   makeVideoAnim: (...args: [Uint8Array[], string?]) => makeVideoAnim(...args),
 }))
 
-vi.mock('@/lib/mp4Faststart', () => ({
+vi.mock('@/lib/video/mp4Faststart', () => ({
   moveMoovToFront: (bytes: Uint8Array) => moveMoovToFront(bytes),
 }))
 

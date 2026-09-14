@@ -51,7 +51,7 @@ export function secretLabel(raw: string): string {
 // 画像記法の URL がシークレット参照なら名前を返す。そうでなければ null。
 //
 // 書式の検算までここで済ませる。本文から拾った文字列は配信 URL の組み立てや
-// SQL の position() へ渡るので、そのまま信じない (memoImages.ts と同じ流儀)。
+// SQL の position() へ渡るので、そのまま信じない (images/memoImages.ts と同じ流儀)。
 export function secretNameFromUrl(url: string): string | null {
   if (!url.startsWith(SECRET_PATH_PREFIX)) {
     return null
@@ -60,7 +60,7 @@ export function secretNameFromUrl(url: string): string | null {
   return isValidSecretName(name) ? name : null
 }
 
-// 画像記法 `![alt](url)` の url を捕捉する (memoImages.ts と同じ正規表現)。
+// 画像記法 `![alt](url)` の url を捕捉する (images/memoImages.ts と同じ正規表現)。
 const IMAGE_SYNTAX = /!\[[^\]]*\]\(([^)\s]+)\)/g
 
 // alt (ラベル) も一緒に捕まえる版。カーソル位置の判定と保存後の置換に使う。
@@ -150,7 +150,7 @@ export function findSecretNotation(
 }
 
 // 本文が参照しているシークレットの名前を出現順・重複なしで返す。
-// コードフェンス・インラインコードの中は対象外 (markdown/tags/tags.ts / memoImages.ts と同じ)。
+// コードフェンス・インラインコードの中は対象外 (markdown/tags/tags.ts / images/memoImages.ts と同じ)。
 //
 // 用途は 2 つ: 断片の GC (docs/51 §11) と、閲覧前に「このノートに鍵の要る
 // 断片がいくつあるか」を数えること。

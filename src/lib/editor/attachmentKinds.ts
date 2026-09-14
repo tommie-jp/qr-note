@@ -8,9 +8,9 @@
 // 形式の一覧そのもの (拡張子) は audioFormats / videoFormats / textFormats が
 // 唯一の出どころ。ここは MIME の別名や入力側の拡張子を足して受け口を作る。
 
-import { AUDIO_EXTENSION_ALTERNATION } from '@/lib/audioFormats'
-import { TEXT_EXTENSION_ALTERNATION } from '@/lib/textFormats'
-import { VIDEO_EXTENSION_ALTERNATION } from '@/lib/videoFormats'
+import { AUDIO_EXTENSION_ALTERNATION } from '@/lib/audio/audioFormats'
+import { TEXT_EXTENSION_ALTERNATION } from '@/lib/text/textFormats'
+import { VIDEO_EXTENSION_ALTERNATION } from '@/lib/video/videoFormats'
 
 // ファイル選択ダイアログの絞り込み。MIME に加えて拡張子も併記するのは、
 // iOS/一部 OS が HEIC の MIME を空で送ることがあり、MIME だけだと選べないため。
@@ -29,7 +29,7 @@ const ACCEPTED_AUDIO_TYPES =
 // 動画 (41-QR-search/docs/14-動画挿入計画.md)。mp4/webm/mov を受け付ける。iOS カメラロールは
 // .mov (QuickTime)、Android の録画は .webm。最終判定はサーバの sniffVideoFormat が
 // 中身を見て行う (映像トラックを持つものだけが動画として通る)。webm 動画は
-// 保存時に .mkv へ写す (videoFormats.ts の経緯) が、ここは**入力**の受け口なので
+// 保存時に .mkv へ写す (video/videoFormats.ts の経緯) が、ここは**入力**の受け口なので
 // ユーザーのファイル名 (.webm) と MIME を併記する
 const ACCEPTED_VIDEO_TYPES =
   'video/mp4,video/webm,video/quicktime,.mp4,.m4v,.webm,.mov,.mkv,.3gp'

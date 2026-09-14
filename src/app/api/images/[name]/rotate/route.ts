@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { checkDemoUploadQuota } from '@/lib/demoQuota'
-import { saveImage } from '@/lib/imageStore'
+import { saveImage } from '@/lib/images/imageStore'
 import { rewriteImageReference } from '@/lib/items/write'
 import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
@@ -8,7 +8,7 @@ import {
   isRotatableExt,
   isRotateAngle,
   rotateImageBytes,
-} from '@/lib/rotateImage'
+} from '@/lib/images/rotateImage'
 import { prisma } from '@/lib/db'
 import { isValidImageName } from '@/lib/uploads/names'
 
@@ -73,7 +73,7 @@ export async function POST(
   }
 
   // 回転 + 再符号化。壊れた画像・符号化失敗は 500 ではなく 400 で断る
-  // (thumbnail.ts / normalizeImage.ts と同じ「壊れた入力は握らずログ」の流儀)
+  // (images/thumbnail.ts / images/normalizeImage.ts と同じ「壊れた入力は握らずログ」の流儀)
   let rotated: Uint8Array<ArrayBuffer>
   try {
     rotated = await rotateImageBytes(

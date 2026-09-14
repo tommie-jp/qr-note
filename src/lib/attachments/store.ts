@@ -3,7 +3,7 @@
 // 手で貼ったアップロード (/api/images の POST)、ENEX インポート
 // (docs/28-エクスポート計画.md §4)、書き出した ZIP の復元 (同 §3) の 3 経路から
 // 呼ぶ。**形式の判定と変換を 3 か所に書くと必ずどれかだけ古くなる** — 実際
-// imageStore.ts のコメントが「名前の作り方を 2 通りに散らすと片方だけトラバーサル
+// images/imageStore.ts のコメントが「名前の作り方を 2 通りに散らすと片方だけトラバーサル
 // 対策が抜ける」と書いているのと同じ理由で、判定側もここへ寄せる。
 //
 // 形式は申告された MIME ではなく**中身のバイト列**で決める。ENEX の
@@ -15,8 +15,8 @@
 // storeAudio / storePdf / storeText に 1 分岐ずつ置く
 // (docs/93-リファクタリング計画.md §4-5)。
 import 'server-only'
-import type { SaveImageOptions } from '@/lib/imageStore'
-import { hasUtf16Bom } from '@/lib/normalizeText'
+import type { SaveImageOptions } from '@/lib/images/imageStore'
+import { hasUtf16Bom } from '@/lib/text/normalizeText'
 import { MAX_IMAGE_BYTES, tooLargeMessage } from '@/lib/uploads/limits'
 import { sniffAudioFormat } from '@/lib/uploads/sniff/audio'
 import { sniffImageFormat } from '@/lib/uploads/sniff/image'
@@ -90,7 +90,7 @@ export async function storeAttachment(
   // UTF-16LE の BOM `FF FE` は緩い MP3 判定に音声として横取りされてしまう
   // (`FF FE` は MPEG1 Layer II の同期語としても妥当)。BOM + テキスト名なら
   // それはテキストなので、ここで決める。名前がテキストでない UTF-16 BOM
-  // (稀な mp2 等) は null が返り、下の音声判定に委ねられる (normalizeText.ts)
+  // (稀な mp2 等) は null が返り、下の音声判定に委ねられる (text/normalizeText.ts)
   if (hasUtf16Bom(bytes)) {
     const asText = await tryStoreText(bytes, options.fileName)
     if (asText) {

@@ -6,9 +6,9 @@
 // コピーすると text/html と text/plain が並んだりする。どれを採るかの規則を
 // **ここだけに**置き、DOM に触らない形にしてある (呼ぶ側は取得と挿入だけ)。
 
-import { timestampFileName } from './datetime'
-import { errorText } from './errorMessage'
-import { extForMime } from './uploads/names'
+import { timestampFileName } from '../datetime'
+import { errorText } from '../errorMessage'
+import { extForMime } from '../uploads/names'
 
 // クリップボードに載せる形式として最も素直なもの。iOS のスクリーンショットも
 // Windows の「画像をコピー」もこれで来る

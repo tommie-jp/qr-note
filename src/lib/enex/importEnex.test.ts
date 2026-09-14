@@ -33,10 +33,10 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-// 重複判定は ZIP の renumber と共有する (lib/importDuplicate.ts)。
-// 判定そのものは lib/importDuplicate.test.ts が見るので、ここでは
+// 重複判定は ZIP の renumber と共有する (lib/import/importDuplicate.ts)。
+// 判定そのものは lib/import/importDuplicate.test.ts が見るので、ここでは
 // 「いつ呼ぶか・呼んだ結果をどう扱うか」だけを差し替えて確かめる
-vi.mock('@/lib/importDuplicate', () => ({
+vi.mock('@/lib/import/importDuplicate', () => ({
   isAlreadyImported: (created: Date | null, title: string) =>
     isAlreadyImported(created, title),
 }))

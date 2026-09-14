@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { thumbUrl } from "@/lib/memoImages";
-import type { ItemMatch } from "@/lib/imageSearch";
+import { thumbUrl } from "@/lib/images/memoImages";
+import type { ItemMatch } from "@/lib/embedding/imageSearch";
 
 // 画像検索の候補一覧 (docs/25-画像検索計画.md §6)。押すとそのノートへ飛び、
 // 画像検索の画面を閉じる

@@ -61,7 +61,7 @@ test('動画と音声の判定は互いに混ざらない', () => {
 })
 
 // webm 動画の保存拡張子は `.mkv` (音声のみの .webm と URL 上で衝突させない。
-// videoFormats.ts の経緯)。中身の形式 'webm' → 保存 ext 'mkv' に写す。
+// video/videoFormats.ts の経緯)。中身の形式 'webm' → 保存 ext 'mkv' に写す。
 test('動画形式を保存用の mime / ext に写す (webm 動画は .mkv)', () => {
   expect(videoSaveInfo('mp4')).toEqual({ mime: 'video/mp4', ext: 'mp4' })
   expect(videoSaveInfo('webm')).toEqual({ mime: 'video/webm', ext: 'mkv' })

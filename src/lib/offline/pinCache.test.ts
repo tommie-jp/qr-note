@@ -62,7 +62,7 @@ test('シークレット断片も持ち出す', () => {
 })
 
 // 落とすのは「本文が参照している物」だけ。コードブロックの中に書かれた URL は
-// 説明であって添付ではない (markdown/tags/tags.ts / memoImages.ts と同じ線引き)
+// 説明であって添付ではない (markdown/tags/tags.ts / images/memoImages.ts と同じ線引き)
 test('コードの中の記法は持ち出さない', () => {
   expect(pinnedUrls(item(`\`\`\`\n![図](/api/images/${IMAGE})\n\`\`\``))).toEqual([])
 })

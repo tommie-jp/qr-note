@@ -14,7 +14,7 @@ import {
   type ImportReport,
   looksLikeZip,
   tooLargeMessage,
-} from "@/lib/importReportView";
+} from "@/lib/import/importReportView";
 import type { ConflictPolicy } from "@/lib/zip/conflictPolicy";
 
 // 衝突したときの 3 択 (docs/28-エクスポート計画.md §5)。

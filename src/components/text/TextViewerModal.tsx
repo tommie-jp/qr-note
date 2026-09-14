@@ -51,7 +51,7 @@ export function TextViewerModal({ url, label, onClose }: TextViewerModalProps) {
   useEffect(() => {
     let cancelled = false;
     // 文字コードは考えなくてよい。保存時に UTF-8 へ正規化し、配信も
-    // charset=utf-8 で返している (normalizeText.ts / uploads/sniff/text.ts の textSaveInfo)。
+    // charset=utf-8 で返している (text/normalizeText.ts / uploads/sniff/text.ts の textSaveInfo)。
     //
     // **時間を切る**。切らないと、通信が固まったときスピナーが回り続けるだけで
     // 成功にもエラーにもならず、待てば直るのか壊れているのかが判らなくなる

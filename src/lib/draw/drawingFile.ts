@@ -28,7 +28,7 @@ export interface CanvasSize {
 }
 
 // 並べたときに時系列になる名前にする。サーバは保存時に UUID を振り直すので
-// (src/lib/imageStore.ts)、この名前が残るわけではない — 送信時の File に
+// (src/lib/images/imageStore.ts)、この名前が残るわけではない — 送信時の File に
 // 名前が要ることと、失敗時のログで何を送ったか判るようにするためのもの
 export function drawingFileName(date: Date, extension: string): string {
   return timestampFileName('drawing', date, extension)

@@ -30,7 +30,7 @@ vi.mock('@/lib/items/flags', () => ({
   setItemPublic: (itemNo: string, isPublic: boolean) => setItemPublic(itemNo, isPublic),
 }))
 
-vi.mock('@/lib/importDuplicate', () => ({
+vi.mock('@/lib/import/importDuplicate', () => ({
   isAlreadyImported: (created: Date | null, title: string) =>
     isAlreadyImported(created, title),
 }))

@@ -9,13 +9,13 @@
 
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { prisma } from './db'
+import { prisma } from '../db'
 import {
   generateEmbedding,
   generateEmbeddingInBackground,
-} from './embedding/embedImageServer'
+} from '../embedding/embedImageServer'
 import { makeThumbnail } from './thumbnail'
-import { isValidImageName } from './uploads/names'
+import { isValidImageName } from '../uploads/names'
 
 // 画像を保存し、本文から参照する URL を返す。
 //
@@ -28,7 +28,7 @@ import { isValidImageName } from './uploads/names'
 // 作らせると、経路が増えたときに片方だけサムネの付かない画像ができる。
 // 作れなかった場合は thumb が null のまま保存する — 画像そのものは正しく
 // 保存されており、一覧が原寸へフォールバックして遅くなるだけなので、
-// アップロードを失敗させる理由にはならない (thumbnail.ts のコメント参照)。
+// アップロードを失敗させる理由にはならない (images/thumbnail.ts のコメント参照)。
 export interface SaveImageOptions {
   // 埋め込みの生成を後回しにする (行は embedding=null で作る)。
   //

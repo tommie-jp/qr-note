@@ -12,8 +12,8 @@ import 'server-only'
 import { storeAttachment } from '@/lib/attachments/store'
 import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'
-import { isAlreadyImported } from '@/lib/importDuplicate'
-import type { BaseImportReport } from '@/lib/importReport'
+import { isAlreadyImported } from '@/lib/import/importDuplicate'
+import type { BaseImportReport } from '@/lib/import/importReport'
 import { nextItemNo } from '@/lib/items/read'
 import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
@@ -40,7 +40,7 @@ export interface ImportOptions {
   //
   // 既定を「作らない」にしてあるのは、Web の取り込み口 (/api/import) が
   // 本番 VPS (RAM 2GB) で動くため。埋め込みはモデルの読み込みだけで RSS が
-  // 475MB 増える (imageStore.ts の SaveImageOptions 参照)。
+  // 475MB 増える (images/imageStore.ts の SaveImageOptions 参照)。
   //
   // ローカルから流す一括取り込み (scripts/importEnex.ts) は手元のメモリで
   // 走るので、ここを true にして**その場で索引まで作ってしまう**のがよい。
@@ -256,7 +256,7 @@ async function storeResources(
     // 画像検索の埋め込みは既定では**作らない**。モデルの読み込みだけで RSS が
     // 475MB 増える一方、取り込みは画像の数だけそれを撃つので、本番 VPS
     // (RAM 2GB) で動く Web の口では落ちる。embedding は派生キャッシュなので、
-    // 後から scripts/backfillEmbeddings.ts で埋められる (imageStore.ts 参照)。
+    // 後から scripts/backfillEmbeddings.ts で埋められる (images/imageStore.ts 参照)。
     // メモリに余裕のあるローカルからの一括取り込みだけ embedImages を立てる
     const deferEmbedding = !options.embedImages
     const stored = await storeAttachment(decodeResourceData(resource), {
@@ -355,7 +355,7 @@ function collectTags(
 }
 
 // 既に取り込み済みのノートか (docs/28 §4)。判定そのものは ZIP の renumber と
-// 共有する (lib/importDuplicate.ts)。ここは ENEX の形から鍵を組むだけ。
+// 共有する (lib/import/importDuplicate.ts)。ここは ENEX の形から鍵を組むだけ。
 //
 // **buildMemo は題名を trim して 1 行目に置く**ので、照合も trim 済みで渡す
 // (書き込みと照合で正規化がずれると、毎回「新しい」と判定されてしまう)。

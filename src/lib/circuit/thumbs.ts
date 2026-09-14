@@ -20,7 +20,7 @@ import {
   hasNoCircuitFence,
 } from './fences'
 import { circuitYamlHash } from './yaml'
-import { firstThumbInfo } from '../memoImages'
+import { firstThumbInfo } from '../images/memoImages'
 
 // first … 小/大のサムネ用。画像サムネの無いノートに 1 枚だけ
 // all   … 画像モードのタイル用。ノートの図を全部 (画像タイルと併記)

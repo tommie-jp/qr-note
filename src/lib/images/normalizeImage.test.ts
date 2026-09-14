@@ -58,7 +58,7 @@ describe('normalizeImage', () => {
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const HEIC_FIXTURE = join(__dirname, '__fixtures__', 'sample.heic')
+const HEIC_FIXTURE = join(__dirname, '..', '__fixtures__', 'sample.heic')
 
 describe.skipIf(!existsSync(HEIC_FIXTURE))('normalizeImage (HEIC)', () => {
   test('HEIC は WebP へ変換して返す', async () => {
