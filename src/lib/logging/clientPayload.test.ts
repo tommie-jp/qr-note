@@ -3,8 +3,8 @@ import {
   CLIENT_LOG_MAX_BATCH,
   deviceLabel,
   parseClientLogPayload,
-} from './clientLogPayload'
-import { LOG_TEXT_LIMIT } from './logEntry'
+} from './clientPayload'
+import { LOG_TEXT_LIMIT } from './entry'
 
 // 受け口の検証 (docs/30-ブラウザログ計画.md §5)。外から来るデータは信じない
 

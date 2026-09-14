@@ -7,7 +7,7 @@ import {
   pushBrowserLogs,
   recentLogs,
   uninstallConsoleCapture,
-} from './logBuffer'
+} from './buffer'
 
 // 本物の console を包むテストなので、出力が試験の画面を汚さないよう
 // 「元の console」を先に黙らせてから包む

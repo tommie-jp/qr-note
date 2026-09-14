@@ -5,7 +5,7 @@ import {
   installConsoleCapture,
   pushBrowserLogs,
   uninstallConsoleCapture,
-} from "@/lib/logBuffer";
+} from "@/lib/logging/buffer";
 import LogsPage from "./page";
 
 // バッファに実際に積んで、ページに出ることを見る (docs/21-ログ表示計画.md §5)。

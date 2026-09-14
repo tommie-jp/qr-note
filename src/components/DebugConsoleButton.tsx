@@ -7,7 +7,7 @@ import {
   isDebugConsoleOn,
   setDebugConsole,
   subscribeDebugConsole,
-} from "@/lib/erudaConsole";
+} from "@/lib/logging/erudaConsole";
 
 // メニューから eruda を出し入れする (docs/30-ブラウザログ計画.md §2)。
 //

@@ -9,12 +9,12 @@ import {
   parseWorkerVersion,
   readBootTiming,
   shouldReportBoot,
-} from "@/lib/bootTiming";
-import { logDiagEvent } from "@/lib/diagLog";
+} from "@/lib/logging/bootTiming";
+import { logDiagEvent } from "@/lib/logging/diagLog";
 import { readMark, writeMark } from "@/lib/offline/schedule";
 
 // 起動にかかった時間の内訳を /logs へ送る。何も描かない。
-// 何のための計測かは src/lib/bootTiming.ts の冒頭に書いた。
+// 何のための計測かは src/lib/logging/bootTiming.ts の冒頭に書いた。
 //
 // localStorage の出入りは offline/schedule.ts の readMark/writeMark を借りる。
 // 素で触ると保存を塞いだブラウザで例外が突き抜ける、という理由はあちらと同じで、
@@ -22,7 +22,7 @@ import { readMark, writeMark } from "@/lib/offline/schedule";
 
 // **1 回の読み込みにつき 1 度だけ送る。** layout に置くのでソフトな画面遷移では
 // 再マウントされないが、StrictMode の二重実行と戻る/進むの再マウントがある
-// (diagLog.ts の logEnvironmentOnce と同じ守り)
+// (logging/diagLog.ts の logEnvironmentOnce と同じ守り)
 let reported = false;
 // 途中経過を送ったか。送っていれば、揃ったあとの行は**条件を問わず送る** —
 // 右側が欠けた行だけが残ると、load まで含めて遅かったのかが判らない
@@ -92,7 +92,7 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
       }
     };
 
-    // load を待てなかったときの途中経過 (bootTiming.ts の BOOT_REPORT_FALLBACK_MS)。
+    // load を待てなかったときの途中経過 (logging/bootTiming.ts の BOOT_REPORT_FALLBACK_MS)。
     // ここまで来ていれば responseStart / responseEnd / FCP は確定しており、
     // 白い時間がサーバ側か Worker 側かはこれだけで切り分けられる
     const reportPartial = () => {

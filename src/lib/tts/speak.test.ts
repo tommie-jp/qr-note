@@ -15,7 +15,7 @@ import {
 import { speakEnglish, stopSpeaking } from './speak'
 
 // 診断ログはサーバへ送る副作用なので黙らせる (node には Beacon も無い)
-vi.mock('@/lib/diagLog', () => ({ logDiagEvent: vi.fn() }))
+vi.mock('@/lib/logging/diagLog', () => ({ logDiagEvent: vi.fn() }))
 
 afterEach(() => {
   uninstallSpeech()

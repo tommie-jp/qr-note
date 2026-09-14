@@ -7,7 +7,7 @@
 
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { installConsoleCapture } = await import('./lib/logBuffer')
+    const { installConsoleCapture } = await import('./lib/logging/buffer')
     installConsoleCapture()
   }
 }

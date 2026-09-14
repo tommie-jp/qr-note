@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { clearLogBuffer } from '@/lib/logBuffer'
+import { clearLogBuffer } from '@/lib/logging/buffer'
 import { guardRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 

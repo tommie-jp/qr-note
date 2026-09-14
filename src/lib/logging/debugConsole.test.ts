@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { debugEnabledFor } from './debugConsole'
 
 // eruda の出し入れの判断 (docs/30-ブラウザログ計画.md §5)。
-// 本体の読み込み (erudaConsole.ts) はブラウザが無いと動かないので、
+// 本体の読み込み (logging/erudaConsole.ts) はブラウザが無いと動かないので、
 // ここでは判断だけを見る。パネルが実際に出ることは実機で確かめる
 
 test('?debug=1 で出す', () => {

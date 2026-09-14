@@ -7,7 +7,7 @@
 // 書いた。再試行するかどうかの判断は embedderLoadState の純関数が持つ。
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { logDiagEvent, logEnvironmentOnce, readMemorySnapshot } from '@/lib/diagLog'
+import { logDiagEvent, logEnvironmentOnce, readMemorySnapshot } from '@/lib/logging/diagLog'
 import {
   INITIAL_EMBEDDER_LOAD_STATE,
   needsWasmRespawn,

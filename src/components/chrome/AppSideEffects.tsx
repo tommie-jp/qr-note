@@ -39,7 +39,7 @@ export function AppSideEffects({ user, isDemo }: AppSideEffectsProps) {
           消えるデータを端末へ溜める意味が無く、共有アカウントなので
           他人のノートが端末に残る (docs/38-デモモード計画.md §4) */}
       {reportsToServer && <OfflineSync version={pkg.version} />}
-      {/* 起動にかかった時間の内訳を /logs へ送る (src/lib/bootTiming.ts)。
+      {/* 起動にかかった時間の内訳を /logs へ送る (src/lib/logging/bootTiming.ts)。
           何も描かない。「デプロイ直後の起動だけ数十秒白い」の切り分け用で、
           原因が判ったら消してよい。仕掛ける条件は ClientLogCapture と同じ
           (転送の受け口が同じなので、ログイン中・デモ以外) */}

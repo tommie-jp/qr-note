@@ -1,7 +1,7 @@
 // 取り込みの進み具合の**形と読み方** (docs/28-エクスポート計画.md §9)。
 //
 // サーバ側の控え (importProgressStore.ts) と表示側 (transfer/ImportProgressBar) の両方が
-// 使うので、状態を持たないここに置く (logEntry.ts と logBuffer.ts の関係と
+// 使うので、状態を持たないここに置く (logging/entry.ts と logging/buffer.ts の関係と
 // 同じ)。状態を持つ側に置くと、控えの仕組みごとクライアントのバンドルに載る。
 
 // 取り込みは 2 段構え (§3 実装結果)。バイトを読みながら添付を保存し、

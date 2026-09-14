@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import type { LogEntry } from "@/lib/logBuffer";
+import type { LogEntry } from "@/lib/logging/buffer";
 import { formatLogsForCopy } from "./formatLogsForCopy";
 
 // コピーした文字列だけを見て原因に届くかを見る (docs/21-ログ表示計画.md §6)。

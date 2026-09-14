@@ -27,7 +27,7 @@
 //
 // このモジュールはブラウザでのみ呼ぶ。サーバ側からは絶対に import しないこと。
 
-import { logDiagEvent, logEnvironmentOnce } from '@/lib/diagLog'
+import { logDiagEvent, logEnvironmentOnce } from '@/lib/logging/diagLog'
 import type { FromOcrWorker, ToOcrWorker } from './ocrWorkerMessages'
 
 // 「モデルの準備が終わった」の合図。バイト計は 99 で頭打ちにしてあるので、

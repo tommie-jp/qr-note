@@ -1,10 +1,10 @@
 // ログ 1 件の形と上限 (設計は docs/21-ログ表示計画.md / docs/30-ブラウザログ計画.md)。
 //
-// サーバ側の控え (logBuffer.ts) とブラウザ側の拾い手 (clientLogCapture.ts) の
-// 両方が使うので、状態を持たないここに置く。logBuffer.ts に置くと、console を
+// サーバ側の控え (logging/buffer.ts) とブラウザ側の拾い手 (logging/clientCapture.ts) の
+// 両方が使うので、状態を持たないここに置く。logging/buffer.ts に置くと、console を
 // 包む処理まるごとがクライアントのバンドルに載る。
 
-// info は診断イベント (diagLog.ts) 用。console は包まず、明示的に送った
+// info は診断イベント (logging/diagLog.ts) 用。console は包まず、明示的に送った
 // ものだけがこのレベルになる (warn/error の「失敗の印」を薄めないため)
 export type LogLevel = 'info' | 'warn' | 'error'
 

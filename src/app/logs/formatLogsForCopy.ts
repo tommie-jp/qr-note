@@ -1,4 +1,4 @@
-import type { LogEntry } from "@/lib/logBuffer";
+import type { LogEntry } from "@/lib/logging/buffer";
 
 // /logs の中身を貼り付け用のプレーンテキストにする (docs/21-ログ表示計画.md §6)。
 //

@@ -46,12 +46,12 @@ const validBody = { items: [{ level: 'warn', text: 'モデルを読み込めま�
 
 beforeEach(async () => {
   mocks.sessionToken = mocks.validToken
-  const { clearLogBuffer } = await import('@/lib/logBuffer')
+  const { clearLogBuffer } = await import('@/lib/logging/buffer')
   clearLogBuffer()
 })
 
 afterEach(async () => {
-  const { clearLogBuffer } = await import('@/lib/logBuffer')
+  const { clearLogBuffer } = await import('@/lib/logging/buffer')
   clearLogBuffer()
 })
 
@@ -94,7 +94,7 @@ describe('拒否系 (バッファに触れる前に弾く)', () => {
 
 test('受け取ったログはバッファに入り、/logs から読める', async () => {
   const POST = await importPost()
-  const { recentLogs } = await import('@/lib/logBuffer')
+  const { recentLogs } = await import('@/lib/logging/buffer')
 
   const res = await POST(
     postRequest(validBody, {

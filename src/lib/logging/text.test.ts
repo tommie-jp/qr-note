@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { formatLogArg, formatLogArgs } from './logText'
-import { LOG_TEXT_LIMIT } from './logEntry'
+import { formatLogArg, formatLogArgs } from './text'
+import { LOG_TEXT_LIMIT } from './entry'
 
 // ログの整形 (docs/21-ログ表示計画.md §2、docs/30-ブラウザログ計画.md §1)
 

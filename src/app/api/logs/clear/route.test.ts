@@ -42,13 +42,13 @@ function postRequest(headers: Record<string, string> = {}): Request {
 }
 
 async function seedLogs(): Promise<void> {
-  const { pushBrowserLogs } = await import('@/lib/logBuffer')
+  const { pushBrowserLogs } = await import('@/lib/logging/buffer')
   pushBrowserLogs([{ level: 'warn', text: '調査対象の警告' }], 'iPhone')
 }
 
 beforeEach(async () => {
   mocks.sessionToken = mocks.validToken
-  const { clearLogBuffer } = await import('@/lib/logBuffer')
+  const { clearLogBuffer } = await import('@/lib/logging/buffer')
   clearLogBuffer()
 })
 
@@ -58,7 +58,7 @@ describe('拒否系 (消す前に弾く)', () => {
     mocks.sessionToken = null
     await seedLogs()
     const POST = await importPost()
-    const { recentLogs } = await import('@/lib/logBuffer')
+    const { recentLogs } = await import('@/lib/logging/buffer')
 
     // Act
     const res = await POST(postRequest())
@@ -72,7 +72,7 @@ describe('拒否系 (消す前に弾く)', () => {
     // Arrange: 開けっ放しにすると第三者のページから調査中の証拠を消せてしまう
     await seedLogs()
     const POST = await importPost()
-    const { recentLogs } = await import('@/lib/logBuffer')
+    const { recentLogs } = await import('@/lib/logging/buffer')
 
     // Act
     const res = await POST(postRequest({ 'sec-fetch-site': 'cross-site' }))
@@ -87,7 +87,7 @@ test('サーバ・ブラウザ両方のログを消す', async () => {
   // Arrange
   await seedLogs()
   const POST = await importPost()
-  const { recentLogs } = await import('@/lib/logBuffer')
+  const { recentLogs } = await import('@/lib/logging/buffer')
   expect(recentLogs()).toHaveLength(1)
 
   // Act

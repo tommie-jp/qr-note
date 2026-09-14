@@ -7,7 +7,7 @@
 // Mac 無しでインスペクタを繋げないので、選んだ声と鳴らなかった事実を
 // 診断ログに残す。console には出さない (失敗ではないものを警告にしない)。
 
-import { logDiagEvent } from '@/lib/diagLog'
+import { logDiagEvent } from '@/lib/logging/diagLog'
 import {
   TTS_GIVEUP_MS,
   TTS_LANG,

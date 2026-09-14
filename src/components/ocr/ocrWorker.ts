@@ -20,8 +20,8 @@
 
 /// <reference lib="webworker" />
 
-import { type CaptureScope, installClientLogCapture } from '@/lib/clientLogCapture'
-import { sendClientLogs } from '@/lib/clientLogTransport'
+import { type CaptureScope, installClientLogCapture } from '@/lib/logging/clientCapture'
+import { sendClientLogs } from '@/lib/logging/clientTransport'
 import { createOcrService, ocrWithService, type OcrSdkService } from './ocrPipeline'
 import type { FromOcrWorker, ToOcrWorker } from './ocrWorkerMessages'
 

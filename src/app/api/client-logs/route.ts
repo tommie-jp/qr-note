@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
-import { deviceLabel, parseClientLogPayload } from '@/lib/clientLogPayload'
-import { pushBrowserLogs } from '@/lib/logBuffer'
+import { deviceLabel, parseClientLogPayload } from '@/lib/logging/clientPayload'
+import { pushBrowserLogs } from '@/lib/logging/buffer'
 import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 

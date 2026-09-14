@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { installClientLogCapture } from "@/lib/clientLogCapture";
-import { sendClientLogs } from "@/lib/clientLogTransport";
+import { installClientLogCapture } from "@/lib/logging/clientCapture";
+import { sendClientLogs } from "@/lib/logging/clientTransport";
 
 // ブラウザのログ拾いを仕掛けるだけの部品 (docs/30-ブラウザログ計画.md §1)。
 // 何も描かない。layout に置いて全ページで効かせる。

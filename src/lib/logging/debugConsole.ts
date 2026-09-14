@@ -1,6 +1,6 @@
 // デバッグコンソール (eruda) の出し入れの判断 (docs/30-ブラウザログ計画.md §2)。
 //
-// 判断だけをここに分ける。eruda 本体を触る側 (erudaConsole.ts) はブラウザが
+// 判断だけをここに分ける。eruda 本体を触る側 (logging/erudaConsole.ts) はブラウザが
 // 無いと動かず、テストで確かめられないため。
 
 export const DEBUG_QUERY_KEY = 'debug'

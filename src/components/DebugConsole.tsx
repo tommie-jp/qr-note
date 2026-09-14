@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { debugEnabledFor } from "@/lib/debugConsole";
-import { isDebugConsoleOn, setDebugConsole } from "@/lib/erudaConsole";
+import { debugEnabledFor } from "@/lib/logging/debugConsole";
+import { isDebugConsoleOn, setDebugConsole } from "@/lib/logging/erudaConsole";
 
 // ?debug=1 で eruda を出す (docs/30-ブラウザログ計画.md §2)。何も描かない。
 //

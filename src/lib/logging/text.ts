@@ -1,7 +1,7 @@
-// console の引数を 1 行の文字列にする。サーバ側 (logBuffer.ts) と
-// ブラウザ側 (clientLogCapture.ts) が同じ整形を使うためここに置く。
+// console の引数を 1 行の文字列にする。サーバ側 (logging/buffer.ts) と
+// ブラウザ側 (logging/clientCapture.ts) が同じ整形を使うためここに置く。
 
-import { LOG_TEXT_LIMIT } from './logEntry'
+import { LOG_TEXT_LIMIT } from './entry'
 
 // 色付けなどの ANSI エスケープ (CSI シーケンス)。
 //

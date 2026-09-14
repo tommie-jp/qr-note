@@ -22,7 +22,7 @@ import {
 } from './config'
 
 // 診断ログはサーバへ送る副作用なので黙らせる (node には Beacon も無い)
-vi.mock('@/lib/diagLog', () => ({ logDiagEvent: vi.fn() }))
+vi.mock('@/lib/logging/diagLog', () => ({ logDiagEvent: vi.fn() }))
 
 // 1 回ぶんの試行だけを見る。やり直し・settle once・声の覚え書きは
 // セッション側 (speak.test.ts) で固定してあるので、ここでは知らせる口を

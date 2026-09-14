@@ -11,12 +11,12 @@
 //
 // 起動時に instrumentation.ts が installConsoleCapture() を 1 回呼ぶ。
 
-import type { ClientLogItem } from './clientLogPayload'
-import { LOG_BUFFER_SIZE, type LogEntry, type LogLevel } from './logEntry'
-import { formatLogArgs } from './logText'
+import type { ClientLogItem } from './clientPayload'
+import { LOG_BUFFER_SIZE, type LogEntry, type LogLevel } from './entry'
+import { formatLogArgs } from './text'
 
-export { LOG_BUFFER_SIZE, LOG_TEXT_LIMIT } from './logEntry'
-export type { LogEntry, LogLevel, LogSource } from './logEntry'
+export { LOG_BUFFER_SIZE, LOG_TEXT_LIMIT } from './entry'
+export type { LogEntry, LogLevel, LogSource } from './entry'
 
 // バッファと「包んだか」は globalThis に持つ (db.ts と同じ理由)。
 // dev のホットリロードでこのモジュールが再評価されても、控えが消えたり

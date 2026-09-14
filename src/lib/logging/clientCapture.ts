@@ -17,9 +17,9 @@ import {
   CLIENT_LOG_MAX_BATCH,
   CLIENT_LOG_MAX_PENDING,
   type ClientLogItem,
-} from './clientLogPayload'
-import { LOG_TEXT_LIMIT, type LogLevel } from './logEntry'
-import { formatLogArg } from './logText'
+} from './clientPayload'
+import { LOG_TEXT_LIMIT, type LogLevel } from './entry'
+import { formatLogArg } from './text'
 
 type Listener = (event: unknown) => void
 
@@ -36,7 +36,7 @@ export interface CaptureScope {
 
 export interface ClientLogCaptureOptions {
   scope?: CaptureScope
-  // 送信手段。既定は clientLogTransport.ts (Beacon → fetch)。
+  // 送信手段。既定は logging/clientTransport.ts (Beacon → fetch)。
   // 差し替えられるのはテストのためと、Worker で経路を変えられるようにするため
   send: (items: ClientLogItem[]) => void
   flushIntervalMs?: number
@@ -54,7 +54,7 @@ interface CaptureState {
   listeners: [string, Listener][]
 }
 
-// globalThis に持つ (logBuffer.ts と同じ理由)。dev の HMR や
+// globalThis に持つ (logging/buffer.ts と同じ理由)。dev の HMR や
 // React StrictMode の二重実行でも、包みは 1 重のまま
 const globalForCapture = globalThis as unknown as { qrNoteClientLog?: CaptureState }
 

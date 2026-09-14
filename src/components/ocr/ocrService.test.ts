@@ -13,7 +13,7 @@ import type { FromOcrWorker, ToOcrWorker } from './ocrWorkerMessages'
 
 // 診断イベント (diagLog) は fetch へ直行するのでテストでは黙らせて記録する
 const diag = vi.hoisted(() => ({ events: [] as string[] }))
-vi.mock('@/lib/diagLog', () => ({
+vi.mock('@/lib/logging/diagLog', () => ({
   logDiagEvent: (text: string) => {
     diag.events.push(text)
   },

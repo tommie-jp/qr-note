@@ -15,7 +15,7 @@
 // ブラウザ / Worker のどちらからも呼べる (sendClientLogs は Worker では
 // Beacon が無く fetch に落ちるが、経路はそれで足りる)。
 
-import { sendClientLogs } from './clientLogTransport'
+import { sendClientLogs } from './clientTransport'
 
 export interface MemorySnapshot {
   // いま生きているオブジェクトの量

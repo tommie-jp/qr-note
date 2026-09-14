@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
-import { recentLogs } from "@/lib/logBuffer";
+import { recentLogs } from "@/lib/logging/buffer";
 import { requireUser } from "@/lib/auth/session";
 import { ClearLogsButton } from "./ClearLogsButton";
 import { CopyLogsButton } from "./CopyLogsButton";
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 // 読み直しはブラウザの再読み込みで足りる (ポーリングはしない。docs/21 §4)。
 
 const LEVEL_BADGE: Record<string, string> = {
-  // info は診断イベント (diagLog.ts)。失敗ではないので警告色にしない
+  // info は診断イベント (logging/diagLog.ts)。失敗ではないので警告色にしない
   info: "bg-gray-100 text-gray-600",
   warn: "bg-amber-100 text-amber-800",
   error: "bg-red-100 text-red-800",

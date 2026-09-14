@@ -13,8 +13,8 @@
 
 import 'client-only'
 import { DEBUG_STORAGE_KEY } from './debugConsole'
-import { createNotifier } from './prefs/externalStore'
-import { browserStorage, defineBooleanPref } from './prefs/storagePref'
+import { createNotifier } from '../prefs/externalStore'
+import { browserStorage, defineBooleanPref } from '../prefs/storagePref'
 
 // 読み込み済みの本体。destroy 後に再び出せるよう、都度 import せず持っておく
 let loaded: { destroy: () => void } | null = null

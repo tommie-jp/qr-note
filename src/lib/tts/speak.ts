@@ -10,7 +10,7 @@
 // 1 回ぶんの試行と見張り (attempt.ts) → このファイル (押下 1 回ぶんの
 // セッションと、ページに 1 つの状態)。UI が触るのはこのファイルの 3 関数だけ。
 
-import { logDiagEvent } from '@/lib/diagLog'
+import { logDiagEvent } from '@/lib/logging/diagLog'
 import {
   cancelIfBusy,
   speakOnce,

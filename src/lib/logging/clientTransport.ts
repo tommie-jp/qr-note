@@ -1,7 +1,7 @@
 // ブラウザからサーバへログを送る手段 (docs/30-ブラウザログ計画.md §1)。
-// ブラウザ / Worker でしか動かないので、拾う側 (clientLogCapture.ts) とは分ける。
+// ブラウザ / Worker でしか動かないので、拾う側 (logging/clientCapture.ts) とは分ける。
 
-import { CLIENT_LOG_PATH, type ClientLogItem } from './clientLogPayload'
+import { CLIENT_LOG_PATH, type ClientLogItem } from './clientPayload'
 
 // Beacon を優先する。**ページ離脱時に届くのはこれだけ** で、遷移直前の
 // エラーこそ一番失いたくない。fetch は離脱で中断されうる。
@@ -25,7 +25,7 @@ export function sendClientLogs(items: ClientLogItem[]): void {
   }
 
   // 失敗しても何もしない。ここで console.error を呼ぶと
-  // 「送れない → エラー → 送る」の無限ループになる (clientLogCapture.ts と同じ理由)
+  // 「送れない → エラー → 送る」の無限ループになる (logging/clientCapture.ts と同じ理由)
   void fetch(CLIENT_LOG_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

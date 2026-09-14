@@ -5,9 +5,9 @@ import {
   installClientLogCapture,
   pendingClientLogs,
   uninstallClientLogCapture,
-} from './clientLogCapture'
-import type { ClientLogItem } from './clientLogPayload'
-import { LOG_TEXT_LIMIT } from './logEntry'
+} from './clientCapture'
+import type { ClientLogItem } from './clientPayload'
+import { LOG_TEXT_LIMIT } from './entry'
 
 // ブラウザの拾い手を node のまま試す (docs/30-ブラウザログ計画.md §5)。
 // このリポジトリは jsdom を持たない (HeaderMenu.test.tsx と同じ方針) ので、

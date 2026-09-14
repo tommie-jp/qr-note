@@ -10,8 +10,8 @@
 
 /// <reference lib="webworker" />
 
-import { type CaptureScope, installClientLogCapture } from '@/lib/clientLogCapture'
-import { sendClientLogs } from '@/lib/clientLogTransport'
+import { type CaptureScope, installClientLogCapture } from '@/lib/logging/clientCapture'
+import { sendClientLogs } from '@/lib/logging/clientTransport'
 import { embed, getAttemptedDevice, preloadEmbedder } from '@/lib/embedding/embedder'
 import type { FromEmbedWorker, ToEmbedWorker } from './workerMessages'
 

@@ -1,9 +1,9 @@
 // ブラウザ → サーバへ送るログの形と、その検証 (docs/30-ブラウザログ計画.md §1)。
 //
-// 送る側 (clientLogCapture.ts) と受ける側 (/api/client-logs) が同じ定義を見る。
+// 送る側 (logging/clientCapture.ts) と受ける側 (/api/client-logs) が同じ定義を見る。
 // 受け口では**必ず手で確かめる** — 外から来るデータを信じない (境界での検証)。
 
-import { LOG_TEXT_LIMIT, type LogLevel } from './logEntry'
+import { LOG_TEXT_LIMIT, type LogLevel } from './entry'
 
 export interface ClientLogItem {
   level: LogLevel
