@@ -11,7 +11,7 @@ import type { Item } from "@/generated/prisma/client";
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
 import type { NotePreviewMap } from "./NotePreviewThumb";
-import { buildItemUrl, itemNoFromPathname } from "@/lib/searchUrl";
+import { buildItemUrl, itemNoFromPathname } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { BulkTagToolbar } from "./BulkTagToolbar";

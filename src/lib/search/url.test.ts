@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { narrowToChecks } from './search/rewrite'
-import { buildItemUrl, buildSearchUrl, buildTrashUrl, itemNoFromPathname } from './searchUrl'
+import { narrowToChecks } from './rewrite'
+import { buildItemUrl, buildSearchUrl, buildTrashUrl, itemNoFromPathname } from './url'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {
   expect(buildSearchUrl('', 1, 'updated')).toBe('/')

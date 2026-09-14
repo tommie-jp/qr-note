@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { SAVED_LIMIT, SUGGEST_COUNT, type QueryLists } from '@/lib/searchQueries'
+import { SAVED_LIMIT, SUGGEST_COUNT, type QueryLists } from '@/lib/search/queries'
 import {
   insertTextOf,
   listDropdown,

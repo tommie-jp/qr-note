@@ -122,8 +122,8 @@ import {
   recordUse,
   registerSaved,
   unregisterSaved,
-} from './searchQueryStore'
-import { QUERY_LIMIT, SAVED_LIMIT } from './searchQueries'
+} from './queryStore'
+import { QUERY_LIMIT, SAVED_LIMIT } from './queries'
 
 const USER = 'tommie'
 const OTHER = 'someone-else'

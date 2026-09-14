@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Children, useState } from "react";
-import { ANSWER_CLOSED_MARK, ANSWER_OPEN_MARK } from "@/lib/answerSpoiler";
+import { ANSWER_CLOSED_MARK, ANSWER_OPEN_MARK } from "@/lib/vocab/answerSpoiler";
 import { useRevealAllAnswers } from "./RevealAllAnswers";
 import { VocabAnswer } from "./VocabAnswer";
 

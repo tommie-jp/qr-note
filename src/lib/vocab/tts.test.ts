@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseVocabAnswer, trailingHeadword } from './vocabTts'
+import { parseVocabAnswer, trailingHeadword } from './tts'
 
 // 本番 #1128「英単語 10 語」の答え (`||` の中身) をそのまま並べたもの。
 // 実データを固定して、記法を触ったときにここが落ちるようにする

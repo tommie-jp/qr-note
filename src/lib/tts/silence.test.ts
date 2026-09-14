@@ -8,7 +8,7 @@ import {
   isTtsHintDismissed,
   shouldShowTtsHint,
   ttsSilenceMessage,
-} from './ttsSilence'
+} from './silence'
 
 const IPHONE = { userAgent: 'iPhone; CPU iPhone OS 18_0' }
 

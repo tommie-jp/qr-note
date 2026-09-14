@@ -1,9 +1,9 @@
 import type { NextResponse } from 'next/server'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { SAVED_LIMIT } from '@/lib/searchQueries'
-import { recordableQueryOf, searchQueryUser } from '@/lib/searchQueryRoute'
-import { registerSaved, unregisterSaved } from '@/lib/searchQueryStore'
+import { SAVED_LIMIT } from '@/lib/search/queries'
+import { recordableQueryOf, searchQueryUser } from '@/lib/search/queryRoute'
+import { registerSaved, unregisterSaved } from '@/lib/search/queryStore'
 
 // 登録パターン (★) の口 (docs/59-検索候補計画.md §4, §7)。
 //

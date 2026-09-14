@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 import { BASE_REHYPE_PLUGINS, NOTE_REMARK_PLUGINS } from "./markdownPipeline";
 import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
 import { rehypeAnswerTts, ttsWordOf } from "./rehypeAnswerTts";
-import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
+import { ANSWER_SPOILER_CLASS } from "@/lib/vocab/answerSpoiler";
 
 // 本文と同じプラグイン列 (sanitize を含む) を通し、答えの span に刻まれた
 // 見出し語を data-word として吐き出す。**sanitize の後で刻めているか**まで

@@ -18,7 +18,7 @@ import { syntaxTree } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import type { EditorView } from "@codemirror/view";
 import { QUIZ_LANG } from "@/lib/markdown/fenceLanguages";
-import { parseQuiz } from "@/lib/quizParse";
+import { parseQuiz } from "@/lib/vocab/quizParse";
 
 // フェンスの原文から言語名と中身を割る。開きと閉じの行は中身に含めない
 function quizBody(source: string): string | null {
@@ -34,7 +34,7 @@ function quizBody(source: string): string | null {
   return body.join("\n");
 }
 
-// 「問」と選択肢の中身を取り出すための最小の網 (quizParse.ts と同じ書式を見る。
+// 「問」と選択肢の中身を取り出すための最小の網 (vocab/quizParse.ts と同じ書式を見る。
 // あちらの規則を借りるのではなく**中身が空かどうかだけ**を見るので、
 // 全角コロン・全角数字まで含めた本判定は parseQuiz に任せたままでよい)
 const QUESTION_LINE = /^問\s*[:：]\s*(.*)$/;

@@ -6,7 +6,7 @@ import {
   type Dropdown,
   type Suggestion,
 } from "@/lib/search/suggest";
-import { SAVED_LIMIT } from "@/lib/searchQueries";
+import { SAVED_LIMIT } from "@/lib/search/queries";
 
 interface SuggestionListProps {
   dropdown: Dropdown;

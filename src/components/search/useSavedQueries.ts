@@ -7,9 +7,9 @@ import {
   fetchQueries,
   registerSavedQuery,
   unregisterSavedQuery,
-} from "@/lib/searchQueryClient";
-import { migrateLegacyQueries } from "@/lib/searchQueryLegacy";
-import { isSavedFull, type QueryLists } from "@/lib/searchQueries";
+} from "@/lib/search/queryClient";
+import { migrateLegacyQueries } from "@/lib/search/queryLegacy";
+import { isSavedFull, type QueryLists } from "@/lib/search/queries";
 
 // ☆/★ を押した結果。
 //
@@ -46,8 +46,8 @@ export function useSavedQueries(isDemo: boolean) {
   };
 
   // 移す前の版が localStorage に残した登録パターンを引き取る (一度だけ)。
-  // 引き取り終わったら searchQueryLegacy.ts ごと消す。
-  // デモは受け取らないので送りもしない (searchQueryLegacy.ts 冒頭)
+  // 引き取り終わったら search/queryLegacy.ts ごと消す。
+  // デモは受け取らないので送りもしない (search/queryLegacy.ts 冒頭)
   useEffect(() => {
     void migrateLegacyQueries(isDemo).then((next) => {
       if (next !== null) {

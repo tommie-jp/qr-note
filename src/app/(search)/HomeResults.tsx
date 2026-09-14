@@ -15,14 +15,14 @@ import { ResultsToolbar } from "@/components/ResultsToolbar";
 import { SearchResults } from "@/components/SearchNav";
 import { TaskProgress } from "@/components/TaskProgress";
 import { showsAutoNote, type PaneMode } from "@/lib/prefs/paneMode";
-import { loadSearchResults } from "@/lib/searchPageData";
-import { buildSearchUrl } from "@/lib/searchUrl";
+import { loadSearchResults } from "@/lib/search/pageData";
+import { buildSearchUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 
 // 検索の重い部分 (DB 問い合わせと結果表示) をまとめた非公開のサーバ
 // コンポーネント。Home 本体はここを await しないので、固定部が先に流れる。
-// 何を引くか (条件つきの問い合わせと派生計算) は lib/searchPageData.ts
+// 何を引くか (条件つきの問い合わせと派生計算) は lib/search/pageData.ts
 export async function HomeResults({
   query,
   page,

@@ -77,7 +77,8 @@
 
 ## 4. 実装ステップ (TDD)
 
-1. `src/lib/quizParse.ts` — フェンス本文 → 問・選択肢・正解・解説 (または
+1. `src/lib/quizParse.ts` (当時のパス。現在は `src/lib/vocab/quizParse.ts`) — フェンス本文 →
+   問・選択肢・正解・解説 (または
    エラー)。テスト先行: 正常系 / 選択肢数の過不足 / 正解番号の範囲 /
    フィールド欠落 / 複数行の問題文・解説。
 2. `src/components/quiz/` — `QuizFence` (解いて描く) + `QuizCard` (押したときの

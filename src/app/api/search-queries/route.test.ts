@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 // 差し替えて、認証の判定そのものは本物を通す。
 //
 // 保存層 (searchQueryStore) は「誰の名前で呼ばれたか」を見たいので、
-// 呼び出しを記録する偽物に差し替える。DB は別途 searchQueryStore.test.ts。
+// 呼び出しを記録する偽物に差し替える。DB は別途 search/queryStore.test.ts。
 const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
   validToken: 'valid-session-token',
@@ -34,7 +34,7 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/searchQueryStore', () => {
+vi.mock('@/lib/search/queryStore', () => {
   const record = (fn: string, user: string, arg: unknown) => {
     mocks.calls.push({ fn, user, arg })
     return { saved: [], recent: [] }

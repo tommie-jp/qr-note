@@ -1,4 +1,4 @@
-import type { Sort, TrashSort } from './validation'
+import type { Sort, TrashSort } from '../validation'
 
 // 検索一覧 (/) の URL を組み立てる。既定値 (page=1 / sort=updated) は省略して
 // 短い URL にする。一覧のページ送り・並び替えリンクと、一括操作後の戻り先で共用する。

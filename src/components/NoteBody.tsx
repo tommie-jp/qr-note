@@ -2,7 +2,7 @@ import { MarkdownView, type MarkdownViewOptions } from "@/components/MarkdownVie
 import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
 import { NotePager } from "@/components/NotePager";
 import { noteDefinitions, splitPages } from "@/components/notePages";
-import { hasAnswerSpoiler } from "@/lib/answerSpoiler";
+import { hasAnswerSpoiler } from "@/lib/vocab/answerSpoiler";
 
 // ノート本文をページに分けて描く (docs/74-ページ計画.md §4)。
 //

@@ -1,6 +1,6 @@
 // 全文検索の検索式の型と定数 (search/ の葉)。
 // 解析 (parse.ts) と書き換え (rewrite.ts) のどちらも持たない、型と綴りだけの層。
-// SQL 組み立て (items/where.ts) や補完 (keywordComplete.ts) のように、式を
+// SQL 組み立て (items/where.ts) や補完 (search/keywordComplete.ts) のように、式を
 // **受け取るだけ**の側はここだけを import すればよい。
 // 検索窓の文法は parse.ts 冒頭を参照。
 

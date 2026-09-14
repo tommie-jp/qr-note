@@ -8,12 +8,12 @@
 //   `#…` を打ちかけ … タグ候補
 //   その他の語      … キーワード候補 (is:todo / is:done)
 
-import { keywordContextAtCursor, matchKeywords } from '@/lib/keywordComplete'
+import { keywordContextAtCursor, matchKeywords } from '@/lib/search/keywordComplete'
 import {
   replaceRange,
   type CompleteRange,
   type Completion,
-} from '@/lib/queryComplete'
+} from '@/lib/search/queryComplete'
 import {
   addSavedQuery,
   applyQueryUse,
@@ -21,12 +21,12 @@ import {
   removeSavedQuery,
   splitSuggestions,
   type QueryLists,
-} from '@/lib/searchQueries'
+} from '@/lib/search/queries'
 import {
   longestCommonPrefix,
   matchTags,
   tagContextAtCursor,
-} from '@/lib/tagComplete'
+} from '@/lib/search/tagComplete'
 
 // ドロップダウンに並ぶ 1 行 (docs/59-検索候補計画.md §1)。
 //

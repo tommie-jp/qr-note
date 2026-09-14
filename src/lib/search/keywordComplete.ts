@@ -1,6 +1,6 @@
 // 検索窓のキーワード補完 (docs/59-検索候補計画.md §5)。
 // `i` まで打つと `is:todo` `is:done` を候補に出す。DB 非依存の純関数で、
-// タグ補完 (tagComplete.ts) と同じ形をしている。
+// タグ補完 (search/tagComplete.ts) と同じ形をしている。
 //
 // この機能の狙いは打鍵数の削減だけではない。`is:` という構文が**あると
 // 気づかせる**ことでもあるので、`is` まで打たないと出ない、にはしない。
@@ -11,7 +11,7 @@ import {
   insideQuote,
   isTokenBoundary,
   type CompleteRange,
-} from '@/lib/queryComplete'
+} from '@/lib/search/queryComplete'
 import { UNTAGGED_TOKEN } from '@/lib/search/types'
 
 // 補完できる検索キーワード。増えてもここへ足すだけで UI は変わらない。

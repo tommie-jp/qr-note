@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, test, vi } from "vitest";
-import { TTS_SILENT_GENERIC_MESSAGE } from "@/lib/ttsSilence";
+import { TTS_SILENT_GENERIC_MESSAGE } from "@/lib/tts/silence";
 import { useTtsPress } from "./TtsButton";
 
 // 読み上げそのものは差し替える。ここで見たいのは**押下 1 回ぶんの流れ** —

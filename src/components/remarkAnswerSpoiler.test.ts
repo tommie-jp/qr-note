@@ -4,7 +4,7 @@ import remarkParse from "remark-parse";
 import { describe, expect, test } from "vitest";
 import { unified } from "unified";
 import { remarkAnswerSpoiler } from "./remarkAnswerSpoiler";
-import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
+import { ANSWER_SPOILER_CLASS } from "@/lib/vocab/answerSpoiler";
 
 function run(markdown: string, mask = false): Root {
   const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown) as Root;

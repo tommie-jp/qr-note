@@ -6,7 +6,7 @@ import {
 } from './keywordComplete'
 
 // カーソル位置は | で示し、テストで実インデックスへ変換する
-// (tagComplete.test.ts と同じ書き方)。
+// (search/tagComplete.test.ts と同じ書き方)。
 function at(withCaret: string) {
   const cursor = withCaret.indexOf('|')
   return { query: withCaret.replace('|', ''), cursor }

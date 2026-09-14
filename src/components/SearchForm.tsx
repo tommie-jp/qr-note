@@ -15,13 +15,13 @@ import {
   COMPACT_INPUT_CLASS,
   COMPACT_PRIMARY_ICON_BUTTON_CLASS,
 } from "@/components/ui";
-import { replaceRange, type Completion } from "@/lib/queryComplete";
+import { replaceRange, type Completion } from "@/lib/search/queryComplete";
 import {
   insertTextOf,
   type Dropdown,
   type Suggestion,
 } from "@/lib/search/suggest";
-import { recordQueryUse } from "@/lib/searchQueryClient";
+import { recordQueryUse } from "@/lib/search/queryClient";
 
 interface SearchFormProps {
   initialQuery: string;

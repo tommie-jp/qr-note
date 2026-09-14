@@ -1,4 +1,4 @@
-// 検索窓の補完でタグ (tagComplete.ts) とキーワード (keywordComplete.ts) が
+// 検索窓の補完でタグ (search/tagComplete.ts) とキーワード (search/keywordComplete.ts) が
 // 共通に使う部品 (docs/59-検索候補計画.md §5)。
 //
 // 2 つの補完は「どこからどこまでが打ちかけのトークンか」の判定だけが違い、

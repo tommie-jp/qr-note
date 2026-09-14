@@ -1,9 +1,9 @@
 import type { NextResponse } from 'next/server'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiOk } from '@/lib/route/respond'
-import { sanitizeQueryList } from '@/lib/searchQueries'
-import { recordableQueryOf, searchQueryUser } from '@/lib/searchQueryRoute'
-import { importSavedQueries, listQueries, recordUse } from '@/lib/searchQueryStore'
+import { sanitizeQueryList } from '@/lib/search/queries'
+import { recordableQueryOf, searchQueryUser } from '@/lib/search/queryRoute'
+import { importSavedQueries, listQueries, recordUse } from '@/lib/search/queryStore'
 
 // 検索履歴と登録パターンの口 (docs/59-検索候補計画.md §7)。
 //

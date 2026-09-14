@@ -11,8 +11,8 @@
 //
 // **このファイルは純粋な計算だけ**を持つ。読み書きは 2 か所に分かれる:
 //
-//   searchQueryStore.ts  … サーバ側。userName で仕切って DB へ (正本)
-//   searchQueryClient.ts … クライアント側。/api/search-queries を叩く
+//   search/queryStore.ts  … サーバ側。userName で仕切って DB へ (正本)
+//   search/queryClient.ts … クライアント側。/api/search-queries を叩く
 //
 // 並びの意味づけ (前方一致の掃除・上限・登録が履歴より強い) をここ 1 か所に
 // 置くことで、サーバの書き込みとクライアントの楽観更新が食い違わない。

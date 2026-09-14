@@ -19,7 +19,7 @@ import { apiFail } from './respond'
 // 通れば誰か、通らなければそのまま返す応答。
 //
 // ok: false の response は失敗とは限らない — 検索履歴の口はデモで空のリストを
-// 200 で返して打ち切る (searchQueryRoute.ts)
+// 200 で返して打ち切る (search/queryRoute.ts)
 export type GuardResult =
   | { readonly ok: true; readonly user: string }
   | { readonly ok: false; readonly response: NextResponse }

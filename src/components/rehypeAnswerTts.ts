@@ -1,7 +1,7 @@
 import type { Element, Root, RootContent } from "hast";
 import { visit } from "unist-util-visit";
-import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
-import { trailingHeadword } from "@/lib/vocabTts";
+import { ANSWER_SPOILER_CLASS } from "@/lib/vocab/answerSpoiler";
+import { trailingHeadword } from "@/lib/vocab/tts";
 
 // 答え隠し `||答え||` の span に、その行の**見出し語**を刻む rehype プラグイン
 // (docs/81-単語TTS発音計画.md)。単語の発音ボタンが何を読み上げるかを決める。

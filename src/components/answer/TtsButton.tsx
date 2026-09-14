@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SpeakerIcon } from "@/components/icons";
 import { primeVoices, speakEnglish, stopSpeaking } from "@/lib/tts/speak";
-import { ttsSilenceMessage } from "@/lib/ttsSilence";
+import { ttsSilenceMessage } from "@/lib/tts/silence";
 
 interface TtsButtonProps {
   // 読み上げる英語 (見出し語 または 例文)

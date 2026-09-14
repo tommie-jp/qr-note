@@ -7,7 +7,7 @@ import {
   matrixCountLabel,
   type MatrixCell,
 } from "@/lib/matrix/matrixTable";
-import { buildItemUrl } from "@/lib/searchUrl";
+import { buildItemUrl } from "@/lib/search/url";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";
 
 interface MatrixTableProps {

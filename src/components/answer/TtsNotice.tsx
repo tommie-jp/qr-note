@@ -1,6 +1,6 @@
 "use client";
 
-import { dismissTtsHint } from "@/lib/ttsSilence";
+import { dismissTtsHint } from "@/lib/tts/silence";
 
 interface TtsNoticeProps {
   // 出す文。null なら何も描かない

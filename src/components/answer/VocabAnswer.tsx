@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { parseVocabAnswer } from "@/lib/vocabTts";
-import { shouldShowTtsHint, TTS_SILENT_HINT } from "@/lib/ttsSilence";
+import { parseVocabAnswer } from "@/lib/vocab/tts";
+import { shouldShowTtsHint, TTS_SILENT_HINT } from "@/lib/tts/silence";
 import { TtsButton } from "./TtsButton";
 import { TtsNotice } from "./TtsNotice";
 
@@ -53,7 +53,7 @@ export function VocabAnswer({ text, word }: VocabAnswerProps) {
     return <>{text}</>;
   }
 
-  // head と example をつなぐと元の答えに戻る (vocabTts.ts)。
+  // head と example をつなぐと元の答えに戻る (vocab/tts.ts)。
   // 文字を落とさないために、切った物をそのまま並べる
   return (
     <>

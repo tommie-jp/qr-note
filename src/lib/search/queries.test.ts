@@ -13,7 +13,7 @@ import {
   splitSuggestions,
   touchSavedQuery,
   SUGGEST_COUNT,
-} from './searchQueries'
+} from './queries'
 
 describe('addRecentQuery', () => {
   test('puts a new query at the head', () => {

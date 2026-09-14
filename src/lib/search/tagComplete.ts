@@ -13,7 +13,7 @@ import {
   replaceRange,
   type CompleteRange,
   type Completion,
-} from '@/lib/queryComplete'
+} from '@/lib/search/queryComplete'
 import { normalizeTag } from '@/lib/markdown/tags/tags'
 
 export type { Completion }

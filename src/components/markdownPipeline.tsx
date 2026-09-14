@@ -29,7 +29,7 @@ import { ALERT_CLASS_PREFIX, alertTypeFromClassName } from "@/lib/markdown/remar
 import { NOTE_REMARK_PLUGINS } from "@/lib/markdown/parser";
 import { MarkdownAlert } from "./MarkdownAlert";
 import { KATEX_OPTIONS } from "@/lib/markdown/katexOptions";
-import { ANSWER_SPOILER_CLASS } from "@/lib/answerSpoiler";
+import { ANSWER_SPOILER_CLASS } from "@/lib/vocab/answerSpoiler";
 import { AnswerSpoiler } from "./answer/AnswerSpoiler";
 import { ttsWordOf } from "./rehypeAnswerTts";
 

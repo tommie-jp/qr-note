@@ -97,6 +97,10 @@ components/answer/TtsButton.tsx   発音ボタン
 components/answer/VocabAnswer.tsx 開いた答えを組み立てる
 ```
 
+上のブロックのパスは当時のパス。現在は次のとおり。
+
+- `src/lib/vocabTts.ts` → `src/lib/vocab/tts.ts`
+
 ### 4-1. 見出し語は rehype で刻む
 
 `concise` は答えの**外**にあるので、答えを描く部品 (AnswerSpoiler) からは
@@ -362,7 +366,8 @@ iPhone で鳴らす方法は無いと考えてよい。
 
 ## 9. 確認
 
-- 単体: `vocabTts.test.ts` は **#1128 の 10 語を実データのまま**固定して
+- 単体: `vocabTts.test.ts` (当時のパス。現在は `src/lib/vocab/tts.test.ts`) は **#1128 の 10
+  語を実データのまま**固定して
   分解と往復を見る。`ttsSpeech.test.ts` (当時のパス。現在は
   `tts/voices.test.ts`) は作り物の音声一覧で
   「Kyoko を選ばない」「Albert を選ばない」を見る

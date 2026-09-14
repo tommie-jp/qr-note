@@ -1,4 +1,4 @@
-import { parseQuiz } from "@/lib/quizParse";
+import { parseQuiz } from "@/lib/vocab/quizParse";
 import { QuizCard } from "./QuizCard";
 import { QuizMarkdown } from "./QuizMarkdown";
 import { ERROR_SOURCE_CLASS } from "@/components/ui";

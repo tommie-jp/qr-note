@@ -35,7 +35,7 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/searchQueryStore', () => ({
+vi.mock('@/lib/search/queryStore', () => ({
   registerSaved: async (_user: string, query: string) =>
     mocks.registerFull ? null : { saved: [query], recent: [] },
   unregisterSaved: async (_user: string, query: string) => ({ saved: [], recent: [query] }),

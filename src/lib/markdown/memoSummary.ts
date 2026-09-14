@@ -1,7 +1,7 @@
 // 一覧の要約表示用に、memo の先頭行から Markdown 記法を取り除く。
 // 表示専用の簡易変換 (正確なパースは表示側の react-markdown が担う)
 
-import { stripAnswerSpoilers } from '../answerSpoiler'
+import { stripAnswerSpoilers } from '../vocab/answerSpoiler'
 import { RENDERED_LANGS } from './fenceLanguages'
 import { readAlertMarker } from './alerts'
 
@@ -231,7 +231,7 @@ export function stripLineMarkdown(line: string): string {
   // 答え隠し (docs/79-答え隠し計画.md §5) は**中身ごと落とす**。一覧のカードに
   // 訳が出ていたら隠した意味がない。剥がして中身を残す上の記法と向きが違う。
   //
-  // 走査は answerSpoiler.ts の 1 本に借りる。ここに同じ正規表現を書くと、
+  // 走査は vocab/answerSpoiler.ts の 1 本に借りる。ここに同じ正規表現を書くと、
   // 記法の側 (答えに `|` は書けない・改行は跨がない・空は記法と見なさない)
   // を直したときに片方だけ古いままになり、隠した答えがカードに漏れる
   text = stripAnswerSpoilers(text)

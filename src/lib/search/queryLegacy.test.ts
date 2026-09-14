@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import type { QueryLists } from './searchQueries'
+import type { QueryLists } from './queries'
 
 // 引き取りの口だけを差し替える。localStorage を消してよいかの判断が
 // 試験対象なので、送れた / 送れなかったをこちらから決める
@@ -8,14 +8,14 @@ const mocks = vi.hoisted(() => ({
   answer: { saved: [], recent: [] } as QueryLists | null,
 }))
 
-vi.mock('./searchQueryClient', () => ({
+vi.mock('./queryClient', () => ({
   importSavedQueries: async (saved: string[]) => {
     mocks.sent.push(saved)
     return mocks.answer
   },
 }))
 
-import { migrateLegacyQueries } from './searchQueryLegacy'
+import { migrateLegacyQueries } from './queryLegacy'
 
 const SAVED_KEY = 'qr-search-saved'
 const RECENT_KEY = 'qr-search-recent'

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type KeyboardEvent } from "react";
-import type { Completion } from "@/lib/queryComplete";
+import type { Completion } from "@/lib/search/queryComplete";
 import {
   listDropdown,
   moveActive,
@@ -12,7 +12,7 @@ import {
   type Dropdown,
   type Suggestion,
 } from "@/lib/search/suggest";
-import type { QueryLists } from "@/lib/searchQueries";
+import type { QueryLists } from "@/lib/search/queries";
 
 interface SuggestDropdownOptions {
   tags: string[];

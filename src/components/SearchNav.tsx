@@ -8,8 +8,8 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { recordQueryUse } from "@/lib/searchQueryClient";
-import { buildSearchUrl } from "@/lib/searchUrl";
+import { recordQueryUse } from "@/lib/search/queryClient";
+import { buildSearchUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 
 interface SearchNav {

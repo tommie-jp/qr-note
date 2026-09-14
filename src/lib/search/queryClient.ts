@@ -10,8 +10,8 @@
 // 書きは fire-and-forget + 楽観更新。★ を押した手応えを往復待ちにしないため、
 // 手元のキャッシュを先に動かして、返ってきた正本で置き換える。
 
-import { envelopeData } from './api/envelope'
-import { applyQueryUse, type QueryLists } from './searchQueries'
+import { envelopeData } from '../api/envelope'
+import { applyQueryUse, type QueryLists } from './queries'
 
 const ENDPOINT = '/api/search-queries'
 const SAVED_ENDPOINT = '/api/search-queries/saved'

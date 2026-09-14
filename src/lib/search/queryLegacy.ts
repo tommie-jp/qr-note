@@ -16,8 +16,8 @@
 // 送っても永久に受け取られないので、送る前に降りる。デモかどうかを知っているのは
 // サーバだけなので、呼び出し側 (useSavedQueries。値は SearchForm が降ろす) から渡してもらう。
 
-import { importSavedQueries } from './searchQueryClient'
-import { sanitizeQueryList, type QueryLists } from './searchQueries'
+import { importSavedQueries } from './queryClient'
+import { sanitizeQueryList, type QueryLists } from './queries'
 
 const SAVED_KEY = 'qr-search-saved'
 const RECENT_KEY = 'qr-search-recent'

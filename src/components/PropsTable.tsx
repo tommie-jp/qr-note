@@ -8,7 +8,7 @@ import {
   type ItemPropsRow,
   type PropsSortDir,
 } from "@/lib/markdown/props";
-import { buildItemUrl } from "@/lib/searchUrl";
+import { buildItemUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { MathText } from "./MathText";
 

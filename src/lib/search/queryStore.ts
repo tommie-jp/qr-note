@@ -8,8 +8,8 @@
 // 大きいほう = 後から入れたほうを先に出す。
 //
 // **意味づけは持たない**。前方一致の掃除・上限・「登録は履歴より強い」は
-// searchQueries.ts の純関数が決める。ここはそれを DB の差分に翻訳するだけで、
-// クライアントの楽観更新 (searchQueryClient.ts) と同じ答えになる。
+// search/queries.ts の純関数が決める。ここはそれを DB の差分に翻訳するだけで、
+// クライアントの楽観更新 (search/queryClient.ts) と同じ答えになる。
 //
 // 読んで・計算して・書き戻すのをトランザクションの中でやる。JSON を 1 列で
 // 持っていたら 2 台からの同時操作が後勝ちで消し合うが、1 クエリ = 1 行なので
@@ -17,7 +17,7 @@
 
 import 'server-only'
 import type { Prisma } from '@/generated/prisma/client'
-import { prisma } from './db'
+import { prisma } from '../db'
 import {
   addSavedQuery,
   applyQueryUse,
@@ -27,7 +27,7 @@ import {
   touchSavedQuery,
   SAVED_LIMIT,
   type QueryLists,
-} from './searchQueries'
+} from './queries'
 
 // kind 列の値。表に入る文字列はこの 2 つだけ
 const RECENT = 'recent'

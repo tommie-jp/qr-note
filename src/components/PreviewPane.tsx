@@ -11,7 +11,7 @@ import {
   notePaneLayout,
   type NotePaneLayout,
 } from "@/lib/prefs/paneMode";
-import { itemNoFromPathname } from "@/lib/searchUrl";
+import { itemNoFromPathname } from "@/lib/search/url";
 
 // 器の置き方。**z の高さが要点** (docs/86 §4-9):
 //   下部ペイン … z-0。下部バー (z-10) より下に置く — 長押しメニューは

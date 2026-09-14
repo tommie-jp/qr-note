@@ -38,7 +38,7 @@ vi.mock('@/components/NotePreviewThumb', () => ({
   buildNotePreviews: mocks.buildNotePreviews,
 }))
 
-const { loadSearchResults } = await import('./searchPageData')
+const { loadSearchResults } = await import('./pageData')
 
 const ITEMS = [{ itemNo: '4951', memo: 'BJT NPN', mode: 'memo' }] as Item[]
 const THUMBS = { '4951': ['<svg/>'] }

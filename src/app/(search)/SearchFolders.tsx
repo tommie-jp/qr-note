@@ -1,7 +1,7 @@
 import { FolderPane } from "@/components/FolderPane";
 import { countFolderTotals, type TagCount } from "@/lib/items/read";
-import { countTrashedItemsOnce } from "@/lib/searchPageData";
-import { listQueries } from "@/lib/searchQueryStore";
+import { countTrashedItemsOnce } from "@/lib/search/pageData";
+import { listQueries } from "@/lib/search/queryStore";
 import { currentUser } from "@/lib/auth/session";
 import type { Sort } from "@/lib/validation";
 

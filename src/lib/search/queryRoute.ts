@@ -4,10 +4,10 @@
 // 「通れば誰か・通らなければ返す応答」を 1 か所にまとめる。判定を各 route に
 // 書き写すと、片方だけ直して穴が開く。
 
-import { isDemoMode } from './appEnv'
-import { guardRequest, type GuardResult } from './route/guard'
-import { apiOk } from './route/respond'
-import { isRecordableQuery, type QueryLists } from './searchQueries'
+import { isDemoMode } from '../appEnv'
+import { guardRequest, type GuardResult } from '../route/guard'
+import { apiOk } from '../route/respond'
+import { isRecordableQuery, type QueryLists } from './queries'
 
 export function emptyLists(): QueryLists {
   return { saved: [], recent: [] }

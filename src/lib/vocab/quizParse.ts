@@ -5,7 +5,7 @@
 // (YAML や JSON は括弧とインデントの管理が要り、書き味が落ちる)。
 // 中身は解釈せずそのままの文字で返す — markdown として描くのは呼び手の仕事。
 
-import { splitLines } from './markdown/memoLines'
+import { splitLines } from '../markdown/memoLines'
 
 export interface Quiz {
   question: string

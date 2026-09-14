@@ -3,7 +3,7 @@ import {
   ANSWER_CLOSED_MARK,
   ANSWER_SPOILER_CLASS,
   findAnswerSpoilers,
-} from "@/lib/answerSpoiler";
+} from "@/lib/vocab/answerSpoiler";
 
 // 本文中の `||答え||` を、押して開く印に変換する remark プラグイン
 // (docs/79-答え隠し計画.md)。remarkTagLinks と同じく mdast の text ノードだけを

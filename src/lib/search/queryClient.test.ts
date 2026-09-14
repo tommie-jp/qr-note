@@ -6,7 +6,7 @@ import {
   registerSavedQuery,
   resetQueryCache,
   unregisterSavedQuery,
-} from './searchQueryClient'
+} from './queryClient'
 
 // 応答の中身だけを差し替えて、口の叩き方と検算を見る。実際の route は
 // app/api/search-queries/route.test.ts が受け持つ。
