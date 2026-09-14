@@ -135,7 +135,7 @@ export function byTrashSort<V>(of: (sort: TrashSort) => V): Record<TrashSort, V>
   ) as Record<TrashSort, V>
 }
 
-// --- 下部バーへ渡す一式 (components/SortSlot.tsx) ---
+// --- 下部バーへ渡す一式 (components/bottombar/SortSlot.tsx) ---
 //
 // 検索一覧とゴミ箱で違うのは「種別が 4 つか 5 つか」だけで、メニューの組み立て
 // (現在行の再タップだけ方向を裏返す) も循環も同じ。**違いをこの 2 つの束に

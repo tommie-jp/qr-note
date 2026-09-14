@@ -171,7 +171,8 @@ CodeMirror の history は既定で有効なので、エディタ下のツール
 ← → が抜けた結果、`PageBottomBar` の中身はノート編集中の編集ボタン
 (portal) だけになり、編集していないページでは**空の帯だけが下端に居座る**。
 そこで「差し込む側がいるときだけ帯を描く」ようにした
-(`src/components/PageBottomBar.tsx`)。
+(`src/components/PageBottomBar.tsx` (当時のパス。現在は
+`src/components/bottombar/PageBottomBar.tsx`))。
 
 - 申告が先、差し込み口が後。`BottomBarContext` に `requestSlot()` を足し、
   差し込む側 (`MemoEditorInner`) が `useBottomBarSlot(active)` で要求する。

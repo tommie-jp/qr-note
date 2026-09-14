@@ -8,7 +8,7 @@ import {
   setViewModeAction,
 } from "@/app/actions";
 import { PageTransition } from "@/components/PageTransition";
-import { TrashActionBar } from "@/components/TrashActionBar";
+import { TrashActionBar } from "@/components/bottombar/TrashActionBar";
 import { TrashList } from "@/components/TrashList";
 import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";

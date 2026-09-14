@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SortSlot } from "@/components/SortSlot";
+import { SortSlot } from "@/components/bottombar/SortSlot";
 import {
   BOTTOM_BAR_CLASS,
   BOTTOM_BAR_INNER_NARROW_CLASS,
   BOTTOM_BAR_SPACER_CLASS,
 } from "@/components/ui";
-import { ViewSlot } from "@/components/ViewSlot";
+import { ViewSlot } from "@/components/bottombar/ViewSlot";
 import { TRASH_SORT_SPEC } from "@/lib/prefs/sortDirection";
 import { TRASH_SORT_COOKIE } from "@/lib/prefs/sortMode";
 import type { TrashSort } from "@/lib/validation";

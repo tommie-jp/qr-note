@@ -43,7 +43,7 @@ export function TtsButton({ text, label, onSilence }: TtsButtonProps) {
 // 押下 1 回ぶんの流れ (鳴らす / 止める / 鳴らなかったと知らせる)。
 //
 // **描画から切り離してある。** この土台に jsdom は無いので、ボタンを置いた
-// まま押し心地を確かめる手が無い (TextSizeMenuItem.test.tsx と同じ制約)。
+// まま押し心地を確かめる手が無い (components/bottombar/TextSizeMenuItem.test.tsx と同じ制約)。
 // フックにしておけば押下の順番だけを固定できる (TtsButton.test.tsx) —
 // 鳴らなかった回にボタンをどう畳むかは、実機でしか出ない争点そのもの
 export function useTtsPress(

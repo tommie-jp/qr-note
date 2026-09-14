@@ -8,7 +8,7 @@ import "@atomic-editor/editor/styles.css";
 import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useBottomBarSlot } from "@/components/BottomBarContext";
+import { useBottomBarSlot } from "@/components/bottombar/BottomBarContext";
 import type { EditToolbarEditor } from "@/components/EditToolbar";
 import { PanelActiveContext } from "@/components/PanelActiveContext";
 import { ACCEPTED_FILE_TYPES } from "@/lib/editor/attachmentKinds";

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import { SlotIcon } from "@/components/SlotIcon";
+import { SlotIcon } from "@/components/bottombar/SlotIcon";
 import type { useLongPress } from "@/components/item/row-actions/useLongPress";
 
 interface CycleSlotProps<T extends string> {

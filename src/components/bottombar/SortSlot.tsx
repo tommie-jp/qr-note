@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BarSlot } from "@/components/BarSlot";
+import { BarSlot } from "@/components/bottombar/BarSlot";
 import { SortAscIcon, SortDescIcon, SortIcon } from "@/components/icons";
 import { cycleOf } from "@/lib/prefs/cycle";
 import type { SortSpec } from "@/lib/prefs/sortDirection";

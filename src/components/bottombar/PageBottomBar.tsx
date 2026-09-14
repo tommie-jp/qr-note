@@ -1,6 +1,6 @@
 "use client";
 
-import { useBottomBar } from "@/components/BottomBarContext";
+import { useBottomBar } from "@/components/bottombar/BottomBarContext";
 import {
   BOTTOM_BAR_CLASS,
   BOTTOM_BAR_INNER_CLASS,

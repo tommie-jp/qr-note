@@ -1,9 +1,9 @@
 "use client";
 
 import { type ReactNode, useCallback, useRef } from "react";
-import { CycleSlot } from "@/components/CycleSlot";
-import { SlotIcon } from "@/components/SlotIcon";
-import { SlotMenu } from "@/components/SlotMenu";
+import { CycleSlot } from "@/components/bottombar/CycleSlot";
+import { SlotIcon } from "@/components/bottombar/SlotIcon";
+import { SlotMenu } from "@/components/bottombar/SlotMenu";
 import {
   BOTTOM_BAR_SLOT_CLASS,
   INLINE_SLOT_CLASS,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BarSlot } from "@/components/BarSlot";
+import { BarSlot } from "@/components/bottombar/BarSlot";
 import {
   GridViewIcon,
   ImageViewIcon,

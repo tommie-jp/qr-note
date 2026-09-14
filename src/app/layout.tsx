@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
 import QRCode from "qrcode";
-import { BottomBarProvider } from "@/components/BottomBarContext";
+import { BottomBarProvider } from "@/components/bottombar/BottomBarContext";
 import { AppHeader } from "@/components/chrome/AppHeader";
 import { AppSideEffects } from "@/components/chrome/AppSideEffects";
 import { PreHydrationScripts } from "@/components/chrome/PreHydrationScripts";
 import { DemoBanner } from "@/components/DemoBanner";
-import { PageBottomBar } from "@/components/PageBottomBar";
+import { PageBottomBar } from "@/components/bottombar/PageBottomBar";
 import { setPaneModeAction } from "@/app/actions";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 import { rowTintVars } from "@/lib/prefs/rowTint";

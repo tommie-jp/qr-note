@@ -3,10 +3,10 @@
 import { useCallback, useState } from "react";
 import { SelectIcon } from "@/components/icons";
 import { useSelectMode } from "@/components/search/SelectModeProvider";
-import { SlotIcon } from "@/components/SlotIcon";
-import { SortSlot } from "@/components/SortSlot";
+import { SlotIcon } from "@/components/bottombar/SlotIcon";
+import { SortSlot } from "@/components/bottombar/SortSlot";
 import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
-import { ViewSlot } from "@/components/ViewSlot";
+import { ViewSlot } from "@/components/bottombar/ViewSlot";
 import { SEARCH_SORT_SPEC } from "@/lib/prefs/sortDirection";
 import { SORT_COOKIE } from "@/lib/prefs/sortMode";
 import type { Sort } from "@/lib/validation";

@@ -14,8 +14,8 @@ import {
   LogIcon,
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/PasskeyLoginButton";
-import { RowTintMenuItem } from "@/components/RowTintMenuItem";
-import { TextSizeMenuItem } from "@/components/TextSizeMenuItem";
+import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
+import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import type { RowTintId } from "@/lib/prefs/rowTint";

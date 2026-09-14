@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { SlotMenu } from "@/components/SlotMenu";
+import { SlotMenu } from "@/components/bottombar/SlotMenu";
 import { SLOT_MENU_ITEM_CLASS } from "@/components/ui";
 import { FormatIcon } from "@/components/icons";
 import type { FormatAction } from "./markdownFormat";
