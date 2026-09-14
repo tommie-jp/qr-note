@@ -2,7 +2,7 @@
 //
 // **一時的なファイル**。置き場を localStorage からサーバへ移したので、移す前の
 // 版で登録したパターンを一度だけサーバへ送る。全員の端末が通り終わったら、
-// このファイルと呼び出し (SearchForm) をまとめて削除する。
+// このファイルと呼び出し (components/search/useSavedQueries.ts) をまとめて削除する。
 //
 // 引き取るのは**登録パターンだけ**。最近の検索は数回検索すれば貯まり直すが、
 // 登録パターンは利用者が自分で選んで置いた物なので、黙って消えると困る。
@@ -14,7 +14,7 @@
 // **デモには送らない** (docs/38-デモモード計画.md)。デモは共有アカウントなので
 // 履歴を持たず、口を塞がずに「空を返す」で断る (docs/59 §7)。持たない相手に
 // 送っても永久に受け取られないので、送る前に降りる。デモかどうかを知っているのは
-// サーバだけなので、呼び出し側 (SearchForm) から渡してもらう。
+// サーバだけなので、呼び出し側 (useSavedQueries。値は SearchForm が降ろす) から渡してもらう。
 
 import { importSavedQueries } from './searchQueryClient'
 import { sanitizeQueryList, type QueryLists } from './searchQueries'
@@ -62,7 +62,7 @@ export async function migrateLegacyQueries(
   //   Safari / 一部のプライベートモード … 参照または getItem が
   //     SecurityError を投げる
   //
-  // ここは効果 (SearchForm) から `void migrate…()` で撃たれるだけなので、
+  // ここは効果 (useSavedQueries) から `void migrate…()` で撃たれるだけなので、
   // 投げると誰も拾わず **unhandled rejection** になり、しかも検索窓を開く
   // たびに出る。読めなければ「引き取る物が無い」と同じ扱いにして降りる。
   let storage: Storage | null

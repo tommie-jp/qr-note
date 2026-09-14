@@ -45,7 +45,7 @@ export const MAX_QUERY_LENGTH = 200
 // 最近の検索へ 1 件足す (先頭が最新)。
 //
 // 前方一致になっている古い記録は消す。この検索窓は打ちながら検索するので
-// (SearchForm の debounce)、記録の契機を絞ってもなお「電」「電験」といった
+// (components/search/useSearchDebounce.ts)、記録の契機を絞ってもなお「電」「電験」といった
 // 打ちかけが混ざりうるため。逆は消さない — 長い語を覚えている状態で短く
 // 検索し直すのは、それ自体が新しい検索だから。
 export function addRecentQuery(list: readonly string[], query: string): string[] {

@@ -146,7 +146,7 @@ describe('migrateLegacyQueries', () => {
   })
 
   // localStorage は塞ぎ方が 2 通りあり、どちらも別の壊れ方をする。
-  // **投げると誰も拾えない** — 呼び出し元 (SearchForm) は `void migrate…()` で
+  // **投げると誰も拾えない** — 呼び出し元 (useSavedQueries) は `void migrate…()` で
   // 撃つだけなので unhandled rejection になり、しかも検索窓を開くたびに出る。
 
   // Firefox の dom.storage.enabled=false。例外を出さずに undefined になるので、
