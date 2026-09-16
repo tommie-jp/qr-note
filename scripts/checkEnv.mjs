@@ -42,6 +42,8 @@ const ENV_ALLOW = {
   TMPDIR: ['in-compose', 'in-example'],
   // テスト専用。DB を叩く統合テストを走らせる旗 (README「テスト」に書いてある)
   RUN_DB_TESTS: ['in-example'],
+  // GitHub Actions が渡すジョブのサマリの置き場。coverageMerge.ts が表を足す (CI 専用)
+  GITHUB_STEP_SUMMARY: ['in-example'],
   // compose からは渡さない。既定 (<cwd>/data/git-notes) がコンテナでは named volume の
   // マウント先 /app/data/git-notes にそのまま一致する。差し替えるのはテストと開発だけ
   // (.env.example にはコメントアウトで説明を置いた)
