@@ -3,15 +3,20 @@
 // 正規表現ではなく remark でパースするのは、フェンスの入れ子や
 // インデントの解釈を react-markdown 側と必ず一致させるため
 // (ズレると描画済みの図や集計済みの表を引けず、コードブロックのまま出てしまう)。
+// そのため読む列も描画側と同じ createNoteParser を使う。素の remark-parse で
+// 読んでいた頃は、描画では数式になる `$$` の中のフェンスを図として拾い、
+// 描画では図になる脚注の字下げの中のフェンスを見落としていた (2026-09-17 に修正)。
 //
 // DB もセッションも持ち込まない葉モジュールにしておく。取り出した文字列が
 // そのまま描画結果の鍵になるので、その一致を DB 無しでテストしたい
 // (health/healthFences.ts の冒頭コメント)
 
 import type { Code, Root } from 'mdast'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
+import { createNoteParser } from './parser'
+
+// 描画側と同じ列で凍結したパーサ (parse だけ使う。変換は要らない)
+const NOTE_PARSER = createNoteParser()
 
 // 取り出した 1 つのフェンス。source は trim 済み
 export interface Fence<L extends string = string> {
@@ -26,7 +31,7 @@ export function extractFences<L extends string>(
   markdown: string,
   isTarget: (lang: Code['lang']) => lang is L,
 ): Fence<L>[] {
-  const tree = unified().use(remarkParse).parse(markdown) as Root
+  const tree = NOTE_PARSER.parse(markdown) as Root
   const fences: Fence<L>[] = []
 
   visit(tree, 'code', (node: Code) => {

@@ -81,3 +81,57 @@ describe('uniqueBy', () => {
     expect(items).toEqual(['a', 'a'])
   })
 })
+
+// 本文の解釈は描画側 (lib/markdown/parser.ts の createNoteParser) と同じ列で
+// 行う。素の remark-parse で読むと、描画では数式になるフェンスを図として
+// 拾い、描画では図になる脚注の中のフェンスを見落としていた
+describe('描画と同じ解釈で拾う', () => {
+  const isCircuit = (lang: string | null | undefined): lang is 'circuit' =>
+    lang === 'circuit'
+
+  test('数式ブロック ($$) の中のフェンスは拾わない', () => {
+    const markdown = [
+      '$$',
+      '```circuit',
+      'parts:',
+      '  R1: r a b',
+      '```',
+      '$$',
+      '',
+      '```circuit',
+      'parts:',
+      '  R2: r a b',
+      '```',
+    ].join('\n')
+
+    expect(extractFences(markdown, isCircuit)).toEqual([
+      { lang: 'circuit', source: 'parts:\n  R2: r a b' },
+    ])
+  })
+
+  test('脚注の中に字下げして置いたフェンスも拾う', () => {
+    const markdown = [
+      '本文[^1]',
+      '',
+      '[^1]: 注',
+      '    ```circuit',
+      '    parts:',
+      '      R3: r a b',
+      '    ```',
+    ].join('\n')
+
+    expect(extractFences(markdown, isCircuit)).toEqual([
+      { lang: 'circuit', source: 'parts:\n  R3: r a b' },
+    ])
+  })
+
+  test('折りたたみ (:::details) の中のフェンスは閉じ忘れても拾う', () => {
+    const markdown = [':::details 見出し', '```circuit', 'parts:', '  R4: r a b', '```'].join(
+      '\n',
+    )
+
+    expect(extractFences(markdown, isCircuit)).toEqual([
+      { lang: 'circuit', source: 'parts:\n  R4: r a b' },
+    ])
+  })
+})
