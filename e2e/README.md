@@ -12,6 +12,7 @@
 | `helpers.ts` | spec が使う `test` / `expect` と、下の罠を避ける道具 |
 | `notes.ts` | E2E のノートをゴミ箱 → 永久削除で片付ける手順 |
 | `webauthn.ts` | 仮想認証器 (CDP WebAuthn) を 1 本のセッションでページに付ける |
+| `drawCanvas.ts` | お絵かき画面の道具・レイヤパネルの操作と、canvas の画素の比べ方 |
 | `imageBytes.ts` | PNG / WebP のヘッダ読み・multipart の欄の取り出し・下敷き用の PNG 作り |
 | `auth.setup.ts` / `auth.teardown.ts` | ログインして cookie を保存 / セッションを破棄 |
 | `*.spec.ts` | スモーク本体。`secrets.spec.ts` だけは専用 DB でしか走らない (下) |
