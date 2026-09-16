@@ -160,7 +160,8 @@ export const ITEM_COLUMNS = Prisma.sql`
   updated_at  AS "updatedAt",
   accessed_at AS "accessedAt",
   deleted_at  AS "deletedAt",
-  public_at   AS "publicAt"
+  public_at   AS "publicAt",
+  offline_pin AS "offlinePin"
 `
 
 // ソート句。PGroonga のスコアは小テーブルで seq scan になり効かないため、

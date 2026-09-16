@@ -289,6 +289,7 @@ describe('ITEM_COLUMNS', () => {
         'accessed_at AS "accessedAt"',
         'deleted_at AS "deletedAt"',
         'public_at AS "publicAt"',
+        'offline_pin AS "offlinePin"',
       ].join(', '),
     )
     expect(ITEM_COLUMNS.values).toEqual([])
