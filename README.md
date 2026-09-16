@@ -77,6 +77,10 @@ npm run lint
 npm run typecheck
 ```
 
+`test:coverage` は、1GB を圧縮して上限を確かめる 2 本 (`readZip.totalLimit*.test.ts`)
+を外し、テストの既定の上限を 30 秒に伸ばして流す。計測下では fflate の deflate が
+5 倍ほど遅くなり、CI では 60 秒を超えるため。2 本は `npm test` で走る。
+
 DB を実際に叩く統合テスト (`src/lib/items/items.test.ts` と
 `src/lib/secret/store.test.ts` の全体、`src/app/api/images/images.test.ts` の
 DB 往復) は、`DATABASE_URL` と `RUN_DB_TESTS=1` が**両方**あるときだけ走り、
