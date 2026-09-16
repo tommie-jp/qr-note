@@ -93,7 +93,8 @@ RUN_DB_TESTS=1 DATABASE_URL=postgresql://qr:changeme@localhost:5432/qr npm test
 push と PR のたびに GitHub Actions
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)) が lint・typecheck・
 test・`checkDocLinks.mjs`・`checkEnv.mjs`・`npm run build` と、PGroonga の
-service container を立てた DB 統合テストを流す (配布はしない)。
+service container を立てた DB 統合テストと、空の DB に向けた E2E (シークレットの
+spec も含む) を流す (配布はしない)。
 
 ### E2E (Playwright)
 

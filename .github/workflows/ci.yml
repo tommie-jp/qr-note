@@ -117,3 +117,84 @@ jobs:
         run: npx vitest run src/lib/items/items.test.ts src/app/api/images/images.test.ts src/lib/secret/store.test.ts
         env:
           RUN_DB_TESTS: '1'
+
+  # 画面を通す E2E (e2e/README.md)。専用の空 DB に向けるので、手元では専用 DB
+  # でしか走らないシークレットの spec (docs/96 §4-3) もここで一緒に流す。
+  # dev サーバは Playwright が立てる (E2E_START_SERVER)。資格情報と WebAuthn の
+  # origin は playwright.config.ts が上書きし、DB は下の env から引き継がれる
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      db:
+        # compose.yaml の db と同じイメージ (上げるときは両方)
+        image: groonga/pgroonga:4.0.6-alpine-16
+        env:
+          POSTGRES_USER: qr
+          POSTGRES_PASSWORD: ci
+          # シークレットの spec は DB 名が qr だと走らない (e2e/env.ts の門番)
+          POSTGRES_DB: qr_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qr -d qr_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr_e2e
+      E2E_DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr_e2e
+      E2E_START_SERVER: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: npm のダウンロードキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
+
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      # ブラウザ本体 (Chromium) は @playwright/test の版ごとに決まる
+      - name: Playwright のブラウザのキャッシュ
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Playwright のブラウザを入れる
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright のブラウザが要る OS の部品を入れる
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # npm run dev の copy:assets がネットワークから取る OCR モデル (check と同じ)
+      - name: OCR モデルのキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: public/paddle-ocr
+          key: paddle-ocr-${{ hashFiles('scripts/assets.mjs') }}
+
+      - name: E2E
+        run: npm run test:e2e
+
+      - name: 失敗したときの記録
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
