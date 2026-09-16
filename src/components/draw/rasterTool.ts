@@ -11,6 +11,9 @@
 // 加工結果は「その領域だけを持つ透過 PNG」を FabricImage として足すだけ。
 // オブジェクトが増えるだけなので、取り消し履歴も消しゴムも既存の仕組みが
 // そのまま効く (新規に履歴を触るコードは要らない)。
+//
+// 範囲の丸めと切り出し (clampToCanvas / cropImage) は canvas を触らない計算
+// なので src/lib/draw/raster.ts に置き、単体テストで固定している (docs/96 §3-2)。
 
 import * as fabric from "fabric";
 import { hexToRgb } from "@/lib/draw/drawColor";
@@ -20,6 +23,7 @@ import {
   type RgbaImage,
 } from "@/lib/draw/floodFill";
 import { mosaicBlockSize, pixelate } from "@/lib/draw/pixelate";
+import { clampToCanvas, cropImage } from "@/lib/draw/raster";
 import type { DragRect, DrawPoint } from "@/lib/draw/shapes";
 
 // ペンの線はアンチエイリアスされていて境界の画素が基準色と微妙に違う。
@@ -113,28 +117,6 @@ export async function buildFill(
     }
   }
   return toFabricImage(pixels, bounds);
-}
-
-// ドラッグした矩形を canvas の中へ収め、整数の画素位置に直す。
-// はみ出したまま切り出すと getImageData の範囲外になる
-function clampToCanvas(rect: DragRect, image: RgbaImage): FillBounds | null {
-  const left = Math.max(0, Math.floor(rect.left));
-  const top = Math.max(0, Math.floor(rect.top));
-  const right = Math.min(image.width, Math.ceil(rect.left + rect.width));
-  const bottom = Math.min(image.height, Math.ceil(rect.top + rect.height));
-  if (right - left < 1 || bottom - top < 1) {
-    return null;
-  }
-  return { left, top, width: right - left, height: bottom - top };
-}
-
-function cropImage(image: RgbaImage, bounds: FillBounds): RgbaImage {
-  const data = new Uint8ClampedArray(bounds.width * bounds.height * 4);
-  for (let y = 0; y < bounds.height; y += 1) {
-    const from = ((y + bounds.top) * image.width + bounds.left) * 4;
-    data.set(image.data.subarray(from, from + bounds.width * 4), y * bounds.width * 4);
-  }
-  return { data, width: bounds.width, height: bounds.height };
 }
 
 // 囲んだ範囲をモザイクにする。塗りつぶしと同じ経路で、加工が平均色の

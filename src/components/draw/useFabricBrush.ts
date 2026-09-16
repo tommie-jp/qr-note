@@ -5,17 +5,12 @@
 //
 // ブラシを作り直すのは**道具が変わったときだけ**。色・太さ・表示倍率の変更は
 // applyBrushStyle で既存のブラシの width / color を書き換えるだけにする。
+// 道具ごとの太さと色の当て方 (styleBrush) は src/lib/draw/brushStyle.ts (docs/96 §3-2)。
 
 import { EraserBrush } from "@erase2d/fabric";
 import * as fabric from "fabric";
 import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { toCanvasUnits } from "@/lib/draw/canvasUnits";
-import { markerColor } from "@/lib/draw/drawColor";
-import {
-  ERASER_SCALE,
-  MARKER_SCALE,
-  MIN_ERASER_WIDTH,
-} from "@/lib/draw/drawCanvasConst";
+import { styleBrush } from "@/lib/draw/brushStyle";
 import type { DrawTool } from "./drawTools";
 
 interface UseFabricBrushParams {
@@ -37,30 +32,6 @@ interface UseFabricBrushParams {
 export interface FabricBrush {
   applyBrushStyle: () => void;
   releaseEraser: () => void;
-}
-
-interface BrushStyle {
-  tool: DrawTool;
-  color: string;
-  width: number;
-  fitScale: number;
-}
-
-// ブラシに道具ごとの太さと色を当てる。太さは内容の大きさなので fitScale で割る
-// (拡大しても論理サイズは変えない)
-function styleBrush(brush: fabric.BaseBrush, { tool, color, width, fitScale }: BrushStyle) {
-  if (tool === "eraser") {
-    // 消しゴムに色は無い (下を消すだけ)
-    brush.width = toCanvasUnits(Math.max(MIN_ERASER_WIDTH, width * ERASER_SCALE), fitScale);
-    return;
-  }
-  if (tool === "marker") {
-    brush.width = toCanvasUnits(width * MARKER_SCALE, fitScale);
-    brush.color = markerColor(color);
-    return;
-  }
-  brush.width = toCanvasUnits(width, fitScale);
-  brush.color = color;
 }
 
 export function useFabricBrush({
