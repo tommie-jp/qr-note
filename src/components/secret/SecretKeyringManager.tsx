@@ -15,6 +15,7 @@ import {
   encodeRecoveryKey,
   formatRecoveryKey,
 } from "@/lib/secret/keyring";
+import { keyringView } from "@/lib/secret/keyringView";
 import { SecretCancelledError, isWebAuthnAvailable } from "@/lib/secret/prf";
 import {
   lockSecrets,
@@ -118,23 +119,19 @@ export function SecretKeyringManager() {
     setRecoveryKey(formatRecoveryKey(encodeRecoveryKey(masterKey)));
   }, [setError]);
 
-  const initialized = keyring?.initialized ?? false;
-  const enrolledCount =
-    keyring?.wraps.filter((wrap) => wrap.wrapped !== null).length ?? 0;
+  // どの節を出すかの判断は lib/secret/keyringView.ts (状態の組み合わせ表で
+  // テストしてある)。ここはその結果を描くだけ
+  const view = keyringView({ keyring, unlocked, webAuthnAvailable });
 
   return (
     <div className="space-y-4">
       <section className={`${BOX_CLASS} space-y-2`}>
         <h2 className="font-bold">状態</h2>
         <p className="text-sm text-gray-700">
-          {keyring === null
-            ? "読み込み中…"
-            : initialized
-              ? `設定済み。${enrolledCount} 個のパスキーで解錠できます。`
-              : "まだ設定していません。"}
-          {initialized && (unlocked ? " いまは解錠中です。" : " いまは施錠中です。")}
+          {view.status}
+          {view.lockNote}
         </p>
-        {!webAuthnAvailable && (
+        {view.showWebAuthnNotice && (
           <p className="text-sm text-amber-800">
             この環境ではパスキーを使えません。復旧キーで解錠してください。
           </p>
@@ -176,7 +173,7 @@ export function SecretKeyringManager() {
         </section>
       )}
 
-      {!initialized && (
+      {view.showSetup && (
         <section className={`${BOX_CLASS} space-y-2`}>
           <h2 className="font-bold">暗号化を設定する</h2>
           <p className="text-sm text-gray-700">
@@ -185,7 +182,7 @@ export function SecretKeyringManager() {
           </p>
           <button
             type="button"
-            disabled={busy || keyring === null}
+            disabled={busy || view.loading}
             onClick={() =>
               void run(async () => {
                 setRecoveryKey(await setupSecrets());
@@ -199,7 +196,7 @@ export function SecretKeyringManager() {
         </section>
       )}
 
-      {initialized && !unlocked && (
+      {view.showUnlock && (
         <section className={`${BOX_CLASS} space-y-3`}>
           <h2 className="font-bold">解錠する</h2>
           <button
@@ -241,7 +238,7 @@ export function SecretKeyringManager() {
         </section>
       )}
 
-      {initialized && unlocked && (
+      {view.showUnlocked && (
         <section className={`${BOX_CLASS} space-y-2`}>
           <h2 className="font-bold">この端末のパスキーで解錠できるようにする</h2>
           <p className="text-sm text-gray-700">
@@ -287,11 +284,11 @@ export function SecretKeyringManager() {
         </section>
       )}
 
-      {keyring !== null && keyring.wraps.length > 0 && (
+      {view.showWraps && (
         <section className={`${BOX_CLASS} space-y-2`}>
           <h2 className="font-bold">パスキーごとの状態</h2>
           <ul className="space-y-1 text-sm">
-            {keyring.wraps.map((wrap) => (
+            {view.wraps.map((wrap) => (
               <li key={wrap.credentialId} className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate">{wrap.label}</span>
                 <span

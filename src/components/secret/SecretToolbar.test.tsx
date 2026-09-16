@@ -27,6 +27,7 @@ const render = (props: Partial<SecretToolbarProps> = {}) =>
 const recordButton = (html: string) =>
   html
     .split("<button ")
+    .slice(1)
     .map((part) => part.slice(0, part.indexOf("</button>")))
     .find((part) => part.includes("aria-pressed")) ?? "";
 

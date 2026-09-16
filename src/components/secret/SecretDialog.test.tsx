@@ -42,10 +42,11 @@ const NEW: SecretDialogProps = {
 const render = (props: Partial<SecretDialogProps> = {}) =>
   renderToStaticMarkup(<SecretDialog {...NEW} {...props} />);
 
-// text を含む button の開始タグから閉じタグまで
+// text を含む button の開始タグから閉じタグまで (先頭の断片は button の前なので除く)
 const buttonWith = (html: string, text: string) =>
   html
     .split("<button ")
+    .slice(1)
     .map((part) => part.slice(0, part.indexOf("</button>")))
     .find((part) => part.includes(text)) ?? "";
 
