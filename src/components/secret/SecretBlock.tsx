@@ -10,6 +10,7 @@ import {
   secretText,
   type SecretContent,
 } from "@/lib/secret/content";
+import { resolveNestedMedia, trackBlob } from "@/lib/secret/nestedMedia";
 import { secretMimeKind, type SecretKind } from "@/lib/secret/payload";
 import { SecretCancelledError } from "@/lib/secret/prf";
 import {
@@ -18,7 +19,6 @@ import {
   useSecretUnlocked,
 } from "@/lib/secret/session";
 import { unlockWithPasskey } from "@/lib/secret/unlock";
-import { allSecretNames, secretUrl } from "@/lib/secret/secrets";
 
 // MarkdownView は**動的に読む**。理由は 2 つ:
 //
@@ -49,10 +49,9 @@ interface SecretBlockProps {
   allowEdit?: boolean;
 }
 
-// 断片の中に貼れる媒体の数。復号 → Blob URL を一度に抱える上限で、
-// 際限なく並べられると解錠のたびにその数ぶんメモリを掴むため
-// (動画は 1 本で数十 MB になりうる)
-const MAX_NESTED_MEDIA = 20;
+// 復号したバイト列を Blob URL にする口。差し替えの手順 (lib/secret/nestedMedia.ts)
+// はブラウザの URL を直接持たず、ここから渡す
+const createObjectUrl = (blob: Blob) => URL.createObjectURL(blob);
 
 // コピーした中身をクリップボードから消すまでの時間 (パスワード管理ソフトの
 // 相場に合わせる)。貼り付けには十分で、置きっぱなしにはしない長さ
@@ -134,13 +133,16 @@ export function SecretBlock({
           const kind = secretMimeKind(loaded.mime);
           if (kind !== null && kind !== "text") {
             setMedia({
-              url: trackBlob(blobUrls, loaded.bytes, loaded.mime),
+              url: trackBlob(blobUrls, loaded.bytes, loaded.mime, createObjectUrl),
               kind,
             });
             return;
           }
 
-          const resolved = await resolveNestedMedia(secretText(loaded), blobUrls);
+          const resolved = await resolveNestedMedia(secretText(loaded), blobUrls, {
+            load: loadSecret,
+            createObjectUrl,
+          });
           setBlobKinds(resolved.kinds);
           setMarkdown(resolved.markdown);
         },
@@ -282,63 +284,4 @@ export function SecretBlock({
       )}
     </span>
   );
-}
-
-// 断片内の媒体参照 (`/api/secrets/<name>`) を、復号した Blob URL に差し替える。
-//
-// **サーバへ問い合わせるのは暗号文だけ**で、復号はこのブラウザで行う。
-// 開けなかったものは参照を残したまま (割れた画像として見える) — 黙って
-// 消すと「元から無かった」ように見えてしまう。
-//
-// Blob URL は拡張子を持たないので、音声・動画を MarkdownView が描き分ける
-// ための対応表も一緒に作って返す (docs/53 §5)。
-async function resolveNestedMedia(
-  markdown: string,
-  blobUrls: React.RefObject<string[]>,
-): Promise<{
-  markdown: string;
-  kinds: ReadonlyMap<string, "image" | "audio" | "video">;
-}> {
-  const all = allSecretNames(markdown);
-  const names = all.slice(0, MAX_NESTED_MEDIA);
-  if (all.length > names.length) {
-    // 打ち切りを黙って行わない。上限を超えた分が出ない理由が誰にも分からなくなる
-    console.warn(
-      `断片内の媒体は ${MAX_NESTED_MEDIA} 個までです (${all.length} 個あるうち ${
-        all.length - names.length
-      } 個を表示していません)`,
-    );
-  }
-
-  const kinds = new Map<string, "image" | "audio" | "video">();
-  let resolved = markdown;
-
-  for (const name of names) {
-    try {
-      const nested = await loadSecret(name);
-      const kind = secretMimeKind(nested.mime);
-      if (kind === null || kind === "text") {
-        continue;
-      }
-      const url = trackBlob(blobUrls, nested.bytes, nested.mime);
-      kinds.set(url, kind);
-      resolved = resolved.split(secretUrl(name)).join(url);
-    } catch (cause) {
-      console.error(`断片内の媒体を開けませんでした (${name})`, cause);
-    }
-  }
-
-  return { markdown: resolved, kinds };
-}
-
-function trackBlob(
-  blobUrls: React.RefObject<string[]>,
-  bytes: Uint8Array,
-  mime: string,
-): string {
-  const url = URL.createObjectURL(
-    new Blob([bytes as unknown as BlobPart], { type: mime }),
-  );
-  blobUrls.current.push(url);
-  return url;
 }
