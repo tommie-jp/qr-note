@@ -13,30 +13,25 @@
 // 実装の要: **ハンドラは state を閉じ込めず ref を読む**。進行中のピンチや
 // ドラッグの状態は effect のローカルに在るので、依存に zoom / pan を入れると
 // 1 目盛り動くたびにリスナが張り直されてジェスチャが死ぬ (実際に起きた不具合)。
+//
+// 指の座標から倍率・送り・打ち切りを決める状態遷移そのものは
+// src/lib/draw/stageGestures.ts の純関数 (reduceStageGesture・zoomAround・
+// wheelZoomFactor)。ここは DOM のイベントを枠の座標に直して渡し、返った要求
+// (preventDefault・描きかけの打ち切り・書き込み) を実行する (docs/96 §3-2)。
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  clampPan,
-  clampZoom,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  type PanOffset,
-  panForPinch,
-  panForZoom,
-  pinchCenter,
-  pinchSpan,
-} from "@/lib/draw/zoom";
+  type GestureEvent,
+  IDLE_GESTURE,
+  reduceStageGesture,
+  wheelZoomFactor,
+  zoomAround,
+} from "@/lib/draw/stageGestures";
+import { clampPan, MAX_ZOOM, MIN_ZOOM, type PanOffset } from "@/lib/draw/zoom";
 import type { DrawPoint } from "@/lib/draw/shapes";
 
 // +/- ボタン 1 回ぶんの倍率
 const ZOOM_STEP = 1.5;
-
-// ホイール 1 目盛り (deltaY ≒ 100) で約 1.22 倍。exp を使うのは、上下に
-// 同じだけ回したときに正確に元の倍率へ戻るようにするため
-const WHEEL_SENSITIVITY = 0.002;
-
-// Firefox はホイールを「行数」(deltaMode = 1) で寄越すことがある。px 換算の係数
-const LINE_HEIGHT_PX = 33;
 
 const NO_PAN: PanOffset = { left: 0, top: 0 };
 
@@ -113,10 +108,12 @@ export function useStageGestures({
   // ポインタ位置を軸に拡大 (ホイール・ボタン用)
   const zoomAt = useCallback(
     (factor: number, pointer: DrawPoint) => {
-      const from = zoomRef.current;
-      const next = clampZoom(from * factor);
-      const moved = panForZoom({ pan: panRef.current, pointer, from, to: next });
-      commit(next, moved, from);
+      const next = zoomAround(
+        { zoom: zoomRef.current, pan: panRef.current },
+        factor,
+        pointer,
+      );
+      commit(next.zoom, next.pan, next.fromZoom);
     },
     [commit],
   );
@@ -148,82 +145,68 @@ export function useStageGestures({
     }
 
     // 枠の左上から測った指の位置
-    const localPoint = (touch: Touch): DrawPoint => {
+    const localTouches = (touches: TouchList): DrawPoint[] => {
       const box = stage.getBoundingClientRect();
-      return { x: touch.clientX - box.left, y: touch.clientY - box.top };
+      return Array.from(touches, (touch) => ({
+        x: touch.clientX - box.left,
+        y: touch.clientY - box.top,
+      }));
     };
 
     // 進行中のジェスチャ。effect が張り直されない限り生きる (依存に注意)
-    let pinch: {
-      span: number;
-      center: DrawPoint;
-      zoom: number;
-      pan: PanOffset;
-    } | null = null;
-    let drag: { x: number; y: number; pan: PanOffset } | null = null;
+    let gesture = IDLE_GESTURE;
+
+    // 状態遷移は純関数に任せ、返った要求だけを実行する。
+    // 倍率・送りは state ではなく ref から渡す (上の注のとおり)
+    const dispatch = (event: GestureEvent, domEvent: Event) => {
+      const result = reduceStageGesture(gesture, event, {
+        zoom: zoomRef.current,
+        pan: panRef.current,
+        dragPanEnabled,
+      });
+      if (result.preventDefault) {
+        // iOS Safari のページ自体の拡大に流さない
+        domEvent.preventDefault();
+      }
+      if (result.twoFingerStart) {
+        onTwoFingerStartRef.current();
+      }
+      gesture = result.state;
+      if (result.commit) {
+        commit(result.commit.zoom, result.commit.pan, result.commit.fromZoom);
+      }
+    };
 
     const onTouchStart = (event: TouchEvent) => {
+      // 2 本でなければ何も起きない (reduceStageGesture も同じ判定を持つ)。
+      // 1 本指の描き始めのたびに枠を測らないための早抜け
       if (event.touches.length !== 2) {
         return;
       }
-      // iOS Safari のページ自体の拡大に流さない
-      event.preventDefault();
-      drag = null;
-      onTwoFingerStartRef.current();
-      pinch = {
-        span: pinchSpan(localPoint(event.touches[0]), localPoint(event.touches[1])),
-        center: pinchCenter(localPoint(event.touches[0]), localPoint(event.touches[1])),
-        zoom: zoomRef.current,
-        pan: panRef.current,
-      };
+      dispatch({ type: "touchstart", touches: localTouches(event.touches) }, event);
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (!pinch || event.touches.length !== 2 || pinch.span <= 0) {
+      if (event.touches.length !== 2) {
         return;
       }
-      event.preventDefault();
-      const a = localPoint(event.touches[0]);
-      const b = localPoint(event.touches[1]);
-      // 開き具合で倍率、中心の移動で送り。どちらも開始時を基準に測る
-      // (直前フレーム基準だと誤差が積もって流れる)
-      const next = clampZoom(pinch.zoom * (pinchSpan(a, b) / pinch.span));
-      const moved = panForPinch({
-        pan: pinch.pan,
-        from: pinch.zoom,
-        startCenter: pinch.center,
-        currentCenter: pinchCenter(a, b),
-        to: next,
-      });
-      commit(next, moved, pinch.zoom);
+      dispatch({ type: "touchmove", touches: localTouches(event.touches) }, event);
     };
 
     const onTouchEnd = (event: TouchEvent) => {
-      if (event.touches.length < 2) {
-        pinch = null;
-      }
+      dispatch({ type: "touchend", touchCount: event.touches.length }, event);
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (!dragPanEnabled || pinch) {
-        return;
-      }
-      drag = { x: event.clientX, y: event.clientY, pan: panRef.current };
+      dispatch({ type: "pointerdown", x: event.clientX, y: event.clientY }, event);
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (!drag || pinch) {
-        return;
-      }
-      const moved = {
-        left: drag.pan.left - (event.clientX - drag.x),
-        top: drag.pan.top - (event.clientY - drag.y),
-      };
-      commit(zoomRef.current, moved, zoomRef.current);
+      dispatch({ type: "pointermove", x: event.clientX, y: event.clientY }, event);
     };
 
-    const endDrag = () => {
-      drag = null;
+    const endDrag = (event: PointerEvent) => {
+      dispatch({ type: "pointerend" }, event);
     };
 
     stage.addEventListener("touchstart", onTouchStart, { passive: false });
@@ -259,11 +242,7 @@ export function useStageGestures({
       // ブラウザ自体の拡大 (Ctrl+ホイール) や後ろのページのスクロールに流さない
       event.preventDefault();
       const box = stage.getBoundingClientRect();
-      const delta =
-        event.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? event.deltaY * LINE_HEIGHT_PX
-          : event.deltaY;
-      zoomAt(Math.exp(-delta * WHEEL_SENSITIVITY), {
+      zoomAt(wheelZoomFactor(event.deltaY, event.deltaMode), {
         x: event.clientX - box.left,
         y: event.clientY - box.top,
       });
