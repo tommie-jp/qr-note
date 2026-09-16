@@ -76,9 +76,10 @@ npm run lint
 npm run typecheck
 ```
 
-DB を実際に叩く統合テスト (`src/lib/items/items.test.ts` 全体と
-`src/app/api/images/images.test.ts` の DB 往復) は、`DATABASE_URL` と
-`RUN_DB_TESTS=1` が**両方**あるときだけ走り、普段は skip になる。
+DB を実際に叩く統合テスト (`src/lib/items/items.test.ts` と
+`src/lib/secret/store.test.ts` の全体、`src/app/api/images/images.test.ts` の
+DB 往復) は、`DATABASE_URL` と `RUN_DB_TESTS=1` が**両方**あるときだけ走り、
+普段は skip になる。
 vitest は `.env` を読まないので、`DATABASE_URL` もコマンドで渡す
 (値は `.env` と同じ。`docker compose up -d db` と migrate を済ませた
 ローカル DB に向ける):
