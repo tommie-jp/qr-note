@@ -271,3 +271,32 @@ describe('differsOnlyInTaskMarks', () => {
     expect(differsOnlyInTaskMarks(first, current)).toBe(true)
   })
 })
+
+// 本文の解釈は描画側 (lib/markdown/parser.ts) と同じ列で行う。数式ブロックの
+// 中に書いた `- [ ]` は描画では数式であってチェックではないので、数えず・
+// 切り替えもしない (DB の task_todo が画面の数と食い違わないように)
+describe('数式ブロックの中はタスクではない (描画と同じ解釈)', () => {
+  const memo = ['$$', '- [ ] 数式の中', '$$', '', '- [ ] 外', '- [x] 済み'].join('\n')
+
+  test('countTasks は $$ の中を数えない', () => {
+    expect(countTasks(memo)).toEqual({ todo: 1, done: 1 })
+  })
+
+  test('checkStates も $$ の中を出さない', () => {
+    expect(checkStates(memo)).toEqual([
+      { label: '外', checked: false },
+      { label: '済み', checked: true },
+    ])
+  })
+
+  test('toggleTaskLine は $$ の中の行を切り替えない', () => {
+    expect(toggleTaskLine(memo, 2, true)).toBeNull()
+    expect(toggleTaskLine(memo, 5, true)).toBe(
+      ['$$', '- [ ] 数式の中', '$$', '', '- [x] 外', '- [x] 済み'].join('\n'),
+    )
+  })
+
+  test('行内の $ はこれまでどおり本文として扱い、タスクは数える', () => {
+    expect(countTasks('- [ ] cost $5 and $6')).toEqual({ todo: 1, done: 0 })
+  })
+})

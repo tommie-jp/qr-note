@@ -8,11 +8,9 @@
 // その 1 行だけを正規表現で書き換える。
 
 import type { ListItem } from 'mdast'
-import remarkGfm from 'remark-gfm'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
 import { joinLines, splitLines } from './memoLines'
+import { createNoteParser } from './parser'
 
 // 行頭からチェック印までを 3 つに割る。
 //   $1 = 記号までの前置き + `[` / $2 = 印 (空白 or x) / $3 = `]` + 直後の空白
@@ -27,7 +25,10 @@ const TASK_MARKER_RE = /^([ \t]*(?:>[ \t]*)*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([ xX]
 
 // 解析は毎回同じ構成なので使い回す。MarkdownView は他にも remark プラグインを
 // 挟むが、いずれも listItem の位置は動かさないので gfm だけで足りる
-const MEMO_PARSER = unified().use(remarkParse).use(remarkGfm).freeze()
+// 描画側 (parser.ts) と同じ列で読む。gfm だけで読んでいた頃は、描画では数式に
+// なる `$$` の中の `- [ ]` までタスクに数え、DB の task_todo が画面と食い違った
+// (2026-09-17 に修正。既存行は doBackfill.sh taskcounts で数え直す)
+const MEMO_PARSER = createNoteParser()
 
 // その行 (1 始まり) が GFM のタスク項目かをパーサに確かめる
 function isTaskLine(memo: string, line: number): boolean {
