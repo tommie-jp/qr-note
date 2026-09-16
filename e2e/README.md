@@ -8,11 +8,12 @@
 
 | ファイル | 役目 |
 | --- | --- |
-| `env.ts` | 接続先・資格情報・`AUTH_FILE`・番号の頭 `zze2e` (config も読む葉) |
+| `env.ts` | 接続先・資格情報・`AUTH_FILE`・番号の頭 `zze2e`・専用 DB の門番 (config も読む葉) |
 | `helpers.ts` | spec が使う `test` / `expect` と、下の罠を避ける道具 |
 | `notes.ts` | E2E のノートをゴミ箱 → 永久削除で片付ける手順 |
+| `webauthn.ts` | 仮想認証器 (CDP WebAuthn) を 1 本のセッションでページに付ける |
 | `auth.setup.ts` / `auth.teardown.ts` | ログインして cookie を保存 / セッションを破棄 |
-| `*.spec.ts` | スモーク本体 |
+| `*.spec.ts` | スモーク本体。`secrets.spec.ts` だけは専用 DB でしか走らない (下) |
 
 spec は `@playwright/test` ではなく `./helpers` から `test` と `expect` を
 import する (dev オーバーレイ退けと検索履歴の遮断が全ページに掛かる)。
@@ -55,3 +56,55 @@ import する (dev オーバーレイ退けと検索履歴の遮断が全ペー�
   fixture が書き込みをサーバへ届けず、いまのリストを返して済ませる
 - 永久削除はノートの git 履歴に墓石コミットを刻む。dev では `QR_GIT_DIR` 未設定なら
   作業ツリーの `data/git-notes/` (git 管理外) に入る
+
+## シークレット (`secrets.spec.ts`) — 専用 DB + 仮想認証器
+
+パスキー登録 → 暗号化の設定 (復旧キー) → 解錠 → 断片の書き込み・復号・入れ子の
+画像 → 平文がサーバへ出ていないこと、までを通す
+(docs/96-シークレット・お絵かきのテスト計画.md §4-3)。
+
+- **手元の `qr` では走らせない。** 鍵束 (`secret_keyring`) は 1 行しか持てず、
+  断片には消す口が無い (docs/51 §11 の GC は未実装)。`scripts/e2eDb.sh` が
+  compose の db に `qr_e2e` を作って migration を当てる。`playwright.config.ts` は
+  `E2E_DATABASE_URL` を dev サーバの `DATABASE_URL` に渡し、ノートの git 履歴の
+  置き場 (`QR_GIT_DIR`) も一時ディレクトリへ向ける
+- spec は `E2E_DATABASE_URL` が無い・URL として読めない・DB 名が `qr` のとき、
+  理由付きで丸ごと skip する (`env.ts` の `secretsDbProblem`)。
+  `npm run test:e2e` (全部) にも `secrets` プロジェクトは含まれるが、この skip で
+  何もしない
+- **毎回作り直す。** 鍵束が残った DB でもう一度流すと「設定する」が 409 で
+  断られ、前の回の仮想認証器 (閉じた時点で消える) でしか開けない鍵束だけが
+  残る。最初のテストが「鍵束もパスキーも空」を確かめて、そうでなければ
+  作り直し方を添えて落ちる
+
+```bash
+scripts/e2eDb.sh create
+E2E_DATABASE_URL="$(scripts/e2eDb.sh url)" E2E_START_SERVER=1 npm run test:e2e:secrets
+scripts/e2eDb.sh drop
+```
+
+### 仮想認証器の罠
+
+- **CDP セッションは 1 本。** `WebAuthn.enable` → `addVirtualAuthenticator`
+  (`transport: 'usb'`・`hasResidentKey`・`hasUserVerification`・
+  `isUserVerified`・`hasPrf`) → `setAutomaticPresenceSimulation` を同じ
+  セッションで続け、閉じない。張り直すと UV が外れて `NotAllowedError` になる
+  (`webauthn.ts`)。`page.reload()` や `goto` では消えないが、**別のページ・
+  コンテキストには付いてこない**ので、spec は `beforeAll` で開いた 1 枚を
+  `afterAll` まで使い回す (`page` フィクスチャは使わない)
+- `transport` は `'usb'`。`'internal'` は 1 環境に 1 つしか持てない。usb だと
+  `authenticatorAttachment` が `cross-platform` になるが、PRF が返るので QR 委譲の
+  文言 (`lib/secret/prf.ts`) には落ちない
+- **PRF は登録時に `prf` を要求した credential にしか返らない** (docs/96 §4-3 の
+  実測)。`register-options` が要求するようになったので、spec 側で細工は要らない
+- **パスキーの検証は origin の完全一致。** `.env` の `WEBAUTHN_ORIGIN` は手元の
+  dev の口 (3000 など) を指すので、config が Playwright の立てる口 (`BASE_URL`)
+  に揃えて渡す。無いと登録が「登録できませんでした」で止まる
+- **通知・失敗の文言は `main` の中で探す。** dev では `console.error` の内容が
+  エラーオーバーレイ (`<nextjs-portal>`) の shadow DOM にも出て、同じ文字が
+  2 か所になる (fixture は隠すだけで、locator の解決は隠れていても数える)
+- 復旧キー・平文は `console.log` しない (dev はブラウザのログを `/logs` へ
+  転送する)。復旧キーの「違うキー」は**先頭**の 1 文字を変えて作る — 末尾は
+  下位ビットが詰め物で、変えても同じ鍵に戻ることがある
+- 画像は `injectFiles` でダイアログの `input[type=file]` へ直接入れる。canvas で
+  描き直されるので、1x1 の PNG でよい (webp の断片になる)

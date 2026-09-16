@@ -119,6 +119,10 @@ npm run test:e2e                  # 別の端末で
 - 資格情報を変えるときは `E2E_USER` / `E2E_PASSWORD` とサーバ側の `BASIC_AUTH_*` を揃える
 - E2E が作るノートは番号 `zze2e` 始まりで、画面からゴミ箱 → 永久削除して片付ける。
   結果は `test-results/`・`playwright-report/` に出る (どちらも git 管理外)
+- シークレット (パスキー登録 → 暗号化の設定 → 解錠 → 断片) の E2E は鍵束を作るので
+  専用 DB でだけ流す: `scripts/e2eDb.sh create` →
+  `E2E_DATABASE_URL="$(scripts/e2eDb.sh url)" E2E_START_SERVER=1 npm run test:e2e:secrets`
+  → `scripts/e2eDb.sh drop` (毎回作り直す。詳細は [e2e/README.md](e2e/README.md))
 
 ## 本番相当のローカル実行
 
