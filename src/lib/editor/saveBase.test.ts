@@ -1,11 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-  BASE_NEW,
-  BASE_STALE,
-  formatBase,
-  nextVersion,
-  parseBase,
-} from './saveBase'
+import { BASE_NEW, BASE_STALE, formatBase, isOlderBase, nextVersion, parseBase } from './saveBase'
 
 describe('formatBase', () => {
   test('行が無ければ new (これから作る、という前提)', () => {
@@ -68,5 +62,28 @@ describe('nextVersion', () => {
 
   test('基点が未来でも必ず 1ms 進める (時計が巻き戻っても単調)', () => {
     expect(nextVersion(new Date(9000), 5000).getTime()).toBe(9001)
+  })
+})
+
+// 競合の応答はページを再描画しないので、「別の版を読み込む」で揃えた直後の
+// props は揃えた版より古いことがある。古い props を「サーバが動いた」と取ると、
+// 読み込んだ本文を即座に元へ引き戻す (2026-09-17 に修正)。基点の新旧で見分ける
+describe('isOlderBase', () => {
+  test('ミリ秒が小さいほうが古い。同じなら古くない', () => {
+    expect(isOlderBase('1787000000000', '1787000000001')).toBe(true)
+    expect(isOlderBase('1787000000001', '1787000000000')).toBe(false)
+    expect(isOlderBase('1787000000000', '1787000000000')).toBe(false)
+  })
+
+  test('new (まだ行が無い) は、ある行のどの版よりも古い', () => {
+    expect(isOlderBase(BASE_NEW, '1787000000000')).toBe(true)
+    expect(isOlderBase('1787000000000', BASE_NEW)).toBe(false)
+    expect(isOlderBase(BASE_NEW, BASE_NEW)).toBe(false)
+  })
+
+  test('stale や読めない値は新旧を決められないので古いとは言わない', () => {
+    expect(isOlderBase(BASE_STALE, '1787000000000')).toBe(false)
+    expect(isOlderBase('1787000000000', BASE_STALE)).toBe(false)
+    expect(isOlderBase('abc', '1787000000000')).toBe(false)
   })
 })

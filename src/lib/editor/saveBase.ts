@@ -65,3 +65,26 @@ export function parseBase(raw: unknown): SaveBase | null {
 export function nextVersion(prev: Date, now: number = Date.now()): Date {
   return new Date(Math.max(now, prev.getTime() + 1))
 }
+
+// candidate の基点は current より古いか。
+//
+// 「別の版を読み込む」で揃えた直後の props は、揃えた版より古いことがある
+// (競合の応答はページを再描画しない)。追随の判断は「props が synced と
+// 違う = サーバが動いた」なので、古い props を渡すと読み込んだ本文を即座に
+// 元へ引き戻してしまう。基点はミリ秒 (formatBase) なので大小で見分けられる。
+// new は「まだ行が無い」= どの版よりも古い。stale や読めない値は新旧を
+// 決められないので、古いとは言わない (追随の判断は従来どおり本文の比較に任せる)
+export function isOlderBase(candidate: string, current: string): boolean {
+  const a = parseBase(candidate)
+  const b = parseBase(current)
+  if (a === null || b === null || a.kind === 'stale' || b.kind === 'stale') {
+    return false
+  }
+  if (a.kind === 'new') {
+    return b.kind === 'at'
+  }
+  if (b.kind === 'new') {
+    return false
+  }
+  return a.at.getTime() < b.at.getTime()
+}

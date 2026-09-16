@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import {
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -16,7 +17,7 @@ import {
   type AdoptServerDetail,
 } from "@/lib/editor/editorEvents";
 import { draftStorageKey, loadDraft } from "@/lib/prefs/memoDraft";
-import { BASE_NEW } from "@/lib/editor/saveBase";
+import { BASE_NEW, isOlderBase } from "@/lib/editor/saveBase";
 import type { ConflictServerNote } from "@/lib/editor/saveState";
 import { useDraftAutosave } from "./hooks/useDraftAutosave";
 import { SaveFormContext } from "./NoteSaveForm";
@@ -174,6 +175,21 @@ export function MemoEditor({
   const syncedRef = useRef({ text: initialValue, base: baseProp });
   // フォームを辿るための目印 (UnsavedGuard と同じやり方)
   const markerRef = useRef<HTMLSpanElement>(null);
+  // 揃え直しの知らせ (notifyBaseline) を、state の反映を待って撃つための印
+  const baselinePendingRef = useRef(false);
+  // (本文, 基点) を next に揃え直した後で UnsavedGuard の基準を取り直させる。
+  // state が既に一致している (= hidden input がもう next) ならその場で撃ち、
+  // これから変わるなら印を立てて、揃ったコミットの後の effect に任せる
+  const requestBaseline = useCallback(
+    (next: { text: string; base: string }) => {
+      if (value === next.text && base === next.base) {
+        notifyBaseline(markerRef);
+      } else {
+        baselinePendingRef.current = true;
+      }
+    },
+    [value, base],
+  );
   const saveState = useContext(SaveFormContext);
   const conflict =
     saveState !== null && saveState.seq !== dismissedSeq ? saveState : null;
@@ -187,16 +203,19 @@ export function MemoEditor({
   // value を依存に入れているのは「動いた瞬間の本文」を見るため。打鍵のたびに
   // 走るが、対が揃っていれば即 return する
   //
-  // 描画中同期 (SearchForm の syncedQuery と同じ形) にはまだしていない。
-  // 揃え直しの知らせ (notifyBaseline) を撃つ時点が変わり、UnsavedGuard の
-  // 基準が変わるため (docs/93-リファクタリング計画.md §5-2)。
-  // いまは effect の中で撃つので、UnsavedGuard は新しい本文が DOM に入る**前**の
-  // form を基準に取る — 黙って追随した直後 (と adoptServer の直後) に画面を
-  // 離れると、何も打っていないのに引き止めが出る (2026-09-14 に実ブラウザで
-  // 確認)。直すなら fix: として、知らせをコミットの後に撃つ形へ移す
+  // 描画中同期 (SearchForm の syncedQuery と同じ形) にはしていない。
+  // 揃え直しの知らせ (notifyBaseline) を撃つ時点が UnsavedGuard の基準を決める
+  // ため、撃ち方を下の requestBaseline に集めてある (docs/93 §5-2)
   useEffect(() => {
     const synced = syncedRef.current;
     if (synced.text === initialValue && synced.base === baseProp) {
+      return;
+    }
+    // 競合の応答 (SaveState) はページを再描画しないので、「別の版を読み込む」で
+    // 揃えた直後の props は揃えた版より**古い**ままのことがある。それを
+    // 「サーバが動いた」と取ると、読み込んだ本文を即座に元へ引き戻してしまう
+    // (2026-09-17 に修正)。基点の新旧で見分け、古い props には追随しない
+    if (isOlderBase(baseProp, synced.base)) {
       return;
     }
     const pristine = value === synced.text;
@@ -214,8 +233,26 @@ export function MemoEditor({
       setEditorKey((key) => key + 1);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
+    requestBaseline({ text: initialValue, base: baseProp });
+  }, [initialValue, baseProp, value, base, requestBaseline]);
+
+  // 揃え直しの知らせを、新しい (本文, 基点) が hidden input に入った**後**に撃つ。
+  //
+  // effect の中で即座に撃つと、UnsavedGuard は古い本文の form を基準に取り、
+  // 黙って追随した直後や「別の版を読み込む」の直後に、何も打っていないのに
+  // 引き止めが出ていた (2026-09-17 に修正)。requestBaseline が立てた印を、
+  // state が揃え先と一致したコミットの後で撃って下ろす
+  useEffect(() => {
+    if (!baselinePendingRef.current) {
+      return;
+    }
+    const synced = syncedRef.current;
+    if (value !== synced.text || base !== synced.base) {
+      return;
+    }
+    baselinePendingRef.current = false;
     notifyBaseline(markerRef);
-  }, [initialValue, baseProp, value]);
+  }, [value, base]);
 
   // マウント時に一度だけ、未保存の下書きがあれば復元する。
   // localStorage が使えない環境 (プライベートモード等) では下書き保護なしで
@@ -270,7 +307,7 @@ export function MemoEditor({
         detail: { url: server.url, mode: server.mode },
       }),
     );
-    notifyBaseline(markerRef);
+    requestBaseline({ text: server.memo, base: nextBase });
   };
 
   // いま見せた版の上に自分の本文を載せて送り直す。
