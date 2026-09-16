@@ -47,16 +47,7 @@ jobs:
 
       - run: npm run lint
       - run: npm run typecheck
-      # 結果は下の coverage ジョブが E2E と合算する (docs/96 §11)
-      - run: npm run test:coverage
-
-      - name: 単体テストのカバレッジを渡す
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-coverage
-          path: coverage/coverage-final.json
-          retention-days: 7
-
+      - run: npm test
       - name: 文書参照の検査
         run: node scripts/checkDocLinks.mjs
       - name: 環境変数と本体サイズ上限の検査
@@ -219,11 +210,15 @@ jobs:
           retention-days: 7
 
   # 単体と E2E の行カバレッジを合算し、ジョブのサマリに表を出す (docs/96 §11)。
-  # 数えるだけで合否には使わない。行ごとの内訳 (html) は artifact に置く
+  # 数えるだけで合否には使わない。行ごとの内訳 (html) は artifact に置く。
+  #
+  # 単体のカバレッジは check ではなくここで取る。計測下では fflate の deflate が
+  # 5 倍ほど遅くなり、1GB を圧縮するテストが 60 秒を超える。test:coverage は
+  # その 2 本を外して既定の上限も伸ばすので、合否の門 (check の npm test) とは分ける
   coverage:
     needs: [check, e2e]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -238,13 +233,10 @@ jobs:
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: npm-${{ runner.os }}-
 
-      # 合算に要るのは tsx と monocart だけ。prisma generate などは走らせない
-      - run: npm ci --ignore-scripts
+      # 単体テストが prisma の生成物を読むので postinstall (prisma generate) も走らせる
+      - run: npm ci
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: unit-coverage
-          path: coverage
+      - run: npm run test:coverage
 
       - uses: actions/download-artifact@v4
         with:
