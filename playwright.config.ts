@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
 import { hashSync } from 'bcryptjs'
-import { AUTH_FILE, BASE_URL, E2E_PASSWORD, E2E_USER } from './e2e/env'
+import {
+  AUTH_FILE,
+  BASE_URL,
+  E2E_DATABASE_URL,
+  E2E_PASSWORD,
+  E2E_USER,
+} from './e2e/env'
 
 // スモーク E2E (docs/93-リファクタリング計画.md §7-4)。手順と罠は e2e/README.md。
 //
@@ -13,7 +19,6 @@ import { AUTH_FILE, BASE_URL, E2E_PASSWORD, E2E_USER } from './e2e/env'
 // (その場合もテスト用の資格情報を env で上書きする)
 
 const shouldStartServer = process.env.E2E_START_SERVER === '1'
-const E2E_DATABASE_URL = process.env.E2E_DATABASE_URL
 
 // 専用 DB のときのノート git 履歴の置き場 (毎回まっさら)
 function e2eGitDir(): string {
@@ -92,6 +97,12 @@ export default defineConfig({
         env: {
           BASIC_AUTH_USER: E2E_USER,
           BASIC_AUTH_HASH_B64: basicAuthHashB64(E2E_PASSWORD),
+          // パスキーの検証は origin の完全一致 (auth/webauthnConfig.ts)。.env の
+          // WEBAUTHN_ORIGIN は手元の dev の口 (3000 など) を指すので、Playwright が
+          // 立てるサーバの口に揃える。これが無いとシークレットの E2E のパスキー
+          // 登録が「登録できませんでした」で止まる
+          WEBAUTHN_RP_ID: new URL(BASE_URL).hostname,
+          WEBAUTHN_ORIGIN: new URL(BASE_URL).origin,
           // 専用 DB に向けるとき (docs/96 §4-3)。ノートの git 履歴 (墓石コミット) も
           // 作業ツリーの data/git-notes ではなく一時の置き場へ
           ...(E2E_DATABASE_URL
