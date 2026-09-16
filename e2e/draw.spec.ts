@@ -361,7 +361,9 @@ test.describe('お絵かき', () => {
     const zoomIn = drawButton(page, '拡大')
     const zoomOut = drawButton(page, '縮小')
     const shownWidth = async () => (await lowerCanvas(page).boundingBox())?.width ?? 0
-    const before = await canvasHash(page)
+    // 前の段は「選択」で掴んだまま終わる。描き直しが落ち着く前に基準を取ると、
+    // 読む時機しだいで最後の比較が 1 回だけ落ちた (一式で流して 6 回に 1 回)
+    const before = await settledHash(page)
     const fitWidth = await shownWidth()
     await expect(reset).toHaveText('100%')
     await expect(reset).toBeDisabled()
@@ -386,8 +388,8 @@ test.describe('お絵かき', () => {
     await expect(reset).toHaveText('100%')
     await expect.poll(shownWidth).toBeCloseTo(fitWidth, 0)
 
-    // 拡大は虫めがね。描いた絵は変わらない
-    expect(await canvasHash(page)).toBe(before)
+    // 拡大は虫めがね。描いた絵は変わらない (倍率を戻した後の描き直しを待って比べる)
+    await expectHash(page, before)
   })
 
   test('2 本目の指が着いたら、描きかけの線を残さない (タッチ)', async ({ browser }) => {
