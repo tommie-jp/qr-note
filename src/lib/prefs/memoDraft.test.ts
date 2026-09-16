@@ -6,6 +6,7 @@ import {
   loadDraft,
   parseDraft,
   persistDraft,
+  clearDraft,
 } from './memoDraft'
 
 // localStorage の代役 (テストでは本物を使わない)
@@ -135,5 +136,33 @@ describe('loadDraft', () => {
 
     expect(loadDraft(storage, '7', '初期値')).toBeNull()
     expect(storage.getItem(draftStorageKey('7'))).toBeNull()
+  })
+})
+
+describe('clearDraft', () => {
+  test('保存が済んだ番号の下書きを消す (他の番号には触らない)', () => {
+    // Arrange
+    const storage = fakeStorage()
+    storage.setItem(draftStorageKey('1234'), '{"value":"a","savedAt":1,"base":"new"}')
+    storage.setItem(draftStorageKey('5678'), '{"value":"b","savedAt":1,"base":"new"}')
+
+    // Act
+    clearDraft(storage, '1234')
+
+    // Assert
+    expect(storage.getItem(draftStorageKey('1234'))).toBeNull()
+    expect(storage.getItem(draftStorageKey('5678'))).not.toBeNull()
+  })
+
+  test('storage が投げても呼び手を落とさない (消せなくても実害は無い)', () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {
+        throw new Error('QuotaExceededError')
+      },
+    }
+
+    expect(() => clearDraft(storage, '1234')).not.toThrow()
   })
 })

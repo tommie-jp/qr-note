@@ -37,6 +37,7 @@ import { buildHealthCharts } from "@/lib/health/healthData";
 import { buildMatrices } from "@/lib/matrix/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
 import { formatBase } from "@/lib/editor/saveBase";
+import { SavedDraftCleanup } from "@/components/editor/SavedDraftCleanup";
 
 interface ItemViewProps {
   itemNo: string;
@@ -179,6 +180,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           入れると fixed で場所を取らないのに束が空でなくなり、消えるまでの
           2 秒だけ余白が開いて、消えた瞬間に本文が跳ね上がる */}
       {saved && <SavedToast key={saved} />}
+      {saved && <SavedDraftCleanup draftKey={itemNo} />}
 
       {/* 出たときだけ間隔を持つ通知の束。1 つも出なければ empty:hidden で
           箱ごと消え、余白も残らない。

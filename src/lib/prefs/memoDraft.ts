@@ -99,3 +99,15 @@ export function loadDraft(
   }
   return { value: draft.value, base: draft.base ?? BASE_STALE }
 }
+
+// 保存が済んだ後に呼ぶ (更新 → /item/:no?saved= の着地点)。残しておくと、後で
+// 本文が別の経路で変わったときに「保存済みの本文」が古い基点のまま復元され、
+// 何も打っていないのに競合として出てくる。消せなくても実害は無い
+// (次の編集で上書きされる) ので、storage の失敗は握る
+export function clearDraft(storage: DraftStorage, draftKey: string): void {
+  try {
+    storage.removeItem(draftStorageKey(draftKey))
+  } catch {
+    // プライベートモード等で localStorage が使えない
+  }
+}
