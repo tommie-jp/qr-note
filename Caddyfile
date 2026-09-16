@@ -21,10 +21,13 @@
 
 	# ノートの取り込みだけ大きなボディを通す (docs/28-エクスポート計画.md §3)。
 	# **既定を上げずにここだけ開ける** — 500MB をどの口へでも投げ込めるように
-	# はしない。アプリ側の上限 (lib/zip/limits.ts の MAX_ZIP_BYTES) と揃えること
+	# はしない。アプリ側の上限 (lib/zip/limits.ts の MAX_ZIP_BYTES = 500 MiB) と
+	# 揃えること。単位は MiB で書く — Caddy の MB は 10^6 バイトで、512MB だと
+	# 512,000,000 バイトになり MAX_ZIP_BYTES (524,288,000) に足りない
+	# (scripts/checkEnv.mjs が見張る)。本番の nginx は 512M = 512 MiB
 	@import path /api/import
 	request_body @import {
-		max_size 512MB
+		max_size 512MiB
 	}
 
 	reverse_proxy app:3000
