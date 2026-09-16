@@ -119,6 +119,9 @@ describe('チャレンジを配る', () => {
         attestation: 'none',
         excludeCredentials: [{ id: 'cred-1', type: 'public-key', transports: ['internal'] }],
         authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
+        // 鍵の素 (PRF = hmac-secret) は登録時に要求した credential でしか出ない
+        // 認証器がある (docs/51 §6)。仮想認証器で実測して確かめた (docs/96 §4-3)
+        extensions: { prf: {} },
       },
     })
     expect(consumeChallenge(body.data.challenge)).toBe(true)

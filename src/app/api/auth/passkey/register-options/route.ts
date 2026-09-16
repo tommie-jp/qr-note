@@ -13,6 +13,11 @@ import { stableUserHandle, webauthnConfig } from '@/lib/auth/webauthnConfig'
 // いることが要る」を担保する唯一の場所で、それが Basic 認証を残した理由の
 // 半分でもある (docs/29 §2)。初回はパスワードで入って登録し、2 台目からは
 // パスキーで入ったまま同じ口で追加登録できる。
+// PRF 拡張の登録時の入力 (lib/secret/prf.ts の PrfExtensionInput と対)
+interface PrfRegistrationInput {
+  prf: Record<string, never>
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは登録を閉じる (docs/38 §4)。共有アカウントに他人がパスキーを
   // 足せてしまうため。ログインの有無より前に断つ
@@ -47,6 +52,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       // 端末を持っているだけでは通さない。Face ID / PIN を必ず要求する
       userVerification: 'required',
     },
+    // シークレットの鍵の素 (PRF = CTAP の hmac-secret。docs/51 §6) を、この
+    // パスキーから後で取り出せるように登録の時点で要求しておく。Apple の
+    // パスキーは要求が無くても出すが、hmac-secret 型 (YubiKey・一部の
+    // Windows Hello) と Chromium の仮想認証器は**登録時に要求した credential
+    // でしか出さない** (docs/96 §4-3 の実測)。対応しない認証器は黙って無視する
+    // だけで、登録は今までどおり通る。DOM の型定義にはまだ PRF 拡張が無いので、
+    // lib/secret/prf.ts と同じく形だけ名乗る
+    extensions: { prf: {} } as AuthenticationExtensionsClientInputs & PrfRegistrationInput,
   })
 
   // 出したチャレンジを覚える。検証はこの控えと突き合わせる (5 分・使い捨て)
