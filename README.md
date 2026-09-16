@@ -72,6 +72,7 @@ node scripts/checkEnv.mjs
 ```bash
 npm test                # 単体テスト (DB 不要)
 npm run test:coverage   # カバレッジ付きで流す
+npm run coverage:merge  # 単体と E2E のカバレッジを合算する (e2e/README.md「カバレッジ」)
 npm run lint
 npm run typecheck
 ```
@@ -94,7 +95,8 @@ push と PR のたびに GitHub Actions
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)) が lint・typecheck・
 test・`checkDocLinks.mjs`・`checkEnv.mjs`・`npm run build` と、PGroonga の
 service container を立てた DB 統合テストと、空の DB に向けた E2E (シークレットの
-spec も含む) を流す (配布はしない)。
+spec も含む) を流す (配布はしない)。単体と E2E の行カバレッジの合算も表にして
+ジョブのサマリに出す (数えるだけで、合否には使わない)。
 
 ### E2E (Playwright)
 

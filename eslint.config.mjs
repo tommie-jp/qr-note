@@ -75,6 +75,9 @@ const eslintConfig = defineConfig([
     "public/**",
     // npm run test:coverage の生成物 (html レポートの js を含む)
     "coverage/**",
+    // E2E のカバレッジと合算の生成物 (scripts/coverageMerge.ts)
+    "coverage-e2e/**",
+    "coverage-merged/**",
   ]),
 ]);
 

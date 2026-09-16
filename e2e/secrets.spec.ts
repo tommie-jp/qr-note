@@ -2,6 +2,7 @@ import type { Page, Request } from '@playwright/test'
 import { BASE_URL, E2E_ITEM_PREFIX, secretsDbProblem } from './env'
 import {
   clearEditor,
+  closePage,
   expect,
   expectHydrated,
   injectFiles,
@@ -139,7 +140,7 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
       return
     }
     await removeE2eNote(sharedPage, ITEM_NO)
-    await sharedPage.context().close()
+    await closePage(sharedPage)
   })
 
   // 以下のテストは beforeAll が用意したページを使う (page フィクスチャは使わない)

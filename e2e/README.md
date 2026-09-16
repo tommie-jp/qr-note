@@ -15,6 +15,9 @@
 | `drawCanvas.ts` | お絵かき画面の道具・レイヤパネルの操作と、canvas の画素の比べ方 |
 | `imageBytes.ts` | PNG / WebP のヘッダ読み・multipart の欄の取り出し・下敷き用の PNG 作り |
 | `auth.setup.ts` / `auth.teardown.ts` | ログインして cookie を保存 / セッションを破棄 |
+| `coverage.ts` | `E2E_COVERAGE=1` のとき V8 カバレッジを取る (下の「カバレッジ」) |
+| `coverageOptions.ts` | カバレッジの置き場と monocart の設定 (config・合算スクリプトも読む葉) |
+| `coverageSetup.ts` / `coverageTeardown.ts` | 前の回の分を捨てる / JSON に書き出す |
 | `*.spec.ts` | スモーク本体。`secrets.spec.ts` だけは専用 DB でしか走らない (下) |
 
 spec は `@playwright/test` ではなく `./helpers` から `test` と `expect` を
@@ -47,6 +50,9 @@ import する (dev オーバーレイ退けと検索履歴の遮断が全ペー�
 - **タッチは `hasTouch` の別コンテキストで** (`newTouchPage`)。既定のコンテキストでは
   touch イベントが出ない
 - 初回コンパイルが遅いので、テストの上限は 120 秒・直列 1 worker にしてある
+- **フックで開いたページは `closePage` で閉じる** (`newLoggedInPage` /
+  `newTouchPage` の相方)。`page.context().close()` で閉じると、そのページの
+  カバレッジが回収されない
 
 ## お絵かき (`draw.spec.ts`)
 
@@ -134,3 +140,36 @@ scripts/e2eDb.sh drop
   下位ビットが詰め物で、変えても同じ鍵に戻ることがある
 - 画像は `injectFiles` でダイアログの `input[type=file]` へ直接入れる。canvas で
   描き直されるので、1x1 の PNG でよい (webp の断片になる)
+
+## カバレッジ (`E2E_COVERAGE=1`)
+
+画面部品は SSR の文字列テストでは effect もイベントも通らないので、ブラウザで
+動いた行も数える (docs/96 §11)。fixture がページごとに Chromium の V8 カバレッジを
+取り、[monocart-coverage-reports](https://github.com/cenfun/monocart-coverage-reports)
+が dev サーバのソースマップで元の `.ts` / `.tsx` に戻す。
+
+```bash
+npm run test:coverage     # 単体 → coverage/coverage-final.json
+scripts/e2eDb.sh create
+E2E_COVERAGE=1 E2E_DATABASE_URL="$(scripts/e2eDb.sh url)" \
+  E2E_START_SERVER=1 npm run test:e2e   # → coverage-e2e/coverage-final.json
+npm run coverage:merge    # 合算 → 表と coverage-merged/index.html
+scripts/e2eDb.sh drop
+```
+
+- **数えるのはブラウザで動いたコードだけ。** Server Component・route handler・
+  サーバアクションは dev サーバ (node) の中で動くので E2E からは数えない。
+  そちらは単体テストと DB 統合テストの数字を見る
+- **ハードナビゲーション (`goto` / `reload`) の前に回収して数え直す。**
+  `resetOnNavigation: false` でも、前の文書のスクリプトは V8 が捨てるので、
+  止めた時点の文書の分しか残らない (secrets.spec では設定画面の部品が丸ごと
+  抜けた)。`coverage.ts` がそのページの `goto` / `reload` を包んでいる。
+  アプリ自身が起こす再読込の前の分は取りこぼす
+- ソースマップを持たないチャンク (チャンクの一覧を並べるだけのもの) は数えない。
+  持っていれば sources は `file:///…/src/…` の形で、monocart が `src/…` に直す
+- monocart は `add` のたびに `.cache` へ積み、`generate` が置き場ごと読む。
+  前の回の分が混ざらないよう、globalSetup と合算スクリプトが始めに捨てる
+- 単体 (vitest の ast-v8-to-istanbul) と E2E (monocart) は変換器が違い、
+  文の始まる行が一部ずれる。合算の分母はどちらよりも大きくなり、率は低めに出る
+- CI の `coverage` ジョブが同じ合算を流し、表をジョブのサマリに出す
+  (合否には使わない)

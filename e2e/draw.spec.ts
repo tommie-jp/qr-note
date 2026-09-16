@@ -25,6 +25,7 @@ import {
 import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
+  closePage,
   expect,
   expectHydrated,
   newLoggedInPage,
@@ -175,11 +176,13 @@ test.describe('お絵かき', () => {
   })
 
   test.afterAll(async ({ browser }) => {
-    await page?.context().close()
+    if (page !== undefined) {
+      await closePage(page)
+    }
     // 途中で落ちても本物の DB に残さない
     const cleanup = await newLoggedInPage(browser)
     await removeE2eNote(cleanup, ITEM_NO)
-    await cleanup.context().close()
+    await closePage(cleanup)
   })
 
   test('編集画面から開くと、白紙・ペン・戻せない状態で始まる', async () => {
@@ -412,7 +415,7 @@ test.describe('お絵かき', () => {
       await changedHash(touch, touchBlank)
       await expect(drawButton(touch, '元に戻す')).toBeEnabled()
     } finally {
-      await touch.context().close()
+      await closePage(touch)
     }
   })
 

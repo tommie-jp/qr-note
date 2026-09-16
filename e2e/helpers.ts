@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test'
+import { collectCoverage, startCoverage } from './coverage'
 import { AUTH_FILE, BASE_URL } from './env'
 
 // ブラウザを駆動するときの罠をコードにしたもの (.claude/skills/verify/SKILL.md)。
@@ -64,6 +65,12 @@ export const test = base.extend({
     await prepareContext(context)
     await provide(context)
   },
+  // E2E_COVERAGE=1 のときだけカバレッジを取る (coverage.ts)
+  page: async ({ page }, provide) => {
+    await startCoverage(page)
+    await provide(page)
+    await collectCoverage(page)
+  },
 })
 
 export { expect }
@@ -76,7 +83,16 @@ export async function newLoggedInPage(browser: Browser): Promise<Page> {
     storageState: AUTH_FILE,
   })
   await prepareContext(context)
-  return context.newPage()
+  const page = await context.newPage()
+  await startCoverage(page)
+  return page
+}
+
+// newLoggedInPage / newTouchPage で開いたページをコンテキストごと閉じる。
+// 閉じる前にカバレッジを回収する (閉じたページからは取れない)
+export async function closePage(page: Page): Promise<void> {
+  await collectCoverage(page)
+  await page.context().close()
 }
 
 // --- ハイドレーション ---
@@ -181,7 +197,9 @@ export async function newTouchPage(
     viewport,
   })
   await prepareContext(context)
-  return context.newPage()
+  const page = await context.newPage()
+  await startCoverage(page)
+  return page
 }
 
 // --- レスポンシブ ---

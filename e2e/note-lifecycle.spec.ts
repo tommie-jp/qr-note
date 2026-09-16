@@ -1,6 +1,7 @@
 import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
+  closePage,
   expect,
   memoEditor,
   newLoggedInPage,
@@ -27,14 +28,14 @@ test.describe('ノートの一生', () => {
     // 前の回が途中で落ちて残した同じ番号を消しておく (無ければ何もしない)
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, ITEM_NO)
-    await page.context().close()
+    await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     // 途中で落ちても本物の DB に残さない
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, ITEM_NO)
-    await page.context().close()
+    await closePage(page)
   })
 
   test('未登録の番号を編集して保存すると、表示画面に本文が出る', async ({ page }) => {

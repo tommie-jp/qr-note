@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
+  closePage,
   expect,
   expectHydrated,
   memoEditor,
@@ -59,14 +60,14 @@ test.describe('編集画面の離脱確認と下書き', () => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, FOLLOW_NO)
     await removeE2eNote(page, DRAFT_NO)
-    await page.context().close()
+    await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, FOLLOW_NO)
     await removeE2eNote(page, DRAFT_NO)
-    await page.context().close()
+    await closePage(page)
   })
 
   test('チェックを押して黙って追随した直後は、離脱の確認を出さない', async ({ page }) => {
@@ -99,7 +100,7 @@ test.describe('編集画面の離脱確認と下書き', () => {
     const theirs = `- [x] ${E2E_ITEM_PREFIX} task ${STAMP} theirs`
     const other = await newLoggedInPage(browser)
     await createNote(other, FOLLOW_NO, theirs)
-    await other.context().close()
+    await closePage(other)
 
     // Act: 保存すると競合になる → 別の版を読み込む。
     // 競合の応答はページを再描画しないので props は古いまま。読み込んだ本文が

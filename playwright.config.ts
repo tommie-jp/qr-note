@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
 import { hashSync } from 'bcryptjs'
+import { isE2eCoverageEnabled } from './e2e/coverageOptions'
 import {
   AUTH_FILE,
   BASE_URL,
@@ -52,6 +53,13 @@ export default defineConfig({
   timeout: TEST_TIMEOUT_MS,
   expect: { timeout: EXPECT_TIMEOUT_MS },
   reporter: [['list'], ['html', { open: 'never' }]],
+  // E2E_COVERAGE=1 のときだけ、ブラウザ側のカバレッジを数える (e2e/coverage.ts)
+  ...(isE2eCoverageEnabled()
+    ? {
+        globalSetup: './e2e/coverageSetup.ts',
+        globalTeardown: './e2e/coverageTeardown.ts',
+      }
+    : {}),
   outputDir: 'test-results',
   use: {
     baseURL: BASE_URL,

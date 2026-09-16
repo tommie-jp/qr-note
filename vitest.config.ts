@@ -107,7 +107,8 @@ export default defineConfig({
         '**/__fixtures__/**',
         'src/test/**',
       ],
-      reporter: ['text-summary', 'html', 'json-summary'],
+      // json (coverage-final.json) は E2E との合算 (scripts/coverageMerge.ts) が読む
+      reporter: ['text-summary', 'html', 'json-summary', 'json'],
       reportsDirectory: 'coverage',
     },
     server: {
