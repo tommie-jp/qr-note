@@ -3,7 +3,7 @@ import { parseSelectedItemNos } from '@/lib/items/itemSelection'
 import { guardRequest } from '@/lib/route/guard'
 import { byteHeaders } from '@/lib/route/bytes'
 import { parseFormBody } from '@/lib/route/parse'
-import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
+import { apiFail } from '@/lib/route/respond'
 import { exportEntries } from '@/lib/zip/exportZip'
 import { createZipStream } from '@/lib/zip/zipStream'
 
@@ -31,7 +31,6 @@ export async function POST(request: Request): Promise<Response> {
   const form = await parseFormBody(
     request,
     { log: 'エクスポート要求の解析に失敗しました:', message: 'フォームの形式が正しくありません' },
-    WITHOUT_CACHE_CONTROL,
   )
   if (!form.ok) {
     return form.response
@@ -42,14 +41,14 @@ export async function POST(request: Request): Promise<Response> {
   if (scope !== 'all' && scope !== 'selected') {
     // **既定を「全件」に倒さない**。選択の受け渡しが壊れたときに黙って全件を
     // 書き出すより、断って気づけるほうがよい
-    return apiFail('scope には all か selected を指定して下さい', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('scope には all か selected を指定して下さい', 400)
   }
 
   // 番号の検証・重複除去・上限は一括操作 (タグ付け・ゴミ箱行き) と同じ
   // parseSelectedItemNos を通す。フォームの形が同じなので解釈も 1 か所に置く
   const itemNos = scope === 'selected' ? parseSelectedItemNos(formData) : null
   if (itemNos !== null && itemNos.length === 0) {
-    return apiFail('ノートが選択されていません', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('ノートが選択されていません', 400)
   }
 
   return new Response(createZipStream(exportEntries(itemNos)), {

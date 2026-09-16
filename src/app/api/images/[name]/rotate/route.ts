@@ -3,7 +3,7 @@ import { checkDemoUploadQuota } from '@/lib/demo/demoQuota'
 import { saveImage } from '@/lib/images/imageStore'
 import { rewriteImageReference } from '@/lib/items/write'
 import { guardRequest } from '@/lib/route/guard'
-import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import {
   isRotatableExt,
   isRotateAngle,
@@ -35,24 +35,24 @@ export async function POST(
 
   // 名前の検算が先。この後 DB へ渡す値なので書式を確かめる (route.ts と同じ線引き)
   if (!isValidImageName(name)) {
-    return apiFail('不正なファイル名です', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('不正なファイル名です', 400)
   }
 
   // gif は回さない — アニメ GIF のフレーム保持が sharp 既定では効かず、
   // 静止画に潰れてしまうため。動画・音声・PDF は isValidImageName で既に外れる
   const ext = name.split('.').pop() ?? ''
   if (!isRotatableExt(ext)) {
-    return apiFail('この形式は回転できません', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('この形式は回転できません', 400)
   }
 
   let angle: unknown
   try {
     angle = (await request.json())?.angle
   } catch {
-    return apiFail('JSON の body を送信して下さい', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('JSON の body を送信して下さい', 400)
   }
   if (!isRotateAngle(angle)) {
-    return apiFail('angle は 90 / 180 / 270 のいずれかです', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('angle は 90 / 180 / 270 のいずれかです', 400)
   }
 
   const image = await prisma.image.findUnique({
@@ -60,7 +60,7 @@ export async function POST(
     select: { data: true, mime: true },
   })
   if (!image) {
-    return apiFail('画像が見つかりません', 404, WITHOUT_CACHE_CONTROL)
+    return apiFail('画像が見つかりません', 404)
   }
 
   // デモの総量クォータ (docs/39 §2-1)。回転は 1 枚ぶん実データが増えるので、
@@ -69,7 +69,7 @@ export async function POST(
   // ほぼ変わらないので、原寸のバイト数で見積もって十分 (クォータは元より近似)。
   const quota = await checkDemoUploadQuota(image.data.byteLength)
   if (quota) {
-    return apiFail(quota.error, quota.status, WITHOUT_CACHE_CONTROL)
+    return apiFail(quota.error, quota.status)
   }
 
   // 回転 + 再符号化。壊れた画像・符号化失敗は 500 ではなく 400 で断る
@@ -83,7 +83,7 @@ export async function POST(
     )
   } catch (error) {
     console.error(`画像の回転に失敗しました (${name}, ${angle}°):`, error)
-    return apiFail('画像を回転できませんでした', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('画像を回転できませんでした', 400)
   }
 
   // 新 UUID で保存し直す (thumb + embedding も自動再生成)。mime は保存済みの
@@ -94,5 +94,5 @@ export async function POST(
   // この画像を参照する本文をすべて新 URL へ追随させる (ゴミ箱内も含む)
   await rewriteImageReference(name, newName)
 
-  return apiOk({ url: newUrl }, 200, WITHOUT_CACHE_CONTROL)
+  return apiOk({ url: newUrl }, 200)
 }

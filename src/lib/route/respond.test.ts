@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { apiDemoDisabled, apiFail, apiOk, WITHOUT_CACHE_CONTROL } from './respond'
+import { apiDemoDisabled, apiFail, apiOk } from './respond'
 
 // 封筒の書き手 (docs/93-リファクタリング計画.md §3-3)。
 // 本文はキーの順まで含めて文字列で比べる — 読み手 (api/envelope.ts や
@@ -25,11 +25,6 @@ describe('apiOk', () => {
     expect(await apiOk(null).text()).toBe('{"success":true,"data":null,"error":null}')
   })
 
-  test('WITHOUT_CACHE_CONTROL なら Cache-Control を付けない', () => {
-    const res = apiOk({ url: '/api/images/a.png' }, 200, WITHOUT_CACHE_CONTROL)
-
-    expect(res.headers.get('cache-control')).toBeNull()
-  })
 })
 
 describe('apiFail', () => {
@@ -47,19 +42,14 @@ describe('apiFail', () => {
     expect(res.headers.get('cache-control')).toBe('private, max-age=60')
   })
 
-  test('WITHOUT_CACHE_CONTROL なら Cache-Control を付けない', () => {
-    const res = apiFail('ISBN ではありません', 400, WITHOUT_CACHE_CONTROL)
-
-    expect(res.headers.get('cache-control')).toBeNull()
-  })
 })
 
 describe('apiDemoDisabled', () => {
-  test('demoDisabled 付きの失敗を 200 で返す (Cache-Control なし)', async () => {
+  test('demoDisabled 付きの失敗を 200 で返す (no-store)', async () => {
     const res = apiDemoDisabled('デモ版では JAN 情報を取得できません')
 
     expect(res.status).toBe(200)
-    expect(res.headers.get('cache-control')).toBeNull()
+    expect(res.headers.get('cache-control')).toBe('no-store')
     expect(await res.text()).toBe(
       '{"success":false,"data":null,"error":"デモ版では JAN 情報を取得できません","demoDisabled":true}',
     )

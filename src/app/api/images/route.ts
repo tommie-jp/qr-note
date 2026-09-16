@@ -3,7 +3,7 @@ import { storeAttachment } from '@/lib/attachments/store'
 import { checkDemoUploadQuota } from '@/lib/demo/demoQuota'
 import { guardRequest } from '@/lib/route/guard'
 import { parseFormBody } from '@/lib/route/parse'
-import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import {
   maxAttachmentBytes,
   MAX_VIDEO_ANIM_FRAME_BYTES,
@@ -36,7 +36,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const rejection = checkUploadRequest(request)
   if (rejection) {
-    return apiFail(rejection.error, rejection.status, WITHOUT_CACHE_CONTROL)
+    return apiFail(rejection.error, rejection.status)
   }
 
   // 読めなければ 400 を返すが原因はログに残す (parseFormBody。api/import と同じ理由)
@@ -56,7 +56,6 @@ export async function POST(request: Request): Promise<NextResponse> {
         'アップロードに失敗しました (本文が最後まで届きませんでした)。' +
         `ファイルが大きすぎる可能性があります (最大 ${megabytesLabel(maxUploadBytes())})`,
     },
-    WITHOUT_CACHE_CONTROL,
   )
   if (!form.ok) {
     return form.response
@@ -70,13 +69,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   const frameFields = form.value.getAll('thumbFrames')
 
   if (!(file instanceof File)) {
-    return apiFail('file フィールドがありません', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('file フィールドがありません', 400)
   }
 
   // 原寸を Uint8Array に読む前に、申告サイズで弾けるものは弾く。
   // 上限はデモインスタンスでは縮む (docs/38 §5。maxUploadBytes が env で切り替え)
   if (file.size > maxUploadBytes()) {
-    return apiFail(tooLargeMessage(maxUploadBytes()), 400, WITHOUT_CACHE_CONTROL)
+    return apiFail(tooLargeMessage(maxUploadBytes()), 400)
   }
 
   // デモの総量クォータ (docs/39-デモ公開計画.md §2-1)。デモのときだけ、
@@ -84,7 +83,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 認証・CSRF・サイズの安い検査をすべて通した後に置く
   const quota = await checkDemoUploadQuota(file.size)
   if (quota) {
-    return apiFail(quota.error, quota.status, WITHOUT_CACHE_CONTROL)
+    return apiFail(quota.error, quota.status)
   }
 
   // 動画の poster (WebP) が付いていれば読む。動画以外では無視される
@@ -125,8 +124,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     videoFrames,
   })
   if (!stored.ok) {
-    return apiFail(stored.reason, 400, WITHOUT_CACHE_CONTROL)
+    return apiFail(stored.reason, 400)
   }
 
-  return apiOk({ url: stored.url }, 200, WITHOUT_CACHE_CONTROL)
+  return apiOk({ url: stored.url }, 200)
 }

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { parseFormBody, parseJsonBody, readJsonObject } from './parse'
-import { WITHOUT_CACHE_CONTROL } from './respond'
 
 // 本文の読み取り (docs/93-リファクタリング計画.md §3-3)。
 
@@ -97,11 +96,11 @@ describe('parseFormBody', () => {
       body: 'broken',
     })
 
-    const parsed = await parseFormBody(request, failure, WITHOUT_CACHE_CONTROL)
+    const parsed = await parseFormBody(request, failure, { cacheControl: 'private, max-age=60' })
 
     expect(parsed.ok ? null : await contractOf(parsed.response)).toEqual({
       status: 400,
-      cacheControl: null,
+      cacheControl: 'private, max-age=60',
       body: '{"success":false,"data":null,"error":"フォームの形式が正しくありません"}',
     })
     expect(consoleError).toHaveBeenCalledWith('解析に失敗しました:', expect.any(Error))

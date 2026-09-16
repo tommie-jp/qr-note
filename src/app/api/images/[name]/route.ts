@@ -2,7 +2,7 @@ import type { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { isPublicImageName } from '@/lib/items/read'
 import { byteHeaders, bytesResponse, rangedBytesResponse } from '@/lib/route/bytes'
-import { apiFail, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
+import { apiFail } from '@/lib/route/respond'
 import { currentUser } from '@/lib/auth/session'
 import { THUMB_MIME } from '@/lib/images/thumbConfig'
 import { isAllowedContentMime, isValidAttachmentName, isValidVideoName } from '@/lib/uploads/names'
@@ -48,7 +48,7 @@ export async function GET(
   // position() へ渡すので、書式を確かめてから渡す。
   // 画像・音声のどちらの保存名も許す (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
   if (!isValidAttachmentName(name)) {
-    return apiFail('不正なファイル名です', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('不正なファイル名です', 400)
   }
 
   // 画像はメモの中身そのもの (メモに貼った写真) なので、ノート本文と同じく守る。
@@ -105,7 +105,7 @@ export async function GET(
   })
 
   if (!image) {
-    return apiFail('画像が見つかりません', 404, WITHOUT_CACHE_CONTROL)
+    return apiFail('画像が見つかりません', 404)
   }
 
   // 原寸は Range に応える (音声のシーク。rangedBytesResponse)

@@ -72,7 +72,7 @@ describe('門番とデモ', () => {
 
     expect(await contractOf(res)).toEqual({
       status: 200,
-      cacheControl: null,
+      cacheControl: 'no-store',
       body: { success: false, data: null, error: 'デモでは使えません', demoDisabled: true },
     })
     expect(lookup).not.toHaveBeenCalled()
@@ -87,19 +87,19 @@ describe('門番とデモ', () => {
 })
 
 describe('照会', () => {
-  test('検算に通らなければ 400 (Cache-Control なし)', async () => {
+  test('検算に通らなければ 400 (no-store)', async () => {
     expect(await contractOf(await call('12a'))).toEqual({
       status: 400,
-      cacheControl: null,
+      cacheControl: 'no-store',
       body: { success: false, data: null, error: 'コードではありません' },
     })
     expect(lookup).not.toHaveBeenCalled()
   })
 
-  test('結果を data に包んで返す (Cache-Control なし)', async () => {
+  test('結果を data に包んで返す (no-store)', async () => {
     expect(await contractOf(await call('123'))).toEqual({
       status: 200,
-      cacheControl: null,
+      cacheControl: 'no-store',
       body: { success: true, data: { title: '本' }, error: null },
     })
   })
@@ -120,7 +120,7 @@ describe('照会', () => {
 
     expect(await contractOf(await call('123'))).toEqual({
       status: 502,
-      cacheControl: null,
+      cacheControl: 'no-store',
       body: { success: false, data: null, error: '照会に失敗しました' },
     })
     expect(consoleError).toHaveBeenCalledWith('照会に失敗しました', expect.any(Error))

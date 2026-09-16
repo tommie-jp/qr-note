@@ -5,12 +5,12 @@
 // 違うのは検算・照会先・文言だけ。骨格を 1 本にしておくと、片方の門番だけ
 // 直して穴が開くことがない (api/lookup.test.ts が 2 つを対で試している)。
 //
-// 応答はどれも Cache-Control を付けない (respond.ts の WITHOUT_CACHE_CONTROL)。
+// 応答はどれも no-store (respond.ts の既定)。
 
 import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
 import { guardRequest } from './guard'
-import { apiDemoDisabled, apiFail, apiOk, WITHOUT_CACHE_CONTROL } from './respond'
+import { apiDemoDisabled, apiFail, apiOk } from './respond'
 
 export interface ExternalLookupSpec<K extends string> {
   // URL のどの動的セグメントがコードか ([isbn] なら 'isbn')
@@ -43,14 +43,14 @@ export async function externalLookup<K extends string>(
 
   const code = (await params)[spec.param]
   if (!spec.isValidCode(code)) {
-    return apiFail(spec.invalidCodeMessage, 400, WITHOUT_CACHE_CONTROL)
+    return apiFail(spec.invalidCodeMessage, 400)
   }
 
   try {
-    return apiOk(await spec.lookup(code), 200, WITHOUT_CACHE_CONTROL)
+    return apiOk(await spec.lookup(code), 200)
   } catch (err) {
     // 想定外の失敗。中身 (外部 API の応答や例外の文言) は返さずログに残す
     console.error(spec.failureMessage, err)
-    return apiFail(spec.failureMessage, 502, WITHOUT_CACHE_CONTROL)
+    return apiFail(spec.failureMessage, 502)
   }
 }

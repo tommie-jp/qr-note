@@ -10,8 +10,9 @@ import {
 // Cache-Control・本文のバイト列) だけを、封筒を手書きしていた口についてまとめて
 // 押さえる (docs/93-リファクタリング計画.md §3-3)。
 //
-// Cache-Control が付いていない (null) 応答も今の契約として固定する。付け忘れを
-// 揃えるときは、ここの期待値を書き換えることで変更が diff に残る
+// Cache-Control はどの封筒も no-store (2026-09-17 に揃えた。以前は書誌・商品・
+// 画像・取り込み・書き出しの口だけ付いていなかった)。サムネの代替 404 のように
+// 別の値を付ける口は、その route のテストが押さえる
 const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
   validToken: 'valid-session-token',
@@ -120,7 +121,7 @@ describe('門番の応答 (どの口でも同じ封筒と no-store)', () => {
   })
 })
 
-describe('/api/books/[isbn] (Cache-Control なし)', () => {
+describe('/api/books/[isbn] (no-store)', () => {
   const call = async (isbn: string) => {
     const { GET } = await import('./books/[isbn]/route')
     return GET(new Request(`http://localhost/api/books/${isbn}`), {
@@ -130,7 +131,7 @@ describe('/api/books/[isbn] (Cache-Control なし)', () => {
 
   test('ISBN でなければ 400', async () => {
     expect(await responseContract(await call(JAN))).toEqual(
-      jsonContract(400, failEnvelope('ISBN ではありません'), null),
+      jsonContract(400, failEnvelope('ISBN ではありません')),
     )
   })
 
@@ -139,7 +140,6 @@ describe('/api/books/[isbn] (Cache-Control なし)', () => {
       jsonContract(
         200,
         okEnvelope({ title: 'リーダブルコード', coverImageUrl: '/api/images/cover.jpg' }),
-        null,
       ),
     )
   })
@@ -147,7 +147,7 @@ describe('/api/books/[isbn] (Cache-Control なし)', () => {
   test('見つからなければ data: null', async () => {
     mocks.lookupBook.mockResolvedValue(null)
 
-    expect(await responseContract(await call(ISBN))).toEqual(jsonContract(200, okEnvelope(null), null))
+    expect(await responseContract(await call(ISBN))).toEqual(jsonContract(200, okEnvelope(null)))
   })
 
   test('想定外の失敗は 502', async () => {
@@ -155,12 +155,12 @@ describe('/api/books/[isbn] (Cache-Control なし)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(await responseContract(await call(ISBN))).toEqual(
-      jsonContract(502, failEnvelope('書誌の取得に失敗しました'), null),
+      jsonContract(502, failEnvelope('書誌の取得に失敗しました')),
     )
   })
 })
 
-describe('/api/products/[jan] (Cache-Control なし)', () => {
+describe('/api/products/[jan] (no-store)', () => {
   const call = async (jan: string) => {
     const { GET } = await import('./products/[jan]/route')
     return GET(new Request(`http://localhost/api/products/${jan}`), {
@@ -176,7 +176,6 @@ describe('/api/products/[jan] (Cache-Control なし)', () => {
       jsonContract(
         200,
         { ...failEnvelope('デモ版では JAN 情報を取得できません'), demoDisabled: true },
-        null,
       ),
     )
     expect(mocks.lookupProduct).not.toHaveBeenCalled()
@@ -184,13 +183,13 @@ describe('/api/products/[jan] (Cache-Control なし)', () => {
 
   test('JAN でなければ 400', async () => {
     expect(await responseContract(await call('123'))).toEqual(
-      jsonContract(400, failEnvelope('JAN ではありません'), null),
+      jsonContract(400, failEnvelope('JAN ではありません')),
     )
   })
 
   test('商品情報を返す', async () => {
     expect(await responseContract(await call(JAN))).toEqual(
-      jsonContract(200, okEnvelope({ name: '天然水' }), null),
+      jsonContract(200, okEnvelope({ name: '天然水' })),
     )
   })
 
@@ -199,12 +198,12 @@ describe('/api/products/[jan] (Cache-Control なし)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(await responseContract(await call(JAN))).toEqual(
-      jsonContract(502, failEnvelope('商品情報の取得に失敗しました'), null),
+      jsonContract(502, failEnvelope('商品情報の取得に失敗しました')),
     )
   })
 })
 
-describe('/api/export の失敗 (Cache-Control なし)', () => {
+describe('/api/export の失敗 (no-store)', () => {
   const call = async (body: string, contentType = 'application/x-www-form-urlencoded') => {
     const { POST } = await import('./export/route')
     return POST(
@@ -220,19 +219,19 @@ describe('/api/export の失敗 (Cache-Control なし)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(await responseContract(await call('x', 'multipart/form-data; boundary=zz'))).toEqual(
-      jsonContract(400, failEnvelope('フォームの形式が正しくありません'), null),
+      jsonContract(400, failEnvelope('フォームの形式が正しくありません')),
     )
   })
 
   test('scope が無ければ 400', async () => {
     expect(await responseContract(await call('itemNo=1'))).toEqual(
-      jsonContract(400, failEnvelope('scope には all か selected を指定して下さい'), null),
+      jsonContract(400, failEnvelope('scope には all か selected を指定して下さい')),
     )
   })
 
   test('選択が空なら 400', async () => {
     expect(await responseContract(await call('scope=selected'))).toEqual(
-      jsonContract(400, failEnvelope('ノートが選択されていません'), null),
+      jsonContract(400, failEnvelope('ノートが選択されていません')),
     )
   })
 
@@ -252,7 +251,7 @@ describe('/api/export の失敗 (Cache-Control なし)', () => {
   })
 })
 
-describe('/api/import (Cache-Control なし)', () => {
+describe('/api/import (no-store)', () => {
   const call = async (query: string, body: BodyInit | null = 'x') => {
     const { POST } = await import('./import/route')
     return POST(new Request(`http://localhost/api/import${query}`, { method: 'POST', body }))
@@ -260,13 +259,13 @@ describe('/api/import (Cache-Control なし)', () => {
 
   test('本文が無ければ 400', async () => {
     expect(await responseContract(await call('', null))).toEqual(
-      jsonContract(400, failEnvelope('ファイルの中身が送られていません'), null),
+      jsonContract(400, failEnvelope('ファイルの中身が送られていません')),
     )
   })
 
   test('廃止した overwrite は 400', async () => {
     expect(await responseContract(await call('?overwrite=1'))).toEqual(
-      jsonContract(400, failEnvelope('overwrite は廃止しました。conflict=overwrite を使って下さい'), null),
+      jsonContract(400, failEnvelope('overwrite は廃止しました。conflict=overwrite を使って下さい')),
     )
   })
 
@@ -275,7 +274,6 @@ describe('/api/import (Cache-Control なし)', () => {
       jsonContract(
         400,
         failEnvelope('conflict には skip / overwrite / renumber のいずれかを指定して下さい'),
-        null,
       ),
     )
   })
@@ -284,12 +282,12 @@ describe('/api/import (Cache-Control なし)', () => {
     const zip = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0])
 
     expect(await responseContract(await call('', zip))).toEqual(
-      jsonContract(200, okEnvelope({ format: 'zip', imported: [], skipped: [] }), null),
+      jsonContract(200, okEnvelope({ format: 'zip', imported: [], skipped: [] })),
     )
   })
 })
 
-describe('/api/images POST (Cache-Control なし)', () => {
+describe('/api/images POST (no-store)', () => {
   const call = async (form: FormData | null, headers: Record<string, string> = {}) => {
     const { POST } = await import('./images/route')
     return POST(
@@ -304,12 +302,12 @@ describe('/api/images POST (Cache-Control なし)', () => {
   test('別オリジンは 403', async () => {
     expect(
       await responseContract(await call(new FormData(), { origin: 'https://evil.example' })),
-    ).toEqual(jsonContract(403, failEnvelope('クロスオリジンのアップロードは許可されていません'), null))
+    ).toEqual(jsonContract(403, failEnvelope('クロスオリジンのアップロードは許可されていません')))
   })
 
   test('file が無ければ 400', async () => {
     expect(await responseContract(await call(new FormData()))).toEqual(
-      jsonContract(400, failEnvelope('file フィールドがありません'), null),
+      jsonContract(400, failEnvelope('file フィールドがありません')),
     )
   })
 
@@ -319,7 +317,7 @@ describe('/api/images POST (Cache-Control なし)', () => {
     form.set('file', new File([new Uint8Array([1])], 'a.png', { type: 'image/png' }))
 
     expect(await responseContract(await call(form))).toEqual(
-      jsonContract(400, failEnvelope('対応していない形式です'), null),
+      jsonContract(400, failEnvelope('対応していない形式です')),
     )
   })
 
@@ -328,12 +326,12 @@ describe('/api/images POST (Cache-Control なし)', () => {
     form.set('file', new File([new Uint8Array([1])], 'a.png', { type: 'image/png' }))
 
     expect(await responseContract(await call(form))).toEqual(
-      jsonContract(200, okEnvelope({ url: `/api/images/${PNG_NAME}` }), null),
+      jsonContract(200, okEnvelope({ url: `/api/images/${PNG_NAME}` })),
     )
   })
 })
 
-describe('/api/images/[name] と rotate の検算 (Cache-Control なし)', () => {
+describe('/api/images/[name] と rotate の検算 (no-store)', () => {
   test('GET: 不正なファイル名は 400', async () => {
     const { GET } = await import('./images/[name]/route')
     const res = await GET(new Request('http://localhost/api/images/x'), {
@@ -341,7 +339,7 @@ describe('/api/images/[name] と rotate の検算 (Cache-Control なし)', () =>
     })
 
     expect(await responseContract(res)).toEqual(
-      jsonContract(400, failEnvelope('不正なファイル名です'), null),
+      jsonContract(400, failEnvelope('不正なファイル名です')),
     )
   })
 
@@ -355,19 +353,19 @@ describe('/api/images/[name] と rotate の検算 (Cache-Control なし)', () =>
 
   test('rotate: 不正なファイル名は 400', async () => {
     expect(await responseContract(await rotate('x.png', '{}'))).toEqual(
-      jsonContract(400, failEnvelope('不正なファイル名です'), null),
+      jsonContract(400, failEnvelope('不正なファイル名です')),
     )
   })
 
   test('rotate: JSON でなければ 400', async () => {
     expect(await responseContract(await rotate(PNG_NAME, '{'))).toEqual(
-      jsonContract(400, failEnvelope('JSON の body を送信して下さい'), null),
+      jsonContract(400, failEnvelope('JSON の body を送信して下さい')),
     )
   })
 
   test('rotate: 角度が違えば 400', async () => {
     expect(await responseContract(await rotate(PNG_NAME, '{"angle":45}'))).toEqual(
-      jsonContract(400, failEnvelope('angle は 90 / 180 / 270 のいずれかです'), null),
+      jsonContract(400, failEnvelope('angle は 90 / 180 / 270 のいずれかです')),
     )
   })
 })

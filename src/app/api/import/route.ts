@@ -4,7 +4,7 @@ import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
 import { errorText } from '@/lib/errorMessage'
 import { guardRequest } from '@/lib/route/guard'
-import { apiFail, apiOk, WITHOUT_CACHE_CONTROL } from '@/lib/route/respond'
+import { apiFail, apiOk } from '@/lib/route/respond'
 import { checkUploadRequest } from '@/lib/uploads/request'
 import {
   CONFLICT_POLICY_ERROR,
@@ -50,11 +50,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   // multipart を使わなくなったので余白は要らない
   const rejection = checkUploadRequest(request, MAX_ZIP_BYTES)
   if (rejection) {
-    return apiFail(rejection.error, rejection.status, WITHOUT_CACHE_CONTROL)
+    return apiFail(rejection.error, rejection.status)
   }
 
   if (request.body === null) {
-    return apiFail('ファイルの中身が送られていません', 400, WITHOUT_CACHE_CONTROL)
+    return apiFail('ファイルの中身が送られていません', 400)
   }
 
   // 同じ番号のノートが既にあるときどうするか (§5)。**送られてこなければ
@@ -67,12 +67,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiFail(
       'overwrite は廃止しました。conflict=overwrite を使って下さい',
       400,
-      WITHOUT_CACHE_CONTROL,
     )
   }
   const conflict = parseConflictPolicy(params.get('conflict'))
   if (conflict === null) {
-    return apiFail(CONFLICT_POLICY_ERROR, 400, WITHOUT_CACHE_CONTROL)
+    return apiFail(CONFLICT_POLICY_ERROR, 400)
   }
 
   // 進捗の控えを取る (docs/28 §9)。**取れなければ断る** — importZip は
@@ -83,7 +82,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     handle = beginImport(contentLength(request))
   } catch (error) {
     if (error instanceof ImportBusyError) {
-      return apiFail(error.message, 409, WITHOUT_CACHE_CONTROL)
+      return apiFail(error.message, 409)
     }
     throw error
   }
@@ -101,7 +100,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     // **応答を返す前に、届いていない本文を読み捨てる**。理由は drainRequest に
     await drainRequest(reader, received, handle)
     if (error instanceof UploadTooLargeError) {
-      return apiFail(error.message, 413, WITHOUT_CACHE_CONTROL)
+      return apiFail(error.message, 413)
     }
     // ファイル 1 枚まるごとが対象外だったということ (ZIP として壊れている、
     // 項目が多すぎる、XML として読めない)。利用者に直せる話なので 400 で
@@ -110,7 +109,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiFail(
       errorText(error, 'ファイルを読み込めませんでした'),
       400,
-      WITHOUT_CACHE_CONTROL,
     )
   } finally {
     reader.releaseLock()
@@ -183,14 +181,14 @@ async function dispatch(
       onNotesStart: handle.startNotes,
       onNoteDone: handle.noteDone,
     })
-    return apiOk({ format: 'zip', ...report }, 200, WITHOUT_CACHE_CONTROL)
+    return apiOk({ format: 'zip', ...report }, 200)
   }
 
   // ENEX は変換が入力に比例してメモリを食う (docs/28 §4) ため上限が別で小さい。
   // 流し読みもできない (XML を丸ごと読んでから木にする) ので、ここで受けきる
   const xml = await readText(rest, MAX_ENEX_BYTES, enexTooLargeMessage, handle)
   const report = await importEnex(xml)
-  return apiOk({ format: 'enex', ...report }, 200, WITHOUT_CACHE_CONTROL)
+  return apiOk({ format: 'enex', ...report }, 200)
 }
 
 // 上限を超えたことは 413 で返したい (400 の「読めなかった」とは違う話)

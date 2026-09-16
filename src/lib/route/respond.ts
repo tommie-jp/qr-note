@@ -16,16 +16,9 @@ import { NextResponse } from 'next/server'
 const NO_STORE = 'no-store'
 
 export interface ApiResponseOptions {
-  // 既定は no-store。null なら Cache-Control を付けない
-  readonly cacheControl?: string | null
+  // 既定は no-store。別の値を付けるのはサムネの代替 404 (画像の口) だけ
+  readonly cacheControl?: string
 }
-
-// Cache-Control を付けていない応答の目印。
-//
-// books/[isbn]・products/[jan]・images・images/[name]・images/[name]/rotate・
-// import・export の封筒は、封筒の書き手を 1 つにする前から付けていなかった。
-// 挙動を変えない整理なので今はそのまま運ぶ。揃えるときはこの名前で探す
-export const WITHOUT_CACHE_CONTROL: ApiResponseOptions = { cacheControl: null }
 
 export function apiOk<T>(
   data: T,
@@ -52,19 +45,16 @@ export function apiDemoDisabled(error: string): NextResponse {
   return envelopeResponse(
     { success: false, data: null, error, demoDisabled: true },
     200,
-    WITHOUT_CACHE_CONTROL,
   )
 }
 
 function envelopeResponse(
   body: Readonly<Record<string, unknown>>,
   status: number,
-  { cacheControl = NO_STORE }: ApiResponseOptions,
+  { cacheControl = NO_STORE }: ApiResponseOptions = {},
 ): NextResponse {
-  return NextResponse.json(
-    body,
-    cacheControl === null
-      ? { status }
-      : { status, headers: { 'Cache-Control': cacheControl } },
-  )
+  return NextResponse.json(body, {
+    status,
+    headers: { 'Cache-Control': cacheControl },
+  })
 }
