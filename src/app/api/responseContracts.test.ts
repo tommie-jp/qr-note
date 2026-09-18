@@ -59,6 +59,12 @@ vi.mock('@/lib/attachments/store', () => ({
   storeAttachment: (bytes: Uint8Array, options: unknown) => mocks.storeAttachment(bytes, options),
 }))
 
+// デモの添付総量の検査は DB を引く。上限の判定は api/images/images.test.ts が見るので、
+// ここでは素通しにする (デモでの文言の出し分けを見るため)
+vi.mock('@/lib/demo/demoQuota', () => ({
+  checkDemoUploadQuota: async () => null,
+}))
+
 // 写真の撮影情報の設定は DB (user_settings) にある。応答の形だけを見るので固定する
 vi.mock('@/lib/prefs/photoMetaStore', () => ({
   loadPhotoMetaMode: async () => 'strip',
@@ -333,6 +339,46 @@ describe('/api/images POST (no-store)', () => {
     expect(await responseContract(await call(form))).toEqual(
       jsonContract(200, okEnvelope({ url: `/api/images/${PNG_NAME}` })),
     )
+  })
+
+  // 動画の撮影情報を消せなかったとき (docs/97 §10)。メニューで「残す」を選べるのは
+  // 画面から上げる人だけなので、案内はこの口で足す。デモはメニューに出ない
+  describe('動画の撮影情報を消せなかったとき', () => {
+    const video = () => {
+      const form = new FormData()
+      form.set('file', new File([new Uint8Array([1])], 'a.mov', { type: 'video/quicktime' }))
+      return form
+    }
+
+    test('「残す」への逃げ道を添える', async () => {
+      mocks.storeAttachment.mockResolvedValue({
+        ok: false,
+        reason: '動画の撮影情報を消せませんでした (壊れているか未対応の形です)',
+      })
+
+      expect(await responseContract(await call(video()))).toEqual(
+        jsonContract(
+          400,
+          failEnvelope(
+            '動画の撮影情報を消せませんでした (壊れているか未対応の形です)。メニューの「写真の撮影情報 (EXIF)」を「残す」にすると保存できます',
+          ),
+        ),
+      )
+    })
+
+    test('デモでは選べない逃げ道を示さない', async () => {
+      vi.stubEnv('DEMO_MODE', '1')
+      mocks.storeAttachment.mockResolvedValue({
+        ok: false,
+        reason: '動画の撮影情報を消せませんでした (壊れているか未対応の形です)',
+      })
+
+      const res = await call(video())
+
+      expect((await res.json()).error).toBe(
+        '動画の撮影情報を消せませんでした (壊れているか未対応の形です)',
+      )
+    })
   })
 })
 

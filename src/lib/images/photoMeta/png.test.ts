@@ -58,13 +58,57 @@ describe('stripPng', () => {
     expect(await rawPixels(bytes)).toEqual(await rawPixels(input))
   })
 
-  test('書き戻す eXIf は最初の IDAT の直前に置く', async () => {
+  test('書き戻す eXIf は IHDR の直後に置く', async () => {
     const input = await makePhoto('png', { exif: true, orientation: 6 })
 
     const types = chunkTypes(stripPng(input).bytes)
 
-    expect(types[types.indexOf('IDAT') - 1]).toBe('eXIf')
+    expect(types.slice(0, 2)).toEqual(['IHDR', 'eXIf'])
     expect(types.filter((type) => type === 'eXIf')).toHaveLength(1)
+  })
+
+  // Apple の書き出す PNG は IDAT の直前に iDOT を置き、IDAT の位置を iDOT の先頭からの
+  // 距離で持つ。iDOT と IDAT の間で区画を足し引きすると、その距離がずれて Apple の
+  // 復号器が絵を崩す
+  describe('iDOT (Apple の分割復号の目印)', () => {
+    const iDOT = chunk('iDOT', new Uint8Array(28).fill(7))
+
+    function insertBeforeIdat(png: Uint8Array, ...chunks: Uint8Array[]): Uint8Array<ArrayBuffer> {
+      const at = Buffer.from(png).indexOf(Buffer.from('IDAT', 'latin1')) - 4
+      return concat([png.subarray(0, at), ...chunks, png.subarray(at)])
+    }
+
+    test('向きを書き戻しても iDOT と IDAT の間には何も挟まない', async () => {
+      const input = insertBeforeIdat(await makePhoto('png', { exif: true, orientation: 6 }), iDOT)
+
+      const types = chunkTypes(stripPng(input).bytes)
+
+      expect(types[types.indexOf('IDAT') - 1]).toBe('iDOT')
+    })
+
+    test('iDOT と IDAT の間の区画を落とすなら iDOT も落とす', async () => {
+      const input = insertBeforeIdat(
+        await makePhoto('png'),
+        iDOT,
+        chunk('tEXt', ascii('Author\0SECRET-OWNER')),
+      )
+
+      const { bytes, removed } = stripPng(input)
+
+      expect(chunkTypes(bytes)).not.toContain('iDOT')
+      expect(removed).toEqual(new Set(['comment', 'other']))
+      expect(await rawPixels(bytes)).toEqual(await rawPixels(input))
+    })
+
+    test('iDOT より前の区画を落とすだけなら iDOT は残す', async () => {
+      const plain = await makePhoto('png')
+      const input = insertBeforeIdat(
+        insertAfterIhdr(plain, chunk('tEXt', ascii('Author\0SECRET-OWNER'))),
+        iDOT,
+      )
+
+      expect(chunkTypes(stripPng(input).bytes)).toContain('iDOT')
+    })
   })
 
   test('向きが無い・正位置なら eXIf を書かない', async () => {

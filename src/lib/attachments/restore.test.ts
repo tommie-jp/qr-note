@@ -212,3 +212,24 @@ test('動画・音声などは「消す」でも中身に触らない', async ()
 
   expect(restoreAttachmentRow).toHaveBeenCalledWith(`${UUID}.pdf`, bytes, 'application/pdf')
 })
+
+test('mp4 動画も「消す」なら撮影情報を消した中身で行を作る (長さは変えない)', async () => {
+  // Arrange: moov に位置 (udta/loci) を持つ mp4
+  const hdlr = box('hdlr', concat([new Uint8Array(8), enc.encode('vide'), new Uint8Array(13)]))
+  const video = concat([
+    box('ftyp', concat([enc.encode('isom'), new Uint8Array(4), enc.encode('isom')])),
+    box(
+      'moov',
+      concat([box('trak', box('mdia', hdlr)), box('udta', box('loci', ascii('+35.6812+139.7671/')))]),
+    ),
+  ])
+
+  // Act
+  const result = await restoreAttachment(`${UUID}.mp4`, video, 'strip')
+
+  // Assert
+  expect(result).toEqual({ ok: true, created: true })
+  const [, bytes] = restoreAttachmentRow.mock.calls[0]
+  expect(bytes.byteLength).toBe(video.byteLength)
+  expect(Buffer.from(bytes).includes(Buffer.from('+35.6812'))).toBe(false)
+})

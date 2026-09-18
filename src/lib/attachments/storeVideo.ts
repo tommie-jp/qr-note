@@ -13,7 +13,8 @@ import {
   videoSaveInfo,
 } from '@/lib/uploads/sniff/video'
 import { makeVideoAnim } from '@/lib/video/videoAnim'
-import { type AttachmentResult, succeed } from './result'
+import { applyVideoMeta, type PhotoMetaSource, resolvePhotoMeta } from './photoMeta'
+import { type AttachmentResult, succeed, VIDEO_META_FAILED_MESSAGE } from './result'
 
 // 動画のときだけ使う、クライアントが作ったサムネの材料。
 // store.ts の StoreAttachmentOptions がこれを引き継ぐ。
@@ -35,10 +36,15 @@ export interface VideoThumbSources {
   videoFrames?: Uint8Array<ArrayBuffer>[]
 }
 
+export interface StoreVideoOptions extends VideoThumbSources {
+  // 撮影情報 (位置・日時・機種など) を消すか (docs/97-写真の撮影情報削除計画.md §10)
+  photoMeta: PhotoMetaSource
+}
+
 export async function storeVideo(
   bytes: Uint8Array<ArrayBuffer>,
   format: VideoFormat,
-  sources: VideoThumbSources,
+  sources: StoreVideoOptions,
 ): Promise<AttachmentResult> {
   if (bytes.byteLength > MAX_VIDEO_BYTES) {
     return { ok: false, reason: tooLargeMessage(MAX_VIDEO_BYTES) }
@@ -47,8 +53,19 @@ export async function storeVideo(
   // 末尾 moov のままだと <video preload="metadata"> が再生を始められない)。
   // webm は ISO-BMFF ではないので moveMoovToFront が null を返す = 素通し。
   const { mime, ext } = videoSaveInfo(format)
-  const stored =
+  const faststarted =
     format === 'webm' ? bytes : (moveMoovToFront(bytes) ?? bytes)
+  // 撮影情報を消す (§10)。設定を引くのは消す相手がありうる mp4 / mov のときだけ。
+  // 引けない (DB の障害) のは動画のせいではないので、400 に化けさせず例外のまま上げる
+  const mode = format === 'webm' ? 'keep' : await resolvePhotoMeta(sources.photoMeta)
+  let stored: Uint8Array<ArrayBuffer>
+  try {
+    stored = applyVideoMeta(faststarted, format, mode)
+  } catch (error) {
+    // 箱の並びが読めない。撮影情報が残ったまま保存するくらいなら断る
+    console.error(`動画の撮影情報を消せませんでした (${format}, ${bytes.byteLength} bytes):`, error)
+    return { ok: false, reason: VIDEO_META_FAILED_MESSAGE }
+  }
   // クライアント生成の poster は**そのまま保存しない**。まず安い検査
   // (WebP かつ 200KB 以下) で弾き、通ったものも sharp で作り直す — 画像の
   // サムネと同じ経路 (makeThumbnail) に通すことで、解凍爆弾よけ

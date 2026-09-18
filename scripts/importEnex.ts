@@ -24,7 +24,7 @@
 //               代わり)。#evernote は指定しなくても必ず付く
 //   --force     既に取り込み済みのノートも入れ直す (既定はスキップ)
 //   --keep-photo-meta
-//               写真の撮影情報 (位置・日時・機種などの EXIF) を残す。既定は
+//               写真と動画の撮影情報 (位置・日時・機種など) を残す。既定は
 //               消す (docs/97-写真の撮影情報削除計画.md)。Web の口は利用者の
 //               設定に従うが、ここはログインしないので旗で決める
 //   --yes       確認プロンプトを省く
@@ -286,7 +286,7 @@ async function main(): Promise<void> {
     console.log('重複判定: 無効 (--force。取り込み済みも入れ直す)')
   }
   console.log(
-    `写真の撮影情報: ${args.keepPhotoMeta ? '残す (--keep-photo-meta)' : '消す (残すには --keep-photo-meta)'}`,
+    `写真と動画の撮影情報: ${args.keepPhotoMeta ? '残す (--keep-photo-meta)' : '消す (残すには --keep-photo-meta)'}`,
   )
 
   const before = await prisma.item.count()

@@ -17,14 +17,15 @@ import { audioSaveInfo, sniffAudioFormat } from '@/lib/uploads/sniff/audio'
 import { sniffImageFormat } from '@/lib/uploads/sniff/image'
 import { sniffPdf } from '@/lib/uploads/sniff/pdf'
 import { textSaveInfo } from '@/lib/uploads/sniff/text'
-import { sniffVideoFormat, videoSaveInfo } from '@/lib/uploads/sniff/video'
+import { sniffVideoFormat, type VideoFormat, videoSaveInfo } from '@/lib/uploads/sniff/video'
 import { MAX_ZIP_FILE_BYTES } from '@/lib/zip/limits'
-import { applyPhotoMeta } from './photoMeta'
+import { applyPhotoMeta, applyVideoMeta } from './photoMeta'
 import {
   IMAGE_UNREADABLE_MESSAGE,
   mismatch,
   type RestoreResult,
   UNSUPPORTED_ATTACHMENT_MESSAGE,
+  VIDEO_META_FAILED_MESSAGE,
 } from './result'
 
 export interface RestoreOptions {
@@ -65,9 +66,9 @@ export async function restoreAttachment(
   if (isValidVideoName(name)) {
     const format = sniffVideoFormat(bytes)
     const info = format === null ? null : videoSaveInfo(format)
-    return info === null || info.ext !== ext
+    return format === null || info === null || info.ext !== ext
       ? mismatch(ext)
-      : restoreRow(name, bytes, info.mime)
+      : restoreVideo(name, bytes, format, info.mime, options)
   }
 
   if (isValidImageName(name)) {
@@ -116,6 +117,24 @@ async function restoreImage(
   } catch (error) {
     console.error(`撮影情報を消せませんでした (${name}, ${bytes.byteLength} bytes):`, error)
     return { ok: false, reason: IMAGE_UNREADABLE_MESSAGE }
+  }
+  return restoreRow(name, kept, mime)
+}
+
+// 動画 (MP4 / MOV) も同じ設定で撮影情報を消す (docs/97 §10)。長さは変えない
+function restoreVideo(
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  format: VideoFormat,
+  mime: string,
+  options: RestoreOptions,
+): Promise<RestoreResult> {
+  let kept: Uint8Array<ArrayBuffer>
+  try {
+    kept = applyVideoMeta(bytes, format, options.photoMeta)
+  } catch (error) {
+    console.error(`動画の撮影情報を消せませんでした (${name}, ${bytes.byteLength} bytes):`, error)
+    return Promise.resolve({ ok: false, reason: VIDEO_META_FAILED_MESSAGE })
   }
   return restoreRow(name, kept, mime)
 }

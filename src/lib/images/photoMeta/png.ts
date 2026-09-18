@@ -6,7 +6,13 @@
 //
 // 落とすもの: eXIf・tEXt / zTXt / iTXt (作者・XMP・ImageMagick の Raw profile)・
 // tIME・dSIG・caBX (C2PA)・IEND より後ろ。
-// 向きは eXIf から値だけ読み、向きだけを持つ eXIf を最初の IDAT の直前に書き戻す。
+// 向きは eXIf から値だけ読み、向きだけを持つ eXIf を IHDR の直後に書き戻す。
+//
+// **Apple の iDOT に気を付ける。** Apple の書き出す PNG は IDAT の直前に iDOT を
+// 置き、分割して復号するための IDAT の位置を iDOT の先頭からの距離で持つ。
+// iDOT と IDAT の間で区画を足し引きするとこの距離がずれ、Apple の復号器が絵を
+// 崩す。書き戻す eXIf は IHDR の直後 (iDOT より前) に置き、iDOT と IDAT の間の
+// 区画を落としたときは iDOT も落とす (無くても順に復号されるだけ)。
 
 import { crc32 } from 'node:zlib'
 import { minimalExifTiff, needsOrientation, readExifFacts, withoutExifHeader } from './tiff'
@@ -65,8 +71,12 @@ export function stripPng(input: Uint8Array<ArrayBuffer>): StripOutcome {
   const parts: Uint8Array[] = [input.subarray(0, SIGNATURE.length)]
   const removed = new Set<MetaKind>()
   let orientation: number | null = null
-  // 最初の IDAT の parts 上の位置。eXIf はこの直前に書き戻す
-  let firstIdat = -1
+  // IHDR の直後の parts 上の位置。eXIf はここに書き戻す
+  let afterIhdr = -1
+  // iDOT の parts 上の位置と、iDOT と IDAT の間で区画を落としたか
+  let idot = -1
+  let droppedAfterIdot = false
+  let seenIdat = false
   let ended = false
   let at = SIGNATURE.length
 
@@ -78,6 +88,10 @@ export function stripPng(input: Uint8Array<ArrayBuffer>): StripOutcome {
     }
     const type = LATIN1.decode(input.subarray(at + 4, at + 8))
     const data = input.subarray(at + 8, at + 8 + length)
+    const partsBefore = parts.length
+    if (afterIhdr === -1 && type !== 'IHDR') {
+      throw new PhotoMetaFormatError('先頭の区画が IHDR ではありません')
+    }
 
     if (type === 'eXIf') {
       const facts = readExifFacts(withoutExifHeader(data))
@@ -91,10 +105,17 @@ export function stripPng(input: Uint8Array<ArrayBuffer>): StripOutcome {
     } else if (OTHER_CHUNKS.has(type)) {
       removed.add('other')
     } else {
-      if (type === 'IDAT' && firstIdat === -1) {
-        firstIdat = parts.length
+      if (type === 'iDOT' && idot === -1) {
+        idot = parts.length
       }
+      seenIdat ||= type === 'IDAT'
       parts.push(input.subarray(at, end))
+      if (type === 'IHDR') {
+        afterIhdr = parts.length
+      }
+    }
+    if (parts.length === partsBefore && idot !== -1 && !seenIdat) {
+      droppedAfterIdot = true
     }
     at = end
     if (type === 'IEND') {
@@ -106,18 +127,23 @@ export function stripPng(input: Uint8Array<ArrayBuffer>): StripOutcome {
   if (!ended) {
     throw new PhotoMetaFormatError('IEND に届く前に終わっています')
   }
-  if (firstIdat === -1) {
+  if (!seenIdat) {
     throw new PhotoMetaFormatError('画素 (IDAT) がありません')
   }
   if (at < input.byteLength) {
     removed.add('trailer')
   }
+  if (droppedAfterIdot) {
+    removed.add('other')
+  }
+  const kept = droppedAfterIdot ? parts.filter((_, i) => i !== idot) : parts
+  // iDOT を落としても afterIhdr より前 (IHDR は先頭) なので位置は変わらない
   const withOrientation = needsOrientation(orientation)
     ? [
-        ...parts.slice(0, firstIdat),
+        ...kept.slice(0, afterIhdr),
         pngChunk('eXIf', minimalExifTiff(orientation)),
-        ...parts.slice(firstIdat),
+        ...kept.slice(afterIhdr),
       ]
-    : parts
+    : kept
   return outcome(input, withOrientation, removed)
 }

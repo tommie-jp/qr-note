@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { describe, expect, test } from 'vitest'
-import { concat, containsAscii, FIXTURE_EXIF, leakedMarkers, rawPixels } from '@/test/photoFixtures'
+import { ascii, concat, containsAscii, FIXTURE_EXIF, leakedMarkers, rawPixels } from '@/test/photoFixtures'
 import { stripAvif } from './avif'
 import { PhotoMetaFormatError } from './types'
 
@@ -67,5 +67,36 @@ describe('stripAvif', () => {
     for (const broken of [longMeta, truncated, concat([input.subarray(0, 40)])]) {
       expect(() => stripAvif(new Uint8Array(broken))).toThrow(PhotoMetaFormatError)
     }
+  })
+})
+
+// 位置表 (iloc) の値の長さはすべて 0 にできる。そのとき 1 区間あたり 1 バイトも
+// 読まずに回るので、数 KB のファイルで件数 × 区間数 (最大 65535) の周回を強いられる
+// (レビューで 6KB・1.3 秒・92MB を確認)。周回の総数で早めに断る
+describe('細工した位置表', () => {
+  function box(type: string, ...parts: ArrayLike<number>[]): Uint8Array<ArrayBuffer> {
+    const out = concat([new Uint8Array(4), ascii(type), ...parts])
+    new DataView(out.buffer).setUint32(0, out.byteLength)
+    return out
+  }
+
+  function hostileAvif(itemCount: number, extentCount: number): Uint8Array<ArrayBuffer> {
+    const infe = box('infe', [2, 0, 0, 0], [0, 1], [0, 0], ascii('Exif'), [0])
+    const iinf = box('iinf', [0, 0, 0, 0], [0, 1], infe)
+    const items: number[] = []
+    for (let i = 0; i < itemCount; i++) {
+      // 番号 (2) + 構築方法 (2) + データ参照 (2) + 区間数 (2)。長さの欄は全部 0 バイト
+      items.push((i >> 8) & 0xff, i & 0xff, 0, 0, 0, 0, extentCount >> 8, extentCount & 0xff)
+    }
+    const iloc = box('iloc', [1, 0, 0, 0], [0x00, 0x00], [itemCount >> 8, itemCount & 0xff], items)
+    return concat([box('ftyp', ascii('avif'), [0, 0, 0, 0], ascii('avif')), box('meta', [0, 0, 0, 0], iinf, iloc)])
+  }
+
+  test('値の長さが 0 の区間を大量に並べた位置表は、回りきる前に断る', () => {
+    const input = hostileAvif(1000, 65535)
+
+    const started = performance.now()
+    expect(() => stripAvif(input)).toThrow(PhotoMetaFormatError)
+    expect(performance.now() - started).toBeLessThan(200)
   })
 })

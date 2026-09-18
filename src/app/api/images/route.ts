@@ -1,5 +1,7 @@
 import type { NextResponse } from 'next/server'
+import { VIDEO_META_FAILED_MESSAGE, VIDEO_META_KEEP_HINT } from '@/lib/attachments/result'
 import { storeAttachment } from '@/lib/attachments/store'
+import { isDemoMode } from '@/lib/appEnv'
 import { checkDemoUploadQuota } from '@/lib/demo/demoQuota'
 import { loadPhotoMetaMode } from '@/lib/prefs/photoMetaStore'
 import { guardRequest } from '@/lib/route/guard'
@@ -130,8 +132,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     photoMeta: () => loadPhotoMetaMode(guard.user),
   })
   if (!stored.ok) {
-    return apiFail(stored.reason, 400)
+    return apiFail(withKeepHint(stored.reason), 400)
   }
 
   return apiOk({ url: stored.url }, 200)
+}
+
+// 動画の撮影情報を消せずに断ったとき、「残す」にすれば保存できると添える
+// (docs/97-写真の撮影情報削除計画.md §10)。メニューで選べるのは画面から上げる人
+// だけなので、案内はこの口で足す。デモはメニューに項目が無く、常に「消す」
+function withKeepHint(reason: string): string {
+  return reason === VIDEO_META_FAILED_MESSAGE && !isDemoMode()
+    ? `${reason}。${VIDEO_META_KEEP_HINT}`
+    : reason
 }

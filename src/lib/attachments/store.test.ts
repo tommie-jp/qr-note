@@ -18,6 +18,7 @@ const makeThumbnail = vi.fn<(bytes: Uint8Array, label?: string) => Promise<Uint8
 const makeVideoAnim = vi.fn<(frames: Uint8Array[], label?: string) => Promise<Uint8Array | null>>()
 const moveMoovToFront = vi.fn<(bytes: Uint8Array) => Uint8Array | null>()
 const stripPhotoMeta = vi.fn<(bytes: Uint8Array, format: string) => Promise<Uint8Array>>()
+const stripVideoMeta = vi.fn<(bytes: Uint8Array) => { bytes: Uint8Array; removed: Set<string> }>()
 
 vi.mock('@/lib/images/imageStore', () => ({
   saveImage: (...args: unknown[]) => saveImage(...args),
@@ -46,6 +47,10 @@ vi.mock('@/lib/video/mp4Faststart', () => ({
 vi.mock('@/lib/images/photoMeta', () => ({
   isPhotoFormat: (value: string) => ['jpg', 'png', 'webp', 'gif', 'avif'].includes(value),
   stripPhotoMeta: (bytes: Uint8Array, format: string) => stripPhotoMeta(bytes, format),
+}))
+
+vi.mock('@/lib/video/videoMeta', () => ({
+  stripVideoMeta: (bytes: Uint8Array) => stripVideoMeta(bytes),
 }))
 
 const { storeAttachment: storeAttachmentWith } = await import('./store')
@@ -126,6 +131,7 @@ const POSTER = Uint8Array.from([0x70, 0x6f, 0x73]) // 作り直した poster の
 const ANIM = Uint8Array.from([0x61, 0x6e, 0x69]) // 動くサムネの目印
 const NORMALIZED = Uint8Array.from([0x6e, 0x6f, 0x72]) // 正規化後の画像の目印
 const STRIPPED = Uint8Array.from([0x73, 0x74, 0x72]) // 撮影情報を抜いた画像の目印
+const SCRUBBED = Uint8Array.from([0x73, 0x63, 0x72]) // 撮影情報を消した動画の目印
 
 const stored = (ext: string, isImage: boolean) => ({
   ok: true,
@@ -145,6 +151,7 @@ beforeEach(() => {
   makeVideoAnim.mockResolvedValue(null)
   moveMoovToFront.mockReturnValue(null)
   stripPhotoMeta.mockResolvedValue(STRIPPED)
+  stripVideoMeta.mockReturnValue({ bytes: SCRUBBED, removed: new Set(['gps']) })
 })
 
 afterEach(() => {
@@ -338,6 +345,67 @@ describe('動画', () => {
       thumb: null,
       thumbAnim: null,
     })
+  })
+
+  // 動画の撮影情報 (docs/97-写真の撮影情報削除計画.md §10)。消すのは詰め替えの後 —
+  // 箱の長さを変えないので、詰め替えた位置表はそのまま正しい
+  test('「消す」なら mp4 は詰め替えた後に撮影情報を消して保存する', async () => {
+    // Arrange
+    const bytes = isoMedia('iso5', ['vide'])
+    moveMoovToFront.mockReturnValue(MOVED)
+
+    // Act
+    const result = await storeAttachment(bytes, { photoMeta: 'strip' })
+
+    // Assert
+    expect(result).toEqual(stored('mp4', false))
+    expect(stripVideoMeta).toHaveBeenCalledWith(MOVED)
+    expect(savePlainAttachment).toHaveBeenCalledWith(SCRUBBED, 'video/mp4', 'mp4', {
+      thumb: null,
+      thumbAnim: null,
+    })
+  })
+
+  test('「残す」なら動画の撮影情報に触らない', async () => {
+    await storeAttachment(isoMedia('qt  ', ['vide']), { photoMeta: 'keep' })
+
+    expect(stripVideoMeta).not.toHaveBeenCalled()
+  })
+
+  // WebM はブラウザの録画が出す形で、カメラは書かない。設定も引かない
+  test('webm は撮影情報を消しにいかず、設定も引かない', async () => {
+    const load = vi.fn(async () => 'strip' as const)
+
+    const result = await storeAttachment(webm(['V_VP9']), { photoMeta: load })
+
+    expect(result).toEqual(stored('mkv', false))
+    expect(stripVideoMeta).not.toHaveBeenCalled()
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  // 「残す」への案内は画面の口 (api/images) が足す。ここは CLI や ZIP 取り込みとも共有する
+  test('動画の撮影情報を消せなければ保存せず理由付きで断る', async () => {
+    // Arrange
+    const error = new Error('broken moov')
+    stripVideoMeta.mockImplementation(() => {
+      throw error
+    })
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const bytes = isoMedia('iso5', ['vide'])
+
+    // Act
+    const result = await storeAttachment(bytes, { photoMeta: 'strip' })
+
+    // Assert
+    expect(result).toEqual({
+      ok: false,
+      reason: '動画の撮影情報を消せませんでした (壊れているか未対応の形です)',
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      `動画の撮影情報を消せませんでした (mp4, ${bytes.byteLength} bytes):`,
+      error,
+    )
+    expect(savePlainAttachment).not.toHaveBeenCalled()
   })
 
   test('画像として読める poster は sharp で作り直して付ける', async () => {

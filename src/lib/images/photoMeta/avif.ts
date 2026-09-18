@@ -31,6 +31,12 @@ interface ItemLocation {
 
 const LATIN1 = new TextDecoder('latin1')
 
+// 位置表 (iloc) の区間の総数の上限。値の長さの欄はすべて 0 バイトにできるので、
+// 1 区間あたり 1 バイトも読まずに回る。上限が無いと数 KB のファイルで
+// 件数 × 区間数 (最大 65535) の周回を強いられる。実物の AVIF は区間が数個〜
+// タイル数ぶん (多くて数百) なので、この上限に届くことはない
+const MAX_ILOC_EXTENTS = 1 << 16
+
 function boxesIn(view: DataView, bytes: Uint8Array, from: number, to: number): Box[] {
   const boxes: Box[] = []
   let at = from
@@ -147,8 +153,12 @@ function readTargets(view: DataView, bytes: Uint8Array, iinf: Box): Map<number, 
   return targets
 }
 
-// iloc: アイテム番号 → 位置
-function readLocations(view: DataView, iloc: Box): Map<number, ItemLocation> {
+// iloc: 消す対象のアイテム番号 → 位置 (対象でないアイテムは読み飛ばすだけ)
+function readLocations(
+  view: DataView,
+  iloc: Box,
+  targets: ReadonlyMap<number, MetaKind>,
+): Map<number, ItemLocation> {
   const cursor = new Cursor(view, iloc.bodyAt, iloc.end)
   const version = cursor.u8()
   cursor.at += 3
@@ -160,18 +170,30 @@ function readLocations(view: DataView, iloc: Box): Map<number, ItemLocation> {
   const indexSize = version === 1 || version === 2 ? baseAndIndex & 0x0f : 0
   const itemCount = version < 2 ? cursor.u16() : cursor.u32()
   const locations = new Map<number, ItemLocation>()
+  let totalExtents = 0
   for (let i = 0; i < itemCount; i++) {
     const id = version < 2 ? cursor.u16() : cursor.u32()
     const method = version === 1 || version === 2 ? cursor.u16() & 0x0f : 0
     cursor.u16() // data reference index
     const base = cursor.sized(baseOffsetSize)
     const extentCount = cursor.u16()
+    totalExtents += extentCount
+    if (totalExtents > MAX_ILOC_EXTENTS) {
+      throw new PhotoMetaFormatError(`iloc の区間が多すぎます (${totalExtents})`)
+    }
+    const wanted = targets.has(id)
     const extents: Extent[] = []
     for (let j = 0; j < extentCount; j++) {
       cursor.sized(indexSize)
-      extents.push({ offset: base + cursor.sized(offsetSize), length: cursor.sized(lengthSize) })
+      const offset = base + cursor.sized(offsetSize)
+      const length = cursor.sized(lengthSize)
+      if (wanted) {
+        extents.push({ offset, length })
+      }
     }
-    locations.set(id, { method, extents })
+    if (wanted) {
+      locations.set(id, { method, extents })
+    }
   }
   return locations
 }
@@ -196,7 +218,7 @@ function extentRanges(location: ItemLocation, idat: Box | undefined, fileEnd: nu
 }
 
 // Exif アイテムの中身は「TIFF までの距離(4) + … + TIFF」
-function exifFacts(view: DataView, data: Uint8Array) {
+function exifFacts(data: Uint8Array) {
   if (data.byteLength < 4) {
     return null
   }
@@ -225,7 +247,7 @@ export function stripAvif(input: Uint8Array<ArrayBuffer>): StripOutcome {
   if (!iloc) {
     throw new PhotoMetaFormatError('iloc 箱がありません')
   }
-  const locations = readLocations(view, iloc)
+  const locations = readLocations(view, iloc, targets)
   const out = input.slice()
   const removed = new Set<MetaKind>()
   for (const [id, kind] of targets) {
@@ -240,7 +262,7 @@ export function stripAvif(input: Uint8Array<ArrayBuffer>): StripOutcome {
       }
       removed.add(kind)
       if (kind === 'exif') {
-        const facts = exifFacts(view, data)
+        const facts = exifFacts(data)
         if (facts?.gps) removed.add('gps')
         if (facts?.datetime) removed.add('datetime')
         if (facts?.camera) removed.add('camera')
