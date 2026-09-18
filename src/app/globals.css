@@ -715,20 +715,22 @@ html:has([data-bottom-bar]) {
 
 }
 
-/* --- ここから下は上のブロックと**対**。同じ宣言を、幅ではなく「3 ペインを
-   選んだかどうか」で効かせる (docs/86 §4-9)。CSS には「幅 or クラス」の or が
-   書けないので 2 か所に置いてある。**必ず両方を直すこと。**
-   3 ペインは選んだ以上どの幅でもペインの積み方で通す — 一方 1 / 2 ペインの
-   狭い画面は従来どおり文書スクロールのまま (引っ張って更新は内側スクローラ
-   では出せないため。docs/47) --- */
-body:has([data-panes="3"]) {
+/* --- ここから下は上のブロックと**対**。同じ宣言を、幅ではなく「ノートを
+   下部ペインに出す構成 (3 / 2) を選んだかどうか」で効かせる (docs/86 §4-9,
+   §4-16)。CSS には「幅 or クラス」の or が書けないので 2 か所に置いてある。
+   **必ず両方を直すこと。**
+   3 / 2 は選んだ以上どの幅でもペインの積み方で通す — 一方 1 ペインの
+   狭い画面は従来どおり文書スクロールのまま。
+   引っ張って更新 (docs/47) は、一覧の器 [data-results-scroll] を window の
+   代わりに見る (PullToRefresh の nearestScroller) --- */
+body:has(:is([data-panes="3"], [data-panes="2"])) {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
 }
 
-body:has([data-panes="3"]) main {
+body:has(:is([data-panes="3"], [data-panes="2"])) main {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -740,26 +742,26 @@ body:has([data-panes="3"]) main {
   padding-bottom: 0;
 }
 
-body:has([data-panes="3"]) [data-results-pane],
-body:has([data-panes="3"]) [data-search-results] {
+body:has(:is([data-panes="3"], [data-panes="2"])) [data-results-pane],
+body:has(:is([data-panes="3"], [data-panes="2"])) [data-search-results] {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-body:has([data-panes="3"]) [data-results-scroll] {
+body:has(:is([data-panes="3"], [data-panes="2"])) [data-results-scroll] {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-body:has([data-panes="3"]) [data-bottom-bar-spacer] {
+body:has(:is([data-panes="3"], [data-panes="2"])) [data-bottom-bar-spacer] {
   display: none;
 }
 
-body:has([data-panes="3"]):has([data-preview-pane]) main {
+body:has(:is([data-panes="3"], [data-panes="2"])):has([data-preview-pane]) main {
   margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
 }
 

@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import { narrowToChecks } from './rewrite'
-import { buildItemUrl, buildSearchUrl, buildTrashUrl, itemNoFromPathname } from './url'
+import {
+  buildItemUrl,
+  buildSearchUrl,
+  buildTrashUrl,
+  isNotePathname,
+  itemNoFromPathname,
+} from './url'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {
   expect(buildSearchUrl('', 1, 'updated')).toBe('/')
@@ -91,5 +97,25 @@ describe('itemNoFromPathname', () => {
     expect(itemNoFromPathname('/')).toBe(null)
     expect(itemNoFromPathname('/trash')).toBe(null)
     expect(itemNoFromPathname(null)).toBe(null)
+  })
+})
+
+describe('isNotePathname', () => {
+  test('ノートを見る・書く画面', () => {
+    expect(isNotePathname('/item/4951')).toBe(true)
+    expect(isNotePathname('/item/4951/history')).toBe(true)
+    expect(isNotePathname('/item/4951/history/abc123')).toBe(true)
+    expect(isNotePathname('/edit/4951')).toBe(true)
+    expect(isNotePathname('/new')).toBe(true)
+  })
+
+  test('一覧やほかの画面は違う', () => {
+    expect(isNotePathname('/')).toBe(false)
+    expect(isNotePathname('/trash')).toBe(false)
+    expect(isNotePathname('/item')).toBe(false)
+    expect(isNotePathname('/item/')).toBe(false)
+    expect(isNotePathname('/newsletter')).toBe(false)
+    expect(isNotePathname('/print/4951')).toBe(false)
+    expect(isNotePathname('/docs/memo')).toBe(false)
   })
 })

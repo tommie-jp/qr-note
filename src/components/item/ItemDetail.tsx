@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { AutoNotePane } from "@/components/notepage/AutoNotePane";
+import { CloseNoteButton } from "@/components/item/CloseNoteButton";
 import { ItemListNav } from "@/components/item/ItemListNav";
 import { ItemView } from "@/components/item/ItemView";
 import { LoginRequiredNotice } from "@/components/auth/LoginRequiredNotice";
@@ -15,7 +16,7 @@ import {
   type ItemListContext,
 } from "@/lib/prefs/itemListContext";
 import { isPublicItem } from "@/lib/auth/publicItem";
-import { buildItemUrl } from "@/lib/search/url";
+import { buildItemUrl, buildSearchUrl } from "@/lib/search/url";
 import { currentUser } from "@/lib/auth/session";
 
 // 1 ノートの詳細 (本文 + 一覧の中の前後) を、置き場所ごとの器に入れて描く
@@ -142,6 +143,12 @@ export async function ItemDetail({
               描画では記録せずマウント後に呼ぶ理由は components/item/RecordAccess.tsx に書いた。
               ペイン (pane / auto) には置かない (docs/86 §3) */}
           <RecordAccess itemNo={itemNo} action={shell.recordAccessAction} />
+          {/* ペインの操作行 (PreviewPane) と同じ位置に「閉じる」を置く
+              (docs/86 §4-17)。「全画面で開く」で来た後も同じ所で閉じられる。
+              **ログイン中の枝だけ** — 未ログインの公開ノートには一覧が無い */}
+          <div className="flex pt-1 print:hidden">
+            <CloseNoteButton listHref={buildSearchUrl(ctx.query, 1, ctx.sort)} />
+          </div>
           {view}
           {nav}
         </PageTransition>

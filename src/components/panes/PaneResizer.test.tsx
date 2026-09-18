@@ -38,12 +38,11 @@ test("プレビューの境界は下部バーとペインの高さの和に貼�
   expect(html).toContain('aria-orientation="horizontal"');
 });
 
-// 2 ペイン (lg 以上だけペイン) では境界も幅で畳む
-test("幅で畳む指定を受けたら lg 未満では出さない", () => {
-  const html = renderToStaticMarkup(
-    <PaneResizer kind="preview" atAnyWidth={false} />,
-  );
-  expect(html).toContain("hidden lg:block");
+// 境界は幅では畳まない (docs/86 §4-9, §4-16)。3 / 2 ペインはどの幅でも
+// 下部のペインなので、狭い画面でも高さを動かせる
+test("境界は幅で畳まない", () => {
+  const html = renderToStaticMarkup(<PaneResizer kind="preview" />);
+  expect(html).not.toContain("hidden lg:block");
 });
 
 test("サーバ描画は既定の寸法から始める (保存値はマウント後に読む)", () => {

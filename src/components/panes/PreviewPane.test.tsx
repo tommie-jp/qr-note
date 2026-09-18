@@ -27,7 +27,6 @@ test("/item に居るときは器と中身を描く", () => {
   // body:has)。名前を変えるときは globals.css と組で変えること
   expect(html).toContain("data-preview-pane");
   expect(html).toContain("ノート本文");
-  expect(html).toContain("閉じる");
 });
 
 test("「全画面で開く」は Link ではなく素の <a> (横取りを抜けるハード遷移)", () => {
@@ -37,7 +36,7 @@ test("「全画面で開く」は Link ではなく素の <a> (横取りを抜�
 });
 
 test("openHref が無い間 (loading) は「全画面で開く」を出さない", () => {
-  const html = render();
+  const html = render(undefined, "1");
   expect(html).not.toContain("全画面で開く");
   expect(html).toContain("閉じる");
 });
@@ -76,21 +75,24 @@ test("3 ペインでは /item の外でもノートを閉じない (幅でも畳
   }
 });
 
-test("2 ペインの「閉じる」は全画面になる幅でだけ出す", () => {
-  // ペインとして常設されている間 (lg 以上) は押しても閉じられない
+// 2 ペインも幅に関係なく下部のペイン (docs/86 §4-16)。狭い画面でも
+// 常設なので、押しても閉じられない「閉じる」は出さない
+test("2 ペインは「閉じる」を出さない (幅に関係なく常設のペイン)", () => {
   const html = render("/item/4951", "2");
-  expect(html).toContain("閉じる");
-  expect(html).toContain("lg:hidden");
+  expect(html).not.toContain("閉じる");
+  expect(html).not.toContain("lg:hidden");
 });
 
-// 2 ペインもペインとして出ている間 (lg 以上) はノートを閉じない。
-// 狭い画面ではノートが全画面になるので、そこだけ CSS で畳む
-test("2 ペインは /item の外でもノートを残し、狭い画面でだけ畳む", () => {
+test("1 ペインのノートには「閉じる」を出す (全画面 = 閉じられる)", () => {
+  expect(render("/item/4951", "1")).toContain("閉じる");
+});
+
+test("2 ペインは /item の外でもノートを残す (幅でも畳まない)", () => {
   nav.pathname = "/?q=BJT";
   try {
     const html = render("/item/4951", "2");
     expect(html).toContain("ノート本文");
-    expect(html).toContain("max-lg:hidden");
+    expect(html).not.toContain("max-lg:hidden");
   } finally {
     nav.pathname = "/item/4951";
   }
@@ -130,10 +132,22 @@ test("3 ペインのノートは幅に関係なく下部のペイン", () => {
   expect(html).not.toContain("max-lg:hidden");
 });
 
-test("2 ペインのノートは lg 以上でだけペイン (狭い画面は全画面)", () => {
+// スマホでも検索結果とノートを 1 画面に並べる (docs/86 §4-16)。以前は
+// lg 未満で全画面になり、一覧とノートを同時に見られなかった
+test("2 ペインのノートも幅に関係なく下部のペイン", () => {
   const html = render("/item/4951", "2");
-  expect(html).toContain("top-[var(--header-h)]");
-  expect(html).toContain("lg:bottom-[var(--bottom-bar-h)]");
+  expect(html).toContain("bottom-[var(--bottom-bar-h)]");
+  expect(html).toContain("h-[var(--preview-pane-h)]");
+  expect(html).not.toContain("top-[var(--header-h)]");
+  expect(html).not.toContain("lg:bottom-");
+});
+
+// 器の上端はヘッダーの下か画面の下半分。standalone の iPhone で
+// safe-area (47〜59px) を足すと、操作行の上に同じ幅の空白が挟まる
+test("操作行はステータスバーぶんの余白を持たない", () => {
+  for (const mode of ["3", "2", "1"] as const) {
+    expect(render("/item/4951", mode)).not.toContain("pt-safe");
+  }
 });
 
 // fixed のペインは親の余白ユーティリティに位置をずらされる (docs/86 §4-12)。
@@ -141,4 +155,12 @@ test("2 ペインのノートは lg 以上でだけペイン (狭い画面は全
 // 浮いて一覧の最下部に重なっていた
 test("親の余白を打ち消す (fixed の位置が margin でずれないように)", () => {
   expect(render("/item/4951", "3")).toContain("m-0");
+});
+
+// 器の中では引っ張って更新を始めない (PullToRefresh が見る目印)。
+// 短いノートは器がスクロールしないので、スクローラの有無では見分けられない
+test("器は構成に関係なく「ノートの器」の目印を持つ", () => {
+  for (const mode of ["3", "2", "1"] as const) {
+    expect(render("/item/4951", mode)).toContain("data-note-pane");
+  }
 });

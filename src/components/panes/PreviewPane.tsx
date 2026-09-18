@@ -20,8 +20,6 @@ import { itemNoFromPathname } from "@/lib/search/url";
 // どちらもヘッダー (z-20) の下から始める (§4-5)。
 const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
   pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)]",
-  "pane-lg":
-    "top-[var(--header-h)] bottom-0 z-10 lg:top-auto lg:bottom-[var(--bottom-bar-h)] lg:z-0 lg:h-[var(--preview-pane-h)]",
   fullscreen: "top-[var(--header-h)] bottom-0 z-10",
 };
 
@@ -29,7 +27,6 @@ const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
 // 読み幅に収めたまま — 画面の端から端まで続く行は目で追えない
 const PANE_WIDTH_CLASS: Record<NotePaneLayout, string> = {
   pane: "max-w-none",
-  "pane-lg": "lg:max-w-none",
   fullscreen: "",
 };
 
@@ -56,14 +53,14 @@ interface PreviewPaneProps {
 
 // 検索 3 ペインの右下、選択したノートの器 (docs/86 §4)。
 //
-// 中身 (ItemView) は components/item/ItemDetail.tsx が入れる。器の畳み方は画面幅で変える:
+// 中身 (ItemView) は components/item/ItemDetail.tsx が入れる。器の畳み方は
+// ペイン構成で決まり、画面幅には依らない (docs/86 §4-9, §4-16):
 //
-//   lg 未満 … 全画面のオーバーレイ (z-30 でヘッダーごと覆う)。横取りは
-//             画面幅では止められないので、狭い画面では「ペイン」ではなく
-//             「従来の画面遷移と同じ見た目」として描く。
-//   lg 以上 … 画面下部に固定し、中で独立にスクロールする。高さは
-//             --preview-pane-h (globals.css)。一覧の底上げ padding と
-//             必ず同じ変数で動かす。
+//   3 / 2 … 画面下部に固定し、中で独立にスクロールする。高さは
+//           --preview-pane-h (globals.css)。一覧の底上げ padding と
+//           必ず同じ変数で動かす。
+//   1     … 全画面のオーバーレイ (ヘッダーの下から)。「従来の画面遷移と
+//           同じ見た目」として描く。
 export function PreviewPane({
   bgClass,
   itemNo,
@@ -97,11 +94,6 @@ export function PreviewPane({
   const keepOpen = source === "detail" && keepsNoteOpen(mode);
   const visible = source === "auto" || onItemUrl || keepOpen;
 
-  // 2 ペインの狭い画面 (ノートが全画面になる幅) では、出しっぱなしにしない。
-  // 全画面のまま居座ると一覧が覆われて戻れなくなる (docs/86 §4-9)。
-  // 3 ペインは幅に関係なく下部のペインなので、この逃げ道は要らない
-  const keptOpenOffUrl = !onItemUrl && (keepOpen || source === "auto");
-
   // 一覧の行・画像タイルのハイライトはこの番号を見る (docs/86 §4-4)。
   // pathname から決めないのは、3 ペインでは URL が /item から離れても
   // ノートが出たままになるため。**出していない間は null を流す** —
@@ -119,30 +111,30 @@ export function PreviewPane({
     return null;
   }
 
-  // 器の畳み方は構成が決める (docs/86 §4-9)。3 ペインは幅に関係なくペイン、
-  // 2 ペインは lg 以上だけペイン、1 ペインは常に全画面
+  // 器の畳み方は構成が決める (docs/86 §4-9)。3 / 2 ペインは幅に関係なく
+  // 下部のペイン、1 ペインは常に全画面
   const layout = notePaneLayout(mode);
   const isBottomPane = layout !== "fullscreen";
 
   return (
     <>
       {/* 上端の境界をドラッグして高さを変える (docs/86 §4-2)。帯は z-20 で
-          ペイン (lg 以上では z-10) の上に出る。lg 未満は全画面オーバーレイ
-          なので帯そのものを出さない (PaneResizer の hidden lg:block) */}
-      {isBottomPane && (
-        <PaneResizer kind="preview" atAnyWidth={layout === "pane"} />
-      )}
+          ペインの上に出る。全画面のときは動かす境界が無いので出さない */}
+      {isBottomPane && <PaneResizer kind="preview" />}
       {/* data-preview-pane … 一覧 (main) の底を上げるフック (globals.css の
           body:has)。**下部ペインのときだけ付ける** — 全画面のときに付けると、
           隠れている一覧が意味もなく縮む。
-          **ヘッダーは覆わない** (docs/86 §4-5)。1 ペインや狭い画面ではノートが
+          **ヘッダーは覆わない** (docs/86 §4-5)。1 ペインではノートが
           画面いっぱいに広がるが、上端は必ずヘッダーの下 (--header-h) から。
           メニュー・ホーム・ペイン構成は、ノートを開いている間も押せる必要が
           ある。z-10 … 万一ヘッダーが伸びても、ヘッダー (z-20) が上に残る。
-          lg 以上の下部ペインは下部バーの高さ (--bottom-bar-h) だけ上で止めて、
-          スキャン等のボタンを塞がない */}
+          下部ペインは下部バーの高さ (--bottom-bar-h) だけ上で止めて、
+          バーのボタンを塞がない */}
+      {/* data-note-pane … 器の中では引っ張って更新を始めない目印
+          (PullToRefresh)。data-preview-pane と違い、全画面でも付ける */}
       <section
         data-preview-pane={isBottomPane ? "" : undefined}
+        data-note-pane=""
         aria-label="選択したノート"
         // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
         // (ペインが出ている構成のときだけ効かせたいので :has で見る)
@@ -151,34 +143,32 @@ export function PreviewPane({
         // 放っておくと 8px の margin-top が付く。fixed の位置は
         // 「上端 + margin + 高さ + margin + 下端 = 画面の高さ」で解かれるため、
         // margin のぶんだけ上へずれて一覧の最下部に重なった (実機で判明)
-        className={`fixed inset-x-0 m-0 overflow-y-auto overscroll-contain ${bgClass} ${
-          PANE_BOX_CLASS[layout]
-        } ${keptOpenOffUrl && layout === "pane-lg" ? "max-lg:hidden" : ""}`}
+        className={`fixed inset-x-0 m-0 overflow-y-auto overscroll-contain ${bgClass} ${PANE_BOX_CLASS[layout]}`}
       >
         {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
             下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
             (タグ・補助行) より DOM 順で後にはならないので、同層にして
-            sticky 側を上に出す */}
+            sticky 側を上に出す。
+            pt-1 … **pt-safe にしない。** 器の上端はヘッダーの下 (--header-h が
+            ステータスバーぶんを含む) か画面の下半分なので、standalone の
+            iPhone で inset (47〜59px) を足すと、その分だけ空白が挟まる */}
         <div className={`sticky top-0 z-10 ${bgClass}`}>
           <div
-            className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-safe landscape-phone:max-w-4xl ${PANE_WIDTH_CLASS[layout]}`}
+            className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-1 landscape-phone:max-w-4xl ${PANE_WIDTH_CLASS[layout]}`}
           >
             {/* 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
                 ペインとして常設されている間は押しても閉じられないので、
                 ボタンにすると嘘になる (畳みたいときはヘッダーの構成を変える)。
-                2 ペインの狭い画面ではノートが全画面 = 閉じられるので、
-                そこだけ CSS で出す。
+                閉じられるのは全画面 (1 ペイン) のときだけ。
                 空でも要素は置く — justify-between の右端 (全画面で開く) が
                 左へ寄ってしまうため */}
-            {layout === "pane" ? (
+            {isBottomPane ? (
               <span />
             ) : (
               <button
                 type="button"
                 onClick={() => router.back()}
-                className={`${ACTION_LINK_CLASS} ${
-                  layout === "pane-lg" ? "lg:hidden" : ""
-                }`}
+                className={ACTION_LINK_CLASS}
               >
                 <ClearIcon />
                 閉じる
@@ -191,12 +181,13 @@ export function PreviewPane({
             )}
           </div>
         </div>
-        {/* pb-safe … lg 未満の全画面ではホームバーに潜らせない。
+        {/* pb-safe … 画面の下端に接する器 (全画面・下部バーの無い画面の
+            下部ペイン) ではホームバーに潜らせない。
             lg:pb-20 … ペインの下端は下部バーの上で終わるが、テキストサイズ
             設定でバーが伸びた分やスクロールの余韻も考えて広めに取る */}
-        {/* ペインのときは幅いっぱいに使う (docs/86 §4-8)。全画面 (1 ペイン・
-            狭い画面) では今までどおり読み幅に収める — 画面の端から端まで
-            続く行は目で追えない */}
+        {/* ペインのときは幅いっぱいに使う (docs/86 §4-8)。全画面 (1 ペイン)
+            では今までどおり読み幅に収める — 画面の端から端まで続く行は
+            目で追えない */}
         <div
           className={`mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20 ${PANE_WIDTH_CLASS[layout]}`}
         >

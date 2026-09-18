@@ -64,6 +64,17 @@ export function itemNoFromPathname(
   }
 }
 
+// ノートそのものを見る・書く画面か (/item/<番号> とその下、/edit/<番号>、
+// /new)。全画面ノートの「閉じる」が、戻る先の履歴から飛ばす画面の規則
+// (components/item/closeNote.ts)。
+//
+// itemNoFromPathname より広い — あちらは「いまペインに出ている番号」を
+// 決めるので /item/<番号> ちょうどだけを見るが、こちらは「閉じた先に
+// ノートの画面が出てこないこと」が要件なので、履歴・編集・新規も含める
+export function isNotePathname(pathname: string): boolean {
+  return /^\/(?:item|edit)\/[^/]+(?:\/|$)|^\/new(?:\/|$)/.test(pathname)
+}
+
 export function buildItemUrl(itemNo: string, query: string, sort: Sort): string {
   const trimmed = query.trim()
   const path = `/item/${encodeURIComponent(itemNo)}`

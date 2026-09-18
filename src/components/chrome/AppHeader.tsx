@@ -150,7 +150,7 @@ export function AppHeader({
           <span className="ml-auto flex items-center gap-1.5">
             {/* 検索画面のペイン構成 (docs/86 §4-4)。ヘッダーに置くのは、
                 どのペインにも属さない「画面全体の畳み方」だから。
-                lg 未満では出さない (PaneModeButton の中で畳む) */}
+                どの幅でも出す (PaneModeButton の注) */}
             <PaneModeButton mode={paneMode} action={paneModeAction} />
             {/* ユーザー名だけはメニューの外に残す — 「誰で入っているか」は
                 一目で確かめたい情報で、押す物でもないため */}

@@ -39,7 +39,7 @@ function PaneModeSubmit({ current }: { current: PaneMode }) {
   );
 }
 
-// **どの幅でも出す** (docs/86 §4-9)。3 ペインは幅に関係なく 3 ペインなので、
+// **どの幅でも出す** (docs/86 §4-9)。3 / 2 ペインは幅に関係なくペインなので、
 // 狭い画面でボタンを隠すと、選んだ構成から抜ける手段が無くなる
 export function PaneModeButton({
   mode,

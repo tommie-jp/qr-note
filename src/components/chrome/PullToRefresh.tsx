@@ -6,7 +6,9 @@
 //
 // なぜ自前か: globals.css で overscroll-behavior:none にして iOS/Android の
 // ネイティブな引っ張り更新を止めているため、ジェスチャは自分で判定する。
-// スクロールは window (内側スクローラなし) なので、リスナーも window に張る。
+// リスナーは window に張る。「先頭にいるか」を見る相手は、1 ペインでは
+// window、3 / 2 ペインでは一覧の器 [data-results-scroll] (ペインの積み方で
+// 一覧だけが内側でスクロールする。docs/86 §4-16)。
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -20,9 +22,9 @@ import {
   type PullState,
 } from "@/lib/gesture/pullToRefresh";
 
-// 触れた場所がスクロールできる入れ子 (モーダル本文など) の中なら PTR は出さない。
-// その入れ子の縦スクロールを横取りしないため。body まで遡って無ければ false。
-function hasScrollableAncestor(target: EventTarget | null): boolean {
+// 触れた場所から body まで遡って、最初に見つかった縦にスクロールできる
+// 入れ子を返す。無ければ null (= window がスクロールの主)
+function nearestScroller(target: EventTarget | null): HTMLElement | null {
   let el = target instanceof HTMLElement ? target : null;
   while (el && el !== document.body) {
     const overflowY = getComputedStyle(el).overflowY;
@@ -30,11 +32,37 @@ function hasScrollableAncestor(target: EventTarget | null): boolean {
       (overflowY === "auto" || overflowY === "scroll") &&
       el.scrollHeight > el.clientHeight
     ) {
-      return true;
+      return el;
     }
     el = el.parentElement;
   }
-  return false;
+  return null;
+}
+
+// PTR を始めてよい場所なら「先頭にいるか」を、始めない場所なら null を返す。
+//
+//   ノートの器の中  … 出さない。**スクロールの有無で決めない** — 短い
+//                     ノートは器が伸びきらずスクローラに数えられず、下の
+//                     「入れ子なし」へすり抜ける。3 / 2 ペインの body は
+//                     overflow:hidden で window は常に先頭なので、ペインの
+//                     中を引くだけで一覧ごと再読み込みしていた
+//   入れ子なし      … window の先頭か (1 ペインの一覧)
+//   一覧の器        … その器の先頭か。3 / 2 ペインでは一覧だけが内側で
+//                     スクロールするので、ここが window の代わりになる
+//   それ以外の入れ子 … 出さない (モーダル本文など)。
+//                     その入れ子の縦スクロールを横取りしないため
+function pullStartAtTop(target: EventTarget | null): boolean | null {
+  if (target instanceof Element && target.closest("[data-note-pane]")) {
+    return null;
+  }
+  const scroller = nearestScroller(target);
+  if (scroller === null) {
+    return window.scrollY <= 0;
+  }
+  if (scroller.hasAttribute("data-results-scroll")) {
+    return scroller.scrollTop <= 0;
+  }
+  return null;
 }
 
 export default function PullToRefresh() {
@@ -76,17 +104,13 @@ export default function PullToRefresh() {
         reset();
         return;
       }
-      if (hasScrollableAncestor(e.target)) {
+      const atTop = pullStartAtTop(e.target);
+      if (atTop === null) {
         reset();
         return;
       }
       const t = e.touches[0];
-      stateRef.current = beginPull(
-        stateRef.current,
-        t.clientX,
-        t.clientY,
-        window.scrollY <= 0,
-      );
+      stateRef.current = beginPull(stateRef.current, t.clientX, t.clientY, atTop);
     }
 
     function onMove(e: TouchEvent) {

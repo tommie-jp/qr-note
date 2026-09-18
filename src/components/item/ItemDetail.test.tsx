@@ -56,6 +56,9 @@ vi.mock("@/components/item/PublicItemView", () => ({
   PublicItemView: mocks.stub("PublicItemView"),
 }));
 vi.mock("@/components/item/RecordAccess", () => ({ RecordAccess: mocks.stub("RecordAccess") }));
+vi.mock("@/components/item/CloseNoteButton", () => ({
+  CloseNoteButton: mocks.stub("CloseNoteButton"),
+}));
 
 const { ItemDetail } = await import("./ItemDetail");
 const { AutoNotePane } = await import("@/components/notepage/AutoNotePane");
@@ -66,6 +69,7 @@ const { PageTransition } = await import("@/components/chrome/PageTransition");
 const { PreviewPane } = await import("@/components/panes/PreviewPane");
 const { PublicItemView } = await import("@/components/item/PublicItemView");
 const { RecordAccess } = await import("@/components/item/RecordAccess");
+const { CloseNoteButton } = await import("@/components/item/CloseNoteButton");
 
 const recordAccessAction = async () => {};
 
@@ -103,7 +107,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-test("全画面はログイン中なら記録・本文・前後ナビを PageTransition に入れる", async () => {
+test("全画面はログイン中なら記録・閉じる・本文・前後ナビを PageTransition に入れる", async () => {
   // Act
   const element = await render({
     saved: "1700000000",
@@ -112,11 +116,15 @@ test("全画面はログイン中なら記録・本文・前後ナビを PageTra
 
   // Assert
   expect(element?.type).toBe(PageTransition);
-  expect(childTypes(element!)).toEqual([RecordAccess, ItemView, ItemListNav]);
-  const [record, view, nav] = ([] as Element[]).concat(
+  expect(childTypes(element!)).toEqual([RecordAccess, "div", ItemView, ItemListNav]);
+  const [record, closeRow, view, nav] = ([] as Element[]).concat(
     element!.props.children as Element[],
   );
   expect(record.props).toEqual({ itemNo: "4951", action: recordAccessAction });
+  // 「閉じる」の行き先 (戻れる履歴が無いとき) は持ち回している一覧 (docs/86 §4-17)
+  const close = closeRow.props.children as Element;
+  expect(close.type).toBe(CloseNoteButton);
+  expect(close.props).toEqual({ listHref: "/?q=npn&sort=accessed" });
   expect(view.props).toMatchObject({ itemNo: "4951", saved: "1700000000" });
   expect(nav.props).toEqual({
     prev: "4950",

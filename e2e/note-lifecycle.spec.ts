@@ -3,6 +3,7 @@ import {
   clearEditor,
   closePage,
   expect,
+  expectHydrated,
   memoEditor,
   newLoggedInPage,
   searchFor,
@@ -10,7 +11,8 @@ import {
 } from './helpers'
 import { purgeFromTrash, removeE2eNote, searchResults, trashFromSearch } from './notes'
 
-// ノートの一生: 作る → 保存して表示 → 一覧からペインで開く → ゴミ箱 → 永久削除。
+// ノートの一生: 作る → 保存して表示 → 一覧からペインで開く (広い画面・スマホ幅)
+// → 全画面で開いて閉じる → ゴミ箱 → 永久削除。
 // 前の段が作った物を次の段が使うので直列に流す (前が落ちたら後は skip)。
 //
 // 番号は採番 (/new) ではなく /edit/<番号> で直に決める。未登録の番号の
@@ -85,6 +87,61 @@ test.describe('ノートの一生', () => {
     // 一覧は残っている (全画面のノートに差し替わっていない)
     await expect(results).toBeVisible()
     expect(await page.evaluate(() => '__e2eSoftNav' in window)).toBe(true)
+  })
+
+  test('スマホ幅の 2 ペインでも、一覧とノートのペインが上下に並ぶ (docs/86 §4-16)', async ({
+    page,
+  }) => {
+    // Arrange
+    // 既定の 2 ペイン。以前は lg 未満でノートが全画面になり、一覧が隠れていた
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await searchFor(page, ITEM_NO)
+    const results = searchResults(page)
+    const link = results.getByRole('link', { name: BODY, exact: true })
+
+    // Act
+    await link.click()
+
+    // Assert
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    const pane = page.getByRole('region', { name: '選択したノート' })
+    await expect(pane.getByText(BODY).first()).toBeVisible()
+    await expect(link).toBeVisible()
+    // ノートは一覧の下 (全画面で覆っていない)
+    const listBox = await results.boundingBox()
+    const paneBox = await pane.boundingBox()
+    expect(paneBox!.y).toBeGreaterThan(listBox!.y)
+    // 常設のペインなので、押しても閉じられない「閉じる」は出さない
+    await expect(pane.getByRole('button', { name: '閉じる' })).toHaveCount(0)
+  })
+
+  test('全画面で開いて「閉じる」を押すと、ノートを飛ばして一覧へ戻る (docs/86 §4-17)', async ({
+    page,
+  }) => {
+    // Arrange
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await searchFor(page, ITEM_NO)
+    await searchResults(page).getByRole('link', { name: BODY, exact: true }).click()
+    const pane = page.getByRole('region', { name: '選択したノート' })
+    await expect(pane.getByText(BODY).first()).toBeVisible()
+    // 横取りを抜けるハード遷移。着いた先は素の /item (ペインは無い)
+    await pane.getByRole('link', { name: '全画面で開く' }).click()
+    await expect(page.getByRole('heading', { name: `item #${ITEM_NO}` })).toBeVisible()
+    await expect(pane).toHaveCount(0)
+    const close = page.getByRole('button', { name: '閉じる' })
+    await expectHydrated(close)
+
+    // Act
+    await close.click()
+
+    // Assert
+    // ペインで開いていた同じノート (URL は /item) には戻らず、一覧まで戻る
+    await expect(page).toHaveURL(
+      (url) => url.pathname === '/' && url.searchParams.get('q') === ITEM_NO,
+    )
+    await expect(searchResults(page)).toBeVisible()
   })
 
   test('一覧からゴミ箱へ入れ、ゴミ箱から永久削除すると消える', async ({ page }) => {

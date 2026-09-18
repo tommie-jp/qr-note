@@ -57,7 +57,8 @@ export default async function Home({ searchParams }: HomeProps) {
     // アプリを開いているホスト (localhost 等) とは食い違いうる
     <SearchNavProvider sort={sort}>
       {/* 一覧の先頭で下へ引くと再読み込み (docs/47-引っ張って更新計画.md)。
-          window スクロールに対して働くので、包む必要はなく 1 つ置くだけ */}
+          window に張ったリスナーで一覧 (window か一覧の器) の先頭を見るので、
+          包む必要はなく 1 つ置くだけ */}
       <PullToRefresh />
       {/* 選択モードは下部バーの「選択」と一覧 (ItemList) で共有する
           (docs/31-下部操作バー計画.md §5-2)。両方を包める位置がここしかない */}
@@ -69,7 +70,7 @@ export default async function Home({ searchParams }: HomeProps) {
               (docs/86 §4-3)。器 (main) がペインの領域いっぱいに広がって
               自分でスクロールする。
               data-panes … 選ばれている構成 (§4-9)。globals.css が
-              「3 なら幅に関係なくペインの積み方」を決めるのに使う */}
+              「3 / 2 なら幅に関係なくペインの積み方」を決めるのに使う */}
           <div data-results-pane data-panes={paneMode} className="space-y-2">
             {/* スキャン・画像検索は窓の左 (docs/86 §4-15)。**下部バーを
                 畳んだ** — 表示・並び順・選択が見出し行へ抜けた後 (§4-11)、

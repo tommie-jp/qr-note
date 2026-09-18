@@ -3,6 +3,7 @@ import {
   DEFAULT_PANE_MODE,
   keepsNoteOpen,
   nextPaneMode,
+  notePaneLayout,
   parsePaneMode,
   showsAutoNote,
   showsFolderPane,
@@ -47,4 +48,12 @@ test("先頭を自動で選ぶのもペインを持つ構成 (3 / 2)", () => {
   expect(showsAutoNote("3")).toBe(true);
   expect(showsAutoNote("2")).toBe(true);
   expect(showsAutoNote("1")).toBe(false);
+});
+
+// 幅では畳まない (docs/86 §4-16)。2 ペインは以前 lg 未満で全画面になり、
+// スマホで検索結果とノートを並べられなかった
+test("ノートの器は 3 / 2 が下部のペイン、1 が全画面", () => {
+  expect(notePaneLayout("3")).toBe("pane");
+  expect(notePaneLayout("2")).toBe("pane");
+  expect(notePaneLayout("1")).toBe("fullscreen");
 });

@@ -102,15 +102,8 @@ function storePaneSize(kind: PaneKind, size: number): void {
 // **React の state では動かさない** — 1 フレームごとに再描画すると、
 // 一覧に数百行ある状態でドラッグが引っかかる。state は読み上げ (aria) と
 // キー操作の起点のためだけに持つ。
-export function PaneResizer({
-  kind,
-  // ノートの境界だけ: 幅に関係なく出すか (3 ペイン) / lg 以上だけか (2 ペイン)。
-  // ノートが全画面のときは呼ぶ側が描かない
-  atAnyWidth = true,
-}: {
-  kind: PaneKind;
-  atAnyWidth?: boolean;
-}) {
+// 境界は幅では畳まない (docs/86 §4-9)。ノートが全画面のときは呼ぶ側が描かない
+export function PaneResizer({ kind }: { kind: PaneKind }) {
   const spec = PANE_SIZES[kind];
   // サーバは寸法を知らないので既定を返す。見た目が跳ねることはない —
   // 実際の寸法は <head> の先回りスクリプトが当て済みで、ここが追いつくのは
@@ -201,8 +194,8 @@ export function PaneResizer({
       tabIndex={0}
       title={`${spec.label} (ドラッグか矢印キーで調整、ダブルクリックで既定に戻す)`}
       className={`${HANDLE_CLASS[kind]} ${HANDLE_SKIN} ${
-        atAnyWidth ? "" : "hidden lg:block"
-      } ${dragging ? "bg-blue-500/50" : ""}`}
+        dragging ? "bg-blue-500/50" : ""
+      }`}
       onPointerDown={(event) => {
         // 掴んだ瞬間は動かさない (押しただけで寸法が飛ばないように)。
         // 主ボタン以外は無視する
