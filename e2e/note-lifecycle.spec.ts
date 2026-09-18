@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test'
 import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
@@ -24,6 +25,16 @@ const ITEM_NO = `${E2E_ITEM_PREFIX}1`
 const BODY = `${E2E_ITEM_PREFIX} smoke ${Date.now()}`
 
 test.describe.configure({ mode: 'serial' })
+
+// ノートの器が 1 つに落ち着くのを待つ。3 / 2 ペインでは一覧から開いた直後、
+// 先頭を出していた自動のノートと、横取りしたノート (読み込み中は骨組み) の
+// 器が一瞬 2 つ並ぶ — 自動のほうは横取りがノートを持った後の effect で
+// 引っ込む (PaneModeProvider の hasDetail)。検索結果の先頭が開くノート自身だと
+// 本文の文字は先に見えてしまうので、文字ではなく器の数で待つ (CI で発覚)
+async function expectSettledPane(pane: Locator): Promise<void> {
+  await expect(pane).toHaveCount(1)
+  await expect(pane.getByText('ノートを読み込み中…')).toHaveCount(0)
+}
 
 test.describe('ノートの一生', () => {
   test.beforeAll(async ({ browser }) => {
@@ -82,7 +93,7 @@ test.describe('ノートの一生', () => {
     // Assert
     await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
     const pane = page.getByRole('region', { name: '選択したノート' })
-    await expect(pane).toBeVisible()
+    await expectSettledPane(pane)
     await expect(pane.getByText(BODY).first()).toBeVisible()
     // 一覧は残っている (全画面のノートに差し替わっていない)
     await expect(results).toBeVisible()
@@ -106,6 +117,7 @@ test.describe('ノートの一生', () => {
     // Assert
     await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
     const pane = page.getByRole('region', { name: '選択したノート' })
+    await expectSettledPane(pane)
     await expect(pane.getByText(BODY).first()).toBeVisible()
     await expect(link).toBeVisible()
     // ノートは一覧の下 (全画面で覆っていない)
@@ -125,6 +137,7 @@ test.describe('ノートの一生', () => {
     await searchFor(page, ITEM_NO)
     await searchResults(page).getByRole('link', { name: BODY, exact: true }).click()
     const pane = page.getByRole('region', { name: '選択したノート' })
+    await expectSettledPane(pane)
     await expect(pane.getByText(BODY).first()).toBeVisible()
     // 横取りを抜けるハード遷移。着いた先は素の /item (ペインは無い)
     await pane.getByRole('link', { name: '全画面で開く' }).click()
