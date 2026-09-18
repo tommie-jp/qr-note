@@ -5,6 +5,7 @@ import type { POST as PostFn } from './route'
 import type { GET as GetFn } from './[name]/route'
 import type { PrismaClient } from '@/generated/prisma/client'
 import { MAX_VIDEO_ANIM_FRAMES } from '@/lib/uploads/limits'
+import { leakedMarkers, makePhoto } from '@/test/photoFixtures'
 
 // route を関数として直接呼ぶため、Next.js のリクエストスコープが無く headers() が
 // 投げる。ログイン検査 (lib/auth/session.ts) が headers() を読むので、そこだけ差し替える。
@@ -485,6 +486,41 @@ describe.skipIf(!runDbTests)(
       created.push(name)
       return name
     }
+
+    // 写真の撮影情報 (docs/97-写真の撮影情報削除計画.md)。利用者の設定
+    // (user_settings の photo-meta) で消すか残すかが決まる。手元の DB の値を
+    // 壊さないよう、元の値を控えて戻す
+    test.each([
+      ['strip', 0],
+      ['keep', 3],
+    ] as const)('設定が %s なら、写真の撮影情報を保存時にそう扱う', async (mode, leaks) => {
+      // Arrange
+      const where = { userName_key: { userName: 'tommie', key: 'photo-meta' } }
+      const before = await prisma.userSetting.findUnique({ where })
+      await prisma.userSetting.upsert({
+        where,
+        create: { userName: 'tommie', key: 'photo-meta', value: mode },
+        update: { value: mode },
+      })
+      try {
+        const photo = await makePhoto('jpeg', { exif: true, orientation: 6 })
+        const file = new File([photo], 'IMG_0001.JPG', { type: 'image/jpeg' })
+
+        // Act
+        const name = await upload(file)
+        const [req, ctx] = getRequest(name)
+        const bytes = new Uint8Array(await (await GET(req, ctx)).arrayBuffer())
+
+        // Assert: 消しても向きは残る
+        expect(leakedMarkers(bytes)).toHaveLength(leaks)
+        const sharp = (await import('sharp')).default
+        expect((await sharp(bytes).metadata()).orientation).toBe(6)
+      } finally {
+        await (before
+          ? prisma.userSetting.update({ where, data: { value: before.value } })
+          : prisma.userSetting.delete({ where }))
+      }
+    })
 
     test('PNG をアップロードすると URL を返し、GET で同じバイト列が取得できる', async () => {
       const res = await POST(uploadRequest(pngFile()))

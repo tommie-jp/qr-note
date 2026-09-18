@@ -91,7 +91,7 @@ async function exportToZip(itemIds: string[] | null): Promise<Uint8Array> {
 
 // 取り込みは本文を流し読みする。書き出した ZIP をそのまま流し込む
 async function importFrom(itemIds: string[] | null, options = {}) {
-  return importZip(chunkedBytes(await exportToZip(itemIds)), options)
+  return importZip(chunkedBytes(await exportToZip(itemIds)), { photoMeta: 'strip', ...options })
 }
 
 beforeEach(() => {

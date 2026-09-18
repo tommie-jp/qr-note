@@ -18,6 +18,7 @@ const render = (
       paneMode="2"
       paneModeAction={noop}
       rowTintId="blue"
+      photoMetaMode="strip"
       siteUrl="https://qr.example.jp"
       siteQrDataUrl="data:image/png;base64,AA"
       {...overrides}

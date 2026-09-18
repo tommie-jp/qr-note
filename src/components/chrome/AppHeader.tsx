@@ -5,6 +5,7 @@ import { AppHeaderMenu } from "@/components/chrome/AppHeaderMenu";
 import { HistoryNav } from "@/components/chrome/HistoryNav";
 import { PaneModeButton } from "@/components/panes/PaneModeButton";
 import type { PaneMode } from "@/lib/prefs/paneMode";
+import type { PhotoMetaMode } from "@/lib/prefs/photoMeta";
 import type { RowTintId } from "@/lib/prefs/rowTint";
 import { SITE_NAME } from "@/lib/site";
 
@@ -18,6 +19,8 @@ interface AppHeaderProps {
   // ('@/app/actions' をここで読むと DB の層まで巻き込む。RecordAccess と同じ)
   paneModeAction: ComponentProps<typeof PaneModeButton>["action"];
   rowTintId: RowTintId;
+  // 写真の撮影情報を消すか (docs/97)。メニューの行へそのまま渡す
+  photoMetaMode: PhotoMetaMode;
   // ヘッダの QR が指すサイトの URL と、その QR 画像 (data URL)
   siteUrl: string;
   siteQrDataUrl: string;
@@ -37,6 +40,7 @@ export function AppHeader({
   paneMode,
   paneModeAction,
   rowTintId,
+  photoMetaMode,
   siteUrl,
   siteQrDataUrl,
 }: AppHeaderProps) {
@@ -100,6 +104,7 @@ export function AppHeader({
           user={user}
           isDemo={isDemo}
           rowTintId={rowTintId}
+          photoMetaMode={photoMetaMode}
           siteUrl={siteUrl}
           siteQrDataUrl={siteQrDataUrl}
         />

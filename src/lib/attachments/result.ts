@@ -4,6 +4,9 @@
 export const UNSUPPORTED_ATTACHMENT_MESSAGE =
   '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md/s1p/s2p)'
 
+// 形式の判定は通ったが復号できなかった画像 (保存と復元で同じ文言にする)
+export const IMAGE_UNREADABLE_MESSAGE = '画像を読み込めませんでした (壊れているか未対応の画像です)'
+
 export type AttachmentResult =
   | {
       ok: true

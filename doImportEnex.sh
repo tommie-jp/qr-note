@@ -21,6 +21,7 @@
 #   ./doImportEnex.sh <file.enex...> --tag レシピ  # 全ノートにタグを追記
 #   ./doImportEnex.sh <file.enex...> --force      # 取り込み済みも入れ直す
 #   ./doImportEnex.sh <file.enex...> --no-embed   # 画像検索の索引を作らない
+#   ./doImportEnex.sh <file.enex...> --keep-photo-meta  # 写真の撮影情報を残す (既定は消す)
 #   ./doImportEnex.sh <file.enex...> --yes        # 確認プロンプトを省く
 #   ./doImportEnex.sh <file.enex...> --skip-backup # バックアップを省く (非推奨)
 #
@@ -58,7 +59,7 @@ TUNNEL_PORT="${IMPORT_TUNNEL_PORT:-15433}"
 readonly BACKUP_DIR="backup"
 
 usage() {
-  echo "usage: $0 <file.enex...> [--local] [--check] [--tag NAME] [--force] [--no-embed] [--yes] [--skip-backup]" >&2
+  echo "usage: $0 <file.enex...> [--local] [--check] [--tag NAME] [--force] [--no-embed] [--keep-photo-meta] [--yes] [--skip-backup]" >&2
   exit 1
 }
 
@@ -74,7 +75,7 @@ while [ $# -gt 0 ]; do
     --local) LOCAL=1 ;;
     --skip-backup) SKIP_BACKUP=1 ;;
     --check) IS_CHECK=1; PASS_THROUGH+=("$1") ;;
-    --no-embed | --force | --yes) PASS_THROUGH+=("$1") ;;
+    --no-embed | --force | --keep-photo-meta | --yes) PASS_THROUGH+=("$1") ;;
     --tag)
       # --tag は値を取る。CLI 側と同じ扱いで、次の引数もそのまま渡す
       [ $# -ge 2 ] || die "--tag にはタグ名が要ります (例: --tag レシピ)"

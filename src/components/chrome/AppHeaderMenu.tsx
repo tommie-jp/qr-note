@@ -16,12 +16,14 @@ import {
   ServerIcon,
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
+import { PhotoMetaMenuItem } from "@/components/bottombar/PhotoMetaMenuItem";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
 import { ScanBeepMenuItem } from "@/components/bottombar/ScanBeepMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { isAdminUser } from "@/lib/auth/admin";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
+import type { PhotoMetaMode } from "@/lib/prefs/photoMeta";
 import type { RowTintId } from "@/lib/prefs/rowTint";
 import { QR_NOTE_GITHUB_URL } from "@/lib/projectLinks";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
@@ -32,6 +34,7 @@ interface AppHeaderMenuProps {
   user: string | null;
   isDemo: boolean;
   rowTintId: RowTintId;
+  photoMetaMode: PhotoMetaMode;
   siteUrl: string;
   siteQrDataUrl: string;
 }
@@ -47,6 +50,7 @@ export function AppHeaderMenu({
   user,
   isDemo,
   rowTintId,
+  photoMetaMode,
   siteUrl,
   siteQrDataUrl,
 }: AppHeaderMenuProps) {
@@ -135,6 +139,12 @@ export function AppHeaderMenu({
                 <LockIcon />
                 シークレット
               </Link>
+              {/* 写真の撮影情報 (docs/97-写真の撮影情報削除計画.md §4)。
+                  シークレットの直後に置く — どちらも「他人に何が見えるか」の
+                  設定で、探す場所は同じであってほしい。
+                  **ログイン中の非デモだけ**: デモは共有アカウントなので、
+                  1 人が「残す」にすると全員の写真に効く (読む側も常に消す) */}
+              <PhotoMetaMenuItem value={photoMetaMode} />
               {/* ノートの持ち出しと取り込み (docs/28-エクスポート計画.md
                   §7)。全件エクスポートと、ZIP / Evernote (.enex) の
                   取り込みを 1 画面にまとめてある — 書き出す場所と戻す

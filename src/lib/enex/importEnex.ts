@@ -10,6 +10,7 @@
 
 import 'server-only'
 import { storeAttachment } from '@/lib/attachments/store'
+import type { PhotoMetaMode } from '@/lib/prefs/photoMeta'
 import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/import/importDuplicate'
@@ -36,6 +37,11 @@ import {
 export const MAX_NOTES_PER_IMPORT = 500
 
 export interface ImportOptions {
+  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // Web の口は利用者の設定を、CLI は既定の「消す」(--keep-photo-meta で残す) を渡す。
+  // 省略させない (渡し忘れが素通しになるため)
+  photoMeta: PhotoMetaMode
+
   // 画像検索の埋め込みをその場で作るか (既定: 作らない)。
   //
   // 既定を「作らない」にしてあるのは、Web の取り込み口 (/api/import) が
@@ -92,7 +98,7 @@ export interface ImportReport extends BaseImportReport {
 // まるごとが対象外)。個々のノート・添付の失敗は例外にせずレポートへ載せる。
 export async function importEnex(
   xml: string,
-  options: ImportOptions = {},
+  options: ImportOptions,
 ): Promise<ImportReport> {
   const notes = parseEnex(xml)
   const report: ImportReport = {
@@ -268,6 +274,7 @@ async function storeResources(
       // ENEX の mime は信用しないが、**名前は名前でしかない**ので使ってよい
       // (保存名はサーバ発番の UUID + 既知の拡張子)
       fileName: resource.fileName,
+      photoMeta: options.photoMeta,
     })
     if (!stored.ok) {
       report.skipped.push({

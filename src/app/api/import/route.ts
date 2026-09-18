@@ -3,6 +3,8 @@ import { concatBytes } from '@/lib/bytes'
 import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
 import { errorText } from '@/lib/errorMessage'
+import type { PhotoMetaMode } from '@/lib/prefs/photoMeta'
+import { loadPhotoMetaMode } from '@/lib/prefs/photoMetaStore'
 import { guardRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { checkUploadRequest } from '@/lib/uploads/request'
@@ -74,6 +76,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiFail(CONFLICT_POLICY_ERROR, 400)
   }
 
+  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 進捗の控えを取る前に読む — DB で落ちたとき控えを握ったまま抜けない
+  const photoMeta = await loadPhotoMetaMode(guard.user)
+
   // 進捗の控えを取る (docs/28 §9)。**取れなければ断る** — importZip は
   // 同時実行を想定しておらず (採番・衝突判定が競合する)、これは進捗以前に
   // 必要な門。Content-Length は名乗りだが、% の分母にはこれしかない
@@ -93,7 +99,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const received = { bytes: 0 }
 
   try {
-    const response = await dispatch(chunksOf(reader, received), conflict, handle)
+    const response = await dispatch(chunksOf(reader, received), conflict, photoMeta, handle)
     handle.finish()
     return response
   } catch (error) {
@@ -171,6 +177,7 @@ function contentLength(request: Request): number | null {
 async function dispatch(
   source: AsyncGenerator<Uint8Array>,
   conflict: ConflictPolicy,
+  photoMeta: PhotoMetaMode,
   handle: ImportProgressHandle,
 ): Promise<NextResponse> {
   const { head, rest } = await peek(source, ZIP_SIGNATURE_BYTES)
@@ -178,6 +185,7 @@ async function dispatch(
   if (isZipBytes(head)) {
     const report = await importZip(withLimit(rest, MAX_ZIP_BYTES, zipTooLargeMessage, handle), {
       conflict,
+      photoMeta,
       onNotesStart: handle.startNotes,
       onNoteDone: handle.noteDone,
     })
@@ -187,7 +195,7 @@ async function dispatch(
   // ENEX は変換が入力に比例してメモリを食う (docs/28 §4) ため上限が別で小さい。
   // 流し読みもできない (XML を丸ごと読んでから木にする) ので、ここで受けきる
   const xml = await readText(rest, MAX_ENEX_BYTES, enexTooLargeMessage, handle)
-  const report = await importEnex(xml)
+  const report = await importEnex(xml, { photoMeta })
   return apiOk({ format: 'enex', ...report }, 200)
 }
 

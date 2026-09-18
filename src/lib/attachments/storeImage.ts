@@ -2,19 +2,26 @@
 // 形式の判定と大きさの検査は store.ts が済ませてから呼ぶ。
 import 'server-only'
 import { saveImage, type SaveImageOptions } from '@/lib/images/imageStore'
-import { normalizeImage } from '@/lib/images/normalizeImage'
+import { normalizeImage, type NormalizedImage } from '@/lib/images/normalizeImage'
 import type { ImageFormat } from '@/lib/uploads/sniff/image'
-import { type AttachmentResult, succeed } from './result'
+import { applyPhotoMeta, type PhotoMetaSource, resolvePhotoMeta } from './photoMeta'
+import { type AttachmentResult, IMAGE_UNREADABLE_MESSAGE, succeed } from './result'
 
-// 画像の保存 (HEIC/TIFF は WebP へ変換してから)。
+export interface StoreImageOptions extends SaveImageOptions {
+  photoMeta: PhotoMetaSource
+}
+
+// 画像の保存。HEIC/TIFF は WebP へ変換し、設定が「消す」なら撮影情報を抜いてから
+// 保存する (docs/97-写真の撮影情報削除計画.md)。抜くのは正規化の後 — 変換した
+// WebP には撮影情報が無いので、抜く相手は素通しの 5 形式だけになる。
 export async function storeImage(
   bytes: Uint8Array<ArrayBuffer>,
   format: ImageFormat,
-  options: SaveImageOptions,
+  options: StoreImageOptions,
 ): Promise<AttachmentResult> {
   // ブラウザが表示できない形式 (HEIC/TIFF) は保存前に WebP へ変換する。
   // 復号に失敗する = 壊れた画像なので断る (500 にはしない)
-  let normalized
+  let normalized: NormalizedImage
   try {
     normalized = await normalizeImage(bytes, format)
   } catch (error) {
@@ -25,17 +32,26 @@ export async function storeImage(
       `画像の正規化に失敗しました (${format}, ${bytes.byteLength} bytes):`,
       error,
     )
-    return {
-      ok: false,
-      reason: '画像を読み込めませんでした (壊れているか未対応の画像です)',
-    }
+    return { ok: false, reason: IMAGE_UNREADABLE_MESSAGE }
   }
 
-  const url = await saveImage(
-    normalized.bytes,
-    normalized.mime,
-    normalized.ext,
-    options,
-  )
+  // 設定はここで引く (画像を保存すると決まってから)。引けない = DB の障害で、
+  // 画像のせいではないので 400 に化けさせず例外のまま上げる
+  const mode = await resolvePhotoMeta(options.photoMeta)
+
+  // 抜けない = 区画も読めず sharp でも作り直せない壊れた画像。撮影情報が
+  // 残ったまま保存するくらいなら断る (§2-3)
+  let kept: Uint8Array<ArrayBuffer>
+  try {
+    kept = await applyPhotoMeta(normalized.bytes, normalized.ext, mode)
+  } catch (error) {
+    console.error(
+      `撮影情報を消せませんでした (${normalized.ext}, ${normalized.bytes.byteLength} bytes):`,
+      error,
+    )
+    return { ok: false, reason: IMAGE_UNREADABLE_MESSAGE }
+  }
+
+  const url = await saveImage(kept, normalized.mime, normalized.ext, options)
   return succeed(url, true)
 }

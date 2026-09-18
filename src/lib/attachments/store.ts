@@ -22,6 +22,7 @@ import { sniffAudioFormat } from '@/lib/uploads/sniff/audio'
 import { sniffImageFormat } from '@/lib/uploads/sniff/image'
 import { sniffPdf } from '@/lib/uploads/sniff/pdf'
 import { sniffVideoFormat } from '@/lib/uploads/sniff/video'
+import type { PhotoMetaSource } from './photoMeta'
 import { type AttachmentResult, UNSUPPORTED_ATTACHMENT_MESSAGE } from './result'
 import { storeAudio } from './storeAudio'
 import { storeImage } from './storeImage'
@@ -55,6 +56,15 @@ export interface StoreAttachmentOptions extends SaveImageOptions, VideoThumbSour
   // textSaveInfo)。申告をそのまま保存名にはせず、既知の 3 つへ写すだけ。
   // 無ければ txt として保存する
   fileName?: string | null
+
+  // 写真の撮影情報 (位置・日時・機種などの EXIF) を消すか残すか
+  // (docs/97-写真の撮影情報削除計画.md)。
+  //
+  // **省略させない。** 既定値を持たせると、新しい取り込み口を足した人が
+  // 渡し忘れて素通しになる (§2-4)。呼ぶ側は利用者の設定
+  // (prefs/photoMetaStore.ts の loadPhotoMetaMode) を渡す。値でも、値を引く
+  // 関数でもよい — 関数なら画像を保存すると決まってから引く (attachments/photoMeta.ts)
+  photoMeta: PhotoMetaSource
 }
 
 // 保存できたら url / name を、できなければ理由を返す。
@@ -64,7 +74,7 @@ export interface StoreAttachmentOptions extends SaveImageOptions, VideoThumbSour
 export async function storeAttachment(
   // Prisma の Bytes は ArrayBuffer 実体の Uint8Array だけを受ける
   bytes: Uint8Array<ArrayBuffer>,
-  options: StoreAttachmentOptions = {},
+  options: StoreAttachmentOptions,
 ): Promise<AttachmentResult> {
   // 動画は他形式より上限が大きい (30MB) ので、共通の 10MB 検査より**先に**
   // 判定する。先に maxBytes=10MB で弾くと、30MB まで許すはずの動画が入らない。

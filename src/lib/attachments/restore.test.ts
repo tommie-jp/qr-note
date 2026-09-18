@@ -1,4 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
+import { leakedMarkers, makePhoto } from '@/test/photoFixtures'
 
 // DB (imageStore) は差し替える。見たいのは restoreAttachment の判定 —
 // 形式の裏付けと大きさの線引きであって、行の作成ではない
@@ -11,7 +12,15 @@ vi.mock('@/lib/images/imageStore', () => ({
   savePlainAttachment: vi.fn(),
 }))
 
-const { restoreAttachment } = await import('./restore')
+const { restoreAttachment: restoreAttachmentWith } = await import('./restore')
+
+// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。判定を見るテストでは「残す」を
+// 既定にして、写真でない偽のバイト列を抜きにいかないようにする
+const restoreAttachment = (
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  photoMeta: 'strip' | 'keep' = 'keep',
+) => restoreAttachmentWith(name, bytes, { photoMeta })
 const { MAX_ZIP_FILE_BYTES } = await import('@/lib/zip/limits')
 
 const UUID = '0189d1f0-1b2c-4d5e-8f90-a1b2c3d4e5f6'
@@ -154,4 +163,52 @@ test('大きすぎる添付の理由は DB に入りうる最大 (50MB) を示�
   const result = await restoreAttachment(`${UUID}.jpg`, fakeJpeg(MAX_ZIP_FILE_BYTES + 1))
 
   expect(result).toEqual({ ok: false, reason: 'ファイルが大きすぎます (最大 50MB)' })
+})
+
+// --- 撮影情報 (docs/97-写真の撮影情報削除計画.md) ---
+
+test('「消す」なら撮影情報を抜いた中身で行を作る (名前はそのまま)', async () => {
+  // Arrange
+  const photo = await makePhoto('jpeg', { exif: true, orientation: 6 })
+
+  // Act
+  const result = await restoreAttachment(`${UUID}.jpg`, photo, 'strip')
+
+  // Assert
+  expect(result).toEqual({ ok: true, created: true })
+  const [name, bytes, mime] = restoreAttachmentRow.mock.calls[0]
+  expect([name, mime]).toEqual([`${UUID}.jpg`, 'image/jpeg'])
+  expect(leakedMarkers(bytes)).toEqual([])
+})
+
+test('「残す」なら書き出したときの中身のまま行を作る', async () => {
+  const photo = await makePhoto('jpeg', { exif: true })
+
+  await restoreAttachment(`${UUID}.jpg`, photo, 'keep')
+
+  expect(restoreAttachmentRow).toHaveBeenCalledWith(`${UUID}.jpg`, photo, 'image/jpeg')
+})
+
+test('撮影情報を抜けない壊れた画像は行を作らず理由付きで断る', async () => {
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+  const result = await restoreAttachment(`${UUID}.jpg`, fakeJpeg(64), 'strip')
+
+  expect(result).toEqual({
+    ok: false,
+    reason: '画像を読み込めませんでした (壊れているか未対応の画像です)',
+  })
+  expect(restoreAttachmentRow).not.toHaveBeenCalled()
+  expect(consoleError).toHaveBeenCalled()
+  consoleError.mockRestore()
+  consoleWarn.mockRestore()
+})
+
+test('動画・音声などは「消す」でも中身に触らない', async () => {
+  const bytes = ascii('%PDF-1.7\n')
+
+  await restoreAttachment(`${UUID}.pdf`, bytes, 'strip')
+
+  expect(restoreAttachmentRow).toHaveBeenCalledWith(`${UUID}.pdf`, bytes, 'application/pdf')
 })

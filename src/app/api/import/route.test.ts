@@ -6,6 +6,8 @@ import { beforeEach, expect, test, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   user: 'tommie' as string | null,
   demo: false,
+  photoMeta: 'strip' as 'strip' | 'keep',
+  photoMetaUsers: [] as Array<string | null>,
 }))
 
 vi.mock('@/lib/auth/session', () => ({
@@ -24,7 +26,15 @@ vi.mock('@/lib/zip/importZip', () => ({
 }))
 
 vi.mock('@/lib/enex/importEnex', () => ({
-  importEnex: (xml: string) => importEnex(xml),
+  importEnex: (xml: string, options: unknown) => importEnex(xml, options),
+}))
+
+// 利用者の設定 (user_settings) は偽物。読む相手と渡し先だけを見る
+vi.mock('@/lib/prefs/photoMetaStore', () => ({
+  loadPhotoMetaMode: async (user: string | null) => {
+    mocks.photoMetaUsers.push(user)
+    return mocks.photoMeta
+  },
 }))
 
 const { POST } = await import('./route')
@@ -51,6 +61,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.user = 'tommie'
   mocks.demo = false
+  mocks.photoMeta = 'strip'
+  mocks.photoMetaUsers = []
   importZip.mockResolvedValue({
     imported: [],
     skipped: [],
@@ -244,6 +256,19 @@ test('名乗りではなく中身の先頭で振り分ける', async () => {
   await POST(request)
   expect(importZip).toHaveBeenCalled()
   expect(importEnex).not.toHaveBeenCalled()
+})
+
+// 写真の撮影情報を消すかは、ログイン中の利用者の設定で決める
+// (docs/97-写真の撮影情報削除計画.md §2-4)
+test.each(['strip', 'keep'] as const)('撮影情報の扱い (%s) を ZIP と ENEX の取り込みへ渡す', async (photoMeta) => {
+  mocks.photoMeta = photoMeta
+
+  await POST(upload(zipBody()))
+  await POST(upload(ENEX))
+
+  expect(mocks.photoMetaUsers).toEqual(['tommie', 'tommie'])
+  expect(importZip).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ photoMeta }))
+  expect(importEnex).toHaveBeenCalledWith(ENEX, { photoMeta })
 })
 
 // 戻す操作で手元の編集を黙って潰さない (docs/28 §5)

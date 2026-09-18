@@ -29,9 +29,16 @@
 #               ```circuit フェンスの旧い番地 (a1 a1f5) を x,y に書き直す (docs/102)。
 #               circuit-fence 0.35.0 を載せたデプロイの直後に 1 回。**本文 (正本) を書き換える**
 #               ので、先に `DRY_RUN=1 ./doBackfill.sh circuit-addresses` で対象を確かめる。
+#   photometa   保存済みの写真から撮影情報 (位置・日時・機種など) を抜いて images.data を
+#               差し替える (docs/97-写真の撮影情報削除計画.md §2-6)。保存時の削除を入れた
+#               デプロイの後に 1 回。名前は変えない。**これは派生キャッシュではなく原本の
+#               書き換え**で、抜いた情報は戻らない。先に photometa-check で件数を見ること。
+#   photometa-check
+#               photometa の下見 (--dry-run)。何が何枚に残っているかを数えるだけで書かない。
 #
-# どれも派生キャッシュなので何度流しても安全 (冪等)。値が既に合っている行・描画済みの
-# 図は書かない。backfill*.ts は全件失敗のときだけ exit 1 を返す。
+# photometa と circuit-addresses 以外は派生キャッシュなので何度流しても安全 (冪等)。値が既に合っている行・
+# 描画済みの図は書かない。photometa も冪等 (抜くものが無い写真は書かない) だが、1 回目は
+# 原本を書き換える。backfill*.ts は全件失敗のときだけ exit 1 を返す。
 #
 # 以前は doBackfillTitles.sh / doBackfillTaskCounts.sh / doBackfillThumbs.sh /
 # doBackfillCircuits.sh / doBackfillThumbs-demo.sh の 5 本だった (docs/93-リファクタリング計画.md §7-2)。
@@ -70,7 +77,7 @@ cd "$(dirname "$0")"
 . scripts/lib/remote.sh
 
 usage() {
-  echo "usage: $0 <titles|taskcounts|thumbs|circuits|circuit-addresses> [--demo | --seed]" >&2
+  echo "usage: $0 <titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check> [--demo | --seed]" >&2
   echo "       $0 -h    (詳しい説明)" >&2
   exit 1
 }
@@ -89,7 +96,7 @@ for arg in "$@"; do
     -h|--help) help ;;
     --demo) DEMO=1 ;;
     --seed) SEED=1 ;;
-    titles|taskcounts|thumbs|circuits|circuit-addresses)
+    titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check)
       [ -z "$TASK" ] || usage
       TASK="$arg"
       ;;
@@ -105,6 +112,8 @@ case "$TASK" in
   thumbs) TASK_LABEL="サムネ再生成 (--force)"; TASK_ARGS=(scripts/backfillThumbs.ts --force) ;;
   circuits) TASK_LABEL="回路図の一括描画 (描画済みは飛ばす)"; TASK_ARGS=(scripts/backfillCircuits.ts) ;;
   circuit-addresses) TASK_LABEL="circuit の旧い番地を x,y に書き直す (DRY_RUN=1 なら書かない)"; TASK_ARGS=(scripts/backfillCircuitAddresses.ts) ;;
+  photometa) TASK_LABEL="写真の撮影情報を抜く (原本を書き換える)"; TASK_ARGS=(scripts/backfillPhotoMeta.ts) ;;
+  photometa-check) TASK_LABEL="写真の撮影情報を数える (書き換えない)"; TASK_ARGS=(scripts/backfillPhotoMeta.ts --dry-run) ;;
 esac
 
 # 当てる DB の並び。--seed が付けば種だけ (--demo と併記しても種だけ)

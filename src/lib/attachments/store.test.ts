@@ -17,6 +17,7 @@ const normalizeImage = vi.fn<(bytes: Uint8Array, format: string) => Promise<unkn
 const makeThumbnail = vi.fn<(bytes: Uint8Array, label?: string) => Promise<Uint8Array | null>>()
 const makeVideoAnim = vi.fn<(frames: Uint8Array[], label?: string) => Promise<Uint8Array | null>>()
 const moveMoovToFront = vi.fn<(bytes: Uint8Array) => Uint8Array | null>()
+const stripPhotoMeta = vi.fn<(bytes: Uint8Array, format: string) => Promise<Uint8Array>>()
 
 vi.mock('@/lib/images/imageStore', () => ({
   saveImage: (...args: unknown[]) => saveImage(...args),
@@ -40,7 +41,22 @@ vi.mock('@/lib/video/mp4Faststart', () => ({
   moveMoovToFront: (bytes: Uint8Array) => moveMoovToFront(bytes),
 }))
 
-const { storeAttachment } = await import('./store')
+// 撮影情報の抜き方そのものは images/photoMeta/*.test.ts が見る。ここは
+// 「設定どおりに呼ぶか・呼んだ結果を保存するか」だけ
+vi.mock('@/lib/images/photoMeta', () => ({
+  isPhotoFormat: (value: string) => ['jpg', 'png', 'webp', 'gif', 'avif'].includes(value),
+  stripPhotoMeta: (bytes: Uint8Array, format: string) => stripPhotoMeta(bytes, format),
+}))
+
+const { storeAttachment: storeAttachmentWith } = await import('./store')
+type StoreOptions = Parameters<typeof storeAttachmentWith>[1]
+
+// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。振り分けを見るテストでは
+// 「残す」を既定にして、写真でない偽のバイト列を抜きにいかないようにする
+const storeAttachment = (
+  bytes: Uint8Array<ArrayBuffer>,
+  options: Partial<StoreOptions> = {},
+) => storeAttachmentWith(bytes, { photoMeta: 'keep', ...options })
 const { UNSUPPORTED_ATTACHMENT_MESSAGE } = await import('./result')
 
 const UUID = '0189d1f0-1b2c-4d5e-8f90-a1b2c3d4e5f6'
@@ -109,6 +125,7 @@ const MOVED = Uint8Array.from([0x6d, 0x6f, 0x6f, 0x76]) // moov を詰め替え�
 const POSTER = Uint8Array.from([0x70, 0x6f, 0x73]) // 作り直した poster の目印
 const ANIM = Uint8Array.from([0x61, 0x6e, 0x69]) // 動くサムネの目印
 const NORMALIZED = Uint8Array.from([0x6e, 0x6f, 0x72]) // 正規化後の画像の目印
+const STRIPPED = Uint8Array.from([0x73, 0x74, 0x72]) // 撮影情報を抜いた画像の目印
 
 const stored = (ext: string, isImage: boolean) => ({
   ok: true,
@@ -127,6 +144,7 @@ beforeEach(() => {
   makeThumbnail.mockResolvedValue(POSTER)
   makeVideoAnim.mockResolvedValue(null)
   moveMoovToFront.mockReturnValue(null)
+  stripPhotoMeta.mockResolvedValue(STRIPPED)
 })
 
 afterEach(() => {
@@ -157,14 +175,81 @@ describe('画像', () => {
     expect(result).toEqual(stored('webp', true))
     expect(normalizeImage).toHaveBeenCalledWith(bytes, format)
     // options は丸ごと渡る (deferEmbedding / awaitEmbedding を saveImage が読む)
-    expect(saveImage).toHaveBeenCalledWith(NORMALIZED, 'image/webp', 'webp', options)
+    expect(saveImage).toHaveBeenCalledWith(NORMALIZED, 'image/webp', 'webp', {
+      photoMeta: 'keep',
+      ...options,
+    })
     expect(savePlainAttachment).not.toHaveBeenCalled()
   })
 
-  test('options を省くと saveImage には空の options が渡る', async () => {
+  test('options を省くと saveImage には撮影情報の指定だけが渡る', async () => {
     await storeAttachment(PNG)
 
-    expect(saveImage).toHaveBeenCalledWith(NORMALIZED, 'image/webp', 'webp', {})
+    expect(saveImage).toHaveBeenCalledWith(NORMALIZED, 'image/webp', 'webp', {
+      photoMeta: 'keep',
+    })
+  })
+
+  test('「消す」なら正規化した画像から撮影情報を抜いて保存する', async () => {
+    // Arrange
+    normalizeImage.mockResolvedValue({ bytes: NORMALIZED, mime: 'image/jpeg', ext: 'jpg' })
+
+    // Act
+    const result = await storeAttachment(JPEG, { photoMeta: 'strip' })
+
+    // Assert
+    expect(result).toEqual(stored('jpg', true))
+    expect(stripPhotoMeta).toHaveBeenCalledWith(NORMALIZED, 'jpg')
+    expect(saveImage).toHaveBeenCalledWith(STRIPPED, 'image/jpeg', 'jpg', { photoMeta: 'strip' })
+  })
+
+  test('「残す」なら撮影情報に触らない', async () => {
+    await storeAttachment(JPEG, { photoMeta: 'keep' })
+
+    expect(stripPhotoMeta).not.toHaveBeenCalled()
+    expect(saveImage).toHaveBeenCalledWith(NORMALIZED, 'image/webp', 'webp', { photoMeta: 'keep' })
+  })
+
+  // アップロードの口は設定を引く関数で渡す。画像でないと分かって断る経路で
+  // DB (user_settings) を引かないため (api/images の「DB に触れる前に弾く」契約)
+  test('撮影情報の設定を関数で渡すと、画像を保存するときだけ引く', async () => {
+    // Arrange
+    const load = vi.fn(async () => 'strip' as const)
+    normalizeImage.mockResolvedValue({ bytes: NORMALIZED, mime: 'image/jpeg', ext: 'jpg' })
+
+    // Act
+    const rejected = await storeAttachment(HTML, { photoMeta: load })
+    const pdf = await storeAttachment(PDF, { photoMeta: load })
+    expect(load).not.toHaveBeenCalled()
+    const image = await storeAttachment(JPEG, { photoMeta: load })
+
+    // Assert
+    expect(rejected.ok).toBe(false)
+    expect(pdf.ok).toBe(true)
+    expect(image).toEqual(stored('jpg', true))
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(stripPhotoMeta).toHaveBeenCalledWith(NORMALIZED, 'jpg')
+  })
+
+  test('撮影情報を抜けなかった画像は保存せず理由付きで断る', async () => {
+    // Arrange
+    const error = new Error('reencode failed')
+    stripPhotoMeta.mockRejectedValue(error)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    // Act
+    const result = await storeAttachment(JPEG, { photoMeta: 'strip' })
+
+    // Assert
+    expect(result).toEqual({
+      ok: false,
+      reason: '画像を読み込めませんでした (壊れているか未対応の画像です)',
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      `撮影情報を消せませんでした (webp, ${NORMALIZED.byteLength} bytes):`,
+      error,
+    )
+    expect(saveImage).not.toHaveBeenCalled()
   })
 
   test('正規化に失敗した画像は理由付きで断り、ログに形式と大きさを残す', async () => {

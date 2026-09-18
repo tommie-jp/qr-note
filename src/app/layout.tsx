@@ -10,6 +10,7 @@ import { setPaneModeAction } from "@/app/actions";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 import { rowTintVars } from "@/lib/prefs/rowTint";
 import { loadRowTintId } from "@/lib/prefs/rowTintStore";
+import { loadPhotoMetaMode } from "@/lib/prefs/photoMetaStore";
 import { demoLoginHintEnv, isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import { currentUser } from "@/lib/auth/session";
 import { qrBaseUrl } from "@/lib/site";
@@ -53,7 +54,14 @@ export default async function RootLayout({
   //
   // 未ログインなら既定 (DB を引かない)。1 クエリ増えるが、この layout は
   // 既に currentUser() でセッションを引いており、同じ 1 往復に収まる
-  const rowTintId = await loadRowTintId(user);
+  //
+  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md) もメニューの行が
+  // 今の値を出すためにここで読む。どちらも user_settings の 1 行なので並べて引く。
+  // 未ログイン・デモは DB を引かない (loadPhotoMetaMode が畳む)
+  const [rowTintId, photoMetaMode] = await Promise.all([
+    loadRowTintId(user),
+    loadPhotoMetaMode(user),
+  ]);
 
   // 非本番は画面全体をピンクに塗る。Tailwind はソース中のクラス名を文字列として
   // 探すため、`bg-${color}-50` のような組み立てをすると CSS が生成されない。
@@ -96,6 +104,7 @@ export default async function RootLayout({
             paneMode={paneMode}
             paneModeAction={setPaneModeAction}
             rowTintId={rowTintId}
+            photoMetaMode={photoMetaMode}
             siteUrl={siteUrl}
             siteQrDataUrl={siteQrDataUrl}
           />

@@ -23,6 +23,10 @@
 //   --tag NAME  取り込む全ノートにタグ NAME を追記する (ノートブック名の
 //               代わり)。#evernote は指定しなくても必ず付く
 //   --force     既に取り込み済みのノートも入れ直す (既定はスキップ)
+//   --keep-photo-meta
+//               写真の撮影情報 (位置・日時・機種などの EXIF) を残す。既定は
+//               消す (docs/97-写真の撮影情報削除計画.md)。Web の口は利用者の
+//               設定に従うが、ここはログインしないので旗で決める
 //   --yes       確認プロンプトを省く
 //
 // 複数ファイルを渡すと順に取り込む (Evernote で複数ノートを選択して
@@ -48,17 +52,18 @@ interface Args {
   check: boolean
   embed: boolean
   force: boolean
+  keepPhotoMeta: boolean
   yes: boolean
   extraTags: string[]
 }
 
 const USAGE =
-  '使い方: npx tsx --conditions=react-server scripts/importEnex.ts <file.enex...> [--check] [--no-embed] [--tag NAME] [--force] [--yes]'
+  '使い方: npx tsx --conditions=react-server scripts/importEnex.ts <file.enex...> [--check] [--no-embed] [--tag NAME] [--force] [--keep-photo-meta] [--yes]'
 
 function parseArgs(argv: string[]): Args {
   const files: string[] = []
   const extraTags: string[] = []
-  const flags = { check: false, embed: true, force: false, yes: false }
+  const flags = { check: false, embed: true, force: false, keepPhotoMeta: false, yes: false }
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -71,6 +76,9 @@ function parseArgs(argv: string[]): Args {
         break
       case '--force':
         flags.force = true
+        break
+      case '--keep-photo-meta':
+        flags.keepPhotoMeta = true
         break
       case '--yes':
         flags.yes = true
@@ -277,6 +285,9 @@ async function main(): Promise<void> {
   if (args.force) {
     console.log('重複判定: 無効 (--force。取り込み済みも入れ直す)')
   }
+  console.log(
+    `写真の撮影情報: ${args.keepPhotoMeta ? '残す (--keep-photo-meta)' : '消す (残すには --keep-photo-meta)'}`,
+  )
 
   const before = await prisma.item.count()
   console.log(`いまのノート数: ${before} 件`)
@@ -297,6 +308,7 @@ async function main(): Promise<void> {
       maxNotes: Number.POSITIVE_INFINITY,
       fixedTags,
       allowDuplicate: args.force,
+      photoMeta: args.keepPhotoMeta ? 'keep' : 'strip',
     })
     printReport(file, report)
     saveReport(file, report)

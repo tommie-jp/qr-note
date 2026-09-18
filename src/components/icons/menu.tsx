@@ -206,3 +206,18 @@ export function ServerIcon() {
     </StrokeIcon>
   );
 }
+
+// 写真の撮影情報 (docs/97-写真の撮影情報削除計画.md): カメラの肩に位置のピン。
+// 「写真に付いてくる場所の情報」を 1 つの絵にする。カメラだけだとスキャン・
+// 撮影の操作と見分けが付かない
+export function PhotoMetaIcon() {
+  return (
+    <StrokeIcon className="text-cyan-600">
+      <path {...TINT} d="M3 9a2 2 0 0 1 2-2h2l1.5-2h4l1.5 2" />
+      <path d="M3 9v8a2 2 0 0 0 2 2h8" />
+      <circle cx="10" cy="13" r="3" />
+      <path {...TINT} d="M18 21s-3.5-3.2-3.5-6a3.5 3.5 0 0 1 7 0c0 2.8-3.5 6-3.5 6z" />
+      <circle cx="18" cy="15" r="1" />
+    </StrokeIcon>
+  );
+}

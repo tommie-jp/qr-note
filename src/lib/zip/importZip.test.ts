@@ -44,7 +44,8 @@ vi.mock('@/lib/import/importDuplicate', () => ({
 }))
 
 vi.mock('@/lib/attachments/restore', () => ({
-  restoreAttachment: (name: string, bytes: Uint8Array) => restoreAttachment(name, bytes),
+  restoreAttachment: (name: string, bytes: Uint8Array, options: unknown) =>
+    restoreAttachment(name, bytes, options),
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -55,7 +56,12 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-const { importZip } = await import('./importZip')
+const { importZip: importZipWith } = await import('./importZip')
+type ZipOptions = Parameters<typeof importZipWith>[1]
+
+// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。既定を「消す」にして流す
+const importZip = (source: AsyncIterable<Uint8Array>, options: Partial<ZipOptions> = {}) =>
+  importZipWith(source, { photoMeta: 'strip', ...options })
 
 // 取り込みは本文を流し読みする (メモリに全部載せない) ので、テストからも
 // 同じ形 — バイト列の並び — で渡す
@@ -133,7 +139,22 @@ test('images/ の添付を元の名前のまま戻す', async () => {
     }),
   )
 
-  expect(restoreAttachment).toHaveBeenCalledWith(`${UUID}.jpg`, expect.anything())
+  expect(restoreAttachment).toHaveBeenCalledWith(`${UUID}.jpg`, expect.anything(), {
+    photoMeta: 'strip',
+  })
+})
+
+// 書き出した ZIP の写真にも撮影情報は残っている。戻すときにも利用者の設定を当てる
+// (docs/97-写真の撮影情報削除計画.md §2-4)
+test('撮影情報の扱いを添付の復元へそのまま渡す', async () => {
+  await importZip(
+    zip({ [`images/${UUID}.jpg`]: new Uint8Array([1, 2, 3]) }),
+    { photoMeta: 'keep' },
+  )
+
+  expect(restoreAttachment).toHaveBeenCalledWith(`${UUID}.jpg`, expect.anything(), {
+    photoMeta: 'keep',
+  })
 })
 
 // 取り込んだ直後の一覧で画像が割れて見える瞬間を作らない

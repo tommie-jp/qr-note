@@ -41,7 +41,12 @@ vi.mock('@/lib/import/importDuplicate', () => ({
     isAlreadyImported(created, title),
 }))
 
-const { importEnex } = await import('./importEnex')
+const { importEnex: importEnexWith } = await import('./importEnex')
+type EnexOptions = Parameters<typeof importEnexWith>[1]
+
+// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。既定を「消す」にして流す
+const importEnex = (xml: string, options: Partial<EnexOptions> = {}) =>
+  importEnexWith(xml, { photoMeta: 'strip', ...options })
 
 // 1x1 の透明 PNG
 const PNG_BASE64 =
@@ -442,6 +447,23 @@ test('添付 1 件の上限を呼び出し側から渡せる', async () => {
   expect(storeAttachment).toHaveBeenCalledWith(
     expect.anything(),
     expect.objectContaining({ maxBytes: 50 * 1024 * 1024 }),
+  )
+})
+
+// 写真の撮影情報を消すかは利用者の設定。Web の口と CLI が決めて渡す
+// (docs/97-写真の撮影情報削除計画.md §2-4)
+test.each(['strip', 'keep'] as const)('撮影情報の扱い (%s) を添付の保存へ渡す', async (photoMeta) => {
+  await importEnex(
+    enex(
+      note(`<title>題名</title><content>${enml('<div>本文</div>')}</content>
+        <resource><data encoding="base64">${PNG_BASE64}</data><mime>image/png</mime></resource>`),
+    ),
+    { photoMeta },
+  )
+
+  expect(storeAttachment).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ photoMeta }),
   )
 })
 

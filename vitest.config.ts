@@ -41,6 +41,16 @@ const INTENTIONAL_LOGS: ReadonlyArray<{
     test: '展開すると巨大になる画像は断る (解凍爆弾よけ)',
     prefix: 'サムネイル生成に失敗しました (',
   },
+  {
+    file: 'src/lib/images/photoMeta/index.test.ts',
+    test: '区画を読めない画像は sharp で作り直し、向きは画素へ焼く',
+    prefix: '撮影情報の区画を読めないため作り直します (',
+  },
+  {
+    file: 'src/lib/images/photoMeta/index.test.ts',
+    test: '作り直しもできない壊れた画像は例外 (黙って保存しない)',
+    prefix: '撮影情報の区画を読めないため作り直します (',
+  },
 ]
 
 function isIntentionalLog(

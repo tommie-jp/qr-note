@@ -1,6 +1,7 @@
 // ZIP 復元の入口 (docs/93-リファクタリング計画.md §4-5)。新規保存の入口は store.ts。
 import 'server-only'
 import { restoreAttachmentRow } from '@/lib/images/imageStore'
+import type { PhotoMetaMode } from '@/lib/prefs/photoMeta'
 import { normalizeTextBytes } from '@/lib/text/normalizeText'
 import { tooLargeMessage } from '@/lib/uploads/limits'
 import {
@@ -18,7 +19,20 @@ import { sniffPdf } from '@/lib/uploads/sniff/pdf'
 import { textSaveInfo } from '@/lib/uploads/sniff/text'
 import { sniffVideoFormat, videoSaveInfo } from '@/lib/uploads/sniff/video'
 import { MAX_ZIP_FILE_BYTES } from '@/lib/zip/limits'
-import { mismatch, type RestoreResult, UNSUPPORTED_ATTACHMENT_MESSAGE } from './result'
+import { applyPhotoMeta } from './photoMeta'
+import {
+  IMAGE_UNREADABLE_MESSAGE,
+  mismatch,
+  type RestoreResult,
+  UNSUPPORTED_ATTACHMENT_MESSAGE,
+} from './result'
+
+export interface RestoreOptions {
+  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 書き出した ZIP の中の写真にも撮影情報は残っているので、戻すときにも
+  // 利用者の設定を当てる。省略させない (渡し忘れが素通しになるため)
+  photoMeta: PhotoMetaMode
+}
 
 // 書き出した ZIP の添付を**元の保存名のまま**戻す
 // (docs/28-エクスポート計画.md §3)。
@@ -36,6 +50,7 @@ import { mismatch, type RestoreResult, UNSUPPORTED_ATTACHMENT_MESSAGE } from './
 export async function restoreAttachment(
   name: string,
   bytes: Uint8Array<ArrayBuffer>,
+  options: RestoreOptions,
 ): Promise<RestoreResult> {
   const ext = name.slice(name.lastIndexOf('.') + 1)
 
@@ -60,7 +75,7 @@ export async function restoreAttachment(
     // 中身が heic のまま来たらここで食い違いとして落ちる。
     // 拡張子が一致した時点で mime は必ず引ける (どちらも MIME_TO_EXT が出どころ)
     const mime = sniffImageFormat(bytes) === ext ? mimeForName(name) : null
-    return mime === null ? mismatch(ext) : restoreRow(name, bytes, mime)
+    return mime === null ? mismatch(ext) : restoreImage(name, bytes, ext, mime, options)
   }
 
   if (isValidAudioName(name)) {
@@ -84,6 +99,25 @@ export async function restoreAttachment(
   }
 
   return { ok: false, reason: UNSUPPORTED_ATTACHMENT_MESSAGE }
+}
+
+// 画像は設定どおりに撮影情報を抜いてから行を作る。名前は変えない
+// (本文が /api/images/<名前> で指しているため)
+async function restoreImage(
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  ext: string,
+  mime: string,
+  options: RestoreOptions,
+): Promise<RestoreResult> {
+  let kept: Uint8Array<ArrayBuffer>
+  try {
+    kept = await applyPhotoMeta(bytes, ext, options.photoMeta)
+  } catch (error) {
+    console.error(`撮影情報を消せませんでした (${name}, ${bytes.byteLength} bytes):`, error)
+    return { ok: false, reason: IMAGE_UNREADABLE_MESSAGE }
+  }
+  return restoreRow(name, kept, mime)
 }
 
 // サムネを作るかは imageStore が決める (画像の行を作る入口はあちらの 3 つだけ)

@@ -21,6 +21,7 @@ import { newItemId } from '@/lib/items/itemId'
 import { findItemIdsByLegacyNo } from '@/lib/items/resolve'
 import { addTagToMemo } from '@/lib/markdown/tags/edit'
 import { applyImportedTimestamps, upsertMemo } from '@/lib/items/write'
+import type { PhotoMetaMode } from '@/lib/prefs/photoMeta'
 import { isValidImageName } from '@/lib/uploads/names'
 import type { ConflictPolicy } from './conflictPolicy'
 import { classifyEntry } from './layout'
@@ -32,6 +33,11 @@ import { readZipStream, ZipReadError } from './readZip'
 const DECODER = new TextDecoder()
 
 export interface ZipImportOptions {
+  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 書き出した ZIP の写真にも撮影情報は残っているので、戻すときにも利用者の
+  // 設定を当てる。省略させない (渡し忘れが素通しになるため)
+  photoMeta: PhotoMetaMode
+
   // 同じ番号のノートが既にあるときどうするか (既定: skip = そのまま残す)。
   //
   // 既定を「見送る」にしてあるのは §5 の判断 — 戻す操作で手元の編集を黙って
@@ -67,7 +73,7 @@ export interface ZipImportReport extends BaseImportReport {
 // まるごとが対象外)。個々のノート・添付の失敗は例外にせずレポートへ載せる。
 export async function importZip(
   source: AsyncIterable<Uint8Array>,
-  options: ZipImportOptions = {},
+  options: ZipImportOptions,
 ): Promise<ZipImportReport> {
   const report: ZipImportReport = {
     imported: [],
@@ -96,7 +102,7 @@ export async function importZip(
       // ここへ来るのは accept が通した項目だけ (note か attachment)
       const classified = classifyEntry(entry.path)
       if (classified.kind === 'attachment') {
-        await restoreOne(classified.name, entry.data, provided, report)
+        await restoreOne(classified.name, entry.data, provided, report, options.photoMeta)
         return
       }
       if (classified.kind === 'note') {
@@ -174,10 +180,11 @@ async function restoreOne(
   data: Uint8Array,
   provided: Set<string>,
   report: ZipImportReport,
+  photoMeta: PhotoMetaMode,
 ): Promise<void> {
   try {
     // fflate が返すのは入力バッファへの窓なので、DB へ渡す前に切り離す
-    const result = await restoreAttachment(name, ownedBytes(data))
+    const result = await restoreAttachment(name, ownedBytes(data), { photoMeta })
     if (!result.ok) {
       report.skipped.push({ label: `添付 ${name}`, reason: result.reason })
       return

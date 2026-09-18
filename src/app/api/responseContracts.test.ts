@@ -59,6 +59,11 @@ vi.mock('@/lib/attachments/store', () => ({
   storeAttachment: (bytes: Uint8Array, options: unknown) => mocks.storeAttachment(bytes, options),
 }))
 
+// 写真の撮影情報の設定は DB (user_settings) にある。応答の形だけを見るので固定する
+vi.mock('@/lib/prefs/photoMetaStore', () => ({
+  loadPhotoMetaMode: async () => 'strip',
+}))
+
 vi.mock('@/lib/zip/importZip', () => ({
   importZip: (source: unknown, options: unknown) => mocks.importZip(source, options),
 }))

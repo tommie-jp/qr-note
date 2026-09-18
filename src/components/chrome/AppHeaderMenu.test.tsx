@@ -15,6 +15,7 @@ const renderItems = (
     user: "tommie",
     isDemo: false,
     rowTintId: "blue",
+    photoMetaMode: "strip",
     siteUrl: "https://qr.example.jp",
     siteQrDataUrl: "data:image/png;base64,AA",
     ...overrides,
@@ -57,9 +58,23 @@ test("ログイン中の非デモは設定系・行の色・ログアウトを�
     expect(html).toContain(link);
   }
   expect(html).toContain('aria-label="選択中の行の色"');
+  expect(html).toContain('aria-label="写真の撮影情報 (EXIF)"');
   expect(html).toContain("デバッグ");
   expect(html).toContain("ログアウト");
   expect(html).not.toContain("パスワードでログイン");
+});
+
+// どちらも「他人に何が見えるか」の設定なので、並べて探せるようにする
+// (docs/97-写真の撮影情報削除計画.md §4)
+test("写真の撮影情報はシークレットの直後に置く", () => {
+  const html = renderItems();
+
+  const secret = html.indexOf(`href="${SECRET_SETTINGS_PATH}"`);
+  const photo = html.indexOf('aria-label="写真の撮影情報 (EXIF)"');
+  const imports = html.indexOf('href="/settings/import"');
+  expect(secret).toBeGreaterThan(-1);
+  expect(photo).toBeGreaterThan(secret);
+  expect(imports).toBeGreaterThan(photo);
 });
 
 test("未ログインはログインの 2 手段だけを出し、設定系もログアウトも出さない", () => {
@@ -73,6 +88,7 @@ test("未ログインはログインの 2 手段だけを出し、設定系も�
     expect(html).not.toContain(link);
   }
   expect(html).not.toContain('aria-label="選択中の行の色"');
+  expect(html).not.toContain("写真の撮影情報");
   expect(html).not.toContain("デバッグ");
   expect(html).not.toContain("ログアウト");
 });
@@ -86,6 +102,8 @@ test("デモは設定系と行の色を伏せ、デバッグとログアウト�
     expect(html).not.toContain(link);
   }
   expect(html).not.toContain('aria-label="選択中の行の色"');
+  // デモは共有アカウント。1 人が「残す」にすると全員の写真に効く
+  expect(html).not.toContain("写真の撮影情報");
   expect(html).toContain("デバッグ");
   expect(html).toContain("ログアウト");
 });

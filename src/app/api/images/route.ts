@@ -1,6 +1,7 @@
 import type { NextResponse } from 'next/server'
 import { storeAttachment } from '@/lib/attachments/store'
 import { checkDemoUploadQuota } from '@/lib/demo/demoQuota'
+import { loadPhotoMetaMode } from '@/lib/prefs/photoMetaStore'
 import { guardRequest } from '@/lib/route/guard'
 import { parseFormBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
@@ -122,6 +123,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     maxBytes: maxAttachmentBytes(),
     videoThumb,
     videoFrames,
+    // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md)。
+    // 利用者の設定で決まる。デモ・未設定は「消す」(loadPhotoMetaMode が畳む)。
+    // **関数で渡す** — 画像を保存すると決まってから引き、中身で断る経路では
+    // DB に触れない (このファイルのテストの契約)
+    photoMeta: () => loadPhotoMetaMode(guard.user),
   })
   if (!stored.ok) {
     return apiFail(stored.reason, 400)
