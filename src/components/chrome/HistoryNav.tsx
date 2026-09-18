@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { TriangleIcon } from "@/components/icons";
+import { getNavigation } from "./navigationApi";
 
 // ヘッダーのサイト名・バージョンの右に置く「戻る (◀)」「進む (▶)」ボタン
 // (docs/11-アプリ的UIUX計画.md §5-1, §5-2)。
@@ -23,23 +24,29 @@ import { TriangleIcon } from "@/components/icons";
 // API) の購読は useSyncExternalStore で行う。サーバ側 (getServerSnapshot) は常に
 // false を返し、ハイドレーション後にクライアント側の実値へ差し替わる。
 
-// TS の lib.dom.d.ts にはまだ Navigation API が無いので、使う分だけ最小宣言する。
-interface NavigationApi extends EventTarget {
-  readonly canGoBack: boolean;
-  readonly canGoForward: boolean;
-}
-
-function getNavigation(): NavigationApi | null {
-  if (typeof window === "undefined" || !("navigation" in window)) return null;
-  return (window as unknown as { navigation: NavigationApi }).navigation;
-}
-
-// 遷移のたびに現在地が変わり、戻る/進む先の有無も変わる。currententrychange で購読する
+// 遷移のたびに現在地が変わり、戻る/進む先の有無も変わる。currententrychange で購読する。
+//
+// **通知は 1 拍遅らせる (queueMicrotask)。** Next のルータはソフト遷移の
+// pushState を useInsertionEffect の中で呼び、currententrychange はその
+// pushState の中で同期に発火する。ここで同期に知らせると、可否が変わった
+// 遷移 (新しいタブで最初の遷移・戻った後の遷移) で React が insertion effect
+// の最中に更新を積むことになり、dev で「useInsertionEffect must not schedule
+// updates」が出る (実測で再現・この遅延で消えることを確認)。
+// 解除後に遅れて届いた通知は捨てる — 外れた購読者を呼ばない
 function subscribe(onChange: () => void): () => void {
   const navigation = getNavigation();
   if (!navigation) return () => {};
-  navigation.addEventListener("currententrychange", onChange);
-  return () => navigation.removeEventListener("currententrychange", onChange);
+  let active = true;
+  const notify = () => {
+    queueMicrotask(() => {
+      if (active) onChange();
+    });
+  };
+  navigation.addEventListener("currententrychange", notify);
+  return () => {
+    active = false;
+    navigation.removeEventListener("currententrychange", notify);
+  };
 }
 
 // getSnapshot は参照が安定した値 (ここでは boolean) を返す必要がある。
