@@ -814,3 +814,17 @@ test("headingAnchors のとき見出しがヘッダーの下に潜らない余�
   );
   expect(html).toContain("scroll-mt-12");
 });
+
+// 実体配線図は**渡すものが無い** — 図が本文だけで決まるので、閲覧でも公開ビューでも
+// オフラインでも同じように出る (docs/97)。サーバでは描かないので、ここでは
+// 差し替えが起きたことだけを見る (図そのものは boardRender.test.ts が見る)
+test("breadboard / perfboard フェンスは実体配線図の部品に差し替える", () => {
+  for (const lang of ["breadboard", "perfboard"]) {
+    const html = renderToStaticMarkup(
+      <MarkdownView markdown={"```" + lang + "\nparts:\n  R1: resistor a5 a10\n```"} />,
+    );
+    expect(html).toContain("board-diagram");
+    // コードブロックのままになっていない (コピー釦が付かない)
+    expect(html).not.toContain("コピー");
+  }
+});

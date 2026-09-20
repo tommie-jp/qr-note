@@ -49,23 +49,47 @@ export const MATRIX_LANG = 'matrix'
 // 線は表示のたびに引き直す
 export const HEALTH_LANG = 'health'
 
+// ブレッドボードの実体配線図を描くフェンス言語 (docs/97)。
+// 回路図と違って **TeX を使わない** — 中身から SVG を直に組む同期の純関数なので、
+// 図はブラウザで描く (mermaid と同じ扱い)。サーバの描画キューも DB の控えも要らない
+export const BREADBOARD_LANG = 'breadboard'
+
+// ユニバーサル基板 (穴が独立した板) の実体配線図を描くフェンス言語 (docs/97)。
+// breadboard と同じ処理系の一族で、描き方も同じ
+export const PERFBOARD_LANG = 'perfboard'
+
+// 実体配線図になるフェンスの一覧。**回路図 (CIRCUIT_LANGS) とは別の一族**で、
+// 描き方が違う (あちらは TeX をサーバで回して DB に控える)。
+// 図の中身はフェンスの本文だけで決まるので、引くための鍵も控えも要らない
+export const BOARD_LANGS = [BREADBOARD_LANG, PERFBOARD_LANG] as const
+export type BoardLang = (typeof BOARD_LANGS)[number]
+
+// unknown を受けるのは isCircuitLang と同じ理由 (外から来た値をそのまま渡せる)
+export function isBoardLang(lang: unknown): lang is BoardLang {
+  return BOARD_LANGS.some((candidate) => candidate === lang)
+}
+
 // 打ち間違えると「図やカードになるはずが黙ってコードブロック」になる言語。
 // linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
 export const RENDERED_LANGS = [
   CIRCUITIKZ_LANG,
   CIRCUIT_LANG,
+  BREADBOARD_LANG,
+  PERFBOARD_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
   HEALTH_LANG,
 ] as const
 
-// 補完に出す言語 (広め)。特別扱いする 6 つ + メモでよく書くコード言語。
+// 補完に出す言語 (広め)。特別扱いする 8 つ + メモでよく書くコード言語。
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
   CIRCUITIKZ_LANG,
   CIRCUIT_LANG,
+  BREADBOARD_LANG,
+  PERFBOARD_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,

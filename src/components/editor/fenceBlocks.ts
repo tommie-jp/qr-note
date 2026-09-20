@@ -9,6 +9,8 @@
 //   - circuitikz … 描くのはサーバ (node-tikzjax)。閲覧はページを描くサーバが
 //     先に済ませて props で渡すが、編集画面はその結果を持っていないので
 //     /api/circuits に投げて受け取る (lib/circuit/fetch.ts)
+//   - breadboard / perfboard … 処理系がブラウザで動く同期の純関数なので直接呼ぶ
+//     (docs/97)。閲覧も同じ renderBoardFence を通るので、図が食い違わない
 //   - quiz … 描くのは React 部品 (QuizFence)。widget の中で createRoot して
 //     unmount まで面倒みる形になるので、まだ手を付けていない
 // quiz は生のフェンスのまま表示される (閲覧タブで見られるので困らない)。
@@ -27,10 +29,13 @@ import {
   type DecorationSet,
 } from "@codemirror/view";
 import {
+  type BoardLang,
   type CircuitLang,
   MERMAID_LANG,
+  isBoardLang,
   isCircuitLang,
 } from "@/lib/markdown/fenceLanguages";
+import { renderBoardFence } from "@/lib/markdown/boardRender";
 import { fetchCircuitSvg } from "@/lib/circuit/fetch";
 import { errorText } from "@/lib/errorMessage";
 import { mermaidRenderId, renderMermaidSvg } from "@/lib/markdown/mermaidRender";
@@ -62,7 +67,7 @@ let renderSeq = 0;
 // 描ける種類。回路は 2 つの言語がそのまま種類になる (docs/91) —
 // 描き方 (サーバに頼む) は同じでも、**どちらの言語として描くかを
 // サーバへ伝える**必要があり、控えの鍵も分けないと取り違える
-export type FenceKind = "mermaid" | CircuitLang;
+export type FenceKind = "mermaid" | CircuitLang | BoardLang;
 
 class FenceWidget extends WidgetType {
   // 描き終わる前に畳みが解かれたら、後から届く SVG を捨てるための印
@@ -123,7 +128,9 @@ class FenceWidget extends WidgetType {
     const outcome =
       this.kind === "mermaid"
         ? await this.drawMermaid()
-        : await this.drawCircuit(this.kind);
+        : isBoardLang(this.kind)
+          ? await this.drawBoard(this.kind)
+          : await this.drawCircuit(this.kind);
 
     if (!this.live) {
       return; // 描いている間に畳みが解かれた
@@ -150,6 +157,20 @@ class FenceWidget extends WidgetType {
       return {
         error: `mermaid の構文エラー: ${errorText(e)}`,
       };
+    }
+  }
+
+  // 実体配線図はここ (ブラウザ) で描く。**読めない本文でもエラーにしない** —
+  // 板は既定を持つので読めたところまで描く。読めなかった行は閲覧側の帯に出るので、
+  // ここでは図だけを見せる (カーソルを入れれば原文に戻って直せる)
+  private async drawBoard(
+    lang: BoardLang,
+  ): Promise<{ svg: string } | { error: string }> {
+    try {
+      const { svg } = await renderBoardFence(lang, this.code);
+      return { svg };
+    } catch (e) {
+      return { error: `図を描けませんでした: ${errorText(e)}` };
     }
   }
 
@@ -214,7 +235,11 @@ export function drawableFence(
   const opening = /^\s*(?:`{3,}|~{3,})\s*([^\s`]*)/.exec(lines[0]);
   const lang = opening?.[1].toLowerCase();
   const kind: FenceKind | null =
-    lang === MERMAID_LANG ? "mermaid" : isCircuitLang(lang) ? lang : null;
+    lang === MERMAID_LANG
+      ? "mermaid"
+      : isCircuitLang(lang) || isBoardLang(lang)
+        ? lang
+        : null;
   if (kind === null) {
     return null;
   }

@@ -48,6 +48,19 @@ describe("drawableFence", () => {
     });
   });
 
+  // 実体配線図は**ブラウザで描く** (docs/97)。回路図と違ってサーバに投げないが、
+  // 畳んで図にする対象であることは同じ
+  test("breadboard / perfboard も対象 (描くのはブラウザ)", () => {
+    expect(drawableFence("```breadboard\nparts:\n  R1: resistor a5 a10\n```")).toEqual({
+      kind: "breadboard",
+      code: "parts:\n  R1: resistor a5 a10",
+    });
+    expect(drawableFence("```perfboard\nboard: 28x18\n```")).toEqual({
+      kind: "perfboard",
+      code: "board: 28x18",
+    });
+  });
+
   test("描けない種類のフェンスは対象外", () => {
     expect(drawableFence("```text\nあ\n```")).toBeNull();
     // quiz は React 部品なのでまだ描かない

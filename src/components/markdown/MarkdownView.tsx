@@ -8,6 +8,7 @@ import { CodeBlock } from "./CodeBlock";
 import { rehypeAnswerTts } from "./plugins/rehypeAnswerTts";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./plugins/rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
+import { BoardDiagram } from "./BoardDiagram";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { CircuitDiagram } from "./CircuitDiagram";
 import { QuizFence } from "../quiz/QuizFence";
@@ -38,6 +39,7 @@ import {
   MERMAID_LANG,
   QUIZ_LANG,
   circuitKey,
+  isBoardLang,
   isCircuitLang,
 } from "@/lib/markdown/fenceLanguages";
 import type { PendingCircuitMap } from "@/lib/circuit/types";
@@ -167,6 +169,13 @@ function preOrDiagram(
 
     if (fence.lang === MERMAID_LANG) {
       return <MermaidDiagram code={fence.code} />;
+    }
+
+    // 実体配線図も mermaid と同じくブラウザで描く (docs/97)。渡すものが無いのは
+    // **図が本文だけで決まる**ため — TeX も DB の控えも要らないので、
+    // 公開ビューでもオフラインでも同じように出る
+    if (isBoardLang(fence.lang)) {
+      return <BoardDiagram lang={fence.lang} code={fence.code} />;
     }
 
     // 図と違い描画に外部ライブラリも事前処理も要らない (中身は本文だけで

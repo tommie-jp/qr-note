@@ -7,14 +7,19 @@ import {
   MATRIX_LANG,
   MERMAID_LANG,
   QUIZ_LANG,
+  BREADBOARD_LANG,
+  PERFBOARD_LANG,
   RENDERED_LANGS,
+  isBoardLang,
   editDistance,
   suggestFenceLang,
 } from './fenceLanguages'
 
 describe('language lists', () => {
-  test('補完候補に特別扱いの 5 言語を含む', () => {
+  test('補完候補に特別扱いの 7 言語を含む', () => {
     expect(FENCE_LANGUAGES).toContain(CIRCUITIKZ_LANG)
+    expect(FENCE_LANGUAGES).toContain(BREADBOARD_LANG)
+    expect(FENCE_LANGUAGES).toContain(PERFBOARD_LANG)
     expect(FENCE_LANGUAGES).toContain(MERMAID_LANG)
     expect(FENCE_LANGUAGES).toContain(QUIZ_LANG)
     expect(FENCE_LANGUAGES).toContain(MATRIX_LANG)
@@ -25,15 +30,36 @@ describe('language lists', () => {
     expect(new Set(FENCE_LANGUAGES).size).toBe(FENCE_LANGUAGES.length)
   })
 
-  test('描画対象は circuitikz と circuit と mermaid と quiz と matrix と health のみ', () => {
+  test('描画対象は回路図 2 つ・実体配線図 2 つ・mermaid・quiz・matrix・health のみ', () => {
     expect([...RENDERED_LANGS]).toEqual([
       CIRCUITIKZ_LANG,
       CIRCUIT_LANG,
+      BREADBOARD_LANG,
+      PERFBOARD_LANG,
       MERMAID_LANG,
       QUIZ_LANG,
       MATRIX_LANG,
       HEALTH_LANG,
     ])
+  })
+
+  // 実体配線図は**回路図とは別の一族**。同じ関数で判ると、TeX を回す側 (回路図)
+  // にブラウザで描く板が紛れ込む
+  test('実体配線図の一族は回路図の一族と混ざらない', () => {
+    expect(isBoardLang(BREADBOARD_LANG)).toBe(true)
+    expect(isBoardLang(PERFBOARD_LANG)).toBe(true)
+    expect(isBoardLang(CIRCUIT_LANG)).toBe(false)
+    expect(isBoardLang(CIRCUITIKZ_LANG)).toBe(false)
+    expect(isBoardLang(undefined)).toBe(false)
+  })
+
+  // 綴りが近いと linter が取り違える (上限 2)。board で終わる 2 語は
+  // 互いに距離 4、ほかの言語とはもっと遠い
+  test('板の 2 語は互いの打ち間違いにならない', () => {
+    expect(suggestFenceLang(BREADBOARD_LANG)).toBeNull()
+    expect(suggestFenceLang(PERFBOARD_LANG)).toBeNull()
+    expect(suggestFenceLang('bredboard')).toBe(BREADBOARD_LANG)
+    expect(suggestFenceLang('perfbord')).toBe(PERFBOARD_LANG)
   })
 
   // 回路フェンスが 2 つ並ぶので、互いを打ち間違い扱いしないことを確かめる。
