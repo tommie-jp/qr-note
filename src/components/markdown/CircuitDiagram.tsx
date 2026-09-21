@@ -2,7 +2,7 @@
 
 import { Suspense, use } from "react";
 import type {
-  CircuitNotice,
+  CircuitIssue,
   CircuitResult,
   PendingCircuit,
 } from "@/lib/circuit/types";
@@ -64,14 +64,19 @@ function SettledCircuit({ result, code }: CircuitDiagramProps) {
   if ("error" in settled) {
     return (
       <div className="circuit-diagram rounded border border-red-300 bg-red-50 p-3">
-        <p className="text-red-700">回路図のエラー: {settled.error}</p>
+        {/* 理由は複数行になりうる (読めなかった行を TeX の理由の後ろに
+            並べる・YAML が壊れていて指摘が 2 件以上)。既定の折りたたみだと
+            改行が空白に潰れて 1 行に繋がるので、改行はそのまま出す */}
+        <p className="whitespace-pre-line text-red-700">
+          回路図のエラー: {settled.error}
+        </p>
         {settled.texLog && (
           <pre className="mt-2 overflow-x-auto text-sm text-red-900">
             {settled.texLog}
           </pre>
         )}
         <pre className={ERROR_SOURCE_CLASS}>{code}</pre>
-        <CircuitNotices notices={settled.notices} />
+        <CircuitIssues notices={settled.notices} />
       </div>
     );
   }
@@ -83,32 +88,45 @@ function SettledCircuit({ result, code }: CircuitDiagramProps) {
         className="circuit-diagram"
         dangerouslySetInnerHTML={{ __html: settled.svg }}
       />
-      <CircuitNotices notices={settled.notices} />
+      <CircuitIssues errors={settled.errors} notices={settled.notices} />
     </>
   );
 }
 
-// お知らせ (docs/91)。**読めなかったのではなく、図は描けたが思ったとおりには
-// 出ていない**もの。書いた人にしか直せないので、エラーより弱い見た目にする。
+// 図の下に出す帯。2 種類を 1 つの並びにする (実体配線図の BoardIssues と同じ形)。
 //
-// 読み手にも出すのは、伏せる手段が書き手の側にあるから
+// - **読めなかった行** (errors) … 赤。図は描けているが、この行は図に入っていない。
+//   1 つも組めなかった図はそもそもここへ来ない (上のエラーの箱に出る)
+// - **お知らせ** (notices) … 琥珀。読めてはいるが思ったとおりには出ていないもの。
+//   書いた人にしか直せないので、エラーより弱い見た目にする
+//
+// **読めなかった行を先に。** お知らせは 1 つの図に何件も付くことがあり、
+// 行順に混ぜると「直さないと図に入らない行」が下に埋もれる。
+//
+// お知らせを読み手にも出すのは、伏せる手段が書き手の側にあるから
 // (`style: debug: off` を書いた図では notices が空で届く)。画面ごとに
 // 出し分けると、書き手が「off にしたのに閲覧では出る」を追えなくなる
-function CircuitNotices({
+function CircuitIssues({
+  errors,
   notices,
 }: {
-  notices: readonly CircuitNotice[] | undefined;
+  errors?: readonly CircuitIssue[];
+  notices: readonly CircuitIssue[] | undefined;
 }) {
-  if (notices === undefined || notices.length === 0) {
+  const rows = [
+    ...(errors ?? []).map((issue) => ({ issue, notice: false })),
+    ...(notices ?? []).map((issue) => ({ issue, notice: true })),
+  ];
+  if (rows.length === 0) {
     return null;
   }
 
   return (
-    <ul className="circuit-notices mt-1 list-none text-sm text-amber-800">
-      {notices.map((notice, i) => (
-        <li key={i}>
-          {notice.line === null ? "" : `${notice.line} 行目: `}
-          {notice.message}
+    <ul className="circuit-notices mt-1 list-none text-sm">
+      {rows.map(({ issue, notice }, i) => (
+        <li key={i} className={notice ? "text-amber-800" : "text-red-700"}>
+          {issue.line === null ? "" : `${issue.line} 行目: `}
+          {issue.message}
         </li>
       ))}
     </ul>

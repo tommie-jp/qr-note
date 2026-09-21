@@ -5,7 +5,7 @@ import {
   assertSafeCircuitSvg,
   circuitHash,
 } from './hash'
-import type { CircuitResult } from './types'
+import type { CircuitIssue, CircuitResult } from './types'
 import { renderCircuitDocument } from './circuitikz'
 import { prisma } from '../db'
 import { errorText } from '../errorMessage'
@@ -45,9 +45,12 @@ function formatFenceError(error: { line: number | null; message: string }): stri
 export async function renderCircuitYaml(source: string): Promise<CircuitResult> {
   const compiled = compileCircuit(source)
 
-  // 読めなかったところがあれば、TeX を 1 秒使う前にここで返す。
+  // **図を 1 つも組めなかったときだけエラー**にする (circuit-fence 0.8.0)。
+  // 読めない行があっても、組めた分があれば描いて見せたほうが直しやすい —
+  // 実体配線図 (docs/97) と同じ扱いで、そちらの処理系は板の既定があるので必ず描ける。
+  // こちらは部品が 1 つも立たなければ TeX が null で、描くものが無い。
   // **行番号は YAML のもの**で、これが circuitikz フェンスに対する取り柄
-  if (compiled.errors.length > 0 || compiled.tex === null) {
+  if (compiled.tex === null) {
     return {
       error: compiled.errors.map(formatFenceError).join('\n') || '回路図を組み立てられませんでした',
       texLog: '',
@@ -55,28 +58,36 @@ export async function renderCircuitYaml(source: string): Promise<CircuitResult> 
     }
   }
 
+  // 読めなかった行。**debug では伏せない** (下の notices と違うところ) —
+  // 直さない限り図が変わらないので、承知のうえで黙らせる類のものではない
+  const errors = compiled.errors.map(toIssue)
+
   // お知らせは書き手が図ごとに伏せられる (`style: debug: off`)。
   // **伏せるのは出す側の仕事** — compileCircuit は伏せた図でも notices を
   // 返し続けるので、ここで落とさないと「出さない」が「無かったことにする」
   // に化ける (circuit-fence の約束 5)
-  const notices = compiled.debug
-    ? compiled.notices.map((notice) => ({
-        line: notice.line,
-        message: notice.message,
-      }))
-    : []
+  const notices = compiled.debug ? compiled.notices.map(toIssue) : []
 
   try {
     const svg = await getOrRenderYamlSvg(source, compiled)
-    return { svg, notices }
+    return { svg, notices, errors }
   } catch (e) {
+    // 図が無いので成功の側では返せない。**読めなかった行はここで捨てない** —
+    // TeX が落ちた理由の後ろに並べる (捨てると、直すべき行が画面から消える)
     return {
-      error: errorText(e),
+      error: [errorText(e), ...errors.map(formatFenceError)].join('\n'),
       texLog: '',
       notices,
     }
   }
 }
+
+// 処理系の 1 件を、この層の形 (CircuitIssue) に写す。
+// **余分なキーを持ち込まない** — 結果はサーバ→クライアントの境界を越える
+const toIssue = (issue: { line: number | null; message: string }): CircuitIssue => ({
+  line: issue.line,
+  message: issue.message,
+})
 
 type Compiled = ReturnType<typeof compileCircuit>
 

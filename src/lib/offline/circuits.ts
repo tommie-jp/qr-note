@@ -14,6 +14,11 @@ import type { OfflineCircuit } from './item'
 // 積まない)。**エラーを作って詰めない**のが要点 — 圏外で「描画に失敗しました」と
 // 出すと、原因が本文にあるように見えてしまう。まだ描かれていない図は
 // マップに無い = コードブロックとして出る、で正しい (MarkdownView の既定)。
+//
+// **読めない行が混じった図は「描けた図」として運ばれる** (circuit-fence 0.8.0
+// から、組めた分だけで描く)。ただし帯は付いてこない — DB に控えるのは SVG だけで、
+// 読めなかった行は本文からその場で組み直すもの (compileCircuit) だから。
+// 圏外では図だけが出る。オンラインで開けば行番号つきの赤い帯が出る。
 export function offlineCircuitMap(circuits: readonly OfflineCircuit[]): CircuitMap {
   // 鍵は言語つき (MarkdownView が同じ形で引く)
   return new Map(

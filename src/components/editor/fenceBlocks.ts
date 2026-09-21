@@ -175,7 +175,12 @@ class FenceWidget extends WidgetType {
   }
 
   // SVG はサーバが描いて検査済み (assertSafeCircuitSvg)。閲覧の
-  // CircuitDiagram と同じものが同じ経路で届く
+  // CircuitDiagram と同じものが同じ経路で届く。
+  //
+  // **読めない行が混じっていても図だけを見せる** (circuit-fence 0.8.0 から、
+  // 組めた分だけで描く)。上の実体配線図と同じ扱い — 読めなかった行は閲覧側の
+  // 帯に出る。ここに帯を足すなら板の 2 つと一緒に足すこと (片方だけ出すと、
+  // 同じ「読めない行」が図の種類で見え方の違う話になる)
   private async drawCircuit(
     lang: CircuitLang,
   ): Promise<{ svg: string } | { error: string }> {

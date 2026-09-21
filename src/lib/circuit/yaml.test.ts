@@ -126,6 +126,49 @@ parts:
   })
 })
 
+describe('読めたところまで描く (circuit-fence 0.8.0)', () => {
+  // 2 つのうち 1 つだけ読めない。読めた側で図は組めるので TeX まで行く。
+  // **1 つも組めない図 (上の「読めなかった行は…」) とは分かれる** —
+  // あちらは tex が null で、描くものが無い
+  const PARTIAL = `parts:
+  R1: resistor a1 a3 10k
+  R2: resistor b1 zz9 1k`
+
+  test('読めなかった行があっても、描けたところまで描く', async () => {
+    const result = await renderCircuitYaml(PARTIAL)
+
+    expect('svg' in result).toBe(true)
+    // 読めた部品だけで組んだ TeX が実際に描画へ回る
+    expect(renderCircuitDocument).toHaveBeenCalled()
+  })
+
+  test('読めなかった行は errors に行番号つきで載せる', async () => {
+    const result = await renderCircuitYaml(PARTIAL)
+
+    expect('svg' in result && result.errors).toHaveLength(1)
+    expect('svg' in result && result.errors?.[0]?.line).toBe(3)
+    expect('svg' in result && result.errors?.[0]?.message).toMatch(/zz9/)
+  })
+
+  test('debug: off で伏せられるのは notices だけで、読めなかった行は残る', async () => {
+    const result = await renderCircuitYaml(`style:
+  debug: off
+${PARTIAL}`)
+
+    // 承知のうえで黙らせられるのは「思ったとおりに出ない」だけ。
+    // 読めなかった行は直さないと図が変わらないので、伏せる対象ではない
+    expect('svg' in result).toBe(true)
+    expect('svg' in result && result.errors).toHaveLength(1)
+    expect(result.notices ?? []).toEqual([])
+  })
+
+  test('全部読めた図には errors を付けない', async () => {
+    const result = await renderCircuitYaml(SOURCE)
+
+    expect('svg' in result && (result.errors ?? [])).toEqual([])
+  })
+})
+
 // docs/91 §2 で「実装時にもテストとして残す」と決めた検査。
 //
 // 注釈 (`notes:`) の日本語は TeX を通らず、仕上げのときに SVG へ

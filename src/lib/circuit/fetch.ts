@@ -10,16 +10,21 @@
 
 import { CIRCUITIKZ_LANG, type CircuitLang, circuitKey } from '../markdown/fenceLanguages'
 
-// お知らせ (docs/91)。図は描けたが思ったとおりには出ていないもの。
-// circuit フェンス (YAML) だけが持つ
-export interface CircuitFetchNotice {
+// 行番号つきの 1 件 (docs/91)。circuit フェンス (YAML) だけが持つ。
+// **読めなかった行 (errors) と、お知らせ (notices) の両方**に使う —
+// お知らせは図が描けたが思ったとおりには出ていないもの
+export interface CircuitFetchIssue {
   readonly line: number | null
   readonly message: string
 }
 
 export type CircuitFetchResult =
-  | { svg: string; notices?: readonly CircuitFetchNotice[] }
-  | { error: string; notices?: readonly CircuitFetchNotice[] }
+  | {
+      svg: string
+      notices?: readonly CircuitFetchIssue[]
+      errors?: readonly CircuitFetchIssue[]
+    }
+  | { error: string; notices?: readonly CircuitFetchIssue[] }
 
 // 鍵 → 結果 (または進行中の約束)。上限を超えたら古いものから捨てる。
 // **鍵に言語を混ぜる** — 同じ本文が 2 つの言語で書かれても別の図なので、
@@ -67,11 +72,20 @@ async function requestCircuit(
     }
     const body: unknown = await res.json()
     const data = (
-      body as { data?: { svg?: unknown; error?: unknown; notices?: unknown } }
+      body as {
+        data?: {
+          svg?: unknown
+          error?: unknown
+          notices?: unknown
+          errors?: unknown
+        }
+      }
     )?.data
-    const notices = readNotices(data?.notices)
+    const notices = readIssues(data?.notices)
     if (typeof data?.svg === 'string') {
-      return { svg: data.svg, notices }
+      // 読めない行があっても図は来る (circuit-fence 0.8.0)。
+      // 図を出すのはこの層の仕事ではないので、読めなかった行はそのまま渡す
+      return { svg: data.svg, notices, errors: readIssues(data?.errors) }
     }
     // 書き間違いは 200 で理由が返る (route.ts の経緯)。これは覚えてよい —
     // 同じソースなら何度投げても同じ結果になる
@@ -86,19 +100,19 @@ async function requestCircuit(
 }
 
 // 外から来た値なので形を確かめてから使う。読めない要素は落とす —
-// お知らせは補助なので、1 件壊れていても図と他のお知らせは出す
-function readNotices(value: unknown): readonly CircuitFetchNotice[] {
+// 帯は補助なので、1 件壊れていても図と他の件は出す
+function readIssues(value: unknown): readonly CircuitFetchIssue[] {
   if (!Array.isArray(value)) {
     return []
   }
   return value.flatMap((row: unknown) => {
-    const notice = row as { line?: unknown; message?: unknown }
-    if (typeof notice?.message !== 'string') {
+    const issue = row as { line?: unknown; message?: unknown }
+    if (typeof issue?.message !== 'string') {
       return []
     }
     return [{
-      line: typeof notice.line === 'number' ? notice.line : null,
-      message: notice.message,
+      line: typeof issue.line === 'number' ? issue.line : null,
+      message: issue.message,
     }]
   })
 }

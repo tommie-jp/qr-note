@@ -75,3 +75,50 @@ test("描画に失敗した図は理由と書いた中身を出す", () => {
   expect(html).toContain("Undefined control sequence");
   expect(html).toContain("to[R=$R_1$]");
 });
+
+// 理由は複数行になりうる (TeX が落ちた理由 + 読めなかった行、YAML が
+// 壊れていて指摘が 2 件以上)。改行を空白に潰されると 1 行に繋がって読めない
+test("複数行の理由は改行のまま出す", () => {
+  const html = renderToStaticMarkup(
+    <CircuitDiagram
+      result={{
+        error: "TeX error\n3 行目: zz9 は番地の形ではありません",
+        texLog: "",
+      }}
+      code={CODE}
+    />,
+  );
+
+  expect(html).toContain("3 行目: zz9 は番地の形ではありません");
+  expect(html).toContain("whitespace-pre-line");
+});
+
+// 読めない行があっても、組めた分があれば図は描ける (circuit-fence 0.8.0)。
+// **図と一緒に、読めなかった行を出す** — 図が出ているぶん、何が図に
+// 入っていないかは字で言わないと気づけない。
+// お知らせ (思ったとおりに出ない) とは色で分け、直さないと図が変わらない
+// 読めなかった行を先に置く
+test("読めなかった行は図の下に、お知らせより先に出す", () => {
+  const html = renderToStaticMarkup(
+    <CircuitDiagram
+      result={{
+        svg: SVG,
+        errors: [{ line: 3, message: "zz9 は番地の形ではありません" }],
+        notices: [{ line: null, message: "grid-to は効きませんでした" }],
+      }}
+      code={CODE}
+    />,
+  );
+
+  // 図は出る (エラーの箱に化けない)
+  expect(html).toContain('id="drawn"');
+  expect(html).toContain("3 行目: zz9 は番地の形ではありません");
+  // 行が分からない指摘は行番号を付けずに出す
+  expect(html).toContain("grid-to は効きませんでした");
+  expect(html).not.toContain("null 行目");
+
+  // 読めなかった行が先で、色が分かれている
+  expect(html.indexOf("zz9")).toBeLessThan(html.indexOf("grid-to"));
+  expect(html).toContain("text-red-700");
+  expect(html).toContain("text-amber-800");
+});

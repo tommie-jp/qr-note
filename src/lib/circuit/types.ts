@@ -20,23 +20,36 @@
 // 重さは変わらない。言語ごとに 8 枚にすると、上限の意味が黙って倍になる
 export const MAX_CIRCUITS_PER_MEMO = 8
 
-// 回路 YAML フェンスの「お知らせ」1 件 (docs/91)。
-// 読めなかったわけではなく、**図は描けたが思ったとおりには出ない**もの
+// 回路 YAML フェンスが返す「行番号つきの 1 件」(docs/91)。
+// **読めなかった行 (errors) と、お知らせ (notices) の両方**に使う —
+// お知らせは読めなかったわけではなく、**図は描けたが思ったとおりには出ない**もの
 // (斜めに入る足への線、部品 ID にも番地にも読める指し先など)。
-// 行は分かるとは限らない (図全体に関わる指摘は null)
-export interface CircuitNotice {
+// 行は分かるとは限らない (図全体に関わる指摘は null)。
+// 実体配線図の BoardIssue (markdown/boardRender.ts) と同じ形
+export interface CircuitIssue {
   readonly line: number | null
   readonly message: string
 }
 
 // 1 つの回路フェンスの描画結果。成功か失敗のどちらか。
 //
+// **「読めない行がある」は失敗ではない** (circuit-fence 0.8.0 から)。1 つでも
+// 組めれば図は描けるので、読めなかった行は errors に載って**成功の側**に来る。
+// 失敗 (error) は図を 1 つも組めなかったときで、そのとき errors は無い
+// (言うことは error の字にすべて入っている)。実体配線図と同じ扱い (docs/97)。
+//
 // notices は circuit フェンス (YAML) だけが持つ。**成功にも失敗にも付く** —
 // 図が描けたときこそ「見えている絵と繋がりが違う」を伝える必要がある。
-// 書き手が `style: debug: off` と書いた図では空になる
+// 書き手が `style: debug: off` と書いた図では空になる。
+// **errors はその対象ではない** — 読めなかった行は直さない限り図が変わらないので、
+// 承知のうえで黙らせる類のものではない
 export type CircuitResult =
-  | { svg: string; notices?: readonly CircuitNotice[] }
-  | { error: string; texLog: string; notices?: readonly CircuitNotice[] }
+  | {
+      svg: string
+      notices?: readonly CircuitIssue[]
+      errors?: readonly CircuitIssue[]
+    }
+  | { error: string; texLog: string; notices?: readonly CircuitIssue[] }
 
 // 描画結果、または「まだ描いている最中」の約束
 // (docs/85-回路図表示待ち計画.md §2)。
