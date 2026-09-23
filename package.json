@@ -1,6 +1,6 @@
 {
   "name": "ver2",
-  "version": "0.23.14",
+  "version": "0.23.15",
   "private": true,
   "engines": {
     "node": ">=22"
