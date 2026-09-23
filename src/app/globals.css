@@ -70,6 +70,37 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 長押しで OS のメニューを出さない (docs/98-長押しメニュー抑止計画.md)。
+   iOS は長押しで文字を選んで「コピー / 調べる」を、リンクや画像には
+   プレビューや「共有」の吹き出しを出す。アプリの長押し (下部バー・行・
+   見出し行のメニュー、PressTip) と重なるうえ、ボタンを押し損ねただけでも出て
+   煩わしいので、**画面全体で止めて、要る所だけ戻す**。
+   部品ごとに止める形 (BOTTOM_BAR_CLASS など) は、部品を別の場所へ移すと
+   抜けた (docs/86 で見出し行へ移した表示・並び順がそうなった)。
+
+   戻すのは 2 つ:
+     - ノートのタブ (markdown / テキスト / 編集) の中 … 読む・書く場所。
+       印は MemoPanel が付ける
+     - 文字を打つ欄 … 選べないと長押しのペーストもカーソルのルーペも出ない。
+       -webkit-user-select:none の下では iOS が欄に打てなくなることもある
+
+   指の画面だけ (@custom-variant touch と同じ条件)。PC のマウスは長押しに
+   化けないので、一覧のタイトルを選んでコピーする手を残す */
+@media (hover: none) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  [data-os-menu],
+  :is(input, textarea, [contenteditable]:not([contenteditable="false"])) {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+}
+
 /* ダブルタップズーム待ちの 300ms 遅延をなくす。ピンチズームは残す */
 a,
 button,

@@ -33,3 +33,12 @@ test("切替タブ (markdown / テキスト / 編集) を表示する", () => {
   expect(html).toContain("テキスト");
   expect(html).toContain("編集");
 });
+
+// 長押しの OS メニュー (docs/98-長押しメニュー抑止計画.md)。スマホでは画面全体で
+// 止めていて (globals.css)、ノートの中身を読む・書くタブの中だけ戻す。
+// タブの見出し (押す物) は戻さない
+test("タブの中身だけが OS のメニューを戻す印を持つ", () => {
+  const html = render("markdown");
+  expect(html).toMatch(/<div data-os-menu="">\s*<div>MD_VIEW<\/div>/);
+  expect(html.match(/data-os-menu/g)).toHaveLength(1);
+});

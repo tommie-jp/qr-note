@@ -80,7 +80,10 @@ export function MemoPanel({
       {panels.map(
         ({ key, content }) =>
           visited.has(key) && (
-            <div key={key} hidden={mode !== key}>
+            // data-os-menu … スマホの長押しで OS のメニュー (コピー・共有) を
+            // 出すのはこの中だけ (globals.css。docs/98)。読む・書く場所なので
+            // 文字の選択も画像の共有も要る。上のタブの見出しは押す物なので外す
+            <div key={key} hidden={mode !== key} data-os-menu="">
               {/* いま表向きのタブかを中身へ伝える。編集タブの操作ボタンは下部バーへ
                   portal され hidden の枠を抜けるので、非表示タブでは portal を
                   止める必要がある (MemoEditorInner が参照する) */}
