@@ -10,7 +10,7 @@ import {
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { TrashActionBar } from "@/components/bottombar/TrashActionBar";
 import { TrashList } from "@/components/trash/TrashList";
-import { ACTION_LINK_CLASS, WIDE_RESULTS_CLASS } from "@/components/ui";
+import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuit/thumbs";
 import { listTrashedItems } from "@/lib/items/trash";
@@ -18,7 +18,6 @@ import { buildMathTexts } from "@/lib/markdown/mathText";
 import { buildNotePreviews } from "@/components/item/NotePreviewThumb";
 import { readTrashPrefs } from "@/lib/prefs/searchPrefs";
 import { requireUser } from "@/lib/auth/session";
-import { usesWideResults } from "@/lib/prefs/viewMode";
 
 export const dynamic = "force-dynamic";
 
@@ -72,20 +71,18 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
           ゴミ箱のノートは検索に出ません。復元すると元どおり検索できます。
         </p>
 
-        {/* カード・masonry は広い画面で列を増やしたいので広幅。compact の
-            1 カラムだけは読み幅を保つ (検索一覧と同じ。docs/23 §1、docs/32 §1) */}
-        <div className={usesWideResults(view) ? WIDE_RESULTS_CLASS : ""}>
-          <TrashList
-            items={items}
-            view={view}
-            restoreAction={restoreItemsAction}
-            purgeAction={purgeItemsAction}
-            emptyTrashAction={emptyTrashAction}
-            circuitThumbs={circuitThumbs}
-            mathTexts={mathTexts}
-            notePreviews={notePreviews}
-          />
-        </div>
+        {/* 器 (main) がもう画面幅いっぱいなので、カード・masonry を広げる
+            細工 (旧 WIDE_RESULTS_CLASS) は要らない (docs/101 §3-3) */}
+        <TrashList
+          items={items}
+          view={view}
+          restoreAction={restoreItemsAction}
+          purgeAction={purgeItemsAction}
+          emptyTrashAction={emptyTrashAction}
+          circuitThumbs={circuitThumbs}
+          mathTexts={mathTexts}
+          notePreviews={notePreviews}
+        />
       </div>
 
       <TrashActionBar

@@ -1,3 +1,5 @@
+import { CONTENT_WIDTH_CLASS } from "@/components/ui";
+
 interface DemoBannerProps {
   // ログイン案内 (docs/39-デモ公開計画.md §4)。デモスタックの env
   // DEMO_LOGIN_HINT の値。未設定 (null) なら案内行を出さない。
@@ -16,7 +18,8 @@ interface DemoBannerProps {
 export function DemoBanner({ loginHint }: DemoBannerProps = {}) {
   return (
     <div className="border-b border-amber-300 bg-amber-100 text-amber-900 print:hidden">
-      <div className="mx-auto max-w-2xl px-safe py-2 text-sm landscape-phone:max-w-4xl">
+      {/* 本文の器 (main) と同じ幅 */}
+      <div className={`mx-auto px-safe py-2 text-sm ${CONTENT_WIDTH_CLASS}`}>
         <span className="font-bold">デモ環境です。</span>{" "}
         保存したデータは定期的にすべて削除されます。個人情報や不適切なファイルは
         アップロードしないでください。

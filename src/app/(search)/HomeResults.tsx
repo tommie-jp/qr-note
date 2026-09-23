@@ -75,16 +75,17 @@ export async function HomeResults({
   return (
     <>
     {/* 3 ペインでまだ何も選んでいないときに出す、先頭ノートのペイン
-        (docs/86 §4-4)。**SearchResults の外に置く** — あちらはカード表示で
-        breakout の transform を持ち、transform のある要素は position:fixed の
-        包含ブロックになる (下部バーを nav の外へ出しているのと同じ罠)。
-        中に入れるとペインが一覧の幅の中へ縮んで浮く。
+        (docs/86 §4-4)。**SearchResults の外に置く** — かつてあちらはカード
+        表示で breakout の transform を持ち、transform のある要素は
+        position:fixed の包含ブロックになる (下部バーを nav の外へ出して
+        いるのと同じ罠)。中に入れるとペインが一覧の幅の中へ縮んで浮いた。
+        breakout は外した (docs/86 §4-8・docs/101) が、transform を持つ器が
+        また入り込んでも壊れないよう外に置いたままにする。
         出すかどうかの最終判断はクライアント側 (AutoNotePane) —
         横取りスロットが既にノートを持っていたら引っ込む */}
     {autoNote}
-    {/* 幅の指定は持たない。ペイン 2 の器いっぱいに広げる (docs/86 §4-8) —
-        広幅 breakout (WIDE_RESULTS_CLASS) は「中央 max-w-2xl の器から
-        はみ出す」ための道具で、器がもうペイン幅いっぱいなら要らない */}
+    {/* 幅の指定は持たない。器 (main / ペイン 2) いっぱいに広げる
+        (docs/86 §4-8・docs/101) */}
     <SearchResults query={query}>
       {/* 並び順は下部バーへ移したので、この行は件数と補助リンクだけになった
           (docs/31-下部操作バー計画.md §2)。

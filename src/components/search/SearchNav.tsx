@@ -64,20 +64,15 @@ export function SearchNavProvider({
 // 反映待ちの間、結果を薄くして「今出ているのは古い結果」と伝える。
 // 中身 (件数・特性表・一覧・ページ送り) は Server Component のまま children で受ける。
 //
-// className … カード表示のとき結果エリアだけを広げるため (WIDE_RESULTS_CLASS)。
-// 件数・特性表・一覧・ページ送りが揃って広がらないと、幅が食い違って見える
-//
 // query … 最近の検索の記録に使う (docs/59-検索候補計画.md §2)。
 // **結果のノートを開いたときが、いちばん質の高い記録の契機**。この窓は打つ
 // そばから結果が出るので Enter を押さずに結果を叩く使い方が主で、これが無いと
 // ほとんど記録されない。逆に、開いたということは「その検索が良かった」合図。
 export function SearchResults({
   children,
-  className = "",
   query = "",
 }: {
   children: ReactNode;
-  className?: string;
   query?: string;
 }) {
   const { isPending } = useSearchNav();
@@ -102,7 +97,7 @@ export function SearchResults({
       data-search-results
       aria-busy={isPending}
       onClickCapture={recordOnOpen}
-      className={`space-y-2 transition-opacity ${isPending ? "opacity-50" : ""} ${className}`}
+      className={`space-y-2 transition-opacity ${isPending ? "opacity-50" : ""}`}
     >
       {children}
     </div>

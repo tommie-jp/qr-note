@@ -204,8 +204,14 @@ export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
           使うもので、スクロールの奥にあると届きにくい */}
       <FormatMenuButton onFormat={editor.format} className={TOOL_SLOT} />
 
-      {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる */}
-      <div className="flex min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto">
+      {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる。
+          justify-between … バーは画面幅いっぱい (docs/101) なので、収まる
+          ときはボタンを帯いっぱいに均等に並べる (左に寄って右が空かない)。
+          溢れるときは space-between が flex-start に落ちるので、従来どおり
+          左端から横スクロールになる。**space-around / space-evenly に
+          しないこと** — 溢れたときの落ち先が中央寄せで、左端のボタンが
+          スクロールしても届かなくなる */}
+      <div className="flex min-w-0 flex-1 items-stretch justify-between gap-0.5 overflow-x-auto">
         <ToolButton
           icon={<UndoIcon />}
           color="text-gray-500"

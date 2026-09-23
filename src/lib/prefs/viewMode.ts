@@ -45,14 +45,6 @@ export const VIEW_MODES: readonly ViewMode[] = [
   'image',
 ]
 
-// 器を画面いっぱいに広げる表示か (docs/23 §1, docs/32 §1)。
-// カードと画像は列を増やしたいので広げ、1 カラムの小・中は読み幅を保つ。
-// **判定をここに置く**のが要点 — 検索とゴミ箱の 2 か所で同じ式を書くと、
-// 表示を足した日に片方だけ広いままになる
-export function usesWideResults(view: ViewMode): boolean {
-  return view === 'card' || view === 'image'
-}
-
 // cookie は利用者が自由に書き換えられる外部入力なので、素通しせず畳む
 // (parseSort と同じ流儀)。
 export function parseViewMode(value: unknown): ViewMode {

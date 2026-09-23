@@ -2,7 +2,6 @@ import { expect, test } from 'vitest'
 import {
   DEFAULT_VIEW_MODE,
   parseViewMode,
-  usesWideResults,
   VIEW_MODES,
 } from './viewMode'
 
@@ -25,14 +24,6 @@ test('medium (中) を受け付ける', () => {
 // 並びがそのまま下部バーの循環になる (小 → 中 → 大 → 画像)
 test('循環の順は 小 → 中 → 大 → 画像', () => {
   expect(VIEW_MODES).toEqual(['compact', 'medium', 'card', 'image'])
-})
-
-// 1 カラムの一覧 (小・中) は読み幅を保ち、カード・画像だけ器を広げる
-test('広幅にするのはカードと画像だけ', () => {
-  expect(usesWideResults('compact')).toBe(false)
-  expect(usesWideResults('medium')).toBe(false)
-  expect(usesWideResults('card')).toBe(true)
-  expect(usesWideResults('image')).toBe(true)
 })
 
 test('既定は今までの見た目 (compact)', () => {

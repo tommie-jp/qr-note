@@ -149,9 +149,10 @@ export function HeaderMenu({
                 出したはずのエラーが道連れに消える。該当する部品は自分の
                 onClick で stopPropagation してメニューを開いたままにする。
 
-                mx-auto max-w-2xl … 本文の器 (main) と同じ幅に収める。
-                全幅に伸ばすと PC で画面を横切る帯になり、間延びして見える。
-                main が広がる landscape-phone では、ここも 4xl へ揃える
+                mx-auto max-w-2xl … シートは 672px に収める。本文の器 (main)
+                は画面幅いっぱいになった (docs/101) が、これはページではなく
+                一時的なメニューで、全幅に伸ばすと PC で画面を横切る帯になり
+                間延びして見える。landscape-phone では 4xl へ緩める
                 (docs/31 §12-4)。
                 pb-… は自前で持つ。画面の下端に貼り付くので、ホームバーに
                 潜らないよう safe-area の分を空ける (main の pb-safe は

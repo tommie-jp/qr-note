@@ -5,7 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { ClearIcon } from "@/components/icons";
 import { PaneResizer } from "@/components/panes/PaneResizer";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import { ACTION_LINK_CLASS } from "@/components/ui";
+import { ACTION_LINK_CLASS, CONTENT_WIDTH_CLASS } from "@/components/ui";
 import {
   keepsNoteOpen,
   notePaneLayout,
@@ -21,13 +21,6 @@ import { itemNoFromPathname } from "@/lib/search/url";
 const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
   pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)]",
   fullscreen: "top-[var(--header-h)] bottom-0 z-10",
-};
-
-// ペインとして出ているときは幅いっぱいに使う (docs/86 §4-8)。全画面では
-// 読み幅に収めたまま — 画面の端から端まで続く行は目で追えない
-const PANE_WIDTH_CLASS: Record<NotePaneLayout, string> = {
-  pane: "max-w-none",
-  fullscreen: "",
 };
 
 interface PreviewPaneProps {
@@ -154,7 +147,7 @@ export function PreviewPane({
             iPhone で inset (47〜59px) を足すと、その分だけ空白が挟まる */}
         <div className={`sticky top-0 z-10 ${bgClass}`}>
           <div
-            className={`mx-auto flex max-w-2xl items-center justify-between px-safe pt-1 landscape-phone:max-w-4xl ${PANE_WIDTH_CLASS[layout]}`}
+            className={`mx-auto flex items-center justify-between px-safe pt-1 ${CONTENT_WIDTH_CLASS}`}
           >
             {/* 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
                 ペインとして常設されている間は押しても閉じられないので、
@@ -185,11 +178,11 @@ export function PreviewPane({
             下部ペイン) ではホームバーに潜らせない。
             lg:pb-20 … ペインの下端は下部バーの上で終わるが、テキストサイズ
             設定でバーが伸びた分やスクロールの余韻も考えて広めに取る */}
-        {/* ペインのときは幅いっぱいに使う (docs/86 §4-8)。全画面 (1 ペイン)
-            では今までどおり読み幅に収める — 画面の端から端まで続く行は
-            目で追えない */}
+        {/* 幅は本文の器 (main) と同じ CONTENT_WIDTH_CLASS。ペインでも全画面
+            (1 ペイン) でも幅いっぱいに使う (docs/101。以前は全画面だけ読み幅に
+            収めていた — docs/86 §4-8) */}
         <div
-          className={`mx-auto max-w-2xl px-safe pb-safe landscape-phone:max-w-4xl lg:pb-20 ${PANE_WIDTH_CLASS[layout]}`}
+          className={`mx-auto px-safe pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
         >
           {children}
         </div>

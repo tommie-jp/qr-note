@@ -140,29 +140,21 @@ export const HEADER_MENU_ITEM_CLASS = `${HEADER_MENU_ROW_CLASS} transition-color
 export const DANGER_BUTTON_CLASS =
   "inline-flex min-h-11 items-center justify-center gap-1 rounded px-3 font-medium text-red-700 transition-colors hover:bg-red-50 active:bg-red-100 disabled:opacity-50 disabled:hover:bg-transparent";
 
-// カード表示のとき、検索結果エリアだけを画面の広い側へはみ出させる
-// (docs/23-検索結果表示モード計画.md §1)。
+// 本文の器の幅 (docs/101-全幅レイアウト計画.md)。
 //
-// アプリの器は main の max-w-2xl (672px) で、これはメモの本文が読める行長に
-// 収めるための意図的な設計。だがカードのグリッドはその制約の対象ではなく、
-// 672px のままだと 320px 幅のカードが 2 つ入らず、PC でも永久に 1 カラムになる
-// (実測: ul は 640px で、2 カラムに 8px 足りない)。
+// **いまは上限なし** — 本文・タブ・下部バーをブラウザの幅いっぱいに使う。
+// 以前は max-w-2xl (672px) で、メモの本文が読める行長に収める意図的な上限
+// だった (docs/31 §12-4、docs/86 §4-8)。ユーザーの指定で改めた。
 //
-// 仕組み: left-1/2 で親の中心まで送り、-translate-x-1/2 で自分の幅の半分だけ
-// 戻す。親と自分の幅を知らなくても中心が揃うので、main の幅を変えても壊れない。
-//
-// 100vw ではなく calc(100vw-4rem) なのは、100vw が縦スクロールバーの幅を含み、
-// そのままだと横スクロールバーが出るため。4rem の余白がそれを吸収する。
-//
-// lg: 以上に限るのは、狭い画面でこれをやる意味がないから。スマホは元から
-// 1 カラムで、はみ出させる余白も無い
-export const WIDE_RESULTS_CLASS =
-  "lg:relative lg:left-1/2 lg:w-[calc(100vw-4rem)] lg:max-w-6xl lg:-translate-x-1/2";
+// 使う側 (main・下部バーの中身・ノートのペイン・デモバナー) はどれも
+// mx-auto を残してある。上限を戻したくなったらここを書き換えるだけで、
+// 4 か所が揃って中央寄せに戻る。ただし 3 / 2 ペインの一覧 (main) だけは
+// globals.css が max-width:none で上書きするので、ペイン幅いっぱいのまま残る
+export const CONTENT_WIDTH_CLASS = "max-w-none";
 
 // 検索画面の下部操作バー (docs/31-下部操作バー計画.md §4)。
 //
-// fixed で画面下端に貼り付ける。中身はヘッダーと同じ max-w-2xl に収め、
-// 広い画面でボタンが左右に散らばらないようにする。
+// fixed で画面下端に貼り付ける。中身は本文の器と同じ幅 (CONTENT_WIDTH_CLASS)。
 // 下端の余白は自前で持つ (HeaderMenu のボトムシートと同じ。standalone の
 // ホームバーに潜らせない)。
 //
@@ -177,20 +169,18 @@ export const WIDE_RESULTS_CLASS =
 export const BOTTOM_BAR_CLASS =
   "fixed inset-x-0 bottom-0 z-10 select-none border-t backdrop-blur [-webkit-touch-callout:none] print:hidden";
 
-// landscape-phone:max-w-4xl … スマホ横持ちでは main と同じく 672px の上限を
-// 緩め、スロットを全幅に広げる (docs/31 §12-4)
 // bottom-bar-scale-cap … テキストサイズ (docs/61) の倍率をここだけ 130% で
 // 頭打ちにする。5 スロットを必ず横に並べる帯なので、他と同じだけ大きくすると
 // 175% で画面幅に入らず、右端のスロットが画面の外へ出る (globals.css に詳細)
 const BOTTOM_BAR_INNER_BASE =
   "bottom-bar-scale-cap mx-auto flex items-stretch px-safe pb-[max(0.25rem,env(safe-area-inset-bottom))]";
 
-export const BOTTOM_BAR_INNER_CLASS = `${BOTTOM_BAR_INNER_BASE} max-w-2xl landscape-phone:max-w-4xl`;
+export const BOTTOM_BAR_INNER_CLASS = `${BOTTOM_BAR_INNER_BASE} ${CONTENT_WIDTH_CLASS}`;
 
 // スロットが少ない画面 (ゴミ箱は表示・並び順の 2 つだけ。
 // docs/67-ゴミ箱表示形式計画.md §4) の内側。
 //
-// スロットは flex-1 で器を等分するので、max-w-2xl のままだと 2 つが画面幅の
+// スロットは flex-1 で器を等分するので、全幅の器のままだと 2 つが画面幅の
 // 半分ずつを占める。押す的が大きすぎて「バーいっぱいの 2 択」に見え、
 // 検索画面の同じスロットとも別物に見えてしまう。器のほうを絞って、
 // スロットの幅を 5 つ並べたときと揃える。

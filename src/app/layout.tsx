@@ -13,6 +13,7 @@ import { loadRowTintId } from "@/lib/prefs/rowTintStore";
 import { demoLoginHintEnv, isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import { currentUser } from "@/lib/auth/session";
 import { qrBaseUrl } from "@/lib/site";
+import { CONTENT_WIDTH_CLASS } from "@/components/ui";
 import "./globals.css";
 
 // metadata / viewport の組み立てと、関数で出す理由は metadata.ts
@@ -105,16 +106,13 @@ export default async function RootLayout({
           {isDemo && <DemoBanner loginHint={demoLoginHintEnv() || null} />}
           {/* 遷移アニメーションは各ページの <PageTransition> が持つ
               (layout の要素は unmount されず enter/exit が起きないため) */}
-          {/* max-w-2xl はメモの本文が読める行長に収めるための上限。
-              landscape-phone では 4xl (896px) へ緩める — スマホ横持ちは縦が
-              窮屈な代わりに横が余っており、行長より「スクロール量が減る」ほうが
-              効く。カードの一覧も 2 カラム入る。none にしないのは、PC の縦に
-              低いウィンドウ (横 1200px 級) も landscape-phone に該当し、
-              そこで行が伸びすぎるのを止めるため (docs/31 §12-4) */}
+          {/* 幅は CONTENT_WIDTH_CLASS (いまは上限なし = ブラウザの幅いっぱい)。
+              以前は max-w-2xl で読める行長に収めていた (docs/101 で改めた)。
+              mx-auto は上限を戻した日の中央寄せのために残してある */}
           {/* pt-2 … ヘッダーと本文の間はこれだけ。24px 空けていたのをやめた
               (docs/75-ノート上部圧縮計画.md §5)。スマホの 1 画面に入る本文を
               増やすのが目的で、ここは全ページに効く */}
-          <main className="mx-auto max-w-2xl px-safe pt-2 pb-safe landscape-phone:max-w-4xl">
+          <main className={`mx-auto px-safe pt-2 pb-safe ${CONTENT_WIDTH_CLASS}`}>
             {children}
           </main>
           {/* 下部バー。中身はノート編集中の編集ボタン (portal) だけで、差し込む
