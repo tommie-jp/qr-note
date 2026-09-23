@@ -140,6 +140,19 @@ const ASSETS = [
     summary: (files) => `${files.length} files -> public/embedding-onnx/`,
   },
   {
+    // 図を掴んで動かす殻の本体 (docs/99-フェンスGUI編集計画.md)。
+    // 殻の頁は iframe の srcdoc で、中から <script src="/fence/map.web.js"> で読む
+    // (components/fenceGui/openFenceGui.ts の FENCE_MAP_SCRIPT)。
+    // バンドラに通さないのは、iframe の中は親と別の世界で、殻は自分の CSP と
+    // nonce で 1 本だけを読む作りだから。fence-kit の版と必ず揃うよう
+    // node_modules から運ぶ (上の wasm と同じ理由)
+    name: 'fence-kit map',
+    dest: 'public/fence',
+    root: () => packageDir('fence-kit'),
+    copies: [{ mode: 'file', from: 'dist/map.web.js', to: 'map.web.js' }],
+    summary: (files) => `${(sumSizes(files) / 1024).toFixed(1)} KB -> public/fence/map.web.js`,
+  },
+  {
     // PDF ビューア (pdfjs-dist) が実行時に取りに行くアセット。
     //
     // Turbopack が worker の import.meta.url 相対解決を追えずビルドを落とすため、

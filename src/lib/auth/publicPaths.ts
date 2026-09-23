@@ -11,6 +11,7 @@ import manifest from '@/app/manifest'
 import { PUBLIC_AUTH_PATHS } from './paths'
 import { LOGIN_PATH, LOGIN_REQUIRED_PATH } from './loginRedirect'
 import { OFFLINE_PATH } from '../offline/params'
+import { FENCE_MAP_SCRIPT } from '../fenceGui/mapScript'
 import { isValidAttachmentName } from '../uploads/names'
 import { isValidItemNo } from '../validation'
 
@@ -65,6 +66,15 @@ const DOCS_PATHS = new Set(['/docs/search', '/docs/memo'])
 // 見る (auth/proxyDecision.ts が request.nextUrl.pathname を渡す) ので完全一致でよい。
 const CRAWLER_PATHS = new Set(['/robots.txt', '/opengraph-image.png'])
 
+// 図を掴んで動かす殻の本体 (docs/99-フェンスGUI編集計画.md §2 の決め 14)。
+// 殻の iframe は **sandbox (同じ出所を与えない)** で動かす。ノート本文から
+// 組んだ頁なので、上流のエスケープに漏れがあってもアプリの cookie・localStorage・
+// 鍵束に手が届かないようにするため。その代わり、中から取りに行く
+// このファイルには session cookie が付かない (出所が不透明で cross-site 扱い)。
+// 閉じるとログイン案内が返って殻が動かない。中身は上流 (tommie-fence) が
+// GitHub Pages でも配っている静的な JS で、秘密もノートも含まない
+const FENCE_PATHS = new Set([FENCE_MAP_SCRIPT])
+
 // ログインの入口そのもの。閉じるとログインできない。
 //
 // パスキーのログイン 2 口もここに入る (docs/29-パスキー計画.md §6)。
@@ -82,7 +92,8 @@ export function isPublicPath(pathname: string): boolean {
     LOGIN_PATHS.has(pathname) ||
     pwaPathsCache.has(pathname) ||
     DOCS_PATHS.has(pathname) ||
-    CRAWLER_PATHS.has(pathname)
+    CRAWLER_PATHS.has(pathname) ||
+    FENCE_PATHS.has(pathname)
   )
 }
 

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import { EditToolbar, type EditToolbarEditor } from "./EditToolbar";
 
-// 静的描画で 15 ボタン (更新 + 14 ツール) が出ることを確かめる。ラベルは呼び出し側
+// 静的描画で 16 ボタン (更新 + 15 ツール) が出ることを確かめる。ラベルは呼び出し側
 // (MemoEditorInner) が progressLabels で作った文字列をそのまま受けるので、
 // ここでは代表値を渡す。押下時の挙動 (portal・requestSubmit・録音等) はブラウザで確認。
 const noop = () => {};
@@ -23,18 +23,21 @@ const IDLE: EditToolbarEditor = {
   format: noop,
   addPage: noop,
   find: noop,
+  // 既定はカーソルが実体配線図のフェンスの中 (押せる)。止まる条件は下の試験で見る
+  fenceGui: { enabled: true, open: noop },
 };
 
 const render = (editor: EditToolbarEditor = IDLE) =>
   renderToStaticMarkup(<EditToolbar editor={editor} />);
 
-test("更新 と 14 のツールをすべて描く", () => {
+test("更新 と 15 のツールをすべて描く", () => {
   const html = render();
   for (const label of [
     "更新",
     "元に戻す",
     "やり直す",
     "検索",
+    "図を編集",
     "ページ",
     "画像を挿入",
     "貼り付け",
@@ -163,4 +166,34 @@ test("帯のボタンと更新の描画は寄せる前と同じ", async () => {
   await expect(`${JSON.stringify(snapshot, null, 2)}\n`).toMatchFileSnapshot(
     "./EditToolbar.snapshot.json",
   );
+});
+
+// 図を編集 (docs/99-フェンスGUI編集計画.md §2 の決め 1)。**カーソルが
+// 実体配線図のフェンスの中にあるときだけ**押せる。ラベルは変えない —
+// 対象が無いときに押す意味が無いので、止めて見せる
+test("図を編集はフェンスの外では押せない", () => {
+  const inside = render();
+  const outside = render({ ...IDLE, fenceGui: { ...IDLE.fenceGui, enabled: false } });
+
+  expect(outside).toContain("図を編集");
+  expect(outside.match(/disabled=""/g)?.length).toBe(
+    (inside.match(/disabled=""/g)?.length ?? 0) + 1,
+  );
+});
+
+// 閉じるときに本文へ当てる (commitSpec)。アップロードや OCR が本文の印を
+// 書き換えている最中だと、開いたときの本文と食い違って当てられない
+test("処理中は図を編集も止める", () => {
+  const html = render({ ...IDLE, busy: true });
+  const button = html.slice(html.lastIndexOf("<button", html.indexOf("図を編集")));
+  expect(button.slice(0, button.indexOf(">"))).toContain('disabled=""');
+});
+
+// 打鍵の合間に使う物なので帯の前寄り (検索の直後、ページの前)
+test("図を編集は検索の直後に並べる", () => {
+  const html = render();
+  const find = html.indexOf("長押しで置換");
+  const board = html.indexOf("図を編集");
+  expect(find).toBeLessThan(board);
+  expect(board).toBeLessThan(html.indexOf("ページ"));
 });

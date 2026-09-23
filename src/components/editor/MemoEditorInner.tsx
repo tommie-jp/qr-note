@@ -37,6 +37,7 @@ import { useEditorOcr } from "./hooks/useEditorOcr";
 import { useEditorRecordings } from "./hooks/useEditorRecordings";
 import { useEditorScanInsert } from "./hooks/useEditorScanInsert";
 import { useEditorSecret } from "./hooks/useEditorSecret";
+import { useFenceGui } from "./hooks/useFenceGui";
 import { useLivePreview } from "./hooks/useLivePreview";
 import { useNoteFind } from "./hooks/useNoteFind";
 import { useSubmitBlocker } from "./hooks/useSubmitBlocker";
@@ -105,6 +106,7 @@ export default function MemoEditorInner({
   const clipboard = useEditorClipboard({ editorRef, setError, insertFiles });
   const scan = useEditorScanInsert({ editorRef, setError });
   const secrets = useEditorSecret({ editorRef });
+  const fenceGui = useFenceGui({ editorRef, setError });
   const { extensions, livePreviewCompartment, noteSearch } =
     useEditorExtensions({ fileEvents });
   const preview = useLivePreview({
@@ -143,13 +145,15 @@ export default function MemoEditorInner({
   const { trackHistory } = history;
   const { trackFindUpdate } = find;
   const { trackSecretLabel } = secrets;
+  const { trackFenceGui } = fenceGui;
   const handleUpdate = useCallback(
     (update: ViewUpdate) => {
       trackHistory(update);
       trackFindUpdate(update);
       trackSecretLabel(update);
+      trackFenceGui(update);
     },
-    [trackHistory, trackFindUpdate, trackSecretLabel],
+    [trackHistory, trackFindUpdate, trackSecretLabel, trackFenceGui],
   );
 
   // 下部バーのツールバーが描く・呼ぶもの (EditToolbarEditor)。
@@ -189,6 +193,7 @@ export default function MemoEditorInner({
     format: commands.applyFormat,
     addPage: () => void commands.addPage(),
     find: find.openFind,
+    fenceGui: { enabled: fenceGui.canOpen, open: fenceGui.openFenceGui },
   };
 
   return (
@@ -245,6 +250,7 @@ export default function MemoEditorInner({
         drawings={drawings}
         secrets={secrets}
         scan={scan}
+        fenceGui={fenceGui}
       />
       <EditorBottomBarPortal hostEl={hostEl} find={find} toolbar={toolbar} />
     </div>

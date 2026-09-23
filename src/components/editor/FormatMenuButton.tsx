@@ -55,6 +55,8 @@ const INSERT_ITEMS: readonly FormatMenuItem[] = [
   { action: "mermaid", label: "図", sample: "mermaid" },
   { action: "circuit", label: "回路図", sample: "circuitikz" },
   { action: "circuitYaml", label: "回路図 (YAML)", sample: "circuit" },
+  { action: "breadboard", label: "ブレッドボード図", sample: "breadboard" },
+  { action: "perfboard", label: "基板図", sample: "perfboard" },
   { action: "quiz", label: "問題", sample: "quiz" },
 ];
 

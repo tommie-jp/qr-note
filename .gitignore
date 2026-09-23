@@ -78,6 +78,9 @@ next-env.d.ts
 # PDF ビューア (scripts/assets.mjs が node_modules から複製する)
 /public/pdfjs
 
+# 図を掴んで動かす殻の本体 (scripts/assets.mjs が node_modules から複製する)
+/public/fence
+
 # Playwright (E2E) の生成物とログインの cookie
 /test-results/
 /playwright-report/

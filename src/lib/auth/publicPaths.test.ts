@@ -64,6 +64,20 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/opengraph-image.png')).toBe(true)
   })
 
+  // 図を掴んで動かす殻の本体 (docs/99 §2 の決め 14)。殻は sandbox の iframe で
+  // 動き、中から取りに行くときに cookie が付かない。閉じると殻が動かない
+  test('/fence/map.web.js is public (sandboxed map shell fetches it without cookies)', () => {
+    expect(isPublicPath('/fence/map.web.js')).toBe(true)
+  })
+
+  // 開けるのはその 1 本だけ。置き場の他のファイルや名前違いは閉じたまま
+  test.each(['/fence/', '/fence/map.web.js.map', '/fence/other.js', '/fence'])(
+    '%s is not public (only the map script itself)',
+    (path) => {
+      expect(isPublicPath(path)).toBe(false)
+    },
+  )
+
   // ここから下が本題。ノートの中身が出る画面は閉じる
   test.each([
     '/',

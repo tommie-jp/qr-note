@@ -11,6 +11,8 @@ import {
   PERFBOARD_LANG,
   RENDERED_LANGS,
   isBoardLang,
+  isGuiFenceLang,
+  GUI_FENCE_LANGS,
   editDistance,
   suggestFenceLang,
 } from './fenceLanguages'
@@ -136,5 +138,21 @@ describe('suggestFenceLang', () => {
 
   test('遠い綴りは提案しない', () => {
     expect(suggestFenceLang('markdown')).toBeNull()
+  })
+})
+
+// 図を掴んで動かす殻 (docs/99) で開ける言語。上流の editor を持っていて、
+// しかもブラウザで描けるものだけ
+describe('isGuiFenceLang', () => {
+  test('実体配線図の 2 つだけが対象', () => {
+    expect([...GUI_FENCE_LANGS]).toEqual([BREADBOARD_LANG, PERFBOARD_LANG])
+    expect(isGuiFenceLang(BREADBOARD_LANG)).toBe(true)
+    expect(isGuiFenceLang(PERFBOARD_LANG)).toBe(true)
+  })
+
+  test('回路図・mermaid・空・綴り違いは対象外', () => {
+    for (const lang of [CIRCUIT_LANG, CIRCUITIKZ_LANG, MERMAID_LANG, '', 'Breadboard', undefined]) {
+      expect(isGuiFenceLang(lang), String(lang)).toBe(false)
+    }
   })
 })

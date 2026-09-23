@@ -69,6 +69,19 @@ export function isBoardLang(lang: unknown): lang is BoardLang {
   return BOARD_LANGS.some((candidate) => candidate === lang)
 }
 
+// 図を掴んで動かす殻 (上流のマップ) で開けるフェンス (docs/99)。
+// 上流は circuit にも editor を持っているが、circuit-fence/core をブラウザへ
+// 載せるのは測ってからにする (docs/99 の決め 5)。**描き方の一族 (BOARD_LANGS) とは
+// 別に持つ** — circuit を足すとき、板の描き方まで巻き込まないため
+export const GUI_FENCE_LANGS = [BREADBOARD_LANG, PERFBOARD_LANG] as const
+export type GuiFenceLang = (typeof GUI_FENCE_LANGS)[number]
+
+// 殻は言語を**綴りの完全一致**で見る (上流 fence-kit の extractFences)。
+// 大文字小文字を丸めるとボタンは押せるのに殻がフェンスを見つけられない
+export function isGuiFenceLang(lang: unknown): lang is GuiFenceLang {
+  return GUI_FENCE_LANGS.some((candidate) => candidate === lang)
+}
+
 // 打ち間違えると「図やカードになるはずが黙ってコードブロック」になる言語。
 // linter はこの綴りの近傍だけを警告する (下記 suggestFenceLang)
 export const RENDERED_LANGS = [

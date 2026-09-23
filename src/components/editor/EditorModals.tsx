@@ -6,6 +6,7 @@ import { VideoRecordModal } from "@/components/video/VideoRecordModal";
 import type { EditorDrawing } from "./hooks/useEditorDrawing";
 import type { EditorScanInsert } from "./hooks/useEditorScanInsert";
 import type { EditorSecret } from "./hooks/useEditorSecret";
+import type { EditorFenceGui } from "./hooks/useFenceGui";
 
 // fabric 一式は重いので、お絵かきを開くまで読み込まない
 // (CodeMirror を遅延させているのと同じ流儀。components/editor/MemoEditor.tsx 参照)
@@ -28,11 +29,19 @@ const SecretDialog = dynamic(
   { ssr: false, loading: () => null },
 );
 
+// 図を掴んで動かす殻 (docs/99)。殻の本体 (fence-kit/shell) と板の処理系は
+// 開くまで読み込まない
+const FenceGuiModal = dynamic(
+  () => import("@/components/fenceGui/FenceGuiModal").then((m) => m.FenceGuiModal),
+  { ssr: false, loading: () => null },
+);
+
 interface EditorModalsProps {
   videoRecording: VideoRecordingState;
   drawings: Pick<EditorDrawing, "drawing" | "closeDrawing" | "insertDrawing">;
   secrets: Pick<EditorSecret, "secret" | "applySecret" | "closeSecret">;
   scan: Pick<EditorScanInsert, "scanning" | "closeScanner" | "runScanInsert">;
+  fenceGui: Pick<EditorFenceGui, "fenceGui" | "closeFenceGui">;
 }
 
 // 編集画面から開く全画面の部品 (docs/93-リファクタリング計画.md §5-1)。
@@ -42,6 +51,7 @@ export function EditorModals({
   drawings,
   secrets,
   scan,
+  fenceGui,
 }: EditorModalsProps) {
   return (
     <>
@@ -64,6 +74,15 @@ export function EditorModals({
           initialLabel={secrets.secret.label}
           onSaved={secrets.applySecret}
           onClose={secrets.closeSecret}
+        />
+      )}
+      {/* 図を編集 (docs/99)。閉じたときに殻が書き換えた全文を受け取り、
+          差分 1 か所として本文へ当てる (useFenceGui) */}
+      {fenceGui.fenceGui && (
+        <FenceGuiModal
+          text={fenceGui.fenceGui.text}
+          fenceLine={fenceGui.fenceGui.fenceLine}
+          onClose={fenceGui.closeFenceGui}
         />
       )}
       {/* 編集中スキャン: 読み取った生値を runScanInsert へ渡すだけ (検索しない) */}

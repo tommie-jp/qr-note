@@ -147,6 +147,19 @@ export function FindIcon() {
   );
 }
 
+// 図を編集 (docs/99-フェンスGUI編集計画.md)。穴の並んだ板の上に、掴んで動かす
+// 矢印を重ねる。お絵かき (ペン) と見分けるため、描くのではなく「置いてある物を
+// 動かす」絵にする
+export function BoardEditIcon() {
+  return (
+    <StrokeIcon size="large">
+      <rect {...TINT} x="3" y="4" width="15" height="12" rx="2" />
+      <path d="M7 8h.01M10.5 8h.01M14 8h.01M7 12h.01" />
+      <path d="M12 12l8.5 3.5-3.5 1.5-1.5 3.5z" />
+    </StrokeIcon>
+  );
+}
+
 // 以下、お絵かき画面のレイヤパネル (draw/DrawLayerPanel、docs/50-お絵かきレイヤ計画.md §4)
 // のアイコン。暗い覆いの上に出すので、色は使う側 (ボタンの text-white) に従う。
 

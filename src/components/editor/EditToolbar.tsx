@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import {
+  BoardEditIcon,
   DrawIcon,
   FindIcon,
   ImageInsertIcon,
@@ -169,6 +170,11 @@ export interface EditToolbarEditor {
   // ノート内検索を開く (docs/76 §2)。引数は置換行も開くか (長押し)。
   // 本文を読むだけなので busy でも押せる
   find: (withReplace: boolean) => void;
+  // 図を掴んで動かす殻を開く (docs/99-フェンスGUI編集計画.md)。
+  // enabled はカーソルが実体配線図のフェンスの中にあるか — 秘密のラベルと
+  // 同じく onUpdate で数え直す。閉じるときに本文へ当てるので busy では止める
+  // (アップロード中の印の書き換えと食い違うと当てられない)
+  fenceGui: { enabled: boolean; open: () => void };
 }
 
 export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
@@ -217,6 +223,15 @@ export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
         {/* ノート内検索 (docs/76 §2)。打鍵の合間に使うものなので、
             undo/redo の隣 (帯の前寄り) に置く */}
         <FindButton onFind={editor.find} />
+        {/* 図を編集 (docs/99)。打鍵の合間に「いま書いている図」を開くものなので、
+            検索と同じく帯の前寄りに置く */}
+        <ToolButton
+          icon={<BoardEditIcon />}
+          color="text-lime-700"
+          label="図を編集"
+          onClick={editor.fenceGui.open}
+          disabled={busy || !editor.fenceGui.enabled}
+        />
         {/* 新しいページ (docs/74-ページ計画.md §5)。書式と違いメニューを
             開かないので、帯の中に置いても切り取られる物が無い。挿入系の
             前寄りに置くのは、打鍵の合間に使うため */}
