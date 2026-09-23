@@ -1,7 +1,7 @@
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { EditorState } from '@codemirror/state'
 import { describe, expect, test } from 'vitest'
-import { fenceAtCursor } from './fenceAtCursor'
+import { fenceAtCursor, guiFenceLangsIn } from './fenceAtCursor'
 
 // 「図を編集」(docs/99) が押せるかと、押したときにどのフェンスを殻へ渡すか。
 // 範囲は構文木が決め、言語は上流 (fence-kit の extractFences) と同じ規則で読む
@@ -94,5 +94,54 @@ describe('fenceAtCursor', () => {
   test('大文字の言語はそのまま返す (殻は綴りを完全一致で見る)', () => {
     const doc = '```Breadboard\nboard: half\n```'
     expect(fenceAtCursor(stateAt(doc, pos(doc, 1)))?.lang).toBe('Breadboard')
+  })
+})
+
+// 殻を開くときに読む処理系を決める (docs/100 の決め 3)。ノートに書いてある
+// 言語の分だけ読めば、板 1 種類のノートで回路図の処理系まで取りに行かない
+describe('guiFenceLangsIn', () => {
+  test('書いてある言語を、初めて出てきた順に 1 つずつ返す', () => {
+    const doc = [
+      '```perfboard',
+      'board: 16x8',
+      '```',
+      '',
+      '```circuit',
+      'parts:',
+      '```',
+      '',
+      '```perfboard',
+      'board: 28x18',
+      '```',
+    ].join('\n')
+
+    expect(guiFenceLangsIn(doc)).toEqual(['perfboard', 'circuit'])
+  })
+
+  test('殻で開けない言語は数えない', () => {
+    const doc = ['```mermaid', 'graph TD;', '```', '```circuitikz', '\\draw;', '```'].join('\n')
+
+    expect(guiFenceLangsIn(doc)).toEqual([])
+  })
+
+  // 殻が拾わない開き (字下げ 4 つ以上・引用の中・綴り違い) は数えない。
+  // fenceAtCursor と同じ規則で見る — 片方だけ緩いと、押せるのに処理系が無い
+  test('殻が拾えない開きは数えない', () => {
+    const doc = [
+      '    ```breadboard',
+      '> ```perfboard',
+      '```Circuit',
+      '   ```circuit title=LED',
+    ].join('\n')
+
+    expect(guiFenceLangsIn(doc)).toEqual(['circuit'])
+  })
+
+  test('~~~ の開きも数える', () => {
+    expect(guiFenceLangsIn('~~~breadboard\nboard: half\n~~~')).toEqual(['breadboard'])
+  })
+
+  test('フェンスが無ければ空', () => {
+    expect(guiFenceLangsIn('ただの文。')).toEqual([])
   })
 })

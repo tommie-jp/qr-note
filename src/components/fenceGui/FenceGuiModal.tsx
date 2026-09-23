@@ -6,6 +6,7 @@ import { useBodyScrollLock } from "@/components/modal/useBodyScrollLock";
 import { useEscapeKey } from "@/components/modal/useEscapeKey";
 import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import { errorText } from "@/lib/errorMessage";
+import { guiFenceLangsIn } from "@/lib/editor/fenceAtCursor";
 import { loadFenceEditors } from "@/lib/fenceGui/editors";
 import {
   FENCE_MAP_SCRIPT,
@@ -37,9 +38,10 @@ export function FenceGuiModal({ text, fenceLine, onClose }: FenceGuiModalProps) 
   useBodyScrollLock();
 
   useEffect(() => {
-    // 処理系は開くときに読む。読み終わる前に閉じられたら組まない
+    // 処理系は開くときに、ノートに書いてある言語の分だけ読む (docs/100 の決め 3)。
+    // 読み終わる前に閉じられたら組まない
     let cancelled = false;
-    loadFenceEditors()
+    loadFenceEditors(guiFenceLangsIn(text))
       .then((editors) => {
         const frame = frameRef.current;
         if (cancelled || frame === null) {

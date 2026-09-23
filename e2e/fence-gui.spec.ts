@@ -35,7 +35,7 @@ const BODY = [
 
 // 編集画面を開いて本文を入れる。**貼り付けで入れる** — 1 字ずつ打つと
 // CodeMirror の自動閉じがバッククォートを足してフェンスが壊れる
-async function openWithBody(page: Page): Promise<void> {
+async function openWithBody(page: Page, body = BODY): Promise<void> {
   await page.goto(`/edit/${ITEM_NO}`)
   await expect(page.getByRole('button', { name: '更新', exact: true })).toBeVisible()
   await clearEditor(page)
@@ -43,9 +43,9 @@ async function openWithBody(page: Page): Promise<void> {
   await memoEditor(page).click()
   await page.evaluate(async (text) => {
     await navigator.clipboard.writeText(text)
-  }, BODY)
+  }, body)
   await page.keyboard.press('ControlOrMeta+v')
-  await expect(page.locator('input[name="memo"]')).toHaveValue(BODY)
+  await expect(page.locator('input[name="memo"]')).toHaveValue(body)
 }
 
 function editButton(page: Page) {
@@ -55,6 +55,11 @@ function editButton(page: Page) {
 // 図 (ライブプレビューのウィジェット) を押してカーソルをフェンスへ移し、殻を開く
 async function openMap(page: Page): Promise<FrameLocator> {
   await page.locator('.cm-qr-fence-box').click()
+  return openMapAtCursor(page)
+}
+
+// カーソルが既にフェンスの中にあるとき、「図を編集」を押して殻を開く
+async function openMapAtCursor(page: Page): Promise<FrameLocator> {
   await expect(editButton(page)).toBeEnabled()
   await editButton(page).click()
   // 同じ出所を与えない (docs/99 §2 の決め 14)。外れると殻がアプリの cookie や
@@ -193,5 +198,73 @@ test.describe('図を編集', () => {
     await expect(map.locator('.cf-chip[data-part="R1"]')).toBeInViewport()
     expect(await hasHorizontalScroll(page)).toBe(false)
     await closePage(page)
+  })
+})
+
+// 回路図 (YAML) の殻 (docs/100)。掴むのは清書ではなく、つながりだけの簡略図
+// (TeX は要らない)。
+//
+// **ライブプレビューは切って流す。** 回路図の清書はサーバが TeX で描き、手元の DB に
+// 控え (circuit_svgs) を書く。ここで見たいのは殻の往復だけなので、清書を描かせない —
+// カーソルは生の字をクリックして置く
+test.describe('図を編集 (回路図)', () => {
+  const CIRCUIT = ['回路図の試験', '', '```circuit', 'parts:', '  R1: resistor a1 a2 10k', '```', ''].join('\n')
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('qr-search:live-preview', '0')
+    })
+  })
+
+  // 回路図の部品には板のような当たり判定の箱が無く、線そのものが当たり判定。
+  // 升 (34 単位の正方形) の縦の真ん中を部品の足が横切り、升の真ん中には節点の丸
+  // (押すと部品ではなく節点を掴む) がある。**a1 の右寄り、丸の外の足**を押す
+  async function pressPointOnLead(map: FrameLocator, address: string) {
+    const cell = await map.locator(`.cf-cell[data-address="${address}"]`).boundingBox()
+    if (cell === null) {
+      throw new Error(`升 ${address} の位置が取れない`)
+    }
+    return { x: cell.x + cell.width * 0.68, y: cell.y + cell.height / 2, cell }
+  }
+
+  async function openCircuitMap(page: Page): Promise<FrameLocator> {
+    await openWithBody(page, CIRCUIT)
+    await memoEditor(page).getByText('R1: resistor a1 a2 10k').click()
+    return openMapAtCursor(page)
+  }
+
+  test('属性の欄で値を直して閉じると、その行だけが変わる', async ({ page }) => {
+    // Arrange
+    const map = await openCircuitMap(page)
+    const lead = await pressPointOnLead(map, 'a1')
+
+    // Act — 足を押して選ぶと属性の欄が出る
+    await page.mouse.click(lead.x, lead.y)
+    const value = map.locator('.cf-inspector input[name="value"]')
+    await expect(value).toHaveValue('10k')
+    await value.fill('4k7')
+    await value.press('Enter')
+    await expect(map.locator('.cf-undo')).toBeEnabled()
+    await closeMap(page)
+
+    // Assert
+    await expect(memo(page)).toHaveValue(CIRCUIT.replace('10k', '4k7'))
+  })
+
+  test('部品を掴んで 1 行下げると、両端の番地が書き換わる', async ({ page }) => {
+    // Arrange
+    const map = await openCircuitMap(page)
+    const lead = await pressPointOnLead(map, 'a1')
+
+    // Act — 升 1 つぶん下 (b1) の同じ所で離す
+    await page.mouse.move(lead.x, lead.y)
+    await page.mouse.down()
+    await page.mouse.move(lead.x, lead.y + lead.cell.height, { steps: 12 })
+    await page.mouse.up()
+    await expect(map.locator('.cf-undo')).toBeEnabled()
+    await closeMap(page)
+
+    // Assert
+    await expect(memo(page)).toHaveValue(CIRCUIT.replace('a1 a2', 'b1 b2'))
   })
 })

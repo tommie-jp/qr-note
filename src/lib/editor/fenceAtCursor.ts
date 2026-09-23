@@ -1,5 +1,6 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
 import type { EditorState } from '@codemirror/state'
+import { type GuiFenceLang, isGuiFenceLang } from '@/lib/markdown/fenceLanguages'
 
 // カーソルのあるフェンス (docs/99-フェンスGUI編集計画.md §5)。
 // 下部バーの「図を編集」が押せるかを決め、押したときに殻へ渡す行を返す。
@@ -57,4 +58,16 @@ export function fenceAtCursor(state: EditorState): FenceAtCursor | null {
     // 開きの行の番号 (1 始まり) = 本文 1 行目の番号 (0 始まり)
     bodyLine: opening.number,
   }
+}
+
+// 本文に書いてある、殻で開ける言語 (docs/100 の決め 3)。初めて出てきた順に 1 つずつ。
+// 殻を開くとき、読む処理系をこれで決める — 板 1 種類のノートで回路図の処理系
+// (gzip 60 KB) まで取りに行かない。
+//
+// 開きの行だけを fenceAtCursor と同じ規則で見る。別のフェンスの本文に書かれた
+// 例まで数えることがあるが、それは読む処理系が 1 つ増えるだけ。**殻が拾う開きは
+// 必ず数える** (足りないと、押せるのに殻がそのフェンスを扱えない)
+export function guiFenceLangsIn(text: string): readonly GuiFenceLang[] {
+  const langs = text.split('\n').map(openingLang).filter(isGuiFenceLang)
+  return [...new Set(langs)]
 }

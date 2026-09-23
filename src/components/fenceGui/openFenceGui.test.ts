@@ -37,7 +37,7 @@ class FakeFrame extends EventTarget implements FenceGuiFrame {
 
 let editors: readonly FenceEditor[] = [];
 beforeAll(async () => {
-  editors = await loadFenceEditors();
+  editors = await loadFenceEditors(["breadboard"]);
 });
 
 function openOne() {

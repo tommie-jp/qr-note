@@ -144,14 +144,17 @@ describe('suggestFenceLang', () => {
 // 図を掴んで動かす殻 (docs/99) で開ける言語。上流の editor を持っていて、
 // しかもブラウザで描けるものだけ
 describe('isGuiFenceLang', () => {
-  test('実体配線図の 2 つだけが対象', () => {
-    expect([...GUI_FENCE_LANGS]).toEqual([BREADBOARD_LANG, PERFBOARD_LANG])
-    expect(isGuiFenceLang(BREADBOARD_LANG)).toBe(true)
-    expect(isGuiFenceLang(PERFBOARD_LANG)).toBe(true)
+  // 回路図は YAML の circuit だけ (docs/100 の決め 1)。上流に editor があるのは
+  // YAML の側だけで、素の TeX (circuitikz) からは部品の位置が読めない
+  test('実体配線図の 2 つと回路図 (YAML) が対象', () => {
+    expect([...GUI_FENCE_LANGS]).toEqual([BREADBOARD_LANG, PERFBOARD_LANG, CIRCUIT_LANG])
+    for (const lang of GUI_FENCE_LANGS) {
+      expect(isGuiFenceLang(lang), lang).toBe(true)
+    }
   })
 
-  test('回路図・mermaid・空・綴り違いは対象外', () => {
-    for (const lang of [CIRCUIT_LANG, CIRCUITIKZ_LANG, MERMAID_LANG, '', 'Breadboard', undefined]) {
+  test('circuitikz・mermaid・空・綴り違いは対象外', () => {
+    for (const lang of [CIRCUITIKZ_LANG, MERMAID_LANG, '', 'Breadboard', 'Circuit', undefined]) {
       expect(isGuiFenceLang(lang), String(lang)).toBe(false)
     }
   })

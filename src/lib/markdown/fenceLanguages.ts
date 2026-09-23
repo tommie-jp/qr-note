@@ -70,10 +70,11 @@ export function isBoardLang(lang: unknown): lang is BoardLang {
 }
 
 // 図を掴んで動かす殻 (上流のマップ) で開けるフェンス (docs/99)。
-// 上流は circuit にも editor を持っているが、circuit-fence/core をブラウザへ
-// 載せるのは測ってからにする (docs/99 の決め 5)。**描き方の一族 (BOARD_LANGS) とは
-// 別に持つ** — circuit を足すとき、板の描き方まで巻き込まないため
-export const GUI_FENCE_LANGS = [BREADBOARD_LANG, PERFBOARD_LANG] as const
+// 回路図は YAML の circuit だけ (docs/100)。素の TeX (circuitikz) は上流に editor が
+// 無い — TeX の図からは部品の位置が読めない。**描き方の一族 (BOARD_LANGS・
+// CIRCUIT_LANGS) とは別に持つ** — 回路図は描くのがサーバで板はブラウザ、と
+// 描き方が違っても、殻で開けるかどうかは editor の有無だけで決まる
+export const GUI_FENCE_LANGS = [BREADBOARD_LANG, PERFBOARD_LANG, CIRCUIT_LANG] as const
 export type GuiFenceLang = (typeof GUI_FENCE_LANGS)[number]
 
 // 殻は言語を**綴りの完全一致**で見る (上流 fence-kit の extractFences)。
