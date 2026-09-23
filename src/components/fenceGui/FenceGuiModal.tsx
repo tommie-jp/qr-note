@@ -18,15 +18,21 @@ interface FenceGuiModalProps {
   // 開いたときの本文 (全文) と、掴むフェンスの本文 1 行目 (0 始まり)
   text: string;
   fenceLine: number;
-  // 閉じたとき。殻が書き換えたあとの本文を渡す (変わっていなければ text のまま)
+  // 閉じたとき。殻が書き換えたあとの本文を渡す (変わっていなければ text のまま)。
+  // 破棄したときは開いたときの text をそのまま渡す
   onClose: (next: string) => void;
 }
 
+// 破棄の前の確認。殻の履歴は iframe と一緒に消えるので、捨てたら戻せない
+const DISCARD_CONFIRM = "図の変更は本文に反映されません。破棄しますか？";
+
 // 図を掴んで動かす殻の器 (docs/99-フェンスGUI編集計画.md §2 の決め 7)。
-// 画面全体を覆い、上の白い帯に題と「閉じる」、残りを殻の iframe にする。
+// 画面全体を覆い、上の白い帯に題と「破棄」「閉じる」、残りを殻の iframe にする。
 //
-// - **閉じる = 本文に当てる。** 捨てる釦は持たない — しくじりは殻の中の
-//   元に戻すで戻せ、閉じたあとはエディタの元に戻す 1 回で開く前へ戻る
+// - **閉じる = 本文に当てる。** 閉じたあとはエディタの元に戻す 1 回で開く前へ戻る。
+//   Esc も閉じる側 (押し間違えても戻せる側) に倒す
+// - **破棄 = 本文に当てずに戻る** (docs/99 §2 の決め 6 の追記)。変えていれば確認を
+//   挟む。殻の中の履歴は閉じると消えるので、捨てたら取り戻せない
 // - **角とホームバーは器で避ける。** iframe の中の env() はブラウザで値が
 //   違う (上流 52 の docs/50)
 // - 器に touch-none は付けない。2 本指の移動とピンチは殻が iframe の中で捌く
@@ -73,6 +79,14 @@ export function FenceGuiModal({ text, fenceLine, onClose }: FenceGuiModalProps) 
   const close = useCallback(() => {
     onClose(handleRef.current?.text() ?? text);
   }, [onClose, text]);
+  // 何も変えていなければ黙って閉じる (殻をまだ組めていないときも同じ)
+  const discard = useCallback(() => {
+    const edited = handleRef.current?.text() ?? text;
+    if (edited !== text && !window.confirm(DISCARD_CONFIRM)) {
+      return;
+    }
+    onClose(text);
+  }, [onClose, text]);
   // 焦点が殻の中 (iframe) にあるときの Esc は殻のもの (持ち上げた部品を
   // 戻すなど)。ここに届くのは焦点が外の帯にあるときだけ
   useEscapeKey(close);
@@ -89,6 +103,13 @@ export function FenceGuiModal({ text, fenceLine, onClose }: FenceGuiModalProps) 
         <p className="min-w-0 flex-1 truncate text-gray-500">
           閉じると本文に反映します
         </p>
+        <button
+          type="button"
+          onClick={discard}
+          className={`shrink-0 ${SECONDARY_BUTTON_CLASS}`}
+        >
+          破棄
+        </button>
         <button
           type="button"
           onClick={close}

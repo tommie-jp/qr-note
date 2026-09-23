@@ -80,6 +80,34 @@ function closeMap(page: Page) {
     .click()
 }
 
+function discardMap(page: Page) {
+  return page
+    .getByRole('dialog', { name: '図を編集' })
+    .getByRole('button', { name: '破棄', exact: true })
+    .click()
+}
+
+// 破棄の前の確認に答え、出た文言を控える。出なければ空のまま
+function answerDiscardConfirm(page: Page, accept: boolean): string[] {
+  const messages: string[] = []
+  page.on('dialog', (dialog) => {
+    messages.push(dialog.message())
+    void (accept ? dialog.accept() : dialog.dismiss())
+  })
+  return messages
+}
+
+// 属性の欄で R1 の値を 1k に直す。部品を押すと属性の欄が出て、Enter で行へ当たる。
+// 殻が写しを書き換えると、殻の中の「元に戻す」が押せるようになるので、それを待つ
+async function editValue(map: FrameLocator): Promise<void> {
+  await map.locator('.cf-chip[data-part="R1"]').click()
+  const value = map.locator('.cf-inspector input[name="value"]')
+  await expect(value).toBeVisible()
+  await value.fill('1k')
+  await value.press('Enter')
+  await expect(map.locator('.cf-undo')).toBeEnabled()
+}
+
 const memo = (page: Page) => page.locator('input[name="memo"]')
 
 test.describe('図を編集', () => {
@@ -100,14 +128,8 @@ test.describe('図を編集', () => {
     await openWithBody(page)
     const map = await openMap(page)
 
-    // Act — 部品を押すと属性の欄が出る。Enter で行へ当たる
-    await map.locator('.cf-chip[data-part="R1"]').click()
-    const value = map.locator('.cf-inspector input[name="value"]')
-    await expect(value).toBeVisible()
-    await value.fill('1k')
-    await value.press('Enter')
-    // 殻が写しを書き換えると、殻の中の「元に戻す」が押せるようになる
-    await expect(map.locator('.cf-undo')).toBeEnabled()
+    // Act
+    await editValue(map)
     await closeMap(page)
 
     // Assert
@@ -126,6 +148,57 @@ test.describe('図を編集', () => {
     await closeMap(page)
 
     await expect(page.getByRole('dialog', { name: '図を編集' })).toHaveCount(0)
+    await expect(memo(page)).toHaveValue(BODY)
+  })
+
+  // 破棄 (docs/99 §2 の決め 6 の追記)。殻の履歴は閉じると消えるので、
+  // 変えていれば確認を挟み、了承されたら本文に当てずに戻る
+  test('値を直して破棄し、確認で了承すると本文は変わらない', async ({ page }) => {
+    // Arrange
+    await openWithBody(page)
+    const map = await openMap(page)
+    await editValue(map)
+    const messages = answerDiscardConfirm(page, true)
+
+    // Act
+    await discardMap(page)
+
+    // Assert
+    await expect(page.getByRole('dialog', { name: '図を編集' })).toHaveCount(0)
+    expect(messages).toEqual(['図の変更は本文に反映されません。破棄しますか？'])
+    await expect(memo(page)).toHaveValue(BODY)
+  })
+
+  test('破棄の確認を取り消すと殻は開いたままで、閉じれば反映される', async ({ page }) => {
+    // Arrange
+    await openWithBody(page)
+    const map = await openMap(page)
+    await editValue(map)
+    const messages = answerDiscardConfirm(page, false)
+
+    // Act
+    await discardMap(page)
+
+    // Assert — 殻も直した値も残っている
+    expect(messages).toHaveLength(1)
+    await expect(page.getByRole('dialog', { name: '図を編集' })).toBeVisible()
+    await expect(map.locator('.cf-undo')).toBeEnabled()
+    await closeMap(page)
+    await expect(memo(page)).toHaveValue(BODY.replace('330', '1k'))
+  })
+
+  test('何もせずに破棄すると確認なしで閉じる', async ({ page }) => {
+    // Arrange
+    await openWithBody(page)
+    await openMap(page)
+    const messages = answerDiscardConfirm(page, false)
+
+    // Act
+    await discardMap(page)
+
+    // Assert
+    await expect(page.getByRole('dialog', { name: '図を編集' })).toHaveCount(0)
+    expect(messages).toEqual([])
     await expect(memo(page)).toHaveValue(BODY)
   })
 
