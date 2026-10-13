@@ -45,7 +45,8 @@ const ACCEPTED_PDF_TYPES = 'application/pdf,.pdf'
 // 足すと、plain-text 系として型付けされた .md が選べるようになる。
 // これで拡張子なしのテキストも選べてしまうが、対象外は ignoredFilesMessage と
 // サーバの拒否メッセージがちゃんと知らせるので無反応にはならない
-const ACCEPTED_TEXT_TYPES = 'text/plain,text/csv,text/markdown,.txt,.csv,.md'
+const ACCEPTED_TEXT_TYPES =
+  'text/plain,text/csv,text/markdown,.txt,.csv,.md,.s1p,.s2p'
 
 export const ACCEPTED_FILE_TYPES = `${ACCEPTED_IMAGE_TYPES},${ACCEPTED_AUDIO_TYPES},${ACCEPTED_VIDEO_TYPES},${ACCEPTED_PDF_TYPES},${ACCEPTED_TEXT_TYPES}`
 

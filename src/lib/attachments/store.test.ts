@@ -48,7 +48,7 @@ const MB = 1024 * 1024
 const enc = new TextEncoder()
 
 const UNSUPPORTED =
-  '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md)'
+  '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md/s1p/s2p)'
 
 // --- バイト列の組み立て (判定に要る先頭だけを模す) ---
 

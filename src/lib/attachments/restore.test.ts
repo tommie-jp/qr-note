@@ -146,7 +146,7 @@ test('どの種別の名前でもないものは対応外として断る', async
   expect(result).toEqual({
     ok: false,
     reason:
-      '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md)',
+      '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md/s1p/s2p)',
   })
 })
 

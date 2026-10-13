@@ -139,6 +139,9 @@ export const TEXT_FORMAT_TO_MIME: Record<TextFormat, string> = {
   txt: 'text/plain; charset=utf-8',
   csv: 'text/csv; charset=utf-8',
   md: 'text/markdown; charset=utf-8',
+  // Touchstone (vna の data:)。text/* で、nosniff で配るのでスクリプトとして解釈されない
+  s1p: 'text/x-touchstone; charset=utf-8',
+  s2p: 'text/x-touchstone; charset=utf-8',
 }
 
 // 保存できるテキスト形式 (final mime) → 拡張子。画像の MIME_TO_EXT と同じ役割で、

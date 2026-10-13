@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  INSTRUMENT_LANGS,
   CIRCUITIKZ_LANG,
   CIRCUIT_LANG,
   FENCE_LANGUAGES,
@@ -32,17 +33,28 @@ describe('language lists', () => {
     expect(new Set(FENCE_LANGUAGES).size).toBe(FENCE_LANGUAGES.length)
   })
 
-  test('描画対象は回路図 2 つ・実体配線図 2 つ・mermaid・quiz・matrix・health のみ', () => {
+  test('描画対象は回路図 2 つ・実体配線図 2 つ・計器の画面と寸法図 6 つ・mermaid・quiz・matrix・health のみ', () => {
     expect([...RENDERED_LANGS]).toEqual([
       CIRCUITIKZ_LANG,
       CIRCUIT_LANG,
       BREADBOARD_LANG,
       PERFBOARD_LANG,
+      ...INSTRUMENT_LANGS,
       MERMAID_LANG,
       QUIZ_LANG,
       MATRIX_LANG,
       HEALTH_LANG,
     ])
+  })
+
+  // 短い名前 (vna・graph・logic) が普通のコード言語を打ち間違い扱いしない
+  test('計器の画面の語は、近い綴りの別言語を巻き込まない', () => {
+    for (const lang of ['ini', 'lua', 'vba', 'vue', 'graphql', 'grep', 'log']) {
+      expect(suggestFenceLang(lang)).toBeNull()
+    }
+    // 1 文字違いと大文字小文字は、これまでどおり寄せる
+    expect(suggestFenceLang('scoope')).toBe('scope')
+    expect(suggestFenceLang('VNA')).toBe('vna')
   })
 
   // 実体配線図は**回路図とは別の一族**。同じ関数で判ると、TeX を回す側 (回路図)

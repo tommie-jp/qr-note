@@ -58,10 +58,31 @@ export const BREADBOARD_LANG = 'breadboard'
 // breadboard と同じ処理系の一族で、描き方も同じ
 export const PERFBOARD_LANG = 'perfboard'
 
-// 実体配線図になるフェンスの一覧。**回路図 (CIRCUIT_LANGS) とは別の一族**で、
-// 描き方が違う (あちらは TeX をサーバで回して DB に控える)。
+// 計器の画面と寸法図 (docs/103)。どれも breadboard と同じ処理系の一族で、
+// **ブラウザで描く同期の純関数**。`data:` を持つもの (vna・scope・spectrum・graph) は、
+// 同じメモに貼った添付から測った値を読む (markdown/dataAttachments.ts)
+export const VNA_LANG = 'vna'
+export const SCOPE_LANG = 'scope'
+export const SPECTRUM_LANG = 'spectrum'
+export const GRAPH_LANG = 'graph'
+export const LOGIC_LANG = 'logic'
+export const COPPER_LANG = 'copper'
+
+// 図の中身がフェンスの本文 (と、`data:` が指す添付) だけで決まるもの。
+// 回路図の一族と違い TeX も DB の控えも要らない
+export const INSTRUMENT_LANGS = [
+  VNA_LANG,
+  SCOPE_LANG,
+  SPECTRUM_LANG,
+  GRAPH_LANG,
+  LOGIC_LANG,
+  COPPER_LANG,
+] as const
+
+// 実体配線図・計器の画面・寸法図になるフェンスの一覧。**回路図 (CIRCUIT_LANGS) とは
+// 別の一族**で、描き方が違う (あちらは TeX をサーバで回して DB に控える)。
 // 図の中身はフェンスの本文だけで決まるので、引くための鍵も控えも要らない
-export const BOARD_LANGS = [BREADBOARD_LANG, PERFBOARD_LANG] as const
+export const BOARD_LANGS = [BREADBOARD_LANG, PERFBOARD_LANG, ...INSTRUMENT_LANGS] as const
 export type BoardLang = (typeof BOARD_LANGS)[number]
 
 // unknown を受けるのは isCircuitLang と同じ理由 (外から来た値をそのまま渡せる)
@@ -90,13 +111,14 @@ export const RENDERED_LANGS = [
   CIRCUIT_LANG,
   BREADBOARD_LANG,
   PERFBOARD_LANG,
+  ...INSTRUMENT_LANGS,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
   HEALTH_LANG,
 ] as const
 
-// 補完に出す言語 (広め)。特別扱いする 8 つ + メモでよく書くコード言語。
+// 補完に出す言語 (広め)。特別扱いする 14 個 + メモでよく書くコード言語。
 // ここに無い言語を書いても普通のコードブロックとして表示されるだけで、
 // これは「打ちやすくする」ための候補にすぎない
 export const FENCE_LANGUAGES: readonly string[] = [
@@ -104,6 +126,7 @@ export const FENCE_LANGUAGES: readonly string[] = [
   CIRCUIT_LANG,
   BREADBOARD_LANG,
   PERFBOARD_LANG,
+  ...INSTRUMENT_LANGS,
   MERMAID_LANG,
   QUIZ_LANG,
   MATRIX_LANG,
@@ -198,6 +221,16 @@ export function editDistance(a: string, b: string, max: number): number {
 const MAX_FENCE_EDIT_DISTANCE = 2
 const MIN_FENCE_TOKEN_LENGTH = 3
 
+// 近いと見る距離は**言語の長さで決める**。短い名前 (vna・scope・graph・logic) は、
+// 距離 2 だと普通の言語を巻き込む (ini・lua・vba・vue → vna、graphql・grep → graph、
+// log → logic)。3 文字以下は大文字小文字の違いだけ、5 文字以下は 1 文字違いまで
+function maxDistanceFor(lang: string): number {
+  if (lang.length <= 3) {
+    return 0
+  }
+  return lang.length <= 5 ? 1 : MAX_FENCE_EDIT_DISTANCE
+}
+
 // token が RENDERED_LANGS のどれかの打ち間違いっぽければ正しい綴りを返す。
 // 完全一致・短すぎ・遠い綴りなら null。大文字小文字だけの違いも打ち間違い扱い
 export function suggestFenceLang(token: string): string | null {
@@ -212,7 +245,8 @@ export function suggestFenceLang(token: string): string | null {
     if (lower === lang) {
       return lang // 大文字小文字だけ違う
     }
-    if (editDistance(lower, lang, MAX_FENCE_EDIT_DISTANCE) <= MAX_FENCE_EDIT_DISTANCE) {
+    const limit = maxDistanceFor(lang)
+    if (limit > 0 && editDistance(lower, lang, limit) <= limit) {
       return lang
     }
   }

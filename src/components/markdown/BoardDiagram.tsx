@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import { errorText } from "@/lib/errorMessage";
 import { type BoardIssue, renderBoardFence } from "@/lib/markdown/boardRender";
+import {
+  dataNamesOf,
+  loadDataFiles,
+} from "@/lib/markdown/dataAttachments";
 import type { BoardLang } from "@/lib/markdown/fenceLanguages";
 import { ERROR_SOURCE_CLASS } from "../ui";
 
-// ```breadboard / ```perfboard フェンスを実体配線図として描く (docs/97)。
+// ```breadboard / ```perfboard フェンスを実体配線図として、```vna / scope / spectrum /
+// graph / logic / copper を計器の画面・寸法図として描く (docs/97・docs/103)。
 //
 // **ブラウザで描く** — 処理系は 1 枚 1〜11 ms の同期の純関数で、TeX も
 // サーバも要らない。mermaid と同じ形にしてあるのはそのため。読み込み・描画・
@@ -22,19 +27,46 @@ type RenderState =
 interface BoardDiagramProps {
   lang: BoardLang;
   code: string;
+  // `data:` が指す名前 (元のファイル名) → 同じメモの添付の配信 URL (docs/103 §3)。
+  // 渡さない画面 (添付を持たない一覧など) では、理想の線だけの図になる
+  attachments?: ReadonlyMap<string, string>;
 }
 
-export function BoardDiagram({ lang, code }: BoardDiagramProps) {
+async function fetchText(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.text();
+}
+
+export function BoardDiagram({ lang, code, attachments }: BoardDiagramProps) {
   const [state, setState] = useState<RenderState>(null);
+  // Map は描き直すたびに別の物になるので、中身を字にして依存に使う
+  const attachmentsKey = JSON.stringify([...(attachments ?? [])]);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const rendered = await renderBoardFence(lang, code);
+        // `data:` が無い図 (ほとんど) は添付に触れない
+        const names = dataNamesOf(code);
+        const loaded =
+          names.length === 0
+            ? null
+            : await loadDataFiles(names, attachments ?? new Map(), fetchText);
+        const rendered = await renderBoardFence(lang, code, {
+          data: loaded ? (name) => loaded.files.get(name) ?? null : undefined,
+        });
         if (!cancelled) {
-          setState(rendered);
+          const problems: BoardIssue[] = (loaded?.problems ?? []).map(
+            (message) => ({ line: null, message, notice: true }),
+          );
+          setState({
+            svg: rendered.svg,
+            issues: [...rendered.issues, ...problems],
+          });
         }
       } catch (e) {
         if (!cancelled) {
@@ -46,7 +78,8 @@ export function BoardDiagram({ lang, code }: BoardDiagramProps) {
     return () => {
       cancelled = true;
     };
-  }, [lang, code]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- attachments は attachmentsKey で見る
+  }, [lang, code, attachmentsKey]);
 
   // ここに来るのは処理系そのものが動かなかったとき。**読めない本文はここに
   // 来ない** — 板は既定を持つので、読めたところまで描いて issues に出る

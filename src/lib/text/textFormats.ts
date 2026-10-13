@@ -4,14 +4,15 @@
 // ファイル選択と 5 か所で要り、**足し忘れは例外にならず黙って壊れる**
 // (その形式だけビューアに振り分かない・OCR に回ってしまう) ため 1 つにまとめる。
 //
-// この 3 つに絞るのは安全のためでもある。テキストには署名が無く「中身が
+// 5 つに絞るのは安全のためでもある (s1p / s2p は Touchstone。計器の画面フェンス vna の
+// `data:` が読む。中身はテキストで、docs/103)。テキストには署名が無く「中身が
 // テキストか」しか判定できないので、HTML や SVG も素通りする。**保存名の
 // 拡張子をここに限り、text/plain 系 + nosniff で配る**ことで、
 // スクリプトとして解釈される経路そのものを塞いでいる (uploads/sniff/text.ts の textSaveInfo)。
 
 import { defineFormats } from '../defineFormats'
 
-const FORMATS = defineFormats(['txt', 'csv', 'md'] as const)
+const FORMATS = defineFormats(['txt', 'csv', 'md', 's1p', 's2p'] as const)
 
 export const TEXT_EXTENSIONS = FORMATS.list
 

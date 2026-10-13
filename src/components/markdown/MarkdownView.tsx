@@ -8,6 +8,7 @@ import { CodeBlock } from "./CodeBlock";
 import { rehypeAnswerTts } from "./plugins/rehypeAnswerTts";
 import { rehypeTaskLines, TASK_LINE_PROPERTY } from "./plugins/rehypeTaskLines";
 import { TaskCheckbox, type ToggleTaskHandler } from "./TaskCheckbox";
+import { attachmentIndexOf } from "@/lib/markdown/dataAttachments";
 import { BoardDiagram } from "./BoardDiagram";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { CircuitDiagram } from "./CircuitDiagram";
@@ -156,6 +157,7 @@ function preOrDiagram(
   matrices: MatrixMap,
   health: HealthMap,
   onRecordHealth: RecordHealthHandler | undefined,
+  attachments: ReadonlyMap<string, string>,
 ) {
   return function PreOrDiagram({
     node: _node,
@@ -175,7 +177,13 @@ function preOrDiagram(
     // **図が本文だけで決まる**ため — TeX も DB の控えも要らないので、
     // 公開ビューでもオフラインでも同じように出る
     if (isBoardLang(fence.lang)) {
-      return <BoardDiagram lang={fence.lang} code={fence.code} />;
+      return (
+        <BoardDiagram
+          lang={fence.lang}
+          code={fence.code}
+          attachments={attachments}
+        />
+      );
     }
 
     // 図と違い描画に外部ライブラリも事前処理も要らない (中身は本文だけで
@@ -404,6 +412,9 @@ export function MarkdownView({
   // `clobberPrefix: ""` のおかげで id はそのまま通るが、それは
   // 「本文から id は来ない」前提で外した設定に頼ることになる —
   // 後段なら、その前提を借りずに済む
+  // 計器の画面の `data:` が引く添付 (元の名前 → 配信 URL)。本文の画像記法の alt から作る
+  const attachments = attachmentIndexOf(markdown);
+
   const rehypePlugins: PluggableList = [
     ...BASE_REHYPE_PLUGINS,
     [rehypeTaskLines, lineOffset],
@@ -426,7 +437,13 @@ export function MarkdownView({
         rehypePlugins={rehypePlugins}
         remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
         components={{
-          pre: preOrDiagram(circuits, matrices, health, onRecordHealth),
+          pre: preOrDiagram(
+            circuits,
+            matrices,
+            health,
+            onRecordHealth,
+            attachments,
+          ),
           img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
           a: linkWithTarget,
           input: taskCheckboxRenderer(onToggleTask),

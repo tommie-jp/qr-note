@@ -2,7 +2,7 @@
 // DB にも sharp にも触らない純粋な層なので server-only を付けない。
 
 export const UNSUPPORTED_ATTACHMENT_MESSAGE =
-  '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md)'
+  '対応していない形式です (画像: png/jpg/gif/webp/avif/heic/tiff, 音声: mp3/m4a/wav/webm, 動画: mp4/webm/mov, PDF: pdf, テキスト: txt/csv/md/s1p/s2p)'
 
 export type AttachmentResult =
   | {
