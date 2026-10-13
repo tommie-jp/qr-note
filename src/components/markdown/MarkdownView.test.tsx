@@ -730,7 +730,7 @@ test("表の中の `||` は記法にしない (空セルのまま)", () => {
 
 // 回路フェンスは 2 つ (docs/91)。YAML 側も同じ仕組みで図に差し替わる
 test("circuit フェンス (YAML) も描画済み SVG に差し替える", () => {
-  const code = "parts:\n  R1: resistor a1 a3 10k";
+  const code = "parts:\n  R1: resistor 1,1 3,1 10k";
   const html = renderToStaticMarkup(
     <MarkdownView
       markdown={"```circuit\n" + code + "\n```"}
@@ -762,7 +762,7 @@ test("同じ本文でも言語が違えば図を取り違えない", () => {
 
 // お知らせは図が描けたときにこそ要る (見えている絵と繋がりが違う、を伝える)
 test("お知らせは図と一緒に行番号つきで出す", () => {
-  const code = "parts:\n  R1: resistor a1 a3 10k";
+  const code = "parts:\n  R1: resistor 1,1 3,1 10k";
   const html = renderToStaticMarkup(
     <MarkdownView
       markdown={"```circuit\n" + code + "\n```"}

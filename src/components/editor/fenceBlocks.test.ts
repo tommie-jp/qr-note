@@ -42,9 +42,9 @@ describe("drawableFence", () => {
   // 回路フェンスは 2 つ (docs/91)。種類が言語名そのものなので、
   // 控えの鍵 (kind:code) も自然に分かれる
   test("circuit (YAML) も対象", () => {
-    expect(drawableFence("```circuit\nparts:\n  R1: resistor a1 a3\n```")).toEqual({
+    expect(drawableFence("```circuit\nparts:\n  R1: resistor 1,1 3,1\n```")).toEqual({
       kind: "circuit",
-      code: "parts:\n  R1: resistor a1 a3",
+      code: "parts:\n  R1: resistor 1,1 3,1",
     });
   });
 

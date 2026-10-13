@@ -1,5 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
+import { compileCircuit } from "circuit-fence/core";
 import { formatSpec, type FormatAction } from "./markdownFormat";
 
 // 本文と選択範囲を `|` (カーソル) と `«...»` (選択) で書けるようにする。
@@ -132,5 +133,15 @@ describe("本文の壊れなさ", () => {
     expect(apply("|", "bullet")).toBe("- |");
     expect(apply("|", "heading")).toBe("# |");
     expect(apply("|", "bold")).toBe("**|**");
+  });
+});
+
+describe("雛形", () => {
+  test("回路図 (YAML) の雛形は今の circuit-fence でそのまま描ける", () => {
+    // 番地の綴りが変わると (0.35.0 で `a1` → `1,1`)、差し込んだ途端にエラーになる
+    const doc = apply("|", "circuitYaml").replace("|", "");
+    const body = doc.match(/^```circuit\n([\s\S]*?)\n```/)?.[1];
+    expect(body).toBeDefined();
+    expect(compileCircuit(body ?? "").errors).toEqual([]);
   });
 });

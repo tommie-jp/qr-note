@@ -228,7 +228,7 @@ describe('2 言語の共存', () => {
     )
     const yamlFences = Array.from(
       { length: 4 },
-      (_, i) => `\`\`\`circuit\nparts:\n  R${i}: resistor a1 a3\n\`\`\``,
+      (_, i) => `\`\`\`circuit\nparts:\n  R${i}: resistor 1,1 3,1\n\`\`\``,
     )
     const map = planCircuits([...tikzFences, ...yamlFences].join('\n\n'))
     await Promise.all([...map.values()])
@@ -236,10 +236,10 @@ describe('2 言語の共存', () => {
     // circuitikz が先に 6 枚。YAML は残りの 2 枚だけが描かれ、
     // 9・10 枚目は約束ですらない
     expect(renderCircuit).toHaveBeenCalledTimes(6)
-    expect(map.get(yaml('parts:\n  R2: resistor a1 a3'))).toMatchObject({
+    expect(map.get(yaml('parts:\n  R2: resistor 1,1 3,1'))).toMatchObject({
       error: expect.stringContaining('8 個まで'),
     })
-    expect(map.get(yaml('parts:\n  R3: resistor a1 a3'))).toMatchObject({
+    expect(map.get(yaml('parts:\n  R3: resistor 1,1 3,1'))).toMatchObject({
       error: expect.stringContaining('8 個まで'),
     })
   })
