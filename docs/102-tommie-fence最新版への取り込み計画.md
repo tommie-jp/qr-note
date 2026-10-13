@@ -1,6 +1,6 @@
 # tommie-fence 最新版への取り込み計画 (circuit・breadboard・perfboard・fence-kit)
 
-計画日: 2026-10-13 / 状態: **手順 1〜5 は実装済み (ブランチ `chore/fence-0.38`、未 merge・未配布)。手順 6〜9 (配布・本番の書き換え・backfill) は未着手**
+計画日: 2026-10-13 / 状態: **完了 (v0.23.19 を 2026-10-13 に本番へ配布。§9)**
 
 上流 ([tommie-fence](https://github.com/tommie-jp/tommie-fence)) が進み、QR Note が使っている
 4 つの tgz が古くなった。版を上げるときに壊れるものと、先にやる作業を測って決める。
@@ -111,3 +111,17 @@ breadboard / perfboard の番地 (`a5 a10`) は**基板の穴の名前で、変�
   **e2e (Playwright) は回していない** — `fence-gui.spec.ts` の circuit の番地だけ直した
 - 記法ヘルプの perf の例 (`board: 28x18`、穴数で書いた基板) は、上流 0.32.0 の `silk:` の
   変更で従来どおり読まれるので直していない
+
+## 9. 配布の結果 (2026-10-13)
+
+- 配布: `./doDeploy.sh patch` → **v0.23.19**。lint・typecheck・test・ビルドは通り、
+  ヘルスチェックも通った (97 秒)
+- 本番の書き換え: `scripts/backfillCircuitAddresses.ts` を足し、`./doBackfill.sh circuit-addresses`
+  で実行した。先に `DRY_RUN=1` で 3 件 (1094・1095・1168) を確かめてから書いた。
+  書き直しは 11・29・10 か所、要確認は 0 件。2 回目の DRY_RUN は 0 件 (冪等)
+- 描き直し: `./doBackfill.sh circuits` で 3 図を描いた (失敗 0)
+- 注意: `updated_at` は進めた (普通の編集と同じ。開いたままの編集画面に競合として見せるため)
+- **1168 の perfboard フェンスが 0.41.0 でエラーになる**: `J1: usb-c c13 f13` は
+  「usb-c は穴を 4 つ、GND D+ D- VBUS の順に書きます」と断られる (circuit の番地とは別件)。
+  テスト用のノートなので本文は触っていない
+- 実装に入れたもの: 手順 7 を `doBackfill.sh` のタスクにした。e2e (Playwright) は回していない
