@@ -6,9 +6,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "npm run copy:assets && next dev",
-    "build": "npm run copy:assets && prisma generate && next build",
+    "dev": "npm run copy:assets && npm run licenses && next dev",
+    "build": "npm run copy:assets && npm run licenses && prisma generate && next build",
     "copy:assets": "node scripts/assets.mjs",
+    "licenses": "generate-license-file",
     "backfill:embeddings": "tsx --conditions=react-server scripts/backfillEmbeddings.ts",
     "backfill:git": "tsx --conditions=react-server scripts/backfillGitHistory.ts",
     "start": "next start",
@@ -105,6 +106,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "generate-license-file": "4.2.5",
     "monocart-coverage-reports": "2.13.0",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",

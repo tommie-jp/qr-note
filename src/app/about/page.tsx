@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { SERVICE_LINKS } from "@/components/chrome/AttributionFooter";
 import { YahooAttribution } from "@/components/chrome/YahooAttribution";
 import {
   QR_NOTE_DEMO_URL,
   QR_NOTE_GITHUB_URL,
+  THIRD_PARTY_LICENSES_PATH,
+  TOMMIE_CIRCUIT_WORKBOOK_GITHUB_URL,
   TOMMIE_FENCE_GITHUB_URL,
 } from "@/lib/projectLinks";
 import { VERSION as breadboardVersion } from "breadboard-fence/core";
@@ -15,13 +18,15 @@ import { VERSION as perfboardVersion } from "perfboard-fence/core";
 import { VERSION as scopeVersion } from "scope-fence/core";
 import { VERSION as spectrumVersion } from "spectrum-fence/core";
 import { VERSION as vnaVersion } from "vna-fence/core";
+import pkg from "../../../package.json";
 
 // クレジット / 帰属表示のページ (docs/46-クレジット表記計画.md)。
 //
-// **設定系 (パスキー等) と違い、デモでも隠さず・ログイン前でも見せてよい。**
-// Yahoo!デベロッパーネットワークはクレジット表示が義務で、外部 API を使う
-// 事実は誰に対しても表示してよい情報なので、requireUser() も notFound() も
-// 掛けない。
+// **設定系 (パスキー等) と違い、デモでも隠さず・ログイン前でも見せる。**
+// Yahoo!デベロッパーネットワークはクレジット表示が義務で、ブラウザへ配る
+// JS・フォント・モデルのライセンス表記もここから辿る。どちらも誰に対しても
+// 出してよい情報なので、requireUser() も notFound() も掛けず、proxy でも
+// 開けてある (auth/publicPaths.ts の CREDIT_PATHS)。
 //
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {
@@ -83,12 +88,54 @@ const FENCES = [
   },
 ] as const;
 
-// このアプリが使う Web サービスの帰属表示 (docs/46 §1)。
+// 同梱・取得しているモデルとフォント。npm の依存ではないので一覧の生成器
+// (.glf.json) からは見えない。全文は licenses/bundled-models.txt と BaKoMa の
+// LICENCE を一覧の末尾に足してあり、ここは要約
+const BUNDLED_ASSETS = [
+  {
+    name: "PP-OCRv5 (PaddleOCR)",
+    use: "画像の文字認識 (OCR)",
+    license: "Apache-2.0",
+  },
+  {
+    name: "DINOv2 small (Meta, ONNX 変換 Xenova/dinov2-small)",
+    use: "画像の類似検索",
+    license: "Apache-2.0",
+  },
+  {
+    name: "BaKoMa Fonts (Computer Modern)",
+    use: "TikZ の回路図の文字",
+    license: "BaKoMa Fonts Licence",
+  },
+] as const;
+
+const LINK_CLASS = "text-blue-700 underline";
+
+function ExternalLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={LINK_CLASS}
+    >
+      {children}
+    </a>
+  );
+}
+
 export default function AboutPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-lg font-bold">クレジット</h1>
+        <p className="text-gray-600">QR Note v{pkg.version}</p>
         <p className="text-gray-600">
           本アプリは、書籍・商品情報の取得に以下の Web
           サービスを利用しています。
@@ -110,14 +157,9 @@ export default function AboutPage() {
           書影 (カバー画像) の取得に、
           {/* 汎用トップではなく、実際に叩いている書籍検索 API のドキュメントへ
               (URL は SERVICE_LINKS に集約。docs/95) */}
-          <a
-            href={SERVICE_LINKS.rakutenBooks.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-700 underline"
-          >
+          <ExternalLink href={SERVICE_LINKS.rakutenBooks.href}>
             {SERVICE_LINKS.rakutenBooks.label}
-          </a>
+          </ExternalLink>
           を利用しています。
         </p>
       </section>
@@ -126,25 +168,37 @@ export default function AboutPage() {
         <h2 className="font-bold">openBD / 国立国会図書館サーチ (書誌)</h2>
         <p className="text-gray-600">
           書名・著者などの書誌情報は、
-          <a
-            href={SERVICE_LINKS.openBd.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-700 underline"
-          >
+          <ExternalLink href={SERVICE_LINKS.openBd.href}>
             {SERVICE_LINKS.openBd.label}
-          </a>
+          </ExternalLink>
           および
-          <a
-            href={SERVICE_LINKS.ndlSearch.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-700 underline"
-          >
+          <ExternalLink href={SERVICE_LINKS.ndlSearch.href}>
             {SERVICE_LINKS.ndlSearch.label}
-          </a>
+          </ExternalLink>
           の提供データを利用しています。
         </p>
+      </section>
+
+      {/* 外部へ送るものと送らないもの。送らない側は「サーバにも送らない」まで
+          言える処理だけを書く (OCR は ocrWorker、画像検索は索引を取ってきて
+          imageSearch.ts で照合する。どちらもブラウザの中で完結する) */}
+      <section className="space-y-2">
+        <h2 className="font-bold">データの行き先</h2>
+        <ul className="list-disc space-y-0.5 pl-5 text-gray-600">
+          <li>
+            JAN コード・ISBN は、商品名や書誌を調べるために上の Web
+            サービスへ送ります。
+          </li>
+          <li>
+            写真の文字認識 (OCR)
+            と、カメラで写した物の画像検索は、端末の中で計算します。そのために写真をサーバや外部へ送ることはありません
+            (ノートに添付した写真は、保存のためにこのアプリのサーバへ送ります)。
+          </li>
+          <li>
+            文字認識と画像検索のモデルは、初回に読み込みます (画像検索のモデルは
+            Hugging Face から取得します)。
+          </li>
+        </ul>
       </section>
 
       <section className="space-y-2">
@@ -154,15 +208,10 @@ export default function AboutPage() {
           のコードフェンスから描く言語のファミリーです。本アプリの図はこれで描いています。
           {/* 公開はまだαバージョン (上流 README) */}
           ソースは
-          <a
-            href={TOMMIE_FENCE_GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-700 underline"
-          >
+          <ExternalLink href={TOMMIE_FENCE_GITHUB_URL}>
             {TOMMIE_FENCE_GITHUB_URL}
-          </a>
-          で公開しています。
+          </ExternalLink>
+          で公開しています (MIT)。
         </p>
         <ul className="list-disc space-y-0.5 pl-5 text-gray-600">
           {FENCES.map((f) => (
@@ -174,28 +223,50 @@ export default function AboutPage() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="font-bold">教科書</h2>
+        <p className="text-gray-600">
+          電験三種などの教科書のノートの出典は
+          <ExternalLink href={TOMMIE_CIRCUIT_WORKBOOK_GITHUB_URL}>
+            {TOMMIE_CIRCUIT_WORKBOOK_GITHUB_URL}
+          </ExternalLink>
+          です (本文 CC BY 4.0)。
+        </p>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="font-bold">QR Note</h2>
         <p className="text-gray-600">
           本アプリ (QR Note) のソースは
-          <a
-            href={QR_NOTE_GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-700 underline"
-          >
+          <ExternalLink href={QR_NOTE_GITHUB_URL}>
             {QR_NOTE_GITHUB_URL}
-          </a>
+          </ExternalLink>
           で公開しています。デモ版は
-          <a
-            href={QR_NOTE_DEMO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-700 underline"
-          >
+          <ExternalLink href={QR_NOTE_DEMO_URL}>
             {QR_NOTE_DEMO_URL}
-          </a>
+          </ExternalLink>
           (ログイン demo / demo) です。
         </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-bold">オープンソースのライセンス</h2>
+        <p className="text-gray-600">
+          本アプリは多くのオープンソースソフトウェアを利用しています。npm
+          の依存の著作権表示とライセンス文は、
+          {/* 同じ出所の静的ファイル。別タブにはしない (戻るで戻れるように) */}
+          <a href={THIRD_PARTY_LICENSES_PATH} className={LINK_CLASS}>
+            第三者ライセンスの一覧
+          </a>
+          にまとめています。同梱・取得しているモデルとフォントは次のとおりです
+          (全文は同じ一覧の末尾)。
+        </p>
+        <ul className="list-disc space-y-0.5 pl-5 text-gray-600">
+          {BUNDLED_ASSETS.map((asset) => (
+            <li key={asset.name}>
+              {asset.name} — {asset.use} ({asset.license})
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

@@ -14,6 +14,7 @@ import { OFFLINE_PATH } from '../offline/params'
 import { FENCE_MAP_SCRIPT } from '../fenceGui/mapScript'
 import { isValidAttachmentName } from '../uploads/names'
 import { isValidItemNo } from '../validation'
+import { ABOUT_PATH, THIRD_PARTY_LICENSES_PATH } from '../projectLinks'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。
 // 閉じると 401 になり「インストール可能」と判定されない。
@@ -52,6 +53,12 @@ function pwaPaths(): Set<string> {
 // 使い方の説明。ノートの中身は出ず、リポジトリの docs/*.md をそのまま
 // 表示しているだけなので公開してよい (app/docs/*/page.tsx)
 const DOCS_PATHS = new Set(['/docs/search', '/docs/memo'])
+
+// クレジットと第三者ライセンスの一覧 (app/about/page.tsx, .glf.json)。
+// ブラウザへ配っている JS・フォント・モデルのライセンス表記と、Yahoo! の
+// 規定のクレジットなので、ログインしていない人にも届く必要がある。
+// 中身は静的な帰属表示とリポジトリの URL だけで、ノートを含まない
+const CREDIT_PATHS = new Set([ABOUT_PATH, THIRD_PARTY_LICENSES_PATH])
 
 // robots.txt はクローラが認証なしで取りに行く (docs/39-デモ公開計画.md §3)。
 // 秘密を含まず、むしろ「デモは disallow」を伝えるために**必ず届く**必要がある。
@@ -92,6 +99,7 @@ export function isPublicPath(pathname: string): boolean {
     LOGIN_PATHS.has(pathname) ||
     pwaPathsCache.has(pathname) ||
     DOCS_PATHS.has(pathname) ||
+    CREDIT_PATHS.has(pathname) ||
     CRAWLER_PATHS.has(pathname) ||
     FENCE_PATHS.has(pathname)
   )

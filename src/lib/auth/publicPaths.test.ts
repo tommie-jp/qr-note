@@ -51,6 +51,21 @@ describe('isPublicPath', () => {
     expect(isPublicPath(path)).toBe(true)
   })
 
+  // クレジットと第三者ライセンスの一覧。ブラウザへ配る JS・フォント・モデルの
+  // ライセンス表記なので、ログインしていない人にも届く必要がある。
+  // 中身は静的な帰属表示だけでノートを含まない
+  test.each(['/about', '/third-party-licenses.txt'])('%s is public (credits and licenses)', (path) => {
+    expect(isPublicPath(path)).toBe(true)
+  })
+
+  // 開けるのは 2 本だけ。/about の下に別のページを足しても黙って開かない
+  test.each(['/about/', '/about/x', '/third-party-licenses.txt.bak'])(
+    '%s is not public (only the exact credit paths)',
+    (path) => {
+      expect(isPublicPath(path)).toBe(false)
+    },
+  )
+
   // robots.txt はクローラが認証なしで取りに行く (docs/39-デモ公開計画.md §3)。
   // ゲートするとログイン画面が返り、デモの disallow が届かない
   test('/robots.txt is public (crawlers fetch it without auth)', () => {

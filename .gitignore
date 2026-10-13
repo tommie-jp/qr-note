@@ -59,6 +59,9 @@ next-env.d.ts
 # 本番の実データ (メモ・画像) を含むため git 管理外
 /backup/
 
+# 第三者ライセンスの一覧 (npm run licenses が .glf.json の設定で生成する)
+/public/third-party-licenses.txt
+
 # node-tikzjax の webfont (scripts/assets.mjs が node_modules から複製する)
 /public/tikzjax
 

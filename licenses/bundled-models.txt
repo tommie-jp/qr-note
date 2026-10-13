@@ -1,0 +1,19 @@
+The following machine-learning models may be included in or downloaded by this product:
+
+ - PP-OCRv5_mobile_det, PP-OCRv5_mobile_rec (text detection and recognition)
+
+Copyright (c) PaddlePaddle Authors. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 (the full text appears above in this file).
+Source: https://github.com/PaddlePaddle/PaddleOCR
+
+-----------
+
+The following machine-learning model may be included in or downloaded by this product:
+
+ - DINOv2 small (image feature extraction; ONNX conversion Xenova/dinov2-small)
+
+Copyright (c) Meta Platforms, Inc. and affiliates.
+Licensed under the Apache License, Version 2.0 (the full text appears above in this file).
+Source: https://github.com/facebookresearch/dinov2
+        https://huggingface.co/Xenova/dinov2-small
+

@@ -1,0 +1,18 @@
+{
+  "inputs": ["./package.json"],
+  "output": "./public/third-party-licenses.txt",
+  "overwrite": true,
+  "eol": "lf",
+  "ci": true,
+  "noSpinner": true,
+  "replace": {
+    "cytoscape": "./node_modules/cytoscape/LICENSE",
+    "dompurify": "./node_modules/dompurify/LICENSE",
+    "rc": "./node_modules/rc/LICENSE.MIT",
+    "type-fest": "./node_modules/type-fest/license-mit"
+  },
+  "append": [
+    "./licenses/bundled-models.txt",
+    "./node_modules/node-tikzjax/css/bakoma/LICENCE"
+  ]
+}
