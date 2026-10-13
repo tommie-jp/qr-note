@@ -240,7 +240,7 @@ export default function AboutPage() {
           <ExternalLink href={QR_NOTE_GITHUB_URL}>
             {QR_NOTE_GITHUB_URL}
           </ExternalLink>
-          で公開しています。デモ版は
+          で公開しています (MIT)。デモ版は
           <ExternalLink href={QR_NOTE_DEMO_URL}>
             {QR_NOTE_DEMO_URL}
           </ExternalLink>

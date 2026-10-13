@@ -82,3 +82,9 @@ test("教科書のリポジトリを出す", () => {
     "https://github.com/tommie-jp/tommie-circuit-workbook",
   );
 });
+
+// QR Note 自身のライセンス (リポジトリ直下の LICENSE と package.json の license)
+test("QR Note のライセンスを出す", () => {
+  expect(pkg.license).toBe("MIT");
+  expect(html()).toContain("で公開しています (MIT)。デモ版は");
+});

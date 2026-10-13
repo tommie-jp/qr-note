@@ -2,6 +2,7 @@
   "name": "ver2",
   "version": "0.23.20",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=22"
   },
