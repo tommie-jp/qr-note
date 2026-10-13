@@ -111,6 +111,7 @@
 #   DEPLOY_APP_PORT        ヘルスチェックで叩くリモート側 app ポート (default: 3000 / --demo: 3100)
 #   DEPLOY_REGISTRY_PORT   レジストリ転送用トンネルのローカルポート (default: 15000)
 #   DEPLOY_REGISTRY_REMOTE_PORT リモート registry:2 の待受ポート (default: 5000)
+#   DEPLOY_ACTION_KEY_FILE Server Action の暗号鍵の置き場 (default: ~/.config/qr-note/server-actions-key)
 #
 # デモは compose.demo.yaml + デモ .env が配置済みの前提 (docs/39-デモ公開計画.md §5)。
 # レジストリは本番・デモで共用する (イメージ名が同じなのでそのまま両対応)。
@@ -177,6 +178,7 @@ REGISTRY_PORT="${DEPLOY_REGISTRY_PORT:-15000}"
 REGISTRY_REMOTE_PORT="${DEPLOY_REGISTRY_REMOTE_PORT:-5000}"
 IMAGE="qr-search-app:latest"
 BUILDER="qr-host"           # host ネットワークの buildx ビルダー名
+ACTION_KEY_FILE="${DEPLOY_ACTION_KEY_FILE:-$HOME/.config/qr-note/server-actions-key}"
 # レイヤー再現性のための固定エポック (2024-01-01)。**デプロイ間で一定であることが肝**。
 # 変えると全レイヤーの mtime がずれて一度だけ全再送になる (壊れはしない)。
 BUILD_EPOCH="1704067200"
@@ -358,6 +360,15 @@ else
   # (docs/80-デプロイ再高速化計画.md §S1)
   node scripts/writeDepsManifest.mjs
 
+  # Server Action の暗号鍵 (Dockerfile のビルド行の注を参照)。**全配布で同じ鍵**を
+  # 使うので、リポジトリの外に置く — 配布用に detach したワークツリーから流しても
+  # 同じ鍵を拾えるように。無ければここで 1 度だけ作る (32 バイトの AES 鍵を base64)
+  if [ ! -s "$ACTION_KEY_FILE" ]; then
+    log "Server Action の暗号鍵を作成: $ACTION_KEY_FILE"
+    mkdir -p "$(dirname "$ACTION_KEY_FILE")"
+    (umask 077 && openssl rand -base64 32 >"$ACTION_KEY_FILE")
+  fi
+
   # host ネットワークの buildx ビルダーを用意する (無ければ作る)。
   # これが無いと push 先の 127.0.0.1 トンネルにビルダーが届かない。
   # 並列に入る前に済ませておく (ビルダー作成が 2 重に走らないように)。
@@ -411,6 +422,7 @@ else
   # registry.insecure=true は 127.0.0.1 の平文レジストリ (トンネル越し) を許すため。
   SOURCE_DATE_EPOCH="$BUILD_EPOCH" docker buildx build --builder "$BUILDER" \
     --provenance=false --sbom=false \
+    --secret "id=next_action_key,src=$ACTION_KEY_FILE" \
     --output "type=image,name=${REG_LOCAL}:${STAGING_TAG},push=true,rewrite-timestamp=true,registry.insecure=true" \
     . >"$LOG_DIR/build.log" 2>&1 &
   BUILD_PID=$!

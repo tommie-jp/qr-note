@@ -109,7 +109,18 @@ ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 #      トレースされた依存 (74MB / gzip 33MB)。**依存を変えない限り不変**なのに、
 #      毎ビルド変わる .next/server と同じ層にいて毎回送られていた。同じ手で分ける。
 #      最終的な置き場は同じ /app/node_modules なので server.js の解決は変わらない。
-RUN npm run build \
+#
+# Server Action の暗号鍵は BuildKit の secret で受け取る (doDeploy.sh が渡す)。
+# Next.js は Action の ID をこの鍵を塩にしたハッシュで作るので、**鍵が毎回
+# 違うと配布のたびに全 Action の ID が変わり**、配布前に開いた画面の「更新」が
+# 「Failed to find Server Action」で落ちる。鍵を固定すれば、Action のファイルと
+# 名前が同じ限り ID も変わらない。ARG / ENV で渡すと鍵が層の履歴に残るので secret。
+# 渡されなければ (./doStart.sh のローカルビルド) Next.js が毎回乱数で作る
+RUN --mount=type=secret,id=next_action_key \
+    if [ -s /run/secrets/next_action_key ]; then \
+      export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(cat /run/secrets/next_action_key)"; \
+    fi \
+ && npm run build \
  && rm -rf .next/standalone/public \
  && mkdir -p /static-media \
  && if [ -d .next/static/media ]; then \
