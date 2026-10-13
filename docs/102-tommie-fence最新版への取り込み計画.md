@@ -1,6 +1,6 @@
 # tommie-fence 最新版への取り込み計画 (circuit・breadboard・perfboard・fence-kit)
 
-計画日: 2026-10-13 / 状態: **計画。実機での本番作業は未着手**
+計画日: 2026-10-13 / 状態: **手順 1〜5 は実装済み (ブランチ `chore/fence-0.38`、未 merge・未配布)。手順 6〜9 (配布・本番の書き換え・backfill) は未着手**
 
 上流 ([tommie-fence](https://github.com/tommie-jp/tommie-fence)) が進み、QR Note が使っている
 4 つの tgz が古くなった。版を上げるときに壊れるものと、先にやる作業を測って決める。
@@ -101,3 +101,13 @@ breadboard / perfboard の番地 (`a5 a10`) は**基板の穴の名前で、変�
   取り違えを避けるため、書き換え用の使い捨てスクリプトを勧める
 - demo (qr-demo) のシードに旧い番地が無いことは確かめた (リポジトリ内のファイルのみ)。
   demo の DB 本体は未確認
+
+## 8. 実装の結果 (2026-10-13)
+
+- ブランチ `chore/fence-0.38` に 1 コミット (4 つの tgz・テスト・e2e・記法ヘルプ)。
+  **main へは merge していない** — main から配布すると、新しい番地を読むアプリが本番に出るので、
+  手順 6〜8 と同じ日にそろえる
+- `npm run typecheck`・`npm run lint`・`npx vitest run` (4600 件) は通った。
+  **e2e (Playwright) は回していない** — `fence-gui.spec.ts` の circuit の番地だけ直した
+- 記法ヘルプの perf の例 (`board: 28x18`、穴数で書いた基板) は、上流 0.32.0 の `silk:` の
+  変更で従来どおり読まれるので直していない
