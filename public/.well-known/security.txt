@@ -1,5 +1,0 @@
-Contact: https://github.com/tommie-jp/qr-note/security/advisories/new
-Expires: 2027-10-13T00:00:00.000Z
-Preferred-Languages: ja, en
-Canonical: https://qr.tommie.jp/.well-known/security.txt
-Canonical: https://qr-demo.tommie.jp/.well-known/security.txt
