@@ -14,7 +14,7 @@ import { OFFLINE_PATH } from '../offline/params'
 import { FENCE_MAP_SCRIPT } from '../fenceGui/mapScript'
 import { isValidAttachmentName } from '../uploads/names'
 import { isValidItemNo } from '../validation'
-import { ABOUT_PATH, THIRD_PARTY_LICENSES_PATH } from '../projectLinks'
+import { ABOUT_PATH, SECURITY_TXT_PATH, THIRD_PARTY_LICENSES_PATH } from '../projectLinks'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。
 // 閉じると 401 になり「インストール可能」と判定されない。
@@ -58,7 +58,9 @@ const DOCS_PATHS = new Set(['/docs/search', '/docs/memo'])
 // ブラウザへ配っている JS・フォント・モデルのライセンス表記と、Yahoo! の
 // 規定のクレジットなので、ログインしていない人にも届く必要がある。
 // 中身は静的な帰属表示とリポジトリの URL だけで、ノートを含まない
-const CREDIT_PATHS = new Set([ABOUT_PATH, THIRD_PARTY_LICENSES_PATH])
+//
+// 脆弱性の連絡先 (RFC 9116) も同じ扱い。報告する人はログインしていない
+const CREDIT_PATHS = new Set([ABOUT_PATH, THIRD_PARTY_LICENSES_PATH, SECURITY_TXT_PATH])
 
 // robots.txt はクローラが認証なしで取りに行く (docs/39-デモ公開計画.md §3)。
 // 秘密を含まず、むしろ「デモは disallow」を伝えるために**必ず届く**必要がある。

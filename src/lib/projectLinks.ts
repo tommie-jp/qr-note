@@ -11,3 +11,6 @@ export const TOMMIE_CIRCUIT_WORKBOOK_GITHUB_URL =
 // output と対。projectLinks.test.ts が揃っていることを見る)
 export const ABOUT_PATH = "/about";
 export const THIRD_PARTY_LICENSES_PATH = "/third-party-licenses.txt";
+
+// 脆弱性の連絡先 (RFC 9116)。public/.well-known/security.txt の静的ファイル
+export const SECURITY_TXT_PATH = "/.well-known/security.txt";

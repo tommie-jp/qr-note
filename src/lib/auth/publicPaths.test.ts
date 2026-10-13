@@ -66,6 +66,11 @@ describe('isPublicPath', () => {
     },
   )
 
+  // 脆弱性の連絡先 (RFC 9116)。報告する人はログインしていない
+  test('/.well-known/security.txt is public (vulnerability contact)', () => {
+    expect(isPublicPath('/.well-known/security.txt')).toBe(true)
+  })
+
   // robots.txt はクローラが認証なしで取りに行く (docs/39-デモ公開計画.md §3)。
   // ゲートするとログイン画面が返り、デモの disallow が届かない
   test('/robots.txt is public (crawlers fetch it without auth)', () => {
