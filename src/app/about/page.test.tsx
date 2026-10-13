@@ -1,5 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
+import { VERSION as breadboardVersion } from "breadboard-fence/core";
+import { VERSION as circuitVersion } from "circuit-fence/core";
+import { VERSION as logicVersion } from "logic-fence/core";
 import AboutPage from "./page";
 
 // クレジットページ (docs/46-クレジット表記計画.md)。
@@ -33,4 +36,18 @@ test("楽天・openBD・NDL の帰属も出す (適切なページへ)", () => {
 // (それらを呼んでいれば、このプレーンなレンダリングが投げる)
 test("ログイン状態に依らず素で描ける (見出しが出る)", () => {
   expect(html()).toContain("クレジット");
+});
+
+// tommie-fence (図のフェンス) の節。版は各パッケージの VERSION (取り込み済みの
+// tgz) から読むので、手で書いた番号が古くならない。
+// 版は fence ごとに独立している (揃えない) ので、一覧で出す
+test("tommie-fence の説明・版と、qr-note・tommie-fence の GitHub URL とデモ版の URL を出す", () => {
+  const out = html();
+  expect(out).toContain("tommie-fence");
+  expect(out).toContain("https://github.com/tommie-jp/tommie-fence");
+  expect(out).toContain("https://github.com/tommie-jp/qr-note");
+  expect(out).toContain("https://qr-demo.tommie.jp");
+  expect(out).toContain(`circuit-fence ${circuitVersion}`);
+  expect(out).toContain(`breadboard-fence ${breadboardVersion}`);
+  expect(out).toContain(`logic-fence ${logicVersion}`);
 });

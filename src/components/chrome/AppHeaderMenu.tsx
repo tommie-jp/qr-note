@@ -19,9 +19,8 @@ import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import type { RowTintId } from "@/lib/prefs/rowTint";
+import { QR_NOTE_GITHUB_URL } from "@/lib/projectLinks";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
-
-const GITHUB_URL = "https://github.com/tommie-jp/qr-note";
 
 interface AppHeaderMenuProps {
   // ヘッダーの帯と同じ地色 (AppHeader.tsx の headerBgClass)
@@ -51,7 +50,7 @@ export function AppHeaderMenu({
     <HeaderMenu bgClass={bgClass}>
       <HeaderQrButton qrDataUrl={siteQrDataUrl} url={siteUrl} variant="menu" />
       <a
-        href={GITHUB_URL}
+        href={QR_NOTE_GITHUB_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={HEADER_MENU_ITEM_CLASS}
