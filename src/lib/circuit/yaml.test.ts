@@ -28,7 +28,7 @@ const { renderCircuitYaml, circuitYamlHash } = await import('./yaml')
 
 // 描けるいちばん短い図
 const SOURCE = `parts:
-  R1: resistor a1 a3 10k`
+  R1: resistor 1,1 3,1 10k`
 
 // TikZJax が返す形に寄せた最小の SVG。仕上げ (塗り替え・刻印) が
 // 当たったことを属性で見分けられるようにしておく
@@ -56,7 +56,7 @@ describe('renderCircuitYaml', () => {
 
   test('読めなかった行は行番号つきのエラーにする (TeX まで行かない)', async () => {
     const result = await renderCircuitYaml(`parts:
-  R1: resistor a1 zz9 10k`)
+  R1: resistor 1,1 zz9 10k`)
 
     expect('error' in result).toBe(true)
     expect('error' in result && result.error).toMatch(/2 行目/)
@@ -94,9 +94,9 @@ describe('お知らせ (notices)', () => {
   // 効かなかった指定 (グリッドを出していないのに grid-to を書いた)。
   // 図は問題なく描けるが、書いたとおりには出ていないので伝える
   const AMBIGUOUS = `parts:
-  R1: resistor a1 a3 10k
+  R1: resistor 1,1 3,1 10k
 style:
-  grid-to: e5`
+  grid-to: 5,5`
 
   test('図は描けるが伝えたいことがあれば notices に載せる', async () => {
     const result = await renderCircuitYaml(AMBIGUOUS)
@@ -120,7 +120,7 @@ style:
     const result = await renderCircuitYaml(`style:
   debug: off
 parts:
-  R1: resistor a1 zz9 10k`)
+  R1: resistor 1,1 zz9 10k`)
 
     expect('error' in result).toBe(true)
   })
@@ -131,8 +131,8 @@ describe('読めたところまで描く (circuit-fence 0.8.0)', () => {
   // **1 つも組めない図 (上の「読めなかった行は…」) とは分かれる** —
   // あちらは tex が null で、描くものが無い
   const PARTIAL = `parts:
-  R1: resistor a1 a3 10k
-  R2: resistor b1 zz9 1k`
+  R1: resistor 1,1 3,1 10k
+  R2: resistor 1,2 zz9 1k`
 
   test('読めなかった行があっても、描けたところまで描く', async () => {
     const result = await renderCircuitYaml(PARTIAL)
@@ -180,9 +180,9 @@ describe('注釈を差し込んだ SVG が許可リストを通る', () => {
     const { assertSafeCircuitSvg } = await import('./hash')
 
     const compiled = compileCircuit(`parts:
-  R1: resistor a1 a3 10k
+  R1: resistor 1,1 3,1 10k
 notes:
-  - text a5: 抵抗にかかる電圧
+  - text 5,1: 抵抗にかかる電圧
   - circle R1 red`)
     expect(compiled.errors).toEqual([])
 

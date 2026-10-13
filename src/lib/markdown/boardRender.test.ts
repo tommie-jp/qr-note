@@ -77,6 +77,6 @@ describe('renderBoardFence', () => {
 
     // 通った以上は許可リストの中だが、何が出ているかを字にしておく
     // (上流が新しい要素を使い始めたら、ここが変わって気づける)
-    expect([...elements].sort()).toEqual(['circle', 'g', 'line', 'rect', 'svg', 'text'])
+    expect([...elements].sort()).toEqual(['circle', 'clippath', 'g', 'line', 'rect', 'svg', 'text'])
   })
 })

@@ -13,7 +13,7 @@ const CASES = [
   { lang: 'breadboard', body: 'board: half\nparts:\n  R1: resistor a5 a10 330', to: 'a7', value: '330', next: '1k' },
   { lang: 'perfboard', body: 'board: 16x8\nparts:\n  R1: resistor c3 c7 330', to: 'c4', value: '330', next: '1k' },
   // 回路図 (docs/100)。掴むのは清書ではなく、つながりだけの簡略図 (TeX は要らない)
-  { lang: 'circuit', body: 'parts:\n  R1: resistor a1 a2 10k', to: 'b1', value: '10k', next: '4k7' },
+  { lang: 'circuit', body: 'parts:\n  R1: resistor 1,1 2,1 10k', to: '1,2', value: '10k', next: '4k7' },
 ] as const
 
 describe.each(CASES)('$lang の殻', ({ lang, body, to, value, next }) => {
@@ -92,7 +92,7 @@ describe('loadFenceEditors', () => {
   test('渡した言語の editor を、その順で作る', async () => {
     const editors = await loadFenceEditors(['circuit', 'breadboard'])
 
-    expect(editors.map((one) => one.language)).toEqual(['circuit', 'breadboard'])
+    expect(editors.map((one) => one.language)).toEqual(['circuit', 'bread'])
   })
 
   test('言語が無ければ何も読まない', async () => {

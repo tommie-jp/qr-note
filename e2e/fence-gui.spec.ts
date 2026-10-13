@@ -281,7 +281,7 @@ test.describe('図を編集', () => {
 // 控え (circuit_svgs) を書く。ここで見たいのは殻の往復だけなので、清書を描かせない —
 // カーソルは生の字をクリックして置く
 test.describe('図を編集 (回路図)', () => {
-  const CIRCUIT = ['回路図の試験', '', '```circuit', 'parts:', '  R1: resistor a1 a2 10k', '```', ''].join('\n')
+  const CIRCUIT = ['回路図の試験', '', '```circuit', 'parts:', '  R1: resistor 1,1 2,1 10k', '```', ''].join('\n')
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -291,7 +291,7 @@ test.describe('図を編集 (回路図)', () => {
 
   // 回路図の部品には板のような当たり判定の箱が無く、線そのものが当たり判定。
   // 升 (34 単位の正方形) の縦の真ん中を部品の足が横切り、升の真ん中には節点の丸
-  // (押すと部品ではなく節点を掴む) がある。**a1 の右寄り、丸の外の足**を押す
+  // (押すと部品ではなく節点を掴む) がある。**1,1 の右寄り、丸の外の足**を押す
   async function pressPointOnLead(map: FrameLocator, address: string) {
     const cell = await map.locator(`.cf-cell[data-address="${address}"]`).boundingBox()
     if (cell === null) {
@@ -302,14 +302,14 @@ test.describe('図を編集 (回路図)', () => {
 
   async function openCircuitMap(page: Page): Promise<FrameLocator> {
     await openWithBody(page, CIRCUIT)
-    await memoEditor(page).getByText('R1: resistor a1 a2 10k').click()
+    await memoEditor(page).getByText('R1: resistor 1,1 2,1 10k').click()
     return openMapAtCursor(page)
   }
 
   test('属性の欄で値を直して閉じると、その行だけが変わる', async ({ page }) => {
     // Arrange
     const map = await openCircuitMap(page)
-    const lead = await pressPointOnLead(map, 'a1')
+    const lead = await pressPointOnLead(map, '1,1')
 
     // Act — 足を押して選ぶと属性の欄が出る
     await page.mouse.click(lead.x, lead.y)
@@ -327,9 +327,9 @@ test.describe('図を編集 (回路図)', () => {
   test('部品を掴んで 1 行下げると、両端の番地が書き換わる', async ({ page }) => {
     // Arrange
     const map = await openCircuitMap(page)
-    const lead = await pressPointOnLead(map, 'a1')
+    const lead = await pressPointOnLead(map, '1,1')
 
-    // Act — 升 1 つぶん下 (b1) の同じ所で離す
+    // Act — 升 1 つぶん下 (1,2) の同じ所で離す
     await page.mouse.move(lead.x, lead.y)
     await page.mouse.down()
     await page.mouse.move(lead.x, lead.y + lead.cell.height, { steps: 12 })
@@ -338,6 +338,6 @@ test.describe('図を編集 (回路図)', () => {
     await closeMap(page)
 
     // Assert
-    await expect(memo(page)).toHaveValue(CIRCUIT.replace('a1 a2', 'b1 b2'))
+    await expect(memo(page)).toHaveValue(CIRCUIT.replace('1,1 2,1', '1,2 2,2'))
   })
 })
