@@ -2,7 +2,7 @@
 // (src/lib/zip) が読める形に変換する (docs/104)。
 //
 // 使い方:
-//   node scripts/convertWorkbookToZip.mjs <教科書の置き場> <冊のディレクトリ名> <出力.zip>
+//   node scripts/convertWorkbookToZip.mjs <教科書の置き場> <冊のディレクトリ名> <出力.zip> [YYYY-MM-DD]
 //   例: node scripts/convertWorkbookToZip.mjs ~/52-tommie-fence/tommie-circuit-workbook 04-denken _del/wb-04.zip
 //
 // 変換 (決めは docs/104 §4):
@@ -16,6 +16,9 @@
 //      同じ階層の相対画像は、PNG などは添付に取り込み、SVG (QR Note は添付にできない) は
 //      Pages の公開 URL へ
 //   6. 32,000 文字を超える題は `## ` の見出しで分ける
+//   7. 作成・更新日時は**古い固定日** (既定 2000-01-01。第 4 引数で替えられる) にする。
+//      取り込んだ時刻のままだと、一覧の更新順の先頭を教科書が占め、自分のメモが埋もれる
+//      (562 件を入れた手元の確かめで、先頭 20 件が全部教科書になった)。タグで絞れば出る
 //
 // itemNo は `wb<冊>-<章>-<題>` (例 wb04-06-01)。QR Note の itemNo は英数字・`_`・`-` の
 // 20 字までの文字列なので、番号を振らずに題の位置をそのまま名前にする。リンクの貼り直しが要らない。
@@ -24,7 +27,12 @@ import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from '
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { zipSync, strToU8 } from 'fflate'
 
-const [root, book, outPath] = process.argv.slice(2)
+const [root, book, outPath, dateArg] = process.argv.slice(2)
+const STAMP = `${dateArg ?? '2000-01-01'}T00:00:00.000Z`
+if (Number.isNaN(Date.parse(STAMP))) {
+  console.error(`日付が読めません: ${dateArg}`)
+  process.exit(2)
+}
 if (!root || !book || !outPath) {
   console.error('usage: node scripts/convertWorkbookToZip.mjs <教科書> <冊> <出力.zip>')
   process.exit(2)
@@ -238,7 +246,7 @@ const zipFiles = {}
 for (const n of notes) {
   if (n.memo.length > MAX_CHARS) console.error(`WARN 長すぎる: ${n.itemNo} (${n.memo.length} 字)`)
   zipFiles[`notes/${n.itemNo}.md`] = strToU8(
-    `---\nitemNo: ${JSON.stringify(n.itemNo)}\nmode: memo\nurl: ""\ncreated: \nupdated: \npublic: false\n---\n${n.memo}\n`,
+    `---\nitemNo: ${JSON.stringify(n.itemNo)}\nmode: memo\nurl: ""\ncreated: ${STAMP}\nupdated: ${STAMP}\npublic: false\n---\n${n.memo}\n`,
   )
 }
 for (const [path, bytes] of attachments) zipFiles[path] = new Uint8Array(bytes)
