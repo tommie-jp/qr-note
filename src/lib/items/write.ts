@@ -292,7 +292,7 @@ export async function rewriteImageReference(
 
 // memo 由来の派生キャッシュ列。正本は memo なので保存のたびに丸ごと作り直す。
 // 書き込み経路 (upsertMemo / upsertItem) を 1 箇所に集約して、再計算漏れを防ぐ。
-function derivedFromMemo(memo: string) {
+export function derivedFromMemo(memo: string) {
   const tasks = countTasks(memo)
   return {
     // 一覧の見出し。並べ替え専用の列で、表示は今までどおり ItemRow が
