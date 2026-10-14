@@ -19,6 +19,15 @@
 //   7. 作成・更新日時は**古い固定日** (既定 2000-01-01。第 4 引数で替えられる) にする。
 //      取り込んだ時刻のままだと、一覧の更新順の先頭を教科書が占め、自分のメモが埋もれる
 //      (562 件を入れた手元の確かめで、先頭 20 件が全部教科書になった)。タグで絞れば出る
+//   8. 冊の README の目次 (`<!-- toc:start -->` 〜 `toc:end`) を目次ノート `wb<冊>-00-00` にする。
+//      書いていない題 (リンクの無い行) は外す。題へのリンクには冊のタグと番号順の検索状態を
+//      付け、開いた題に前後ナビが出るようにする (前後ナビは q のあるときだけ出る)
+//
+// 総目次 (冊の目次ノートへのリンクの表) は、冊の代わりに `index` を渡すと 1 件だけの ZIP にする。
+// `index:04-denken,01-circuits` のように冊を挙げると、挙げた冊だけをリンクにし、残りは字だけ
+// にする (まだ取り込んでいない冊の番号を開くと、未登録の番号の画面になるため)。
+// 冊を足したら、総目次を作り直して overwrite で入れる:
+//   node scripts/convertWorkbookToZip.mjs ~/52-tommie-fence/tommie-circuit-workbook index:04-denken _del/wb-00.zip
 //
 // itemNo は `wb<冊>-<章>-<題>` (例 wb04-06-01)。QR Note の itemNo は英数字・`_`・`-` の
 // 20 字までの文字列なので、番号を振らずに題の位置をそのまま名前にする。リンクの貼り直しが要らない。
@@ -73,11 +82,21 @@ function itemNoOf(file) {
   return `wb${bookNo}-${chapter}-${num(basename(file))}`
 }
 
+const BOOKS = readdirSync(root).filter((n) => /^0\d-/.test(n)).sort()
+const indexMatch = /^index(?::(.*))?$/.exec(book)
+const linkedBooks = indexMatch === null ? null : new Set(indexMatch[1] ? indexMatch[1].split(',') : BOOKS)
+for (const b of linkedBooks ?? [book]) {
+  if (!BOOKS.includes(b)) {
+    console.error(`冊がありません: ${b}`)
+    process.exit(2)
+  }
+}
+
 // 前もって全題の対応表を作る (リンクの貼り替えに要る)
-const files = [...walk(join(root, book))]
+const files = indexMatch === null ? [...walk(join(root, book))] : []
 const idByPath = new Map(files.map((f) => [resolve(f), itemNoOf(f)]))
 // 他の冊への参照も同じ規則で引けるように、教科書全体の表を足す
-for (const b of readdirSync(root).filter((n) => /^0\d-/.test(n))) {
+for (const b of BOOKS) {
   for (const f of walk(join(root, b))) {
     const rel = relative(join(root, b), f).split('/')
     idByPath.set(resolve(f), `wb${num(b)}-${rel.length > 1 ? num(rel[0]) : '00'}-${num(basename(f))}`)
@@ -202,9 +221,80 @@ function convert(file) {
   return { itemNo, body: out.join('\n').replace(/\n{3,}/g, '\n\n').trim() }
 }
 
-const bookTag = `wb-${book.replace(/^\d+-/, '')}`
+const ROOT_TAG = 'tommie-circuit-workbook'
+const tagOf = (b) => `wb-${b.replace(/^\d+-/, '')}`
+const bookTag = tagOf(book)
 function tagLine() {
-  return `#tommie-circuit-workbook #${bookTag}`
+  return indexMatch === null ? `#${ROOT_TAG} #${bookTag}` : `#${ROOT_TAG}`
+}
+
+// 目次ノート (決め 8)。冊のタグで番号順に並べると、目次 → 0-1 → 0-2 … の順に前後ナビで辿れる
+const tocItemNo = (b) => `wb${num(b)}-00-00`
+const INDEX_ITEM_NO = 'wb00-00-00'
+const listQuery = (tag) => `?q=${encodeURIComponent(`#${tag}`)}&sort=itemNo`
+const TOC_START = '<!-- toc:start -->'
+const TOC_END = '<!-- toc:end -->'
+
+function readmeOf(b) {
+  const text = readFileSync(join(root, b, 'README.md'), 'utf8').replace(/\r\n/g, '\n')
+  const s = text.indexOf(TOC_START)
+  const e = text.indexOf(TOC_END)
+  if (s < 0 || e < s) throw new Error(`${b}/README.md に目次の区間がありません`)
+  return { title: (/^#\s+(.*)$/m.exec(text) ?? [])[1] ?? b, toc: text.slice(s + TOC_START.length, e) }
+}
+
+// 総目次の表 (教科書の根の README) から、冊ごとの「内容」の欄を引く
+function bookSummaries() {
+  const { toc } = readmeOf('.')
+  const map = new Map()
+  for (const m of toc.matchAll(/^\| \[[^\]]+\]\((0\d-[^/]+)\/README\.md\) \| ([^|]+) \|/gm)) map.set(m[1], m[2].trim())
+  return map
+}
+
+// 章の表から、書いていない題の行 (リンクの無い行) と、題が 1 つも無い章を外す
+function tocChapters(b) {
+  const dir = join(root, b)
+  const chapters = readmeOf(b).toc.split(/\n(?=## )/).filter((c) => c.startsWith('## '))
+  const out = []
+  for (const chapter of chapters) {
+    const lines = chapter.trim().split('\n')
+    let rows = 0
+    const kept = lines.filter((line) => {
+      if (!/^\| \d/.test(line)) return true
+      if (!/\]\([^)]+\.md\)/.test(line)) return false
+      rows += 1
+      return true
+    })
+    if (rows === 0) continue
+    out.push(
+      kept
+        .map((line) =>
+          line.replace(REL_LINK, (whole, target) => {
+            const id = idByPath.get(resolve(dir, target))
+            if (id === undefined) {
+              report.linksDropped.push(`${b}/README.md: ${target}`)
+              return whole
+            }
+            report.links += 1
+            return `](/item/${id}${listQuery(tagOf(b))})`
+          }),
+        )
+        .join('\n'),
+    )
+  }
+  return out
+}
+
+function bookTocNote() {
+  const { title } = readmeOf(book)
+  const summary = bookSummaries().get(book)
+  const body = [
+    `# ${title} — 目次`,
+    ...(summary ? [summary] : []),
+    `[総目次](/item/${INDEX_ITEM_NO})`,
+    ...tocChapters(book),
+  ].join('\n\n')
+  return { itemNo: tocItemNo(book), memo: `${body}\n\n${tagLine()}` }
 }
 
 function splitBody(itemNo, body) {
@@ -233,6 +323,27 @@ function splitBody(itemNo, body) {
     return { itemNo: ids[k], memo: `${text}\n\n${nav}\n\n${tagLine()}` }
   })
 }
+
+// 総目次。冊の目次ノートへのリンクの表。取り込んでいない冊は字だけにする
+function indexNote() {
+  const { title } = readmeOf('.')
+  const warning = (/^>.*(?:\n>.*)*/m.exec(readFileSync(join(root, 'README.md'), 'utf8').replace(/\r\n/g, '\n')) ?? [''])[0]
+  const summaries = bookSummaries()
+  const rows = BOOKS.map((b) => {
+    const name = readmeOf(b).title
+    const cell = linkedBooks.has(b) ? `[${name}](/item/${tocItemNo(b)})` : `${name} (未取り込み)`
+    return `| ${cell} | ${summaries.get(b) ?? ''} | ${[...walk(join(root, b))].length} |`
+  })
+  const body = [
+    `# ${title} — 総目次`,
+    ...(warning ? [warning] : []),
+    ['| 冊 | 内容 | 題 |', '| --- | --- | --- |', ...rows].join('\n'),
+  ].join('\n\n')
+  return { itemNo: INDEX_ITEM_NO, memo: `${body}\n\n${tagLine()}` }
+}
+
+if (indexMatch !== null) notes.push(indexNote())
+else notes.push(bookTocNote())
 
 for (const file of files) {
   const { itemNo, body } = convert(file)
