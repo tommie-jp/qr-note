@@ -57,6 +57,12 @@ const INSERT_ITEMS: readonly FormatMenuItem[] = [
   { action: "circuitYaml", label: "回路図 (YAML)", sample: "circuit" },
   { action: "breadboard", label: "ブレッドボード図", sample: "breadboard" },
   { action: "perfboard", label: "基板図", sample: "perfboard" },
+  { action: "copper", label: "銅張り基板の寸法図", sample: "copper" },
+  { action: "vna", label: "VNA の画面", sample: "vna" },
+  { action: "scope", label: "オシロスコープの画面", sample: "scope" },
+  { action: "spectrum", label: "スペクトラムの画面", sample: "spectrum" },
+  { action: "graph", label: "グラフ", sample: "graph" },
+  { action: "logic", label: "ロジックアナライザの画面", sample: "logic" },
   { action: "quiz", label: "問題", sample: "quiz" },
 ];
 

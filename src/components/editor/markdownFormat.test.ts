@@ -144,4 +144,39 @@ describe("雛形", () => {
     expect(body).toBeDefined();
     expect(compileCircuit(body ?? "").errors).toEqual([]);
   });
+
+  test("YAML のフェンスは 1 行目に tommie-fence のコメントが入る", () => {
+    const cases = [
+      ["circuitYaml", "circuit", "回路図"],
+      ["breadboard", "breadboard", "ブレッドボードの実体配線図"],
+      ["perfboard", "perfboard", "ユニバーサル基板の配線図"],
+    ] as const;
+    for (const [action, lang, name] of cases) {
+      const doc = apply("|", action).replace("|", "");
+      const body = doc.match(/^```\w+\n([\s\S]*?)\n```/)?.[1] ?? "";
+      expect(body.split("\n")[0]).toBe(
+        `# ${name} (tommie-fence の ${lang} フェンス)`,
+      );
+    }
+  });
+
+  test("寸法図・計器の画面の雛形は 1 行目にコメントがあり、そのまま描ける", async () => {
+    const { renderBoardFence } = await import("@/lib/markdown/boardRender");
+    const cases = [
+      ["copper", "銅張り基板の寸法図"],
+      ["vna", "NanoVNA の画面"],
+      ["scope", "オシロスコープの画面"],
+      ["spectrum", "スペクトラムアナライザの画面"],
+      ["graph", "グラフ"],
+      ["logic", "ロジックアナライザの画面"],
+    ] as const;
+    for (const [lang, name] of cases) {
+      const doc = apply("|", lang).replace("|", "");
+      const body = doc.match(/^```\w+\n([\s\S]*?)\n```/)?.[1] ?? "";
+      expect(body.split("\n")[0]).toBe(`# ${name} (tommie-fence の ${lang} フェンス)`);
+      const { svg, issues } = await renderBoardFence(lang, body);
+      expect(issues, lang).toEqual([]);
+      expect(svg.startsWith("<svg"), lang).toBe(true);
+    }
+  });
 });
