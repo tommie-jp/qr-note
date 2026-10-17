@@ -97,6 +97,12 @@ test("0 件 + 登録リンクありなら「新規登録」を出す", () => {
   expect(html).toContain("新規登録");
 });
 
+test("検索語が #付きでも、作られるタグを # 1 つで見せる (docs/111 §7)", () => {
+  const html = render([], "#1250", "/edit/4952?code=1250");
+  expect(html).toContain("#1250");
+  expect(html).not.toContain("##1250");
+});
+
 test("0 件でも登録リンクが無ければ「新規登録」を出さない", () => {
   // タグにできないコード (URL・複数語) はサーバ側で null になる
   const html = render([], "https://example.com/evil", null);

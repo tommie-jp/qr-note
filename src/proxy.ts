@@ -58,11 +58,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 // (docs/107 §3-2。なぜページではなくここかは lib/items/legacyPath.ts)。
 //
 //   1 件に決まる   → 308 (恒久)。X や検索エンジンに新しい URL を覚えてもらう
-//   0 件・複数     → 307 で検索へ (状況で変わるので一時)
+//   0 件・複数     → 307 でタグ検索へ (状況で変わるので一時)
 //   旧番号でない   → null (いつもの判定へ)
 //
 // 未ログインなら公開ノートだけで引く (非公開ノートの有無と id を外に出さない)。
-// 引けなければ検索へ送り、そこでログインを求められる
+// 引けなければ**同じ URL のままログイン画面を出す** (docs/111 §7)。検索へ送ると
+// ログイン後の再読み込みが検索結果に着き、シールや手打ちの番号で開こうとした
+// ノートに辿り着けない (未ログインの検索はどのみちログイン画面になる)。
+// 同じ URL なら、ログイン後の再読み込みで全ノートから引き直して 308 で着く
 async function redirectLegacyItemPath(request: NextRequest): Promise<NextResponse | null> {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return null
@@ -79,7 +82,9 @@ async function redirectLegacyItemPath(request: NextRequest): Promise<NextRespons
     return NextResponse.redirect(url, 308)
   }
   if (resolution.kind === 'search') {
-    return NextResponse.redirect(new URL(resolution.href, request.nextUrl), 307)
+    return session === null
+      ? respond(request, { kind: 'rewrite-login-required', noindex: true })
+      : NextResponse.redirect(new URL(resolution.href, request.nextUrl), 307)
   }
   return null
 }

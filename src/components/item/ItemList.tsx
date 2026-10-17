@@ -1,6 +1,7 @@
 "use client";
 
 import { noteName } from "@/lib/items/noteName";
+import { registerCodeOf } from "@/lib/external/scanRegister";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -104,7 +105,8 @@ function emptyState(
             transitionTypes={["nav-forward"]}
             className={`${PRIMARY_BUTTON_CLASS} px-4`}
           >
-            <span className="font-mono">#{query}</span> を新規登録
+            {/* 検索語が #付き (タグ検索の形) でも、作られるタグは 1 つ */}
+            <span className="font-mono">#{registerCodeOf(query) ?? query}</span> を新規登録
           </Link>
         </p>
       )}

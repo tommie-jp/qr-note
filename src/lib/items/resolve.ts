@@ -10,12 +10,12 @@
 // 解き方は 1 本:
 //   UUID            → そのノート
 //   旧番号の形      → タグ #<旧番号> のノートが 1 件ならそれ、
-//                     0 件・複数なら検索 (/?q=<旧番号>) に任せる
+//                     0 件・複数ならタグ検索 (/?q=%23<旧番号>) に任せる
 //   それ以外        → 404
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/db'
-import { normalizeTag } from '@/lib/markdown/tags/tags'
+import { normalizeTag, tagSearchHref } from '@/lib/markdown/tags/tags'
 import { isLegacyItemNo, isValidItemId } from '@/lib/validation'
 
 export type ItemKeyResolution =
@@ -67,8 +67,10 @@ export async function resolveItemKey(
     : { kind: 'search', href: legacySearchHref(key) }
 }
 
-// 0 件なら検索の 0 件画面に「新規登録」が出る (docs/10 §3。単一トークンでタグ
-// 文字だけ、の条件を旧番号は必ず満たす)。複数なら一覧から選んでもらう
+// **タグ検索** (`#1250`) に倒す (docs/111 §7)。全文検索 (`1250`) だと本文に同じ数字を
+// 含むノート (型番・年など) まで混ざり、番号のノートを選ぶ一覧にならない。
+// 0 件なら検索の 0 件画面に「#<番号> を新規登録」が出る (docs/10 §3。
+// 検索語が #付きでも registerCodeOf が剥がす)。複数なら一覧から選んでもらう
 export function legacySearchHref(itemNo: string): string {
-  return `/?q=${encodeURIComponent(itemNo)}`
+  return tagSearchHref(itemNo)
 }

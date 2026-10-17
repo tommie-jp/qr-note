@@ -303,13 +303,26 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
     expect(resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: false })
   })
 
-  test('未ログインなら公開ノートだけで引き、決まらなければ 307 で検索へ', async () => {
-    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=1003' })
+  test('ログイン済みで決まらなければ 307 で検索へ', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=%231003' })
+
+    const res = await proxy(loggedIn('/item/1003'))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toBe('https://qr.tommie.jp/?q=%231003')
+    expect(resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: false })
+  })
+
+  test('未ログインは公開ノートだけで引き、決まらなければ同じ URL でログイン画面 (docs/111 §7)', async () => {
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=%231003' })
 
     const res = await proxy(pageRequest('/item/1003'))
 
-    expect(res.status).toBe(307)
-    expect(res.headers.get('location')).toBe('https://qr.tommie.jp/?q=1003')
+    // ログイン後の再読み込みで同じ URL を引き直せるよう、検索へは送らない
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-middleware-rewrite')).toBe('https://qr.tommie.jp/login-required')
+    expect(res.headers.get('x-robots-tag')).toContain('noindex')
     expect(resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: true })
   })
 
@@ -336,13 +349,13 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
     expect(resolveItemKey).toHaveBeenCalledWith('1234', { publicOnly: false })
   })
 
-  test('未ログインの短縮 URL は公開ノートだけで引き、決まらなければ検索へ', async () => {
-    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=1234' })
+  test('未ログインの短縮 URL は公開ノートだけで引き、決まらなければ同じ URL でログイン画面', async () => {
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=%231234' })
 
     const res = await proxy(pageRequest('/s/1234'))
 
-    expect(res.status).toBe(307)
-    expect(res.headers.get('location')).toBe('https://qr.tommie.jp/?q=1234')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-middleware-rewrite')).toBe('https://qr.tommie.jp/login-required')
     expect(resolveItemKey).toHaveBeenCalledWith('1234', { publicOnly: true })
   })
 

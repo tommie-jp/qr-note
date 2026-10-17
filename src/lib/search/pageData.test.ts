@@ -126,6 +126,17 @@ test('0 件でタグにできる語なら採番して新規登録のリンクを
   expect(data.registerHref).toBe('/edit/00000000-0000-7000-8000-000000005000?code=4901234567894')
 })
 
+test('0 件でタグ検索の形 (#1250) なら # を剥がしたコードで新規登録のリンクを作る (docs/111 §7)', async () => {
+  // Arrange
+  mocks.searchItems.mockResolvedValue(searchResult(0))
+
+  // Act
+  const data = await load({ query: '#1250' })
+
+  // Assert
+  expect(data.registerHref).toBe('/edit/00000000-0000-7000-8000-000000005000?code=1250')
+})
+
 test('ヒットした検索では採番しない', async () => {
   // Act
   const data = await load({ query: '4901234567894' })

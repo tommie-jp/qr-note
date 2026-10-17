@@ -112,6 +112,22 @@ test.describe('短縮 URL', () => {
     expect(res.status()).toBe(307)
     const location = new URL(res.headers().location, 'http://localhost')
     expect(location.pathname).toBe('/')
-    expect(location.searchParams.get('q')).toBe(assigned)
+    // 全文検索ではなくタグ検索 (docs/111 §7)
+    expect(location.searchParams.get('q')).toBe(`#${assigned}`)
+  })
+
+  test('未ログインの /s/<番号> は同じ URL のままログイン画面 (検索へ送らない)', async ({ browser }) => {
+    test.skip(assigned === '', '前の段で番号が振れていない')
+
+    // Arrange: cookie を持たない文脈
+    const context = await browser.newContext({ storageState: undefined })
+
+    // Act
+    const res = await context.request.get(`/s/${assigned}`, { maxRedirects: 0 })
+
+    // Assert
+    expect(res.status()).toBe(200)
+    expect(await res.text()).toContain('ログイン')
+    await context.close()
   })
 })

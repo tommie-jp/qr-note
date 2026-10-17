@@ -18,6 +18,17 @@ export function isTaggableCode(code: string): boolean {
   return parseTagToken(`#${code}`) !== null
 }
 
+// 検索語から「新規登録」で本文に置くコードを取り出す。タグにできなければ null。
+//
+// `#1250` のようにタグ検索の形で打った (または短縮 URL `/s/1250` から
+// タグ検索に倒された。docs/111 §7) ときも、0 件なら `#1250` のノートを作れる
+// ようにする。`#` は 1 つだけ剥がす — `##1250` は本文に置いても `##1250` という
+// タグにはならない (parseTagToken が弾く)
+export function registerCodeOf(query: string): string | null {
+  const code = query.replace(/^[#＃]/, '')
+  return isTaggableCode(code) ? code : null
+}
+
 // 978 / 979 で始まる 13 桁は書籍用に予約された EAN-13 の接頭辞 (Bookland)。
 // つまり読み取った数字だけで書籍だと分かる (JAN や DataMatrix と違い、
 // 読み取ったフォーマットの情報が要らない)。

@@ -19,7 +19,7 @@ import { countTrashedItems, countTrashedMatches } from '@/lib/items/trash'
 import { buildMathSummaries, buildMathTexts } from '@/lib/markdown/mathText'
 import type { MathTextMap } from '@/lib/markdown/mathTextTypes'
 import { queryHasTagTerm, queryTracksTaskProgress } from '@/lib/search/rewrite'
-import { isTaggableCode, scanRegisterHref } from '@/lib/external/scanRegister'
+import { registerCodeOf, scanRegisterHref } from '@/lib/external/scanRegister'
 import type { Sort } from '@/lib/validation'
 import type { ViewMode } from '@/lib/prefs/viewMode'
 
@@ -75,14 +75,17 @@ export async function loadSearchResults({
 
   // 0 件のときだけ引く 2 つ。どちらも独立なので並べて撃つ。
   // - 新規 id: スキャンした未登録コードから新規ノートを作る導線
-  //   (docs/10-スキャン新規登録計画.md §3)。タグにできる語のときだけ。
+  //   (docs/10-スキャン新規登録計画.md §3)。タグにできる語のときだけ
+  //   (`#1250` のようにタグ検索の形でもよい。docs/111 §7)。
   //   ヒットした検索や URL・複数語では引かない (無駄な問い合わせをしないためと、
   //   ボタンを出さないため)
   // - ゴミ箱の一致: 消したノートを探して 0 件のときに知らせる
   //   (docs/12-ゴミ箱計画.md §5)。ゴミ箱が空なら数えるまでもない
-  const newId = result.total === 0 && isTaggableCode(query) ? newItemId() : null
+  const registerCode = result.total === 0 ? registerCodeOf(query) : null
+  const newId = registerCode === null ? null : newItemId()
   const trashedMatches = result.total === 0 && trashCount > 0 ? await countTrashedMatches(query) : 0
-  const registerHref = newId === null ? null : scanRegisterHref(newId, query)
+  const registerHref =
+    newId === null || registerCode === null ? null : scanRegisterHref(newId, registerCode)
 
   // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md)。キャッシュ済みの
   // SVG を引くだけで描画はしない。小/大は画像の無いノートの先頭 1 枚、

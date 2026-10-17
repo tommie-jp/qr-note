@@ -3,6 +3,7 @@ import {
   isIsbn,
   isJan,
   isTaggableCode,
+  registerCodeOf,
   scanRegisterHref,
   scanRegisterMemo,
 } from './scanRegister'
@@ -233,4 +234,17 @@ test('リンクのコードは URL エンコードする', () => {
   expect(scanRegisterHref('4952', '抵抗')).toBe(
     '/edit/4952?code=%E6%8A%B5%E6%8A%97',
   )
+})
+
+test('registerCodeOf: タグ検索の形 (#付き) からもコードを取り出す (docs/111 §7)', () => {
+  expect(registerCodeOf('1250')).toBe('1250')
+  expect(registerCodeOf('#1250')).toBe('1250')
+  expect(registerCodeOf('＃抵抗')).toBe('抵抗')
+})
+
+test('registerCodeOf: タグにできない語は null', () => {
+  expect(registerCodeOf('##1250')).toBeNull()
+  expect(registerCodeOf('#a b')).toBeNull()
+  expect(registerCodeOf('https://example.com/evil')).toBeNull()
+  expect(registerCodeOf('#')).toBeNull()
 })
