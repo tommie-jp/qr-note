@@ -119,9 +119,11 @@ const nextConfig: NextConfig = {
     // 回路図の描画スクリプトは意図的に Next のバンドル対象外 (子プロセスで
     // 起動する素の CJS) なので、tracer からは見えない。明示的に同梱する。
     //
-    // キーは picomatch のルート glob。[itemNo] を書くと文字クラスと解釈され、
-    // どのルートにもマッチせず「黙って何も同梱されない」ためエスケープする
-    "/item/\\[itemNo\\]": ["./scripts/renderCircuit.cjs"],
+    // キーは picomatch のルート glob。[itemId] を書くと文字クラスと解釈され、
+    // どのルートにもマッチせず「黙って何も同梱されない」ためエスケープする。
+    // ルートを改名したらここも直す (docs/107 で [itemNo] → [itemId] にしたとき
+    // 旧名のまま残っていた)。src/nextConfig.test.ts が実在を見張る
+    "/item/\\[itemId\\]": ["./scripts/renderCircuit.cjs"],
   },
   // Ver1 の旧 URL 互換。/item/:itemNo は同一パスで実装済みのため不要
   async redirects() {
