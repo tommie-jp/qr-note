@@ -33,9 +33,86 @@ QR シールで電子部品を管理する様子を実際に触れます。タ�
 
 ## 構成
 
-- Next.js 16 (App Router) + TypeScript + Tailwind CSS
-- Prisma 7 + PostgreSQL 16
-- Docker Compose(db / app / proxy)
+- Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4
+- Prisma 7 + PostgreSQL 18 + PGroonga (全文検索)
+- Docker Compose (`db` / `app`。ローカルで HTTPS を試すときだけ `proxy` = Caddy)
+
+### 本番とデモ (vps2)
+
+本番 (`qr.tommie.jp`) とデモ (`qr-demo.tommie.jp`) は同じ VPS (vps2) に
+別々の Compose スタックとして並ぶ。置き場のディレクトリと DB は分けてあり、
+共有するのはホストの nginx と私設レジストリだけ。イメージは同じ物を使う。
+
+```mermaid
+flowchart LR
+  user["ブラウザ / PWA<br>(QR シールから開く)"]
+
+  subgraph vps2["vps2"]
+    nginx["nginx + certbot<br>(TLS・ボディ上限・レート制限)"]
+
+    subgraph prod["本番スタック ~/qr-search"]
+      app["app<br>Next.js<br>127.0.0.1:3000"]
+      db[("db<br>PostgreSQL 18 + PGroonga<br>127.0.0.1:5432")]
+      git[("git-notes volume<br>ノートの git 履歴")]
+    end
+
+    subgraph demo["デモスタック ~/qr-demo"]
+      dapp["app (DEMO_MODE)<br>127.0.0.1:3100"]
+      ddb[("db: qr (公開中) / qr_seed (種)<br>127.0.0.1:5433")]
+      timer["systemd timer<br>毎時 qr_seed から作り直す"]
+    end
+
+    reg[("私設レジストリ<br>registry:2<br>127.0.0.1:5000")]
+  end
+
+  ext["外部 API<br>Yahoo!ショッピング・楽天ブックス"]
+
+  user -- "HTTPS qr.tommie.jp" --> nginx
+  user -- "HTTPS qr-demo.tommie.jp" --> nginx
+  nginx --> app
+  nginx --> dapp
+  app --> db
+  app --> git
+  app --> ext
+  dapp --> ddb
+  timer -.-> ddb
+  reg -. "docker pull" .-> app
+  reg -. "docker pull" .-> dapp
+```
+
+- **認証はアプリが行う。** nginx は認証せず、TLS とボディ上限と
+  ログイン口のレート制限だけを受け持つ (「ログイン」の節)
+- **公開するポートは nginx の 80 / 443 だけ。** app・db・レジストリは
+  どれも `127.0.0.1` にしか口を開けていない
+- **永続データは 2 つ。** ノートと画像・添付は DB に、ノートの git 履歴は
+  `git-notes` volume に入る。バックアップも 2 本で揃える
+  (`doDumpDB-from-vps2.sh` と `doDumpGit-from-vps2.sh`)
+- デモの資源は `compose.demo.yaml` で絞ってある (app 1GB・db 512MB)。
+  設定は [docs/39-デモ公開計画.md](docs/39-デモ公開計画.md)
+
+### 配布の流れ
+
+イメージは手元でビルドし、vps2 ではビルドしない。`./doDeploy.sh` が
+次の順に流す (詳しくは「デプロイ」の節)。
+
+```mermaid
+flowchart LR
+  subgraph local["手元 (WSL)"]
+    check["lint・typecheck・test"]
+    build["docker buildx"]
+  end
+
+  subgraph vps2["vps2"]
+    reg[("私設レジストリ")]
+    db[("db")]
+    app["app"]
+  end
+
+  build -- "push (SSH トンネル・差分の層だけ)" --> reg
+  check -- "全部通ったら版タグを公開" --> reg
+  local -- "prisma migrate (SSH トンネル)" --> db
+  reg -- "pull して app を作り直す" --> app
+```
 
 ## 文書
 
