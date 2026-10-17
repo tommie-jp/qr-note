@@ -6,6 +6,7 @@ import {
   parseNoteFile,
   type ExportNote,
   type PortableNote,
+  foldLegacyUrl,
 } from './noteFile'
 
 const UUID = '0189d1f0-1b2c-4d5e-8f90-a1b2c3d4e5f6'
@@ -15,8 +16,6 @@ function note(overrides: Partial<ExportNote> = {}): ExportNote {
   return {
     itemId: ITEM_ID,
     memo: 'hFE=208\n2SC1815 のストック #トランジスタ',
-    url: '',
-    mode: 'memo',
     createdAt: new Date('2025-11-02T10:30:00.000Z'),
     updatedAt: new Date('2026-07-01T08:12:00.000Z'),
     isPublic: false,
@@ -31,8 +30,6 @@ test('frontmatter + 本文の Markdown になる', () => {
     [
       '---',
       `id: "${ITEM_ID}"`,
-      'mode: memo',
-      'url: ""',
       'created: 2025-11-02T10:30:00.000Z',
       'updated: 2026-07-01T08:12:00.000Z',
       'public: false',
@@ -60,8 +57,6 @@ test('本文の /api/images/ は ../images/ へ書き換える', () => {
 test('書き出したファイルを読むと元のノートに戻る', () => {
   const original = note({
     memo: `本文\n![](/api/images/${UUID}.jpg)\n[資料](/api/images/${UUID}.pdf)`,
-    url: 'https://example.com/?q="a b"',
-    mode: 'url',
     isPublic: true,
   })
   const parsed = parseNoteFile(buildNoteFile(original))
@@ -142,7 +137,7 @@ test('日時が読めないファイルは理由付きで断る', () => {
 })
 
 // 手書きの Markdown も必須項目さえ揃えば取り込める (docs/28 §3)。
-// 任意項目は既定へ倒す — mode は memo、url は空、公開はしない
+// 任意項目は既定へ倒す — 公開はしない
 test('任意項目が無くても id だけあれば読める', () => {
   const parsed = parseNoteFile(`---\nid: "${ITEM_ID}"\n---\n本文\n`)
   expect(parsed.ok).toBe(true)
@@ -150,8 +145,6 @@ test('任意項目が無くても id だけあれば読める', () => {
     return
   }
   expect(parsed.note.key).toEqual({ kind: 'id', itemId: ITEM_ID })
-  expect(parsed.note.mode).toBe('memo')
-  expect(parsed.note.url).toBe('')
   expect(parsed.note.isPublic).toBe(false)
   expect(parsed.note.createdAt).toBeNull()
   expect(parsed.note.updatedAt).toBeNull()
@@ -189,4 +182,35 @@ test('書式外の名前・外部 URL は集めない', () => {
     '![](/api/images/evil.svg)',
   ].join('\n')
   expect(collectAttachmentNames(memo)).toEqual([])
+})
+
+// --- 旧い ZIP の url / mode (docs/110 で列を廃止。読む側だけ残す) ---
+
+test('旧い ZIP の URL ノート (mode: url) は URL を 1 行目にして本文へ折り込む', () => {
+  const parsed = parseNoteFile(
+    `---\nid: "${ITEM_ID}"\nmode: url\nurl: "https://example.com/?q=a+b"\n---\n#1001\n`,
+  )
+  expect(parsed).toEqual({
+    ok: true,
+    note: expect.objectContaining({ memo: 'https://example.com/?q=a+b\n\n#1001' }),
+  })
+})
+
+test('旧い ZIP のメモのノートに url があれば、本文の末尾に URL の段落を足す', () => {
+  const parsed = parseNoteFile(
+    `---\nid: "${ITEM_ID}"\nmode: memo\nurl: "https://example.com/x"\n---\n見出し\n本文\n`,
+  )
+  expect(parsed).toEqual({
+    ok: true,
+    note: expect.objectContaining({ memo: '見出し\n本文\n\nhttps://example.com/x' }),
+  })
+})
+
+test('foldLegacyUrl は url が空なら本文をそのまま返す', () => {
+  expect(foldLegacyUrl('本文', '', false)).toBe('本文')
+  expect(foldLegacyUrl('本文', ' \n', true)).toBe('本文')
+  expect(foldLegacyUrl('本文', ' https://x \n', false)).toBe('本文\n\nhttps://x')
+  expect(foldLegacyUrl('', 'https://x', true)).toBe('https://x')
+  expect(foldLegacyUrl('1 行だけ', 'https://x', false)).toBe('1 行だけ\n\nhttps://x')
+  expect(foldLegacyUrl('', 'https://x', false)).toBe('https://x')
 })

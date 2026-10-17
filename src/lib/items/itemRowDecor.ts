@@ -14,7 +14,7 @@ import type { ViewMode } from '@/lib/prefs/viewMode'
 // compact に畳んでから渡す)。型で 'image' を締め出して前提を保証する
 export type RowViewMode = Exclude<ViewMode, 'image'>
 
-type RowItem = Pick<Item, 'mode' | 'url' | 'memo'>
+type RowItem = Pick<Item, 'memo'>
 
 // サムネの一辺 (px)。**行の高さに合わせる**: 小は 1 行分、中は 2 行分、
 // 大は 5 行分。width/height 属性にも渡して、読み込み前から場所を取らせる
@@ -57,17 +57,16 @@ export function rowTitle(item: RowItem, mathTitle?: string): RowText {
   if (mathTitle) {
     return { kind: 'math', html: mathTitle }
   }
-  const text = item.mode === 'url' ? item.url : memoSummary(item.memo)
+  const text = memoSummary(item.memo)
   return { kind: 'plain', text: text || '(空のノート)' }
 }
 
-// カードの本文プレビュー。URL モードのノートには本文も貼った画像も無い (memo が空)。
-// 空文字なら出さない (hasRowText)
+// カードの本文プレビュー。空文字なら出さない (hasRowText)
 export function rowPreview(item: RowItem, mathPreview?: string): RowText {
   if (mathPreview) {
     return { kind: 'math', html: mathPreview }
   }
-  return { kind: 'plain', text: item.mode === 'url' ? '' : memoPreview(item.memo) }
+  return { kind: 'plain', text: memoPreview(item.memo) }
 }
 
 export function hasRowText(text: RowText): boolean {
@@ -93,7 +92,7 @@ export function rowFace(
   item: RowItem,
   { circuitThumb, hasNotePreview }: { circuitThumb?: string; hasNotePreview: boolean },
 ): RowFace {
-  const thumbInfo = item.mode === 'url' ? null : firstThumbInfo(item.memo)
+  const thumbInfo = firstThumbInfo(item.memo)
   if (thumbInfo) {
     return { kind: 'image', name: thumbInfo.name, isVideo: thumbInfo.isVideo }
   }

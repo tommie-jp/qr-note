@@ -9,8 +9,6 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   return {
     itemId: "00000000-0000-7000-8000-000000000001",
     memo: "",
-    url: "",
-    mode: "memo",
     title: "",
     tags: [],
     props: [],
@@ -88,9 +86,9 @@ test("タグのないアイテムはタグ行を出さない", () => {
   expect(html).not.toContain("/?q=%23");
 });
 
-test("URL モードのアイテムは URL を表示する", () => {
+test("本文が URL だけのアイテムは URL を見出しに出す", () => {
   const html = renderRow(
-    makeItem({ itemId: "00000000-0000-7000-8000-000000000007", mode: "url", url: "https://example.com/x", memo: "" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000007", memo: "https://example.com/x" }),
   );
   expect(html).toContain("https://example.com/x");
 });
@@ -344,9 +342,9 @@ test("小表示は本文プレビューを出さない (2 行に収める)", () 
   expect(html).not.toContain("出力は 5V 3A");
 });
 
-test("URL モードのノートは本文もサムネも持たない", () => {
+test("本文が URL 1 行のノートはサムネを持たない", () => {
   const html = renderRow(
-    makeItem({ mode: "url", url: "https://example.com/x", memo: "" }),
+    makeItem({ memo: "https://example.com/x" }),
     undefined,
     "card",
   );

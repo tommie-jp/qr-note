@@ -1,6 +1,4 @@
-export type Mode = 'memo' | 'url'
-
-// memo / url 1 件の文字数上限。フォーム投稿 (actionForm.ts)・ENEX インポート
+// 本文 1 件の文字数上限。フォーム投稿 (actionForm.ts)・ENEX インポート
 // (lib/enex/importEnex.ts)・ZIP インポート (lib/zip/noteFile.ts)・編集画面の
 // 打ち止め (editor/hooks/useEditorExtensions.ts の changeFilter) が**同じ上限を見る**。片方だけ緩いと、取り込めた
 // のに編集画面から保存し直せないノートができる。
@@ -36,11 +34,6 @@ export function isLegacyItemNo(value: string): boolean {
 // 検索語の % _ \ をエスケープする (PostgreSQL の LIKE の既定エスケープは \)
 export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`)
-}
-
-// Ver1 は mode 未設定を "memo" として扱っていた (edit 画面の挙動)
-export function parseMode(value: unknown): Mode {
-  return value === 'url' ? 'url' : 'memo'
 }
 
 // 一覧の並び順の種別。accessed = 最近見た順 (docs/37-アクセス順計画.md)、

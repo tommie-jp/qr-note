@@ -5,7 +5,6 @@ import {
   updateItemAction,
 } from "@/app/actions";
 import { AttributionFooter } from "@/components/chrome/AttributionFooter";
-import { EditItemFields } from "@/components/editor/EditItemFields";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
 import { MemoEditor } from "@/components/editor/MemoEditor";
 import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
@@ -27,7 +26,7 @@ interface EditPageProps {
   searchParams: Promise<{ code?: string }>;
 }
 
-// Ver1 の /edit/:itemId 相当。mode / memo / url をまとめて編集する
+// Ver1 の /edit/:itemId 相当。本文を編集する (mode / url は docs/110 で廃止)
 //
 // proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
 // 唯一の砦にはしない (docs/18 §4)。本文を読む getItem の前に requireUser() で
@@ -36,7 +35,6 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
   const itemId = await guardItemPage((await params).itemId, (id) => `/edit/${id}`);
   await requireUser();
   const [item, { code }] = await Promise.all([getItem(itemId), searchParams]);
-  const mode = item?.mode ?? "memo";
 
   // スキャンした未登録コードからの新規登録 (docs/10-スキャン新規登録計画.md §5)。
   // 既存ノートには効かせない。同じ /edit/<id> を別タブで先に保存していた場合、
@@ -82,21 +80,16 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
           className="space-y-3"
         >
           <UnsavedGuard />
-          {/* mode / url は制御コンポーネント。React 19 は送信のたびに
-              フォームのリセットを予約するので、非制御のままだと競合の
-              知らせが返った瞬間に打ち込みが巻き戻る */}
-          <EditItemFields defaultUrl={item?.url ?? ""} defaultMode={mode}>
-            <MemoEditor
-              defaultValue={defaultMemo}
-              // 本文と対で凍結する版 (未登録なら "new" = これから作る)
-              base={formatBase(item?.updatedAt ?? null)}
-              autoFocus
-              prefill={prefill}
-              draftKey={itemId}
-            />
-          </EditItemFields>
+          <MemoEditor
+            defaultValue={defaultMemo}
+            // 本文と対で凍結する版 (未登録なら "new" = これから作る)
+            base={formatBase(item?.updatedAt ?? null)}
+            autoFocus
+            prefill={prefill}
+            draftKey={itemId}
+          />
           {/* 「更新」は画面下部の操作バーへ移した (MemoEditorInner が portal で
-              差し込む)。この form の子孫のまま送信されるので mode/url も一緒に届く */}
+              差し込む)。この form の子孫のまま送信される */}
         </NoteSaveForm>
 
         <ItemTimestamps item={item} />

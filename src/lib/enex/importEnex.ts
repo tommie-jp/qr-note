@@ -2,7 +2,7 @@
 //
 // ここは**繋ぎ役だけ**を持つ。読み取りは parseEnex、本文の変換は enmlToMarkdown、
 // 添付の保存は attachments/store.ts、派生キャッシュ (tags / props) の再計算は
-// upsertItem —— どれも既にある経路をそのまま通す。インポート専用の保存経路を
+// upsertMemo —— どれも既にある経路をそのまま通す。インポート専用の保存経路を
 // 作らないのが設計の要 (§4「インポート経路を 2 本持たない」)。
 //
 // 失敗の扱いは「そのノートだけ飛ばしてレポートに載せる」(§3)。1 件の壊れた
@@ -15,7 +15,7 @@ import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/import/importDuplicate'
 import type { BaseImportReport } from '@/lib/import/importReport'
 import { newItemId } from '@/lib/items/itemId'
-import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
+import { applyImportedTimestamps, upsertMemo } from '@/lib/items/write'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 import { buildMemo, enexTagToMemoTag } from './buildMemo'
 import {
@@ -206,8 +206,7 @@ async function writeNote(
   }
 
   const itemId = newItemId()
-  // mode は memo 固定。ENEX に「URL ノート」に当たる区分は無い
-  await upsertItem(itemId, { memo, url: '', mode: 'memo' })
+  await upsertMemo(itemId, memo)
 
   // **行ができた直後に載せる**。日時の反映で転んだときに外側の catch が
   // 「入らなかった」と報告すると、利用者は取り込み直して二重に作ってしまう

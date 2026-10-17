@@ -44,11 +44,7 @@ describe('renderInlineMathHtml', () => {
 })
 
 describe('buildMathTexts', () => {
-  const makeItem = (
-    itemId: string,
-    memo: string,
-    mode: 'memo' | 'url' = 'memo',
-  ) => ({ itemId, memo, mode })
+  const makeItem = (itemId: string, memo: string) => ({ itemId, memo })
 
   test('タイトルとプレビューの両方を数式つきで返す (mode=both)', () => {
     const map = buildMathTexts(
@@ -70,9 +66,9 @@ describe('buildMathTexts', () => {
     expect(map['1'].preview).toBeUndefined()
   })
 
-  test('$ を含まないノートと URL モードはエントリを作らない', () => {
+  test('$ を含まないノートはエントリを作らない', () => {
     const map = buildMathTexts(
-      [makeItem('1', '数式なし\n本文'), makeItem('2', '$x$', 'url')],
+      [makeItem('1', '数式なし\n本文')],
       'both',
     )
 
@@ -87,11 +83,7 @@ describe('buildMathTexts', () => {
 })
 
 describe('buildMathTexts のモードと予算', () => {
-  const makeItem = (
-    itemId: string,
-    memo: string,
-    mode: 'memo' | 'url' = 'memo',
-  ) => ({ itemId, memo, mode })
+  const makeItem = (itemId: string, memo: string) => ({ itemId, memo })
 
   test("mode='title' はプレビューを描かない (小/画像モードでは使われない)", () => {
     const map = buildMathTexts(

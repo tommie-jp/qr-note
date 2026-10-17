@@ -7,8 +7,6 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   return {
     itemId: "1",
     memo: "",
-    url: "",
-    mode: "memo",
     title: "",
     tags: [],
     props: [],

@@ -12,7 +12,6 @@ import { extractProps } from '@/lib/markdown/props'
 import { nextVersion, type SaveBase } from '@/lib/editor/saveBase'
 import { extractTags } from '@/lib/markdown/tags/tags'
 import { countTasks } from '@/lib/markdown/taskCheckbox'
-import type { Mode } from '@/lib/validation'
 import { getItem } from './read'
 
 // Ver1 の /item/:itemNo と同じく、未登録なら新規作成する (upsert)。
@@ -27,20 +26,6 @@ export async function upsertMemo(itemId: string, memo: string): Promise<Item> {
     where: { itemId },
     update: { memo, ...derived },
     create: { itemId, memo, ...derived },
-  })
-}
-
-export async function upsertItem(
-  itemId: string,
-  data: { memo: string; url: string; mode: Mode },
-): Promise<Item> {
-  // デモのノート数上限 (docs/39-デモ公開計画.md §2-2)。upsertMemo と同じ門番
-  await assertDemoItemQuota(itemId)
-  const derived = derivedFromMemo(data.memo)
-  return prisma.item.upsert({
-    where: { itemId },
-    update: { ...data, ...derived },
-    create: { itemId, ...data, ...derived },
   })
 }
 
@@ -59,9 +44,6 @@ export type SaveOutcome =
 
 export interface SaveItemData {
   memo: string
-  // 省略した項目は触らない (memo だけ保存する画面がある)
-  url?: string
-  mode?: Mode
 }
 
 function normalizeNewlines(text: string): string {
@@ -75,9 +57,7 @@ function normalizeNewlines(text: string): string {
 // 素で比べると「何も変えていないのに競合」を作ってしまう
 function sameContent(current: Item, data: SaveItemData): boolean {
   return (
-    normalizeNewlines(current.memo) === normalizeNewlines(data.memo) &&
-    (data.url === undefined || current.url === data.url) &&
-    (data.mode === undefined || current.mode === data.mode)
+    normalizeNewlines(current.memo) === normalizeNewlines(data.memo)
   )
 }
 
@@ -98,7 +78,7 @@ function isUniqueViolation(error: unknown): boolean {
 // 素通りしてしまう (ABA)。Prisma 7.9.1 は data に明示した値が @updatedAt に
 // 勝つ (実測済み)。
 //
-// upsertMemo / upsertItem は残してある — インポート・履歴からの復元が使う
+// upsertMemo は残してある — インポート・履歴からの復元が使う
 // 「明示的な上書き」の口。**画面からの保存はこちらを通す**
 export async function saveItemIfUnchanged(
   itemId: string,
@@ -293,7 +273,7 @@ export async function rewriteImageReference(
 }
 
 // memo 由来の派生キャッシュ列。正本は memo なので保存のたびに丸ごと作り直す。
-// 書き込み経路 (upsertMemo / upsertItem) を 1 箇所に集約して、再計算漏れを防ぐ。
+// 書き込み経路 (upsertMemo) を 1 箇所に集約して、再計算漏れを防ぐ。
 export function derivedFromMemo(memo: string) {
   const tasks = countTasks(memo)
   return {

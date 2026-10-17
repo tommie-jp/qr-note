@@ -15,7 +15,7 @@ import { orderByClause } from '@/lib/prefs/sortOrder'
 import type { TrashSort } from '@/lib/validation'
 
 // 検索語 1 語ぶんの WHERE 条件を組み立てる。
-// text: memo / url は PGroonga の全文一致 (&@, 日本語バイグラム・全半角/大小の
+// text: memo は PGroonga の全文一致 (&@, 日本語バイグラム・全半角/大小の
 //   正規化つき)。id は見ない (旧番号の前方一致は docs/107 で無くなった)。
 // tag: items.tags 配列の完全一致 (@>, GIN インデックスが効く)。
 //   タグ名は search/tokenize.ts が正規化済み (NFKC + 小文字化)。
@@ -40,7 +40,7 @@ export function termCondition(term: SearchTerm): Prisma.Sql {
     // タグ `#1003` になったので、全文検索 (PGroonga の bigram) にもタグ検索にも
     // そのまま当たる (docs/107 §4-5)
     case 'text':
-      return Prisma.sql`(memo &@ ${term.value} OR url &@ ${term.value})`
+      return Prisma.sql`memo &@ ${term.value}`
   }
 }
 
@@ -50,7 +50,7 @@ export function termCondition(term: SearchTerm): Prisma.Sql {
 //   `#bjt !(#npn OR #pnp)`   → (#bjt) AND (NOT ((#npn) OR (#pnp)))
 // 葉は termCondition がすべてパラメータとして渡すため、演算子構文が
 // PGroonga に生で届くことはない (search/parse.ts 冒頭の設計)。
-// NOT が三値論理で化けないのは memo/url/tags が NOT NULL だから
+// NOT が三値論理で化けないのは memo/tags が NOT NULL だから
 // (prisma/schema.prisma。NULL 混入時は NOT NULL → NULL で行が落ちる)。
 function exprCondition(expr: SearchExpr): Prisma.Sql {
   switch (expr.op) {
@@ -149,8 +149,6 @@ export function buildNeighborsWhere(query: string, itemId: string): Prisma.Sql {
 export const ITEM_COLUMNS = Prisma.sql`
   id::text    AS "itemId",
   memo,
-  url,
-  mode,
   title,
   tags,
   props,

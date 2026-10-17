@@ -10,8 +10,6 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   return {
     itemId: "00000000-0000-7000-8000-000000001234",
     memo: "2SC1815",
-    url: "",
-    mode: "memo",
     title: "2SC1815",
     tags: [],
     props: [],

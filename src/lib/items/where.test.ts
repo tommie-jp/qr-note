@@ -25,14 +25,14 @@ function sqlOf(fragment: Prisma.Sql): string {
 }
 
 const LIVE = '(deleted_at IS NULL)'
-const TEXT = '(memo &@ ? OR url &@ ?)'
+const TEXT = 'memo &@ ?'
 const TAG = 'tags @> ARRAY[?]::text[]'
 const HAS_TASKS = '((task_todo > 0 OR task_done > 0))'
 
-// 語 1 つが渡すパラメータ (memo・url の 2 つ)。旧番号の前方一致は外した
+// 語 1 つが渡すパラメータ (memo の 1 つ)。旧番号の前方一致は外した
 // (旧番号は本文のタグ `#1003` になり、全文検索にそのまま当たる。docs/107 §4-5)
 function textValues(word: string): string[] {
-  return [word, word]
+  return [word]
 }
 
 const SELF = '00000000-0000-7000-8000-000000004551'
@@ -52,7 +52,7 @@ describe('buildWhere (検索一覧)', () => {
     expect(where.values).toEqual([])
   })
 
-  test('語は memo / url の全文一致の OR', () => {
+  test('語は memo の全文一致', () => {
     const where = buildWhere('抵抗')
 
     expect(sqlOf(where)).toBe(`WHERE ${LIVE} AND (${TEXT})`)
@@ -62,7 +62,7 @@ describe('buildWhere (検索一覧)', () => {
   test('LIKE の特殊文字も全文一致には素のまま渡す', () => {
     const where = buildWhere('a_1%')
 
-    expect(where.values).toEqual(['a_1%', 'a_1%'])
+    expect(where.values).toEqual(['a_1%'])
   })
 
   test('語の値は SQL 文に混ざらずパラメータで渡る', () => {
@@ -279,8 +279,6 @@ describe('ITEM_COLUMNS', () => {
       [
         'id::text AS "itemId"',
         'memo',
-        'url',
-        'mode',
         'title',
         'tags',
         'props',

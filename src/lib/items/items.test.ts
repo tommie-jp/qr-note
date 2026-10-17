@@ -85,35 +85,25 @@ describe.skipIf(!runDbTests)(
     let prisma: PrismaClient
 
     const seed = [
-      { itemId: tid('a1'), memo: 'zzfttoken zzftonlya1 ライト RITEX', url: '', mode: 'memo' as const },
-      { itemId: tid('a2'), memo: 'zzfttoken ライト', url: '', mode: 'memo' as const },
-      { itemId: tid('a3'), memo: 'zzfttoken ２ＳＣ１８１５', url: '', mode: 'memo' as const },
-      {
-        itemId: tid('a4'),
-        memo: '',
-        url: 'https://example.com/zzfturltoken',
-        mode: 'url' as const,
-      },
+      { itemId: tid('a1'), memo: 'zzfttoken zzftonlya1 ライト RITEX' },
+      { itemId: tid('a2'), memo: 'zzfttoken ライト' },
+      { itemId: tid('a3'), memo: 'zzfttoken ２ＳＣ１８１５' },
+      // 本文が URL だけのノート (かつての URL モード。docs/110 で本文へ折り込んだ形)
+      { itemId: tid('a4'), memo: 'https://example.com/zzfturltoken' },
       {
         itemId: tid('t1'),
         memo: 'zzfttagmemo #zzfttag1 #zzftshared',
-        url: '',
-        mode: 'memo' as const,
         tags: ['zzfttag1', 'zzftshared'],
       },
       {
         itemId: tid('t2'),
         memo: 'zzfttagmemo #zzfttag2 #zzftshared',
-        url: '',
-        mode: 'memo' as const,
         tags: ['zzfttag2', 'zzftshared'],
       },
       // 特性表用: 同じタグを共有し、片方だけ余分な列 (Vce) を持つ。
       {
         itemId: tid('p1'),
         memo: '2SC1815\n#zzftbjt\nhFE=400 Vf=650mV',
-        url: '',
-        mode: 'memo' as const,
         tags: ['zzftbjt'],
         props: [
           { key: 'hfe', label: 'hFE', value: '400' },
@@ -123,8 +113,6 @@ describe.skipIf(!runDbTests)(
       {
         itemId: tid('p2'),
         memo: '2SC2712-Y\n#zzftbjt\nhFE=208 Vce=50V',
-        url: '',
-        mode: 'memo' as const,
         tags: ['zzftbjt'],
         props: [
           { key: 'hfe', label: 'hFE', value: '208' },
@@ -135,8 +123,6 @@ describe.skipIf(!runDbTests)(
       {
         itemId: tid('p3'),
         memo: 'プロパティのないノート\n#zzftbjt',
-        url: '',
-        mode: 'memo' as const,
         tags: ['zzftbjt'],
       },
       // チェック状態の絞り込み用 (docs/56-チェック検索計画.md)。
@@ -144,24 +130,18 @@ describe.skipIf(!runDbTests)(
       {
         itemId: tid('k1'),
         memo: 'zzftcheck\n- [ ] まだ',
-        url: '',
-        mode: 'memo' as const,
         taskTodo: 1,
         taskDone: 0,
       },
       {
         itemId: tid('k2'),
         memo: 'zzftcheck\n- [x] おわり',
-        url: '',
-        mode: 'memo' as const,
         taskTodo: 0,
         taskDone: 1,
       },
       {
         itemId: tid('k3'),
         memo: 'zzftcheck\n- [ ] まだ\n- [x] おわり',
-        url: '',
-        mode: 'memo' as const,
         taskTodo: 1,
         taskDone: 1,
       },
@@ -169,8 +149,6 @@ describe.skipIf(!runDbTests)(
       {
         itemId: tid('k4'),
         memo: 'zzftcheck チェックなし',
-        url: '',
-        mode: 'memo' as const,
       },
       // 学習進捗と前後ナビ用 (docs/60-学習進捗計画.md)。チェック 2 つで
       // 未着手 / 自信なし / 習得済み の 3 状態を作る。
@@ -179,24 +157,18 @@ describe.skipIf(!runDbTests)(
       {
         itemId: tid('n1'),
         memo: 'zzftnav 問1\n- [ ] 学習済み\n- [ ] 自信あり',
-        url: '',
-        mode: 'memo' as const,
         taskTodo: 2,
         taskDone: 0,
       },
       {
         itemId: tid('n2'),
         memo: 'zzftnav 問2\n- [x] 学習済み\n- [ ] 自信あり',
-        url: '',
-        mode: 'memo' as const,
         taskTodo: 1,
         taskDone: 1,
       },
       {
         itemId: tid('n3'),
         memo: 'zzftnav 問3\n- [x] 学習済み\n- [x] 自信あり',
-        url: '',
-        mode: 'memo' as const,
         taskTodo: 0,
         taskDone: 2,
       },
@@ -204,8 +176,6 @@ describe.skipIf(!runDbTests)(
       {
         itemId: tid('n4'),
         memo: 'zzftnav 問4 チェックなし',
-        url: '',
-        mode: 'memo' as const,
       },
     ]
 
@@ -761,8 +731,6 @@ describe.skipIf(!runDbTests)(
       ) => {
         const values = {
           memo: '',
-          url: '',
-          mode: 'memo' as const,
           tags: [],
           props: [],
           deletedAt: null,
@@ -1039,7 +1007,7 @@ describe.skipIf(!runDbTests)(
       const casNote = async (itemId: string, memo: string) => {
         await prisma.item.deleteMany({ where: { itemId } })
         return prisma.item.create({
-          data: { itemId, memo, url: '', mode: 'memo' },
+          data: { itemId, memo },
         })
       }
 
@@ -1179,7 +1147,7 @@ describe.skipIf(!runDbTests)(
 
         const result = await saveItemIfUnchanged(
           tid('cas8'),
-          { memo: '新しいノート #zzftcasnew', url: '', mode: 'memo' },
+          { memo: '新しいノート #zzftcasnew' },
           { kind: 'new' },
         )
 
@@ -1203,22 +1171,6 @@ describe.skipIf(!runDbTests)(
         expect(result.ok).toBe(false)
         if (!result.ok) expect(result.reason).toBe('missing')
         expect(await getItem(tid('cas9'))).toBeNull()
-      })
-
-      test('url / mode も一緒に書ける', async () => {
-        const before = await casNote(tid('cas10'), 'v1')
-
-        const result = await saveItemIfUnchanged(
-          tid('cas10'),
-          { memo: 'v2', url: 'https://example.com/zzftcas', mode: 'url' },
-          { kind: 'at', at: before.updatedAt },
-        )
-
-        expect(result.ok).toBe(true)
-        if (result.ok) {
-          expect(result.item.url).toBe('https://example.com/zzftcas')
-          expect(result.item.mode).toBe('url')
-        }
       })
 
       test('同時に押した 2 つのチェックは両方とも残る (再読込して再適用)', async () => {

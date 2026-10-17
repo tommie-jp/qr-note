@@ -4,7 +4,6 @@ import {
   escapeLike,
   isLegacyItemNo,
   isValidItemId,
-  parseMode,
   parseSort,
   parseTrashSort,
   SORTS,
@@ -82,25 +81,6 @@ describe('escapeLike', () => {
 
   test('leaves plain text unchanged', () => {
     expect(escapeLike('抵抗 10k')).toBe('抵抗 10k')
-  })
-})
-
-describe('parseMode', () => {
-  test('returns "url" for "url"', () => {
-    expect(parseMode('url')).toBe('url')
-  })
-
-  test('returns "memo" for "memo"', () => {
-    expect(parseMode('memo')).toBe('memo')
-  })
-
-  test('defaults to "memo" for undefined (ver1 behavior)', () => {
-    expect(parseMode(undefined)).toBe('memo')
-  })
-
-  test('defaults to "memo" for unknown values', () => {
-    expect(parseMode('other')).toBe('memo')
-    expect(parseMode(null)).toBe('memo')
   })
 })
 

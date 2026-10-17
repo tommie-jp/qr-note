@@ -11,11 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { flushSync } from "react-dom";
-import {
-  ADOPT_SERVER_EVENT,
-  MEMO_BASELINE_EVENT,
-  type AdoptServerDetail,
-} from "@/lib/editor/editorEvents";
+import { MEMO_BASELINE_EVENT } from "@/lib/editor/editorEvents";
 import { draftStorageKey, loadDraft } from "@/lib/prefs/memoDraft";
 import { BASE_NEW, isOlderBase } from "@/lib/editor/saveBase";
 import type { ConflictServerNote } from "@/lib/editor/saveState";
@@ -301,12 +297,6 @@ export function MemoEditor({
     setEditorKey((key) => key + 1);
     setServerMoved(false);
     syncedRef.current = { text: server.memo, base: nextBase };
-    // /edit の url / mode も揃える (この画面には無いこともある)
-    formOf(markerRef)?.dispatchEvent(
-      new CustomEvent<AdoptServerDetail>(ADOPT_SERVER_EVENT, {
-        detail: { url: server.url, mode: server.mode },
-      }),
-    );
     requestBaseline({ text: server.memo, base: nextBase });
   };
 

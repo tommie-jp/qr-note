@@ -141,8 +141,6 @@ function item(overrides: Partial<Item> = {}): Item {
   return {
     itemId: "00000000-0000-7000-8000-000000000001",
     memo: "いまの本文",
-    url: "",
-    mode: "memo",
     title: "",
     tags: [],
     props: [],
@@ -308,8 +306,6 @@ describe("updateMemoAction", () => {
       kind: "conflict",
       server: {
         memo: "別の端末の本文",
-        url: "",
-        mode: "memo",
         updatedAt: 3_000,
         deletedAt: null,
       },
@@ -388,8 +384,6 @@ describe("updateMemoAction", () => {
       kind: "checkpointFailed",
       server: {
         memo: "消える版",
-        url: "",
-        mode: "memo",
         updatedAt: 2_000,
         deletedAt: null,
       },
@@ -407,13 +401,11 @@ describe("updateItemAction", () => {
     form({
       itemId: "00000000-0000-7000-8000-000000000007",
       memo: "本文",
-      url: "https://example.com",
-      mode: "url",
       base: "new",
       ...extra,
     });
 
-  test("mode / memo / url を保存して保存済みの印へ遷移する", async () => {
+  test("本文を保存して保存済みの印へ遷移する", async () => {
     vi.mocked(saveItemIfUnchanged).mockResolvedValue({
       ok: true,
       item: item(),
@@ -424,7 +416,7 @@ describe("updateItemAction", () => {
     expect(url).toBe(`/item/00000000-0000-7000-8000-000000000007?saved=${NOW}`);
     expect(saveItemIfUnchanged).toHaveBeenCalledWith(
       "00000000-0000-7000-8000-000000000007",
-      { memo: "本文", url: "https://example.com", mode: "url" },
+      { memo: "本文" },
       { kind: "new" },
     );
     expect(revalidated()).toEqual([
@@ -433,26 +425,10 @@ describe("updateItemAction", () => {
     expect(mocks.afterTasks).toHaveLength(1);
   });
 
-  test("判らない mode は memo に倒す", async () => {
-    vi.mocked(saveItemIfUnchanged).mockResolvedValue({
-      ok: true,
-      item: item(),
-    });
-
-    await redirectOf(updateItemAction(null, editForm({ mode: "html" })));
-
-    expect(vi.mocked(saveItemIfUnchanged).mock.calls[0][1]).toStrictEqual({
-      memo: "本文",
-      url: "https://example.com",
-      mode: "memo",
-    });
-  });
-
   test("新規のはずが行があれば exists といまの版を返す", async () => {
     const current = item({
       itemId: "00000000-0000-7000-8000-000000000007",
-      url: "https://old.example.com",
-      mode: "url",
+      memo: "古い本文",
     });
     vi.mocked(saveItemIfUnchanged).mockResolvedValue({
       ok: false,
@@ -466,9 +442,7 @@ describe("updateItemAction", () => {
       seq: NOW,
       kind: "exists",
       server: {
-        memo: "いまの本文",
-        url: "https://old.example.com",
-        mode: "url",
+        memo: "古い本文",
         updatedAt: 2_000,
         deletedAt: null,
       },
@@ -476,11 +450,11 @@ describe("updateItemAction", () => {
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
-  test("url が上限を超えたら書かずに投げる", async () => {
-    const tooLong = editForm({ url: "x".repeat(MAX_TEXT_LENGTH + 1) });
+  test("本文が上限を超えたら書かずに投げる", async () => {
+    const tooLong = editForm({ memo: "x".repeat(MAX_TEXT_LENGTH + 1) });
 
     await expect(updateItemAction(null, tooLong)).rejects.toThrow(
-      "url が長すぎます",
+      "memo が長すぎます",
     );
     expect(saveItemIfUnchanged).not.toHaveBeenCalled();
   });

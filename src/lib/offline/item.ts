@@ -12,7 +12,6 @@
 // 応答は IndexedDB へそのまま沈むので、形の違う値を混ぜると次にオフラインで
 // 開いたときに描画側が落ちる — 圏外で初めて気づく壊れ方になる。
 
-import { parseMode, type Mode } from '@/lib/validation'
 import {
   CIRCUITIKZ_LANG,
   type CircuitLang,
@@ -25,8 +24,6 @@ export const SYNC_ITEMS_PATH = '/api/sync/items'
 export interface OfflineItem {
   itemId: string
   memo: string
-  url: string
-  mode: Mode
   // 一覧の見出し (memo 由来の派生列)。**表示ではなく並べ替えに使う** —
   // 見出しの表示は今までどおり memoSummary() をその場で通す (ItemRow と同じ)
   title: string
@@ -101,9 +98,6 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 // ノート 1 件の検算。1 つでも欠けたら null (呼び出し側がその 1 件を落とす)。
-//
-// mode だけは倒して受ける — parseMode が url 以外をすべて memo に寄せる規則を
-// 持っており (validation.ts)、ここで別の判断をすると表と裏で解釈が割れる。
 function parseOfflineItem(value: unknown): OfflineItem | null {
   if (typeof value !== 'object' || value === null) {
     return null
@@ -112,7 +106,6 @@ function parseOfflineItem(value: unknown): OfflineItem | null {
   if (
     !isNonEmptyString(row.itemId) ||
     typeof row.memo !== 'string' ||
-    typeof row.url !== 'string' ||
     typeof row.title !== 'string' ||
     !Array.isArray(row.tags) ||
     !isFiniteNumber(row.taskTodo) ||
@@ -125,8 +118,6 @@ function parseOfflineItem(value: unknown): OfflineItem | null {
   return {
     itemId: row.itemId,
     memo: row.memo,
-    url: row.url,
-    mode: parseMode(row.mode),
     title: row.title,
     // 配列の中の非文字列は落とすだけ。タグは絞り込みにしか使わないので、
     // 1 つ欠けてもノート本体は読める (件ごと捨てるほうが損)

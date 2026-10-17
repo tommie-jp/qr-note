@@ -19,12 +19,8 @@ const IMAGE = '0421547b-ee29-4613-a6d4-da0f41f94054.jpg'
 
 const fence = (source: string) => `\`\`\`circuitikz\n${source}\n\`\`\``
 
-function makeItem(
-  itemId: string,
-  memo: string,
-  mode: 'memo' | 'url' = 'memo',
-) {
-  return { itemId, memo, mode }
+function makeItem(itemId: string, memo: string) {
+  return { itemId, memo }
 }
 
 // 検査 (assertSafeCircuitSvg) を通り、かつ好きな大きさに膨らませられる SVG。
@@ -44,17 +40,6 @@ describe('足切り (DB を引くまでもない物)', () => {
     const map = await loadCircuitThumbs(
       [makeItem('1', '文章だけのノート')],
       'first',
-    )
-
-    expect(map).toEqual({})
-    expect(findMany).not.toHaveBeenCalled()
-  })
-
-  test('URL モードのノートは対象外', async () => {
-    // URL モードの memo は空のはずだが、足切りは mode を見て確実に外す
-    const map = await loadCircuitThumbs(
-      [makeItem('1', fence('A'), 'url')],
-      'all',
     )
 
     expect(map).toEqual({})

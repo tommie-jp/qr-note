@@ -2,7 +2,7 @@
 //
 // ここは**繋ぎ役だけ**を持つ。展開は readZip、1 枚の Markdown の解釈は
 // noteFile、添付の検証と保存は attachments/restore.ts、派生キャッシュ (tags / props)
-// の再計算は upsertItem —— どれも既にある経路をそのまま通す。インポート専用の
+// の再計算は upsertMemo —— どれも既にある経路をそのまま通す。インポート専用の
 // 保存経路を作らないのが設計の要 (§4 の方針をそのまま引き継ぐ)。
 //
 // 失敗の扱いは ENEX と同じ「そのファイルだけ飛ばしてレポートに載せる」。
@@ -20,7 +20,7 @@ import { setItemPublic } from '@/lib/items/flags'
 import { newItemId } from '@/lib/items/itemId'
 import { findItemIdsByLegacyNo } from '@/lib/items/resolve'
 import { addTagToMemo } from '@/lib/markdown/tags/edit'
-import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
+import { applyImportedTimestamps, upsertMemo } from '@/lib/items/write'
 import { isValidImageName } from '@/lib/uploads/names'
 import type { ConflictPolicy } from './conflictPolicy'
 import { classifyEntry } from './layout'
@@ -345,11 +345,7 @@ async function writeNote(
 
   // 本文は書き換えない。本文中の /item/<番号> は「取り込み先に元からある
   // ノート」を指す意図かもしれず、書き換えは当て推量になる (§5)
-  await upsertItem(itemId, {
-    memo,
-    url: note.url,
-    mode: note.mode,
-  })
+  await upsertMemo(itemId, memo)
   // 書き出した日時をそのまま戻す (ENEX の取り込みと同じ関数)。日時の無い
   // ファイル (手書きの Markdown) は取り込んだ時刻のままになる
   await applyImportedTimestamps(itemId, note.createdAt, note.updatedAt)

@@ -31,9 +31,8 @@ export function OfflineList({ items, onOpen }: OfflineListProps) {
   return (
     <ul className="divide-y divide-gray-200 overflow-hidden rounded border border-gray-200 bg-white">
       {items.map((item) => {
-        const isUrl = item.mode === "url";
-        const title = isUrl ? item.url : memoSummary(item.memo);
-        const thumb = isUrl ? null : firstThumbInfo(item.memo);
+        const title = memoSummary(item.memo);
+        const thumb = firstThumbInfo(item.memo);
 
         return (
           <li key={item.itemId}>

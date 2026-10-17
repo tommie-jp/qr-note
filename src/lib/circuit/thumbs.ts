@@ -41,7 +41,7 @@ export const MAX_CIRCUIT_THUMB_BYTES = 32 * 1024
 export const CIRCUIT_THUMB_BUDGET = 256 * 1024
 
 // 一覧に必要な列だけに絞る (Item を丸ごと要求しない)。テストも軽くなる
-type ThumbSource = { itemId: string; memo: string; mode: string }
+type ThumbSource = { itemId: string; memo: string }
 
 // フェンス 1 つの DB 主キー。**言語ごとに版の混ぜ方が違う** — YAML は
 // レンダラの版に circuit-fence の版も繋ぐ (docs/91 §2)。ここを取り違えると
@@ -63,7 +63,7 @@ export async function loadCircuitThumbs(
   // first では画像サムネを持つノートも外す — 一覧の顔は画像が優先で、
   // 引いても使われない (優先順位の正本は lib/items/itemRowDecor.ts の rowFace)
   const wants = items.flatMap((item) => {
-    if (item.mode === 'url' || hasNoCircuitFence(item.memo)) {
+    if (hasNoCircuitFence(item.memo)) {
       return []
     }
     if (mode === 'first' && firstThumbInfo(item.memo) !== null) {

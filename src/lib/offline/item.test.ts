@@ -7,8 +7,6 @@ function validItem(over: Partial<Record<keyof OfflineItem, unknown>> = {}) {
   return {
     itemId: '00000000-0000-7000-8000-000000004518',
     memo: '# 2SC1815\n#bjt #npn',
-    url: '',
-    mode: 'memo',
     title: '2SC1815',
     tags: ['bjt', 'npn'],
     taskTodo: 0,
@@ -77,12 +75,6 @@ describe('parseSyncPayload', () => {
   test('タグ配列の中の非文字列だけを落とす', () => {
     const parsed = parseSyncPayload(payload([validItem({ tags: ['bjt', 7, null, 'npn'] })]))
     expect(parsed?.items[0].tags).toEqual(['bjt', 'npn'])
-  })
-
-  test('mode は url 以外をすべて memo に倒す (validation.ts と同じ流儀)', () => {
-    expect(parseSyncPayload(payload([validItem({ mode: 'url' })]))?.items[0].mode).toBe('url')
-    expect(parseSyncPayload(payload([validItem({ mode: 'memo' })]))?.items[0].mode).toBe('memo')
-    expect(parseSyncPayload(payload([validItem({ mode: 'xxx' })]))?.items[0].mode).toBe('memo')
   })
 
   test('itemId は UUID の文字列だけ受ける', () => {

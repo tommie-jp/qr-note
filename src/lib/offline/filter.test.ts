@@ -7,8 +7,6 @@ function item(over: Partial<OfflineItem> = {}): OfflineItem {
   return {
     itemId: '4518',
     memo: '',
-    url: '',
-    mode: 'memo',
     title: '',
     tags: [],
     taskTodo: 0,
@@ -43,14 +41,6 @@ describe('filterOfflineItems', () => {
     expect(hits(items, 'トランジスタ')).toEqual(['1'])
     // PGroonga のバイグラムと違い部分文字列で見るので、語の途中でも当たる
     expect(hits(items, 'ランジ')).toEqual(['1'])
-  })
-
-  test('語は url も見る', () => {
-    const items = [
-      item({ itemId: '1', mode: 'url', url: 'https://akizukidenshi.com/g/g12345' }),
-      item({ itemId: '2', memo: 'メモだけ' }),
-    ]
-    expect(hits(items, 'akizuki')).toEqual(['1'])
   })
 
   // サーバ (items/where.ts の termCondition) は memo / url しか見ない。id の
@@ -158,7 +148,7 @@ describe('buildOfflineIndex', () => {
   // 打鍵のたびに全件を NFKC で畳み直すと、数百件でも体感に出る。
   // 正規化済みの文字列を 1 度だけ作っておくのがこの関数の役目
   test('正規化済みの検索対象を 1 件ずつ持つ', () => {
-    const index = buildOfflineIndex([item({ itemId: '4518', memo: 'ＮＰＮ', url: 'HTTP://X' })])
+    const index = buildOfflineIndex([item({ itemId: '4518', memo: 'ＮＰＮ HTTP://X' })])
     expect(index[0].haystack).toContain('npn')
     expect(index[0].haystack).toContain('http://x')
   })

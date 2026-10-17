@@ -13,7 +13,7 @@ import { recordItemAccess } from '@/lib/items/flags'
 import type { SaveState } from '@/lib/editor/saveState'
 import { currentUser, requireUser } from '@/lib/auth/session'
 import { differsOnlyInTaskMarks, toggleTaskLine } from '@/lib/markdown/taskCheckbox'
-import { isValidItemId, MAX_TEXT_LENGTH, parseMode } from '@/lib/validation'
+import { isValidItemId, MAX_TEXT_LENGTH } from '@/lib/validation'
 import { revalidateItem } from './_revalidate'
 import { checkpointBeforeOverwrite, savedHref } from './_save'
 
@@ -198,7 +198,7 @@ export async function recordHealthAction(
   revalidatePath('/')
 }
 
-// Ver1 の /edit/:itemId POST 相当: mode / memo / url を更新 (未登録なら作成)。
+// Ver1 の /edit/:itemId POST 相当: 本文を更新 (未登録なら作成)。
 // 競合の扱いは updateMemoAction と同じ (docs/87 §2-4)
 export async function updateItemAction(
   _prev: SaveState,
@@ -207,8 +207,6 @@ export async function updateItemAction(
   await requireUser()
   const itemId = readItemId(formData)
   const memo = readText(formData, 'memo')
-  const url = readText(formData, 'url')
-  const mode = parseMode(formData.get('mode'))
   const base = readBase(formData)
 
   if (formData.get('checkpoint') === '1') {
@@ -217,7 +215,7 @@ export async function updateItemAction(
     }
   }
 
-  const result = await saveItemIfUnchanged(itemId, { memo, url, mode }, base)
+  const result = await saveItemIfUnchanged(itemId, { memo }, base)
   if (!result.ok) {
     return conflictState(
       result.reason,

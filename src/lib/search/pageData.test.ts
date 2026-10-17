@@ -40,7 +40,7 @@ vi.mock('@/components/item/NotePreviewThumb', () => ({
 
 const { loadSearchResults } = await import('./pageData')
 
-const ITEMS = [{ itemId: '00000000-0000-7000-8000-000000004951', memo: 'BJT NPN', mode: 'memo' }] as Item[]
+const ITEMS = [{ itemId: '00000000-0000-7000-8000-000000004951', memo: 'BJT NPN' }] as Item[]
 const THUMBS = { '00000000-0000-7000-8000-000000004951': ['<svg/>'] }
 const MATH = { '00000000-0000-7000-8000-000000004951': { title: '<span/>' } }
 const SUMMARIES = { '00000000-0000-7000-8000-000000004951': '<span/>' }

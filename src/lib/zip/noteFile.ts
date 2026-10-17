@@ -4,7 +4,7 @@
 // 往復できることがこの機能の要件なので、片方だけ直されて解釈がずれる余地を
 // 減らす (テストも往復で書いてある)。
 //
-// DB には触らない純関数だけを置く。保存経路は既存の upsertItem を通す
+// DB には触らない純関数だけを置く。保存経路は既存の upsertMemo を通す
 // (インポート専用の保存経路を作らない = §4 の方針をそのまま引き継ぐ)。
 
 import { isValidAttachmentName } from '@/lib/uploads/names'
@@ -12,8 +12,6 @@ import {
   isLegacyItemNo,
   isValidItemId,
   MAX_TEXT_LENGTH,
-  type Mode,
-  parseMode,
 } from '@/lib/validation'
 import {
   type FrontmatterValue,
@@ -33,8 +31,6 @@ export type NoteKey =
 export interface PortableNote {
   key: NoteKey
   memo: string
-  url: string
-  mode: Mode
   // 手書きの Markdown には無いことがある (その場合は取り込んだ時刻になる)
   createdAt: Date | null
   updatedAt: Date | null
@@ -68,8 +64,6 @@ export type ExportNote = Omit<PortableNote, 'key'> & { itemId: string }
 export function buildNoteFile(note: ExportNote): string {
   const fields: [string, FrontmatterValue][] = [
     ['id', { quoted: note.itemId }],
-    ['mode', { bare: note.mode }],
-    ['url', { quoted: note.url }],
     ['created', { bare: isoOrEmpty(note.createdAt) }],
     ['updated', { bare: isoOrEmpty(note.updatedAt) }],
     ['public', { bare: String(note.isPublic) }],
@@ -112,9 +106,14 @@ export function parseNoteFile(text: string): ParsedNoteFile {
     return { ok: false, reason: 'public は true か false で書いて下さい' }
   }
 
-  const memo = toApiLinks(stripOneTrailingNewline(normalizeNewlines(parsed.body)))
-  const url = parsed.fields.get('url') ?? ''
-  const tooLong = overLengthReason(memo, url)
+  // 旧い ZIP (docs/110 より前) の url / mode は本文へ折り込む。列はもう無い
+  const legacyUrl = parsed.fields.get('url') ?? ''
+  const memo = foldLegacyUrl(
+    toApiLinks(stripOneTrailingNewline(normalizeNewlines(parsed.body))),
+    legacyUrl,
+    parsed.fields.get('mode') === 'url',
+  )
+  const tooLong = overLengthReason(memo, legacyUrl !== '')
   if (tooLong !== null) {
     return { ok: false, reason: tooLong }
   }
@@ -124,9 +123,6 @@ export function parseNoteFile(text: string): ParsedNoteFile {
     note: {
       key,
       memo,
-      url,
-      // 既定は memo。手書きの Markdown で mode を書き忘れても取り込める
-      mode: parseMode(parsed.fields.get('mode')),
       createdAt,
       updatedAt,
       isPublic,
@@ -206,14 +202,14 @@ function parseBoolField(raw: string | undefined): boolean | 'invalid' {
   return value === 'true' ? true : 'invalid'
 }
 
-function overLengthReason(memo: string, url: string): string | null {
+function overLengthReason(memo: string, foldedUrl: boolean): string | null {
   // 上限は編集フォームと同じ (validation.ts)。ここだけ緩いと、取り込めたのに
-  // 編集画面から保存し直せないノートができる
+  // 編集画面から保存し直せないノートができる。
+  // 旧い url 欄を折り込んだ分で超えたときは、その旨を添える (書き出した時点では
+  // 本文も URL も上限内だったノートなので、理由が判らないと直しようがない)
   if (memo.length > MAX_TEXT_LENGTH) {
-    return `本文が長すぎます (${memo.length} 文字 / 上限 ${MAX_TEXT_LENGTH} 文字)`
-  }
-  if (url.length > MAX_TEXT_LENGTH) {
-    return `URL が長すぎます (${url.length} 文字 / 上限 ${MAX_TEXT_LENGTH} 文字)`
+    const note = foldedUrl ? '。旧い url 欄を本文へ折り込んだ後の長さです' : ''
+    return `本文が長すぎます (${memo.length} 文字 / 上限 ${MAX_TEXT_LENGTH} 文字)${note}`
   }
   return null
 }
@@ -227,4 +223,22 @@ function normalizeNewlines(body: string): string {
 
 function stripOneTrailingNewline(body: string): string {
   return body.endsWith('\n') ? body.slice(0, -1) : body
+}
+
+// 旧い ZIP の url 欄を本文へ折り込む (docs/110-URL列廃止計画.md)。
+// DB 側の移行 (migration の UPDATE) と同じ形にする:
+//   URL ノート (mode: url) … URL を 1 行目にし、元の本文を空行を挟んで続ける
+//   メモのノート … 本文の**末尾**に空行を挟んで URL の段落を足す。
+//     1 行目の直後に挟まないのは、1 行目がフェンスの開始や表のヘッダだと
+//     構造を割ってしまうため (レビューで判明)
+export function foldLegacyUrl(memo: string, rawUrl: string, isUrlNote: boolean): string {
+  // 空白・改行だけの url が実データにある (Ver1 由来)。折り込む物が無いなら本文のまま
+  const url = rawUrl.trim()
+  if (url === '') {
+    return memo
+  }
+  if (memo === '') {
+    return url
+  }
+  return isUrlNote ? `${url}\n\n${memo}` : `${memo}\n\n${url}`
 }

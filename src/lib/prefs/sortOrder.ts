@@ -52,17 +52,16 @@ export function orderByClause(sort: TrashSort): string {
       // 長く見ていない順。同着は更新順も揃えて古い方を先に出す
       return 'accessed_at ASC, updated_at ASC, id ASC'
     case 'titleDesc':
-      return "NULLIF(CASE WHEN mode = 'url' THEN url ELSE title END, '') DESC NULLS LAST, id ASC"
+      return "NULLIF(title, '') DESC NULLS LAST, id ASC"
     case 'updatedAsc':
       return 'updated_at ASC, id ASC'
     case 'title':
-      // 並べる鍵は**一覧に出ている見出しそのもの**にする。URL モードの行だけ
-      // 見出しが url なのは items/itemRowDecor.ts (rowTitle) と同じ切り分けで、ここを揃えないと
-      // 「画面の並びと違う順」になる (title 列は memo 由来なので url を知らない)。
+      // 並べる鍵は**一覧に出ている見出しそのもの** (title = memo 由来の派生列。
+      // items/itemRowDecor.ts の rowTitle と同じ物) にする。
       //
       // 見出しの無いノート (空メモ・画像だけ) は '' になる。空文字は照合順序上
       // 先頭に来てしまい、名前で引きたいときに邪魔なので NULLIF で末尾へ回す
-            return "NULLIF(CASE WHEN mode = 'url' THEN url ELSE title END, '') ASC NULLS LAST, id ASC"
+      return "NULLIF(title, '') ASC NULLS LAST, id ASC"
     default:
       return 'updated_at DESC, id ASC'
   }

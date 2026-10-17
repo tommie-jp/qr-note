@@ -8,13 +8,10 @@
 // items/write.ts の SaveOutcome を直接使わないのはそのため — 型だけのつもりでも
 // 値の import が 1 本混ざれば、編集画面のバンドルに prisma が落ちてくる。
 
-import type { Mode } from '@/lib/validation'
 
 // 競合したとき「いまサーバにある版」。差分表示と「読み込む」で使う
 export interface ConflictServerNote {
   memo: string
-  url: string
-  mode: Mode
   // ミリ秒。次の保存の基点になる (formatBase と同じ土俵)
   updatedAt: number
   // ゴミ箱の行と衝突したときだけ非 null。TrashedBanner はサーバ描画なので、
@@ -40,15 +37,11 @@ export type SaveState =
 // 理由がなく、client 境界を渡る物は小さいほどよい
 export function noteSnapshot(item: {
   memo: string
-  url: string
-  mode: Mode
   updatedAt: Date
   deletedAt: Date | null
 }): ConflictServerNote {
   return {
     memo: item.memo,
-    url: item.url,
-    mode: item.mode,
     updatedAt: item.updatedAt.getTime(),
     deletedAt: item.deletedAt === null ? null : item.deletedAt.getTime(),
   }

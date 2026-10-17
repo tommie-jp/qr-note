@@ -39,7 +39,7 @@ export default async function PrintPage({ params }: PrintPageProps) {
   // QR の下に人が読む名前。もとは #番号 だったが、id (UUID) は人が読む物では
   // ないのでノートの見出しを出す (docs/107 §2-4)。旧番号はタグとして見出しに
   // 出ることがある (本文が画像だけのノート)。作成前の id でもシールは刷れる
-  const label = item === null ? "" : item.mode === "url" ? item.url : item.title;
+  const label = item === null ? "" : item.title;
 
   const itemUrl = buildItemUrl(qrBaseUrl(), itemId);
   const qrDataUrl = await QRCode.toDataURL(itemUrl, {

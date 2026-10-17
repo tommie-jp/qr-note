@@ -20,8 +20,6 @@ datasource db {
 model Item {
   itemId    String   @id @default(dbgenerated("uuidv7()")) @map("id") @db.Uuid
   memo      String   @default("")
-  url       String   @default("")
-  mode      Mode     @default(memo)
   // memo の先頭行から Markdown 記法を剥がした見出しの派生キャッシュ
   // (docs/63-タイトル順計画.md)。一覧のタイトル順で ORDER BY に使う。
   //
@@ -98,11 +96,6 @@ model LegacyItemNo {
   itemId String @map("item_id") @db.Uuid
 
   @@map("legacy_item_nos")
-}
-
-enum Mode {
-  memo
-  url
 }
 
 // memo に挿入した画像。ファイルシステム (volume) ではなく DB に持つことで、

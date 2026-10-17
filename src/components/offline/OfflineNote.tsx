@@ -1,7 +1,6 @@
 "use client";
 
 import { ItemTags } from "@/components/item/ItemTags";
-import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import { NoteBody } from "@/components/markdown/NoteBody";
 import { SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import type { CircuitMap } from "@/lib/circuit/types";
@@ -47,8 +46,6 @@ export function OfflineNote({ item, circuits, onBack }: OfflineNoteProps) {
           一覧へ戻る
         </button>
       </div>
-
-      {item.url && <ItemUrlBox url={item.url} />}
 
       <ItemTags tags={item.tags} linked={false} />
 

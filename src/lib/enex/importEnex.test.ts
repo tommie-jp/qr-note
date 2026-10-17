@@ -3,7 +3,7 @@ import { MAX_TEXT_LENGTH } from '@/lib/validation'
 
 // DB と添付の保存は差し替える。ここで確かめたいのは繋ぎ役の振る舞い —
 // 「入らなかったものが必ずレポートに出るか」であって、Postgres や sharp ではない
-const upsertItem = vi.fn()
+const upsertMemo = vi.fn()
 const newItemId = vi.fn()
 const applyImportedTimestamps = vi.fn()
 const storeAttachment = vi.fn()
@@ -16,7 +16,7 @@ vi.mock('@/lib/items/itemId', () => ({
 }))
 
 vi.mock('@/lib/items/write', () => ({
-  upsertItem: (itemId: string, data: unknown) => upsertItem(itemId, data),
+  upsertMemo: (itemId: string, memo: string) => upsertMemo(itemId, memo),
   applyImportedTimestamps: (itemId: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemId, created, updated),
 }))
@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   let no = 1000
   newItemId.mockImplementation(() => idOf(no++))
-  upsertItem.mockResolvedValue(undefined)
+  upsertMemo.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
   applyImportedTimestamps.mockResolvedValue(undefined)
   isAlreadyImported.mockResolvedValue(false) // 既定は重複なし
@@ -82,11 +82,7 @@ test('ノートを採番して保存する', async () => {
 
   expect(report.imported).toEqual([{ itemId: idOf(1000), title: '題名' }])
   expect(report.skipped).toEqual([])
-  expect(upsertItem).toHaveBeenCalledWith(idOf(1000), {
-    memo: '題名\n\n本文',
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(idOf(1000), '題名\n\n本文')
 })
 
 test('複数ノートには別々の番号を振る', async () => {
@@ -114,7 +110,7 @@ test('既に取り込み済みのノートはスキップして数える', async
 
   expect(report.imported).toEqual([])
   expect(report.duplicateSkipped).toBe(1)
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
   // 添付の保存より前に弾くので、ゴミも残らない
   expect(storeAttachment).not.toHaveBeenCalled()
 })
@@ -181,7 +177,7 @@ test('fixedTags を全ノートの memo 先頭タグ行へ入れる', async () =
     { fixedTags: ['evernote', 'レシピ'] },
   )
 
-  const memo = upsertItem.mock.calls[0][1].memo as string
+  const memo = upsertMemo.mock.calls[0][1] as string
   expect(memo).toBe('題名\n\n#evernote #レシピ\n\n本文')
 })
 
@@ -194,7 +190,7 @@ test('固定タグと ENEX のタグは両方入り、重複は畳む', async ()
     { fixedTags: ['evernote', 'レシピ'] },
   )
 
-  const memo = upsertItem.mock.calls[0][1].memo as string
+  const memo = upsertMemo.mock.calls[0][1] as string
   // 固定タグが先、その後に ENEX のタグ。'レシピ' は重複なので 1 回だけ
   expect(memo).toContain('#evernote #レシピ #和食')
 })
@@ -250,7 +246,7 @@ test('参照先の無い en-media をレポートに載せる', async () => {
   expect(report.skipped).toHaveLength(1)
   expect(report.skipped[0].label).toContain('deadbeef')
   // 本文にも跡が残っていること
-  expect(upsertItem.mock.calls[0][1].memo).toContain('取り込めませんでした')
+  expect(upsertMemo.mock.calls[0][1]).toContain('取り込めませんでした')
 })
 
 test('暗号化された部分をレポートに載せる', async () => {
@@ -287,7 +283,7 @@ test('長すぎるノートは保存せず、保存済みの添付を消す', as
   )
 
   expect(report.imported).toEqual([])
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
   expect(report.skipped.some((s) => s.reason.includes('長すぎます'))).toBe(true)
   expect(deleteMany).toHaveBeenCalledWith({
     where: { name: { in: ['11111111-1111-1111-1111-111111111111.png'] } },
@@ -312,7 +308,7 @@ test('添付の片付けに失敗しても本当の理由を報告する', async
 
 // 1 件の失敗でファイル 1 枚を落とさない
 test('1 件のノートが失敗しても残りは取り込む', async () => {
-  upsertItem.mockRejectedValueOnce(new Error('保存できません'))
+  upsertMemo.mockRejectedValueOnce(new Error('保存できません'))
 
   const report = await importEnex(
     enex(
@@ -327,7 +323,7 @@ test('1 件のノートが失敗しても残りは取り込む', async () => {
 
 // 長さ超過だけでなく、どんなやめ方でも参照されない添付を残さない
 test('保存に失敗したノートの添付も消す', async () => {
-  upsertItem.mockRejectedValue(new Error('保存できません'))
+  upsertMemo.mockRejectedValue(new Error('保存できません'))
 
   await importEnex(
     enex(
@@ -365,7 +361,7 @@ test('入れ子が深すぎるノートは変換せず見送る', async () => {
   )
 
   expect(report.imported).toEqual([])
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
   expect(report.skipped[0].reason).toMatch(/入れ子/)
 })
 

@@ -13,8 +13,6 @@ function item(memo: string): OfflineItem {
   return {
     itemId: '4518',
     memo,
-    url: '',
-    mode: 'memo',
     title: '',
     tags: [],
     taskTodo: 0,

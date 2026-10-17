@@ -109,9 +109,8 @@ export function notePreviewSource(
 // プレビュー。items/itemRowDecor.ts の rowFace が正本) の 3 段目に届く候補だけ true。
 // 回路図サムネの有無はここでは判らない (DB を引いた結果が要る) ので、
 // その除外は buildNotePreviews が circuitThumbs を見て行う
-export function wantsNotePreview(item: { mode: string; memo: string }): boolean {
+export function wantsNotePreview(item: { memo: string }): boolean {
   return (
-    item.mode !== 'url' &&
     item.memo.trim() !== '' &&
     firstThumbInfo(item.memo) === null
   )

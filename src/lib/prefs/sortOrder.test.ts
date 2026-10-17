@@ -17,11 +17,10 @@ test('アクセス順は accessed_at 降順', () => {
   )
 })
 
-// 一覧の見出し順 (docs/63-タイトル順計画.md)。見出しは URL モードだけ url を
-// 見るので、ItemRow と同じ切り分けを SQL 側でもする
+// 一覧の見出し順 (docs/63-タイトル順計画.md)。鍵は見出しの派生列 title
 test('タイトル順は見出し昇順 (無題は末尾)', () => {
   expect(orderByClause('title')).toBe(
-    "NULLIF(CASE WHEN mode = 'url' THEN url ELSE title END, '') ASC NULLS LAST, id ASC",
+    "NULLIF(title, '') ASC NULLS LAST, id ASC",
   )
 })
 
@@ -44,7 +43,7 @@ test('登録順の逆順は id 降順 (新しい順)', () => {
 // 見出しの無いノートも同じ理由で末尾のまま
 test('タイトル順の逆順は見出し降順 (無題は末尾のまま)', () => {
   expect(orderByClause('titleDesc')).toBe(
-    "NULLIF(CASE WHEN mode = 'url' THEN url ELSE title END, '') DESC NULLS LAST, id ASC",
+    "NULLIF(title, '') DESC NULLS LAST, id ASC",
   )
 })
 

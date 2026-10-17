@@ -8,8 +8,6 @@ function item(over: Partial<OfflineItem> = {}): OfflineItem {
   return {
     itemId: '1',
     memo: '',
-    url: '',
-    mode: 'memo',
     title: '',
     tags: [],
     taskTodo: 0,
@@ -59,14 +57,6 @@ describe('sortOfflineItems', () => {
     ]
     expect(order(items, 'accessed')).toEqual(['b', 'a'])
     expect(order(items, 'accessedAsc')).toEqual(['a', 'b'])
-  })
-
-  test('タイトル順は URL モードだけ url を鍵にする (一覧の見出しと揃える)', () => {
-    const items = [
-      item({ itemId: 'a', title: 'ゼナー' }),
-      item({ itemId: 'b', mode: 'url', url: 'https://example.com', title: '' }),
-    ]
-    expect(order(items, 'title')).toEqual(['b', 'a'])
   })
 
   test('見出しの無いノートは向きに関わらず末尾', () => {

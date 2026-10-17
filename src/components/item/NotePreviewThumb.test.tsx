@@ -125,11 +125,7 @@ test("details は閉じたまま出す", () => {
 
 // buildNotePreviews (対象の選別。優先順位の正本は lib/items/itemRowDecor.ts の rowFace)
 
-const item = (itemId: string, memo: string, mode = "memo") => ({
-  itemId,
-  memo,
-  mode,
-});
+const item = (itemId: string, memo: string) => ({ itemId, memo });
 
 test("画像も回路図も無いノートだけプレビューを作る", () => {
   const previews = buildNotePreviews(
@@ -137,7 +133,6 @@ test("画像も回路図も無いノートだけプレビューを作る", () =>
       item("1", "文字だけのノート"),
       item("2", `写真\n![](/api/images/${IMAGE})`),
       item("3", "```circuitikz\n\\draw;\n```"),
-      item("4", "", "url"),
       item("5", ""),
     ],
     { "3": ["<svg/>"] },

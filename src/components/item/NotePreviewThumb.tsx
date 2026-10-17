@@ -201,7 +201,7 @@ export function NotePreviewThumb({ markdown }: { markdown: string }) {
 //   compact / medium … 24px・40px では文字が模様にしかならないので、
 //     ソースをさらに足切り
 export function buildNotePreviews(
-  items: readonly { itemId: string; memo: string; mode: string }[],
+  items: readonly { itemId: string; memo: string }[],
   circuitThumbs: CircuitThumbMap,
   view: ViewMode,
 ): NotePreviewMap {

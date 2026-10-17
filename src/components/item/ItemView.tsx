@@ -10,7 +10,6 @@ import {
 } from "@/app/actions";
 import { ItemTags } from "@/components/item/ItemTags";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
-import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import {
   EditIcon,
   HistoryIcon,
@@ -190,8 +189,8 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
 
   // 出たときだけ間隔を持つ通知の束。1 つも出なければ empty:hidden で
   // 箱ごと消え、余白も残らない。
-  // **&& ではなく三項で null を返す**のが要点 — item.url が空文字だと
-  // && は "" を返し、空のテキストノードで :empty が外れて余白だけが残る
+  // **&& ではなく三項で null を返す** — 条件が null や空文字のとき && は
+  // その値を返し、空のテキストノードで :empty が外れて余白だけが残る
   const notices = (
     <div className="space-y-3 py-3 empty:hidden">
       {!item ? (
@@ -202,7 +201,6 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
       {item?.deletedAt ? (
         <TrashedBanner itemId={itemId} restoreAction={restoreItemsAction} />
       ) : null}
-      {item?.url ? <ItemUrlBox url={item.url} /> : null}
     </div>
   );
 

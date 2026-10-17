@@ -77,8 +77,6 @@ export async function* exportEntries(
 interface NoteRow {
   itemId: string
   memo: string
-  url: string
-  mode: 'memo' | 'url'
   createdAt: Date
   updatedAt: Date
   publicAt: Date | null
@@ -103,8 +101,6 @@ async function fetchNotes(itemIds: string[]): Promise<Map<string, NoteRow>> {
     select: {
       itemId: true,
       memo: true,
-      url: true,
-      mode: true,
       createdAt: true,
       updatedAt: true,
       publicAt: true,
@@ -138,8 +134,6 @@ function toPortableNote(row: NoteRow): ExportNote {
   return {
     itemId: row.itemId,
     memo: row.memo,
-    url: row.url,
-    mode: row.mode,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     // 公開した日時までは持ち出さない。戻すときに要るのは「公開かどうか」だけ

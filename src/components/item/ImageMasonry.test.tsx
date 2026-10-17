@@ -12,8 +12,6 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   return {
     itemId: "00000000-0000-7000-8000-000000000001",
     memo: "",
-    url: "",
-    mode: "memo",
     title: "",
     tags: [],
     props: [],
@@ -98,9 +96,9 @@ test("画像のないノートはタイルにならない", () => {
   expect(html).not.toContain('href="/item/00000000-0000-7000-8000-000000000020"');
 });
 
-test("URL モードのノート (memo が空) が混ざっても落ちず、タイルにも出ない", () => {
+test("本文が URL だけのノートが混ざっても落ちず、タイルにも出ない", () => {
   const html = render([
-    makeItem({ itemId: "00000000-0000-7000-8000-000000000030", mode: "url", url: "https://example.com" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000030", memo: "https://example.com" }),
     makeItem({ itemId: "00000000-0000-7000-8000-000000000040", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
   expect(html).not.toContain('href="/item/00000000-0000-7000-8000-000000000030"');
@@ -110,7 +108,7 @@ test("URL モードのノート (memo が空) が混ざっても落ちず、タ�
 test("ページ内に画像が 1 枚も無ければ案内だけを出す", () => {
   const html = render([
     makeItem({ itemId: "00000000-0000-7000-8000-000000000050", memo: "画像なし" }),
-    makeItem({ itemId: "00000000-0000-7000-8000-000000000060", mode: "url", url: "https://example.com" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000060", memo: "https://example.com" }),
   ]);
   expect(html).toContain("このページには画像・回路図がありません");
   expect(html).not.toContain("/api/images/");

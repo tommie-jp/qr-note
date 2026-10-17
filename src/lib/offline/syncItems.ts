@@ -40,8 +40,6 @@ export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
     select: {
       itemId: true,
       memo: true,
-      url: true,
-      mode: true,
       title: true,
       tags: true,
       taskTodo: true,

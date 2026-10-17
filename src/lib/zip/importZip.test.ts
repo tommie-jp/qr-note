@@ -6,7 +6,7 @@ import { MAX_ZIP_FILE_BYTES } from './limits'
 // DB と添付の保存は差し替える。確かめたいのは繋ぎ役の振る舞い —
 // 「入らなかったものが必ずレポートに出るか」であって Postgres や sharp ではない
 // (lib/enex/importEnex.test.ts と同じ流儀)
-const upsertItem = vi.fn()
+const upsertMemo = vi.fn()
 const setItemPublic = vi.fn()
 const applyImportedTimestamps = vi.fn()
 const newItemId = vi.fn()
@@ -29,7 +29,7 @@ vi.mock('@/lib/items/resolve', () => ({
 }))
 
 vi.mock('@/lib/items/write', () => ({
-  upsertItem: (itemId: string, data: unknown) => upsertItem(itemId, data),
+  upsertMemo: (itemId: string, memo: string) => upsertMemo(itemId, memo),
   applyImportedTimestamps: (itemId: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemId, created, updated),
 }))
@@ -73,22 +73,22 @@ const NEW_ID = id(20001)
 
 const noteFile = (itemId: string, body = '本文', extra = '') =>
   strToU8(
-    `---\nid: "${itemId}"\nmode: memo\nurl: ""\ncreated: 2025-01-01T00:00:00.000Z\nupdated: 2025-02-01T00:00:00.000Z\npublic: false\n${extra}---\n${body}\n`,
+    `---\nid: "${itemId}"\ncreated: 2025-01-01T00:00:00.000Z\nupdated: 2025-02-01T00:00:00.000Z\npublic: false\n${extra}---\n${body}\n`,
   )
 
 // v0.24 より前の書き出しと教科書の変換スクリプトが組む形 (旧番号)
 const legacyNoteFile = (itemNo: string, body = '本文') =>
   strToU8(
-    `---\nitemNo: "${itemNo}"\nmode: memo\nurl: ""\ncreated: 2025-01-01T00:00:00.000Z\nupdated: 2025-02-01T00:00:00.000Z\npublic: false\n---\n${body}\n`,
+    `---\nitemNo: "${itemNo}"\ncreated: 2025-01-01T00:00:00.000Z\nupdated: 2025-02-01T00:00:00.000Z\npublic: false\n---\n${body}\n`,
   )
 
 // 手書きの Markdown を置いた形 (日時が無い)
 const undatedNoteFile = (itemId: string, body = '本文') =>
-  strToU8(`---\nid: "${itemId}"\nmode: memo\nurl: ""\npublic: false\n---\n${body}\n`)
+  strToU8(`---\nid: "${itemId}"\npublic: false\n---\n${body}\n`)
 
 beforeEach(() => {
   vi.clearAllMocks()
-  upsertItem.mockResolvedValue(undefined)
+  upsertMemo.mockResolvedValue(undefined)
   setItemPublic.mockResolvedValue(0)
   applyImportedTimestamps.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
@@ -104,11 +104,7 @@ test('notes/*.md を id ごと戻す', async () => {
   const report = await importZip(zip({ [`notes/${id(1042)}.md`]: noteFile(id(1042)) }))
 
   expect(report.imported).toEqual([{ itemId: id(1042), title: '本文' }])
-  expect(upsertItem).toHaveBeenCalledWith(id(1042), {
-    memo: '本文',
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(id(1042), '本文')
 })
 
 // 書き出した日時をそのまま戻す。しないと戻したノートが全部「いま」に並ぶ
@@ -123,7 +119,7 @@ test('作成・更新日時を書き戻す', async () => {
 
 test('公開状態もファイルに合わせる', async () => {
   const file = strToU8(
-    `---\nid: "${id(7)}"\nmode: memo\nurl: ""\npublic: true\n---\n本文\n`,
+    `---\nid: "${id(7)}"\npublic: true\n---\n本文\n`,
   )
   await importZip(zip({ [`notes/${id(7)}.md`]: file }))
   expect(setItemPublic).toHaveBeenCalledWith(id(7), true)
@@ -147,7 +143,7 @@ test('添付はノートより先に入れる', async () => {
     order.push('attachment')
     return { ok: true, created: true }
   })
-  upsertItem.mockImplementation(async () => {
+  upsertMemo.mockImplementation(async () => {
     order.push('note')
   })
 
@@ -170,7 +166,7 @@ test('既にある id は既定では上書きしない', async () => {
 
   expect(report.conflictSkipped).toBe(1)
   expect(report.imported).toEqual([])
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
 })
 
 test('overwrite を選んだときだけ上書きする', async () => {
@@ -182,7 +178,7 @@ test('overwrite を選んだときだけ上書きする', async () => {
 
   expect(report.conflictSkipped).toBe(0)
   expect(report.imported).toHaveLength(1)
-  expect(upsertItem).toHaveBeenCalled()
+  expect(upsertMemo).toHaveBeenCalled()
 })
 
 // --- 新しい id で取り込む (§5「新しい番号で取り込む」) ---
@@ -195,7 +191,7 @@ test('renumber は衝突したノートにだけ新しい id を振る', async (
   })
 
   expect(report.conflictSkipped).toBe(0)
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, expect.anything())
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, expect.anything())
   // 日時・公開状態も新しい id のほうへ反映する (元の id は既存ノートのもの)
   expect(applyImportedTimestamps).toHaveBeenCalledWith(NEW_ID, expect.anything(), expect.anything())
   expect(setItemPublic).toHaveBeenCalledWith(NEW_ID, false)
@@ -237,7 +233,7 @@ test('renumber でも同じ内容のノートが既にいれば採番せず見�
   expect(report.duplicateSkipped).toBe(1)
   expect(report.imported).toEqual([])
   expect(newItemId).not.toHaveBeenCalled()
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
   // 照合は「作成日時 + 本文 1 行目」
   expect(isAlreadyImported).toHaveBeenCalledWith(
     new Date('2025-01-01T00:00:00.000Z'),
@@ -255,7 +251,7 @@ test('日時の無いノートは日時 null のまま判定にかける', async
   })
 
   expect(isAlreadyImported).toHaveBeenCalledWith(null, '本文')
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, expect.anything())
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, expect.anything())
 })
 
 test('衝突で採番したノートも 1 件進んだことにする', async () => {
@@ -286,11 +282,7 @@ test('旧番号で 0 件なら新しい id で作り、本文にタグ #<旧番�
   const report = await importZip(zip({ 'notes/1042.md': legacyNoteFile('1042') }))
 
   expect(newItemId).toHaveBeenCalledTimes(1)
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, {
-    memo: '本文\n#1042',
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, '本文\n#1042')
   expect(applyImportedTimestamps).toHaveBeenCalledWith(
     NEW_ID,
     new Date('2025-01-01T00:00:00.000Z'),
@@ -306,14 +298,14 @@ test('英字混じりの旧番号も同じように扱う', async () => {
   await importZip(zip({ 'notes/wb01-03-08.md': legacyNoteFile('wb01-03-08') }))
 
   expect(findItemIdsByLegacyNo).toHaveBeenCalledWith('wb01-03-08', { includeTrashed: true })
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, expect.objectContaining({ memo: '本文\n#wb01-03-08' }))
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, '本文\n#wb01-03-08')
 })
 
 // 本文に既にタグがあれば二重に足さない (再取り込み・移行後に書き出した原稿)
 test('本文に既にタグ #<旧番号> があれば足さない', async () => {
   await importZip(zip({ 'notes/1042.md': legacyNoteFile('1042', '本文 #1042') }))
 
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, expect.objectContaining({ memo: '本文 #1042' }))
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, '本文 #1042')
 })
 
 test('旧番号で 1 件なら同じノートとみなし、既定では上書きしない', async () => {
@@ -323,7 +315,7 @@ test('旧番号で 1 件なら同じノートとみなし、既定では上書�
 
   expect(report.conflictSkipped).toBe(1)
   expect(report.imported).toEqual([])
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
 })
 
 // 上書きは見つけた行の id へ。入ってくる本文 (教科書の原稿など) にはタグが
@@ -335,11 +327,7 @@ test('旧番号で 1 件なら overwrite はその id へ書き、タグも足�
     conflict: 'overwrite',
   })
 
-  expect(upsertItem).toHaveBeenCalledWith(id(1042), {
-    memo: '本文\n#1042',
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(id(1042), '本文\n#1042')
   expect(applyImportedTimestamps).toHaveBeenCalledWith(id(1042), expect.anything(), expect.anything())
   expect(setItemPublic).toHaveBeenCalledWith(id(1042), false)
   expect(report.imported).toEqual([{ itemId: id(1042), title: '本文' }])
@@ -352,7 +340,7 @@ test('旧番号で 1 件なら renumber は新しい id で作り、元の id �
     conflict: 'renumber',
   })
 
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, expect.objectContaining({ memo: '本文\n#1042' }))
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, '本文\n#1042')
   expect(report.imported).toEqual([
     { itemId: NEW_ID, title: '本文', renumberedFrom: id(1042) },
   ])
@@ -372,7 +360,7 @@ test.each(['skip', 'overwrite', 'renumber'] as const)(
 
     expect(report.conflictSkipped).toBe(1)
     expect(report.imported).toEqual([])
-    expect(upsertItem).not.toHaveBeenCalled()
+    expect(upsertMemo).not.toHaveBeenCalled()
     expect(newItemId).not.toHaveBeenCalled()
     expect(isAlreadyImported).not.toHaveBeenCalled()
     expect(onNoteDone).toHaveBeenCalledTimes(1)
@@ -389,8 +377,8 @@ test('id のノートと旧番号のノートが混ざった ZIP も取り込め
   )
 
   expect(report.imported).toHaveLength(2)
-  expect(upsertItem).toHaveBeenCalledWith(id(7), expect.objectContaining({ memo: '本文' }))
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, expect.objectContaining({ memo: '本文\n#1042' }))
+  expect(upsertMemo).toHaveBeenCalledWith(id(7), '本文')
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, '本文\n#1042')
 })
 
 // id のノートは id のまま入れる (別インスタンスへ移しても URL が変わらない)。
@@ -403,12 +391,12 @@ test('id のノートは id の行だけを見て、タグは足さない', asyn
   )
   expect(findItemIdsByLegacyNo).not.toHaveBeenCalled()
   expect(newItemId).not.toHaveBeenCalled()
-  expect(upsertItem).toHaveBeenCalledWith(id(1042), expect.objectContaining({ memo: '本文' }))
+  expect(upsertMemo).toHaveBeenCalledWith(id(1042), '本文')
 })
 
 // 保存に失敗したときの報告の見出しは「#旧番号」で出す (id は無いので)
 test('旧番号のノートの保存に失敗したら #<旧番号> で報告する', async () => {
-  upsertItem.mockRejectedValueOnce(new Error('デモの上限に達しました'))
+  upsertMemo.mockRejectedValueOnce(new Error('デモの上限に達しました'))
 
   const report = await importZip(zip({ 'notes/1042.md': legacyNoteFile('1042') }))
 
@@ -560,7 +548,7 @@ test('1 件の添付の失敗で ZIP 全体を落とさない', async () => {
 })
 
 test('1 件のノートの失敗で ZIP 全体を落とさない', async () => {
-  upsertItem.mockRejectedValueOnce(new Error('デモの上限に達しました'))
+  upsertMemo.mockRejectedValueOnce(new Error('デモの上限に達しました'))
 
   const report = await importZip(
     zip({ [`notes/${id(1)}.md`]: noteFile(id(1)), [`notes/${id(2)}.md`]: noteFile(id(2)) }),

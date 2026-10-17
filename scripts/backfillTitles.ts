@@ -10,10 +10,6 @@
 // ゴミ箱の行も対象にする。復元したときに見出しが '' のままではタイトル順の
 // 末尾に落ちる。
 //
-// URL モードの行は memo が空なので title も '' になる。タイトル順は
-// そのとき url を見る (src/lib/prefs/sortOrder.ts) ので、ここで url を入れてはいけない
-// —— 正本が二重になる。
-//
 // 使い方: npx tsx --conditions=react-server scripts/backfillTitles.ts
 //   (本番/デモへは ./doBackfill.sh titles 経由。リモートにはソースが無い)
 import 'dotenv/config'

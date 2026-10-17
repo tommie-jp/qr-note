@@ -122,20 +122,20 @@ describe('notePreviewSource', () => {
 
 describe('wantsNotePreview', () => {
   test('本文だけのノートは対象', () => {
-    expect(wantsNotePreview({ mode: 'memo', memo: '抵抗の説明' })).toBe(true)
+    expect(wantsNotePreview({ memo: '抵抗の説明' })).toBe(true)
   })
 
   test('URL モードは対象外', () => {
-    expect(wantsNotePreview({ mode: 'url', memo: '' })).toBe(false)
+    expect(wantsNotePreview({ memo: '' })).toBe(false)
   })
 
   test('空のノートは対象外 (「(空のノート)」の受け皿を保つ)', () => {
-    expect(wantsNotePreview({ mode: 'memo', memo: '  \n ' })).toBe(false)
+    expect(wantsNotePreview({ memo: '  \n ' })).toBe(false)
   })
 
   test('画像サムネを持つノートは対象外 (優先順位 1 が受ける)', () => {
     expect(
-      wantsNotePreview({ mode: 'memo', memo: `写真\n![](/api/images/${IMAGE})` }),
+      wantsNotePreview({ memo: `写真\n![](/api/images/${IMAGE})` }),
     ).toBe(false)
   })
 })

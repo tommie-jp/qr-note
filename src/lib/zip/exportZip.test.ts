@@ -26,8 +26,6 @@ function row(itemId: string, memo = '本文') {
   return {
     itemId,
     memo,
-    url: '',
-    mode: 'memo' as const,
     createdAt: new Date('2025-01-01T00:00:00.000Z'),
     updatedAt: new Date('2025-02-01T00:00:00.000Z'),
     publicAt: null,

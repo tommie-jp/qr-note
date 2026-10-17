@@ -10,7 +10,7 @@ const findManyItem = vi.fn()
 const findUniqueItem = vi.fn()
 const findUniqueImage = vi.fn()
 const findManyImage = vi.fn()
-const upsertItem = vi.fn()
+const upsertMemo = vi.fn()
 const newItemId = vi.fn()
 const setItemPublic = vi.fn()
 const applyImportedTimestamps = vi.fn()
@@ -46,7 +46,7 @@ vi.mock('@/lib/items/resolve', () => ({
 }))
 
 vi.mock('@/lib/items/write', () => ({
-  upsertItem: (itemId: string, data: unknown) => upsertItem(itemId, data),
+  upsertMemo: (itemId: string, memo: string) => upsertMemo(itemId, memo),
   applyImportedTimestamps: (itemId: string, created: Date | null, updated: Date | null) =>
     applyImportedTimestamps(itemId, created, updated),
 }))
@@ -99,7 +99,7 @@ beforeEach(() => {
   findUniqueItem.mockResolvedValue(null)
   findManyImage.mockResolvedValue([])
   findUniqueImage.mockResolvedValue({ data: JPEG })
-  upsertItem.mockResolvedValue(undefined)
+  upsertMemo.mockResolvedValue(undefined)
   setItemPublic.mockResolvedValue(0)
   applyImportedTimestamps.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
@@ -109,13 +109,11 @@ beforeEach(() => {
   restoreAttachment.mockResolvedValue({ ok: true, created: true })
 })
 
-test('本文・URL・モード・公開状態が往復して元に戻る', async () => {
+test('本文・公開状態が往復して元に戻る', async () => {
   findManyItem.mockResolvedValue([
     {
       itemId: id(1042),
       memo: 'hFE=208\n2SC1815 のストック #トランジスタ\n```\ncode "quoted"\n```',
-      url: 'https://example.com/?q="a b"&x=1',
-      mode: 'url',
       createdAt: new Date('2025-11-02T01:30:00.000Z'),
       updatedAt: new Date('2026-07-01T08:12:00.000Z'),
       publicAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -124,11 +122,7 @@ test('本文・URL・モード・公開状態が往復して元に戻る', async
 
   await importFrom([id(1042)])
 
-  expect(upsertItem).toHaveBeenCalledWith(id(1042), {
-    memo: 'hFE=208\n2SC1815 のストック #トランジスタ\n```\ncode "quoted"\n```',
-    url: 'https://example.com/?q="a b"&x=1',
-    mode: 'url',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(id(1042), 'hFE=208\n2SC1815 のストック #トランジスタ\n```\ncode "quoted"\n```')
   expect(setItemPublic).toHaveBeenCalledWith(id(1042), true)
   // id で書き出したので id の行と突き合わせる。旧番号のタグ検索は通らない
   expect(findUniqueItem).toHaveBeenCalledWith(
@@ -142,8 +136,6 @@ test('本文の画像参照が往復して元の配信 URL に戻る', async () 
     {
       itemId: id(7),
       memo: `写真\n![](/api/images/${UUID}.jpg)`,
-      url: '',
-      mode: 'memo',
       createdAt: new Date('2025-01-01T00:00:00.000Z'),
       updatedAt: new Date('2025-01-01T00:00:00.000Z'),
       publicAt: null,
@@ -152,11 +144,7 @@ test('本文の画像参照が往復して元の配信 URL に戻る', async () 
 
   await importFrom([id(7)])
 
-  expect(upsertItem).toHaveBeenCalledWith(id(7), {
-    memo: `写真\n![](/api/images/${UUID}.jpg)`,
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(id(7), `写真\n![](/api/images/${UUID}.jpg)`)
 })
 
 test('添付のバイト列が元の名前のまま往復する', async () => {
@@ -164,8 +152,6 @@ test('添付のバイト列が元の名前のまま往復する', async () => {
     {
       itemId: id(7),
       memo: `![](/api/images/${UUID}.jpg)`,
-      url: '',
-      mode: 'memo',
       createdAt: new Date('2025-01-01T00:00:00.000Z'),
       updatedAt: new Date('2025-01-01T00:00:00.000Z'),
       publicAt: null,
@@ -186,8 +172,6 @@ test('末尾が改行の本文も往復して元に戻る', async () => {
     {
       itemId: id(7),
       memo: '本文\n',
-      url: '',
-      mode: 'memo',
       createdAt: new Date('2025-01-01T00:00:00.000Z'),
       updatedAt: new Date('2025-01-01T00:00:00.000Z'),
       publicAt: null,
@@ -196,11 +180,7 @@ test('末尾が改行の本文も往復して元に戻る', async () => {
 
   await importFrom([id(7)])
 
-  expect(upsertItem).toHaveBeenCalledWith(id(7), {
-    memo: '本文\n',
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(id(7), '本文\n')
 })
 
 // --- 新しい id で取り込む (§5) ---
@@ -211,8 +191,6 @@ const ONE_NOTE = [
   {
     itemId: id(1042),
     memo: '題名\n本文',
-    url: '',
-    mode: 'memo' as const,
     createdAt: new Date('2025-11-02T01:30:00.000Z'),
     updatedAt: new Date('2026-07-01T08:12:00.000Z'),
     publicAt: null,
@@ -228,11 +206,7 @@ test('renumber は衝突したノートを新しい id で入れる', async () =
   expect(report.imported).toEqual([
     { itemId: NEW_ID, title: '題名', renumberedFrom: id(1042) },
   ])
-  expect(upsertItem).toHaveBeenCalledWith(NEW_ID, {
-    memo: '題名\n本文',
-    url: '',
-    mode: 'memo',
-  })
+  expect(upsertMemo).toHaveBeenCalledWith(NEW_ID, '題名\n本文')
 })
 
 // 素朴に作ると、同じ ZIP を 2 回流した時点で全ノートが複製される
@@ -246,7 +220,7 @@ test('renumber で同じ ZIP を流し直しても増えない', async () => {
   expect(report.duplicateSkipped).toBe(1)
   expect(report.imported).toEqual([])
   expect(newItemId).not.toHaveBeenCalled()
-  expect(upsertItem).not.toHaveBeenCalled()
+  expect(upsertMemo).not.toHaveBeenCalled()
 })
 
 test('複数ノートと共有の添付をまとめて往復できる', async () => {
@@ -257,8 +231,6 @@ test('複数ノートと共有の添付をまとめて往復できる', async ()
       {
         itemId: id(1),
         memo,
-        url: '',
-        mode: 'memo',
         createdAt: new Date('2025-01-01T00:00:00.000Z'),
         updatedAt: new Date('2025-01-01T00:00:00.000Z'),
         publicAt: null,
@@ -266,8 +238,6 @@ test('複数ノートと共有の添付をまとめて往復できる', async ()
       {
         itemId: id(2),
         memo,
-        url: '',
-        mode: 'memo',
         createdAt: new Date('2025-01-01T00:00:00.000Z'),
         updatedAt: new Date('2025-01-01T00:00:00.000Z'),
         publicAt: null,

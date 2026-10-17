@@ -72,7 +72,7 @@ export function renderInlineMathHtml(text: string): string | null {
 }
 
 // 一覧に必要な列だけに絞る (circuit/thumbs.ts と同じ)
-type MathSource = { itemId: string; memo: string; mode: string }
+type MathSource = { itemId: string; memo: string }
 
 // ページ内アイテムのタイトル (と mode='both' ならプレビュー) の数式を
 // まとめて HTML 化する。DB は引かない同期処理。$ を含まないノートは
@@ -88,7 +88,7 @@ export function buildMathTexts(
     if (budget <= 0) {
       break
     }
-    if (item.mode === 'url' || !item.memo.includes('$')) {
+    if (!item.memo.includes('$')) {
       continue
     }
     const title = renderInlineMathHtml(memoSummary(item.memo))

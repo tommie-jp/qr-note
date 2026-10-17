@@ -1,7 +1,6 @@
 import type { Item } from "@/generated/prisma/client";
 import { ItemTags } from "@/components/item/ItemTags";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
-import { ItemUrlBox } from "@/components/item/ItemUrlBox";
 import { LoginButton } from "@/components/auth/LoginButton";
 import { QrIcon } from "@/components/icons";
 import { NoteBody } from "@/components/markdown/NoteBody";
@@ -66,8 +65,6 @@ export async function PublicItemView({ itemId, item }: PublicItemViewProps) {
         </p>
         <LoginButton />
       </div>
-
-      {item.url && <ItemUrlBox url={item.url} />}
 
       <ItemTags tags={item.tags} linked={false} />
 

@@ -13,8 +13,7 @@ const IMAGE = '0421547b-ee29-4613-a6d4-da0f41f94054.jpg'
 const VIDEO = '0421547b-ee29-4613-a6d4-da0f41f94054.mp4'
 const SVG = '<svg viewBox="0 0 10 10"></svg>'
 
-const memoNote = (memo: string) => ({ mode: 'memo' as const, url: '', memo })
-const urlNote = (url: string) => ({ mode: 'url' as const, url, memo: '' })
+const memoNote = (memo: string) => ({ memo })
 
 describe('rowTitle', () => {
   test('本文の 1 行目を要約して見出しにする', () => {
@@ -25,18 +24,9 @@ describe('rowTitle', () => {
     expect(title).toEqual({ kind: 'plain', text: 'BJT NPN' })
   })
 
-  test('URL モードは URL を見出しにする', () => {
-    // Act / Assert
-    expect(rowTitle(urlNote('https://example.com/x'))).toEqual({
-      kind: 'plain',
-      text: 'https://example.com/x',
-    })
-  })
-
   test('見出しが空なら当たり判定のために代わりの文字を置く', () => {
     // Act / Assert
     expect(rowTitle(memoNote(''))).toEqual({ kind: 'plain', text: '(空のノート)' })
-    expect(rowTitle(urlNote(''))).toEqual({ kind: 'plain', text: '(空のノート)' })
   })
 
   test('mathTitle があれば KaTeX の HTML を優先する', () => {
@@ -61,15 +51,6 @@ describe('rowPreview / hasRowText', () => {
     // Assert
     expect(preview).toEqual({ kind: 'plain', text: '出力は 5V 3A' })
     expect(hasRowText(preview)).toBe(true)
-  })
-
-  test('URL モードは本文を持たないので出さない', () => {
-    // Act
-    const preview = rowPreview(urlNote('https://example.com/x'))
-
-    // Assert
-    expect(preview).toEqual({ kind: 'plain', text: '' })
-    expect(hasRowText(preview)).toBe(false)
   })
 
   test('mathPreview があれば KaTeX の HTML を出す', () => {
@@ -112,14 +93,6 @@ describe('rowFace', () => {
     expect(circuit).toEqual({ kind: 'circuit', svg: SVG })
     expect(preview).toEqual({ kind: 'preview' })
     expect(none).toBeNull()
-  })
-
-  test('URL モードは本文の画像を見ない', () => {
-    // Arrange
-    const item = { mode: 'url' as const, url: `/api/images/${IMAGE}`, memo: `![](/api/images/${IMAGE})` }
-
-    // Act / Assert
-    expect(rowFace(item, { hasNotePreview: false })).toBeNull()
   })
 })
 

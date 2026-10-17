@@ -81,8 +81,6 @@ describe('conflictState', () => {
   const current: Item = {
     itemId: '00000000-0000-7000-8000-000000000001',
     memo: '別の端末の本文',
-    url: 'https://example.com',
-    mode: 'url',
     title: '',
     tags: ['英単語'],
     props: [],
@@ -106,8 +104,6 @@ describe('conflictState', () => {
       kind: 'conflict',
       server: {
         memo: '別の端末の本文',
-        url: 'https://example.com',
-        mode: 'url',
         updatedAt: 3_000,
         deletedAt: 4_000,
       },

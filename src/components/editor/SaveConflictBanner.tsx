@@ -49,14 +49,6 @@ export function SaveConflictBanner({
     >
       <p>{message(state)}</p>
 
-      {/* url / mode は notes/<itemId>.md に入らない = 履歴から戻せない。
-          上書きする前に見せておく (docs/87 §3-3) */}
-      {server && server.url !== "" && (
-        <p className="break-all text-sm">
-          別の版の URL: <span className="font-mono">{server.url}</span>
-        </p>
-      )}
-
       <div className="flex flex-wrap items-center gap-2">
         {server && (
           <button
