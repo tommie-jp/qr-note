@@ -47,6 +47,15 @@ test("未ログインでも帯 (ホーム・版・メニュー) は出し、右�
   expect(html).not.toContain('name="panes"');
 });
 
+test("バージョンもサイト名と同じホームリンクの中に入れる", () => {
+  // Arrange / Act
+  const html = render();
+
+  // Assert
+  const home = html.match(/<a [^>]*href="\/"[^>]*>([\s\S]*?)<\/a>/);
+  expect(home?.[1]).toContain(`v${pkg.version}`);
+});
+
 test("本番は白い帯で LOCAL の目印を出さない", () => {
   // Arrange / Act
   const html = render({ isProd: true });

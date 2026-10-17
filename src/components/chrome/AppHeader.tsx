@@ -103,8 +103,9 @@ export function AppHeader({
           siteUrl={siteUrl}
           siteQrDataUrl={siteQrDataUrl}
         />
-        {/* アイコンもホームリンクに含める。押せる的が広がるうえ、
-            アイコンとサイト名が別々の当たり判定に割れるのを避ける。
+        {/* アイコンとバージョンもホームリンクに含める。押せる的が広がるうえ、
+            アイコン・サイト名・版が別々の当たり判定に割れるのを避ける
+            (版だけ押しても何も起きないと、押し損ねたように見える)。
             /icon.svg は app/icon.svg が規約で配信するもの (PNG より
             拡大に強い)。alt は空 — 隣の文字が同じことを言っている */}
         <Link
@@ -117,8 +118,11 @@ export function AppHeader({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon.svg" alt="" className="h-[1cap] w-auto rounded-[2px]" />
           {SITE_NAME}
+          {/* font-normal … Link の font-bold を打ち消して従来の見た目を保つ */}
+          <span className="text-xs font-normal text-gray-400">
+            v{pkg.version}
+          </span>
         </Link>
-        <span className="text-xs text-gray-400">v{pkg.version}</span>
         {/* 戻る/進む (◀ ▶)。下部バーの左端から、サイト名・バージョンの右へ
             戻した (docs/11 §5-2)。ヘッダーは全ページで同じ位置にあり、
             編集帯やスロットの並びと場所を取り合わない */}
