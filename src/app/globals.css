@@ -644,6 +644,38 @@ html:has([data-bottom-bar]) {
   --bottom-bar-h: 49px;
 }
 
+/* ノート本文の画像の表示モード (docs/106-画像表示モード計画.md)。
+   全体 (page) … 画像の高さを「ノートが見えている高さ」までに抑える。幅は
+   もとから器の幅まで (prose の max-width:100%) なので、両方に収まる。
+   幅 (width) … 高さの上限を外す (これまでの見た目)。
+
+   --note-view-h の既定は単独ページ (/item) の高さ。ペイン (PreviewPane) は
+   器の高さを自分で入れ直す。**100dvh を直に使わない** — 3 ペインのノートは
+   45dvh のペインの中にあり、画面の高さで抑えてもペインからはみ出す。
+
+   --note-img-reserve … ペイン上端に貼り付く操作行 (約 3rem) と画像の上下の
+   余白のぶん。これを引かないと、全体のつもりで下端が少し隠れる。
+
+   既定を全体にするのは印の無い器 (公開ビュー・オフライン表示) も同じで、
+   幅にするのは [data-img-fit="width"] を立てた器だけ。
+   縮めるのは拡大できる画像 (data-zoomable) のうち幅記法の無いものだけ —
+   幅記法 (`![|200]`) は書き手が決めた大きさなので、読み手のモードより優先する。
+   印刷では効かせない (紙はページ送りで切れるので、幅いっぱいのほうがよい) */
+:root {
+  --note-view-h: calc(100dvh - var(--header-h) - var(--bottom-bar-h));
+  --note-img-reserve: 4rem;
+}
+
+@media screen {
+  [data-note-body] img[data-zoomable]:not([width]) {
+    max-height: calc(var(--note-view-h) - var(--note-img-reserve));
+  }
+
+  [data-img-fit="width"] [data-note-body] img[data-zoomable] {
+    max-height: none;
+  }
+}
+
 /* どちらの寸法も境界のドラッグで書き換わる (docs/86 §4-2)。動かすのは
    この 2 変数だけで、ペイン・底上げ・広幅補正はもとから同じ変数を見ている。
    ドラッグ中は 1 フレームごとに変わるので、変化を transition させないこと

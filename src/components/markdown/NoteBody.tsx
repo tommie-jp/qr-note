@@ -56,12 +56,15 @@ export function NoteBody({ memo, ...options }: NoteBodyProps) {
 
   // 答え隠し (docs/79) を持つノートだけ、まとめて開く口を添える。
   // 持たないノートに出すと、押しても何も起きないボタンが並ぶ
-  if (hasAnswerSpoiler(memo)) {
-    return (
-      <RevealAllAnswers>
-        <NotePager pages={pages} />
-      </RevealAllAnswers>
-    );
-  }
-  return <NotePager pages={pages} />;
+  const pager = hasAnswerSpoiler(memo) ? (
+    <RevealAllAnswers>
+      <NotePager pages={pages} />
+    </RevealAllAnswers>
+  ) : (
+    <NotePager pages={pages} />
+  );
+  // data-note-body … 画像の表示モード (docs/106) の CSS が「ノート本文の中の
+  // 画像」だけを狙うための印。一覧のカードのプレビュー (NotePreviewThumb) や
+  // 記法ヘルプ (docs/memo) はここを通らないので縮まない
+  return <div data-note-body="">{pager}</div>;
 }

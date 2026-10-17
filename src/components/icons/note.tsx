@@ -5,7 +5,7 @@
 // 色は**アイコン側**が持つ (メニューと同じ流儀)。押下で反転しないうえ、
 // 4 つの操作リンクを「絵の形より先に色で拾い分ける」ためのものなので、
 // 行の中で色が重ならないことがこの一群の要件になる:
-//   編集 emerald / 履歴 orange / QR sky / ページ indigo / 記法 purple
+//   編集 emerald / 履歴 orange / QR sky / ページ indigo / 画像 amber / 記法 purple
 //
 // 状態を出すトグル (公開・オフライン) だけは逆で、色を持たない — ボタンの
 // 地色ごと状態で変わるので、色は使う側 (STATE_TOGGLE_CLASS の colorClass) が
@@ -61,6 +61,28 @@ export function ContinuousIcon() {
     <StrokeIcon className="text-indigo-600">
       <path {...TINT} d="M6 0h12v24H6z" />
       <path d="M9 5h6M9 9h6M9 13h6M9 17h4" />
+    </StrokeIcon>
+  );
+}
+
+// 画像は全体を表示中 (docs/106): 画面の枠の中に、縦長の絵が上下とも
+// 収まっている形。左右に空きがあるのが「高さで詰めた」の目印
+export function FitPageIcon() {
+  return (
+    <StrokeIcon className="text-amber-600">
+      <rect x="3" y="3" width="18" height="18" rx="1.5" />
+      <rect {...TINT} x="8.5" y="6" width="7" height="12" rx="0.5" />
+    </StrokeIcon>
+  );
+}
+
+// 画像は幅に合わせ中 (docs/106): 枠の左右いっぱいの絵が下へはみ出す形。
+// ContinuousIcon と同じく、svg の枠で切れた絵が「まだ下に続く」を表す
+export function FitWidthIcon() {
+  return (
+    <StrokeIcon className="text-amber-600">
+      <path d="M3 24V4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5V24" />
+      <path {...TINT} d="M6 6h12v18H6z" />
     </StrokeIcon>
   );
 }

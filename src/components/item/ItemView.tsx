@@ -22,6 +22,8 @@ import { MemoPanel } from "@/components/editor/MemoPanel";
 import { MemoEditor } from "@/components/editor/MemoEditor";
 import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
 import { NotePageModeToggle } from "@/components/notepage/NotePageModeToggle";
+import { ImageFitScope } from "@/components/markdown/ImageFitScope";
+import { ImageFitToggle } from "@/components/markdown/ImageFitToggle";
 import { splitPages } from "@/components/notepage/notePages";
 import { OfflinePinToggle } from "@/components/item/OfflinePinToggle";
 import { PendingLink } from "@/components/chrome/PendingLink";
@@ -37,6 +39,7 @@ import { buildHealthCharts } from "@/lib/health/healthData";
 import { buildMatrices } from "@/lib/matrix/matrixData";
 import { pinAttachmentBytes } from "@/lib/offline/pinSize";
 import { formatBase } from "@/lib/editor/saveBase";
+import { allImageNames } from "@/lib/images/memoImages";
 import { SavedDraftCleanup } from "@/components/editor/SavedDraftCleanup";
 
 interface ItemViewProps {
@@ -83,6 +86,8 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
   // 区切りになりうる行が無ければ remark を通さない近道があるので
   // (components/notepage/notePages.ts)、大多数のノートでは行を舐めるだけで済む
   const hasPages = splitPages(memo).length > 1;
+  // 画像の表示モード (docs/106) も、画像の無いノートには出さない (同じ理由)
+  const hasImages = allImageNames(memo).length > 0;
 
   return (
     // 縦に隙間を持たない (docs/75-ノート上部圧縮計画.md §4)。見出し行・タグ・
@@ -163,6 +168,8 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           </PressTip>
           {/* ページの切り替えは QR の右 (docs/82 §3)。区切りのあるノートだけ */}
           {hasPages && <NotePageModeToggle />}
+          {/* 画像の表示モードはページの右 (docs/106)。どちらも本文の読み方 */}
+          {hasImages && <ImageFitToggle />}
           <PressTip label="メモ記法の書き方を見る">
             <Link
               href="/docs/memo"
@@ -205,16 +212,18 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         key={itemNo}
         defaultMode={memo ? "markdown" : "edit"}
         markdownView={
-          <NoteBody
-            memo={memo}
-            circuits={circuits}
-            matrices={matrices}
-            health={health}
-            allowRotate
-            allowSecretEdit
-            onToggleTask={toggleMemoTaskAction.bind(null, itemNo)}
-            onRecordHealth={recordHealthAction.bind(null, itemNo)}
-          />
+          <ImageFitScope>
+            <NoteBody
+              memo={memo}
+              circuits={circuits}
+              matrices={matrices}
+              health={health}
+              allowRotate
+              allowSecretEdit
+              onToggleTask={toggleMemoTaskAction.bind(null, itemNo)}
+              onRecordHealth={recordHealthAction.bind(null, itemNo)}
+            />
+          </ImageFitScope>
         }
         textView={
           <pre

@@ -155,9 +155,12 @@ export function ZoomableImage({
         className="cursor-zoom-in"
         onClick={() => setIsOpen(true)}
       >
+        {/* data-zoomable … 画像の表示モード (docs/106) で縮める対象の印。
+            拡大表示の側 (覆いの中の img) には付けない — あちらは常に全体 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           {...props}
+          data-zoomable=""
           src={currentSrc}
           alt={alt}
           style={{ ...props.style, ...rotateStyle }}
