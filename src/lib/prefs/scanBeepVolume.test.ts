@@ -78,10 +78,19 @@ test('段の名前と振幅', () => {
   expect(scanBeepAmplitude('high')).toBe(1)
 })
 
-// 1 段ごとの聞こえ方を揃えるため、消音を除いて振幅は単調に増える
 test('振幅は段の順に増える', () => {
   const amplitudes = SCAN_BEEP_LEVELS.map((level) => level.amplitude)
   for (let i = 1; i < amplitudes.length; i++) {
     expect(amplitudes[i]).toBeGreaterThan(amplitudes[i - 1])
+  }
+})
+
+// 6〜8 dB 刻みでは iPhone のスピーカーで差が聞き取れなかった。
+// 鳴る段どうしは 10 dB 以上離す
+test('鳴る段どうしは 10 dB 以上離れている', () => {
+  const audible = SCAN_BEEP_LEVELS.filter((level) => level.amplitude > 0)
+  for (let i = 1; i < audible.length; i++) {
+    const db = 20 * Math.log10(audible[i].amplitude / audible[i - 1].amplitude)
+    expect(db).toBeGreaterThanOrEqual(10)
   }
 })

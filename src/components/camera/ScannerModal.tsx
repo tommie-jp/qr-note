@@ -8,9 +8,9 @@ import {
   type IScannerHandle,
 } from "@yudiel/react-qr-scanner";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { scanBeepDataUri } from "@/lib/audio/scanBeepWav";
+import { playScanBeep, prepareScanBeep } from "@/lib/audio/scanBeepPlayer";
 import { SCANNER_ERROR_MESSAGES } from "@/lib/camera/cameraErrors";
 import { SCAN_FORMATS } from "@/lib/external/scanFormats";
 import { resolveScanPath } from "@/lib/external/scanResult";
@@ -66,13 +66,26 @@ export function ScannerModal({
   // トーチ・ズームを直接効かせ、内外・近接は constraints で開き直す
   const scannerRef = useRef<IScannerHandle>(null);
   const cam = useScannerCamera(scannerRef);
-  // 読み取り音 (docs/112-スキャン音量計画.md)。ライブラリ内蔵のビープの
-  // 代わりに、メニューで選んだ段の振幅を焼き込んだ WAV を渡す。消音なら
-  // false で鳴らさない。開いている間にメニューは触れないので、開いた時点の
-  // 段を 1 度読めば足りる (購読しない)
-  const [beepLevel] = useState(() => loadScanBeepLevel(browserStorage()));
-  const sound =
-    beepLevel === "off" ? false : scanBeepDataUri(scanBeepAmplitude(beepLevel));
+  // 読み取り音 (docs/112-スキャン音量計画.md)。**ライブラリには鳴らさせない**
+  // (<Scanner sound={false}>)。ライブラリは鳴らした直後に onScan を呼び、
+  // こちらが閉じると後始末で pause() するので、iPhone ではほぼ鳴らない。
+  // 鳴らすのはモーダルより長生きする自前の要素 (lib/audio/scanBeepPlayer.ts)。
+  // 開いている間にメニューは触れないので、開いた時点の段を 1 度読めば足りる
+  useEffect(() => {
+    prepareScanBeep(scanBeepAmplitude(loadScanBeepLevel(browserStorage())));
+  }, []);
+
+  // 読めた手応え (振動と音) を返してから閉じる。音が鳴り始めるのを
+  // 少しだけ待つ — 待たずに閉じても止まりはしないが、遷移の描画と
+  // 重なって鳴り始めが遅れる。待つ上限は scanBeepPlayer の側にある
+  const finish = (next: () => void) => {
+    // 対応端末だけの振動 (非対応でも何も起きないだけ。iOS は非対応)
+    navigator.vibrate?.(50);
+    void playScanBeep().then(() => {
+      onClose();
+      next();
+    });
+  };
 
   useEscapeKey(onClose);
 
@@ -89,9 +102,7 @@ export function ScannerModal({
         return; // 空の読み取り。カメラは開けたままにして読み直させる
       }
       isHandled.current = true;
-      navigator.vibrate?.(50);
-      onClose();
-      onResult(value);
+      finish(() => onResult(value));
       return;
     }
 
@@ -105,10 +116,7 @@ export function ScannerModal({
       return; // 空の読み取り。カメラは開けたままにして読み直させる
     }
     isHandled.current = true;
-    // 対応端末だけの振動。読めた手応えを返す (非対応でも何も起きないだけ)
-    navigator.vibrate?.(50);
-    onClose();
-    router.push(path);
+    finish(() => router.push(path));
   };
 
   // カメラを開けなかったときの表示と復帰はフックに任せる (切替に失敗したら
@@ -176,7 +184,7 @@ export function ScannerModal({
               formats={SCAN_FORMATS}
               onScan={handleScan}
               onError={handleError}
-              sound={sound}
+              sound={false}
               // 内外・近接は constraints の差で開き直す (useScannerCamera)。
               // トーチ・ズームはライブラリ内蔵オーバーレイを使わず、下部バーの
               // 自前ボタンから生きているトラックへ直接効かせる (録画バーと統一)。

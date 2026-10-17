@@ -53,8 +53,8 @@ test('頭と尻は 0 から立ち上がり 0 へ戻る', () => {
 })
 
 test('data URI は同じ段なら同じ文字列を返す', () => {
-  const uri = scanBeepDataUri(0.2)
+  const uri = scanBeepDataUri(0.25)
   expect(uri.startsWith('data:audio/wav;base64,UklGR')).toBe(true)
-  expect(scanBeepDataUri(0.2)).toBe(uri)
+  expect(scanBeepDataUri(0.25)).toBe(uri)
   expect(scanBeepDataUri(1)).not.toBe(uri)
 })

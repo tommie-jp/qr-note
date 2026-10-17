@@ -10,9 +10,10 @@
 // sound に渡す。
 //
 // 段は離散にする。連続のスライダーは片手で狙いにくく、「元に戻す」が
-// 曖昧になる (prefs/noteFontScale.ts と同じ理由)。振幅は等比 (約 −6〜−8 dB
-// 刻み) にして、1 段ごとの聞こえ方の差を揃える。読み取り例外の扱いは
-// prefs/storagePref.ts
+// 曖昧になる (prefs/noteFontScale.ts と同じ理由)。振幅は等比で **12 dB 刻み**
+// (−24 / −12 / 0 dB) にする。当初の 6〜8 dB 刻み (0.2 / 0.5 / 1) は iPhone の
+// 実機で「差がない」と言われた — スマホのスピーカーは音量を上げると強く
+// 頭打ちになり、小さな差は潰れる。読み取り例外の扱いは prefs/storagePref.ts
 
 import 'client-only'
 import { definePref, type PrefStorage } from './storagePref'
@@ -21,8 +22,8 @@ export const SCAN_BEEP_VOLUME_STORAGE_KEY = 'qr-search:scan-beep-volume'
 
 export const SCAN_BEEP_LEVELS = [
   { id: 'off', label: '消音', amplitude: 0 },
-  { id: 'low', label: '小', amplitude: 0.2 },
-  { id: 'mid', label: '中', amplitude: 0.5 },
+  { id: 'low', label: '小', amplitude: 0.06 },
+  { id: 'mid', label: '中', amplitude: 0.25 },
   { id: 'high', label: '大', amplitude: 1 },
 ] as const
 
