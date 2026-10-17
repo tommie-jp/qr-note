@@ -1,6 +1,7 @@
 import { OfflineOffIcon, OfflinePinIcon } from "@/components/icons";
 import { PressTip } from "@/components/item/row-actions/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";
+import { formatBytes } from "@/lib/formatBytes";
 
 interface OfflinePinToggleProps {
   itemId: string;
@@ -59,14 +60,4 @@ export function OfflinePinToggle({
       </PressTip>
     </form>
   );
-}
-
-// 通信量として読める桁だけ出す (小数 1 桁)。**1KB = 1024 で数える** —
-// 端末の保存容量の話なので、回線の 1000 進法ではなくこちらが素直
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
 }

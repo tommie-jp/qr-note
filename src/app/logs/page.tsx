@@ -7,7 +7,7 @@ import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs } from "@/lib/logging/buffer";
 import { requireUser } from "@/lib/auth/session";
 import { ClearLogsButton } from "./ClearLogsButton";
-import { CopyLogsButton } from "./CopyLogsButton";
+import { CopyTextButton } from "@/components/CopyTextButton";
 import { formatLogsForCopy, LOG_TIME_FORMAT } from "./formatLogsForCopy";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +68,7 @@ export default async function LogsPage() {
           {/* 調査は「コピーして手元で読む」→「消してから再現し直す」の順に
               なるので、コピーを先に置く */}
           <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <CopyLogsButton text={formatLogsForCopy(logs)} />
+            <CopyTextButton text={formatLogsForCopy(logs)} subject="ログ" />
             <ClearLogsButton />
           </span>
         </div>

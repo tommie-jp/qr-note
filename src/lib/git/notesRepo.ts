@@ -31,7 +31,7 @@ export interface NoteCommit {
 // 置き場。本番はコンテナ内 /app/data/git-notes に named volume が当たる
 // (compose.yaml)。開発は data/ (gitignore 済み) の下。テストは
 // QR_GIT_DIR を一時ディレクトリへ向ける。
-function repoDir(): string {
+export function notesRepoDir(): string {
   return qrGitDirEnv() ?? join(process.cwd(), 'data', 'git-notes')
 }
 
@@ -81,7 +81,7 @@ function gitEnv(): Record<string, string> {
 }
 
 async function openRepo(): Promise<{ git: SimpleGit; dir: string }> {
-  const dir = repoDir()
+  const dir = notesRepoDir()
   await mkdir(join(dir, 'notes'), { recursive: true })
   const git = simpleGit(dir).env(gitEnv())
 

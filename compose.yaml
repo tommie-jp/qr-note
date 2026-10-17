@@ -75,6 +75,13 @@ services:
       # nginx の内側に居て http://0.0.0.0:3100 しか見えていない)
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-}
+      #
+      # 管理者のユーザー名 (docs/109-サーバー情報計画.md §2)。一致するユーザーに
+      # だけメニューの「サーバー情報」と /settings/server を開く。**:? を付けない**
+      # — 欠けても「誰も管理者ではない」に倒れるだけで、他は今までどおり動く。
+      # この行と下の /etc/os-release のマウントはリモートの compose.yaml に無いと
+      # 効かない。初回は doDeploy.sh に --send-compose.yml を付ける
+      ADMIN_USER: ${ADMIN_USER:-}
     ports:
       # ローカル: tailscale serve 用 / vps2: nginx のプロキシ先 (loopback のみ)
       - "127.0.0.1:${APP_PORT:-3000}:3000"
@@ -83,6 +90,11 @@ services:
       # 唯一の永続データ — pg_dump に履歴は入らないので、バックアップは
       # doDumpGit-from-vps2.sh (git bundle) が拾う
       - git-notes:/app/data/git-notes
+      # ホストの OS 名をサーバー情報 (docs/109 §3) に出すための read-only マウント。
+      # コンテナの中からは自身の Debian しか見えない。ホスト側に無いと Docker は
+      # 空ディレクトリを作ってしまう (読めないのでその行だけ「不明」になる) —
+      # /etc/os-release は Linux なら必ずあるので実害は無い
+      - /etc/os-release:/host/os-release:ro
     depends_on:
       db:
         condition: service_healthy

@@ -180,3 +180,17 @@ export function BugIcon() {
     </StrokeIcon>
   );
 }
+
+// サーバー情報 (docs/109-サーバー情報計画.md): ラックに積んだ 2 段の筐体。
+// 各段の右の点は電源/状態の LED で、「生きているか」を見る画面の意味に合わせる。
+// 管理者だけに出る行なので、他の設定系と同じ落ち着いた色域 (slate) にして
+// 目立たせない — 警告色にすると毎回押したくなる
+export function ServerIcon() {
+  return (
+    <StrokeIcon className="text-slate-600">
+      <rect {...TINT} x="3" y="4" width="18" height="7" rx="1.5" />
+      <rect {...TINT} x="3" y="13" width="18" height="7" rx="1.5" />
+      <path d="M7 7.5h4M7 16.5h4M17 7.5v0M17 16.5v0" />
+    </StrokeIcon>
+  );
+}

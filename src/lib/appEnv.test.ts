@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  adminUserEnv,
+  appEnvEnv,
   basicAuthEnv,
   databaseUrlEnv,
   demoLoginHintEnv,
@@ -131,6 +133,8 @@ describe("サーバの設定値", () => {
     ["QR_GIT_DIR", qrGitDirEnv],
     ["PATH", pathEnv],
     ["DEMO_LOGIN_HINT", demoLoginHintEnv],
+    ["ADMIN_USER", adminUserEnv],
+    ["APP_ENV", appEnvEnv],
   ];
 
   test.each(singles)("%s は呼んだ時点の値をそのまま返す", (name, read) => {

@@ -12,11 +12,13 @@ import {
   KeyIcon,
   LockIcon,
   LogIcon,
+  ServerIcon,
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
+import { isAdminUser } from "@/lib/auth/admin";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import type { RowTintId } from "@/lib/prefs/rowTint";
 import { QR_NOTE_GITHUB_URL } from "@/lib/projectLinks";
@@ -89,6 +91,16 @@ export function AppHeaderMenu({
                 <LogIcon />
                 ログ
               </Link>
+              {/* サーバー情報 (docs/109-サーバー情報計画.md)。**管理者だけ** —
+                  判定は isAdminUser (env ADMIN_USER との一致) の 1 か所で、
+                  ページ側 (requireAdminPage) も同じ判定で 404 に倒す。
+                  ログの隣に置くのは、どちらも「サーバの様子を見る」診断系だから */}
+              {isAdminUser(user) && (
+                <Link href="/settings/server" className={HEADER_MENU_ITEM_CLASS}>
+                  <ServerIcon />
+                  サーバー情報
+                </Link>
+              )}
             </>
           )}
           {/* その場で見る側のログ (docs/30-ブラウザログ計画.md §2)。

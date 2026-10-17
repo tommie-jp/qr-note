@@ -2,6 +2,7 @@
 
 import { COMPACT_SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import { formatJstDateTime } from "@/lib/datetime";
+import { formatBytes } from "@/lib/formatBytes";
 import type { PinProgress } from "@/lib/offline/pinCache";
 import type { PrefetchProgress } from "@/lib/offline/sync";
 
@@ -132,17 +133,4 @@ export function OfflineStatus({
       )}
     </div>
   );
-}
-
-// 端末の保存容量なので 1KB = 1024 で数える (OfflinePinToggle と同じ)。
-// GB まで出すのは quota が数 GB になるため
-function formatBytes(bytes: number): string {
-  const units = ["B", "KB", "MB", "GB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`;
 }

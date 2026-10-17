@@ -201,3 +201,10 @@ describe('isSelfGuardedPath', () => {
     expect(isSelfGuardedPath('/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.svg')).toBe(false)
   })
 })
+
+// 管理者ページ (docs/109-サーバー情報計画.md §2)。公開でも自衛でもなく、
+// proxy の既定 (閉じる) に任せる。誰かが settings を公開側へ足したら気づけるように
+test('管理者のサーバー情報は公開パスでも自衛パスでもない', () => {
+  expect(isPublicPath('/settings/server')).toBe(false)
+  expect(isSelfGuardedPath('/settings/server')).toBe(false)
+})

@@ -127,6 +127,19 @@ export function demoLoginHintEnv(): string | undefined {
   return process.env.DEMO_LOGIN_HINT;
 }
 
+// APP_ENV の生の値 (diag/appInfo.ts が画面に出す)。本番かどうかの**判定**は
+// isProductionEnv を使うこと — こちらは表示のためだけ
+export function appEnvEnv(): string | undefined {
+  return process.env.APP_ENV;
+}
+
+// 管理者のユーザー名 (auth/admin.ts。docs/109-サーバー情報計画.md §2)。
+// 未設定なら誰も管理者ではない — 欠落は安全側へ倒す (isDemoMode とは逆向きで、
+// isProductionEnv と同じ向き)
+export function adminUserEnv(): string | undefined {
+  return process.env.ADMIN_USER;
+}
+
 // 非本番の目印に使う色。ヘッダは Tailwind のクラスで塗る一方、
 // meta[theme-color] と PWA manifest は hex の直値しか受け取らないため、
 // 対応する hex をここに控えて両者がずれないようにする。

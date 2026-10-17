@@ -16,7 +16,7 @@ vi.mock('@/lib/auth/session', () => ({
 }))
 vi.mock('@/lib/items/resolve', () => ({ resolveItemKey: mocks.resolveItemKey }))
 
-const { guardItemPage, requireSettingsPage } = await import('./pageGuard')
+const { guardItemPage, requireAdminPage, requireSettingsPage } = await import('./pageGuard')
 
 const NOT_FOUND = expect.objectContaining({
   digest: expect.stringContaining('404'),
@@ -133,4 +133,48 @@ test('設定ページは未ログインなら requireUser の例外をそのま�
 
   // Act / Assert
   await expect(requireSettingsPage()).rejects.toBe(unauthorized)
+})
+
+test('管理者ページは ADMIN_USER と一致するユーザーを返す', async () => {
+  // Arrange
+  vi.stubEnv('DEMO_MODE', '')
+  vi.stubEnv('ADMIN_USER', 'tommie')
+
+  // Act
+  const user = await requireAdminPage()
+
+  // Assert
+  expect(user).toBe('tommie')
+})
+
+test('管理者ページはログイン中でも管理者でなければ 404 にし、warn を残す', async () => {
+  // Arrange
+  vi.stubEnv('DEMO_MODE', '')
+  vi.stubEnv('ADMIN_USER', 'tommie')
+  mocks.requireUser.mockResolvedValue('guest')
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+  // Act / Assert
+  await expect(requireAdminPage()).rejects.toThrow(NOT_FOUND)
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('guest'))
+  warn.mockRestore()
+})
+
+test('管理者ページは ADMIN_USER が未設定なら誰にも見せない', async () => {
+  // Arrange
+  vi.stubEnv('DEMO_MODE', '')
+  vi.stubEnv('ADMIN_USER', undefined)
+
+  // Act / Assert
+  await expect(requireAdminPage()).rejects.toThrow(NOT_FOUND)
+})
+
+test('管理者ページはデモなら 404 にする (設定系の門番を通す)', async () => {
+  // Arrange
+  vi.stubEnv('DEMO_MODE', '1')
+  vi.stubEnv('ADMIN_USER', 'tommie')
+
+  // Act / Assert
+  await expect(requireAdminPage()).rejects.toThrow(NOT_FOUND)
+  expect(mocks.requireUser).not.toHaveBeenCalled()
 })

@@ -9,6 +9,7 @@ import 'server-only'
 import { notFound, permanentRedirect, redirect } from 'next/navigation'
 import { isDemoMode } from '../appEnv'
 import { resolveItemKey } from '../items/resolve'
+import { isAdminUser } from './admin'
 import { currentUser, requireUser } from './session'
 import { isLegacyItemNo, isValidItemId } from '../validation'
 
@@ -53,4 +54,19 @@ export async function requireSettingsPage(): Promise<string> {
     notFound()
   }
   return requireUser()
+}
+
+// 管理者だけの設定ページ (/settings/server。docs/109-サーバー情報計画.md §2)。
+// 設定系の門番を通した上で、管理者でなければ 404 — 403 にすると
+// 「そういう画面がある」と教えることになる。導線 (メニュー) も同じ判定で
+// 隠すが、URL 直打ちに備えてページ側でも倒す
+export async function requireAdminPage(): Promise<string> {
+  const user = await requireSettingsPage()
+  if (!isAdminUser(user)) {
+    // 404 で黙って返すが、/logs には残す — ログイン済みの誰かが管理者の URL を
+    // 直打ちしたことは、後から気づけるべき
+    console.warn(`管理者でないユーザーが管理者ページを開こうとした (user=${user})`)
+    notFound()
+  }
+  return user
 }
