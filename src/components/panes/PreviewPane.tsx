@@ -164,7 +164,7 @@ export function PreviewPane({
           <NoteChromeBar
             className="sticky top-0 z-20"
             bgClass={bgClass}
-            canFloat={isBottomPane}
+            canFloat
             rowClassName={`mx-auto px-safe pt-1 ${CONTENT_WIDTH_CLASS}`}
             // 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
             // ペインとして常設されている間は押しても閉じられないので、
@@ -214,11 +214,15 @@ export function PreviewPane({
             (1 ペイン) でも幅いっぱいに使う (docs/101。以前は全画面だけ読み幅に
             収めていた — docs/86 §4-8) */}
           <div
-            className={`mx-auto px-safe pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
+            className={`mx-auto px-safe pt-[0.25em] pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
           >
             {/* 浮いた札のぶんを本文の右上に空ける (最初の数行が札を避けて
                 折り返す)。本文の器の先頭でなければ効かない */}
-            <NoteChromeFloatSpacer canFloat={isBottomPane} />
+            <NoteChromeFloatSpacer
+              canFloat
+              withStart={!isBottomPane}
+              wideEnd={!isBottomPane}
+            />
             {children}
           </div>
         </section>

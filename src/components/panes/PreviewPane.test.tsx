@@ -181,11 +181,16 @@ test("下部ペインの操作行は本文の上に浮く (高さを本文に貸
   }
 });
 
-test("全画面 (1 ペイン) の操作行は浮かせない (「閉じる」が要る)", () => {
+test("全画面 (1 ペイン) の操作行も浮かせる (閉じる・全画面で開くの両方が札)", () => {
   const html = render("/item/4951", "1");
-  expect(html).not.toContain("data-note-chrome-floating");
-  expect(html).not.toContain("data-note-chrome-spacer");
-  expect(html).not.toContain("-mb-12");
+  expect(html).toContain("data-note-chrome-floating");
+  expect(html).toMatch(/data-note-chrome-spacer=""[^>]*float-right/);
+  // 左の「閉じる」の札のぶんも空ける
+  expect(html).toContain("float-left");
+});
+
+test("本文の頭に 1/4em の余白を持つ", () => {
+  expect(render("/item/4951", "2")).toContain("pt-[0.25em]");
 });
 
 // 札を小さく保つため、下部ペインの「全画面で開く」は絵だけ。名前は aria-label

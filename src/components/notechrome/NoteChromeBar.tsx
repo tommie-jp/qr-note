@@ -19,6 +19,12 @@ const ROW_PULL_CLASS = "-mb-12";
 const SPACER_HEIGHT_CLASS = "h-12";
 // 詰め物の幅。札 (⋯ 44px + 全画面 44px + 余白) より少し広く取る
 const SPACER_WIDTH_CLASS = "w-28";
+// 右が文字の釦 (全画面で開く) のとき / 左の「閉じる」の札
+const SPACER_WIDTH_WIDE_CLASS = "w-48";
+const SPACER_WIDTH_START_CLASS = "w-28";
+// 札の見た目 (左右共通)
+const PILL_CLASS =
+  "pointer-events-auto rounded-full bg-white/85 shadow-sm backdrop-blur";
 
 interface NoteChromeBarProps {
   // 貼り付く位置 (器ごとに違う)。sticky と z はここで持つ
@@ -49,33 +55,40 @@ export function useNoteChromeFloating(canFloat: boolean): boolean {
 // 見出しや段落の最初の数行が札を避けて折り返すようにする (docs/108 §3-6)。
 // 画像 (block) は避けずに札の下へ潜るが、札は半透明なので角が少し隠れるだけ。
 // 浮いていないときは何も置かない
-export function NoteChromeFloatSpacer({ canFloat }: { canFloat: boolean }) {
+export function NoteChromeFloatSpacer({
+  canFloat,
+  withStart = false,
+  wideEnd = false,
+}: {
+  canFloat: boolean;
+  // 左にも札 (閉じる) があるとき、左にも詰め物を置く
+  withStart?: boolean;
+  // 右の札が文字の釦 (全画面で開く) で広いとき
+  wideEnd?: boolean;
+}) {
   const floating = useNoteChromeFloating(canFloat);
   if (!floating) {
     return null;
   }
   return (
-    <div
-      aria-hidden
-      data-note-chrome-spacer=""
-      className={`float-right ${SPACER_HEIGHT_CLASS} ${SPACER_WIDTH_CLASS}`}
-    />
+    <>
+      <div
+        aria-hidden
+        data-note-chrome-spacer=""
+        className={`float-right ${SPACER_HEIGHT_CLASS} ${
+          wideEnd ? SPACER_WIDTH_WIDE_CLASS : SPACER_WIDTH_CLASS
+        }`}
+      />
+      {withStart && (
+        <div
+          aria-hidden
+          className={`float-left ${SPACER_HEIGHT_CLASS} ${SPACER_WIDTH_START_CLASS}`}
+        />
+      )}
+    </>
   );
 }
 
-
-// ノートの器の上端に貼り付く行 (docs/108-ノート全画面表示計画.md §3-1)。
-//
-// 閉じる・全画面で開くの間に呼び口の差し込み口を、行の直下に重ねる面の
-// 差し込み口を持つ。重ねる面は absolute top-full で行の下に被さるので、
-// 本文を押し下げず、どこまでスクロールしていても上端から出る。
-//
-// **ホバーとフォーカスは素の DOM で見る** (§3-3)。React の onPointerLeave は
-// React の木で判定するため、portal で差し込んだ面へマウスを動かしただけで
-// 「行を離れた」になる。面は DOM の上では行の子なので、素のイベントなら
-// 行の外へ出るまで閉じない。
-//
-// 器 (NoteChromeProvider) の外では差し込み口が空のまま、ただの行として描く
 export function NoteChromeBar({
   className,
   bgClass,
@@ -183,7 +196,7 @@ export function NoteChromeBar({
   // 使わない — 焦点の輪 (focus-visible の outline) まで切られる。中の釦は
   // それぞれ rounded-full で、押下色が札の縁からはみ出さない
   const endGroupClass = floating
-    ? "pointer-events-auto flex items-center gap-1 rounded-full bg-white/85 shadow-sm backdrop-blur"
+    ? `flex items-center gap-1 ${PILL_CLASS}`
     : "flex items-center gap-1";
   return (
     <div
@@ -196,7 +209,7 @@ export function NoteChromeBar({
         className={`flex ${ROW_MIN_HEIGHT_CLASS} items-center justify-between gap-1 ${rowClassName}`}
       >
         {start ? (
-          <div className={floating ? "pointer-events-auto" : undefined}>
+          <div className={floating ? PILL_CLASS : undefined}>
             {start}
           </div>
         ) : (
