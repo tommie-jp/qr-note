@@ -3,6 +3,7 @@ import {
   CGROUP_MEMORY_MAX_PATH,
   collectHostInfo,
   CONTAINER_OS_RELEASE_PATH,
+  HOST_HOSTNAME_PATH,
   HOST_OS_RELEASE_PATH,
   type HostProbe,
   MEMINFO_PATH,
@@ -10,6 +11,7 @@ import {
 
 const FILES: Record<string, string> = {
   [HOST_OS_RELEASE_PATH]: 'PRETTY_NAME="Ubuntu 24.04.2 LTS"\n',
+  [HOST_HOSTNAME_PATH]: 'vps2\n',
   [CONTAINER_OS_RELEASE_PATH]: 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\n',
   [MEMINFO_PATH]:
     'MemTotal: 2097152 kB\nMemAvailable: 1048576 kB\nSwapTotal: 1048576 kB\nSwapFree: 524288 kB\n',
@@ -50,6 +52,7 @@ test('ホストの節: マウントした os-release・カーネル・稼働時�
   // Assert
   expect(host.result.kind).toBe('ok')
   const rows = host.result.kind === 'ok' ? host.result.rows : []
+  expect(rowValue(rows, 'ホスト名')).toBe('vps2')
   expect(rowValue(rows, 'OS')).toBe('Ubuntu 24.04.2 LTS')
   expect(rowValue(rows, 'カーネル')).toBe('6.8.0-60-generic (x64)')
   expect(rowValue(rows, '稼働時間')).toBe('3 日 2 時間 5 分')
@@ -113,4 +116,32 @@ test('cgroup の上限が max (無制限) なら「無制限」', async () => {
 
   // Assert
   expect(rowValue(rows, 'メモリ上限 (cgroup)')).toBe('無制限')
+})
+
+test('ホストの hostname が読めなければその行だけ不明にし、マウント漏れを名指しする', async () => {
+  // Arrange
+  const { [HOST_HOSTNAME_PATH]: _omit, ...files } = FILES
+
+  // Act
+  const { sections } = await collectHostInfo(probe(files))
+  const host = sections.find((s) => s.id === 'host')!
+  const rows = host.result.kind === 'ok' ? host.result.rows : []
+
+  // Assert
+  expect(rowValue(rows, 'ホスト名')).toContain('不明')
+  expect(rowValue(rows, 'ホスト名')).toContain(HOST_HOSTNAME_PATH)
+  expect(rowValue(rows, 'OS')).toBe('Ubuntu 24.04.2 LTS')
+})
+
+test('hostname の空行・空白は落として 1 語にする', async () => {
+  // Arrange
+  const files = { ...FILES, [HOST_HOSTNAME_PATH]: '  vps2.example  \n\n' }
+
+  // Act
+  const { sections } = await collectHostInfo(probe(files))
+  const host = sections.find((s) => s.id === 'host')!
+  const rows = host.result.kind === 'ok' ? host.result.rows : []
+
+  // Assert
+  expect(rowValue(rows, 'ホスト名')).toBe('vps2.example')
 })

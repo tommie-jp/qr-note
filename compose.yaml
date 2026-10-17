@@ -95,6 +95,8 @@ services:
       # 空ディレクトリを作ってしまう (読めないのでその行だけ「不明」になる) —
       # /etc/os-release は Linux なら必ずあるので実害は無い
       - /etc/os-release:/host/os-release:ro
+      # ホストの hostname も同様 (os.hostname() はコンテナ ID を返す)
+      - /etc/hostname:/host/hostname:ro
     depends_on:
       db:
         condition: service_healthy

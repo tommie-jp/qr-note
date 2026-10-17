@@ -4,7 +4,8 @@
 // /proc はホストの値を返すが、/etc/os-release とホスト名はコンテナのもの。
 // 混ぜて 1 つの「サーバ」にせず、ホストとコンテナの 2 節に分けて正直に出す。
 //
-// ホストの OS 名は compose が /etc/os-release を HOST_OS_RELEASE_PATH に
+// ホストの OS 名とホスト名は compose が /etc/os-release と /etc/hostname を
+// HOST_OS_RELEASE_PATH / HOST_HOSTNAME_PATH に
 // read-only でマウントしてくれる前提。無ければその行だけ不明にして、
 // マウント漏れだと分かる文言にする (節ごと落とさない)。
 //
@@ -19,6 +20,8 @@ import { type MemInfo, parseMeminfo } from './procMeminfo'
 import type { InfoRow, InfoSection } from './types'
 
 export const HOST_OS_RELEASE_PATH = '/host/os-release'
+// os.hostname() はコンテナ ID を返すので、ホストの名前はマウントして読む
+export const HOST_HOSTNAME_PATH = '/host/hostname'
 export const CONTAINER_OS_RELEASE_PATH = '/etc/os-release'
 export const MEMINFO_PATH = '/proc/meminfo'
 // cgroup v2。v1 (memory.limit_in_bytes) は見ない — Docker 20.10 以降の
@@ -89,9 +92,14 @@ function memoryRows(memory: MemInfo | null): InfoRow[] {
 
 async function hostSection(probe: HostProbe): Promise<{ section: InfoSection; memory: MemInfo | null }> {
   const osName = await readOsName(probe, HOST_OS_RELEASE_PATH)
+  const hostname = (await readOptional(probe, HOST_HOSTNAME_PATH))?.trim() || null
   const meminfo = await readOptional(probe, MEMINFO_PATH)
   const memory = meminfo === null ? null : parseMeminfo(meminfo)
   const rows: InfoRow[] = [
+    {
+      label: 'ホスト名',
+      value: hostname ?? `${UNKNOWN} (${HOST_HOSTNAME_PATH} が無い — compose のマウントを確認)`,
+    },
     {
       label: 'OS',
       value: osName ?? `${UNKNOWN} (${HOST_OS_RELEASE_PATH} が無い — compose のマウントを確認)`,
