@@ -7,6 +7,7 @@ import {
   type Page,
 } from '@playwright/test'
 import { collectCoverage, startCoverage } from './coverage'
+import { solidPng } from './imageBytes'
 import { AUTH_FILE, BASE_URL } from './env'
 
 // ブラウザを駆動するときの罠をコードにしたもの (.claude/skills/verify/SKILL.md)。
@@ -208,5 +209,51 @@ export async function newTouchPage(
 export async function hasHorizontalScroll(page: Page): Promise<boolean> {
   return page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
+  )
+}
+
+// --- ドロップ ---
+
+export interface DropPayload {
+  file?: boolean
+  uriList?: string
+  html?: string
+  // 文字の選択を引いたときの形 (uri-list が無く text/plain と text/html だけ)
+  text?: string
+}
+
+
+// target の中心に drop を投げる (dragenter → dragover → drop の順)
+export async function dropOn(target: Locator, payload: DropPayload): Promise<void> {
+  const png = Array.from(solidPng(40, 30, [200, 40, 40]))
+  await target.evaluate(
+    (el, { png, payload }) => {
+      const dt = new DataTransfer()
+      if (payload.file) {
+        dt.items.add(new File([new Uint8Array(png)], 'drop.png', { type: 'image/png' }))
+      }
+      if (payload.uriList !== undefined) {
+        dt.setData('text/uri-list', payload.uriList)
+        dt.setData('text/plain', payload.uriList)
+      }
+      if (payload.text !== undefined) {
+        dt.setData('text/plain', payload.text)
+      }
+      if (payload.html !== undefined) {
+        dt.setData('text/html', payload.html)
+      }
+      const rect = el.getBoundingClientRect()
+      const init = {
+        dataTransfer: dt,
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      }
+      for (const type of ['dragenter', 'dragover', 'drop']) {
+        el.dispatchEvent(new DragEvent(type, init))
+      }
+    },
+    { png, payload },
   )
 }

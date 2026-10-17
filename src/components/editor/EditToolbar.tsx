@@ -21,6 +21,10 @@ import {
 import { SubmitButton } from "@/components/chrome/SubmitButton";
 import { useLongPress } from "@/components/item/row-actions/useLongPress";
 import { FormatMenuButton } from "@/components/editor/FormatMenuButton";
+import {
+  OcrMenuButton,
+  type OcrMenuActions,
+} from "@/components/editor/OcrMenuButton";
 import type { FormatAction } from "@/components/editor/markdownFormat";
 
 // ノート編集の操作を下部バーへ差し込むツールバー (docs/31-下部操作バー計画.md の
@@ -151,7 +155,8 @@ export interface EditToolbarEditor {
   };
   recordVideo: () => void;
   draw: () => void;
-  ocr: { label: string; run: () => void };
+  // OCR のメニュー (この画像 / ノートの全画像、docs/106 §2)
+  ocr: OcrMenuActions;
   // シークレット挿入 (docs/51-部分暗号化計画.md §8)。選択範囲があれば
   // それを引き継いでダイアログを開く。
   // ラベルはカーソル位置で変わる (「秘密」/「秘密を編集」。docs/52 §1) —
@@ -161,6 +166,9 @@ export interface EditToolbarEditor {
   // 表示の切り替えだけなので busy でも押せる — 本文にもアップロードにも
   // 触らないため、処理中に止める理由がない
   livePreview: { on: boolean; toggle: () => void };
+  // 画像を入れたときに OCR するか (docs/106 §1)。設定の切り替えだけなので
+  // busy でも押せる (いま走っている OCR は止めない。次に入れる画像から効く)
+  ocrOnInsert: { on: boolean; toggle: () => void };
   // 書式メニュー (docs/70 §6)。選択範囲へ記法を付け外しするだけなので
   // busy でも押せる (アップロードにも通信にも触らない)
   format: (action: FormatAction) => void;
@@ -203,6 +211,9 @@ export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
           常に見える位置になるのは書式にとってむしろ好都合 — 打鍵の合間に
           使うもので、スクロールの奥にあると届きにくい */}
       <FormatMenuButton onFormat={editor.format} className={TOOL_SLOT} />
+      {/* OCR もメニューを開くので、書式と同じ理由で帯の外に置く (docs/106 §2)。
+          全画像 OCR の最中は「中止」になるので busy でも押せる */}
+      <OcrMenuButton ocr={ocr} disabled={busy} className={TOOL_SLOT} />
 
       {/* 残りは横スクロール。min-w-0 で親の中で縮めてスクロールを効かせる。
           justify-between … バーは画面幅いっぱい (docs/101) なので、収まる
@@ -306,13 +317,6 @@ export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
           disabled={busy}
         />
         <ToolButton
-          icon={<OcrIcon />}
-          color="text-teal-600"
-          label={ocr.label}
-          onClick={ocr.run}
-          disabled={busy}
-        />
-        <ToolButton
           icon={<LockIcon />}
           color="text-amber-600"
           label={secret.label}
@@ -328,6 +332,18 @@ export function EditToolbar({ editor }: { editor: EditToolbarEditor }) {
           label={livePreview.on ? "記法を表示" : "装飾表示"}
           onClick={livePreview.toggle}
           pressed={livePreview.on}
+        />
+        {/* 画像を入れたときの OCR (docs/106 §1)。装飾表示と同じく一度決めたら
+            あまり動かさない設定なので、帯の末尾に並べる。
+            装飾表示と違い、文字は**いまの状態**を言う (「OCR しない」= 今は
+            読まない)。押す前に「入れたら読まれるか」が判ることのほうが大事で、
+            押下状態 (aria-pressed) とも向きが揃う */}
+        <ToolButton
+          icon={<OcrIcon />}
+          color={editor.ocrOnInsert.on ? "text-teal-600" : "text-gray-500"}
+          label={editor.ocrOnInsert.on ? "OCR する" : "OCR しない"}
+          onClick={editor.ocrOnInsert.toggle}
+          pressed={editor.ocrOnInsert.on}
         />
       </div>
     </>

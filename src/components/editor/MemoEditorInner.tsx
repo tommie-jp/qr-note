@@ -9,6 +9,7 @@ import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useBottomBarSlot } from "@/components/bottombar/BottomBarContext";
+import { useLatest } from "@/components/hooks/useLatest";
 import type { EditToolbarEditor } from "@/components/editor/EditToolbar";
 import { PanelActiveContext } from "@/components/editor/PanelActiveContext";
 import { ACCEPTED_FILE_TYPES } from "@/lib/editor/attachmentKinds";
@@ -41,6 +42,7 @@ import { useEditorSecret } from "./hooks/useEditorSecret";
 import { useFenceGui } from "./hooks/useFenceGui";
 import { useLivePreview } from "./hooks/useLivePreview";
 import { useNoteFind } from "./hooks/useNoteFind";
+import { useOcrOnInsert } from "./hooks/useOcrOnInsert";
 import { useSubmitBlocker } from "./hooks/useSubmitBlocker";
 
 export interface MemoEditorInnerProps {
@@ -88,6 +90,8 @@ export default function MemoEditorInner({
   }, []);
 
   const ocr = useEditorOcr({ editorRef, setError });
+  const { ocrOnInsert, toggleOcrOnInsert } = useOcrOnInsert();
+  const ocrOnInsertRef = useLatest(ocrOnInsert);
   // 戻り値は分けて受ける。fileInputRef (ref) と同じ入れ物のまま描画中に
   // 他の値を読むと、react-hooks/refs が「ref を描画中に読んだ」と見なす
   const {
@@ -99,7 +103,12 @@ export default function MemoEditorInner({
     fileInputRef,
     openFilePicker,
     handleFilePick,
-  } = useAttachmentInsert({ editorRef, setError, ocrIntoDoc: ocr.ocrIntoDoc });
+  } = useAttachmentInsert({
+    editorRef,
+    setError,
+    ocrIntoDoc: ocr.ocrIntoDoc,
+    ocrOnInsert: ocrOnInsertRef,
+  });
   const dropZone = useDropZone({ editorRef, dropInto });
   const { recording, videoRecording, isRecording } = useEditorRecordings({
     editorRef,
@@ -133,7 +142,9 @@ export default function MemoEditorInner({
     uploading,
     scanBusy: scan.scanBusy,
     clipboardBusy: clipboard.clipboardBusy,
-    ocrRunning: ocr.ocrCount > 0,
+    // 全画像 OCR は 1 枚の合間 (次の画像の取得中) に ocrCount が 0 に戻る。
+    // その隙に「更新」が通らないよう、走っている間ずっと止める
+    ocrRunning: ocr.ocrCount > 0 || ocr.ocrAll !== null,
   };
   const busy = isEditorBusy(busyState);
   const { submitForm } = useSubmitBlocker({
@@ -186,9 +197,14 @@ export default function MemoEditorInner({
     draw: drawings.openDrawing,
     ocr: {
       label: ocrButtonLabel(ocr.ocrCount),
-      run: () => void ocr.runOcrAtCursor(),
+      runAtCursor: () => void ocr.runOcrAtCursor(),
+      runAll: () => void ocr.runOcrForAll(),
+      countAll: ocr.countImagesWithoutOcr,
+      all: ocr.ocrAll,
+      cancelAll: ocr.cancelOcrAll,
     },
     secret: { label: secrets.secretLabel, open: secrets.openSecret },
+    ocrOnInsert: { on: ocrOnInsert, toggle: toggleOcrOnInsert },
     livePreview: {
       on: preview.livePreview,
       toggle: preview.toggleLivePreview,

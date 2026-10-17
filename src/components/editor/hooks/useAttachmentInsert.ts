@@ -37,7 +37,8 @@ export interface InsertFilesOptions {
   // (ファイル選択・ペースト由来の画像は既定の空のまま)
   imageAlt?: string;
   // 挿入した画像を続けて OCR するか。お絵かきは自分で描いたものなので読まない
-  // (要るときは「後から OCR」ボタンで読ませられる)
+  // (要るときは「後から OCR」ボタンで読ませられる)。
+  // 渡さなければ端末の設定 (OCR する / しない、docs/106 §1) に従う
   ocr?: boolean;
   // 上限を超えた画像を、断らずに縮めて送るか (docs/92-クリップボード連携計画.md §4)。
   // **クリップボード由来のときだけ true。** iOS は写真をコピーすると PNG で
@@ -210,10 +211,14 @@ export function useAttachmentInsert({
   editorRef,
   setError,
   ocrIntoDoc,
+  ocrOnInsert,
 }: {
   editorRef: EditorRef;
   setError: SetEditorError;
   ocrIntoDoc: EditorOcr["ocrIntoDoc"];
+  // 端末の設定 (docs/106 §1)。ペースト・ドロップの拡張は一度しか組まないので
+  // 値ではなく最新を写した ref で受ける (useLatest)
+  ocrOnInsert: Readonly<RefObject<boolean>>;
 }): AttachmentInsert {
   const [upload, setUpload] = useState<UploadProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -300,7 +305,7 @@ export function useAttachmentInsert({
       audioAlt: options.audioAlt ?? "audio",
       videoAlt: options.videoAlt ?? "video",
       imageAlt: options.imageAlt ?? "",
-      ocr: options.ocr ?? true,
+      ocr: options.ocr ?? ocrOnInsert.current,
       shrinkOversized: options.shrinkOversized ?? false,
     };
     setError(null);

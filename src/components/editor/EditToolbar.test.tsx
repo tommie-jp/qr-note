@@ -17,9 +17,17 @@ const IDLE: EditToolbarEditor = {
   record: { label: "録音", isRecording: false, disabled: false, toggle: noop },
   recordVideo: noop,
   draw: noop,
-  ocr: { label: "画像をOCR", run: noop },
+  ocr: {
+    label: "画像をOCR",
+    runAtCursor: noop,
+    runAll: noop,
+    countAll: () => 0,
+    all: null,
+    cancelAll: noop,
+  },
   secret: { label: "秘密", open: noop },
   livePreview: { on: false, toggle: noop },
+  ocrOnInsert: { on: true, toggle: noop },
   format: noop,
   addPage: noop,
   find: noop,
@@ -196,4 +204,50 @@ test("図を編集は検索の直後に並べる", () => {
   const board = html.indexOf("図を編集");
   expect(find).toBeLessThan(board);
   expect(board).toBeLessThan(html.indexOf("ページ"));
+});
+
+// OCR もメニューを開くので、書式と同じく帯の外に置く (docs/106 §2)
+test("OCR 釦は横スクロール帯の中に入れない (メニューが切れる)", () => {
+  const html = render();
+  expect(html.indexOf("画像をOCR")).toBeLessThan(html.indexOf("overflow-x-auto"));
+});
+
+// 全画像 OCR の最中は釦そのものが「中止」になり、busy でも押せる
+test("全画像 OCR の最中は OCR 釦が進み具合つきの中止になる", () => {
+  // Arrange
+  const editor: EditToolbarEditor = {
+    ...IDLE,
+    busy: true,
+    ocr: { ...IDLE.ocr, all: { done: 2, total: 5, cancelling: false } },
+  };
+
+  // Act
+  const html = render(editor);
+
+  // Assert
+  expect(html).toContain("中止 2/5");
+  expect(html).not.toContain("画像をOCR");
+});
+
+// 画像を入れたときの OCR の切り替え (docs/106 §1)。文字はいまの状態を言う
+test("OCR の切り替えで文字と押下状態が変わる", () => {
+  expect(render()).toContain("OCR する");
+  expect(render()).toMatch(/aria-pressed="true"[^>]*>(?:(?!<\/button>).)*OCR する/);
+  const off = render({ ...IDLE, ocrOnInsert: { on: false, toggle: noop } });
+  expect(off).toContain("OCR しない");
+  expect(off).toMatch(/aria-pressed="false"[^>]*>(?:(?!<\/button>).)*OCR しない/);
+});
+
+test("中止を押した後は、読んでいる 1 枚が終わるまで「中止中…」で押せない", () => {
+  // Arrange
+  const editor: EditToolbarEditor = {
+    ...IDLE,
+    ocr: { ...IDLE.ocr, all: { done: 2, total: 5, cancelling: true } },
+  };
+
+  // Act
+  const html = render(editor);
+
+  // Assert
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*中止中…/);
 });

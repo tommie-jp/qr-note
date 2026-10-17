@@ -67,6 +67,25 @@ export interface ImageAtCursor {
   insertAt: number
 }
 
+// 本文の中の自前画像 (OCR の対象になりうるもの) を、本文の順に返す。
+// start は記法の先頭 (カーソルが記法の内側かの判定に使う)
+interface OwnImage extends ImageAtCursor {
+  start: number
+}
+
+function ownImages(doc: string): OwnImage[] {
+  const images: OwnImage[] = []
+  for (const match of doc.matchAll(IMAGE_SYNTAX)) {
+    const url = match[1]
+    if (!url.startsWith(OWN_IMAGE_PREFIX) || NON_IMAGE_URL_RE.test(url)) {
+      continue
+    }
+    const start = match.index
+    images.push({ url, start, insertAt: start + match[0].length })
+  }
+  return images
+}
+
 // 「後から OCR」用: カーソル位置にいちばん近い自前画像を 1 つ選ぶ。
 // カーソルが画像記法の内側にあればそれを、無ければ手前の直近の画像を、
 // それも無ければ後ろの直近を選ぶ (編集中に押した位置の意図に沿う)。
@@ -74,24 +93,93 @@ export function imageAtCursor(doc: string, cursor: number): ImageAtCursor | null
   let before: ImageAtCursor | null = null
   let after: ImageAtCursor | null = null
 
-  for (const match of doc.matchAll(IMAGE_SYNTAX)) {
-    const url = match[1]
-    if (!url.startsWith(OWN_IMAGE_PREFIX) || NON_IMAGE_URL_RE.test(url)) {
-      continue
-    }
-    const start = match.index
-    const end = start + match[0].length
-    const candidate: ImageAtCursor = { url, insertAt: end }
-
+  for (const { url, start, insertAt } of ownImages(doc)) {
+    const candidate: ImageAtCursor = { url, insertAt }
     // カーソルが記法の内側 (またはちょうど端) にあるなら即決
-    if (cursor >= start && cursor <= end) {
+    if (cursor >= start && cursor <= insertAt) {
       return candidate
     }
-    if (end <= cursor) {
+    if (insertAt <= cursor) {
       before = candidate // 手前側は最後に見たものが直近
     } else if (after === null) {
       after = candidate // 後ろ側は最初に見たものが直近
     }
   }
   return before ?? after
+}
+
+// 画像記法の直後に OCR の引用が付いているか。
+//
+// ocrInsertion は記法の直後に空行 1 つを挟んで `> ` の引用を差し込む。
+// 手で空行を消した形も済みとみなすので、**空行 0〜1 つの後の行が `> ` で
+// 始まる**かを見る。処理中のプレースホルダ (`> ⏳ OCR処理中 n…`) も同じ形
+// なので、走っている画像も自然に飛ぶ。
+//
+// 手で書いた普通の引用が画像の直後にあっても「済み」に見える。
+// その画像を読ませたいときは、カーソルを置いて「この画像」で読ませる
+const OCR_QUOTE_AFTER_IMAGE = /^[ \t]*\r?\n(?:[ \t]*\r?\n)?>/
+
+// 見るのは記法の直後の数行だけ (空白・改行 2 つ・`>` で足りる)
+const LOOKAHEAD_CHARS = 64
+
+function hasOcrQuoteAfter(doc: string, imageEnd: number): boolean {
+  return OCR_QUOTE_AFTER_IMAGE.test(
+    doc.slice(imageEnd, imageEnd + LOOKAHEAD_CHARS),
+  )
+}
+
+// コードフェンス (``` / ~~~) の中の範囲 [start, end)。閉じていないフェンスは
+// 本文の末尾まで続くとみなす (CommonMark と同じ)
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/
+
+function fencedRanges(doc: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  let open: { mark: string; start: number } | null = null
+  let lineStart = 0
+  for (const line of doc.split('\n')) {
+    const fence = FENCE_LINE.exec(line)?.[1]
+    if (open === null && fence !== undefined) {
+      open = { mark: fence, start: lineStart }
+    } else if (
+      open !== null &&
+      fence !== undefined &&
+      fence[0] === open.mark[0] &&
+      fence.length >= open.mark.length
+    ) {
+      ranges.push([open.start, lineStart + line.length])
+      open = null
+    }
+    lineStart += line.length + 1
+  }
+  if (open !== null) {
+    ranges.push([open.start, doc.length])
+  }
+  return ranges
+}
+
+// 画像記法の行が引用 (`>`) の中か
+function isInBlockquote(doc: string, start: number): boolean {
+  const lineStart = doc.lastIndexOf('\n', start - 1) + 1
+  return /^ {0,3}>/.test(doc.slice(lineStart, start))
+}
+
+// 「ノートの全画像を OCR」の対象 (docs/106-OCR切替と全画像OCR計画.md §2)。
+// 自前画像のうち、直後に OCR の引用が付いていないものを本文の順に返す。
+//
+// 次の 2 つは**問わずに読む**全画像 OCR からは外す (要るならカーソルを置いて
+// 「この画像」で読ませる)。
+// - コードフェンスの中: 記法の例として書いたもの。引用を差すとコードが変わる
+// - 引用の中: 直後に `> ` の行が続くので済みと区別できず、差すと元の引用に混ざる
+export function imagesWithoutOcr(doc: string): ImageAtCursor[] {
+  const fences = fencedRanges(doc)
+  const inFence = (pos: number) =>
+    fences.some(([start, end]) => pos >= start && pos < end)
+  return ownImages(doc)
+    .filter(
+      (image) =>
+        !inFence(image.start) &&
+        !isInBlockquote(doc, image.start) &&
+        !hasOcrQuoteAfter(doc, image.insertAt),
+    )
+    .map(({ url, insertAt }) => ({ url, insertAt }))
 }

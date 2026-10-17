@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import {
   formatOcrQuote,
   imageAtCursor,
+  imagesWithoutOcr,
   ocrInsertion,
   ocrPlaceholder,
 } from './ocrQuote'
@@ -85,4 +86,73 @@ test('音声・PDF に挟まれていても画像だけを選ぶ', () => {
   const audio = '![audio](/api/images/cccccccc-0000-0000-0000-000000000000.mp3)'
   const doc = `${audio}\n\n${IMG_A}\n\nここにカーソル`
   expect(imageAtCursor(doc, doc.indexOf('ここに'))?.url).toContain('aaaaaaaa')
+})
+
+// ---------------------------------------------------------------------------
+// imagesWithoutOcr (docs/106-OCR切替と全画像OCR計画.md §2)
+
+const OWN_A = '![](/api/images/aaaaaaaa-0000-0000-0000-00000000000a.png)'
+const OWN_B = '![](/api/images/bbbbbbbb-0000-0000-0000-00000000000b.webp)'
+
+test('imagesWithoutOcr: 直後に引用が無い自前画像だけを、本文の順に返す', () => {
+  // Arrange
+  const doc = `${OWN_A}\n\n> 読めた文字\n\n${OWN_B}\n\n続きの文`
+
+  // Act
+  const hits = imagesWithoutOcr(doc)
+
+  // Assert
+  expect(hits.map((h) => h.url)).toEqual([
+    '/api/images/bbbbbbbb-0000-0000-0000-00000000000b.webp',
+  ])
+  expect(hits[0].insertAt).toBe(doc.indexOf(OWN_B) + OWN_B.length)
+})
+
+test('imagesWithoutOcr: 空行を挟まず直後の行が引用でも済みとみなす', () => {
+  expect(imagesWithoutOcr(`${OWN_A}\n> 読めた文字`)).toEqual([])
+})
+
+test('imagesWithoutOcr: 処理中のプレースホルダが付いた画像も飛ばす', () => {
+  const doc = `${OWN_A}${ocrInsertion(ocrPlaceholder(7))}`
+  expect(imagesWithoutOcr(doc)).toEqual([])
+})
+
+test('imagesWithoutOcr: 空行を 2 つ以上挟んだ引用は別のものとみなす', () => {
+  expect(imagesWithoutOcr(`${OWN_A}\n\n\n> 離れた引用`)).toHaveLength(1)
+})
+
+test('imagesWithoutOcr: 本文の末尾の画像も拾う', () => {
+  expect(imagesWithoutOcr(`前置き\n${OWN_A}`)).toHaveLength(1)
+})
+
+test('imagesWithoutOcr: 外部画像・音声・PDF の添付は対象外', () => {
+  // Arrange
+  const doc = [
+    '![](https://example.com/x.png)',
+    '![audio](/api/images/cccccccc-0000-0000-0000-00000000000c.mp3)',
+    '![仕様書.pdf](/api/images/dddddddd-0000-0000-0000-00000000000d.pdf)',
+  ].join('\n\n')
+
+  // Act / Assert
+  expect(imagesWithoutOcr(doc)).toEqual([])
+})
+
+test('imagesWithoutOcr: 画像が無ければ空', () => {
+  expect(imagesWithoutOcr('文字だけのノート')).toEqual([])
+})
+
+test('imagesWithoutOcr: コードブロックの中の画像記法は対象外 (例として書いた記法)', () => {
+  // Arrange
+  const doc = ['```markdown', OWN_A, '```', '', '~~~', OWN_B, '~~~', '', OWN_B].join('\n')
+
+  // Act
+  const hits = imagesWithoutOcr(doc)
+
+  // Assert: フェンスの外の最後の 1 枚だけ
+  expect(hits).toHaveLength(1)
+  expect(hits[0].insertAt).toBe(doc.length)
+})
+
+test('imagesWithoutOcr: 引用の中の画像は対象外 (直後に差すと引用が混ざる)', () => {
+  expect(imagesWithoutOcr(`> ${OWN_A}\n> 説明`)).toEqual([])
 })
