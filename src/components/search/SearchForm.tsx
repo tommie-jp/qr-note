@@ -43,7 +43,7 @@ interface SearchFormProps {
 //
 //   窓が空          … 登録パターン (★) → 最近の検索 (🕐)
 //   `#…` を打ちかけ … タグ候補
-//   その他の語      … キーワード候補 (is:todo / is:done)
+//   その他の語      … キーワード候補 (is:todo / is:done / is:untagged)
 //
 // 部品の分担: いつ引くか (useSearchDebounce)、候補の元 (useSavedQueries)、
 // ドロップダウンの開閉と選択 (useSuggestDropdown、判断は lib/search/suggest.ts)、

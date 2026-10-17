@@ -27,8 +27,8 @@ export const META_ENTRY_PATH = 'export.json'
 // 別に持つ**。あちらはリポジトリの内部配置、こちらは外へ出す公開フォーマットで、
 // 片方の都合 (階層を分ける等) がもう片方を黙って変えてはならない。
 export function noteEntryPath(itemId: string): string {
-  // itemId は Ver1 由来の文字列 PK = 利用者由来の文字列。呼ぶ側の検証を
-  // 当てにせず、ファイル名にする直前でもう一度確かめる
+  // itemId は ZIP や URL から来ることがある値 (主キーは UUID v7。docs/107)。
+  // 呼ぶ側の検証を当てにせず、ファイル名にする直前でもう一度確かめる
   if (!isValidItemId(itemId)) {
     throw new Error(`itemId が不正です: ${itemId}`)
   }

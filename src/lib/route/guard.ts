@@ -59,10 +59,9 @@ export async function guardRequest(
 
 // 第三者のページから動かされた呼び出しを断る (docs/18-ログイン計画.md §9)。
 //
-// **ログイン検査だけでは足りない**。Basic 認証は Cookie を使わないので
-// SameSite が効かず、ログイン済みのブラウザは第三者のページに置かれた
-// <img src="/api/books/…"> にも認証情報を付けてしまう。判定の理由は
-// auth/crossSite.ts に書いた。
+// **ログイン検査だけでは足りない**。セッション Cookie は SameSite=Lax なので
+// 第三者のページの <img> や fetch には付かないが、リンクを踏ませる
+// トップレベルの遷移 (GET) には付く。判定の理由は auth/crossSite.ts に書いた。
 //
 // guardRequest の 3 つ目の検査。ログインするための口 (パスキーのログイン・
 // ログアウト) はログイン検査を持たないので、これだけを単独で呼ぶ。

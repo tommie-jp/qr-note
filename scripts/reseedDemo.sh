@@ -18,11 +18,12 @@
 #        docker compose exec -T db createdb -U qr -T qr qr_seed
 #      (撮り直すときは先に `dropdb -U qr qr_seed`)
 #
-# --- 罠: migration を当てたら種も作り直す (docs/39 §6-3) ---
-#   prisma migrate deploy は live の `qr` にしか当たらない。**種 `qr_seed` は
-#   古いスキーマのまま**なので、次の毎時リセットで migration 前へ巻き戻り、
-#   app が起動できなくなる。新しい migration を含むデプロイをデモに当てたら、
-#   直後に上の手順で種を作り直すこと。
+# --- 罠: migration を当てたら種にも当てる (docs/39 §6-3) ---
+#   prisma migrate deploy は live の `qr` にしか当たらない。種 `qr_seed` が
+#   古いスキーマのままだと、次の毎時リセットで migration 前へ巻き戻り、
+#   app が起動できなくなる。**`./doDeploy.sh --demo` は種にも migrate を当てる**
+#   (REINDEX と派生列の埋め直しも) ので、デモへはこの旗で配れば手当ては要らない。
+#   手で migrate したときだけ、上の手順で種を作り直すこと。
 #
 # 使い方:
 #   ./reseedDemo.sh            # 再シードする

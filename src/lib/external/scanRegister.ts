@@ -115,7 +115,8 @@ export function scanRegisterMemo(
   return `${header}\n\n#${code}${kind}`
 }
 
-// 「新規登録」ボタンのリンク先。itemId は採番済みの次番号を渡す。
+// 「新規登録」ボタンのリンク先。itemId は呼ぶ側が newItemId() で作った UUID v7
+// (docs/107)。行はまだ無く、編集画面で「更新」を押したときに初めてできる。
 export function scanRegisterHref(itemId: string, code: string): string {
   return `/edit/${itemId}?code=${encodeURIComponent(code)}`
 }

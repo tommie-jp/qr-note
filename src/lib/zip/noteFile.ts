@@ -22,7 +22,7 @@ import {
 } from './frontmatter'
 
 // ノートの識別は 2 通り (docs/107 §4-2)。
-//   id     … このアプリの v0.24 以降が書き出した ZIP。UUID v7
+//   id     … このアプリの v0.23.33 以降が書き出した ZIP。UUID v7
 //   itemNo … それより前の ZIP と、教科書の変換スクリプトが組む ZIP。旧番号
 // どちらか片方は必ずある。旧番号しか無いノートは、取り込み側が本文のタグ
 // `#<旧番号>` で既存ノートを探す (lib/zip/importZip.ts の writeNote)

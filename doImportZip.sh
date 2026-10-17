@@ -25,10 +25,12 @@
 # 取り込んだあとに回路図 (circuit) を先に描いておくこと:
 #   ./doBackfill.sh circuits      最初に開いた人が TeX の描画を待たずに済む
 #
-# 取り消し (冊ごと): item_no が `wb04-` で始まる行を消す (docs/104 §11)。
+# 取り消し (冊ごと): 冊のタグ `#wb-<冊名>` (例 `#wb-denken`) の付いたノートを消す
+# (画面で検索して選択 → ゴミ箱。docs/104 §11)。番号の列は docs/107 で無くなった。
 # 丸ごと戻すなら backup/ のダンプを pg_restore (doDumpDB-from-vps2.sh 冒頭に手順)。
 #
-# 取り込み中にアプリでノートを新規作成しないこと (doImportEnex.sh と同じ注意)。
+# id は手元で UUID v7 を振るので、取り込み中にアプリでノートを作っても衝突しない
+# (番号だった頃は空き番号を予約せず衝突しえた。docs/107)。
 #
 # 環境変数で上書き可能 (接続先は scripts/lib/target.sh の prod と同じ既定):
 #   DEPLOY_REMOTE      ssh 接続先 (default: vps2)

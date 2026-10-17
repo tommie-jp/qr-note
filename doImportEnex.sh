@@ -29,12 +29,13 @@
 # #evernote は全ノートに必ず付く (由来の印。要らなければ後で一括削除できる)。
 #
 # 手順の推奨:
-#   1. ./doCopyDBfromVPS2.sh          本番のコピーをローカルに作る (採番も本番と同じ)
+#   1. ./doCopyDBfromVPS2.sh          本番のコピーをローカルに作る
 #   2. ./doImportEnex.sh f.enex --local   下見。レポートと画面を確認する
 #   3. ./doImportEnex.sh f.enex           本番へ (実行中はアプリを触らないこと)
 #
-# 取り込み中にアプリでノートを新規作成しないこと。nextItemNo() は
-# 「空き番号の最小値」を返すだけで番号を予約しない (src/lib/items/read.ts)。
+# id は newItemId() で UUID v7 を手元で振るので、取り込み中にアプリでノートを
+# 作っても衝突しない (番号だった頃は nextItemNo() が空き番号を予約せず衝突しえた。
+# docs/107)。
 #
 # 環境変数で上書き可能 (接続先は scripts/lib/target.sh の prod と同じ既定):
 #   DEPLOY_REMOTE      ssh 接続先 (default: vps2)。旧名 IMPORT_REMOTE も受け付ける

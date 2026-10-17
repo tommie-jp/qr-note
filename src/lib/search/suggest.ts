@@ -6,7 +6,7 @@
 //
 //   窓が空          … 登録パターン (★) → 最近の検索 (🕐)
 //   `#…` を打ちかけ … タグ候補
-//   その他の語      … キーワード候補 (is:todo / is:done)
+//   その他の語      … キーワード候補 (is:todo / is:done / is:untagged)
 
 import { keywordContextAtCursor, matchKeywords } from '@/lib/search/keywordComplete'
 import {

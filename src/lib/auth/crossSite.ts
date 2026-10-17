@@ -1,13 +1,17 @@
 // 第三者のページから動かされた呼び出しかどうか (設計は docs/18-ログイン計画.md §9)。
 //
-// このアプリの認証は Basic 認証で Cookie を使わない。つまり **SameSite が
-// 効かない**。一度ログインしたブラウザは、どのページから出た要求であっても
-// このオリジン宛なら認証情報を付け直す。悪意あるページに
+// もとは Basic 認証で Cookie を使わず、**SameSite が効かなかった**。悪意ある
+// ページに
 //
 //   <img src="https://qr.tommie.jp/api/books/9784873115658">
 //
 // と書いてあるだけで /api/books が本人として動き、外部 API のクォータを
-// 使い、書影を DB に溜める (docs/19-書影取得計画.md)。
+// 使い、書影を DB に溜めた (docs/19-書影取得計画.md)。
+//
+// 今はセッション Cookie (SameSite=Lax。auth/sessionToken.ts) で認証するので、
+// 上の <img> には Cookie が付かない。それでも、第三者のページがリンクを踏ませる
+// トップレベルの遷移には Lax の Cookie が付く。この判定はその穴と、Cookie の
+// 設定が崩れたときの多重の守りを受け持つ。
 //
 // アップロード (POST) は Origin で見分けている (uploads/request.ts) が、**GET の
 // <img> は Origin を送らない** (単純リクエスト)。そこで Fetch Metadata を見る。

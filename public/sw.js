@@ -263,8 +263,8 @@ self.addEventListener('message', (event) => {
 // /item/4518 → /offline?item=4518、/?q=抵抗 → /offline?q=抵抗
 function offlineRedirectUrl(url) {
   const target = new URL(OFFLINE_PATH, url.origin)
-  // itemNo に使える文字は [0-9A-Za-z_-] だけ (validation.ts の ITEM_NO_PATTERN)
-  // なので**復号しない**。decodeURIComponent を通すと `/item/100%` のような
+  // id (UUID) も旧番号 (validation.ts の LEGACY_ITEM_NO_PATTERN) も
+  // [0-9A-Za-z_-] だけでできているので**復号しない**。decodeURIComponent を通すと `/item/100%` のような
   // 壊れた URL で URIError が飛び、それが respondWith まで抜けて
   // 「オフライン画面ではなくブラウザのエラー画面」になる。
   // 書式に合わない値は /offline 側が無視する (params.ts)

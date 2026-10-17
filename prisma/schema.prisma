@@ -89,7 +89,7 @@ model Item {
 
 // 移行の控え: 旧番号 → id (docs/107 §6)。移行の時点で 1 度だけ書き、以後は
 // 書かない。読むのは git 履歴のファイル名を notes/<旧番号>.md から
-// notes/<id>.md へ付け替えるスクリプト (scripts/renameGitNotes.ts) だけで、
+// notes/<id>.md へ付け替える処理 (lib/git/notesRepo.ts の renameLegacyNotes) だけで、
 // 旧 URL の解決には使わない (正本は本文のタグ)。
 //
 // 外部キーは張らない — 永久削除したノートの行も控えとして残すため
@@ -131,7 +131,7 @@ model Image {
   // 派生キャッシュで、Float32Array (正規化済み) をそのままバイト列にしたもの。
   // 形式・次元はモデルに従う (src/lib/embedding/model.ts の EMBEDDING_DIM)。
   // null = 未生成。thumb と同じく生成に失敗しても保存は成功させ、画像検索の
-  // 対象から外れるだけにする。既存行は scripts/backfillEmbeddings.mjs で埋める。
+  // 対象から外れるだけにする。既存行は npm run backfill:embeddings で埋める。
   embedding Bytes?
   createdAt DateTime @default(now()) @map("created_at")
 

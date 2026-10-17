@@ -144,7 +144,8 @@ function unknownKeyError(key: string): string {
 // 絵文字を潰す (囲み文字の 🈚 が素の 無 になる)
 function parseSortValue(value: string): Sort | null {
   const folded = value.normalize('NFKC').toLowerCase()
-  // 旧い名前 (`sort=registered`) は登録順へ寄せる (docs/107 §4-6)
+  // 旧い名前は登録順へ寄せる (`sort=itemNo` → registered、`itemNoDesc` →
+  // registeredDesc。docs/107 §4-6)
   const legacy = Object.entries(LEGACY_SORTS).find(([name]) => name.toLowerCase() === folded)
   return legacy?.[1] ?? SORTS.find((sort) => sort.toLowerCase() === folded) ?? null
 }
