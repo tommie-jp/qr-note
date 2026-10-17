@@ -274,8 +274,16 @@ export const ROW_MENU_ITEM_DANGER_CLASS = `${ROW_MENU_ITEM_SKIN} text-red-700 ho
 // 行の右端に常設する ⋮ ボタン (docs/107 §2)。
 //
 // 枠も地も持たない — 一覧の全行に並ぶので、枠を描くと行ごとに箱が積まれて
-// 見える。文字色は PC では控えめ (gray-400) にしてホバー中の行だけ濃くし、
-// タッチ端末 (hover が無い) では最初から読める濃さ (gray-500) で出す。
+// 見える。タッチ端末 (hover が無い) では常に読める濃さ (gray-500) で出す。
+// **PC (hover がある) ではホバー中の行・タイルにだけ出す** — 全行に ⋯ が
+// 並ぶと一覧がうるさい (ユーザー指定)。ポインタが無くても辿れるように、
+// キーボードで行の中に入ったとき (group-has-[:focus-visible]) と、
+// メニューを開いている間 (aria-expanded) は出したままにする。開いた途端に
+// 釦が消えると、メニューがどこから出たのか分からなくなる。透明にするだけで
+// 押せるままにしてある (ホバーした時点で見えるので、見えない所を押す形にならない)。
+// 祖先に group が要る (行は SwipeToTrashRow、タイルは ImageMasonry の li)。
+// opacity-0 は hover の media に包んだ素の段 (0,1,0)、出す側は group-hover など
+// 疑似クラス付きの段 (0,2,0) なので、並び順に関わらず出す側が勝つ。
 // 寸法 (高さ・幅) と角丸・地色は置き場所 (小表示は行の全高、カードは右上の丸)
 // で違うので、使う側が足す。**角丸 (rounded*) と素の bg-* を土台に入れない** —
 // 同族のユーティリティを使う側でも足すと、どちらが勝つかが生成 CSS の並び順
@@ -283,7 +291,7 @@ export const ROW_MENU_ITEM_DANGER_CLASS = `${ROW_MENU_ITEM_SKIN} text-red-700 ho
 // 濃い色は gray-700 の 1 段だけ。行のホバー (group-hover) と ⋮ 自身のホバーで
 // 段を分けると、詳細度の高い group-hover が勝って ⋮ 自身の段が出ない
 export const ROW_MENU_TRIGGER_CLASS =
-  "flex items-center justify-center text-gray-500 outline-none transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:bg-gray-100 focus-visible:text-gray-700 active:bg-gray-200 aria-expanded:bg-gray-100 aria-expanded:text-gray-700 [@media(hover:hover)]:text-gray-400 [@media(hover:hover)]:group-hover:text-gray-700";
+  "flex items-center justify-center text-gray-500 outline-none transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:bg-gray-100 focus-visible:text-gray-700 active:bg-gray-200 aria-expanded:bg-gray-100 aria-expanded:text-gray-700 [@media(hover:hover)]:text-gray-400 [@media(hover:hover)]:group-hover:text-gray-700 [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 aria-expanded:opacity-100";
 
 // 描けなかった図・問題のエラーカードに添える「元のソース」。
 //

@@ -51,7 +51,7 @@ export function RestoreIcon() {
 // 形にした — iPhone の利用者にいちばん馴染みがあり、輪がボタンの縁を兼ねる。
 // 横の ⋯ だけだと行末の省略記号 (…) と見分けにくいが、輪で囲めば紛れない。
 // 点は塗りの丸で描く — 線画の円では 20px のとき中が抜けて輪にしか見えない。
-// 色は currentColor のまま (ROW_MENU_TRIGGER_CLASS がホバーで濃くする)
+// 色は currentColor のまま (ROW_MENU_TRIGGER_CLASS がホバーで濃くする。PC ではホバー中だけ出す)
 export function MoreIcon() {
   return (
     <StrokeIcon>

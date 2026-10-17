@@ -117,9 +117,10 @@ export function ImageMasonry({
         return (
           // relative … stretched link の基準。
           // @container … ⋮ を画像の下に揃える基準 (100cqw = 正方形の画像の高さ)
+          // group … PC ではタイルにホバーしたときだけ ⋮ を出す (ROW_MENU_TRIGGER_CLASS)
           <li
             key={key}
-            className={`@container relative overflow-hidden rounded border ${
+            className={`group @container relative overflow-hidden rounded border ${
               selected
                 ? "border-[var(--row-tint-border)] bg-[var(--row-tint-bg)]"
                 : "border-gray-200 bg-white"
