@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { HeaderMenu } from "./HeaderMenu";
+import { HeaderMenu, isMenuOpen } from "./HeaderMenu";
 
 // このリポジトリのコンポーネントテストは renderToStaticMarkup の静的描画だけで、
 // 操作を伴うテストの土台 (jsdom / testing-library) を持たない
@@ -25,4 +25,14 @@ test("開閉ボタンに開いていない旨とメニューである旨を持�
 // 「見えていないのに読み上げやタブ順に現れる」ことがない
 test("閉じている間は項目を描かない", () => {
   expect(render()).not.toContain("/logs");
+});
+
+test("開いたときの path と今の path が同じ間だけ開いているとみなす", () => {
+  // 遷移が終わって path が変われば、閉じる操作なしに閉じた扱いになる
+  // (PendingMenuLink がシートを開いたまま待つため)
+  expect(isMenuOpen({ path: "/" }, "/")).toBe(true);
+  expect(isMenuOpen({ path: "/" }, "/settings/server")).toBe(false);
+  expect(isMenuOpen(null, "/")).toBe(false);
+  // App Router の外 (単体テスト) では pathname が null。それでも開閉できる
+  expect(isMenuOpen({ path: null }, null)).toBe(true);
 });

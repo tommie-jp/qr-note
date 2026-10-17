@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DebugConsoleButton } from "@/components/diag/DebugConsoleButton";
 import { HeaderMenu } from "@/components/chrome/HeaderMenu";
 import { HeaderQrButton } from "@/components/chrome/HeaderQrButton";
+import { PendingMenuLink } from "@/components/chrome/PendingMenuLink";
 import { LoginButton } from "@/components/auth/LoginButton";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import {
@@ -94,12 +95,17 @@ export function AppHeaderMenu({
               {/* サーバー情報 (docs/109-サーバー情報計画.md)。**管理者だけ** —
                   判定は isAdminUser (env ADMIN_USER との一致) の 1 か所で、
                   ページ側 (requireAdminPage) も同じ判定で 404 に倒す。
-                  ログの隣に置くのは、どちらも「サーバの様子を見る」診断系だから */}
+                  ログの隣に置くのは、どちらも「サーバの様子を見る」診断系だから。
+                  収集は DB が重いと数秒かかるので、押した側で「処理中です…」を
+                  出す PendingMenuLink にする (docs/109 §2 の注) */}
               {isAdminUser(user) && (
-                <Link href="/settings/server" className={HEADER_MENU_ITEM_CLASS}>
+                <PendingMenuLink
+                  href="/settings/server"
+                  className={HEADER_MENU_ITEM_CLASS}
+                >
                   <ServerIcon />
                   サーバー情報
-                </Link>
+                </PendingMenuLink>
               )}
             </>
           )}

@@ -1,10 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { MenuToggleIcon } from "@/components/icons";
 import { useBodyScrollLock } from "../modal/useBodyScrollLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
+
+// 開いたときの path (null は閉じている)。開いているかは今の path と比べて決める
+type OpenedOn = { path: string | null } | null;
+
+export function isMenuOpen(openedOn: OpenedOn, pathname: string | null): boolean {
+  return openedOn !== null && openedOn.path === pathname;
+}
 
 // ヘッダーのハンバーガーメニュー (docs/11-アプリ的UIUX計画.md §6)。
 //
@@ -15,6 +23,11 @@ import { useEscapeKey } from "../modal/useEscapeKey";
 // **画面幅で出し分けない。** 「狭いときだけメニュー」にするとコードパスが
 // 2 本になり、片方だけ壊れる (当初の崩れもデスクトップでは見えなかった)。
 // 全幅で同じ形にして、壊れ方を 1 通りに保つ。
+//
+// **開いたときの path を覚え、今の path と同じ間だけ開いているとみなす。**
+// PendingMenuLink はシートを開いたまま遷移待ちを出すので (docs/109 §2 の注)、
+// 遷移が終わったら閉じる契機が要る。path の変化を effect で拾って
+// setState するのではなく、描画中に比べるだけで閉じた扱いにする
 //
 // **開いた項目は画面の下端から出す (ボトムシート)。** 以前は開閉ボタンの
 // 直下に垂れるドロップダウンだったが、これは PC の作法で、このアプリの
@@ -38,7 +51,19 @@ export function HeaderMenu({
   children: React.ReactNode;
   bgClass: string;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const [openedOn, setOpenedOn] = useState<OpenedOn>(null);
+  // 遷移で閉じた扱いになったら記録も捨てる。残すと「戻る」で元の path に
+  // 帰ったときシートが勝手に開き直る。描画中の setState は自分の state に
+  // 限って React が認める形 (前回の値に合わせて state を直す)
+  if (openedOn !== null && openedOn.path !== pathname) {
+    setOpenedOn(null);
+  }
+  const isOpen = isMenuOpen(openedOn, pathname);
+  const setIsOpen = useCallback(
+    (open: boolean) => setOpenedOn(open ? { path: pathname } : null),
+    [pathname],
+  );
   const triggerRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +74,7 @@ export function HeaderMenu({
     // 閉じたら開閉ボタンへ戻す。キーボードで辿っている人が
     // 行き場を失わないようにする
     triggerRef.current?.focus();
-  }, []);
+  }, [setIsOpen]);
   useEscapeKey(closeFromKeyboard, isOpen);
 
   // 背面のスクロールを止める。暗くした背景が指で動くと「触れないのに
@@ -89,7 +114,7 @@ export function HeaderMenu({
         aria-label="メニュー"
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => setIsOpen(!isOpen)}
         // relative z-40 で外側タップ用の覆い (z-10) より上に出す。
         // 下に居ると ✕ を押しても覆いがタップを横取りし、この onClick が
         // 動かない。結果的に閉じはする (覆いが閉じる) が、押した物と
@@ -144,7 +169,8 @@ export function HeaderMenu({
                 バブリングを 1 か所で受けることで、項目が増えても閉じ忘れない。
 
                 **例外は「自前の UI 状態を持つ項目」** (HeaderQrButton の
-                オーバーレイ、PasskeyLoginButton の進行中・エラー表示)。
+                オーバーレイ、PasskeyLoginButton の進行中・エラー表示、
+                PendingMenuLink の「処理中です…」)。
                 閉じるとその部品ごと unmount され、開いたはずのものや
                 出したはずのエラーが道連れに消える。該当する部品は自分の
                 onClick で stopPropagation してメニューを開いたままにする。
