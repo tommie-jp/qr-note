@@ -43,9 +43,9 @@ interface ImageMasonryProps {
   // pathname から導いて降ろす (ItemRow の selected と同じ印を画像タイルにも
   // 付ける — 同じノートのタイルが複数あれば全部に付く)
   previewItemNo?: string | null;
-  // タイルに ⋮ メニューを付けるか (docs/107-行メニュー計画.md §7)。検索一覧
-  // (ItemList) だけが立て、送信の状態を持つ TileTrashProvider で包む。
-  // ゴミ箱の一覧は立てない — あちらは復元・永久削除のボタンが別にある
+  // タイルに ⋮ メニューを付けるか (docs/107-行メニュー計画.md §7・§9)。
+  // 立てる側がメニューの中身と送信の状態を持つ包みで囲む — 検索一覧は
+  // SearchTileMenuProvider、ゴミ箱の一覧は TrashTileMenuProvider (row-actions/TileActions)
   tileActions?: boolean;
 }
 
@@ -202,8 +202,9 @@ export function ImageMasonry({
 
 // ノート 1 件が並べるタイルの数 (画像 + 描画済みの回路図)。⋮ からゴミ箱へ
 // 入れるときの確認文で「このノートの 3 枚がまとめて消える」と言うのに使う。
-// 数え方は上の tiles の組み方と同じ 2 つを足すだけ
-function tileCountOf(item: Item, circuitThumbs?: CircuitThumbMap): number {
+// 数え方は上の tiles の組み方と同じ 2 つを足すだけ。0 ならタイルにならない
+// (ゴミ箱の一覧が「画像表示では見えないノート」を数えるのにも使う)
+export function tileCountOf(item: Item, circuitThumbs?: CircuitThumbMap): number {
   return (
     allImageNames(item.memo).length + (circuitThumbs?.[item.itemNo]?.length ?? 0)
   );

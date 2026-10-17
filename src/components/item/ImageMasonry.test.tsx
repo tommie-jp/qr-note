@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import type { Item } from "@/generated/prisma/client";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { ImageMasonry } from "./ImageMasonry";
-import { TileTrashProvider } from "./row-actions/TileActions";
+import { SearchTileMenuProvider } from "./row-actions/TileActions";
 
 const IMAGE_1 = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
 const IMAGE_2 = "9f8e7d6c-5b4a-4321-8765-4321fedcba98.webp";
@@ -215,10 +215,10 @@ test("プレビューを開いていなければ選択の印は無い", () => {
 });
 
 // タイルの ⋮ (docs/107-行メニュー計画.md §7)。検索一覧だけが立てて、
-// 送信の状態を持つ TileTrashProvider で包む
+// 送信の状態を持つ SearchTileMenuProvider で包む
 test("tileActions を立てると、タイルごとに ⋮ を出す", () => {
   const html = renderToStaticMarkup(
-    <TileTrashProvider
+    <SearchTileMenuProvider
       trashAction={() => {}}
       searchState={{ q: "", page: 1, sort: "updated" }}
     >
@@ -232,7 +232,7 @@ test("tileActions を立てると、タイルごとに ⋮ を出す", () => {
         itemHref={(no) => `/item/${no}`}
         tileActions
       />
-    </TileTrashProvider>,
+    </SearchTileMenuProvider>,
   );
   // 同じノートの 2 枚のどちらにも、ノートへの操作として出る
   expect(html.match(/aria-label="#4951 の操作"/g)).toHaveLength(2);

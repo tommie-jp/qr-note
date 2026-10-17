@@ -111,6 +111,7 @@ test("大表示はカードのグリッドで、本文プレビューも出す",
   expect(html).toContain("永久削除");
 });
 
+const IMAGE_2 = "9f8e7d6c-5b4a-4321-8765-4321fedcba98.webp";
 const IMAGE = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
 
 test("画像表示は本文の画像をタイルに敷き詰める", () => {
@@ -122,17 +123,47 @@ test("画像表示は本文の画像をタイルに敷き詰める", () => {
   expect(html).toContain('href="/item/10"');
 });
 
-// タイルは「画像 1 枚 = 1 リンク」でノート単位ではないので、取り返しの付かない
-// 永久削除を並べない。代わりに、どこで操作できるかをその場で言う
-test("画像表示では行ごとの操作を出さず、行き先を案内する", () => {
+// 画像表示のタイルにも ⋮ を出し、そこから復元・永久削除できる (docs/107 §9)。
+// 以前は永久削除をタイルの数だけ並べないために操作ごと外していたが、
+// 画像表示で消したノートを画像表示のまま戻せなかった
+test("画像表示ではタイルごとに ⋮ を出す", () => {
+  const html = render(
+    [
+      makeItem({
+        itemNo: "10",
+        memo: `![](/api/images/${IMAGE})\n![](/api/images/${IMAGE_2})`,
+      }),
+    ],
+    "image",
+  );
+  expect(html.match(/aria-label="#10 の操作"/g)).toHaveLength(2);
+  // 永久削除はメニューの中 (確認付き)。タイルに直に並べない
+  expect(html).not.toContain(">永久削除<");
+  expect(html).not.toContain("ノートを開くか");
+  // 「ゴミ箱を空にする」は一覧全体への操作なのでどの形式でも残す
+  expect(html).toContain("空にする");
+});
+
+// 画像も回路図も無いノートはタイルにならず、画像表示では見えない。
+// 黙って消えていると「ゴミ箱から消えた」と読めるので、件数と行き先を言う
+test("画像表示でタイルにならないノートがあれば、件数と行き先を言う", () => {
+  const html = render(
+    [
+      makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE})` }),
+      makeItem({ itemNo: "11", memo: "文字だけ" }),
+    ],
+    "image",
+  );
+  expect(html).toContain("画像・回路図の無いノート 1 件");
+  expect(html).toContain("小・大表示");
+});
+
+test("画像表示で全部がタイルになれば案内は出さない", () => {
   const html = render(
     [makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE})` })],
     "image",
   );
-  expect(html).not.toContain(">復元<");
-  expect(html).toContain("ノートを開くか");
-  // 「ゴミ箱を空にする」は一覧全体への操作なのでどの形式でも残す
-  expect(html).toContain("空にする");
+  expect(html).not.toContain("画像・回路図の無いノート");
 });
 
 // 回路図サムネの中継 (docs/68-一覧回路図サムネ計画.md §5)。

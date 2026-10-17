@@ -215,8 +215,9 @@ test.describe('画像モードのタイルの ⋮ メニュー', () => {
     expect(message).toContain(`#${TILE_ITEM_NO} をノートごとゴミ箱へ移動します`)
     expect(message).toContain('2 枚')
     // 取り消しが効かずに送っていても、一覧から消えるのは revalidate の後。
-    // 直後に数えるだけでは検証にならないので、読み直してから数える
-    await page.waitForTimeout(1000)
+    // 直後に数えるだけでは検証にならないので、通信が落ち着くのを待って
+    // (送っていればその応答まで) 読み直してから数える
+    await page.waitForLoadState('networkidle')
     await page.reload()
     await expect(triggers).toHaveCount(2)
   })
@@ -232,5 +233,83 @@ test.describe('画像モードのタイルの ⋮ メニュー', () => {
 
     // Assert
     await expect(triggers).toHaveCount(0)
+  })
+})
+
+// ゴミ箱の画像表示 (docs/107 §9)。表示形式の cookie は検索一覧と共有なので、
+// 画像モードで消したノートはゴミ箱でも画像表示で並ぶ。そこから戻せること
+test.describe('ゴミ箱の画像表示のタイルの ⋮ メニュー', () => {
+  test.beforeEach(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, TILE_ITEM_NO)
+    await page.goto(`/edit/${TILE_ITEM_NO}`)
+    const save = page.getByRole('button', { name: '更新', exact: true })
+    await expect(save).toBeVisible()
+    await clearEditor(page)
+    await memoEditor(page).click()
+    await page.keyboard.insertText(TILE_BODY)
+    await save.click()
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${TILE_ITEM_NO}`)
+    // 画像モードの ⋮ からゴミ箱へ入れる (ユーザーが踏んだ流れ)
+    const triggers = await openImageMode(page)
+    page.once('dialog', (dialog) => void dialog.accept())
+    await triggers.first().click()
+    await page.getByRole('menuitem', { name: 'ゴミ箱へ移動', exact: true }).click()
+    await expect(triggers).toHaveCount(0)
+    await closePage(page)
+  })
+
+  test.afterEach(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, TILE_ITEM_NO)
+    await closePage(page)
+  })
+
+  async function openTrashTiles(page: Page) {
+    await page.context().addCookies([{ name: 'view', value: 'image', url: BASE_URL }])
+    await page.goto('/trash')
+    await expect(page.getByRole('heading', { name: 'ゴミ箱', exact: true })).toBeVisible()
+    const triggers = page.getByRole('button', {
+      name: `#${TILE_ITEM_NO} の操作`,
+      exact: true,
+    })
+    await expect(triggers).toHaveCount(2)
+    await expectHydrated(triggers.first())
+    return triggers
+  }
+
+  test('⋮ の「復元」で戻り、検索一覧に再び出る', async ({ page }) => {
+    // Arrange
+    const triggers = await openTrashTiles(page)
+
+    // Act: 復元は確認しない (戻すだけで失う物が無い)
+    await triggers.nth(1).click()
+    await page.getByRole('menuitem', { name: '復元', exact: true }).click()
+
+    // Assert: 同じノートの 2 枚ともゴミ箱から消え、検索一覧に戻る
+    await expect(triggers).toHaveCount(0)
+    await openImageMode(page)
+  })
+
+  test('⋮ の「永久削除」は確認し、取り消せば残る', async ({ page }) => {
+    // Arrange
+    const triggers = await openTrashTiles(page)
+    let message = ''
+    page.once('dialog', (dialog) => {
+      message = dialog.message()
+      void dialog.dismiss()
+    })
+
+    // Act
+    await triggers.first().click()
+    await page.getByRole('menuitem', { name: '永久削除', exact: true }).click()
+
+    // Assert: 行の永久削除と同じ文に、まとめて消える枚数を添える
+    expect(message).toContain(`#${TILE_ITEM_NO} を完全に削除します`)
+    expect(message).toContain('2 枚')
+    // 送っていればその応答まで待ってから読み直す (上の取り消しの試験と同じ)
+    await page.waitForLoadState('networkidle')
+    await page.reload()
+    await expect(triggers).toHaveCount(2)
   })
 })

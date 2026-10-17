@@ -9,7 +9,9 @@ import type { NotePreviewMap } from "../item/NotePreviewThumb";
 import { formatJstDateTime } from "@/lib/datetime";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { ConfirmSubmitButton } from "../chrome/ConfirmSubmitButton";
-import { ImageMasonry } from "../item/ImageMasonry";
+import { ImageMasonry, tileCountOf } from "../item/ImageMasonry";
+import { TrashTileMenuProvider } from "../item/row-actions/TileActions";
+import { purgeConfirmMessage } from "./purgeConfirm";
 import { ItemRow } from "../item/ItemRow";
 import { ACTION_LINK_CLASS, DANGER_BUTTON_CLASS } from "../ui";
 
@@ -67,7 +69,7 @@ function RowActions({
         </button>
         <ConfirmSubmitButton
           formAction={purgeAction}
-          confirmMessage={`#${item.itemNo} を完全に削除します。元に戻せず、この番号は新しいノートに再利用されます。シールも処分済みですか?`}
+          confirmMessage={purgeConfirmMessage(item.itemNo)}
           className={DANGER_BUTTON_CLASS}
         >
           永久削除
@@ -83,10 +85,11 @@ function RowActions({
 // 「写真で思い出す」「本文を読んで確かめる」は同じだけ要る — むしろ消してよいか
 // の判断は一覧より慎重なので、見えるものが少ない理由がない。
 //
-// 行ごとの復元 / 永久削除は小・大表示だけに出す。画像表示のタイルは
-// 「画像 1 枚 = 1 リンク」でノート単位ではなく (1 ノートに複数枚あれば全部並ぶ)、
-// 同じ番号の永久削除ボタンがタイルの数だけ並ぶことになる。取り返しの付かない
-// 操作を重複して置く形なので、あちらはノートを開く導線だけにする。
+// 行ごとの復元 / 永久削除は、小・大表示では行の下にボタンで、画像表示では
+// タイルの ⋮ のメニューに出す (docs/107 §9)。画像表示のタイルは「画像 1 枚
+// = 1 リンク」で同じノートが何枚も並ぶので、永久削除をボタンで並べると
+// 取り返しの付かない操作がタイルの数だけ重複する。メニューに畳み、確認文で
+// 「まとめて消える」と言う。
 export function TrashList({
   items,
   view = DEFAULT_VIEW_MODE,
@@ -131,21 +134,22 @@ export function TrashList({
         </ConfirmSubmitButton>
       </form>
 
+      {view === "image" && (
+        <UntiledNotice items={items} circuitThumbs={circuitThumbs} />
+      )}
       {view === "image" ? (
-        <>
-          {/* 行ごとの操作が無いことを言っておく。黙って消えていると
-              「画像表示にしたら復元できなくなった」と読める */}
-          <p className="text-sm text-gray-500">
-            画像表示では行ごとの操作を出しません。復元はノートを開くか、
-            小・大表示に切り替えてください。
-          </p>
+        <TrashTileMenuProvider
+          restoreAction={restoreAction}
+          purgeAction={purgeAction}
+        >
           <ImageMasonry
             items={items}
             itemHref={itemHref}
             circuitThumbs={circuitThumbs}
             mathTexts={mathTexts}
+            tileActions
           />
-        </>
+        </TrashTileMenuProvider>
       ) : (
         <ul className={listClass}>
           {items.map((item) => (
@@ -170,5 +174,31 @@ export function TrashList({
         </ul>
       )}
     </div>
+  );
+}
+
+// 画像表示で見えないノートの案内 (docs/107 §9)。
+//
+// 画像も描画済みの回路図も無いノートはタイルにならない。黙って消えていると
+// 「ゴミ箱から消えた」「戻せない」と読める (「空にする」の件数には入っている
+// のに一覧に居ない)。居ないものだけを数えて、見られる場所を言う
+function UntiledNotice({
+  items,
+  circuitThumbs,
+}: {
+  items: Item[];
+  circuitThumbs?: CircuitThumbMap;
+}) {
+  const untiled = items.filter(
+    (item) => tileCountOf(item, circuitThumbs) === 0,
+  ).length;
+  if (untiled === 0) {
+    return null;
+  }
+  return (
+    <p className="text-sm text-gray-500">
+      画像・回路図の無いノート {untiled} 件は画像表示に出ません。
+      小・大表示に切り替えると、復元・永久削除できます。
+    </p>
   );
 }

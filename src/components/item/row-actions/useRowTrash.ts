@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { unstable_rethrow } from "next/navigation";
 import { buildTrashFormData } from "@/lib/items/itemSelection";
+import { sendNoteAction, type NoteAction } from "./noteAction";
 
 // 削除後に戻る検索状態。trashItemsAction は最後に redirect(parseBackUrl(...)) を
 // 呼ぶので、これを送らないと素の / へ飛ばされ、検索語もページも失われる
@@ -14,29 +14,17 @@ export interface RowSearchState {
 }
 
 // ノートをゴミ箱へ入れるサーバーアクション (BulkTagToolbar と同じ trashItemsAction)。
-export type RowTrashAction = (formData: FormData) => void | Promise<void>;
+export type RowTrashAction = NoteAction;
 
 // 1 件をゴミ箱へ送る。成功なら true、本物の失敗なら false。
-// 行 (useRowTrash) と画像モードのタイル (TileTrashProvider) が共有する。
-//
-// **成功しても例外は飛んでくる。** trashItemsAction は最後に redirect() を
-// 呼び、これは内部エラーを投げることで動く仕組みなので、素の catch は成功
-// した削除まで「失敗」にしてしまう (実際、消えた行の上に一瞬エラーが出て
-// いた)。フレームワークの例外はここで投げ直す。
 // 戻り先 (q/page/sort) も一緒に載る。手で組むと載せ忘れても型では
 // 捕まらないので、組み立ては lib の 1 本に寄せてある
-export async function sendTrash(
+export function sendTrash(
   itemNo: string,
   trashAction: RowTrashAction,
   searchState: RowSearchState,
 ): Promise<boolean> {
-  try {
-    await trashAction(buildTrashFormData(itemNo, searchState));
-    return true;
-  } catch (error) {
-    unstable_rethrow(error);
-    return false;
-  }
+  return sendNoteAction(trashAction, buildTrashFormData(itemNo, searchState));
 }
 
 // 1 行ぶんのゴミ箱行き (docs/43 §6、docs/66 §3)。スワイプの「削除」・

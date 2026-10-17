@@ -30,6 +30,19 @@ export function TrashIcon({ small = false }: { small?: boolean } = {}) {
   );
 }
 
+// 復元 (ゴミ箱から戻す。docs/107 §9)。ぐるりと左へ回って元の所へ戻る矢印。
+// 編集の UndoIcon (editor.tsx) とは別にする — あちらは 24px の下部バー用で、
+// 「直前の編集を取り消す」の意味。こちらは 20px のメニュー項目で、隣に
+// 並ぶ TrashIcon と大きさを揃える。色は currentColor のまま (使う側の文字色)
+export function RestoreIcon() {
+  return (
+    <StrokeIcon>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4v4h4" />
+    </StrokeIcon>
+  );
+}
+
 // その他の操作 (輪で囲んだ横の三点。docs/107-行メニュー計画.md §2)。
 //
 // もとは縦の三点 ⋮ (Android・Google 系の作法) だったが、輪も地も無い点 3 つは

@@ -49,12 +49,21 @@ export function parseBackUrl(formData: FormData): string {
 //
 // 手で FormData を組む場所が増えたので、ここに 1 本化して検査を効かせる
 // (組み立てはブラウザの中でしか走らず、抜けても型では捕まらない)。
+// ノート 1 件を指すフォーム (itemNo だけ)。parseSelectedItemNos と対で、
+// 項目名をここ 1 か所に置く。ゴミ箱の画像表示の復元・永久削除が使う
+// (docs/107 §9)。手で組むと、項目名が変わったときに空の選択を送り、
+// サーバーアクションが黙って何もしない
+export function buildItemFormData(itemNo: string): FormData {
+  const formData = new FormData()
+  formData.append('itemNo', itemNo)
+  return formData
+}
+
 export function buildTrashFormData(
   itemNo: string,
   back: { q: string; page: number; sort: string },
 ): FormData {
-  const formData = new FormData()
-  formData.append('itemNo', itemNo)
+  const formData = buildItemFormData(itemNo)
   formData.append('q', back.q)
   formData.append('page', String(back.page))
   formData.append('sort', back.sort)
