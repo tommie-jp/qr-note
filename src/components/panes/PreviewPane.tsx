@@ -6,7 +6,6 @@ import { ClearIcon, OpenFullIcon } from "@/components/icons";
 import { PressTip } from "@/components/item/row-actions/PressTip";
 import {
   NoteChromeBar,
-  NoteChromeFloatSpacer,
 } from "@/components/notechrome/NoteChromeBar";
 import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
 import { PaneResizer } from "@/components/panes/PaneResizer";
@@ -217,12 +216,6 @@ export function PreviewPane({
           <div
             className={`mx-auto px-safe pt-[0.25em] pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
           >
-            {/* 浮いた札のぶんを本文の右上に空ける (最初の数行が札を避けて
-                折り返す)。本文の器の先頭でなければ効かない */}
-            <NoteChromeFloatSpacer
-              canFloat
-              wideEnd={!isBottomPane}
-            />
             {children}
           </div>
         </section>

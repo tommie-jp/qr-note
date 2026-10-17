@@ -13,15 +13,9 @@ export const HOVER_CLOSE_DELAY_MS = 250;
 // 持たせる** — 釦が 1 つも無い間 (loading は「全画面で開く」が無く、⋯ は
 // マウント後に portal で来る) も同じ高さでないと、浮かせたときに本文を
 // 引き上げる量 (-mb-12) が行より大きくなり、本文の頭がスクロールで届かない
-// 負の領域に入る (レビューで判明)。詰め物の高さ (h-12) も対
+// 負の領域に入る (レビューで判明)
 const ROW_MIN_HEIGHT_CLASS = "min-h-12";
 const ROW_PULL_CLASS = "-mb-12";
-const SPACER_HEIGHT_CLASS = "h-12";
-// 詰め物の幅。札 (⋯ 44px + 全画面 44px + 余白) より少し広く取る
-const SPACER_WIDTH_CLASS = "w-28";
-// 右が文字の釦 (全画面で開く) のとき / 左の「閉じる」の札
-const SPACER_WIDTH_WIDE_CLASS = "w-72";
-const SPACER_WIDTH_START_CLASS = "w-28";
 // 札の見た目 (左右共通)
 const PILL_CLASS =
   "pointer-events-auto rounded-full bg-white/85 shadow-sm backdrop-blur";
@@ -49,44 +43,6 @@ interface NoteChromeBarProps {
 export function useNoteChromeFloating(canFloat: boolean): boolean {
   const chrome = useNoteChrome();
   return canFloat && chrome !== null && !chrome.inline;
-}
-
-// 本文の先頭に置く詰め物。浮いた札と同じ大きさを右上に float で確保し、
-// 見出しや段落の最初の数行が札を避けて折り返すようにする (docs/108 §3-6)。
-// 画像 (block) は避けずに札の下へ潜るが、札は半透明なので角が少し隠れるだけ。
-// 浮いていないときは何も置かない
-export function NoteChromeFloatSpacer({
-  canFloat,
-  withStart = false,
-  wideEnd = false,
-}: {
-  canFloat: boolean;
-  // 左にも札 (閉じる) があるとき、左にも詰め物を置く
-  withStart?: boolean;
-  // 右の札が文字の釦 (全画面で開く) で広いとき
-  wideEnd?: boolean;
-}) {
-  const floating = useNoteChromeFloating(canFloat);
-  if (!floating) {
-    return null;
-  }
-  return (
-    <>
-      <div
-        aria-hidden
-        data-note-chrome-spacer=""
-        className={`float-right ${SPACER_HEIGHT_CLASS} ${
-          wideEnd ? SPACER_WIDTH_WIDE_CLASS : SPACER_WIDTH_CLASS
-        }`}
-      />
-      {withStart && (
-        <div
-          aria-hidden
-          className={`float-left ${SPACER_HEIGHT_CLASS} ${SPACER_WIDTH_START_CLASS}`}
-        />
-      )}
-    </>
-  );
 }
 
 export function NoteChromeBar({

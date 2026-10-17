@@ -352,7 +352,6 @@ test.describe('下部ペインでは操作の行を本文の上に浮かせる',
     // Assert: 見出し行が積まれ、行は浮いていない
     await expect(pane.getByRole('heading', { name: 'item', exact: true })).toBeVisible()
     await expect(pane.locator('[data-note-chrome-floating]')).toHaveCount(0)
-    await expect(pane.locator('[data-note-chrome-spacer]')).toHaveCount(0)
 
     // Act: 読むタブへ戻ると浮く
     await pane.getByRole('tab', { name: 'markdown' }).click()
