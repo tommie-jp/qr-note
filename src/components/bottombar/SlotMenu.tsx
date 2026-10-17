@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 
 interface SlotMenuProps {
   // 何を選ぶメニューか (読み上げ用)。見出しの文字は出さない —
@@ -32,6 +39,32 @@ const ALIGN_CLASS: Record<"center" | "start", string> = {
   start: "left-0",
 };
 
+// 下向きに開くときの隙間 (mt-1 相当) と、画面の端に残す余白
+const FLOAT_GAP_PX = 4;
+const FLOAT_EDGE_PX = 8;
+
+interface FloatPosition {
+  left: number;
+  top: number;
+}
+
+// 下向きのメニューを置く画面座標。ボタンの左端 (center ならボタンの中心) を
+// 軸にし、右へはみ出すなら左へ寄せる。下へはみ出す分は max-h-[60vh] ではなく
+// 残りの高さで切る (呼ぶ側の style の maxHeight)
+function placeBelow(
+  anchor: DOMRect,
+  menuWidth: number,
+  align: "center" | "start",
+): FloatPosition {
+  const wanted =
+    align === "center" ? anchor.left + (anchor.width - menuWidth) / 2 : anchor.left;
+  const max = window.innerWidth - menuWidth - FLOAT_EDGE_PX;
+  return {
+    left: Math.max(FLOAT_EDGE_PX, Math.min(wanted, max)),
+    top: anchor.bottom + FLOAT_GAP_PX,
+  };
+}
+
 // 下部バーのスロットを長押ししたときに、その真上へ出す小さな選択メニュー
 // (docs/62-下部バー長押し計画.md §3)。
 //
@@ -41,6 +74,14 @@ const ALIGN_CLASS: Record<"center" | "start", string> = {
 // (BottomActionBar がモーダルを nav の外へ出しているのと同じ罠)。
 // absolute はもともと直近の position 付き祖先 = スロットが基準なので影響を
 // 受けず、bottom-full だけでバーの上端に接して開く。
+//
+// **side="bottom" だけは別。** 検索結果の見出し行は 3 ペインの main
+// (overflow:hidden) の中にあり、absolute だと一覧の底 = ノートのペインの
+// 上端で切られて、項目の下半分が隠れる。かといって fixed も、見出し行の
+// @container (container-type が包含ブロックを作る) の中では画面ではなく
+// その器が基準になる。なので body へ portal して fixed で画面座標に置く
+// (RowActionMenu と同じ手)。portal した submit ボタンは form から外れるので、
+// 呼ぶ側が formId を渡し、各ボタンに form 属性を付ける。
 //
 // 外側タップ用の覆いは置かない。覆いは fixed で全画面を覆う必要があり、
 // 上の理由でこの中には置けず、portal で body へ出すと今度は覆いが
@@ -56,8 +97,22 @@ export function SlotMenu({
   children,
 }: SlotMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [floatPosition, setFloatPosition] = useState<FloatPosition | null>(null);
+  const isFloating = side === "bottom";
   // 呼ぶ側が毎描画で新しい関数を渡しても、購読をやり直さないようにする
   const close = useEffectEvent(() => onClose());
+
+  // 下向きは実寸が要るので一度描いてから測る (測る間は invisible)
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const anchor = anchorRef.current;
+    if (!isFloating || !menu || !anchor) {
+      return;
+    }
+    setFloatPosition(
+      placeBelow(anchor.getBoundingClientRect(), menu.offsetWidth, align),
+    );
+  }, [isFloating, anchorRef, align]);
 
   useEffect(() => {
     // click ではなく pointerdown。iOS Safari は素の要素へのタップで
@@ -88,13 +143,45 @@ export function SlotMenu({
         close();
       }
     };
+    // fixed に置いたメニューはボタンと一緒に動かないので、画面が動いたら閉じる
+    const onMove = () => {
+      if (isFloating) {
+        close();
+      }
+    };
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
     };
-  }, [anchorRef]);
+  }, [anchorRef, isFloating]);
+
+  if (isFloating) {
+    return createPortal(
+      // z-40 … ノートのペイン (z-0)・下部バー (z-10)・ヘッダー (z-20) より上、
+      // 全画面のモーダル (z-50) より下 (RowActionMenu と同じ)
+      <div
+        ref={menuRef}
+        role="menu"
+        aria-label={label}
+        style={{
+          left: floatPosition?.left ?? 0,
+          top: floatPosition?.top ?? 0,
+        }}
+        className={`fixed z-40 flex max-h-[60vh] w-max max-w-[80vw] flex-col overflow-y-auto overscroll-contain rounded-lg border border-gray-300 bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.18)] ${
+          floatPosition ? "" : "invisible"
+        }`}
+      >
+        {children}
+      </div>,
+      document.body,
+    );
+  }
 
   return (
     // 位置決めと動きを別の要素に分ける。

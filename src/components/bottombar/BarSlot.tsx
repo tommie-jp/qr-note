@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useRef } from "react";
+import { type ReactNode, useCallback, useId, useRef } from "react";
 import { CycleSlot } from "@/components/bottombar/CycleSlot";
 import { SlotIcon } from "@/components/bottombar/SlotIcon";
 import { SlotMenu } from "@/components/bottombar/SlotMenu";
@@ -101,6 +101,9 @@ export function BarSlot<T extends string>({
   const press = useLongPress(onOpen);
   // メニューを開いたボタン。SlotMenu が「外側の押下」からこの的を除くのに使う
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // 見出し行のメニューは body へ portal されて form の外に出るので、
+  // 項目の submit ボタンを form 属性で結び直す
+  const formId = useId();
 
   // メニューの行を選んだときの閉じ方。**その場で閉じてはいけない。**
   //
@@ -144,6 +147,7 @@ export function BarSlot<T extends string>({
     // 逆に働く。あちらは器が中身なりの幅なので、flex-basis:0 を持ったまま
     // 親が詰まるとスロットが 0 幅へ潰れてボタンが器から溢れる
     <form
+      id={formId}
       action={action}
       className={`relative flex ${variant === "bar" ? "flex-1" : "shrink-0"}`}
     >
@@ -183,6 +187,7 @@ export function BarSlot<T extends string>({
             <button
               key={item.key}
               type="submit"
+              form={formId}
               name={cookieName}
               value={item.value}
               role="menuitemradio"

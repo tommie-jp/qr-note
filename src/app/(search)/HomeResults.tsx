@@ -99,8 +99,9 @@ export async function HomeResults({
           (docs/86 §4-14)。**画面幅ではなくここを見るのが要点** —
           3 ペインの一覧は境界のドラッグで細くなるので、画面幅で切ると
           フォルダーを広げたときに効かない。
-          この器に fixed の子孫は居ない (スロットのメニューは absolute) ので、
-          container が包含ブロックになる副作用は踏まない。
+          この器の中に fixed の子孫は置けない (container が包含ブロックになる)。
+          スロットのメニューは main の overflow:hidden に切られるので、
+          body へ portal して画面座標の fixed で出している (SlotMenu)。
           **1 行に保つ** … スロット側は whitespace-nowrap + shrink-0 で
           折り返さないので、詰まったときに譲るのは件数の側。
 
