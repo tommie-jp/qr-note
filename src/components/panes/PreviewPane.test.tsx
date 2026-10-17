@@ -164,3 +164,38 @@ test("器は構成に関係なく「ノートの器」の目印を持つ", () =>
     expect(render("/item/4951", mode)).toContain("data-note-pane");
   }
 });
+
+// 下部ペインでは、畳む形のとき上端の行を本文の上に浮かせる (docs/108 §3-6)。
+// 左端の「閉じる」が無く、行の左半分が空のまま 48px を食っていた。
+// サーバ描画は畳む形 (既定) なので、下部ペインは最初から浮いた形で出る
+test("下部ペインの操作行は本文の上に浮く (高さを本文に貸す)", () => {
+  for (const mode of ["3", "2"] as const) {
+    const html = render("/item/4951", mode);
+    expect(html).toContain("data-note-chrome-floating");
+    // 行の根は本文を引き上げ、空いた左側で本文を塞がない
+    expect(html).toMatch(
+      /data-note-chrome-bar=""[^>]*class="[^"]*-mb-12[^"]*pointer-events-none/,
+    );
+    // 本文の先頭に札ぶんの詰め物 (最初の数行が札を避けて折り返す)
+    expect(html).toMatch(/data-note-chrome-spacer=""[^>]*float-right/);
+  }
+});
+
+test("全画面 (1 ペイン) の操作行は浮かせない (「閉じる」が要る)", () => {
+  const html = render("/item/4951", "1");
+  expect(html).not.toContain("data-note-chrome-floating");
+  expect(html).not.toContain("data-note-chrome-spacer");
+  expect(html).not.toContain("-mb-12");
+});
+
+// 札を小さく保つため、下部ペインの「全画面で開く」は絵だけ。名前は aria-label
+// (と長押しの吹き出し) が言う。全画面は場所があるので文字のまま
+test("下部ペインの「全画面で開く」は絵だけ、全画面は文字", () => {
+  const pane = render("/item/4951?q=BJT", "2");
+  expect(pane).toMatch(
+    /<a href="\/item\/4951\?q=BJT" aria-label="全画面で開く"[^>]*>\s*<svg/,
+  );
+  const full = render("/item/4951?q=BJT", "1");
+  expect(full).toContain(">全画面で開く</a>");
+  expect(full).not.toContain('aria-label="全画面で開く"');
+});

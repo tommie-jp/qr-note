@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { PanelActiveContext } from "@/components/editor/PanelActiveContext";
 import {
@@ -87,6 +87,7 @@ export function MemoPanel({
     editing: mode === "edit",
   });
   const dismiss = host?.dismiss;
+  const setInline = host?.setInline;
 
   // 積む形へ移ったら、⋯ で開いていた分を捨てる。残すと、次に畳んだ瞬間に
   // 誰も呼んでいないのに面が開いて出てくる
@@ -95,6 +96,23 @@ export function MemoPanel({
       dismiss?.();
     }
   }, [layout, dismiss]);
+
+  // 器に「いま積む形か」を知らせる。帯はこれを見て、畳む形のときだけ本文の上に
+  // 浮く (docs/108 §3-6)。chrome を持たない (畳めない) 使い方では積む形でも
+  // 知らせない — 畳めない器は浮かせる口も持たない。
+  // useLayoutEffect … サーバ描画は浮いた形 (既定) で届くので、積む形で始まる
+  // ノート (空のメモは編集タブ・「常に出す」の端末) は描いた直後に行へ戻す。
+  // 描画後の effect だと戻る前の 1 フレームが見えて本文が 48px 跳ねる。
+  // 後始末で畳む形に戻すのは、器 (NoteChromeProvider) がパネルより長生きする
+  // ことがあるため (自動で選ぶペインは itemId で key を付けない)
+  const hasChrome = chrome !== undefined;
+  useLayoutEffect(() => {
+    if (!hasChrome) {
+      return;
+    }
+    setInline?.(layout === "inline");
+    return () => setInline?.(false);
+  }, [hasChrome, layout, setInline]);
 
   // 重ねた面からタブを選んだら面を閉じる (選んだ中身を読みに行くため)。
   // 編集を選んだときは積む形に変わるので、閉じても戻り口は残る

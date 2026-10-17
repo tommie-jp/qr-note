@@ -153,7 +153,8 @@ export async function ItemDetail({
               通る本文を透けさせない。左右の余白は main (px-safe) が持つ */}
           <NoteChromeProvider>
             <NoteChromeBar
-              className={`sticky top-[var(--header-h)] z-10 ${paneBgClass()}`}
+              className="sticky top-[var(--header-h)] z-10"
+              bgClass={paneBgClass()}
               rowClassName="pt-1"
               start={
                 <CloseNoteButton

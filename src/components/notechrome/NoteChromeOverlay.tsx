@@ -24,7 +24,7 @@ export function NoteChromeTrigger({ badge }: { badge?: ReactNode }) {
         aria-label="ノートの操作"
         aria-expanded={chrome.revealed}
         onClick={chrome.toggle}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-gray-600 transition-colors hover:text-gray-900 active:bg-gray-200"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-gray-600 transition-colors hover:text-gray-900 active:bg-gray-200"
       >
         <MoreIcon />
       </button>

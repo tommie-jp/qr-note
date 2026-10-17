@@ -63,6 +63,17 @@ export function MoreIcon() {
   );
 }
 
+// 全画面で開く (下部ペインの札。docs/108 §3-6)。対角の 2 隅へ向く矢印で
+// 「この枠を画面いっぱいに広げる」を描く。色は使う側 (ACTION_LINK_SKIN の
+// text-blue-600) が持つ — 隣の ⋯ と同じ札に並ぶので、ここで色を決めない
+export function OpenFullIcon() {
+  return (
+    <StrokeIcon>
+      <path d="M14 4h6v6M10 20H4v-6M20 4l-6 6M4 20l6-6" />
+    </StrokeIcon>
+  );
+}
+
 // コピー (docs/21-ログ表示計画.md §6)。重ねた 2 枚の紙で「同じ物が 2 つに
 // なる」を描く。クリップボードの絵にはしない — バインダーの留め具は 20px では
 // ただの突起に潰れ、SaveIcon (フロッピー) と見分けが付かなくなる。

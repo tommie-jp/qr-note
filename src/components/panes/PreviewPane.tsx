@@ -2,8 +2,12 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { ClearIcon } from "@/components/icons";
-import { NoteChromeBar } from "@/components/notechrome/NoteChromeBar";
+import { ClearIcon, OpenFullIcon } from "@/components/icons";
+import { PressTip } from "@/components/item/row-actions/PressTip";
+import {
+  NoteChromeBar,
+  NoteChromeFloatSpacer,
+} from "@/components/notechrome/NoteChromeBar";
 import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
 import { PaneResizer } from "@/components/panes/PaneResizer";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
@@ -154,8 +158,13 @@ export function PreviewPane({
             pt-1 … **pt-safe にしない。** 器の上端はヘッダーの下 (--header-h が
             ステータスバーぶんを含む) か画面の下半分なので、standalone の
             iPhone で inset (47〜59px) を足すと、その分だけ空白が挟まる */}
+          {/* 下部ペインでは畳む形のとき行を本文の上に浮かせる (docs/108 §3-6)。
+            左端の「閉じる」が無く、行の左半分が空のまま 45dvh の 48px を
+            食っていた。全画面は「閉じる」が要るので浮かせない */}
           <NoteChromeBar
-            className={`sticky top-0 z-20 ${bgClass}`}
+            className="sticky top-0 z-20"
+            bgClass={bgClass}
+            canFloat={isBottomPane}
             rowClassName={`mx-auto px-safe pt-1 ${CONTENT_WIDTH_CLASS}`}
             // 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
             // ペインとして常設されている間は押しても閉じられないので、
@@ -173,12 +182,28 @@ export function PreviewPane({
                 </button>
               )
             }
+            // 下部ペインでは絵だけ (⋯ と同じ 44px の輪) にして札を小さく保つ。
+            // 名前は aria-label と長押しの吹き出し (PressTip) が言う。全画面は
+            // 場所があるので文字のまま
             end={
-              openHref && (
+              openHref &&
+              (isBottomPane ? (
+                <PressTip label="全画面で開く">
+                  <a
+                    href={openHref}
+                    aria-label="全画面で開く"
+                    // ACTION_LINK_CLASS の rounded と rounded-full は同じ
+                    // プロパティで競るので、絵だけの輪はここで組む
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-blue-600 transition-colors active:bg-blue-50"
+                  >
+                    <OpenFullIcon />
+                  </a>
+                </PressTip>
+              ) : (
                 <a href={openHref} className={ACTION_LINK_CLASS}>
                   全画面で開く
                 </a>
-              )
+              ))
             }
           />
           {/* pb-safe … 画面の下端に接する器 (全画面・下部バーの無い画面の
@@ -191,6 +216,9 @@ export function PreviewPane({
           <div
             className={`mx-auto px-safe pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
           >
+            {/* 浮いた札のぶんを本文の右上に空ける (最初の数行が札を避けて
+                折り返す)。本文の器の先頭でなければ効かない */}
+            <NoteChromeFloatSpacer canFloat={isBottomPane} />
             {children}
           </div>
         </section>

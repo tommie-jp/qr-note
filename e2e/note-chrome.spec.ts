@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import {
   clearEditor,
   closePage,
@@ -11,7 +11,7 @@ import {
   selectNoteTab,
   test,
 } from './helpers'
-import { e2eNote, removeE2eNote } from './notes'
+import { e2eNote, openSearch, removeE2eNote } from './notes'
 
 // ノートの全画面表示 (docs/108-ノート全画面表示計画.md)。
 // 読むタブの間は見出し行・タグ・タブ・時刻を畳み、上端の行へのホバー (PC)・
@@ -29,8 +29,8 @@ function bar(page: Page) {
   return page.locator('[data-note-chrome-bar]')
 }
 
-function trigger(page: Page) {
-  return page.getByRole('button', { name: 'ノートの操作', exact: true })
+function trigger(scope: Page | Locator) {
+  return scope.getByRole('button', { name: 'ノートの操作', exact: true })
 }
 
 async function openNote(page: Page): Promise<void> {
@@ -263,5 +263,101 @@ test.describe('ノートの操作を畳んで重ねる', () => {
     // Assert
     await expect(heading(page)).toHaveCount(0)
     await expect(page.locator('pre').getByText(BODY)).toBeVisible()
+  })
+})
+
+// 下部ペイン (既定の 2 ペイン) では、畳む形のとき上端の行を本文の上に浮かせ、
+// 行の高さを本文に貸す (docs/108 §3-6)
+test.describe('下部ペインでは操作の行を本文の上に浮かせる', () => {
+  test.beforeAll(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, NOTE)
+    await page.goto(`/edit/${ITEM_ID}`)
+    const save = page.getByRole('button', { name: '更新', exact: true })
+    await expect(save).toBeVisible()
+    await clearEditor(page)
+    await memoEditor(page).pressSequentially(`${BODY}\n\n#e2etag`, { delay: 10 })
+    await save.click()
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    await closePage(page)
+  })
+
+  test.afterAll(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, NOTE)
+    await closePage(page)
+  })
+
+  // 一覧からソフト遷移でペインに開く (ハード遷移の /item は全画面)
+  async function openInPane(page: Page) {
+    const results = await openSearch(page, NOTE.key)
+    await results.getByRole('link', { name: BODY, exact: true }).click()
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    const pane = page.getByRole('region', { name: '選択したノート' })
+    await expect(pane.getByText(BODY).first()).toBeVisible()
+    await expectHydrated(pane.locator('[data-note-chrome-bar]'))
+    return pane
+  }
+
+  test('本文はペインの上端から始まり、行の左側は本文を塞がない', async ({ page }) => {
+    // Act
+    const pane = await openInPane(page)
+
+    // Assert: 行は浮いている
+    await expect(pane.locator('[data-note-chrome-bar][data-note-chrome-floating]')).toHaveCount(1)
+    await expect(pane.getByRole('link', { name: '全画面で開く', exact: true })).toBeVisible()
+    // 本文 (1 行目) はペインの上端近くから始まる (行の 48px ぶん下がっていない)
+    const paneBox = (await pane.boundingBox())!
+    const body = (await pane.getByText(BODY).first().boundingBox())!
+    expect(body.y - paneBox.y).toBeLessThan(40)
+    // 行の左側 (空いている所) を指すと、当たるのは行ではなく本文側
+    const hit = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y)?.closest('[data-note-chrome-bar]') === null,
+      [paneBox.x + 24, paneBox.y + 24] as const,
+    )
+    expect(hit).toBe(true)
+  })
+
+  test('PC は札にマウスを載せると重ねて出す', async ({ page }) => {
+    // Arrange
+    const pane = await openInPane(page)
+    const body = pane.getByText(BODY).first()
+    const before = (await body.boundingBox())!
+
+    // Act
+    await trigger(pane).hover()
+
+    // Assert: 重ねる面は札の下から出て、本文は押し下げない
+    await expect(pane.getByRole('heading', { name: 'item', exact: true })).toBeVisible()
+    await expect(pane.getByRole('tab', { name: '編集' })).toBeVisible()
+    expect((await body.boundingBox())!.y).toBe(before.y)
+
+    // Act: 離れる
+    const viewport = page.viewportSize()!
+    await page.mouse.move(viewport.width / 2, 10)
+
+    // Assert
+    await expect(pane.getByRole('heading', { name: 'item', exact: true })).toHaveCount(0)
+  })
+
+  test('編集タブの間は浮かせず、行に戻す', async ({ page }) => {
+    // Arrange
+    const pane = await openInPane(page)
+
+    // Act
+    await openNoteChrome(pane)
+    await pane.getByRole('tab', { name: '編集' }).click()
+    await expect(memoEditor(page)).toBeVisible()
+
+    // Assert: 見出し行が積まれ、行は浮いていない
+    await expect(pane.getByRole('heading', { name: 'item', exact: true })).toBeVisible()
+    await expect(pane.locator('[data-note-chrome-floating]')).toHaveCount(0)
+    await expect(pane.locator('[data-note-chrome-spacer]')).toHaveCount(0)
+
+    // Act: 読むタブへ戻ると浮く
+    await pane.getByRole('tab', { name: 'markdown' }).click()
+
+    // Assert
+    await expect(pane.locator('[data-note-chrome-floating]')).toHaveCount(1)
   })
 })

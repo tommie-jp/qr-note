@@ -27,6 +27,12 @@ export interface NoteChromeState {
   overlaySlot: HTMLElement | null;
   // いま重ねる面を出しているか
   revealed: boolean;
+  // いま積む形 (常に出す・編集タブ) か。畳む形なら false。
+  // 持ち主 (MemoPanel) が決めて知らせる。帯 (NoteChromeBar) は畳む形のときだけ
+  // 本文の上に浮く (docs/108 §3-6) — 積む形で浮かせると見出し行の右端
+  // (編集 / 履歴 / QR / 記法) に札が重なる
+  inline: boolean;
+  setInline: (inline: boolean) => void;
   setTriggerSlot: (element: HTMLElement | null) => void;
   setOverlaySlot: (element: HTMLElement | null) => void;
   // PC のマウスが行 (と重ねた面) に入った / 出た。delayMs だけ待ってから効かせる
@@ -53,6 +59,8 @@ export function NoteChromeProvider({ children }: { children: ReactNode }) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [clicked, setClicked] = useState(false);
+  // 既定は畳む形 (サーバ描画と同じ)。積む形は持ち主がマウント後に知らせる
+  const [inline, setInline] = useState(false);
 
   // ホバーの予約。**閉じるときに必ず取り消す** — ⋯ を押す瞬間にマウスが行へ
   // 入って開く予約が入り、すぐ面のタブを選んで閉じても、予約が後から発火して
@@ -93,14 +101,16 @@ export function NoteChromeProvider({ children }: { children: ReactNode }) {
       triggerSlot,
       overlaySlot,
       revealed,
+      inline,
       setTriggerSlot,
       setOverlaySlot,
       scheduleHover,
       setFocused,
+      setInline,
       toggle,
       dismiss,
     }),
-    [triggerSlot, overlaySlot, revealed, scheduleHover, toggle, dismiss],
+    [triggerSlot, overlaySlot, revealed, inline, scheduleHover, toggle, dismiss],
   );
 
   return (

@@ -9,16 +9,60 @@ export const HOVER_OPEN_DELAY_MS = 150;
 // はみ出しただけで閉じないように
 export const HOVER_CLOSE_DELAY_MS = 250;
 
+// 行の高さ (48px = rowClassName の pt-1 + 釦の min-h-11)。**行自身に下限を
+// 持たせる** — 釦が 1 つも無い間 (loading は「全画面で開く」が無く、⋯ は
+// マウント後に portal で来る) も同じ高さでないと、浮かせたときに本文を
+// 引き上げる量 (-mb-12) が行より大きくなり、本文の頭がスクロールで届かない
+// 負の領域に入る (レビューで判明)。詰め物の高さ (h-12) も対
+const ROW_MIN_HEIGHT_CLASS = "min-h-12";
+const ROW_PULL_CLASS = "-mb-12";
+const SPACER_HEIGHT_CLASS = "h-12";
+// 詰め物の幅。札 (⋯ 44px + 全画面 44px + 余白) より少し広く取る
+const SPACER_WIDTH_CLASS = "w-28";
+
 interface NoteChromeBarProps {
-  // 貼り付く位置と地色 (器ごとに違う)。sticky と z はここで持つ
+  // 貼り付く位置 (器ごとに違う)。sticky と z はここで持つ
   className: string;
+  // 地色。浮かせている間は外す (本文を透かせる)
+  bgClass: string;
   // 行の中身の幅と余白 (器ごとに違う)
   rowClassName: string;
   // 左端 (閉じる)。置かないときも詰め物を置いて右端を右に保つ
   start?: ReactNode;
   // 右端 (全画面で開く)
   end?: ReactNode;
+  // 畳む形のとき、行を本文の上に浮かせてよいか (docs/108 §3-6)。
+  // 下部ペインは左端の「閉じる」が無く、行の左半分が空のまま 48px を
+  // 占めるので浮かせる。全画面は「閉じる」が要るので浮かせない
+  canFloat?: boolean;
 }
+
+// 浮いているか。畳む形 (重ねる面で操作を出す形) のときだけ — 積む形
+// (常に出す・編集タブ) では見出し行の右端に札が重なるので、行に戻す。
+// 器の外 (chrome === null) では畳めないので浮かせもしない
+export function useNoteChromeFloating(canFloat: boolean): boolean {
+  const chrome = useNoteChrome();
+  return canFloat && chrome !== null && !chrome.inline;
+}
+
+// 本文の先頭に置く詰め物。浮いた札と同じ大きさを右上に float で確保し、
+// 見出しや段落の最初の数行が札を避けて折り返すようにする (docs/108 §3-6)。
+// 画像 (block) は避けずに札の下へ潜るが、札は半透明なので角が少し隠れるだけ。
+// 浮いていないときは何も置かない
+export function NoteChromeFloatSpacer({ canFloat }: { canFloat: boolean }) {
+  const floating = useNoteChromeFloating(canFloat);
+  if (!floating) {
+    return null;
+  }
+  return (
+    <div
+      aria-hidden
+      data-note-chrome-spacer=""
+      className={`float-right ${SPACER_HEIGHT_CLASS} ${SPACER_WIDTH_CLASS}`}
+    />
+  );
+}
+
 
 // ノートの器の上端に貼り付く行 (docs/108-ノート全画面表示計画.md §3-1)。
 //
@@ -34,12 +78,15 @@ interface NoteChromeBarProps {
 // 器 (NoteChromeProvider) の外では差し込み口が空のまま、ただの行として描く
 export function NoteChromeBar({
   className,
+  bgClass,
   rowClassName,
   start,
   end,
+  canFloat = false,
 }: NoteChromeBarProps) {
   const chrome = useNoteChrome();
   const rootRef = useRef<HTMLDivElement>(null);
+  const floating = useNoteChromeFloating(canFloat);
 
   const scheduleHover = chrome?.scheduleHover;
   const setFocused = chrome?.setFocused;
@@ -119,17 +166,43 @@ export function NoteChromeBar({
     };
   }, [revealed, dismiss]);
 
+  // 浮かせる形 (docs/108 §3-6):
+  //   行は sticky のまま、負の margin で本文を行の高さぶん引き上げる。行の
+  //   高さは残るので、重ねる面の top-full はこれまでどおり札の下から出る。
+  //   地色は外し、行の根は pointer-events-none にして空いた左側で本文の
+  //   リンクや画像を塞がない。押せる物 (札・閉じる・重ねる面) だけ auto に
+  //   戻す。根の pointerenter は子に入っても飛んでくるので、ホバーで開く
+  //   仕掛けはそのまま効く (入口が行全体から札に縮むだけ)。
+  //   **開いている間は行全体を auto に戻す** — 札から重ねる面へ、行の空いた
+  //   所を横切ってマウスを運ぶと、根を離れた扱いになって面が閉じる
+  //   (レビューで判明)。開いている間だけなら、行の下の本文を塞いでも困らない
+  const rootClass = floating
+    ? `${className} ${ROW_PULL_CLASS} ${revealed ? "" : "pointer-events-none"}`
+    : `${className} ${bgClass}`;
+  // 札。本文の上に乗っても読めるよう半透明の地に薄い影。overflow-hidden は
+  // 使わない — 焦点の輪 (focus-visible の outline) まで切られる。中の釦は
+  // それぞれ rounded-full で、押下色が札の縁からはみ出さない
+  const endGroupClass = floating
+    ? "pointer-events-auto flex items-center gap-1 rounded-full bg-white/85 shadow-sm backdrop-blur"
+    : "flex items-center gap-1";
   return (
     <div
       ref={rootRef}
       data-note-chrome-bar=""
-      className={`print:hidden ${className}`}
+      data-note-chrome-floating={floating ? "" : undefined}
+      className={`print:hidden ${rootClass}`}
     >
       <div
-        className={`flex items-center justify-between gap-1 ${rowClassName}`}
+        className={`flex ${ROW_MIN_HEIGHT_CLASS} items-center justify-between gap-1 ${rowClassName}`}
       >
-        {start ?? <span />}
-        <div className="flex items-center gap-1">
+        {start ? (
+          <div className={floating ? "pointer-events-auto" : undefined}>
+            {start}
+          </div>
+        ) : (
+          <span />
+        )}
+        <div className={endGroupClass}>
           <div
             ref={chrome?.setTriggerSlot}
             className="flex items-center gap-1 empty:hidden"
@@ -137,7 +210,10 @@ export function NoteChromeBar({
           {end}
         </div>
       </div>
-      <div ref={chrome?.setOverlaySlot} />
+      <div
+        ref={chrome?.setOverlaySlot}
+        className={floating ? "pointer-events-auto" : undefined}
+      />
     </div>
   );
 }
