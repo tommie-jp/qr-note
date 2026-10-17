@@ -125,8 +125,8 @@ test("details は閉じたまま出す", () => {
 
 // buildNotePreviews (対象の選別。優先順位の正本は lib/items/itemRowDecor.ts の rowFace)
 
-const item = (itemNo: string, memo: string, mode = "memo") => ({
-  itemNo,
+const item = (itemId: string, memo: string, mode = "memo") => ({
+  itemId,
   memo,
   mode,
 });

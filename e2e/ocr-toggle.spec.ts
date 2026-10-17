@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
+import { e2eItemId } from './env'
 import {
   clearEditor,
   closePage,
@@ -13,14 +13,14 @@ import {
 // OCR の切り替えと「ノートの全画像を OCR」のメニュー
 // (docs/106-OCR切替と全画像OCR計画.md §4)。
 //
-// - **DB には書かない。** 保存しないので、番号は /edit で開くだけ。
+// - **DB には書かない。** 保存しないので、id は /edit で開くだけ。
 //   `/api/images` の送信は route で偽の封筒を返す
 // - **OCR そのものは走らせない。** モデルの読み込みは重く、E2E では
 //   「プレースホルダが入るか」だけを見る。挿入時 OCR は保存後の画像を
 //   取り直してから読むので、その取り直しを route で 5 秒止め、その間に
 //   プレースホルダを確かめる (止めないと 404 で即座に消える)
 // - 全画像 OCR の実行・中止は手で確かめる (モデルが要る)
-const ITEM_NO = `${E2E_ITEM_PREFIX}ocr`
+const ITEM_ID = e2eItemId(12)
 const IMAGES_PATH = '/api/images'
 const FAKE_URL = `${IMAGES_PATH}/e2e0d4a1-0000-4000-8000-0000000000ee.png`
 const PLACEHOLDER = /OCR処理中/
@@ -35,7 +35,7 @@ function ocrToggle(page: Page): Locator {
 }
 
 async function openEditor(page: Page): Promise<void> {
-  await page.goto(`/edit/${ITEM_NO}`)
+  await page.goto(`/edit/${ITEM_ID}`)
   await expect(page.getByRole('button', { name: '更新', exact: true })).toBeVisible()
 }
 

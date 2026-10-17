@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache'
 // 'use server' を付けない理由は _guards.ts と同じ (付けると外から呼べる口になる)
 
 // ノート 1 件の画面
-export function revalidateItem(itemNo: string): void {
-  revalidatePath(`/item/${itemNo}`)
+export function revalidateItem(itemId: string): void {
+  revalidatePath(`/item/${itemId}`)
 }
 
 // 検索一覧とゴミ箱。ゴミ箱の出し入れはどちらの一覧にも効く

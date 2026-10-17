@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 
 // 公開ノートは検索エンジンに載せない (docs/22-ノート公開計画.md §8)。
 // 「URL を知っている人に見せる」であって「web に公開する」ではない。
-// itemNo は連番なので、1 件でもクロールされると辿られる。
+// itemId は連番なので、1 件でもクロールされると辿られる。
 // 既定は狭いほうへ倒しておき、載せたくなったら外す
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
 interface ItemPageProps {
-  params: Promise<{ itemNo: string }>;
+  params: Promise<{ itemId: string }>;
   // saved … 更新直後だけ付く保存時刻。トーストを出す印 (docs/11 §2-3)
   // q / sort … 一覧から開いたときに持ち回している検索状態。
   //   これがあるときだけ前後ナビを出す (docs/60-学習進捗計画.md §4)。
@@ -34,13 +34,12 @@ interface ItemPageProps {
 // 誰に何を見せるかはこのページ (の ItemDetail) が決める。門番を当てにしない。
 // 見せ分けの表と「未登録・非公開・ゴミ箱を同じ応答に潰す」理由は components/item/ItemDetail.tsx
 export default async function ItemPage({ params, searchParams }: ItemPageProps) {
-  const { itemNo } = await params;
-  guardItemPage(itemNo);
+  const itemId = await guardItemPage((await params).itemId, (id) => `/item/${id}`);
   const { saved, q, sort } = await searchParams;
 
   return (
     <ItemDetail
-      itemNo={itemNo}
+      itemId={itemId}
       q={q}
       sort={sort}
       saved={saved}

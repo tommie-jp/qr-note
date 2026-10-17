@@ -1,5 +1,4 @@
 import type { Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -10,7 +9,7 @@ import {
   test,
   selectNoteTab,
 } from './helpers'
-import { removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote } from './notes'
 
 // 編集まわりの既存の不具合の回帰テスト (2026-09-17 に修正):
 //
@@ -19,11 +18,12 @@ import { removeE2eNote } from './notes'
 //      本文が DOM に入る前に取られていた)
 //   2. 保存が済んだ下書きが localStorage に残り、後で本文が別の経路で変わると
 //      古い基点のまま復元されて競合バナーになっていた
-const FOLLOW_NO = `${E2E_ITEM_PREFIX}2`
-const DRAFT_NO = `${E2E_ITEM_PREFIX}3`
 const STAMP = Date.now()
+// 見出し (本文 1 行目) は `- [ ] ` を除いた「zze2e2 task …」になる
+const FOLLOW = e2eNote(2, `task ${STAMP}`)
+const DRAFT = e2eNote(3, `draft ${STAMP}`)
 
-// 3 本とも自分でノートを作る (同じ番号を上書き) ので、単独でも順不同でも走る。
+// 3 本とも自分でノートを作る (同じ id を上書き) ので、単独でも順不同でも走る。
 //
 // UnsavedGuard の判定だけを取り出す。本物の離脱は Playwright では確認
 // ダイアログで固まるので起こさない (e2e/README.md)。preventDefault されたら
@@ -45,13 +45,13 @@ function saveButton(page: Page) {
   return page.getByRole('button', { name: '更新', exact: true })
 }
 
-async function createNote(page: Page, itemNo: string, body: string): Promise<void> {
-  await page.goto(`/edit/${itemNo}`)
+async function createNote(page: Page, itemId: string, body: string): Promise<void> {
+  await page.goto(`/edit/${itemId}`)
   await expect(saveButton(page)).toBeVisible()
   await clearEditor(page)
   await memoEditor(page).pressSequentially(body, { delay: 10 })
   await saveButton(page).click()
-  await expect(page).toHaveURL((url) => url.pathname === `/item/${itemNo}`)
+  await expect(page).toHaveURL((url) => url.pathname === `/item/${itemId}`)
   // 「- [ ] 」はチェックボックスに描かれるので、本文の文字の部分で確かめる
   await expect(page.getByText(body.replace(/^- \[[ x]\] /, '')).first()).toBeVisible()
 }
@@ -59,21 +59,21 @@ async function createNote(page: Page, itemNo: string, body: string): Promise<voi
 test.describe('編集画面の離脱確認と下書き', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, FOLLOW_NO)
-    await removeE2eNote(page, DRAFT_NO)
+    await removeE2eNote(page, FOLLOW)
+    await removeE2eNote(page, DRAFT)
     await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, FOLLOW_NO)
-    await removeE2eNote(page, DRAFT_NO)
+    await removeE2eNote(page, FOLLOW)
+    await removeE2eNote(page, DRAFT)
     await closePage(page)
   })
 
   test('チェックを押して黙って追随した直後は、離脱の確認を出さない', async ({ page }) => {
     // Arrange: 編集タブを一度開いてエディタを乗せてから、markdown タブに戻る
-    await createNote(page, FOLLOW_NO, `- [ ] ${E2E_ITEM_PREFIX} task ${STAMP}`)
+    await createNote(page, FOLLOW.id, `- [ ] ${FOLLOW.heading}`)
     await selectNoteTab(page, '編集')
     await expect(memoEditor(page)).toBeVisible()
     await selectNoteTab(page, 'markdown')
@@ -91,16 +91,16 @@ test.describe('編集画面の離脱確認と下書き', () => {
 
   test('「別の版を読み込む」の直後は、離脱の確認を出さない', async ({ page, browser }) => {
     // Arrange: こちらで打ちかけている間に、別のページが別の本文を保存する
-    await createNote(page, FOLLOW_NO, `- [ ] ${E2E_ITEM_PREFIX} task ${STAMP}`)
+    await createNote(page, FOLLOW.id, `- [ ] ${FOLLOW.heading}`)
     await selectNoteTab(page, '編集')
     await expect(memoEditor(page)).toBeVisible()
     await memoEditor(page).click()
     await page.keyboard.press('End')
     await memoEditor(page).pressSequentially(' ours', { delay: 10 })
 
-    const theirs = `- [x] ${E2E_ITEM_PREFIX} task ${STAMP} theirs`
+    const theirs = `- [x] ${FOLLOW.heading} theirs`
     const other = await newLoggedInPage(browser)
-    await createNote(other, FOLLOW_NO, theirs)
+    await createNote(other, FOLLOW.id, theirs)
     await closePage(other)
 
     // Act: 保存すると競合になる → 別の版を読み込む。
@@ -118,17 +118,17 @@ test.describe('編集画面の離脱確認と下書き', () => {
 
   test('保存が済んだら下書きは消える', async ({ page }) => {
     // Arrange: 打って、下書きが localStorage に書かれるまで待つ
-    const key = `qr-search:memo-draft:${DRAFT_NO}`
+    const key = `qr-search:memo-draft:${DRAFT.id}`
     const draft = () => page.evaluate((k) => window.localStorage.getItem(k), key)
-    await page.goto(`/edit/${DRAFT_NO}`)
+    await page.goto(`/edit/${DRAFT.id}`)
     await expect(saveButton(page)).toBeVisible()
     await clearEditor(page)
-    await memoEditor(page).pressSequentially(`${E2E_ITEM_PREFIX} draft ${STAMP}`, { delay: 10 })
+    await memoEditor(page).pressSequentially(DRAFT.heading, { delay: 10 })
     await expect.poll(draft).not.toBeNull()
 
     // Act
     await saveButton(page).click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${DRAFT_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${DRAFT.id}`)
 
     // Assert
     await expect.poll(draft).toBeNull()

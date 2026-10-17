@@ -26,12 +26,12 @@ export interface ItemChecksResult {
 // そこで memo は捨てられる。
 export async function searchItemChecks(
   query: string,
-  sort: Sort = 'itemNo',
+  sort: Sort = 'registered',
 ): Promise<ItemChecksResult> {
   return searchItemRows<MatrixSourceRow>(
     buildChecksWhere(query),
     Prisma.sql`
-      item_no   AS "itemNo",
+      id::text  AS "itemId",
       memo,
       task_todo AS "taskTodo",
       task_done AS "taskDone"

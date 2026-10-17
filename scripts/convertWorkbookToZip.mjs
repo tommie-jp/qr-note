@@ -231,7 +231,7 @@ function tagLine() {
 // 目次ノート (決め 8)。冊のタグで番号順に並べると、目次 → 0-1 → 0-2 … の順に前後ナビで辿れる
 const tocItemNo = (b) => `wb${num(b)}-00-00`
 const INDEX_ITEM_NO = 'wb00-00-00'
-const listQuery = (tag) => `?q=${encodeURIComponent(`#${tag}`)}&sort=itemNo`
+const listQuery = (tag) => `?q=${encodeURIComponent(`#${tag}`)}&sort=registered`
 const TOC_START = '<!-- toc:start -->'
 const TOC_END = '<!-- toc:end -->'
 

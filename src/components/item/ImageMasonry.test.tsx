@@ -10,8 +10,7 @@ const IMAGE_2 = "9f8e7d6c-5b4a-4321-8765-4321fedcba98.webp";
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
-    itemNo: "1",
-    itemNoNum: 1,
+    itemId: "00000000-0000-7000-8000-000000000001",
     memo: "",
     url: "",
     mode: "memo",
@@ -34,7 +33,7 @@ const render = (
   items: Item[],
   circuitThumbs?: Record<string, string[]>,
   mathTexts?: Record<string, { title?: string; preview?: string }>,
-  previewItemNo?: string | null,
+  previewItemId?: string | null,
 ) =>
   renderToStaticMarkup(
     <ImageMasonry
@@ -42,14 +41,14 @@ const render = (
       itemHref={(no) => `/item/${no}`}
       circuitThumbs={circuitThumbs}
       mathTexts={mathTexts}
-      previewItemNo={previewItemNo}
+      previewItemId={previewItemId}
     />,
   );
 
 test("1 ノートの複数画像をすべてタイルにし、どれもノート詳細へ繋ぐ", () => {
   const html = render([
     makeItem({
-      itemNo: "4951",
+      itemId: "00000000-0000-7000-8000-000000004951",
       memo: `写真\n![](/api/images/${IMAGE_1})\n![](/api/images/${IMAGE_2})`,
     }),
   ]);
@@ -57,23 +56,24 @@ test("1 ノートの複数画像をすべてタイルにし、どれもノート
   expect(html).toContain(`/api/images/${IMAGE_1}?thumb=1`);
   expect(html).toContain(`/api/images/${IMAGE_2}?thumb=1`);
   // タイルごとにノート詳細へのリンク
-  const links = html.match(/href="\/item\/4951"/g);
+  const links = html.match(/href="\/item\/00000000-0000-7000-8000-000000004951"/g);
   expect(links).toHaveLength(2);
-  // どのノートの画像か判る番号 (キャプション 1 行目)
-  expect(html).toContain("#4951");
+  // どのノートの画像か判る見出し (キャプション 1 行目)
+  expect(html).toContain("写真");
 });
 
-test("タイルに #番号・タイトル・タグの 2 行キャプションを添える (compact 準拠)", () => {
+test("タイルにタイトル・タグの 2 行キャプションを添える (compact 準拠)", () => {
   const html = render([
     makeItem({
-      itemNo: "88",
+      itemId: "00000000-0000-7000-8000-000000000088",
       memo: "ネジ M3\n![](/api/images/" + IMAGE_1 + ")",
       tags: ["ねじ", "在庫"],
     }),
   ]);
-  // 1 行目: #番号 とタイトル (memoSummary)
-  expect(html).toContain("#88");
+  // 1 行目: タイトル (memoSummary)。行頭の #番号 は出さない (id は UUID で
+  // 人が読む物ではない。docs/107 §4-4)
   expect(html).toContain("ネジ M3");
+  expect(html).not.toContain("00000000-0000-7000-8000-000000000088<");
   // 2 行目: タグはタグ検索への別リンク (ノート詳細とは別の行き先)
   expect(html).toContain("#ねじ");
   expect(html).toContain(`href="${tagSearchHref("ねじ")}"`);
@@ -82,7 +82,7 @@ test("タイルに #番号・タイトル・タグの 2 行キャプションを
 
 test("タグの無いノートではタグ行を出さない", () => {
   const html = render([
-    makeItem({ itemNo: "89", memo: `見出し\n![](/api/images/${IMAGE_1})`, tags: [] }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000089", memo: `見出し\n![](/api/images/${IMAGE_1})`, tags: [] }),
   ]);
   // タイトルは出るが、タグ検索リンクは 1 つも無い
   expect(html).toContain("見出し");
@@ -91,26 +91,26 @@ test("タグの無いノートではタグ行を出さない", () => {
 
 test("画像のないノートはタイルにならない", () => {
   const html = render([
-    makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE_1})` }),
-    makeItem({ itemNo: "20", memo: "文章だけのノート" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: `![](/api/images/${IMAGE_1})` }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000020", memo: "文章だけのノート" }),
   ]);
-  expect(html).toContain('href="/item/10"');
-  expect(html).not.toContain('href="/item/20"');
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000000010"');
+  expect(html).not.toContain('href="/item/00000000-0000-7000-8000-000000000020"');
 });
 
 test("URL モードのノート (memo が空) が混ざっても落ちず、タイルにも出ない", () => {
   const html = render([
-    makeItem({ itemNo: "30", mode: "url", url: "https://example.com" }),
-    makeItem({ itemNo: "40", memo: `![](/api/images/${IMAGE_1})` }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000030", mode: "url", url: "https://example.com" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000040", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
-  expect(html).not.toContain('href="/item/30"');
-  expect(html).toContain('href="/item/40"');
+  expect(html).not.toContain('href="/item/00000000-0000-7000-8000-000000000030"');
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000000040"');
 });
 
 test("ページ内に画像が 1 枚も無ければ案内だけを出す", () => {
   const html = render([
-    makeItem({ itemNo: "50", memo: "画像なし" }),
-    makeItem({ itemNo: "60", mode: "url", url: "https://example.com" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000050", memo: "画像なし" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000060", mode: "url", url: "https://example.com" }),
   ]);
   expect(html).toContain("このページには画像・回路図がありません");
   expect(html).not.toContain("/api/images/");
@@ -122,24 +122,23 @@ const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
 const CIRCUIT_SVG_2 = '<svg viewBox="0 0 20 20"><path d="M0 0h20"/></svg>';
 
 test("回路図をタイルとして並べ、ノート詳細へ繋ぐ", () => {
-  const html = render([makeItem({ itemNo: "90", memo: "RC 回路" })], {
-    "90": [CIRCUIT_SVG],
+  const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000090", memo: "RC 回路" })], {
+    "00000000-0000-7000-8000-000000000090": [CIRCUIT_SVG],
   });
   expect(html).toContain("circuit-thumb");
   expect(html).toContain('<path d="M0 0h10"/>');
-  expect(html).toContain('href="/item/90"');
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000000090"');
   // キャプション (compact 準拠の 2 行) も画像タイルと同じに出す
-  expect(html).toContain("#90");
   expect(html).toContain("RC 回路");
 });
 
 test("同じノートの画像タイルの後に回路図タイルを並べる", () => {
   const html = render(
-    [makeItem({ itemNo: "91", memo: `図と写真\n![](/api/images/${IMAGE_1})` })],
-    { "91": [CIRCUIT_SVG, CIRCUIT_SVG_2] },
+    [makeItem({ itemId: "00000000-0000-7000-8000-000000000091", memo: `図と写真\n![](/api/images/${IMAGE_1})` })],
+    { "00000000-0000-7000-8000-000000000091": [CIRCUIT_SVG, CIRCUIT_SVG_2] },
   );
   // 画像 1 + 回路図 2 = タイル 3 枚 (どれもノート詳細へ)
-  expect(html.match(/href="\/item\/91"/g)).toHaveLength(3);
+  expect(html.match(/href="\/item\/00000000-0000-7000-8000-000000000091"/g)).toHaveLength(3);
   // 画像タイルが先、回路図タイルが後
   const imagePos = html.indexOf(`/api/images/${IMAGE_1}`);
   const circuitPos = html.indexOf("circuit-thumb");
@@ -149,20 +148,20 @@ test("同じノートの画像タイルの後に回路図タイルを並べる",
 
 test("回路図の SVG が無いノートは今までどおり画像タイルだけ", () => {
   const html = render([
-    makeItem({ itemNo: "92", memo: `![](/api/images/${IMAGE_1})` }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000092", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
   expect(html).toContain(`/api/images/${IMAGE_1}`);
   expect(html).not.toContain("circuit-thumb");
 });
 
 test("画像も回路図も無いページは案内だけを出す (文言は両方に触れる)", () => {
-  const html = render([makeItem({ itemNo: "93", memo: "文章だけ" })]);
+  const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000093", memo: "文章だけ" })]);
   expect(html).toContain("このページには画像・回路図がありません");
 });
 
 test("行優先で埋まる Grid で組む (multi-column ではない)", () => {
   const html = render([
-    makeItem({ itemNo: "70", memo: `![](/api/images/${IMAGE_1})` }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000070", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
   // 行優先 (1,2 / 3,4) で並ぶよう Grid にする。列数は画面幅に決めさせる
   // (docs/32 §1)。縦詰めになる multi-column には戻さない
@@ -181,9 +180,9 @@ test("行優先で埋まる Grid で組む (multi-column ではない)", () => {
 
 test("mathTexts のタイトルがあればキャプションを KaTeX の HTML で出す", () => {
   const html = render(
-    [makeItem({ itemNo: "95", memo: `$E=100$ の回路\n![](/api/images/${IMAGE_1})` })],
+    [makeItem({ itemId: "00000000-0000-7000-8000-000000000095", memo: `$E=100$ の回路\n![](/api/images/${IMAGE_1})` })],
     undefined,
-    { "95": { title: '<span class="katex">E=100</span>' } },
+    { "00000000-0000-7000-8000-000000000095": { title: '<span class="katex">E=100</span>' } },
   );
   expect(html).toContain('class="katex"');
   expect(html).not.toContain("$E=100$");
@@ -194,12 +193,12 @@ test("mathTexts のタイトルがあればキャプションを KaTeX の HTML 
 test("プレビュー中のノートのタイルにだけ選択の印を付ける", () => {
   const html = render(
     [
-      makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE_1})` }),
-      makeItem({ itemNo: "20", memo: `![](/api/images/${IMAGE_2})` }),
+      makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: `![](/api/images/${IMAGE_1})` }),
+      makeItem({ itemId: "00000000-0000-7000-8000-000000000020", memo: `![](/api/images/${IMAGE_2})` }),
     ],
     undefined,
     undefined,
-    "10",
+    "00000000-0000-7000-8000-000000000010",
   );
   expect(html.split('aria-current="page"').length - 1).toBe(1);
   // 枠色は CSS 変数で受ける (docs/88-選択行の色計画.md)。色そのものは
@@ -209,7 +208,7 @@ test("プレビュー中のノートのタイルにだけ選択の印を付け�
 
 test("プレビューを開いていなければ選択の印は無い", () => {
   const html = render([
-    makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE_1})` }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
   expect(html).not.toContain('aria-current="page"');
 });
@@ -225,7 +224,7 @@ test("tileActions を立てると、タイルごとに ⋮ を出す", () => {
       <ImageMasonry
         items={[
           makeItem({
-            itemNo: "4951",
+            itemId: "00000000-0000-7000-8000-000000004951",
             memo: `![](/api/images/${IMAGE_1})\n![](/api/images/${IMAGE_2})`,
           }),
         ]}
@@ -234,14 +233,39 @@ test("tileActions を立てると、タイルごとに ⋮ を出す", () => {
       />
     </SearchTileMenuProvider>,
   );
-  // 同じノートの 2 枚のどちらにも、ノートへの操作として出る
-  expect(html.match(/aria-label="#4951 の操作"/g)).toHaveLength(2);
+  // 同じノートの 2 枚のどちらにも、ノートへの操作として出る。名乗りは
+  // 見出しから作る呼び名 (lib/items/noteName.ts)。見出しが無ければ無題
+  expect(html.match(/aria-label="無題のノートの操作"/g)).toHaveLength(2);
   expect(html).toContain('aria-haspopup="menu"');
+});
+
+test("見出しのあるノートの ⋮ は見出しで名乗る (#番号は使わない)", () => {
+  const html = renderToStaticMarkup(
+    <SearchTileMenuProvider
+      trashAction={() => {}}
+      searchState={{ q: "", page: 1, sort: "updated" }}
+    >
+      <ImageMasonry
+        items={[
+          makeItem({
+            itemId: "00000000-0000-7000-8000-000000004951",
+            memo: `抵抗\n![](/api/images/${IMAGE_1})`,
+            // 呼び名は派生列の title から作る (一覧のタイトル順と同じ鍵)
+            title: "抵抗",
+          }),
+        ]}
+        itemHref={(no) => `/item/${no}`}
+        tileActions
+      />
+    </SearchTileMenuProvider>,
+  );
+  expect(html).toContain('aria-label="「抵抗」の操作"');
+  expect(html).not.toMatch(/aria-label="#/);
 });
 
 test("tileActions が無ければ ⋮ を出さない (ゴミ箱の一覧)", () => {
   const html = render([
-    makeItem({ itemNo: "4951", memo: `![](/api/images/${IMAGE_1})` }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
   expect(html).not.toContain("の操作");
 });

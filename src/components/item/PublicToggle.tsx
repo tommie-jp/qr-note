@@ -4,7 +4,7 @@ import { PressTip } from "@/components/item/row-actions/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";
 
 interface PublicToggleProps {
-  itemNo: string;
+  itemId: string;
   // 公開した日時 (null = 非公開)。値そのものは出さず、状態の判定だけに使う
   publicAt: Date | null;
   setPublicAction: (formData: FormData) => void | Promise<void>;
@@ -29,7 +29,7 @@ interface PublicToggleProps {
 // フォームが送るのは「望む状態」であって「裏返せ」ではない。二重送信や
 // 戻るボタンで意図と逆に倒れないようにするため (app/actions/publish.ts 側も同じ約束)。
 export function PublicToggle({
-  itemNo,
+  itemId,
   publicAt,
   setPublicAction,
 }: PublicToggleProps) {
@@ -53,7 +53,7 @@ export function PublicToggle({
 
   return (
     <form action={setPublicAction}>
-      <input type="hidden" name="itemNo" value={itemNo} />
+      <input type="hidden" name="itemId" value={itemId} />
       <input type="hidden" name="public" value={isPublic ? "0" : "1"} />
       <PressTip label={hint}>
         {isPublic ? (
@@ -70,7 +70,7 @@ export function PublicToggle({
         ) : (
           <ConfirmSubmitButton
             formAction={setPublicAction}
-            confirmMessage={`#${itemNo} を公開します。URL を知っていれば誰でも見られます。よろしいですか?`}
+            confirmMessage="このノートを公開します。URL を知っていれば誰でも見られます。よろしいですか?"
             ariaLabel="非公開"
             className={`${STATE_TOGGLE_CLASS} ${colorClass}`}
           >

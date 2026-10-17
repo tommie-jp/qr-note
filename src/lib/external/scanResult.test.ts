@@ -28,7 +28,7 @@ test('旧シールの http URL も部品ページへ飛ばす (スキームは�
   expect(resolveScanPath('http://qr.tommie.jp/item/1003', [HOST])).toBe('/item/1003')
 })
 
-test('非数字の itemNo も部品ページへ飛ばす', () => {
+test('非数字の itemId も部品ページへ飛ばす', () => {
   // Ver1 実データに "100x" 形式が 1 件ある (validation.ts)
   expect(resolveScanPath('https://qr.tommie.jp/item/100x', [HOST])).toBe('/item/100x')
 })
@@ -70,7 +70,7 @@ test('自サイトでも部品ページ以外の URL は検索に落とす', () 
 })
 
 test('path traversal を仕込んだ自サイト URL は部品ページへ飛ばさない', () => {
-  // URL のパース時に pathname が /evil へ正規化され /item/:itemNo に
+  // URL のパース時に pathname が /evil へ正規化され /item/:itemId に
   // マッチしなくなるので検索に落ちる。検索語は読み取った生の文字列
   // (何を読んだか人に見せる) であって、正規化後の URL ではない
   expect(resolveScanPath('https://qr.tommie.jp/item/1003/../../evil', [HOST])).toBe(
@@ -78,7 +78,7 @@ test('path traversal を仕込んだ自サイト URL は部品ページへ飛ば
   )
 })
 
-test('itemNo が不正な自サイト URL は検索に落とす', () => {
+test('itemId が不正な自サイト URL は検索に落とす', () => {
   expect(resolveScanPath('https://qr.tommie.jp/item/%20', [HOST])).toBe(
     '/?q=https%3A%2F%2Fqr.tommie.jp%2Fitem%2F%2520',
   )

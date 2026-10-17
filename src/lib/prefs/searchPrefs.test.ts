@@ -34,10 +34,10 @@ test('検索一覧の並び順は URL の指定を cookie より優先する', (
   const cookieStore = cookieStoreOf({ sort: 'accessed' })
 
   // Act
-  const prefs = readSearchPrefs(cookieStore, 'itemNo')
+  const prefs = readSearchPrefs(cookieStore, 'registered')
 
   // Assert
-  expect(prefs.sort).toBe('itemNo')
+  expect(prefs.sort).toBe('registered')
 })
 
 // cookie は利用者が自由に書き換えられる外部入力
@@ -84,8 +84,8 @@ test('ゴミ箱の並び順も URL の指定を cookie より優先する', () =
   const cookieStore = cookieStoreOf({ trashSort: 'deletedAsc' })
 
   // Act
-  const prefs = readTrashPrefs(cookieStore, 'itemNo')
+  const prefs = readTrashPrefs(cookieStore, 'registered')
 
   // Assert
-  expect(prefs.sort).toBe('itemNo')
+  expect(prefs.sort).toBe('registered')
 })

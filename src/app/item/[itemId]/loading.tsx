@@ -1,6 +1,6 @@
 import { SkeletonBox, SkeletonLine } from "@/components/chrome/Skeleton";
 
-// /item/:itemNo の遷移中に即座に出す骨組み (docs/11-アプリ的UIUX計画.md §1-3)。
+// /item/:itemId の遷移中に即座に出す骨組み (docs/11-アプリ的UIUX計画.md §1-3)。
 //
 // 本文の枠には**一言入れる** (docs/85-回路図表示待ち計画.md §5)。骨組みの枠は
 // bg-white なので、白い紙の上では点滅していても「何も起きていない」と

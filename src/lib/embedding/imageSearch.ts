@@ -6,10 +6,10 @@
 
 import { dot } from './imageVector'
 
-// 索引 1 件 = 1 枚の登録画像。1 ノートに複数枚あれば同じ itemNo で複数並ぶ。
+// 索引 1 件 = 1 枚の登録画像。1 ノートに複数枚あれば同じ itemId で複数並ぶ。
 // embedding は正規化済み Float32Array。
 export interface ImageVectorEntry {
-  itemNo: string
+  itemId: string
   title: string
   imageName: string
   embedding: Float32Array
@@ -17,7 +17,7 @@ export interface ImageVectorEntry {
 
 // ノート 1 件分の照合結果。imageName は最も似ていた 1 枚 (サムネ表示に使う)。
 export interface ItemMatch {
-  itemNo: string
+  itemId: string
   title: string
   imageName: string
   score: number
@@ -35,7 +35,7 @@ const DEFAULT_LIMIT = 5
 // クエリベクトルに近いノートを上位から返す。
 //
 // ノートのスコアは所属画像の最大類似度で集約する (角度違いの複数枚を登録し、
-// どれか 1 枚が似ていれば当たり、とする定石。docs/25 §6)。同点は itemNo 昇順で
+// どれか 1 枚が似ていれば当たり、とする定石。docs/25 §6)。同点は itemId 昇順で
 // 安定させる (端末やデータ順に依らず同じ結果を返す)。
 export function rankItems(
   query: Float32Array,
@@ -45,14 +45,14 @@ export function rankItems(
   const limit = options.limit ?? DEFAULT_LIMIT
   const minScore = options.minScore ?? 0
 
-  // itemNo ごとに最大スコアと、それを出した画像を持つ。
+  // itemId ごとに最大スコアと、それを出した画像を持つ。
   const best = new Map<string, ItemMatch>()
   for (const entry of entries) {
     const score = dot(query, entry.embedding)
-    const current = best.get(entry.itemNo)
+    const current = best.get(entry.itemId)
     if (!current || score > current.score) {
-      best.set(entry.itemNo, {
-        itemNo: entry.itemNo,
+      best.set(entry.itemId, {
+        itemId: entry.itemId,
         title: entry.title,
         imageName: entry.imageName,
         score,
@@ -62,7 +62,7 @@ export function rankItems(
 
   return [...best.values()]
     .filter((match) => match.score >= minScore)
-    .sort((a, b) => b.score - a.score || (a.itemNo < b.itemNo ? -1 : 1))
+    .sort((a, b) => b.score - a.score || (a.itemId < b.itemId ? -1 : 1))
     .slice(0, limit)
 }
 

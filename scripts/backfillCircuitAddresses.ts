@@ -22,9 +22,9 @@ async function main(): Promise<void> {
   const dryRun = process.env.DRY_RUN === '1'
   // **LIKE は使わない** — PGroonga が LIKE を全文一致に乗っ取るので、部分一致は
   // position() で見る (rewriteImageReference と同じ流儀)。ゴミ箱の行も含める。
-  const rows = await prisma.$queryRaw<{ item_no: string; memo: string }[]>`
-    SELECT item_no, memo FROM items WHERE position('circuit' IN memo) > 0
-    ORDER BY item_no
+  const rows = await prisma.$queryRaw<{ id: string; memo: string }[]>`
+    SELECT id::text AS id, memo FROM items WHERE position('circuit' IN memo) > 0
+    ORDER BY id
   `
   console.log(`${dryRun ? '[DRY_RUN] ' : ''}対象の候補: ${rows.length} 件`)
 
@@ -38,13 +38,13 @@ async function main(): Promise<void> {
       continue
     }
     if (plan.kind === 'manual') {
-      manual.push(`${row.item_no}: ${plan.skipped.join(' ')}`)
+      manual.push(`${row.id}: ${plan.skipped.join(' ')}`)
       continue
     }
-    console.log(`  ${row.item_no}: ${plan.changed} か所${dryRun ? ' (書かない)' : ''}`)
+    console.log(`  ${row.id}: ${plan.changed} か所${dryRun ? ' (書かない)' : ''}`)
     if (!dryRun) {
       await prisma.item.update({
-        where: { itemNo: row.item_no },
+        where: { itemId: row.id },
         data: { memo: plan.memo, ...derivedFromMemo(plan.memo) },
       })
     }

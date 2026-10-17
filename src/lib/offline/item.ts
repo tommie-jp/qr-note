@@ -23,9 +23,7 @@ import {
 export const SYNC_ITEMS_PATH = '/api/sync/items'
 
 export interface OfflineItem {
-  itemNo: string
-  // 番号順の並べ替え用。非数字の itemNo は null (末尾へ回す)
-  itemNoNum: number | null
+  itemId: string
   memo: string
   url: string
   mode: Mode
@@ -112,7 +110,7 @@ function parseOfflineItem(value: unknown): OfflineItem | null {
   }
   const row = value as Record<string, unknown>
   if (
-    !isNonEmptyString(row.itemNo) ||
+    !isNonEmptyString(row.itemId) ||
     typeof row.memo !== 'string' ||
     typeof row.url !== 'string' ||
     typeof row.title !== 'string' ||
@@ -120,14 +118,12 @@ function parseOfflineItem(value: unknown): OfflineItem | null {
     !isFiniteNumber(row.taskTodo) ||
     !isFiniteNumber(row.taskDone) ||
     typeof row.updatedAt !== 'string' ||
-    typeof row.accessedAt !== 'string' ||
-    !(row.itemNoNum === null || isFiniteNumber(row.itemNoNum))
+    typeof row.accessedAt !== 'string'
   ) {
     return null
   }
   return {
-    itemNo: row.itemNo,
-    itemNoNum: row.itemNoNum,
+    itemId: row.itemId,
     memo: row.memo,
     url: row.url,
     mode: parseMode(row.mode),

@@ -7,8 +7,7 @@ const IMAGE = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
-    itemNo: "1",
-    itemNoNum: 1,
+    itemId: "00000000-0000-7000-8000-000000000001",
     memo: "",
     url: "",
     mode: "memo",
@@ -36,25 +35,33 @@ const renderRow = (
     <ul>
       <ItemRow
         item={item}
-        href={`/item/${item.itemNo}`}
+        href={`/item/${item.itemId}`}
         checkbox={checkbox}
         view={view}
       />
     </ul>,
   );
 
-test("番号と要約をアイテム詳細へのリンクにする", () => {
+test("要約をアイテム詳細へのリンクにする", () => {
   const html = renderRow(
-    makeItem({ itemNo: "4951", memo: "BJT NPN 2SC2712-Y LY SMD" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: "BJT NPN 2SC2712-Y LY SMD" }),
   );
-  expect(html).toContain('href="/item/4951"');
-  expect(html).toContain("#4951");
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000004951"');
   expect(html).toContain("BJT NPN 2SC2712-Y LY SMD");
+});
+
+// 行頭の #番号 は消した (docs/107 §4-4)。id は UUID で人が読む物ではない
+test("行頭に #番号 や id を出さない", () => {
+  const html = renderRow(
+    makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: "BJT NPN" }),
+  );
+  expect(html).not.toContain("#00000000");
+  expect(html).not.toContain(">00000000-0000-7000-8000-000000004951<");
 });
 
 test("大表示はタグを青いタグ検索リンクとして表示する", () => {
   const html = renderRow(
-    makeItem({ itemNo: "4951", memo: "2SC2712 #bjt #npn", tags: ["bjt", "npn"] }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: "2SC2712 #bjt #npn", tags: ["bjt", "npn"] }),
     undefined,
     "card",
   );
@@ -67,14 +74,14 @@ test("大表示はタグを青いタグ検索リンクとして表示する", ()
 // フォルダーペインで見られるので、いちばん密な表示からは落とす
 test("小表示はタグを出さない (1 行に詰める)", () => {
   const html = renderRow(
-    makeItem({ itemNo: "4951", memo: "2SC2712 #bjt", tags: ["bjt"] }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: "2SC2712 #bjt", tags: ["bjt"] }),
   );
   expect(html).not.toContain("/?q=%23");
 });
 
 test("タグのないアイテムはタグ行を出さない", () => {
   const html = renderRow(
-    makeItem({ itemNo: "100", memo: "メモだけ", tags: [] }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000100", memo: "メモだけ", tags: [] }),
     undefined,
     "card",
   );
@@ -83,45 +90,45 @@ test("タグのないアイテムはタグ行を出さない", () => {
 
 test("URL モードのアイテムは URL を表示する", () => {
   const html = renderRow(
-    makeItem({ itemNo: "7", mode: "url", url: "https://example.com/x", memo: "" }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000007", mode: "url", url: "https://example.com/x", memo: "" }),
   );
   expect(html).toContain("https://example.com/x");
 });
 
 test("checkbox スロットを渡すと行の中に描画する", () => {
   const html = renderRow(
-    makeItem({ itemNo: "5" }),
-    <input type="checkbox" name="itemNo" value="5" />,
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000005" }),
+    <input type="checkbox" name="itemId" value="00000000-0000-7000-8000-000000000005" />,
   );
   expect(html).toContain('type="checkbox"');
-  expect(html).toContain('value="5"');
+  expect(html).toContain('value="00000000-0000-7000-8000-000000000005"');
 });
 
 // 枠内どこでも押せる (stretched link)
 
 test("枠全体をノートへの当たり判定にする", () => {
   // タイトルの文字の上だけでなく、枠のどこを押しても開く
-  const html = renderRow(makeItem({ itemNo: "4951", memo: "BJT NPN" }));
+  const html = renderRow(makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: "BJT NPN" }));
   expect(html).toContain("after:absolute");
   expect(html).toContain("after:inset-0");
 });
 
 test("カード表示でも枠全体を当たり判定にする", () => {
-  const html = renderRow(makeItem({ itemNo: "4951" }), undefined, "card");
+  const html = renderRow(makeItem({ itemId: "00000000-0000-7000-8000-000000004951" }), undefined, "card");
   expect(html).toContain("after:inset-0");
 });
 
 test("当たり判定はリンクのまま広げる (中クリック・URL コピーを壊さない)", () => {
   // 行を <a> で包むとタグ (別の行き先) が入れ子になり HTML として不正。
   // ::after で広げるので href を持った本物のリンクが 1 つ残る
-  const html = renderRow(makeItem({ itemNo: "4951" }));
-  expect(html).toContain('href="/item/4951"');
+  const html = renderRow(makeItem({ itemId: "00000000-0000-7000-8000-000000004951" }));
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000004951"');
 });
 
 test("タグは枠の当たり判定より前に出す (タグ検索へ行ける)", () => {
   // z-10 が無いと、タグを押してもノートが開いてしまう
   const html = renderRow(
-    makeItem({ itemNo: "4951", memo: "#bjt", tags: ["bjt"] }),
+    makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: "#bjt", tags: ["bjt"] }),
     undefined,
     "card",
   );
@@ -133,8 +140,8 @@ test("選択モードでは枠全体の当たり判定を敷かない", () => {
   // 膜がチェックボックスを覆って押せなくなるうえ、選んでいる最中に
   // 枠へ触れるたびノートへ飛んでしまう
   const html = renderRow(
-    makeItem({ itemNo: "5" }),
-    <input type="checkbox" name="itemNo" value="5" />,
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000005" }),
+    <input type="checkbox" name="itemId" value="00000000-0000-7000-8000-000000000005" />,
   );
   expect(html).not.toContain("after:inset-0");
   expect(html).toContain('type="checkbox"');
@@ -198,7 +205,7 @@ const renderCircuitRow = (item: Item, view: RowViewMode = "compact") =>
     <ul>
       <ItemRow
         item={item}
-        href={`/item/${item.itemNo}`}
+        href={`/item/${item.itemId}`}
         view={view}
         circuitThumb={CIRCUIT_SVG}
       />
@@ -247,7 +254,7 @@ const renderPreviewRow = (item: Item, view: RowViewMode = "compact") =>
     <ul>
       <ItemRow
         item={item}
-        href={`/item/${item.itemNo}`}
+        href={`/item/${item.itemId}`}
         view={view}
         notePreview={NOTE_PREVIEW}
       />
@@ -299,7 +306,7 @@ test("回路図サムネがあれば回路図を優先し、プレビューは�
     <ul>
       <ItemRow
         item={makeItem({ memo: "RC 回路" })}
-        href="/item/1"
+        href="/item/00000000-0000-7000-8000-000000000001"
         circuitThumb={CIRCUIT_SVG}
         notePreview={NOTE_PREVIEW}
       />
@@ -364,7 +371,7 @@ const renderSwipeRow = (item: Item, view: RowViewMode = "compact") =>
     <ul>
       <ItemRow
         item={item}
-        href={`/item/${item.itemNo}`}
+        href={`/item/${item.itemId}`}
         view={view}
         swipe={SWIPE}
       />
@@ -372,39 +379,47 @@ const renderSwipeRow = (item: Item, view: RowViewMode = "compact") =>
   );
 
 test("小表示でスワイプ有効なら削除ボタンを背面に持つ", () => {
-  const html = renderSwipeRow(makeItem({ itemNo: "42" }));
+  const html = renderSwipeRow(makeItem({ itemId: "00000000-0000-7000-8000-000000000042" }));
   expect(html).toContain("削除");
-  expect(html).toContain('aria-label="#42 を削除"');
+  expect(html).toContain('aria-label="無題のノートを削除"');
+});
+
+// 読み上げの名乗りは見出しから作る呼び名 (lib/items/noteName.ts)
+test("削除ボタンは見出しで名乗る", () => {
+  const html = renderSwipeRow(
+    makeItem({ itemId: "00000000-0000-7000-8000-000000000042", memo: "抵抗", title: "抵抗" }),
+  );
+  expect(html).toContain('aria-label="「抵抗」を削除"');
 });
 
 test("スワイプ props を渡さなければ削除ボタンは出ない", () => {
-  const html = renderRow(makeItem({ itemNo: "42" }));
-  expect(html).not.toContain('aria-label="#42 を削除"');
+  const html = renderRow(makeItem({ itemId: "00000000-0000-7000-8000-000000000042" }));
+  expect(html).not.toContain('aria-label="無題のノートを削除"');
 });
 
 test("選択モード (checkbox) ではスワイプを有効にしない", () => {
   const html = renderToStaticMarkup(
     <ul>
       <ItemRow
-        item={makeItem({ itemNo: "42" })}
-        href="/item/42"
-        checkbox={<input type="checkbox" name="itemNo" value="42" />}
+        item={makeItem({ itemId: "00000000-0000-7000-8000-000000000042" })}
+        href="/item/00000000-0000-7000-8000-000000000042"
+        checkbox={<input type="checkbox" name="itemId" value="00000000-0000-7000-8000-000000000042" />}
         swipe={SWIPE}
       />
     </ul>,
   );
-  expect(html).not.toContain('aria-label="#42 を削除"');
+  expect(html).not.toContain('aria-label="無題のノートを削除"');
   expect(html).toContain('type="checkbox"');
 });
 
 test("カード表示でもスワイプ有効なら削除ボタンを持つ", () => {
-  const html = renderSwipeRow(makeItem({ itemNo: "42" }), "card");
-  expect(html).toContain('aria-label="#42 を削除"');
+  const html = renderSwipeRow(makeItem({ itemId: "00000000-0000-7000-8000-000000000042" }), "card");
+  expect(html).toContain('aria-label="無題のノートを削除"');
 });
 
 test("カードのスワイプ行は枠 (rounded border) を残す", () => {
   // 枠クラスは ItemRow が持って渡す。SwipeToTrashRow の li に乗る (docs/43 §9-2)
-  const html = renderSwipeRow(makeItem({ itemNo: "42" }), "card");
+  const html = renderSwipeRow(makeItem({ itemId: "00000000-0000-7000-8000-000000000042" }), "card");
   expect(html).toContain("rounded");
   expect(html).toContain("border-gray-200");
 });
@@ -413,15 +428,15 @@ test("カードでも選択モードならスワイプを有効にしない", ()
   const html = renderToStaticMarkup(
     <ul>
       <ItemRow
-        item={makeItem({ itemNo: "42" })}
-        href="/item/42"
+        item={makeItem({ itemId: "00000000-0000-7000-8000-000000000042" })}
+        href="/item/00000000-0000-7000-8000-000000000042"
         view="card"
-        checkbox={<input type="checkbox" name="itemNo" value="42" />}
+        checkbox={<input type="checkbox" name="itemId" value="00000000-0000-7000-8000-000000000042" />}
         swipe={SWIPE}
       />
     </ul>,
   );
-  expect(html).not.toContain('aria-label="#42 を削除"');
+  expect(html).not.toContain('aria-label="無題のノートを削除"');
   expect(html).toContain('type="checkbox"');
   // 枠は今までどおり残る
   expect(html).toContain("rounded");
@@ -431,7 +446,7 @@ test("カードでも選択モードならスワイプを有効にしない", ()
 // stretched link の基準なので、中身が空だと箱ごと高さ 0 になり、行のどこを
 // 押してもノートが開かなくなる (画像だけのノート、ゴミ箱の空ノート)
 test("見出しが空のノートでも代わりの文字を置く", () => {
-  const html = renderRow(makeItem({ itemNo: "42", memo: "" }));
+  const html = renderRow(makeItem({ itemId: "00000000-0000-7000-8000-000000000042", memo: "" }));
   expect(html).toContain("(空のノート)");
 });
 
@@ -441,8 +456,8 @@ test("footer は stretched link の膜より前に出す", () => {
   const html = renderToStaticMarkup(
     <ul>
       <ItemRow
-        item={makeItem({ itemNo: "42" })}
-        href="/item/42"
+        item={makeItem({ itemId: "00000000-0000-7000-8000-000000000042" })}
+        href="/item/00000000-0000-7000-8000-000000000042"
         footer={<button type="button">復元</button>}
       />
     </ul>,
@@ -461,7 +476,7 @@ test("mathTitle があればタイトルを KaTeX の HTML で出す", () => {
     <ul>
       <ItemRow
         item={makeItem({ memo: "$E=100$ の回路" })}
-        href="/item/1"
+        href="/item/00000000-0000-7000-8000-000000000001"
         mathTitle={MATH_HTML}
       />
     </ul>,
@@ -475,7 +490,7 @@ test("mathPreview があればカードの本文プレビューを KaTeX の HTM
     <ul>
       <ItemRow
         item={makeItem({ memo: "タイトル\n定常状態では $I=E/R$ になる" })}
-        href="/item/1"
+        href="/item/00000000-0000-7000-8000-000000000001"
         view="card"
         mathPreview={MATH_HTML}
       />

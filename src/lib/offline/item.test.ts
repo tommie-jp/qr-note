@@ -5,8 +5,7 @@ import { parseSyncPayload, type OfflineItem } from './item'
 // 正しい 1 件。個々のテストは必要な列だけ上書きして使う
 function validItem(over: Partial<Record<keyof OfflineItem, unknown>> = {}) {
   return {
-    itemNo: '4518',
-    itemNoNum: 4518,
+    itemId: '00000000-0000-7000-8000-000000004518',
     memo: '# 2SC1815\n#bjt #npn',
     url: '',
     mode: 'memo',
@@ -36,7 +35,7 @@ describe('parseSyncPayload', () => {
     expect(parsed).not.toBeNull()
     expect(parsed?.syncedAt).toBe('2026-08-08T12:00:00.000Z')
     expect(parsed?.items).toHaveLength(1)
-    expect(parsed?.items[0].itemNo).toBe('4518')
+    expect(parsed?.items[0].itemId).toBe('00000000-0000-7000-8000-000000004518')
     expect(parsed?.items[0].tags).toEqual(['bjt', 'npn'])
   })
 
@@ -57,8 +56,8 @@ describe('parseSyncPayload', () => {
   test('形の違う 1 件だけを落として残りは残す', () => {
     // Arrange
     const data = payload([
-      validItem({ itemNo: '' }),
-      validItem({ itemNo: '4519', tags: ['ok'] }),
+      validItem({ itemId: '' }),
+      validItem({ itemId: '00000000-0000-7000-8000-000000004519', tags: ['ok'] }),
       validItem({ tags: 'bjt' }),
       validItem({ memo: 42 }),
       validItem({ taskTodo: 'many' }),
@@ -70,7 +69,7 @@ describe('parseSyncPayload', () => {
     const parsed = parseSyncPayload(data)
 
     // Assert
-    expect(parsed?.items.map((i) => i.itemNo)).toEqual(['4519'])
+    expect(parsed?.items.map((i) => i.itemId)).toEqual(['00000000-0000-7000-8000-000000004519'])
   })
 
   // タグ配列に文字列でない物が混ざっても、その 1 つを落とすだけ。
@@ -86,9 +85,9 @@ describe('parseSyncPayload', () => {
     expect(parseSyncPayload(payload([validItem({ mode: 'xxx' })]))?.items[0].mode).toBe('memo')
   })
 
-  test('itemNoNum は数値か null のみ受ける', () => {
-    expect(parseSyncPayload(payload([validItem({ itemNoNum: null })]))?.items[0].itemNoNum).toBeNull()
-    expect(parseSyncPayload(payload([validItem({ itemNoNum: '100x' })]))?.items).toEqual([])
+  test('itemId は UUID の文字列だけ受ける', () => {
+    expect(parseSyncPayload(payload([validItem({ itemId: 4518 })]))?.items).toEqual([])
+    expect(parseSyncPayload(payload([validItem({ itemId: null })]))?.items).toEqual([])
   })
 
   test('truncated は true のときだけ立つ (読めない値は切っていない扱い)', () => {

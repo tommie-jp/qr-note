@@ -36,7 +36,7 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ja",
     start_url: "/",
     // scope 内の URL は Android の WebAPK が intent filter で捕まえる。
-    // QR シールの /item/:itemNo を拾わせたいのでルートに広げる
+    // QR シールの /item/:itemId を拾わせたいのでルートに広げる
     scope: "/",
     display: "standalone",
     // body の背景 (起動時スプラッシュに出る)

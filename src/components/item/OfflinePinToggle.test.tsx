@@ -7,7 +7,7 @@ const noop = () => {};
 const render = (pinned: boolean, attachmentBytes = 0) =>
   renderToStaticMarkup(
     <OfflinePinToggle
-      itemNo="1234"
+      itemId="1234"
       pinned={pinned}
       attachmentBytes={attachmentBytes}
       setPinAction={noop}

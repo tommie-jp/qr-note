@@ -28,7 +28,7 @@ const MS_PER_DAY = 86400000
 
 // 表 (searchItemHealth) から来る 1 行
 export interface HealthSourceRow {
-  itemNo: string
+  itemId: string
   memo: string
 }
 

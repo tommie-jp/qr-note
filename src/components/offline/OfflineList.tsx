@@ -10,7 +10,7 @@ interface OfflineListProps {
   // ノートを開く。**Link ではなくボタンで受ける**のがこの画面の要点 —
   // App Router の画面遷移は RSC ペイロードを取りに行くので、圏外では必ず
   // 失敗する。/offline の中で query を書き換えるだけにする (params.ts)
-  onOpen: (itemNo: string) => void;
+  onOpen: (itemId: string) => void;
 }
 
 // オフラインの検索結果 (docs/65-オフライン対応計画.md §3-4)。
@@ -36,16 +36,15 @@ export function OfflineList({ items, onOpen }: OfflineListProps) {
         const thumb = isUrl ? null : firstThumbInfo(item.memo);
 
         return (
-          <li key={item.itemNo}>
+          <li key={item.itemId}>
             {/* 行全体を 1 つのボタンにする。ItemRow のように中にタグの
                 リンクを置かない (タグ検索も圏外では別ページになる) ので、
                 入れ子の心配が無く stretched link の小細工も要らない */}
             <button
               type="button"
-              onClick={() => onOpen(item.itemNo)}
+              onClick={() => onOpen(item.itemId)}
               className="flex w-full items-baseline gap-3 px-4 py-1.5 text-left transition-colors hover:bg-gray-50 active:bg-gray-100"
             >
-              <span className="shrink-0 font-mono font-bold">#{item.itemNo}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-gray-600">{title}</span>
                 {item.tags.length > 0 && (

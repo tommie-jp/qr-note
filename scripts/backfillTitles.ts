@@ -22,7 +22,7 @@ import { memoSummary } from '@/lib/markdown/memoSummary'
 
 async function main(): Promise<void> {
   const items = await prisma.item.findMany({
-    select: { itemNo: true, memo: true, title: true },
+    select: { itemId: true, memo: true, title: true },
   })
   console.log(`対象: ${items.length} 件`)
 
@@ -36,10 +36,10 @@ async function main(): Promise<void> {
     // 見出しは memo 由来の派生値。バックフィルは「編集」ではないので、
     // @updatedAt を発火させない生 SQL で更新し、並び順 (更新日順) を保つ。
     await prisma.$executeRaw`
-      UPDATE items SET title = ${title} WHERE item_no = ${item.itemNo}
+      UPDATE items SET title = ${title} WHERE id = ${item.itemId}::uuid
     `
     updated += 1
-    console.log(`  ${item.itemNo}: ${title || '(無題)'}`)
+    console.log(`  ${item.itemId}: ${title || '(無題)'}`)
   }
 
   console.log(`更新: ${updated} 件 / 変更なし: ${items.length - updated} 件`)

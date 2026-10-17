@@ -1,4 +1,3 @@
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -7,7 +6,7 @@ import {
   newLoggedInPage,
   test,
 } from './helpers'
-import { removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote } from './notes'
 
 // 実体配線図フェンス (docs/97) が**ブラウザで実際に描かれる**ことを見る。
 //
@@ -16,10 +15,14 @@ import { removeE2eNote } from './notes'
 // 単体試験は node で処理系を直に呼んでいるだけで、動的 import が束に乗ったか、
 // クライアント部品として動くかまでは見ていない。
 //
-// 番号は採番せず `/edit/<番号>` で直に決める (note-lifecycle.spec.ts と同じ理由)
-const ITEM_NO = `${E2E_ITEM_PREFIX}4`
+// id は採番せず `/edit/<id>` で直に決める (note-lifecycle.spec.ts と同じ理由)。
+// 本文 1 行目は E2E の見出し (片付けが検索で引く)
+const NOTE = e2eNote(10, 'board fence')
+const ITEM_ID = NOTE.id
 
 const BODY = [
+  NOTE.heading,
+  '',
   '```breadboard',
   'board: half',
   'parts:',
@@ -44,19 +47,19 @@ test.describe.configure({ mode: 'serial' })
 test.describe('実体配線図フェンス', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 
   test('書いたフェンスが、閲覧でブラウザ上の SVG になる', async ({ page }) => {
     // Arrange
-    await page.goto(`/edit/${ITEM_NO}`)
+    await page.goto(`/edit/${ITEM_ID}`)
     const save = page.getByRole('button', { name: '更新', exact: true })
     await expect(save).toBeVisible()
     await clearEditor(page)
@@ -73,7 +76,7 @@ test.describe('実体配線図フェンス', () => {
 
     // Assert — 2 枚とも図になる。図は useEffect の中で動的 import してから
     // 組むので、現れるまで待つ
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     const diagrams = page.locator('.board-diagram')
     await expect.poll(() => diagrams.locator('svg').count()).toBe(2)
 

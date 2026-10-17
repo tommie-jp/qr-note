@@ -30,7 +30,7 @@ vi.mock("@/lib/items/read", () => ({
 }));
 vi.mock("@/lib/prefs/itemListContext", () => ({
   resolveItemListContext: async (
-    _itemNo: string,
+    _itemId: string,
     q: string | string[] | undefined,
   ) => {
     mocks.calls.push("ctx");
@@ -86,7 +86,7 @@ type Element = ReactElement<{ children?: ReactNode } & Record<string, unknown>>;
 
 const render = async (overrides: Partial<Props>) =>
   (await ItemDetail({
-    itemNo: "4951",
+    itemId: "4951",
     q: "npn",
     sort: undefined,
     saved: undefined,
@@ -128,7 +128,7 @@ test("全画面はログイン中なら記録・閉じる行と本文・前後�
   const [record, chrome, nav] = ([] as Element[]).concat(
     element!.props.children as Element[],
   );
-  expect(record.props).toEqual({ itemNo: "4951", action: recordAccessAction });
+  expect(record.props).toEqual({ itemId: "4951", action: recordAccessAction });
   // 上端の行と本文は同じ器に入れる。行の直下に本文の操作を重ねるため (docs/108 §3)
   expect(childTypes(chrome)).toEqual([NoteChromeBar, ItemView]);
   const [bar, view] = ([] as Element[]).concat(chrome.props.children as Element[]);
@@ -136,7 +136,7 @@ test("全画面はログイン中なら記録・閉じる行と本文・前後�
   const close = bar.props.start as Element;
   expect(close.type).toBe(CloseNoteButton);
   expect(close.props).toEqual({ listHref: "/?q=npn&sort=accessed" });
-  expect(view.props).toMatchObject({ itemNo: "4951", saved: "1700000000" });
+  expect(view.props).toMatchObject({ itemId: "4951", saved: "1700000000" });
   expect(nav.props).toEqual({
     prev: "4950",
     next: "4952",
@@ -183,7 +183,7 @@ test("ペインはログイン中なら番号を key に器を作り、全画面
   expect(element!.key).toBe("4951");
   expect(element!.props).toMatchObject({
     bgClass: "bg-pink-50",
-    itemNo: "4951",
+    itemId: "4951",
     openHref: "/item/4951?q=npn&sort=accessed",
   });
   expect(childTypes(element!)).toEqual([ItemView, ItemListNav]);
@@ -196,12 +196,12 @@ test("ペインの未ログインは番号を知らせず、素の /item を行�
   mocks.item = publicItem;
 
   // Act
-  const element = await render({ itemNo: "10 x", shell: { kind: "pane" } });
+  const element = await render({ itemId: "10 x", shell: { kind: "pane" } });
 
   // Assert
   expect(element?.type).toBe(PreviewPane);
   expect(element!.key).toBeNull();
-  expect(element!.props.itemNo).toBeUndefined();
+  expect(element!.props.itemId).toBeUndefined();
   expect(element!.props.openHref).toBe("/item/10%20x");
   expect(childTypes(element!)).toEqual([PublicItemView]);
 });
@@ -214,7 +214,7 @@ test("自動のペインはログイン中なら AutoNotePane に同じ中身を
   expect(element?.type).toBe(AutoNotePane);
   expect(element!.key).toBe("4951");
   expect(element!.props).toMatchObject({
-    itemNo: "4951",
+    itemId: "4951",
     openHref: "/item/4951",
   });
   expect(childTypes(element!)).toEqual([ItemView, ItemListNav]);

@@ -1,5 +1,4 @@
 import type { Locator } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -11,19 +10,27 @@ import {
   test,
   openNoteChrome,
 } from './helpers'
-import { purgeFromTrash, removeE2eNote, searchResults, trashFromSearch } from './notes'
+import {
+  e2eNote,
+  purgeFromTrash,
+  removeE2eNote,
+  rowOf,
+  searchResults,
+  trashFromSearch,
+} from './notes'
 
 // ノートの一生: 作る → 保存して表示 → 一覧からペインで開く (広い画面・スマホ幅)
 // → 全画面で開いて閉じる → ゴミ箱 → 永久削除。
 // 前の段が作った物を次の段が使うので直列に流す (前が落ちたら後は skip)。
 //
-// 番号は採番 (/new) ではなく /edit/<番号> で直に決める。未登録の番号の
-// 編集画面で「更新」すると、その番号で作られる (app/actions/items.ts の updateItemAction)。
-// 採番するとローカル DB の次の番号を食い、片付けても本物の番号列に穴が見える
-const ITEM_NO = `${E2E_ITEM_PREFIX}1`
-
+// id は採番 (/new) ではなく /edit/<id> で直に決める (env.ts の e2eItemId)。
+// 未登録の id の編集画面で「更新」すると、その id で作られる
+// (app/actions/items.ts の updateItemAction)。決めた id なら、途中で落ちた回の
+// 残りも同じ id で引いて消せる。
 // 走らせるたびに違う本文にする。前の回の表示が残っていても取り違えない
-const BODY = `${E2E_ITEM_PREFIX} smoke ${Date.now()}`
+const NOTE = e2eNote(1, `smoke ${Date.now()}`)
+const ITEM_ID = NOTE.id
+const BODY = NOTE.heading
 
 test.describe.configure({ mode: 'serial' })
 
@@ -39,23 +46,23 @@ async function expectSettledPane(pane: Locator): Promise<void> {
 
 test.describe('ノートの一生', () => {
   test.beforeAll(async ({ browser }) => {
-    // 前の回が途中で落ちて残した同じ番号を消しておく (無ければ何もしない)
+    // 前の回が途中で落ちて残した同じ id を消しておく (無ければ何もしない)
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     // 途中で落ちても本物の DB に残さない
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 
-  test('未登録の番号を編集して保存すると、表示画面に本文が出る', async ({ page }) => {
+  test('未登録の id を編集して保存すると、表示画面に本文が出る', async ({ page }) => {
     // Arrange
-    await page.goto(`/edit/${ITEM_NO}`)
-    await expect(page.getByRole('heading', { name: `edit #${ITEM_NO}` })).toBeVisible()
+    await page.goto(`/edit/${ITEM_ID}`)
+    await expect(page.getByRole('heading', { name: 'edit', exact: true })).toBeVisible()
     // 「更新」は下部バーへ portal される。マウント後にしか現れないので、
     // これが見えればハイドレーションも済んでいる
     const save = page.getByRole('button', { name: '更新', exact: true })
@@ -67,7 +74,7 @@ test.describe('ノートの一生', () => {
     await save.click()
 
     // Assert
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await expect(page.getByText(BODY).first()).toBeVisible()
   })
 
@@ -78,10 +85,10 @@ test.describe('ノートの一生', () => {
     // lg (1024px) 以上。既定の 2 ペインでは一覧の横にノートのペインが出る
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await searchFor(page, ITEM_NO)
+    await searchFor(page, NOTE.key)
     const results = searchResults(page)
     // 押すのは見出しのリンク。行全体に ::after の当たり判定を広げている
-    // (stretched link。components/item/ItemRow.tsx) ので、番号のリンクは膜の下で押せない
+    // (stretched link。components/item/ItemRow.tsx)
     const link = results.getByRole('link', { name: BODY, exact: true })
     // ハードナビゲーションなら window ごと作り直されて消える印
     await page.evaluate(() => {
@@ -92,7 +99,7 @@ test.describe('ノートの一生', () => {
     await link.click()
 
     // Assert
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     const pane = page.getByRole('region', { name: '選択したノート' })
     await expectSettledPane(pane)
     await expect(pane.getByText(BODY).first()).toBeVisible()
@@ -108,7 +115,7 @@ test.describe('ノートの一生', () => {
     // 既定の 2 ペイン。以前は lg 未満でノートが全画面になり、一覧が隠れていた
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
-    await searchFor(page, ITEM_NO)
+    await searchFor(page, NOTE.key)
     const results = searchResults(page)
     const link = results.getByRole('link', { name: BODY, exact: true })
 
@@ -116,7 +123,7 @@ test.describe('ノートの一生', () => {
     await link.click()
 
     // Assert
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     const pane = page.getByRole('region', { name: '選択したノート' })
     await expectSettledPane(pane)
     await expect(pane.getByText(BODY).first()).toBeVisible()
@@ -135,16 +142,17 @@ test.describe('ノートの一生', () => {
     // Arrange
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
-    await searchFor(page, ITEM_NO)
+    await searchFor(page, NOTE.key)
     await searchResults(page).getByRole('link', { name: BODY, exact: true }).click()
     const pane = page.getByRole('region', { name: '選択したノート' })
     await expectSettledPane(pane)
     await expect(pane.getByText(BODY).first()).toBeVisible()
     // 横取りを抜けるハード遷移。着いた先は素の /item (ペインは無い)
     await pane.getByRole('link', { name: '全画面で開く' }).click()
-    // 見出しは畳まれている (docs/108)。開いて番号を確かめる
+    // 見出しは畳まれている (docs/108)。開いて「item」の見出しを確かめる
     await openNoteChrome(page)
-    await expect(page.getByRole('heading', { name: `item #${ITEM_NO}` })).toBeVisible()
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    await expect(page.getByRole('heading', { name: 'item', exact: true })).toBeVisible()
     await expect(pane).toHaveCount(0)
     const close = page.getByRole('button', { name: '閉じる' })
     await expectHydrated(close)
@@ -155,22 +163,21 @@ test.describe('ノートの一生', () => {
     // Assert
     // ペインで開いていた同じノート (URL は /item) には戻らず、一覧まで戻る
     await expect(page).toHaveURL(
-      (url) => url.pathname === '/' && url.searchParams.get('q') === ITEM_NO,
+      (url) => url.pathname === '/' && url.searchParams.get('q') === NOTE.key,
     )
     await expect(searchResults(page)).toBeVisible()
   })
 
   test('一覧からゴミ箱へ入れ、ゴミ箱から永久削除すると消える', async ({ page }) => {
     // Act
-    const trashed = await trashFromSearch(page, ITEM_NO)
-    const purged = await purgeFromTrash(page, ITEM_NO)
+    const trashed = await trashFromSearch(page, NOTE)
+    const purged = await purgeFromTrash(page, NOTE)
 
     // Assert
     expect(trashed).toBe(true)
     expect(purged).toBe(true)
     await page.reload()
-    await expect(
-      page.getByRole('link', { name: `#${ITEM_NO}`, exact: true }),
-    ).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'ゴミ箱', exact: true })).toBeVisible()
+    await expect(rowOf(page, page, ITEM_ID)).toHaveCount(0)
   })
 })

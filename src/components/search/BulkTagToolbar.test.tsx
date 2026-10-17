@@ -5,8 +5,7 @@ import { BulkTagToolbar } from "./BulkTagToolbar";
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
-    itemNo: "1",
-    itemNoNum: 1,
+    itemId: "1",
     memo: "",
     url: "",
     mode: "memo",
@@ -41,18 +40,18 @@ const render = (items: Item[], selected: Set<string>) =>
   );
 
 test("選択件数を表示する", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]));
   expect(html).toContain("1 件を選択中");
 });
 
 test("追加入力欄と追加ボタンを出す", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]));
   expect(html).toContain('name="addTags"');
   expect(html).toContain("追加");
 });
 
 test("選択アイテムのタグを削除チップ (removeTag 送信ボタン) にする", () => {
-  const items = [makeItem({ itemNo: "1", tags: ["bjt", "npn"] })];
+  const items = [makeItem({ itemId: "1", tags: ["bjt", "npn"] })];
   const html = render(items, new Set(["1"]));
   expect(html).toContain('name="removeTag"');
   expect(html).toContain('value="bjt"');
@@ -60,7 +59,7 @@ test("選択アイテムのタグを削除チップ (removeTag 送信ボタン) 
 });
 
 test("未選択なら削除チップを出さず、追加を無効化する", () => {
-  const html = render([makeItem({ itemNo: "1", tags: ["bjt"] })], new Set());
+  const html = render([makeItem({ itemId: "1", tags: ["bjt"] })], new Set());
   expect(html).not.toContain('name="removeTag"');
   expect(html).toContain("disabled");
 });
@@ -68,19 +67,19 @@ test("未選択なら削除チップを出さず、追加を無効化する", ()
 // ゴミ箱 (docs/12-ゴミ箱計画.md §5)。タグの「削除」チップと紛らわしくないよう、
 // ノートを消す方は行き先を言う「ゴミ箱へ」にしてある
 test("選択中はノートをゴミ箱へ入れるボタンを出す", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]));
   expect(html).toContain("ゴミ箱へ");
 });
 
 test("未選択ならゴミ箱へボタンも無効化する", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set());
+  const html = render([makeItem({ itemId: "1" })], new Set());
   // ラベルの前にアイコン (TrashIcon の svg) が入るので、間の要素は跨いで見る。
   // 閉じ ✕ を挟まないことで「同じ button の中の文字」であることは保てる
   expect(html).toMatch(/<button[^>]*disabled(?:(?!<\/button>)[\s\S])*ゴミ箱へ/);
 });
 
 test("タグのチップは「タグを削除」と明示する (ノートの削除と区別する)", () => {
-  const html = render([makeItem({ itemNo: "1", tags: ["bjt"] })], new Set(["1"]));
+  const html = render([makeItem({ itemId: "1", tags: ["bjt"] })], new Set(["1"]));
   expect(html).toContain("タグを削除:");
 });
 
@@ -89,7 +88,7 @@ test("タグのチップは「タグを削除」と明示する (ノートの削
 // formAction が付いた送信ボタンは React が preventDefault せず、ブラウザの
 // 素の送信 (= ダウンロード) に戻る
 test("選択中はエクスポートボタンを出す (POST /api/export)", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]));
   expect(html).toContain('formAction="/api/export"');
   expect(html).toContain('formMethod="post"');
   // 全件と選択を同じ口で受けるので、どちらかをボタン自身の値で伝える
@@ -99,7 +98,7 @@ test("選択中はエクスポートボタンを出す (POST /api/export)", () =
 });
 
 test("未選択ならエクスポートも無効化する", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set());
+  const html = render([makeItem({ itemId: "1" })], new Set());
   expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*エクスポート/);
 });
 
@@ -108,7 +107,7 @@ test("未選択ならエクスポートも無効化する", () => {
 // 3 つ並ぶ最下段で一番幅を返せる。読み上げには aria-label で言葉を残す
 test("オフラインは絵と文字、ゴミ箱は絵だけにする", () => {
   // Arrange & Act
-  const html = render([makeItem({ itemNo: "1" })], new Set(["1"]));
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]));
 
   // Assert
   expect(html).toContain("オフ");
@@ -118,7 +117,7 @@ test("オフラインは絵と文字、ゴミ箱は絵だけにする", () => {
 
 // 押せない状態で送ると 0 件のまま印だけ立てに行くことになる
 test("1 件も選んでいなければオフラインもゴミ箱も押せない", () => {
-  const html = render([makeItem({ itemNo: "1" })], new Set());
+  const html = render([makeItem({ itemId: "1" })], new Set());
   // disabled な submit ボタンが 3 つ (エクスポート・オフライン・ゴミ箱) 以上ある
   expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(3);
 });

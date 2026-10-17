@@ -3,12 +3,12 @@ import { resolveSort, resolveTrashSort } from './sortMode'
 
 test('URL に指定があればそれを使う', () => {
   expect(resolveSort('accessed', undefined)).toBe('accessed')
-  expect(resolveSort('itemNo', undefined)).toBe('itemNo')
+  expect(resolveSort('registered', undefined)).toBe('registered')
 })
 
 // 共有されたリンクを開いた人に、自分の好みを混ぜて見せない
 test('URL の指定は cookie より優先する', () => {
-  expect(resolveSort('itemNo', 'accessed')).toBe('itemNo')
+  expect(resolveSort('registered', 'accessed')).toBe('registered')
   expect(resolveSort('updated', 'accessed')).toBe('updated')
 })
 
@@ -16,7 +16,7 @@ test('URL の指定は cookie より優先する', () => {
 // ここで cookie を見るのがこの機能の目的
 test('URL に指定が無ければ cookie を使う', () => {
   expect(resolveSort(undefined, 'accessed')).toBe('accessed')
-  expect(resolveSort(null, 'itemNo')).toBe('itemNo')
+  expect(resolveSort(null, 'registered')).toBe('registered')
 })
 
 test('どちらも無ければ更新順', () => {
@@ -40,7 +40,7 @@ test('空の sort= は既定になる (cookie へは倒れない)', () => {
 // --- ゴミ箱 (docs/67-ゴミ箱表示形式計画.md §2) ---
 
 test('ゴミ箱も URL → cookie → 既定 の順で決まる', () => {
-  expect(resolveTrashSort('itemNo', 'deletedAsc')).toBe('itemNo')
+  expect(resolveTrashSort('registered', 'deletedAsc')).toBe('registered')
   expect(resolveTrashSort(undefined, 'deletedAsc')).toBe('deletedAsc')
   expect(resolveTrashSort(undefined, undefined)).toBe('deleted')
 })
@@ -48,7 +48,7 @@ test('ゴミ箱も URL → cookie → 既定 の順で決まる', () => {
 // /trash への入口 (検索結果の「ゴミ箱 (N)」・0 件案内・ノートのバナー) は
 // どれも ?sort= を持たない。cookie が無いと開くたびに既定へ戻る
 test('ゴミ箱の並びも cookie で覚える', () => {
-  expect(resolveTrashSort(null, 'itemNo')).toBe('itemNo')
+  expect(resolveTrashSort(null, 'registered')).toBe('registered')
 })
 
 // **2 つの cookie を混ぜない。** 混ぜると、検索側は知らない値 (削除順) を

@@ -33,7 +33,7 @@ export function ItemListNav({ prev, next, query, sort }: ItemListNavProps) {
       aria-label="一覧の中の移動"
       className="mt-4 flex items-center justify-between gap-2 print:hidden"
     >
-      <NavSlot itemNo={prev} query={query} sort={sort} direction="prev" />
+      <NavSlot itemId={prev} query={query} sort={sort} direction="prev" />
 
       {/* 「次」を続けて押した後、一覧へ戻るのにブラウザの戻るを何度も押させない */}
       <Link
@@ -44,7 +44,7 @@ export function ItemListNav({ prev, next, query, sort }: ItemListNavProps) {
         一覧へ
       </Link>
 
-      <NavSlot itemNo={next} query={query} sort={sort} direction="next" />
+      <NavSlot itemId={next} query={query} sort={sort} direction="next" />
     </nav>
   );
 }
@@ -55,17 +55,17 @@ const LABEL = { prev: "← 前", next: "次 →" } as const;
 // 隣の「一覧へ」が動いて押し間違える。無効の見た目は SECONDARY_BUTTON_CLASS が
 // 持つ disabled: 指定に任せる (アプリ内の他の無効ボタンと同じ濃さになる)
 function NavSlot({
-  itemNo,
+  itemId,
   query,
   sort,
   direction,
 }: {
-  itemNo: string | null;
+  itemId: string | null;
   query: string;
   sort: Sort;
   direction: "prev" | "next";
 }) {
-  if (itemNo === null) {
+  if (itemId === null) {
     return (
       <button type="button" disabled className={SECONDARY_BUTTON_CLASS}>
         {LABEL[direction]}
@@ -74,7 +74,7 @@ function NavSlot({
   }
   return (
     <Link
-      href={buildItemUrl(itemNo, query, sort)}
+      href={buildItemUrl(itemId, query, sort)}
       transitionTypes={[direction === "prev" ? "nav-back" : "nav-forward"]}
       className={SECONDARY_BUTTON_CLASS}
     >

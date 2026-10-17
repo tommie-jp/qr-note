@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { renewSession, findActiveSession } from '@/lib/auth/sessionStore'
 import { SESSION_RENEW_AFTER_MS, SESSION_TTL_MS } from '@/lib/auth/sessionToken'
 import { failEnvelope, jsonContract, responseContract } from '@/test/routeResponse'
+import { resolveItemKey } from '@/lib/items/resolve'
 import { proxy } from './proxy'
 
 // セッションの DB だけを差し替える。照合の正本 (auth/requestAuth.ts) と、公開パスの
@@ -10,6 +11,11 @@ import { proxy } from './proxy'
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: vi.fn(),
   renewSession: vi.fn(),
+}))
+// 旧番号の解決 (本文タグを DB で引く) も差し替える。UUID・旧番号でない URL では
+// 呼ばれないことを、下の「旧番号の URL」で確かめる
+vi.mock('@/lib/items/resolve', () => ({
+  resolveItemKey: vi.fn(),
 }))
 
 const TOKEN = 'session-token'
@@ -167,8 +173,8 @@ describe('素通し (セッションを引かない)', () => {
 
   // 公開かどうかがデータで決まる口。読み取りだけ通し、判定はページに委ねる
   test.each([
-    ['GET', '/item/4518'],
-    ['HEAD', '/print/4518'],
+    ['GET', '/item/01a14854-8d04-732d-8712-f52debf9e66a'],
+    ['HEAD', '/print/01a14854-8d04-732d-8712-f52debf9e66a'],
     ['GET', '/api/images/0f8fad5b-d9cb-469f-a165-70867728950e.png'],
   ])('自前で判定する口の %s %s は未ログインでも通す', async (method, path) => {
     const res = await proxy(pageRequest(path, { method }))
@@ -188,7 +194,7 @@ describe('素通し (セッションを引かない)', () => {
 
   // 前方一致で通すと別のページまで素通しする
   test('自前で判定する口の奥のパスは素通ししない', async () => {
-    const res = await proxy(pageRequest('/item/4518/edit'))
+    const res = await proxy(pageRequest('/item/01a14854-8d04-732d-8712-f52debf9e66a/edit'))
 
     expect(res.headers.get('x-middleware-rewrite')).toBe('https://qr.tommie.jp/login-required')
   })
@@ -280,5 +286,51 @@ describe('未ログイン', () => {
       jsonContract(401, failEnvelope('ログインが必要です')),
     )
     expect(res.headers.get('x-robots-tag')).toBeNull()
+  })
+})
+
+describe('旧番号の URL (docs/107 §3-2)', () => {
+  const ID = '01a14854-8d04-732d-8712-f52debf9e66a'
+
+  test('1 件に決まれば 308 で id の URL へ。続きとクエリは保つ', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'legacy', itemId: ID })
+
+    const res = await proxy(loggedIn('/item/1003/history?done=noop'))
+
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe(`https://qr.tommie.jp/item/${ID}/history?done=noop`)
+    expect(resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: false })
+  })
+
+  test('未ログインなら公開ノートだけで引き、決まらなければ 307 で検索へ', async () => {
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=1003' })
+
+    const res = await proxy(pageRequest('/item/1003'))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toBe('https://qr.tommie.jp/?q=1003')
+    expect(resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: true })
+  })
+
+  test('印刷・編集の旧 URL も付け替える', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'legacy', itemId: ID })
+
+    expect((await proxy(loggedIn('/print/1003'))).headers.get('location')).toBe(
+      `https://qr.tommie.jp/print/${ID}`,
+    )
+    expect((await proxy(loggedIn('/edit/1003'))).headers.get('location')).toBe(
+      `https://qr.tommie.jp/edit/${ID}`,
+    )
+  })
+
+  test('id の URL と、GET 以外では引かない', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+
+    expect(verdict(await proxy(loggedIn(`/item/${ID}`)))).toEqual(PASS)
+    await proxy(loggedIn('/item/1003', { method: 'POST' }))
+
+    expect(resolveItemKey).not.toHaveBeenCalled()
   })
 })

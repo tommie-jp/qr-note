@@ -2,65 +2,71 @@ import { describe, expect, test } from 'vitest'
 import {
   buildItemUrl,
   escapeLike,
-  isValidItemNo,
-  itemNoToNum,
+  isLegacyItemNo,
+  isValidItemId,
   parseMode,
   parseSort,
   parseTrashSort,
   SORTS,
 } from './validation'
 
-describe('isValidItemNo', () => {
-  test('accepts a typical 4-digit itemNo', () => {
-    expect(isValidItemNo('1003')).toBe(true)
+const ID = '0192f5e8-7a3b-7c4d-8e5f-0123456789ab'
+
+describe('isValidItemId', () => {
+  test('accepts a lowercase UUID v7', () => {
+    expect(isValidItemId(ID)).toBe(true)
   })
 
-  test('accepts legacy non-numeric itemNo like "100x"', () => {
-    expect(isValidItemNo('100x')).toBe(true)
+  test('rejects uppercase UUID (URL を 1 つに保つ)', () => {
+    expect(isValidItemId(ID.toUpperCase())).toBe(false)
   })
 
-  test('accepts a single digit', () => {
-    expect(isValidItemNo('1')).toBe(true)
+  test('rejects legacy numbers like "1003" and "100x"', () => {
+    expect(isValidItemId('1003')).toBe(false)
+    expect(isValidItemId('100x')).toBe(false)
+    expect(isValidItemId('1')).toBe(false)
   })
 
   test('rejects empty string', () => {
-    expect(isValidItemNo('')).toBe(false)
+    expect(isValidItemId('')).toBe(false)
   })
 
-  test('rejects strings longer than 20 chars', () => {
-    expect(isValidItemNo('1'.repeat(21))).toBe(false)
+  test('rejects UUID without hyphens or with extra characters', () => {
+    expect(isValidItemId(ID.replace(/-/g, ''))).toBe(false)
+    expect(isValidItemId(`${ID}0`)).toBe(false)
+    expect(isValidItemId(` ${ID}`)).toBe(false)
+    expect(isValidItemId(`{${ID}}`)).toBe(false)
   })
 
   test('rejects path traversal and separators', () => {
-    expect(isValidItemNo('../etc')).toBe(false)
-    expect(isValidItemNo('a/b')).toBe(false)
-  })
-
-  test('rejects whitespace', () => {
-    expect(isValidItemNo('10 03')).toBe(false)
+    expect(isValidItemId('../etc')).toBe(false)
+    expect(isValidItemId('a/b')).toBe(false)
   })
 })
 
-describe('itemNoToNum', () => {
-  test('converts numeric string to number', () => {
-    expect(itemNoToNum('1003')).toBe(1003)
+describe('isLegacyItemNo', () => {
+  test('accepts Ver1 numbers and workbook ids', () => {
+    expect(isLegacyItemNo('1003')).toBe(true)
+    expect(isLegacyItemNo('100x')).toBe(true)
+    expect(isLegacyItemNo('1')).toBe(true)
+    expect(isLegacyItemNo('wb01-03-08')).toBe(true)
+    expect(isLegacyItemNo('a_b')).toBe(true)
   })
 
-  test('returns null for non-numeric itemNo', () => {
-    expect(itemNoToNum('100x')).toBeNull()
+  test('rejects UUIDs (新しい識別子は旧番号ではない)', () => {
+    expect(isLegacyItemNo(ID)).toBe(false)
   })
 
-  test('converts "6000" (largest in ver1 data)', () => {
-    expect(itemNoToNum('6000')).toBe(6000)
+  test('rejects empty string and strings longer than 20 chars', () => {
+    expect(isLegacyItemNo('')).toBe(false)
+    expect(isLegacyItemNo('1'.repeat(20))).toBe(true)
+    expect(isLegacyItemNo('1'.repeat(21))).toBe(false)
   })
 
-  test('returns int4 max as-is', () => {
-    expect(itemNoToNum('2147483647')).toBe(2147483647)
-  })
-
-  test('returns null for values exceeding int4 range (DB column is Int)', () => {
-    expect(itemNoToNum('2147483648')).toBeNull()
-    expect(itemNoToNum('12345678901')).toBeNull()
+  test('rejects path traversal, separators and whitespace', () => {
+    expect(isLegacyItemNo('../etc')).toBe(false)
+    expect(isLegacyItemNo('a/b')).toBe(false)
+    expect(isLegacyItemNo('10 03')).toBe(false)
   })
 })
 
@@ -99,8 +105,20 @@ describe('parseMode', () => {
 })
 
 describe('parseSort', () => {
-  test('returns "itemNo" for "itemNo"', () => {
-    expect(parseSort('itemNo')).toBe('itemNo')
+  test('returns "registered" for "registered"', () => {
+    expect(parseSort('registered')).toBe('registered')
+  })
+
+  // 番号順は登録順になった (docs/107 §4-6)。旧い名前は cookie・共有 URL・
+  // 本文のリンクに残っているので、読むときに新しい名前へ寄せる
+  test('reads legacy "itemNo" / "itemNoDesc" as registered / registeredDesc', () => {
+    expect(parseSort('itemNo')).toBe('registered')
+    expect(parseSort('itemNoDesc')).toBe('registeredDesc')
+  })
+
+  test('does not treat Object.prototype keys as legacy names', () => {
+    expect(parseSort('constructor')).toBe('updated')
+    expect(parseSort('toString')).toBe('updated')
   })
 
   // 最近見た順 (docs/37-アクセス順計画.md)
@@ -119,7 +137,7 @@ describe('parseSort', () => {
   test('returns the reversed sorts as-is', () => {
     expect(parseSort('updatedAsc')).toBe('updatedAsc')
     expect(parseSort('accessedAsc')).toBe('accessedAsc')
-    expect(parseSort('itemNoDesc')).toBe('itemNoDesc')
+    expect(parseSort('registeredDesc')).toBe('registeredDesc')
     expect(parseSort('titleDesc')).toBe('titleDesc')
   })
 
@@ -140,11 +158,16 @@ describe('parseTrashSort', () => {
     expect(parseTrashSort('deletedAsc')).toBe('deletedAsc')
   })
 
-  // ゴミ箱でも「更新順で消し忘れを探す」「番号順でシールと突き合わせる」は要る
+  // ゴミ箱でも「更新順で消し忘れを探す」「登録順で古いものから見る」は要る
   test('検索一覧と同じ並びもそのまま通す', () => {
     for (const sort of SORTS) {
       expect(parseTrashSort(sort)).toBe(sort)
     }
+  })
+
+  test('旧名 itemNo / itemNoDesc は登録順へ読み替える', () => {
+    expect(parseTrashSort('itemNo')).toBe('registered')
+    expect(parseTrashSort('itemNoDesc')).toBe('registeredDesc')
   })
 
   test('知らない値は削除順へ倒す (ゴミ箱の既定)', () => {
@@ -163,14 +186,14 @@ describe('parseTrashSort', () => {
 
 describe('buildItemUrl', () => {
   test('builds the QR target URL', () => {
-    expect(buildItemUrl('https://qr.tommie.jp', '1003')).toBe(
-      'https://qr.tommie.jp/item/1003',
+    expect(buildItemUrl('https://qr.tommie.jp', ID)).toBe(
+      `https://qr.tommie.jp/item/${ID}`,
     )
   })
 
   test('tolerates trailing slash in base URL', () => {
-    expect(buildItemUrl('https://qr.tommie.jp/', '1003')).toBe(
-      'https://qr.tommie.jp/item/1003',
+    expect(buildItemUrl('https://qr.tommie.jp/', ID)).toBe(
+      `https://qr.tommie.jp/item/${ID}`,
     )
   })
 })

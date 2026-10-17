@@ -37,7 +37,9 @@ export interface RowSwipe {
 }
 
 interface SwipeToTrashRowProps {
-  itemNo: string;
+  itemId: string;
+  // 読み上げで名乗るノートの呼び名 (lib/items/noteName.ts)
+  name: string;
   swipe: RowSwipe;
   // 小 … 削除で高さ 0 へ潰す。大 … 高さが可変・グリッドで隣に揃うので
   // 潰さずフェードで消す (docs/43 §9-1)。
@@ -66,7 +68,8 @@ interface SwipeToTrashRowProps {
 // この階層だけなので、実行する手と一覧を同じ所に置く。今後ピン留めなどを足す
 // ときは actions に 1 つ足せば、メニューに現れる (quick を付ければホバーの列にも)。
 export function SwipeToTrashRow({
-  itemNo,
+  itemId,
+  name,
   swipe,
   view,
   liClassName = "",
@@ -75,7 +78,7 @@ export function SwipeToTrashRow({
   const { trashAction, searchState, isOpen, onOpenChange } = swipe;
   const drawer = useSwipeDrawer(isOpen, onOpenChange);
   const { busy, removing, failed, isPending, trash } = useRowTrash(
-    itemNo,
+    itemId,
     trashAction,
     searchState,
   );
@@ -83,7 +86,7 @@ export function SwipeToTrashRow({
   //
   // **開いているメニューを 1 つに保つのに、親へ持ち上げる必要はない。**
   // RowActionMenu は document の pointerdown を capture で拾って閉じるので、
-  // 別の行を押した時点で先に閉じる (スワイプの開閉が openItemNo を親に
+  // 別の行を押した時点で先に閉じる (スワイプの開閉が openItemId を親に
   // 置いているのは、あちらが「押されていない間も開いたまま」だから)
   const [menuOrigin, setMenuOrigin] = useState<MenuOrigin | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -137,7 +140,7 @@ export function SwipeToTrashRow({
         disabled={busy || !open}
         tabIndex={open ? 0 : -1}
         aria-hidden={!open}
-        aria-label={`#${itemNo} を削除`}
+        aria-label={`${name}を削除`}
         style={{ width: SWIPE_BUTTON_WIDTH }}
         className="absolute inset-y-0 right-0 flex items-center justify-center bg-red-600 text-sm font-medium text-white disabled:opacity-60"
       >
@@ -164,10 +167,10 @@ export function SwipeToTrashRow({
       >
         {children}
         {/* PC 用の近道。スマホでは hover が無いので出ない (§4) */}
-        <RowActionButtons itemNo={itemNo} actions={actions} view={view} />
+        <RowActionButtons name={name} actions={actions} view={view} />
         <RowMenuTrigger
           ref={triggerRef}
-          itemNo={itemNo}
+          name={name}
           view={view}
           isOpen={menuOrigin?.kind === "anchor"}
           disabled={busy}
@@ -205,7 +208,7 @@ export function SwipeToTrashRow({
           切られない */}
       {menuOrigin && (
         <RowActionMenu
-          label={`#${itemNo} の操作`}
+          label={`${name}の操作`}
           actions={actions}
           origin={menuOrigin}
           anchorRef={triggerRef}

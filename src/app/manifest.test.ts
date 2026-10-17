@@ -44,7 +44,7 @@ describe("PWA manifest", () => {
     expect(any.map((icon) => icon.src)).not.toContain(maskable[0].src);
   });
 
-  test("QR シールが指す /item/:itemNo が scope に入る", () => {
+  test("QR シールが指す /item/:itemId が scope に入る", () => {
     // Arrange
     const { scope, start_url } = manifest();
 

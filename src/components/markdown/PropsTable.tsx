@@ -26,7 +26,7 @@ interface PropsTableProps {
   // 関数は client 部品の prop として渡せない
   query: string;
   sort: Sort;
-  // itemNo → 数式入り要約の KaTeX 済み HTML (docs/69-一覧数式計画.md)。
+  // itemId → 数式入り要約の KaTeX 済み HTML (docs/69-一覧数式計画.md)。
   // page.tsx (サーバ) が renderInlineMathHtml で作って降ろす。数式の無い行は
   // 入っておらず、プレーンテキスト (row.summary) のまま出す
   mathSummaries?: Record<string, string>;
@@ -93,22 +93,22 @@ export function PropsTable({
         </thead>
         <tbody className="divide-y divide-gray-200">
           {sorted.map((row) => (
-            <tr key={row.itemNo} className="hover:bg-gray-50">
+            <tr key={row.itemId} className="hover:bg-gray-50">
               <td className="px-4 py-1.5">
                 {/* 部品名は長くなりがちなので幅を抑えて省略する。抑えないと
                     横スクロールの表で hFE などの列が画面外へ押し出され、
                     「並べて比べる」という表の目的が崩れる (特にスマホ)。 */}
                 <Link
-                  href={buildItemUrl(row.itemNo, query, sort)}
+                  href={buildItemUrl(row.itemId, query, sort)}
                   className="flex max-w-56 items-baseline gap-2"
                   title={row.summary}
                 >
-                  <span className="shrink-0 font-mono font-bold">#{row.itemNo}</span>
+                  <span className="shrink-0 font-mono font-bold">#{row.itemId}</span>
                   {/* ツールチップ (title 属性) は上でプレーンテキストのまま。
                       属性に HTML は入らないので、数式は表示側だけ KaTeX にする */}
                   <span className="min-w-0 truncate text-gray-600">
-                    {mathSummaries?.[row.itemNo] ? (
-                      <MathText html={mathSummaries[row.itemNo]} />
+                    {mathSummaries?.[row.itemId] ? (
+                      <MathText html={mathSummaries[row.itemId]} />
                     ) : (
                       row.summary
                     )}

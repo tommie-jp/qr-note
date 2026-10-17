@@ -124,7 +124,7 @@ npm run test:e2e                  # 別の端末で
 - 接続先は `E2E_BASE_URL` (既定 `http://localhost:3210`)。**`127.0.0.1` では
   開かない** (非本番のループバック IP は localhost へ 307 で送り直される)
 - 資格情報を変えるときは `E2E_USER` / `E2E_PASSWORD` とサーバ側の `BASIC_AUTH_*` を揃える
-- E2E が作るノートは番号 `zze2e` 始まりで、画面からゴミ箱 → 永久削除して片付ける。
+- E2E が作るノートは id が `e2e0e2e0-` 始まり・見出しが `zze2e<n>` 始まりで、画面からゴミ箱 → 永久削除して片付ける。
   結果は `test-results/`・`playwright-report/` に出る (どちらも git 管理外)
 - シークレット (パスキー登録 → 暗号化の設定 → 解錠 → 断片) の E2E は鍵束を作るので
   専用 DB でだけ流す: `scripts/e2eDb.sh create` →

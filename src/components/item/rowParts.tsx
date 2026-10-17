@@ -1,3 +1,4 @@
+import { noteName } from "@/lib/items/noteName";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
@@ -21,7 +22,9 @@ import { tagSearchHref } from "@/lib/markdown/tags/tags";
 // カードと小・中表示の行が共通に並べる部品 (ItemRow が 1 度だけ組む)。
 // 何を出すかの判断は lib/items/itemRowDecor.ts、ここは React の形にするだけ
 export interface RowParts {
-  itemNo: string;
+  itemId: string;
+  // 読み上げで名乗るノートの呼び名 (lib/items/noteName.ts)
+  name: string;
   // ノートを開くリンク先 (ItemRow の href)
   href: string;
   // プレビューペインでこのノートが開いているか
@@ -111,7 +114,8 @@ function renderThumb(
 export function buildRowParts(input: RowPartsInput): RowParts {
   const { item, href, checkbox, view, footer, mathTitle, selected } = input;
   return {
-    itemNo: item.itemNo,
+    itemId: item.itemId,
+    name: noteName(item),
     href,
     selected,
     checkbox,

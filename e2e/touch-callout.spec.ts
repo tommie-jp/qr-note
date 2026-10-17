@@ -1,5 +1,4 @@
 import type { Locator, Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -11,7 +10,7 @@ import {
   test,
   selectNoteTab,
 } from './helpers'
-import { removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote } from './notes'
 
 // 長押しで出る OS のメニュー (docs/98-長押しメニュー抑止計画.md)。
 // 指で触る画面では文字の選択と iOS の吹き出しを画面全体で止め、ノートの
@@ -19,8 +18,9 @@ import { removeE2eNote } from './notes'
 //
 // -webkit-touch-callout は Chromium が解さないので、ここで見られるのは文字選択の
 // 側だけ。吹き出し (リンクのプレビュー・画像のメニュー) は iPhone 実機で見る
-const ITEM_NO = `${E2E_ITEM_PREFIX}5`
-const BODY = `${E2E_ITEM_PREFIX} callout ${Date.now()}`
+const NOTE = e2eNote(5, `callout ${Date.now()}`)
+const ITEM_ID = NOTE.id
+const BODY = NOTE.heading
 
 // 選べる文字が残っているか。user-select は継承しない (子の計算値は auto の
 // まま) ので、計算値ではなく実際に選ばせて確かめる
@@ -48,20 +48,20 @@ function selectModeButton(page: Page): Locator {
 test.describe('長押しで OS のメニューを出さない', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
-    await page.goto(`/edit/${ITEM_NO}`)
+    await removeE2eNote(page, NOTE)
+    await page.goto(`/edit/${ITEM_ID}`)
     const save = page.getByRole('button', { name: '更新', exact: true })
     await expect(save).toBeVisible()
     await clearEditor(page)
     await memoEditor(page).pressSequentially(BODY, { delay: 10 })
     await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 
@@ -96,7 +96,7 @@ test.describe('長押しで OS のメニューを出さない', () => {
   test('指の画面でも、ノートの 3 つのタブの中は選べる', async ({ browser }) => {
     // Arrange
     const page = await newTouchPage(browser)
-    await page.goto(`/item/${ITEM_NO}`)
+    await page.goto(`/item/${ITEM_ID}`)
 
     // Act / Assert: 本文があるので markdown タブで開く
     const rendered = page.getByText(BODY).first()

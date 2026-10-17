@@ -41,7 +41,7 @@ export const MAX_CIRCUIT_THUMB_BYTES = 32 * 1024
 export const CIRCUIT_THUMB_BUDGET = 256 * 1024
 
 // 一覧に必要な列だけに絞る (Item を丸ごと要求しない)。テストも軽くなる
-type ThumbSource = { itemNo: string; memo: string; mode: string }
+type ThumbSource = { itemId: string; memo: string; mode: string }
 
 // フェンス 1 つの DB 主キー。**言語ごとに版の混ぜ方が違う** — YAML は
 // レンダラの版に circuit-fence の版も繋ぐ (docs/91 §2)。ここを取り違えると
@@ -75,7 +75,7 @@ export async function loadCircuitThumbs(
     if (fences.length === 0) {
       return []
     }
-    return [{ itemNo: item.itemNo, hashes: fences.map(hashOfFence) }]
+    return [{ itemId: item.itemId, hashes: fences.map(hashOfFence) }]
   })
   if (wants.length === 0) {
     return {}
@@ -135,7 +135,7 @@ export async function loadCircuitThumbs(
       }
     }
     if (svgs.length > 0) {
-      map[want.itemNo] = svgs
+      map[want.itemId] = svgs
     }
     if (exhausted) {
       break

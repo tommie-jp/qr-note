@@ -4,7 +4,7 @@ import { startTransition, useState } from "react";
 import { BOX_CLASS, PRIMARY_BUTTON_CLASS } from "@/components/ui";
 
 // 記録ボタンが呼ぶ保存処理。ノート番号は呼び出し側で束ねておく
-// (ItemView が `recordHealthAction.bind(null, itemNo)` で渡す) —
+// (ItemView が `recordHealthAction.bind(null, itemId)` で渡す) —
 // MarkdownView は「本文をどう描くか」だけを受け取る道具にしておきたいので、
 // どのノートかという素性はここまで下りてこない (ToggleTaskHandler と同じ作法)
 export type RecordHealthHandler = (

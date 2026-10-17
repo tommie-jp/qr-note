@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { readItemNo } from '@/lib/actionForm'
+import { readItemId } from '@/lib/actionForm'
 import { renderCircuits } from '@/lib/circuit/cache'
 import { getItem } from '@/lib/items/read'
 import { setItemOfflinePin } from '@/lib/items/flags'
-import { parseBackUrl, parseSelectedItemNos } from '@/lib/items/itemSelection'
+import { parseBackUrl, parseSelectedItemIds } from '@/lib/items/itemSelection'
 import { requireUserOutsideDemo } from './_guards'
 import { revalidateItem } from './_revalidate'
 
@@ -33,23 +33,23 @@ export async function setItemOfflinePinAction(formData: FormData): Promise<void>
   // ことは別の話 (setItemPublicAction と同じ流儀)。共有アカウントのデモで
   // 誰かが印を立てると、他の人の画面にもその帯が出てしまう
   await requireUserOutsideDemo(DEMO_OFFLINE_MESSAGE)
-  const itemNo = readItemNo(formData)
+  const itemId = readItemId(formData)
   // '1' だけを印ありと読む。判らない値は印なしへ倒す (通信量を使わない側へ)
   const pinned = formData.get('pin') === '1'
-  await setItemOfflinePin(itemNo, pinned)
+  await setItemOfflinePin(itemId, pinned)
 
   if (pinned) {
-    const item = await getItem(itemNo)
+    const item = await getItem(itemId)
     if (item !== null) {
       try {
         await renderCircuits(item.memo)
       } catch (error) {
-        console.warn(`オフライン用の回路図を描けませんでした (${itemNo})`, error)
+        console.warn(`オフライン用の回路図を描けませんでした (${itemId})`, error)
       }
     }
   }
 
-  revalidateItem(itemNo)
+  revalidateItem(itemId)
 }
 
 // 検索結果で選択したノートにまとめて印を立てる (docs/65 §7)。
@@ -65,23 +65,23 @@ export async function setItemOfflinePinAction(formData: FormData): Promise<void>
 export async function setItemsOfflinePinAction(formData: FormData): Promise<void> {
   // 単体のトグルと同じ理由でデモを塞ぐ (旗の欠落に頼らない)
   await requireUserOutsideDemo(DEMO_OFFLINE_MESSAGE)
-  const itemNos = parseSelectedItemNos(formData)
+  const itemIds = parseSelectedItemIds(formData)
   const back = parseBackUrl(formData)
 
-  for (const itemNo of itemNos) {
-    await setItemOfflinePin(itemNo, true)
-    const item = await getItem(itemNo)
+  for (const itemId of itemIds) {
+    await setItemOfflinePin(itemId, true)
+    const item = await getItem(itemId)
     if (item === null) {
       continue
     }
     try {
       await renderCircuits(item.memo)
     } catch (error) {
-      console.warn(`オフライン用の回路図を描けませんでした (${itemNo})`, error)
+      console.warn(`オフライン用の回路図を描けませんでした (${itemId})`, error)
     }
   }
 
-  if (itemNos.length > 0) {
+  if (itemIds.length > 0) {
     // 一覧も描き直す。印は一覧に出ないが、**次の同期で持ち出す対象が
     // 変わった**ので、キャッシュされた古い応答を残さない
     revalidatePath('/')

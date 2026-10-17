@@ -25,14 +25,17 @@ function sqlOf(fragment: Prisma.Sql): string {
 }
 
 const LIVE = '(deleted_at IS NULL)'
-const TEXT = '(memo &@ ? OR url &@ ? OR item_no ILIKE ?)'
+const TEXT = '(memo &@ ? OR url &@ ?)'
 const TAG = 'tags @> ARRAY[?]::text[]'
 const HAS_TASKS = '((task_todo > 0 OR task_done > 0))'
 
-// 語 1 つが渡すパラメータ (memo・url・itemNo 前方一致の 3 つ)
+// 語 1 つが渡すパラメータ (memo・url の 2 つ)。旧番号の前方一致は外した
+// (旧番号は本文のタグ `#1003` になり、全文検索にそのまま当たる。docs/107 §4-5)
 function textValues(word: string): string[] {
-  return [word, word, `${word}%`]
+  return [word, word]
 }
+
+const SELF = '00000000-0000-7000-8000-000000004551'
 
 describe('buildWhere (検索一覧)', () => {
   test('空クエリはゴミ箱を外すだけ', () => {
@@ -49,17 +52,17 @@ describe('buildWhere (検索一覧)', () => {
     expect(where.values).toEqual([])
   })
 
-  test('語は memo / url の全文一致と itemNo の前方一致の OR', () => {
+  test('語は memo / url の全文一致の OR', () => {
     const where = buildWhere('抵抗')
 
     expect(sqlOf(where)).toBe(`WHERE ${LIVE} AND (${TEXT})`)
     expect(where.values).toEqual(textValues('抵抗'))
   })
 
-  test('itemNo の前方一致は LIKE の特殊文字を逃がす (全文一致には素のまま渡す)', () => {
+  test('LIKE の特殊文字も全文一致には素のまま渡す', () => {
     const where = buildWhere('a_1%')
 
-    expect(where.values).toEqual(['a_1%', 'a_1%', 'a\\_1\\%%'])
+    expect(where.values).toEqual(['a_1%', 'a_1%'])
   })
 
   test('語の値は SQL 文に混ざらずパラメータで渡る', () => {
@@ -230,23 +233,23 @@ describe('buildProgressWhere (学習進捗の母数)', () => {
 
 describe('buildNeighborsWhere (前後ナビ)', () => {
   test('検索条件に今のノート自身を OR で足す', () => {
-    const where = buildNeighborsWhere('is:todo', '4551')
+    const where = buildNeighborsWhere('is:todo', SELF)
 
-    expect(sqlOf(where)).toBe(`WHERE ${LIVE} AND (task_todo > 0 OR item_no = ?)`)
-    expect(where.values).toEqual(['4551'])
+    expect(sqlOf(where)).toBe(`WHERE ${LIVE} AND (task_todo > 0 OR id = ?::uuid)`)
+    expect(where.values).toEqual([SELF])
   })
 
   test('AND の検索では式の括弧の外に自身の OR が付く', () => {
-    const where = buildNeighborsWhere('#a #b', '12')
+    const where = buildNeighborsWhere('#a #b', SELF)
 
     expect(sqlOf(where)).toBe(
-      `WHERE ${LIVE} AND ((${TAG} AND ${TAG}) OR item_no = ?)`,
+      `WHERE ${LIVE} AND ((${TAG} AND ${TAG}) OR id = ?::uuid)`,
     )
-    expect(where.values).toEqual(['a', 'b', '12'])
+    expect(where.values).toEqual(['a', 'b', SELF])
   })
 
   test('空クエリは全件が対象なので自身を足さない', () => {
-    const where = buildNeighborsWhere('', '4551')
+    const where = buildNeighborsWhere('', SELF)
 
     expect(sqlOf(where)).toBe(`WHERE ${LIVE}`)
     expect(where.values).toEqual([])
@@ -274,8 +277,7 @@ describe('ITEM_COLUMNS', () => {
   test('列を camelCase へ射影する (検索一覧とゴミ箱一覧で共有)', () => {
     expect(sqlOf(ITEM_COLUMNS)).toBe(
       [
-        'item_no AS "itemNo"',
-        'item_no_num AS "itemNoNum"',
+        'id::text AS "itemId"',
         'memo',
         'url',
         'mode',
@@ -297,16 +299,16 @@ describe('ITEM_COLUMNS', () => {
 })
 
 describe('buildOrderBy', () => {
-  test('番号順は prefs/sortOrder.ts の句を ORDER BY に載せる', () => {
-    const orderBy = buildOrderBy('itemNo')
+  test('登録順は prefs/sortOrder.ts の句を ORDER BY に載せる (UUID v7 の id 順)', () => {
+    const orderBy = buildOrderBy('registered')
 
-    expect(sqlOf(orderBy)).toBe('ORDER BY item_no_num ASC NULLS LAST, item_no ASC')
+    expect(sqlOf(orderBy)).toBe('ORDER BY id ASC')
     expect(orderBy.values).toEqual([])
   })
 
   test('ゴミ箱の既定は削除の新しい順', () => {
     expect(sqlOf(buildOrderBy('deleted'))).toBe(
-      'ORDER BY deleted_at DESC, item_no ASC',
+      'ORDER BY deleted_at DESC, id ASC',
     )
   })
 })

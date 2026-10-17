@@ -61,9 +61,9 @@ describe('countRenumbered', () => {
     // Arrange
     const report = {
       imported: [
-        { itemNo: '20001', title: 'a', renumberedFrom: '1042' },
-        { itemNo: '1043', title: 'b' },
-        { itemNo: '20002', title: '', renumberedFrom: '1044' },
+        { itemId: '20001', title: 'a', renumberedFrom: '1042' },
+        { itemId: '1043', title: 'b' },
+        { itemId: '20002', title: '', renumberedFrom: '1044' },
       ],
     }
 

@@ -20,11 +20,11 @@ const IMAGE = '0421547b-ee29-4613-a6d4-da0f41f94054.jpg'
 const fence = (source: string) => `\`\`\`circuitikz\n${source}\n\`\`\``
 
 function makeItem(
-  itemNo: string,
+  itemId: string,
   memo: string,
   mode: 'memo' | 'url' = 'memo',
 ) {
-  return { itemNo, memo, mode }
+  return { itemId, memo, mode }
 }
 
 // 検査 (assertSafeCircuitSvg) を通り、かつ好きな大きさに膨らませられる SVG。

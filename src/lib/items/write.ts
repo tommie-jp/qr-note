@@ -12,34 +12,35 @@ import { extractProps } from '@/lib/markdown/props'
 import { nextVersion, type SaveBase } from '@/lib/editor/saveBase'
 import { extractTags } from '@/lib/markdown/tags/tags'
 import { countTasks } from '@/lib/markdown/taskCheckbox'
-import { itemNoToNum, type Mode } from '@/lib/validation'
+import type { Mode } from '@/lib/validation'
 import { getItem } from './read'
 
 // Ver1 の /item/:itemNo と同じく、未登録なら新規作成する (upsert)。
+// itemId は呼ぶ側が振った UUID v7 (/new・取り込み。items/itemId.ts)。
 // tags / props は memo から抽出した派生キャッシュ (保存のたびに再計算する)。
-export async function upsertMemo(itemNo: string, memo: string): Promise<Item> {
+export async function upsertMemo(itemId: string, memo: string): Promise<Item> {
   // デモのノート数上限 (docs/39-デモ公開計画.md §2-2)。新規作成になるときだけ
   // 効く (デモでなければ即 return)。既存の更新は数に依らず通す
-  await assertDemoItemQuota(itemNo)
+  await assertDemoItemQuota(itemId)
   const derived = derivedFromMemo(memo)
   return prisma.item.upsert({
-    where: { itemNo },
+    where: { itemId },
     update: { memo, ...derived },
-    create: { itemNo, itemNoNum: itemNoToNum(itemNo), memo, ...derived },
+    create: { itemId, memo, ...derived },
   })
 }
 
 export async function upsertItem(
-  itemNo: string,
+  itemId: string,
   data: { memo: string; url: string; mode: Mode },
 ): Promise<Item> {
   // デモのノート数上限 (docs/39-デモ公開計画.md §2-2)。upsertMemo と同じ門番
-  await assertDemoItemQuota(itemNo)
+  await assertDemoItemQuota(itemId)
   const derived = derivedFromMemo(data.memo)
   return prisma.item.upsert({
-    where: { itemNo },
+    where: { itemId },
     update: { ...data, ...derived },
-    create: { itemNo, itemNoNum: itemNoToNum(itemNo), ...data, ...derived },
+    create: { itemId, ...data, ...derived },
   })
 }
 
@@ -100,7 +101,7 @@ function isUniqueViolation(error: unknown): boolean {
 // upsertMemo / upsertItem は残してある — インポート・履歴からの復元が使う
 // 「明示的な上書き」の口。**画面からの保存はこちらを通す**
 export async function saveItemIfUnchanged(
-  itemNo: string,
+  itemId: string,
   data: SaveItemData,
   base: SaveBase,
 ): Promise<SaveOutcome> {
@@ -109,18 +110,19 @@ export async function saveItemIfUnchanged(
   if (base.kind === 'new') {
     // デモのノート数上限 (docs/39 §2-2)。新規作成のときだけ効く門番で、
     // upsert 時代と同じ効き方 (既存の更新は数に依らず通す)
-    await assertDemoItemQuota(itemNo)
+    await assertDemoItemQuota(itemId)
     try {
       const item = await prisma.item.create({
-        data: { itemNo, itemNoNum: itemNoToNum(itemNo), ...data, ...derived },
+        data: { itemId, ...data, ...derived },
       })
       return { ok: true, item }
     } catch (error) {
-      // 2 台で同時に「+」を押すと同じ番号が採番されうる (nextItemNo は
-      // 予約しない)。upsert のままだと後から保存した側が先のノートを
-      // 丸ごと潰すので、ここで止める
+      // id は UUID v7 なので、2 台で同時に「+」を押しても衝突しない。
+      // それでも同じ id に 2 度目の作成が来るのは、同じ /edit/<id> を 2 つの
+      // タブで開いて両方で保存したとき。upsert のままだと後から保存した側が
+      // 先のノートを丸ごと潰すので、ここで止める
       if (isUniqueViolation(error)) {
-        const current = await getItem(itemNo)
+        const current = await getItem(itemId)
         if (current !== null) {
           return { ok: false, reason: 'exists', current }
         }
@@ -132,14 +134,14 @@ export async function saveItemIfUnchanged(
   // 基点が判らない本文 (旧形式の下書きから復元した本文)。いまの版を当てず、
   // 必ず競合として見せる (docs/87 §2-6)
   if (base.kind === 'stale') {
-    const current = await getItem(itemNo)
+    const current = await getItem(itemId)
     return current === null
       ? { ok: false, reason: 'missing' }
       : { ok: false, reason: 'conflict', current }
   }
 
   const rows = await prisma.item.updateManyAndReturn({
-    where: { itemNo, updatedAt: base.at },
+    where: { itemId, updatedAt: base.at },
     data: { ...data, ...derived, updatedAt: nextVersion(base.at) },
   })
   const saved = rows[0]
@@ -147,7 +149,7 @@ export async function saveItemIfUnchanged(
     return { ok: true, item: saved }
   }
 
-  const current = await getItem(itemNo)
+  const current = await getItem(itemId)
   if (current === null) {
     return { ok: false, reason: 'missing' }
   }
@@ -180,7 +182,7 @@ export interface ModifyMemoOptions {
 // transform が Promise を返してもよいのは、書き換えの途中で外を引く余地を
 // 残すため (テストは読みと書きの間に別の保存を割り込ませるのに使う)
 export async function modifyMemo(
-  itemNo: string,
+  itemId: string,
   transform: (memo: string) => string | null | Promise<string | null>,
   options: ModifyMemoOptions = {},
 ): Promise<ModifyOutcome> {
@@ -188,7 +190,7 @@ export async function modifyMemo(
   let first: string | null = null
 
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const item = await getItem(itemNo)
+    const item = await getItem(itemId)
     if (item === null) {
       return 'missing'
     }
@@ -209,7 +211,7 @@ export async function modifyMemo(
     }
 
     const rows = await prisma.item.updateManyAndReturn({
-      where: { itemNo, updatedAt: item.updatedAt },
+      where: { itemId, updatedAt: item.updatedAt },
       data: {
         memo: next,
         ...derivedFromMemo(next),
@@ -240,7 +242,7 @@ export async function modifyMemo(
 // どちらか片方しか無いときはもう片方で埋める。両方無ければ何もしない
 // (取り込んだ時刻のまま = upsert が入れた値)。
 export async function applyImportedTimestamps(
-  itemNo: string,
+  itemId: string,
   createdAt: Date | null,
   updatedAt: Date | null,
 ): Promise<void> {
@@ -251,7 +253,7 @@ export async function applyImportedTimestamps(
   }
   await prisma.$executeRaw`
     UPDATE items SET created_at = ${created}, updated_at = ${updated}
-    WHERE item_no = ${itemNo}
+    WHERE id = ${itemId}::uuid
   `
 }
 
@@ -271,8 +273,8 @@ export async function rewriteImageReference(
   oldName: string,
   newName: string,
 ): Promise<number> {
-  const rows = await prisma.$queryRaw<{ item_no: string; memo: string }[]>`
-    SELECT item_no, memo FROM items
+  const rows = await prisma.$queryRaw<{ id: string; memo: string }[]>`
+    SELECT id::text AS id, memo FROM items
     WHERE position(${oldName} IN memo) > 0
   `
   if (rows.length === 0) {
@@ -282,7 +284,7 @@ export async function rewriteImageReference(
     rows.map((row) => {
       const memo = replaceImageName(row.memo, oldName, newName)
       return prisma.item.update({
-        where: { itemNo: row.item_no },
+        where: { itemId: row.id },
         data: { memo, ...derivedFromMemo(memo) },
       })
     }),

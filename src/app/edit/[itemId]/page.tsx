@@ -23,25 +23,24 @@ import { requireUser } from "@/lib/auth/session";
 export const dynamic = "force-dynamic";
 
 interface EditPageProps {
-  params: Promise<{ itemNo: string }>;
+  params: Promise<{ itemId: string }>;
   searchParams: Promise<{ code?: string }>;
 }
 
-// Ver1 の /edit/:itemNo 相当。mode / memo / url をまとめて編集する
+// Ver1 の /edit/:itemId 相当。mode / memo / url をまとめて編集する
 //
 // proxy.ts も未ログインの画面 GET を止めるが、それは楽観的な検査であって
 // 唯一の砦にはしない (docs/18 §4)。本文を読む getItem の前に requireUser() で
 // 確かめる。
 export default async function EditPage({ params, searchParams }: EditPageProps) {
-  const { itemNo } = await params;
-  guardItemPage(itemNo);
+  const itemId = await guardItemPage((await params).itemId, (id) => `/edit/${id}`);
   await requireUser();
-  const [item, { code }] = await Promise.all([getItem(itemNo), searchParams]);
+  const [item, { code }] = await Promise.all([getItem(itemId), searchParams]);
   const mode = item?.mode ?? "memo";
 
   // スキャンした未登録コードからの新規登録 (docs/10-スキャン新規登録計画.md §5)。
-  // 既存ノートには効かせない。採番が競合して先に使われていた場合、既存の本文を
-  // 黙って上書きする初期値を出すと、そのまま更新して壊しかねない。
+  // 既存ノートには効かせない。同じ /edit/<id> を別タブで先に保存していた場合、
+  // 既存の本文を黙って上書きする初期値を出すと、そのまま更新して壊しかねない。
   // タグにできない code は無視する (通常の導線では来ない。URL を手で触った場合)
   const newCode = !item && code && isTaggableCode(code) ? code : null;
   const defaultMemo = newCode ? scanRegisterMemo(newCode) : (item?.memo ?? "");
@@ -61,17 +60,17 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
       {/* 編集画面を開いたのも「触った」に数える (docs/37-アクセス順計画.md)。
           この画面は proxy.ts が未ログインを止め、上の requireUser() も
           重ねている口なので、公開ノートの読み手が並びを動かす心配はない */}
-      <RecordAccess itemNo={itemNo} action={recordAccessAction} />
+      <RecordAccess itemId={itemId} action={recordAccessAction} />
       <div className="space-y-4">
         <h1 className="text-xl font-bold">
-          edit <span className="font-mono">#{itemNo}</span>
+          edit
         </h1>
 
         {/* 保存しても deletedAt は触らない (復元は明示的な操作だけ) ので、
             ここで知らせないと「編集して更新したのに検索に出ない」になる
             (docs/12-ゴミ箱計画.md §5) */}
         {item?.deletedAt && (
-          <TrashedBanner itemNo={itemNo} restoreAction={restoreItemsAction} />
+          <TrashedBanner itemId={itemId} restoreAction={restoreItemsAction} />
         )}
 
         {/* 保存は「開いたときの版のままなら書く」(docs/87-編集競合対策計画.md)。
@@ -79,7 +78,7 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
             useActionState で戻り値を受ける包み (NoteSaveForm) にする */}
         <NoteSaveForm
           action={updateItemAction}
-          itemNo={itemNo}
+          itemId={itemId}
           className="space-y-3"
         >
           <UnsavedGuard />
@@ -93,7 +92,7 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
               base={formatBase(item?.updatedAt ?? null)}
               autoFocus
               prefill={prefill}
-              draftKey={itemNo}
+              draftKey={itemId}
             />
           </EditItemFields>
           {/* 「更新」は画面下部の操作バーへ移した (MemoEditorInner が portal で
@@ -104,7 +103,7 @@ export default async function EditPage({ params, searchParams }: EditPageProps) 
 
         <div className="flex gap-1">
           <Link
-            href={`/item/${itemNo}`}
+            href={`/item/${itemId}`}
             className={ACTION_LINK_CLASS}
             transitionTypes={["nav-back"]}
           >

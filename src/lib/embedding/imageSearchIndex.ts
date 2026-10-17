@@ -13,7 +13,7 @@ import { allImageNames } from '../images/memoImages'
 import { memoSummary } from '../markdown/memoSummary'
 
 export interface ImageSearchIndexEntry {
-  itemNo: string
+  itemId: string
   // 一覧と同じ要約 (先頭行)。候補表示のラベルに使う。
   title: string
   imageName: string
@@ -24,19 +24,19 @@ export interface ImageSearchIndexEntry {
 // ノート一覧と「名前→埋め込み base64」から索引を組み立てる純関数。
 // 埋め込みが無い画像 (未生成・生成失敗) は載せない = 検索対象から外れる。
 export function assembleIndex(
-  items: ReadonlyArray<{ itemNo: string; memo: string }>,
+  items: ReadonlyArray<{ itemId: string; memo: string }>,
   embeddingBase64ByName: ReadonlyMap<string, string>,
 ): ImageSearchIndexEntry[] {
   const entries: ImageSearchIndexEntry[] = []
   for (const item of items) {
     // 要約が空なら (画像だけのノートなど) 部品番号をラベルにする
-    const title = memoSummary(item.memo) || item.itemNo
+    const title = memoSummary(item.memo) || item.itemId
     for (const imageName of allImageNames(item.memo)) {
       const embedding = embeddingBase64ByName.get(imageName)
       if (!embedding) {
         continue
       }
-      entries.push({ itemNo: item.itemNo, title, imageName, embedding })
+      entries.push({ itemId: item.itemId, title, imageName, embedding })
     }
   }
   return entries
@@ -46,7 +46,7 @@ export function assembleIndex(
 export async function buildImageSearchIndex(): Promise<ImageSearchIndexEntry[]> {
   const items = await prisma.item.findMany({
     where: { deletedAt: null },
-    select: { itemNo: true, memo: true },
+    select: { itemId: true, memo: true },
   })
 
   // 本文から参照されている画像名をすべて集め、その埋め込みを 1 度に引く。

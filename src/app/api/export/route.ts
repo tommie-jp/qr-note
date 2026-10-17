@@ -1,5 +1,5 @@
 import { formatJstDate } from '@/lib/datetime'
-import { parseSelectedItemNos } from '@/lib/items/itemSelection'
+import { parseSelectedItemIds } from '@/lib/items/itemSelection'
 import { guardRequest } from '@/lib/route/guard'
 import { byteHeaders } from '@/lib/route/bytes'
 import { parseFormBody } from '@/lib/route/parse'
@@ -9,11 +9,11 @@ import { createZipStream } from '@/lib/zip/zipStream'
 
 // ノートを ZIP で書き出す (docs/28-エクスポート計画.md §7)。
 //
-// **口は 1 本**。form の `scope` が all なら全件、selected なら `itemNo` で
+// **口は 1 本**。form の `scope` が all なら全件、selected なら `itemId` で
 // 選んだぶんだけを入れる。全件用と選択用でエンドポイントを分けない。
 //
 // GET ではなく POST なのは 2 つの理由から:
-//   - 選んだ itemNo の列が URL 長の実用上限 (~2KB) に収まる保証がない
+//   - 選んだ itemId の列が URL 長の実用上限 (~2KB) に収まる保証がない
 //   - <form method="post"> の画面遷移ならブラウザが Content-Disposition を
 //     そのままダウンロードとして受ける。fetch + blob と違い、JS がファイル
 //     全体をメモリに抱えない (スマホ + 画像入り ZIP で効く)
@@ -45,13 +45,13 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // 番号の検証・重複除去・上限は一括操作 (タグ付け・ゴミ箱行き) と同じ
-  // parseSelectedItemNos を通す。フォームの形が同じなので解釈も 1 か所に置く
-  const itemNos = scope === 'selected' ? parseSelectedItemNos(formData) : null
-  if (itemNos !== null && itemNos.length === 0) {
+  // parseSelectedItemIds を通す。フォームの形が同じなので解釈も 1 か所に置く
+  const itemIds = scope === 'selected' ? parseSelectedItemIds(formData) : null
+  if (itemIds !== null && itemIds.length === 0) {
     return apiFail('ノートが選択されていません', 400)
   }
 
-  return new Response(createZipStream(exportEntries(itemNos)), {
+  return new Response(createZipStream(exportEntries(itemIds)), {
     headers: byteHeaders({
       contentType: 'application/zip',
       extra: { 'Content-Disposition': `attachment; filename="${exportFileName()}"` },

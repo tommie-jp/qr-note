@@ -1,4 +1,4 @@
-import { E2E_ITEM_PREFIX } from './env'
+import { E2E_HEADING_PREFIX } from './env'
 import {
   expect,
   hasHorizontalScroll,
@@ -39,8 +39,8 @@ test.describe('検索画面', () => {
 
   test('打ち込むと URL の ?q= が変わり、結果の器が出る', async ({ page }) => {
     // Arrange
-    // E2E の番号の頭 + 存在しない語。本物のノートを一覧に出さない
-    const query = `${E2E_ITEM_PREFIX}-probe`
+    // E2E の見出しの頭 + 存在しない語。本物のノートを一覧に出さない
+    const query = `${E2E_HEADING_PREFIX}-probe`
     await page.goto('/')
 
     // Act

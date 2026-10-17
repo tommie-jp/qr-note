@@ -11,7 +11,7 @@ import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { planCircuits } from "@/lib/circuit/cache";
 
 interface PublicItemViewProps {
-  itemNo: string;
+  itemId: string;
   item: Item;
 }
 
@@ -29,7 +29,7 @@ interface PublicItemViewProps {
 //
 // QR ボタンは**出す** (docs/22 §5)。シールを見た人がその場で刷り直せる。
 // /print も同じ公開判定を通してあるので、押せば実際に開く。
-export async function PublicItemView({ itemNo, item }: PublicItemViewProps) {
+export async function PublicItemView({ itemId, item }: PublicItemViewProps) {
   const memo = item.memo;
   // ```circuitikz の描画は始めるだけで待たない (ItemView と同じ理由。
   // docs/85-回路図表示待ち計画.md §3)
@@ -39,13 +39,13 @@ export async function PublicItemView({ itemNo, item }: PublicItemViewProps) {
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">
         <h1 className="text-xl font-bold">
-          item <span className="font-mono">#{itemNo}</span>
+          item
         </h1>
         <div className="flex gap-1">
           {/* 持ち主の画面と同じ見た目にする (docs/82 §2)。長押しの吹き出しは
               付けない — ここは押せる物が 1 つだけで、隣の文字が既に名前になっている */}
           <PendingLink
-            href={`/print/${itemNo}`}
+            href={`/print/${itemId}`}
             className={ACTION_LINK_CLASS}
             transitionTypes={["nav-forward"]}
           >
@@ -72,7 +72,7 @@ export async function PublicItemView({ itemNo, item }: PublicItemViewProps) {
       <ItemTags tags={item.tags} linked={false} />
 
       <MemoPanel
-        key={itemNo}
+        key={itemId}
         // 読み取り専用なので既定は markdown で固定する。ItemView は空メモを
         // 編集タブで開くが、こちらに編集タブは無い (空メモだと何も出せない)
         defaultMode="markdown"

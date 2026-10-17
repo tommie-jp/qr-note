@@ -10,7 +10,7 @@ import {
 import { MAX_HEALTH_DAYS } from './healthFence'
 
 function rows(...memos: string[]): HealthSourceRow[] {
-  return memos.map((memo, index) => ({ itemNo: String(4000 + index), memo }))
+  return memos.map((memo, index) => ({ itemId: String(4000 + index), memo }))
 }
 
 const AUGUST = rows(

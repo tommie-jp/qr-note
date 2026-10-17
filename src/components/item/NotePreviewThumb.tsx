@@ -48,7 +48,7 @@ import { isValidImageName } from "@/lib/uploads/names";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import "katex/dist/katex.min.css";
 
-// itemNo → 描画済みプレビュー。サーバ (page.tsx) が作り、client 境界を
+// itemId → 描画済みプレビュー。サーバ (page.tsx) が作り、client 境界を
 // ReactNode のまま越えて ItemRow へ降りる (checkbox / footer と同じ機構)。
 // circuitThumbs / mathTexts と違い文字列ではないので、バイト予算ではなく
 // 件数 (NOTE_PREVIEW_MAX_ITEMS) とソース切り詰めで重さを抑える
@@ -201,7 +201,7 @@ export function NotePreviewThumb({ markdown }: { markdown: string }) {
 //   compact / medium … 24px・40px では文字が模様にしかならないので、
 //     ソースをさらに足切り
 export function buildNotePreviews(
-  items: readonly { itemNo: string; memo: string; mode: string }[],
+  items: readonly { itemId: string; memo: string; mode: string }[],
   circuitThumbs: CircuitThumbMap,
   view: ViewMode,
 ): NotePreviewMap {
@@ -220,17 +220,17 @@ export function buildNotePreviews(
   // 「図あり」もう片方が「図なし」と読むと、顔が 1 つも出ない行ができる
   const targets = items
     .filter(
-      (item) => wantsNotePreview(item) && !circuitThumbs[item.itemNo]?.[0],
+      (item) => wantsNotePreview(item) && !circuitThumbs[item.itemId]?.[0],
     )
     .slice(0, NOTE_PREVIEW_MAX_ITEMS);
   return Object.fromEntries(
     targets.map((item) => [
-      item.itemNo,
+      item.itemId,
       // 一覧の顔は**1 ページ目**だけ (docs/74-ページ計画.md §6)。ページを
       // 分けたノートは 1 枚目が表紙になる。切り詰め (notePreviewSource) の
       // 前に絞るのは、2 ページ目以降の文字で 600 字の予算を使わないため
       <NotePreviewThumb
-        key={item.itemNo}
+        key={item.itemId}
         markdown={notePreviewSource(firstPageSource(item.memo), maxChars)}
       />,
     ]),

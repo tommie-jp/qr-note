@@ -62,7 +62,7 @@ test("画像表示の次は小に戻る (循環の最後の辺)", () => {
   expect(html).toContain("表示: 画像 (押すと小に切替、長押しで一覧)");
 });
 
-// 並び順は 更新順 → アクセス順 → 番号順 → タイトル順 の 4 値循環
+// 並び順は 更新順 → アクセス順 → 登録順 → タイトル順 の 4 値循環
 // (docs/37-アクセス順計画.md、docs/63-タイトル順計画.md)。表示モードと同じ形。
 // **リンクではなくフォーム送信**にしてあるのは cookie に覚えるため
 // (src/lib/prefs/sortMode.ts)。value は循環の次の並び
@@ -76,21 +76,21 @@ test("更新順の次はアクセス順", () => {
   );
 });
 
-test("アクセス順の次は番号順", () => {
+test("アクセス順の次は登録順", () => {
   const html = render("compact", "accessed");
   expect(html).toContain(">アクセス順<");
-  expect(html).toContain('value="itemNo"');
+  expect(html).toContain('value="registered"');
   expect(html).toContain(
-    "並び順: アクセス順・新しい順 (押すと番号順に切替、長押しで一覧)",
+    "並び順: アクセス順・新しい順 (押すと登録順に切替、長押しで一覧)",
   );
 });
 
-test("番号順の次はタイトル順", () => {
-  const html = render("compact", "itemNo");
-  expect(html).toContain(">番号順<");
+test("登録順の次はタイトル順", () => {
+  const html = render("compact", "registered");
+  expect(html).toContain(">登録順<");
   expect(html).toContain('value="title"');
   expect(html).toContain(
-    "並び順: 番号順・小さい順 (押すとタイトル順に切替、長押しで一覧)",
+    "並び順: 登録順・古い順 (押すとタイトル順に切替、長押しで一覧)",
   );
 });
 
@@ -118,7 +118,7 @@ test("逆順でも種別のラベルは変わらず、方向は読み上げに�
 // 8 値を 1 スロットで循環させると一周が遠すぎるし、いま何順なのかも見失う
 test("逆順から短いタップで回すと次の種別の既定の方向へ行く", () => {
   expect(render("compact", "updatedAsc")).toContain('value="accessed"');
-  expect(render("compact", "itemNoDesc")).toContain('value="title"');
+  expect(render("compact", "registeredDesc")).toContain('value="title"');
   expect(render("compact", "titleDesc")).toContain('value="updated"');
 });
 

@@ -15,7 +15,7 @@ import { requireUser } from "@/lib/auth/session";
 export const dynamic = "force-dynamic";
 
 interface VersionPageProps {
-  params: Promise<{ itemNo: string; oid: string }>;
+  params: Promise<{ itemId: string; oid: string }>;
 }
 
 // 1 コミットの詳細: その版で何が変わったか (親の版との差分) と復元
@@ -23,8 +23,8 @@ interface VersionPageProps {
 // (完全一致に当たらない) だが、履歴一覧と同じく requireUser() を重ねる —
 // proxy は楽観的な検査であって唯一の砦にしない (docs/18 §4)。
 export default async function VersionPage({ params }: VersionPageProps) {
-  const { itemNo, oid } = await params;
-  guardItemPage(itemNo);
+  const { itemId: key, oid } = await params;
+  const itemId = await guardItemPage(key, (id) => `/item/${id}/history/${oid}`);
   if (!isValidCommitOid(oid) || isDemoMode()) {
     notFound();
   }
@@ -33,7 +33,7 @@ export default async function VersionPage({ params }: VersionPageProps) {
   // このノートの履歴に載っている oid だけを受ける。リポジトリは全ノート
   // 共有なので、履歴経由に限定して「別ノートのコミットを URL に差し込んで
   // 開く」道をここで閉じる (シングルユーザーでも行儀として)
-  const history = await noteHistory(itemNo);
+  const history = await noteHistory(itemId);
   const entry = history.find((commit) => commit.oid === oid);
   if (entry === undefined) {
     notFound();
@@ -41,8 +41,8 @@ export default async function VersionPage({ params }: VersionPageProps) {
 
   // 差分の比較元は親の版。初コミット (親なし) は空文字列 = 全文が追加
   const [content, parentContent] = await Promise.all([
-    noteAtCommit(itemNo, oid),
-    entry.parentOid === null ? null : noteAtCommit(itemNo, entry.parentOid),
+    noteAtCommit(itemId, oid),
+    entry.parentOid === null ? null : noteAtCommit(itemId, entry.parentOid),
   ]);
 
   return (
@@ -50,14 +50,14 @@ export default async function VersionPage({ params }: VersionPageProps) {
       <div className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h1 className="text-xl font-bold">
-            履歴 <span className="font-mono">#{itemNo}</span>{" "}
+            履歴{" "}
             <span className="font-mono text-sm font-normal text-gray-400">
               {oid.slice(0, 7)}
             </span>
           </h1>
           <div className="flex gap-1">
             <Link
-              href={`/item/${itemNo}/history`}
+              href={`/item/${itemId}/history`}
               className={ACTION_LINK_CLASS}
               transitionTypes={["nav-back"]}
             >
@@ -84,13 +84,13 @@ export default async function VersionPage({ params }: VersionPageProps) {
 
         {content !== null && (
           <form>
-            <input type="hidden" name="itemNo" value={itemNo} />
+            <input type="hidden" name="itemId" value={itemId} />
             <input type="hidden" name="oid" value={oid} />
             {/* 復元は本文の上書き (未コミットの変更は消える) なので確認を挟む。
                 復元そのものは DB だけを書き、履歴は増えない
                 (restoreNoteVersionAction のコメント参照) */}
             <ConfirmSubmitButton
-              confirmMessage={`#${itemNo} の本文をこの版の内容で置き換えます。いまの本文のうち未コミットの変更は失われます。よろしいですか?`}
+              confirmMessage={`このノートの本文をこの版の内容で置き換えます。いまの本文のうち未コミットの変更は失われます。よろしいですか?`}
               formAction={restoreNoteVersionAction}
               className={SECONDARY_BUTTON_CLASS}
             >

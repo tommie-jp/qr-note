@@ -13,7 +13,7 @@ import {
   notePaneLayout,
   type NotePaneLayout,
 } from "@/lib/prefs/paneMode";
-import { itemNoFromPathname } from "@/lib/search/url";
+import { itemIdFromPathname } from "@/lib/search/url";
 
 // 器の置き方。**z の高さが要点** (docs/86 §4-9):
 //   下部ペイン … z-0。下部バー (z-10) より下に置く — 長押しメニューは
@@ -35,7 +35,7 @@ interface PreviewPaneProps {
   bgClass: string;
   // 出しているノートの番号。一覧のハイライトのために context へ知らせる
   // (docs/86 §4-4)。骨組み (loading) では番号がまだ判らないので任意
-  itemNo?: string;
+  itemId?: string;
   // このペインの出どころ。
   //   detail … /item へのソフト遷移を横取りしたスロット (@detail)。
   //   auto   … 3 ペインで「先頭のノートを自動で選ぶ」ペイン (検索ページ側)。
@@ -62,17 +62,17 @@ interface PreviewPaneProps {
 //           同じ見た目」として描く。
 export function PreviewPane({
   bgClass,
-  itemNo,
+  itemId,
   source = "detail",
   openHref,
   children,
 }: PreviewPaneProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { mode, setDetailItemNo, setAutoItemNo } = usePaneMode();
+  const { mode, setDetailItemId, setAutoItemId } = usePaneMode();
 
   // 「URL が正」(docs/11 §3) をペインにも通す: /item/<番号> に居ないなら
-  // 描かない (判定は itemNoFromPathname で一覧のハイライトと共有)。
+  // 描かない (判定は itemIdFromPathname で一覧のハイライトと共有)。
   // スロットの中身は「合わない URL へのソフト遷移では残る」仕様なので
   // (docs/86 §2)、ロゴや「一覧へ」で / に戻ったときに放っておくと
   // オーバーレイが画面を覆ったまま残ってしまう。
@@ -89,7 +89,7 @@ export function PreviewPane({
   // 自動で選んだ側 (auto) は URL を見ない — /item に居ないときの代わりとして
   // 置かれる物なので、URL で判定したら永久に出ない。出す / 引っ込めるは
   // 呼び手 (AutoNotePane) が構成と横取りの有無で決めている
-  const onItemUrl = itemNoFromPathname(pathname) !== null;
+  const onItemUrl = itemIdFromPathname(pathname) !== null;
   const keepOpen = source === "detail" && keepsNoteOpen(mode);
   const visible = source === "auto" || onItemUrl || keepOpen;
 
@@ -97,14 +97,14 @@ export function PreviewPane({
   // pathname から決めないのは、3 ペインでは URL が /item から離れても
   // ノートが出たままになるため。**出していない間は null を流す** —
   // 閉じたのに行だけ選ばれたまま、にしない
-  const shown = visible && itemNo !== undefined ? itemNo : null;
+  const shown = visible && itemId !== undefined ? itemId : null;
   useEffect(() => {
     if (source === "detail") {
-      setDetailItemNo(shown);
+      setDetailItemId(shown);
     } else {
-      setAutoItemNo(shown);
+      setAutoItemId(shown);
     }
-  }, [shown, source, setDetailItemNo, setAutoItemNo]);
+  }, [shown, source, setDetailItemId, setAutoItemId]);
 
   if (!visible) {
     return null;

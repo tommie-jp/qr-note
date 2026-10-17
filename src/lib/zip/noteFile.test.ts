@@ -4,14 +4,16 @@ import {
   buildNoteFile,
   collectAttachmentNames,
   parseNoteFile,
+  type ExportNote,
   type PortableNote,
 } from './noteFile'
 
 const UUID = '0189d1f0-1b2c-4d5e-8f90-a1b2c3d4e5f6'
+const ITEM_ID = '00000000-0000-7000-8000-000000001042'
 
-function note(overrides: Partial<PortableNote> = {}): PortableNote {
+function note(overrides: Partial<ExportNote> = {}): ExportNote {
   return {
-    itemNo: '1042',
+    itemId: ITEM_ID,
     memo: 'hFE=208\n2SC1815 のストック #トランジスタ',
     url: '',
     mode: 'memo',
@@ -28,7 +30,7 @@ test('frontmatter + 本文の Markdown になる', () => {
   expect(buildNoteFile(note())).toBe(
     [
       '---',
-      'itemNo: "1042"',
+      `id: "${ITEM_ID}"`,
       'mode: memo',
       'url: ""',
       'created: 2025-11-02T10:30:00.000Z',
@@ -63,7 +65,9 @@ test('書き出したファイルを読むと元のノートに戻る', () => {
     isPublic: true,
   })
   const parsed = parseNoteFile(buildNoteFile(original))
-  expect(parsed).toEqual({ ok: true, note: original })
+  const { itemId, ...rest } = original
+  const expected: PortableNote = { key: { kind: 'id', itemId }, ...rest }
+  expect(parsed).toEqual({ ok: true, note: expected })
 })
 
 test('末尾の改行の有無で本文が変わらない', () => {
@@ -77,15 +81,56 @@ test('frontmatter が無いファイルは理由付きで断る', () => {
   expect(parsed.ok).toBe(false)
 })
 
-test('itemNo が書式外のファイルは理由付きで断る', () => {
-  const text = buildNoteFile(note()).replace('itemNo: "1042"', 'itemNo: "../x"')
+test('id が書式外のファイルは理由付きで断る', () => {
+  const text = buildNoteFile(note()).replace(`id: "${ITEM_ID}"`, 'id: "../x"')
   const parsed = parseNoteFile(text)
   expect(parsed.ok).toBe(false)
 })
 
-test('itemNo が無いファイルは理由付きで断る', () => {
-  const text = buildNoteFile(note()).replace('itemNo: "1042"\n', '')
+// id は UUID の小文字表記だけ。旧番号を id: に書いたものは通さない
+test('id に旧番号や大文字の UUID を書いたファイルは断る', () => {
+  for (const bad of ['1042', UUID.toUpperCase()]) {
+    const text = buildNoteFile(note()).replace(`id: "${ITEM_ID}"`, `id: "${bad}"`)
+    expect(parseNoteFile(text).ok).toBe(false)
+  }
+})
+
+test('id も itemNo も無いファイルは理由付きで断る', () => {
+  const text = buildNoteFile(note()).replace(`id: "${ITEM_ID}"\n`, '')
   expect(parseNoteFile(text).ok).toBe(false)
+})
+
+// --- 旧形式 (itemNo:) ---
+
+// v0.24 より前の書き出しと、教科書の変換スクリプトが組む ZIP
+test('旧形式の itemNo: は旧番号のノートとして読む', () => {
+  const parsed = parseNoteFile('---\nitemNo: "1042"\nmode: memo\n---\n本文\n')
+  expect(parsed).toEqual({
+    ok: true,
+    note: expect.objectContaining({ key: { kind: 'legacy', itemNo: '1042' }, memo: '本文' }),
+  })
+})
+
+test('英字混じりの旧番号 (教科書の wb01-03-08) も読む', () => {
+  const parsed = parseNoteFile('---\nitemNo: "wb01-03-08"\n---\n本文\n')
+  expect(parsed.ok && parsed.note.key).toEqual({ kind: 'legacy', itemNo: 'wb01-03-08' })
+})
+
+test('旧番号が書式外のファイルは理由付きで断る', () => {
+  const parsed = parseNoteFile('---\nitemNo: "../x"\n---\n本文\n')
+  expect(parsed.ok).toBe(false)
+})
+
+// UUID を itemNo: に書いたものは旧番号ではない (isLegacyItemNo が外す)
+test('itemNo: に UUID を書いたファイルは断る', () => {
+  const parsed = parseNoteFile(`---\nitemNo: "${ITEM_ID}"\n---\n本文\n`)
+  expect(parsed.ok).toBe(false)
+})
+
+// 両方あれば id が正本 (旧番号は本文のタグにも入っている)
+test('id と itemNo の両方があれば id を使う', () => {
+  const parsed = parseNoteFile(`---\nid: "${ITEM_ID}"\nitemNo: "1042"\n---\n本文\n`)
+  expect(parsed.ok && parsed.note.key).toEqual({ kind: 'id', itemId: ITEM_ID })
 })
 
 test('日時が読めないファイルは理由付きで断る', () => {
@@ -98,13 +143,13 @@ test('日時が読めないファイルは理由付きで断る', () => {
 
 // 手書きの Markdown も必須項目さえ揃えば取り込める (docs/28 §3)。
 // 任意項目は既定へ倒す — mode は memo、url は空、公開はしない
-test('任意項目が無くても itemNo だけあれば読める', () => {
-  const parsed = parseNoteFile('---\nitemNo: "7"\n---\n本文\n')
+test('任意項目が無くても id だけあれば読める', () => {
+  const parsed = parseNoteFile(`---\nid: "${ITEM_ID}"\n---\n本文\n`)
   expect(parsed.ok).toBe(true)
   if (!parsed.ok) {
     return
   }
-  expect(parsed.note.itemNo).toBe('7')
+  expect(parsed.note.key).toEqual({ kind: 'id', itemId: ITEM_ID })
   expect(parsed.note.mode).toBe('memo')
   expect(parsed.note.url).toBe('')
   expect(parsed.note.isPublic).toBe(false)

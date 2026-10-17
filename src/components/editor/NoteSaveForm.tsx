@@ -10,7 +10,7 @@ export const SaveFormContext = createContext<SaveState>(null);
 interface NoteSaveFormProps {
   // Server Action。useActionState の作法で (前回の結果, FormData) を受ける
   action: (prev: SaveState, formData: FormData) => Promise<SaveState>;
-  itemNo: string;
+  itemId: string;
   className?: string;
   children: ReactNode;
 }
@@ -29,7 +29,7 @@ interface NoteSaveFormProps {
 // 親子は保たれるので useFormStatus (EditToolbar) は今までどおり効く。
 export function NoteSaveForm({
   action,
-  itemNo,
+  itemId,
   className,
   children,
 }: NoteSaveFormProps) {
@@ -38,7 +38,7 @@ export function NoteSaveForm({
   return (
     <SaveFormContext.Provider value={state}>
       <form action={formAction} className={className}>
-        <input type="hidden" name="itemNo" value={itemNo} />
+        <input type="hidden" name="itemId" value={itemId} />
         {children}
       </form>
     </SaveFormContext.Provider>

@@ -8,7 +8,7 @@ import 'server-only'
 import { prisma } from '@/lib/db'
 import { buildExportMeta } from './exportMeta'
 import { attachmentEntryPath, META_ENTRY_PATH, noteEntryPath } from './layout'
-import { buildNoteFile, collectAttachmentNames, type PortableNote } from './noteFile'
+import { buildNoteFile, collectAttachmentNames, type ExportNote } from './noteFile'
 import type { ZipEntry } from './zipStream'
 
 // ノート本文をまとめて引く単位。1 件は最大 32,000 文字 (MAX_TEXT_LENGTH) なので、
@@ -16,17 +16,17 @@ import type { ZipEntry } from './zipStream'
 // 全件を 1 回で引くと数千件規模でここだけが重くなる
 const NOTE_BATCH = 100
 
-// ZIP に入れる項目を順に返す。itemNos が null なら全ノート。
+// ZIP に入れる項目を順に返す。itemIds が null なら全ノート。
 //
 // ゴミ箱 (deletedAt 非 null) は含めない (docs/28 §6)。選択エクスポートに
 // ゴミ箱のノートが紛れることは UI 上ないが、番号を直接送られても入らない。
 //
 // exportedAt を引数で受けるのはテストのため (アプリからは省略して現在時刻)。
 export async function* exportEntries(
-  itemNos: readonly string[] | null,
+  itemIds: readonly string[] | null,
   exportedAt: Date = new Date(),
 ): AsyncGenerator<ZipEntry> {
-  const targets = itemNos ?? (await allItemNos())
+  const targets = itemIds ?? (await allItemIds())
 
   // 覚え書きを先頭に置く (docs/28 §1)。**先頭なのは人が展開したときに
   // 目に付く位置だから**で、取り込み側は順番に依存しない。
@@ -45,19 +45,19 @@ export async function* exportEntries(
   for (let start = 0; start < targets.length; start += NOTE_BATCH) {
     const batch = targets.slice(start, start + NOTE_BATCH)
     const rows = await fetchNotes(batch)
-    for (const itemNo of batch) {
-      const row = rows.get(itemNo)
+    for (const itemId of batch) {
+      const row = rows.get(itemId)
       if (row === undefined) {
         // 消えた・ゴミ箱に入った番号。読み取りだけの操作なので、黙って外す
         // のではなくログに残して先へ進む (利用者に返す口が無い)
-        console.warn(`エクスポート対象のノートが見つかりません: ${itemNo}`)
+        console.warn(`エクスポート対象のノートが見つかりません: ${itemId}`)
         continue
       }
       for (const name of collectAttachmentNames(row.memo)) {
         attachments.add(name)
       }
       yield {
-        path: noteEntryPath(row.itemNo),
+        path: noteEntryPath(row.itemId),
         data: encodeText(buildNoteFile(toPortableNote(row))),
         compress: true,
         // 手元に展開したとき元の更新順が残る
@@ -75,7 +75,7 @@ export async function* exportEntries(
 }
 
 interface NoteRow {
-  itemNo: string
+  itemId: string
   memo: string
   url: string
   mode: 'memo' | 'url'
@@ -84,24 +84,24 @@ interface NoteRow {
   publicAt: Date | null
 }
 
-async function allItemNos(): Promise<string[]> {
-  // 番号の若い順。人が手元で開いたときに並びが自然になる
-  // (非数字の itemNo は itemNoNum が null で末尾に回る)
+async function allItemIds(): Promise<string[]> {
+  // 登録順 (id は UUID v7 で先頭が時刻。docs/107 §4-6)。人が手元で開いたときに
+  // 並びが自然になる
   const rows = await prisma.item.findMany({
     where: { deletedAt: null },
-    select: { itemNo: true },
-    orderBy: [{ itemNoNum: 'asc' }, { itemNo: 'asc' }],
+    select: { itemId: true },
+    orderBy: { itemId: 'asc' },
   })
-  return rows.map((row) => row.itemNo)
+  return rows.map((row) => row.itemId)
 }
 
 // 指定した番号のノートを引く。**並び順は呼ぶ側 (選択順) を正とする**ので、
 // 番号で引ける形で返す
-async function fetchNotes(itemNos: string[]): Promise<Map<string, NoteRow>> {
+async function fetchNotes(itemIds: string[]): Promise<Map<string, NoteRow>> {
   const rows = await prisma.item.findMany({
-    where: { itemNo: { in: itemNos }, deletedAt: null },
+    where: { itemId: { in: itemIds }, deletedAt: null },
     select: {
-      itemNo: true,
+      itemId: true,
       memo: true,
       url: true,
       mode: true,
@@ -110,7 +110,7 @@ async function fetchNotes(itemNos: string[]): Promise<Map<string, NoteRow>> {
       publicAt: true,
     },
   })
-  return new Map(rows.map((row) => [row.itemNo, row]))
+  return new Map(rows.map((row) => [row.itemId, row]))
 }
 
 // 添付 1 件。**1 件ずつ引く** — まとめて引くと数十 MB がいちどに載る
@@ -134,9 +134,9 @@ async function fetchAttachment(name: string): Promise<ZipEntry | null> {
   }
 }
 
-function toPortableNote(row: NoteRow): PortableNote {
+function toPortableNote(row: NoteRow): ExportNote {
   return {
-    itemNo: row.itemNo,
+    itemId: row.itemId,
     memo: row.memo,
     url: row.url,
     mode: row.mode,

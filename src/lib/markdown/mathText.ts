@@ -72,7 +72,7 @@ export function renderInlineMathHtml(text: string): string | null {
 }
 
 // 一覧に必要な列だけに絞る (circuit/thumbs.ts と同じ)
-type MathSource = { itemNo: string; memo: string; mode: string }
+type MathSource = { itemId: string; memo: string; mode: string }
 
 // ページ内アイテムのタイトル (と mode='both' ならプレビュー) の数式を
 // まとめて HTML 化する。DB は引かない同期処理。$ を含まないノートは
@@ -96,7 +96,7 @@ export function buildMathTexts(
       mode === 'both' ? renderInlineMathHtml(memoPreview(item.memo)) : null
     if (title !== null || preview !== null) {
       budget -= (title?.length ?? 0) + (preview?.length ?? 0)
-      map[item.itemNo] = {
+      map[item.itemId] = {
         ...(title !== null && { title }),
         ...(preview !== null && { preview }),
       }
@@ -105,11 +105,11 @@ export function buildMathTexts(
   return map
 }
 
-// 特性表の要約列 (itemNo → HTML)。`titles` (buildMathTexts の結果) を渡すと、
+// 特性表の要約列 (itemId → HTML)。`titles` (buildMathTexts の結果) を渡すと、
 // 同じ文字列 (summary は memoSummary と同一) の描画を使い回して二重描画を
 // 避ける。数式の無い行は入れない — 表示側はプレーンテキストのまま
 export function buildMathSummaries(
-  rows: readonly { itemNo: string; summary: string }[],
+  rows: readonly { itemId: string; summary: string }[],
   titles?: MathTextMap,
 ): Record<string, string> {
   const map: Record<string, string> = {}
@@ -117,9 +117,9 @@ export function buildMathSummaries(
     if (!row.summary.includes('$')) {
       continue
     }
-    const html = titles?.[row.itemNo]?.title ?? renderInlineMathHtml(row.summary)
+    const html = titles?.[row.itemId]?.title ?? renderInlineMathHtml(row.summary)
     if (html !== null) {
-      map[row.itemNo] = html
+      map[row.itemId] = html
     }
   }
   return map

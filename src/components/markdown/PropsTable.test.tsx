@@ -5,7 +5,7 @@ import { PropsTable } from "./PropsTable";
 
 const rows: ItemPropsRow[] = [
   {
-    itemNo: "4951",
+    itemId: "4951",
     summary: "2SC2712-Y",
     props: [
       { key: "hfe", label: "hFE", value: "208" },
@@ -13,7 +13,7 @@ const rows: ItemPropsRow[] = [
     ],
   },
   {
-    itemNo: "4924",
+    itemId: "4924",
     summary: "2SC1815",
     props: [
       { key: "hfe", label: "hFE", value: "440" },
@@ -69,7 +69,7 @@ describe("PropsTable", () => {
   });
 
   test("renders nothing when no row has properties", () => {
-    const empty: ItemPropsRow[] = [{ itemNo: "1", summary: "a", props: [] }];
+    const empty: ItemPropsRow[] = [{ itemId: "1", summary: "a", props: [] }];
     expect(renderToStaticMarkup(<PropsTable rows={empty} query="" sort="updated" />)).toBe("");
   });
 });
@@ -80,7 +80,7 @@ describe("PropsTable math summaries", () => {
   test("mathSummaries があれば要約を KaTeX の HTML で出す", () => {
     const mathRows: ItemPropsRow[] = [
       {
-        itemNo: "1089",
+        itemId: "1089",
         summary: "$E=100$ の回路",
         props: [{ key: "r", label: "R", value: "10" }],
       },

@@ -11,8 +11,8 @@ test('JAN / ISBN の 13 桁はタグにできる', () => {
   expect(isTaggableCode('9784873115658')).toBe(true)
 })
 
-test('itemNo の 20 文字上限を超える英数字コードもタグにできる', () => {
-  // タグ案を採った理由そのもの。itemNo (20 文字まで) には入らない
+test('itemId の 20 文字上限を超える英数字コードもタグにできる', () => {
+  // タグ案を採った理由そのもの。itemId (20 文字まで) には入らない
   expect(isTaggableCode('ABCDEFGHIJ0123456789X')).toBe(true)
 })
 

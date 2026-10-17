@@ -18,12 +18,12 @@ import { showsAutoNote } from "@/lib/prefs/paneMode";
 // 3 ペインが消える。ここで描けば URL は検索のまま保てる。
 export function AutoNotePane({
   bgClass,
-  itemNo,
+  itemId,
   openHref,
   children,
 }: {
   bgClass: string;
-  itemNo: string;
+  itemId: string;
   openHref: string;
   children: ReactNode;
 }) {
@@ -36,7 +36,7 @@ export function AutoNotePane({
   return (
     <PreviewPane
       bgClass={bgClass}
-      itemNo={itemNo}
+      itemId={itemId}
       source="auto"
       openHref={openHref}
     >

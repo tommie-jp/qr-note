@@ -8,8 +8,7 @@ const noop = () => {};
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
-    itemNo: "1234",
-    itemNoNum: 1234,
+    itemId: "00000000-0000-7000-8000-000000001234",
     memo: "2SC1815",
     url: "",
     mode: "memo",
@@ -46,10 +45,11 @@ const render = (
     />,
   );
 
-test("各ノートの番号・見出し・削除日時を出す", () => {
+test("各ノートの見出し・削除日時を出す", () => {
   const html = render([makeItem()]);
-  expect(html).toContain("#1234");
   expect(html).toContain("2SC1815");
+  // 行頭の #番号 は消した。id は UUID で人が読む物ではない (docs/107 §4-4)
+  expect(html).not.toContain(">#00000000");
   // JST 固定・ゼロ埋め (03:04:05 UTC = 12:04:05 JST)
   expect(html).toContain("2026/07/15 12:04:05");
 });
@@ -58,7 +58,7 @@ test("行ごとに復元と永久削除を出す", () => {
   const html = render([makeItem()]);
   expect(html).toContain("復元");
   expect(html).toContain("永久削除");
-  expect(html).toContain('value="1234"');
+  expect(html).toContain('value="00000000-0000-7000-8000-000000001234"');
 });
 
 test("ゴミ箱が空なら一覧も「空にする」も出さない", () => {
@@ -69,21 +69,20 @@ test("ゴミ箱が空なら一覧も「空にする」も出さない", () => {
 });
 
 test("1 件以上あれば「ゴミ箱を空にする」を出す", () => {
-  const html = render([makeItem(), makeItem({ itemNo: "4951" })]);
+  const html = render([makeItem(), makeItem({ itemId: "00000000-0000-7000-8000-000000004951" })]);
   expect(html).toContain("空にする");
 });
 
-// 番号が解放されてシールが別の部品を指しうることを知らせる
+// 永久削除が取り返しのつかない操作であることを知らせる
 // (docs/12-ゴミ箱計画.md §4)
-test("永久削除で番号が再利用されうる注意を出す", () => {
+test("永久削除は元に戻せない注意を出す", () => {
   const html = render([makeItem()]);
-  expect(html).toContain("番号");
-  expect(html).toContain("シール");
+  expect(html).toContain("元に戻せません");
 });
 
 test("ノートへのリンクを張る (中身を確かめてから消せるように)", () => {
   const html = render([makeItem()]);
-  expect(html).toContain('href="/item/1234"');
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000001234"');
 });
 
 // --- 表示形式 (docs/67-ゴミ箱表示形式計画.md §3) ---
@@ -116,11 +115,11 @@ const IMAGE = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
 
 test("画像表示は本文の画像をタイルに敷き詰める", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE})` })],
+    [makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: `![](/api/images/${IMAGE})` })],
     "image",
   );
   expect(html).toContain(`/api/images/${IMAGE}?thumb=1`);
-  expect(html).toContain('href="/item/10"');
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000000010"');
 });
 
 // 画像表示のタイルにも ⋮ を出し、そこから復元・永久削除できる (docs/107 §9)。
@@ -130,13 +129,14 @@ test("画像表示ではタイルごとに ⋮ を出す", () => {
   const html = render(
     [
       makeItem({
-        itemNo: "10",
+        itemId: "00000000-0000-7000-8000-000000000010",
         memo: `![](/api/images/${IMAGE})\n![](/api/images/${IMAGE_2})`,
       }),
     ],
     "image",
   );
-  expect(html.match(/aria-label="#10 の操作"/g)).toHaveLength(2);
+  // 名乗りは見出しから作る呼び名 (lib/items/noteName.ts)
+  expect(html.match(/aria-label="「2SC1815」の操作"/g)).toHaveLength(2);
   // 永久削除はメニューの中 (確認付き)。タイルに直に並べない
   expect(html).not.toContain(">永久削除<");
   expect(html).not.toContain("ノートを開くか");
@@ -149,8 +149,8 @@ test("画像表示ではタイルごとに ⋮ を出す", () => {
 test("画像表示でタイルにならないノートがあれば、件数と行き先を言う", () => {
   const html = render(
     [
-      makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE})` }),
-      makeItem({ itemNo: "11", memo: "文字だけ" }),
+      makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: `![](/api/images/${IMAGE})` }),
+      makeItem({ itemId: "00000000-0000-7000-8000-000000000011", memo: "文字だけ" }),
     ],
     "image",
   );
@@ -160,7 +160,7 @@ test("画像表示でタイルにならないノートがあれば、件数と�
 
 test("画像表示で全部がタイルになれば案内は出さない", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE})` })],
+    [makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: `![](/api/images/${IMAGE})` })],
     "image",
   );
   expect(html).not.toContain("画像・回路図の無いノート");
@@ -172,29 +172,29 @@ test("画像表示で全部がタイルになれば案内は出さない", () =>
 const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
 
 test("小表示は回路図サムネを行へ降ろす", () => {
-  const html = render([makeItem({ itemNo: "10", memo: "RC 回路" })], "compact", {
-    "10": [CIRCUIT_SVG],
+  const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: "RC 回路" })], "compact", {
+    "00000000-0000-7000-8000-000000000010": [CIRCUIT_SVG],
   });
   expect(html).toContain("circuit-thumb");
   expect(html).toContain('<path d="M0 0h10"/>');
 });
 
 test("画像表示は回路図サムネを masonry へ降ろす", () => {
-  const html = render([makeItem({ itemNo: "10", memo: "RC 回路" })], "image", {
-    "10": [CIRCUIT_SVG],
+  const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: "RC 回路" })], "image", {
+    "00000000-0000-7000-8000-000000000010": [CIRCUIT_SVG],
   });
   expect(html).toContain("circuit-thumb");
-  expect(html).toContain('href="/item/10"');
+  expect(html).toContain('href="/item/00000000-0000-7000-8000-000000000010"');
 });
 
 // 数式入りタイトルの中継 (docs/69-一覧数式計画.md)
 
 test("小表示は数式 HTML を行へ降ろす", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: "$E=100$ の回路" })],
+    [makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: "$E=100$ の回路" })],
     "compact",
     undefined,
-    { "10": { title: '<span class="katex">E=100</span>' } },
+    { "00000000-0000-7000-8000-000000000010": { title: '<span class="katex">E=100</span>' } },
   );
   expect(html).toContain('class="katex"');
   expect(html).not.toContain("$E=100$");

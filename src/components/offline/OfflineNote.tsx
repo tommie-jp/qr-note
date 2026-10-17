@@ -41,7 +41,7 @@ export function OfflineNote({ item, circuits, onBack }: OfflineNoteProps) {
     <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-2">
         <h1 className="text-xl font-bold">
-          item <span className="font-mono">#{item.itemNo}</span>
+          item
         </h1>
         <button type="button" onClick={onBack} className={SECONDARY_BUTTON_CLASS}>
           一覧へ戻る

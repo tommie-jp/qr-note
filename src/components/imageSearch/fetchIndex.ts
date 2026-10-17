@@ -17,7 +17,7 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 interface IndexEntryDTO {
-  itemNo: string
+  itemId: string
   title: string
   imageName: string
   embedding: string
@@ -46,7 +46,7 @@ export async function fetchImageSearchIndex(): Promise<ImageVectorEntry[]> {
       continue
     }
     entries.push({
-      itemNo: dto.itemNo,
+      itemId: dto.itemId,
       title: dto.title,
       imageName: dto.imageName,
       embedding,

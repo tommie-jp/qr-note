@@ -1,3 +1,4 @@
+import { noteName } from "@/lib/items/noteName";
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
 // 型は葉 (circuit/types.ts / markdown/mathTextTypes.ts) から取る — 取得側の
@@ -31,18 +32,18 @@ interface ImageMasonryProps {
   // 検索状態をリンクに載せる約束 (docs/60-学習進捗計画.md §4) の置き場所を
   // 一覧側 1 か所に保つため。**任意にしない**: 省いても型が通ると、
   // 新しい一覧を足したときに前後ナビだけが黙って消える
-  itemHref: (itemNo: string) => string;
-  // itemNo → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §4)。
+  itemHref: (itemId: string) => string;
+  // itemId → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §4)。
   // ページ側 (サーバ) が circuit_svgs から引いて降ろす。未描画の図は
   // 入っていないので、無いものは無いなりに画像タイルだけが並ぶ
   circuitThumbs?: CircuitThumbMap;
-  // itemNo → 数式入りタイトルの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
+  // itemId → 数式入りタイトルの KaTeX 済み HTML (docs/69-一覧数式計画.md)。
   // キャプションの 1 行目に使う。無いノートはプレーンテキストのまま
   mathTexts?: MathTextMap;
   // プレビューペイン (docs/86 §4) で右下に開いているノート。ItemList が
   // pathname から導いて降ろす (ItemRow の selected と同じ印を画像タイルにも
   // 付ける — 同じノートのタイルが複数あれば全部に付く)
-  previewItemNo?: string | null;
+  previewItemId?: string | null;
   // タイルに ⋮ メニューを付けるか (docs/107-行メニュー計画.md §7・§9)。
   // 立てる側がメニューの中身と送信の状態を持つ包みで囲む — 検索一覧は
   // SearchTileMenuProvider、ゴミ箱の一覧は TrashTileMenuProvider (row-actions/TileActions)
@@ -58,7 +59,7 @@ export function ImageMasonry({
   itemHref,
   circuitThumbs,
   mathTexts,
-  previewItemNo,
+  previewItemId,
   tileActions = false,
 }: ImageMasonryProps) {
   // URL モードのノートは memo が空なので allImageNames("") === [] となり
@@ -71,15 +72,15 @@ export function ImageMasonry({
       (name): { item: Item; key: string; media: TileMedia } => ({
         item,
         // name はノート内では重複除去済みだが、別ノートが同じ画像を参照
-        // できるので itemNo と組で一意にする
-        key: `${item.itemNo}:${name}`,
+        // できるので itemId と組で一意にする
+        key: `${item.itemId}:${name}`,
         media: { image: name },
       }),
     ),
-    ...(circuitThumbs?.[item.itemNo] ?? []).map(
+    ...(circuitThumbs?.[item.itemId] ?? []).map(
       (svg, i): { item: Item; key: string; media: TileMedia } => ({
         item,
-        key: `${item.itemNo}:circuit:${i}`,
+        key: `${item.itemId}:circuit:${i}`,
         media: { svg },
       }),
     ),
@@ -105,7 +106,7 @@ export function ImageMasonry({
       {tiles.map(({ item, key, media }) => {
         // URL モードのノートは memo が空でタイルにならないので isUrl 分岐は不要。
         // 画像しか無いノートはタイトルが空になり得るが、その場合は #番号 だけ出す
-        const mathTitle = mathTexts?.[item.itemNo]?.title;
+        const mathTitle = mathTexts?.[item.itemId]?.title;
         const title = mathTitle ? (
           <MathText html={mathTitle} />
         ) : (
@@ -113,7 +114,7 @@ export function ImageMasonry({
         );
         // プレビューで開いているノートのタイルは枠と地色で示す (ItemRow の
         // selected と同じ判断: hover 系の色より優先する)
-        const selected = item.itemNo === previewItemNo;
+        const selected = item.itemId === previewItemId;
         return (
           // relative … stretched link の基準。
           // @container … ⋮ を画像の下に揃える基準 (100cqw = 正方形の画像の高さ)
@@ -131,7 +132,7 @@ export function ImageMasonry({
                 (stretched link)。タグは別の行き先なので入れ子にできず、下で
                 z-10 で膜の上に出す (ItemRow と同じ仕掛け・docs/32 §2) */}
             <Link
-              href={itemHref(item.itemNo)}
+              href={itemHref(item.itemId)}
               transitionTypes={["nav-forward"]}
               aria-current={selected ? "page" : undefined}
               className="block after:absolute after:inset-0"
@@ -167,9 +168,6 @@ export function ImageMasonry({
                   tileActions ? "min-h-7 pr-9" : "pr-1.5"
                 }`}
               >
-                <span className="shrink-0 font-mono text-xs font-bold">
-                  #{item.itemNo}
-                </span>
                 <span className="truncate text-xs text-gray-600">{title}</span>
               </div>
             </Link>
@@ -190,7 +188,8 @@ export function ImageMasonry({
             )}
             {tileActions && (
               <TileActions
-                itemNo={item.itemNo}
+                itemId={item.itemId}
+                name={noteName(item)}
                 tileCount={tileCountOf(item, circuitThumbs)}
               />
             )}
@@ -207,6 +206,6 @@ export function ImageMasonry({
 // (ゴミ箱の一覧が「画像表示では見えないノート」を数えるのにも使う)
 export function tileCountOf(item: Item, circuitThumbs?: CircuitThumbMap): number {
   return (
-    allImageNames(item.memo).length + (circuitThumbs?.[item.itemNo]?.length ?? 0)
+    allImageNames(item.memo).length + (circuitThumbs?.[item.itemId]?.length ?? 0)
   );
 }

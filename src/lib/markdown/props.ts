@@ -173,7 +173,7 @@ function isPropEntry(value: unknown): value is PropEntry {
 
 // 表の元データ 1 件 (items/search.ts が DB から組み立てる)。
 export interface ItemPropsRow {
-  itemNo: string
+  itemId: string
   summary: string
   props: PropEntry[]
 }
@@ -184,7 +184,7 @@ export interface PropsTableColumn {
 }
 
 export interface PropsTableRow {
-  itemNo: string
+  itemId: string
   summary: string
   // 列キー → 表示値。列を持たないノートはキーごと欠ける。
   cells: Record<string, string>
@@ -217,7 +217,7 @@ export function buildPropsTable(rows: ItemPropsRow[]): PropsTableData {
       }
       cells[key] = value
     }
-    tableRows.push({ itemNo: row.itemNo, summary: row.summary, cells })
+    tableRows.push({ itemId: row.itemId, summary: row.summary, cells })
   }
 
   return { columns, rows: tableRows }

@@ -627,14 +627,14 @@ test("matrix フェンスは集計結果を渡すと表になる", () => {
             {
               kind: "table" as const,
               query: "#電験三種",
-              sort: "itemNo" as const,
+              sort: "registered" as const,
               marks: null,
               table: {
                 kind: "checks" as const,
                 columns: ["学習済み"],
                 rows: [
                   {
-                    itemNo: "4551",
+                    itemId: "00000000-0000-7000-8000-000000004551",
                     summary: "問1",
                     cells: ["checked" as const],
                   },
@@ -652,7 +652,7 @@ test("matrix フェンスは集計結果を渡すと表になる", () => {
     />,
   );
   expect(html).toContain("<table");
-  expect(html).toContain("#4551");
+  expect(html).toContain("/item/00000000-0000-7000-8000-000000004551?");
 });
 
 // ```health (docs/83-健康管理フェンス計画.md §8)
@@ -687,7 +687,7 @@ test("health フェンスは集計結果を渡すとグラフになる", () => {
               series: buildHealthSeries(
                 [
                   {
-                    itemNo: "4551",
+                    itemId: "4551",
                     memo: "- 2026-08-13 体重=66.6\n- 2026-08-14 体重=66.4",
                   },
                 ],

@@ -21,62 +21,62 @@ import {
 // from の状態にある行だけを書き換える (既にゴミ箱にある行の deleted_at を
 // 動かさない)。2 つの違いは deleted_at に入れる値と from だけ
 async function setDeletedAt(
-  itemNos: string[],
+  itemIds: string[],
   deletedAt: Prisma.Sql,
   from: Prisma.Sql,
 ): Promise<number> {
-  if (itemNos.length === 0) {
+  if (itemIds.length === 0) {
     return 0
   }
   return prisma.$executeRaw`
     UPDATE items SET deleted_at = ${deletedAt}
-    WHERE item_no IN (${Prisma.join(itemNos)}) AND ${from}
+    WHERE id = ANY(${itemIds}::uuid[]) AND ${from}
   `
 }
 
-export async function trashItems(itemNos: string[]): Promise<number> {
-  return setDeletedAt(itemNos, Prisma.sql`now()`, NOT_TRASHED)
+export async function trashItems(itemIds: string[]): Promise<number> {
+  return setDeletedAt(itemIds, Prisma.sql`now()`, NOT_TRASHED)
 }
 
-export async function restoreItems(itemNos: string[]): Promise<number> {
-  return setDeletedAt(itemNos, Prisma.sql`NULL`, TRASHED)
+export async function restoreItems(itemIds: string[]): Promise<number> {
+  return setDeletedAt(itemIds, Prisma.sql`NULL`, TRASHED)
 }
 
 // 永久削除 (DB から消す)。**ゴミ箱にある行しか消さない**のがこの関数の要点で、
 // 二段階削除の保証はここにある (UI ではなくサーバ側で担保する)。
-// ここで初めて itemNo が解放され、新規ノートに再利用されうる。
+// ここで初めて itemId が解放され、新規ノートに再利用されうる。
 //
-// 戻り値は件数ではなく**実際に消えた itemNo の列**。呼び出し側 (app/actions/trash.ts) が
-// git の墓石コミットの対象を決めるのに使う — 渡された itemNos をそのまま
+// 戻り値は件数ではなく**実際に消えた itemId の列**。呼び出し側 (app/actions/trash.ts) が
+// git の墓石コミットの対象を決めるのに使う — 渡された itemIds をそのまま
 // 使うと、ゴミ箱に無くて消えなかったノートの履歴まで墓石が立ってしまう
 // (docs/57-ノートgit履歴計画.md §4)。先に SELECT してから消す間に別タブが
 // 割り込む競合は理屈上あるが、deleteMany 側の deleted_at 条件が守りの正本で、
 // ずれても墓石が 1 回分ずれるだけ (シングルユーザーでは実質起きない)。
-export async function purgeItems(itemNos: string[]): Promise<string[]> {
-  if (itemNos.length === 0) {
+export async function purgeItems(itemIds: string[]): Promise<string[]> {
+  if (itemIds.length === 0) {
     return []
   }
-  return purgeTrashed({ itemNo: { in: itemNos } })
+  return purgeTrashed({ itemId: { in: itemIds } })
 }
 
-// purgeItems と同じ約束で、消えた itemNo の列を返す (墓石コミットの対象)。
+// purgeItems と同じ約束で、消えた itemId の列を返す (墓石コミットの対象)。
 export async function emptyTrash(): Promise<string[]> {
   return purgeTrashed({})
 }
 
 // 永久削除の共通形。scope に当たる行のうち**ゴミ箱にあるものだけ**を消し、
-// 消えた itemNo の列を返す (purgeItems のコメントの約束)
+// 消えた itemId の列を返す (purgeItems のコメントの約束)
 async function purgeTrashed(scope: Prisma.ItemWhereInput): Promise<string[]> {
   const rows = await prisma.item.findMany({
     where: { ...scope, deletedAt: { not: null } },
-    select: { itemNo: true },
+    select: { itemId: true },
   })
   if (rows.length === 0) {
     return []
   }
-  const targets = rows.map((row) => row.itemNo)
+  const targets = rows.map((row) => row.itemId)
   await prisma.item.deleteMany({
-    where: { itemNo: { in: targets }, deletedAt: { not: null } },
+    where: { itemId: { in: targets }, deletedAt: { not: null } },
   })
   return targets
 }
@@ -85,7 +85,7 @@ async function purgeTrashed(scope: Prisma.ItemWhereInput): Promise<string[]> {
 // (docs/67-ゴミ箱表示形式計画.md §2)。個人利用で数件しか溜まらない前提なので
 // ページ送りは無い (「ゴミ箱を空にする」の件数が全件を指す前提でもある)。
 //
-// **要約ではなく Item をそのまま返す。** 以前は itemNo/summary/deletedAt の
+// **要約ではなく Item をそのまま返す。** 以前は itemId/summary/deletedAt の
 // 3 つだけを返して memo 全文をクライアントへ送らないようにしていたが、
 // 大表示の本文プレビューも画像表示のタイルも本文から作るので、要約では
 // 描けない。検索一覧 (searchItems) は元から Item[] を返しており、そちらと

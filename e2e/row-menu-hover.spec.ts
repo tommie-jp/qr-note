@@ -1,5 +1,4 @@
 import type { Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -10,23 +9,23 @@ import {
   newTouchPage,
   test,
 } from './helpers'
-import { removeE2eNote, rowOf, searchResults } from './notes'
+import { e2eNote, noteName, openSearch, removeE2eNote, rowOf } from './notes'
 
 // 行の ⋯ の出し方 (ui.ts の ROW_MENU_TRIGGER_CLASS)。
 // PC (hover がある) ではホバー中の行にだけ出し、キーボードで入ったときと
 // メニューを開いている間は出したままにする。タッチ端末では常に出す。
 // 透明にするだけなので、見えているかは opacity で見る (toBeVisible は
 // opacity 0 でも真になる)
-const ITEM_NO = `${E2E_ITEM_PREFIX}11`
-const BODY = `${E2E_ITEM_PREFIX} row menu hover ${Date.now()}`
+const NOTE = e2eNote(11, `row menu hover ${Date.now()}`)
+const ITEM_ID = NOTE.id
+const BODY = NOTE.heading
 
 async function openRow(page: Page) {
-  await page.goto(`/?q=${encodeURIComponent(ITEM_NO)}`)
-  const results = searchResults(page)
   // 結果は Suspense の中。文字が読めても行が hidden の器に居る間がある
-  await expect(results.getByText(`「${ITEM_NO}」の検索結果`)).toBeVisible()
-  const row = rowOf(page, results, ITEM_NO)
-  const trigger = row.getByRole('button', { name: `#${ITEM_NO} の操作`, exact: true })
+  // (openSearch が見えるまで待つ)
+  const results = await openSearch(page, NOTE.key)
+  const row = rowOf(page, results, ITEM_ID)
+  const trigger = row.getByRole('button', { name: `${noteName(NOTE)}の操作`, exact: true })
   await expectHydrated(trigger)
   return { row, trigger }
 }
@@ -39,20 +38,20 @@ async function moveAway(page: Page) {
 test.describe('行の ⋯ はPC ではホバー中だけ出す', () => {
   test.beforeEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
-    await page.goto(`/edit/${ITEM_NO}`)
+    await removeE2eNote(page, NOTE)
+    await page.goto(`/edit/${ITEM_ID}`)
     const save = page.getByRole('button', { name: '更新', exact: true })
     await expect(save).toBeVisible()
     await clearEditor(page)
     await memoEditor(page).pressSequentially(BODY, { delay: 10 })
     await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await closePage(page)
   })
 
   test.afterEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 

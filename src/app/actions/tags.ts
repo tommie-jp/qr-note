@@ -13,17 +13,17 @@ import { addTagsToMemo, removeTagsFromMemo } from '@/lib/markdown/tags/edit'
 // 保存するので、文章中にしかないタグの削除など「効かない」操作では更新しない。
 export async function bulkTagAction(formData: FormData): Promise<void> {
   await requireUser()
-  const { mode, itemNos, tags, back } = parseBulkTagForm(formData)
+  const { mode, itemIds, tags, back } = parseBulkTagForm(formData)
 
-  if (itemNos.length > 0 && tags.length > 0) {
-    for (const itemNo of itemNos) {
+  if (itemIds.length > 0 && tags.length > 0) {
+    for (const itemId of itemIds) {
       // ここも modifyMemo を通す (docs/87 §2-5)。タグの位置は本文で決まるので
       // 当て直しは安全 (canRetry は要らない)。
       //
       // **行が無ければ何もしない** ('missing' を捨てる)。upsert だった頃は
       // タグだけのノートを作りえたが、対象は検索結果から選ばれた番号なので
       // 実際には起こらず、作るほうが驚きになる
-      await modifyMemo(itemNo, (memo) =>
+      await modifyMemo(itemId, (memo) =>
         mode === 'add' ? addTagsToMemo(memo, tags) : removeTagsFromMemo(memo, tags),
       )
     }

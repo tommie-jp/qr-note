@@ -37,13 +37,13 @@ export async function checkDemoUploadQuota(
 // ノート数 (docs/39 §2-2)。デモのときだけ、**新規作成になる場合のみ**上限を見る。
 // 既存ノートの更新は数に依らず通す (使い勝手を殺さない)。上限に達していれば投げる
 // — 呼ぶのは Server Action 経由の upsert なので、投げれば保存が中止される。
-export async function assertDemoItemQuota(itemNo: string): Promise<void> {
+export async function assertDemoItemQuota(itemId: string): Promise<void> {
   if (!isDemoMode()) {
     return
   }
   const existing = await prisma.item.findUnique({
-    where: { itemNo },
-    select: { itemNo: true },
+    where: { itemId },
+    select: { itemId: true },
   })
   if (existing) {
     return

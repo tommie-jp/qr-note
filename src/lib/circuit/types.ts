@@ -67,6 +67,6 @@ export type CircuitMap = ReadonlyMap<string, CircuitResult>
 export type PendingCircuitMap = ReadonlyMap<string, PendingCircuit>
 
 // 一覧の回路図サムネ (circuit/thumbs.ts の loadCircuitThumbs が作る)。
-// itemNo → インライン SVG (本文の出現順)。小/大は先頭 1 枚、画像モードは全部。
+// itemId → インライン SVG (本文の出現順)。小/大は先頭 1 枚、画像モードは全部。
 // サーバ→クライアント境界を越える prop なので Map ではなく素の Record
 export type CircuitThumbMap = Record<string, string[]>

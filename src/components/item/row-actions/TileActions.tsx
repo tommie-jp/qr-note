@@ -45,8 +45,8 @@ interface NoteState {
 const IDLE: NoteState = { busy: false, failure: null };
 
 interface TileMenu {
-  stateOf: (itemNo: string) => NoteState;
-  actionsFor: (itemNo: string, tileCount: number) => RowAction[];
+  stateOf: (itemId: string) => NoteState;
+  actionsFor: (itemId: string, name: string, tileCount: number) => RowAction[];
 }
 
 const TileMenuContext = createContext<TileMenu | null>(null);
@@ -63,31 +63,31 @@ function useNoteSubmissions() {
   const inFlight = useRef<Set<string>>(new Set());
   const [, startTransition] = useTransition();
 
-  const setStateOf = (itemNo: string, next: NoteState | null) =>
+  const setStateOf = (itemId: string, next: NoteState | null) =>
     setStates((prev) => {
       const map = new Map(prev);
       if (next) {
-        map.set(itemNo, next);
+        map.set(itemId, next);
       } else {
-        map.delete(itemNo);
+        map.delete(itemId);
       }
       return map;
     });
 
-  const stateOf = (itemNo: string) => states.get(itemNo) ?? IDLE;
+  const stateOf = (itemId: string) => states.get(itemId) ?? IDLE;
 
-  const run = (itemNo: string, send: () => Promise<boolean>, failure: string) => {
-    if (inFlight.current.has(itemNo)) return;
-    inFlight.current.add(itemNo);
-    setStateOf(itemNo, { busy: true, failure: null });
+  const run = (itemId: string, send: () => Promise<boolean>, failure: string) => {
+    if (inFlight.current.has(itemId)) return;
+    inFlight.current.add(itemId);
+    setStateOf(itemId, { busy: true, failure: null });
     startTransition(async () => {
       const ok = await send();
-      inFlight.current.delete(itemNo);
+      inFlight.current.delete(itemId);
       // **成功したら状態を消す。** 送った後の revalidate でタイルは消えるが、
       // 包みは残る (3 ペインでは一覧がそのまま居る)。詳細ペインのバナーなどで
       // 同じノートが戻ってきたとき、busy が残っていると覆いが掛かったまま
       // 開けなくなる
-      setStateOf(itemNo, ok ? null : { busy: false, failure });
+      setStateOf(itemId, ok ? null : { busy: false, failure });
     });
   };
 
@@ -109,19 +109,19 @@ export function SearchTileMenuProvider({
   children,
 }: SearchTileMenuProviderProps) {
   const { stateOf, run } = useNoteSubmissions();
-  const actionsFor = (itemNo: string, tileCount: number): RowAction[] => [
+  const actionsFor = (itemId: string, name: string, tileCount: number): RowAction[] => [
     {
       key: "trash",
       label: "ゴミ箱へ移動",
       icon: <TrashIcon />,
       danger: true,
       onSelect: () => {
-        if (!window.confirm(tileTrashConfirmMessage(itemNo, tileCount))) {
+        if (!window.confirm(tileTrashConfirmMessage(name, tileCount))) {
           return;
         }
         run(
-          itemNo,
-          () => sendTrash(itemNo, trashAction, searchState),
+          itemId,
+          () => sendTrash(itemId, trashAction, searchState),
           "削除に失敗しました。通信を確認して再度お試しください。",
         );
       },
@@ -148,17 +148,17 @@ export function TrashTileMenuProvider({
   children,
 }: TrashTileMenuProviderProps) {
   const { stateOf, run } = useNoteSubmissions();
-  const send = (action: NoteAction, itemNo: string) =>
-    sendNoteAction(action, buildItemFormData(itemNo));
-  const actionsFor = (itemNo: string, tileCount: number): RowAction[] => [
+  const send = (action: NoteAction, itemId: string) =>
+    sendNoteAction(action, buildItemFormData(itemId));
+  const actionsFor = (itemId: string, name: string, tileCount: number): RowAction[] => [
     {
       key: "restore",
       label: "復元",
       icon: <RestoreIcon />,
       onSelect: () =>
         run(
-          itemNo,
-          () => send(restoreAction, itemNo),
+          itemId,
+          () => send(restoreAction, itemId),
           "復元に失敗しました。通信を確認して再度お試しください。",
         ),
     },
@@ -168,12 +168,12 @@ export function TrashTileMenuProvider({
       icon: <TrashIcon />,
       danger: true,
       onSelect: () => {
-        if (!window.confirm(purgeConfirmMessage(itemNo, tileCount))) {
+        if (!window.confirm(purgeConfirmMessage(name, tileCount))) {
           return;
         }
         run(
-          itemNo,
-          () => send(purgeAction, itemNo),
+          itemId,
+          () => send(purgeAction, itemId),
           "永久削除に失敗しました。通信を確認して再度お試しください。",
         );
       },
@@ -183,7 +183,9 @@ export function TrashTileMenuProvider({
 }
 
 interface TileActionsProps {
-  itemNo: string;
+  itemId: string;
+  // 読み上げ・確認文で名乗るノートの呼び名 (lib/items/noteName.ts)
+  name: string;
   // このページに並ぶ、同じノートのタイルの数 (確認文で言う)
   tileCount: number;
 }
@@ -196,14 +198,14 @@ interface TileActionsProps {
 //
 // **li は持たない。** タイルの li は ImageMasonry が持ち、ここは中に足す
 // 部品だけを返す。⋮ の位置はタイルの @container を基準にする
-export function TileActions({ itemNo, tileCount }: TileActionsProps) {
+export function TileActions({ itemId, name, tileCount }: TileActionsProps) {
   const tileMenu = use(TileMenuContext);
   if (!tileMenu) {
     throw new Error(
       "TileActions は SearchTileMenuProvider か TrashTileMenuProvider の中に置く",
     );
   }
-  const { busy, failure } = tileMenu.stateOf(itemNo);
+  const { busy, failure } = tileMenu.stateOf(itemId);
   const [menuOrigin, setMenuOrigin] = useState<MenuOrigin | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -211,7 +213,7 @@ export function TileActions({ itemNo, tileCount }: TileActionsProps) {
     <>
       <RowMenuTrigger
         ref={triggerRef}
-        itemNo={itemNo}
+        name={name}
         view="tile"
         isOpen={menuOrigin !== null}
         disabled={busy}
@@ -241,8 +243,8 @@ export function TileActions({ itemNo, tileCount }: TileActionsProps) {
       )}
       {menuOrigin && (
         <RowActionMenu
-          label={`#${itemNo} の操作`}
-          actions={tileMenu.actionsFor(itemNo, tileCount)}
+          label={`${name}の操作`}
+          actions={tileMenu.actionsFor(itemId, name, tileCount)}
           origin={menuOrigin}
           anchorRef={triggerRef}
           onClose={() => setMenuOrigin(null)}

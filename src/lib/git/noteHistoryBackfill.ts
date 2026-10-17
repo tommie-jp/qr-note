@@ -17,8 +17,8 @@ export interface BackfillResult {
 // per-note のコミットに分けて日時を偽装することはしない (docs/57 §6)。
 export async function backfillAllNotes(): Promise<BackfillResult> {
   const items = await prisma.item.findMany({
-    select: { itemNo: true, memo: true },
-    orderBy: { itemNo: 'asc' },
+    select: { itemId: true, memo: true },
+    orderBy: { itemId: 'asc' },
   })
   const oid = await backfillNotes(items, 'backfill: 既存ノートを取り込み')
   return { count: items.length, oid }

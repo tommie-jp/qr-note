@@ -10,7 +10,7 @@ export interface ItemListContext {
 }
 
 // /item を開いたときの「一覧の文脈」(q / sort / 前後) の解決
-// (docs/60-学習進捗計画.md §4)。全画面 (item/[itemNo]/page.tsx) と横取り
+// (docs/60-学習進捗計画.md §4)。全画面 (item/[itemId]/page.tsx) と横取り
 // プレビュー ((search)/@detail) が**同じ規則を共有する**ための 1 か所
 // (どちらも components/item/ItemDetail.tsx から呼ぶ) —
 // 別々に育つと、同じ URL なのにペインと全画面で「次」が違うノートを指す。
@@ -21,7 +21,7 @@ export interface ItemListContext {
 //   `?sort=` 付きの共有リンクから入ったときに一覧と順序が食い違う
 // - 検索状態を持って来ていない (QR シールから直接開いた) ときは前後を引かない
 export async function resolveItemListContext(
-  itemNo: string,
+  itemId: string,
   q: string | string[] | undefined,
   sortParam: string | string[] | undefined,
 ): Promise<ItemListContext> {
@@ -30,7 +30,7 @@ export async function resolveItemListContext(
   // 渡してよい (知らない値として既定へ倒れる)
   const sort = resolveSort(sortParam, (await cookies()).get(SORT_COOKIE)?.value)
   const neighbors = query
-    ? await findListNeighbors(query, sort, itemNo)
+    ? await findListNeighbors(query, sort, itemId)
     : { prev: null, next: null }
   return { query, sort, neighbors }
 }

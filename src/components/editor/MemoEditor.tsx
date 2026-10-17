@@ -118,7 +118,7 @@ interface MemoEditorProps {
   // defaultValue を差し替える (docs/13-書誌自動取得計画.md / docs/14)
   prefill?: PrefillTarget;
   // 渡すと編集中の本文を localStorage に退避する (ノートごとに一意な鍵。
-  // 通常は itemNo)。タブが落ちても再訪時に復元できる (src/lib/prefs/memoDraft.ts)。
+  // 通常は itemId)。タブが落ちても再訪時に復元できる (src/lib/prefs/memoDraft.ts)。
   // iPhone は OCR のモデル読み込みでタブごと再起動することがあり、その保険
   draftKey?: string;
 }

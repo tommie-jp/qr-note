@@ -136,10 +136,10 @@ export function OfflineApp() {
   );
   const openItem = useMemo(
     () =>
-      route.itemNo === null
+      route.itemId === null
         ? null
-        : (snapshot?.items.find((item) => item.itemNo === route.itemNo) ?? null),
-    [snapshot, route.itemNo],
+        : (snapshot?.items.find((item) => item.itemId === route.itemId) ?? null),
+    [snapshot, route.itemId],
   );
 
   const handleSync = useCallback(async () => {
@@ -240,7 +240,7 @@ export function OfflineApp() {
       <OfflineNote
         item={openItem}
         circuits={circuits}
-        onBack={() => navigate({ query: route.query, itemNo: null })}
+        onBack={() => navigate({ query: route.query, itemId: null })}
       />
     );
   }
@@ -251,9 +251,9 @@ export function OfflineApp() {
 
       {/* 開こうとしたノートが手元に無い (同期より後に作られた / 上限で切られた)。
           黙って一覧を出すと「検索しても出てこない」に化けるので、名指しで断る */}
-      {route.itemNo !== null && (
+      {route.itemId !== null && (
         <p className={BOX_CLASS}>
-          <span className="font-mono">#{route.itemNo}</span>{" "}
+          <span className="font-mono">#{route.itemId}</span>{" "}
           はオフライン用に保存されていません。電波の届く場所で同期してください。
         </p>
       )}
@@ -261,7 +261,7 @@ export function OfflineApp() {
       <input
         type="search"
         value={route.query}
-        onChange={(event) => navigate({ query: event.target.value, itemNo: null }, true)}
+        onChange={(event) => navigate({ query: event.target.value, itemId: null }, true)}
         placeholder="オフライン検索 (#タグ・is:todo も使えます)"
         // enterKeyHint … 打つそばから絞り込むので Enter で確定する操作が無い。
         // 「検索」ではなく「完了」を出してキーボードを閉じさせる
@@ -274,7 +274,7 @@ export function OfflineApp() {
         {results.length} 件
       </p>
 
-      <OfflineList items={results} onOpen={(itemNo) => navigate({ ...route, itemNo })} />
+      <OfflineList items={results} onOpen={(itemId) => navigate({ ...route, itemId })} />
     </div>
   );
 }

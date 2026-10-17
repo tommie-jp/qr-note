@@ -1,7 +1,7 @@
 import { unstable_rethrow } from "next/navigation";
 
 // ノート 1 件へのサーバーアクション (ゴミ箱へ移動・復元・永久削除)。
-// どれも FormData に itemNo を載せて呼ぶ
+// どれも FormData に itemId を載せて呼ぶ
 export type NoteAction = (formData: FormData) => void | Promise<void>;
 
 // サーバーアクションを 1 回呼ぶ。成功なら true、本物の失敗なら false。

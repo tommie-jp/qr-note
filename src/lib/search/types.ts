@@ -8,7 +8,7 @@
 // todo = 未チェックの項目が残っている、done = チェック済みの項目がある。
 export type TaskState = 'todo' | 'done'
 
-// 検索語 1 つ。text は全文検索 (memo/url) + itemNo 前方一致、
+// 検索語 1 つ。text は全文検索 (memo/url) + itemId 前方一致、
 // tag は items.tags の完全一致、task は items.task_todo / task_done の個数、
 // untagged はタグが 1 つも無いノート (docs/86 §5 未分類フォルダー)。
 export type SearchTerm =

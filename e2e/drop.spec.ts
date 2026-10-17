@@ -1,17 +1,17 @@
 import type { Locator, Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
+import { e2eItemId } from './env'
 import { closePage, dropOn, expect, memoEditor, newLoggedInPage, test } from './helpers'
 
 // 編集画面へのドロップ (docs/105-画像ドロップ計画.md §3)。
 //
-// - **DB には書かない。** 保存しないので、番号は /edit で開くだけ。
+// - **DB には書かない。** 保存しないので、id は /edit で開くだけ。
 //   `/api/images` への送信は route で偽の封筒を返す
 // - ドロップは合成の DragEvent で起こす。Playwright のドラッグは
 //   ページ外のファイルを持ち込めない
 // - **合成イベントでは「受け損ねたらブラウザがファイルを開く」既定動作は
 //   起きない。** 枠外のドロップで編集画面が消えないことは手で確かめる
 //   (Windows のエクスプローラから PNG を余白・ツールバーへ落とす)
-const ITEM_NO = `${E2E_ITEM_PREFIX}drop`
+const ITEM_ID = e2eItemId(13)
 const IMAGES_PATH = '/api/images'
 const FAKE_URL = `${IMAGES_PATH}/e2e0d4a1-0000-4000-8000-0000000000dd.png`
 const EXTERNAL_IMAGE = 'https://example.com/pics/cat_(1).png'
@@ -40,7 +40,7 @@ test.describe('編集画面へのドロップ', () => {
         await route.fulfill({ json: { success: true, data: { url: FAKE_URL }, error: null } })
       },
     )
-    await page.goto(`/edit/${ITEM_NO}`)
+    await page.goto(`/edit/${ITEM_ID}`)
     await expect(page.getByRole('button', { name: '更新', exact: true })).toBeVisible()
     await memoEditor(page).click()
     await page.keyboard.insertText('abc')

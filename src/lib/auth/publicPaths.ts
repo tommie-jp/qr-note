@@ -13,7 +13,7 @@ import { LOGIN_PATH, LOGIN_REQUIRED_PATH } from './loginRedirect'
 import { OFFLINE_PATH } from '../offline/params'
 import { FENCE_MAP_SCRIPT } from '../fenceGui/mapScript'
 import { isValidAttachmentName } from '../uploads/names'
-import { isValidItemNo } from '../validation'
+import { isLegacyItemNo, isValidItemId } from '../validation'
 import { ABOUT_PATH, SECURITY_TXT_PATH, THIRD_PARTY_LICENSES_PATH } from '../projectLinks'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。
@@ -123,20 +123,23 @@ export function isPublicPath(pathname: string): boolean {
 // 素通しするのは GET/HEAD だけ (auth/proxyDecision.ts)。書き込み (Server Action の POST) は
 // 門番で止める。公開ノートは読み取り専用であって、誰でも書ける口にはしない。
 
-// パスの末尾に itemNo を取るもの。/item は本文、/print は QR シール
+// パスの末尾に itemId を取るもの。/item は本文、/print は QR シール
 // (公開ビューにも QR ボタンを出すため。docs/22 §5)
-const ITEM_NO_PREFIXES = ['/item/', '/print/']
+const ITEM_ID_PREFIXES = ['/item/', '/print/']
 
 // メモに貼った画像・音声。閉じたままだと公開ノートを開いた人に画像だけ割れ、
 // 音声も再生できない (docs/22 §6, 41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
 const IMAGE_PREFIX = '/api/images/'
 
-// 末尾は itemNo / 画像名の書式に**完全一致**すること。前方一致で通すと
-// '/item/4518/edit' のような、別のページを指すパスまで素通しする
+// 末尾は itemId (旧番号を含む) / 画像名の書式に**完全一致**すること。前方一致で
+// 通すと '/item/4518/edit' のような、別のページを指すパスまで素通しする
 export function isSelfGuardedPath(pathname: string): boolean {
-  const itemNoPrefix = ITEM_NO_PREFIXES.find((prefix) => pathname.startsWith(prefix))
-  if (itemNoPrefix !== undefined) {
-    return isValidItemNo(pathname.slice(itemNoPrefix.length))
+  const itemIdPrefix = ITEM_ID_PREFIXES.find((prefix) => pathname.startsWith(prefix))
+  if (itemIdPrefix !== undefined) {
+    // 旧番号 (/item/1003) も通す。印刷済みのシールを未ログインで読んだときに
+    // ページ側が公開ノートだけで引き直す (lib/auth/pageGuard.ts。docs/107 §3-2)
+    const key = pathname.slice(itemIdPrefix.length)
+    return isValidItemId(key) || isLegacyItemNo(key)
   }
 
   if (pathname.startsWith(IMAGE_PREFIX)) {

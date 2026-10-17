@@ -80,7 +80,7 @@ const runDbTests =
 // (「DB に触れる前に弾く」契約そのもののテストにもなっている)
 process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:1/unused'
 
-// 公開判定のテストが作るノートの itemNo プレフィックス。実データと衝突させない
+// 公開判定のテストが作るノートの itemId プレフィックス。実データと衝突させない
 // (items.test.ts と同じ約束)
 const TEST_PREFIX = 'zzft'
 
@@ -461,7 +461,7 @@ describe.skipIf(!runDbTests)(
     const created: string[] = []
     // 公開判定のテストで作るノート。実データと衝突しないよう items.test.ts と
     // 同じ "zzft" プレフィックスで統一し、後始末で消す
-    const noteItemNos: string[] = []
+    const noteItemIds: string[] = []
 
     beforeAll(async () => {
       ;({ POST } = await import('./route'))
@@ -472,7 +472,7 @@ describe.skipIf(!runDbTests)(
     afterAll(async () => {
       if (!prisma) return
       await prisma.image.deleteMany({ where: { name: { in: created } } })
-      await prisma.item.deleteMany({ where: { itemNo: { in: noteItemNos } } })
+      await prisma.item.deleteMany({ where: { itemId: { in: noteItemIds } } })
       await prisma.$disconnect()
     })
 
@@ -873,25 +873,25 @@ describe.skipIf(!runDbTests)(
     describe('未ログイン', () => {
       // 画像を 1 枚上げ、その URL を本文に貼ったノートを作る
       async function noteWithImage(
-        itemNo: string,
+        itemId: string,
         state: { publicAt: Date | null; deletedAt?: Date | null },
       ): Promise<string> {
         const name = await upload(pngFile())
         await prisma.item.upsert({
-          where: { itemNo },
+          where: { itemId },
           update: {
             memo: `写真 ![](/api/images/${name})`,
             publicAt: state.publicAt,
             deletedAt: state.deletedAt ?? null,
           },
           create: {
-            itemNo,
+            itemId,
             memo: `写真 ![](/api/images/${name})`,
             publicAt: state.publicAt,
             deletedAt: state.deletedAt ?? null,
           },
         })
-        noteItemNos.push(itemNo)
+        noteItemIds.push(itemId)
         // ここまではログイン済みで用意する。検証だけを未ログインで行う
         mocks.sessionToken = null
         return name

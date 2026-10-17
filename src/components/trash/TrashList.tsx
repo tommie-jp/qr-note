@@ -1,3 +1,4 @@
+import { noteName } from "@/lib/items/noteName";
 import type { Item } from "@/generated/prisma/client";
 // 値の import は不可 — components/item/NotePreviewThumb.tsx はサーバ専用 module
 // (offline/circuits.ts と同じ線引き)。型は erase されるので安全。
@@ -25,21 +26,21 @@ interface TrashListProps {
   restoreAction: TrashAction;
   purgeAction: TrashAction;
   emptyTrashAction: TrashAction;
-  // itemNo → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §5)。
+  // itemId → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §5)。
   // 部品 (ItemRow / ImageMasonry) は検索一覧と共有だが、データはページごとに
   // 配線が要る — trash/page.tsx が loadCircuitThumbs で引いて降ろす
   circuitThumbs?: CircuitThumbMap;
-  // itemNo → 数式入りタイトル/プレビューの KaTeX 済み HTML
+  // itemId → 数式入りタイトル/プレビューの KaTeX 済み HTML
   // (docs/69-一覧数式計画.md)。こちらも trash/page.tsx が作って降ろす
   mathTexts?: MathTextMap;
-  // itemNo → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
+  // itemId → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
   // 消してよいかの判断材料は検索一覧より要るので、ゴミ箱でも同じ顔を出す
   notePreviews?: NotePreviewMap;
 }
 
 // ゴミ箱からノートを開くリンク。検索一覧と違って持ち回す検索状態が無いので
 // (ゴミ箱に検索窓もページ送りも無い)、素の /item/<番号> になる
-const itemHref = (itemNo: string) => `/item/${encodeURIComponent(itemNo)}`;
+const itemHref = (itemId: string) => `/item/${encodeURIComponent(itemId)}`;
 
 // 1 行ぶんの補助行 (削除日時と復元 / 永久削除)。ItemRow の footer に差し込む。
 //
@@ -63,13 +64,13 @@ function RowActions({
         </p>
       )}
       <form className="flex items-center gap-1" action={restoreAction}>
-        <input type="hidden" name="itemNo" value={item.itemNo} />
+        <input type="hidden" name="itemId" value={item.itemId} />
         <button type="submit" className={ACTION_LINK_CLASS}>
           復元
         </button>
         <ConfirmSubmitButton
           formAction={purgeAction}
-          confirmMessage={purgeConfirmMessage(item.itemNo)}
+          confirmMessage={purgeConfirmMessage(noteName(item))}
           className={DANGER_BUTTON_CLASS}
         >
           永久削除
@@ -117,11 +118,10 @@ export function TrashList({
 
   return (
     <div className="space-y-3">
-      {/* 永久削除は itemNo を解放する。古いシールが別の部品を指しうるので、
-          「部品もシールも処分済み」のときだけ押す操作だと明示する (§4) */}
+      {/* id (UUID) は再利用されないので、もとの「シールも処分してから」の
+          注意は要らなくなった (docs/107 §12)。取り返しがつかないことだけ言う */}
       <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
-        永久削除すると元に戻せません。その番号は新しいノートに再利用されるため、
-        貼ってあるシールも処分してから削除してください。
+        永久削除すると元に戻せません。
       </p>
 
       <form className="flex justify-end">
@@ -154,14 +154,14 @@ export function TrashList({
         <ul className={listClass}>
           {items.map((item) => (
             <ItemRow
-              key={item.itemNo}
+              key={item.itemId}
               item={item}
-              href={itemHref(item.itemNo)}
+              href={itemHref(item.itemId)}
               view={view}
-              circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
-              mathTitle={mathTexts?.[item.itemNo]?.title}
-              mathPreview={mathTexts?.[item.itemNo]?.preview}
-              notePreview={notePreviews?.[item.itemNo]}
+              circuitThumb={circuitThumbs?.[item.itemId]?.[0]}
+              mathTitle={mathTexts?.[item.itemId]?.title}
+              mathPreview={mathTexts?.[item.itemId]?.preview}
+              notePreview={notePreviews?.[item.itemId]}
               footer={
                 <RowActions
                   item={item}

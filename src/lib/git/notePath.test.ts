@@ -1,20 +1,48 @@
 import { describe, expect, test } from 'vitest'
-import { isValidCommitOid, noteFilePath } from './notePath'
+import { isValidCommitOid, legacyNoteFilePath, noteFilePath } from './notePath'
+
+const ID = '00000000-0000-7000-8000-000000004518'
 
 describe('noteFilePath', () => {
-  test('returns notes/<itemNo>.md for valid itemNos', () => {
-    expect(noteFilePath('4518')).toBe('notes/4518.md')
-    expect(noteFilePath('100x')).toBe('notes/100x.md')
-    expect(noteFilePath('a_b-c')).toBe('notes/a_b-c.md')
+  test('returns notes/<itemId>.md for UUID itemIds', () => {
+    expect(noteFilePath(ID)).toBe(`notes/${ID}.md`)
   })
 
-  test('throws for itemNos that could escape the notes/ directory', () => {
+  // 旧番号の履歴は legacyNoteFilePath が引く (docs/107)
+  test('throws for legacy numbers', () => {
+    expect(() => noteFilePath('4518')).toThrow()
+    expect(() => noteFilePath('100x')).toThrow()
+    expect(() => noteFilePath('a_b-c')).toThrow()
+  })
+
+  test('throws for itemIds that could escape the notes/ directory', () => {
     expect(() => noteFilePath('../etc')).toThrow()
     expect(() => noteFilePath('a/b')).toThrow()
     expect(() => noteFilePath('a\\b')).toThrow()
     expect(() => noteFilePath('.')).toThrow()
     expect(() => noteFilePath('')).toThrow()
-    expect(() => noteFilePath('a'.repeat(21))).toThrow()
+    expect(() => noteFilePath(`../${ID}`)).toThrow()
+  })
+})
+
+describe('legacyNoteFilePath', () => {
+  test('returns notes/<itemNo>.md for legacy numbers', () => {
+    expect(legacyNoteFilePath('4518')).toBe('notes/4518.md')
+    expect(legacyNoteFilePath('100x')).toBe('notes/100x.md')
+    expect(legacyNoteFilePath('a_b-c')).toBe('notes/a_b-c.md')
+  })
+
+  test('throws for UUIDs (新しいノートは noteFilePath で引く)', () => {
+    expect(() => legacyNoteFilePath(ID)).toThrow()
+  })
+
+  test('throws for itemNos that could escape the notes/ directory', () => {
+    expect(() => legacyNoteFilePath('../etc')).toThrow()
+    expect(() => legacyNoteFilePath('a/b')).toThrow()
+    expect(() => legacyNoteFilePath('a\\b')).toThrow()
+    expect(() => legacyNoteFilePath('.')).toThrow()
+    expect(() => legacyNoteFilePath('')).toThrow()
+    expect(() => legacyNoteFilePath('a'.repeat(21))).toThrow()
   })
 })
 

@@ -4,15 +4,14 @@ import 'server-only'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 import type { Item } from '@/generated/prisma/client'
-import { firstUnusedNo, MIN_ITEM_NO } from '@/lib/items/itemNo'
 import { orderByClause } from '@/lib/prefs/sortOrder'
 import type { Sort } from '@/lib/validation'
 import { buildNeighborsWhere, termCondition } from './where'
 
 // ゴミ箱のノートも返す (フィルタしない)。QR シールから開いた /item は
 // ゴミ箱でも本文を見せてバナーと復元を出すため (docs/12-ゴミ箱計画.md §5)。
-export async function getItem(itemNo: string): Promise<Item | null> {
-  return prisma.item.findUnique({ where: { itemNo } })
+export async function getItem(itemId: string): Promise<Item | null> {
+  return prisma.item.findUnique({ where: { itemId } })
 }
 
 // その画像が「公開中のノートの本文に貼られているか」(docs/22 §6)。
@@ -37,40 +36,6 @@ export async function isPublicImageName(name: string): Promise<boolean> {
     LIMIT 1
   `
   return rows.length > 0
-}
-
-// 新規ノートに使う itemNo (docs/10-スキャン新規登録計画.md §4)。
-// MIN_ITEM_NO 以上で未使用の最小番号。max+1 だと番号が増える一方だが、
-// 番号はシールに印刷して部品に貼るものなので短いほど扱いやすい。
-//
-// 非数字の itemNo は item_no_num が null なので where で自然に外れる。
-// 全件引いて JS で隙間を探す。index 済みの列で 500 件規模なら、SQL の
-// gap 検索を書くより読める形の方がよい。
-//
-// ゴミ箱 (deleted_at 非 null) の行は**意図的に外さない**。ゴミ箱にある間は
-// その番号を使用中として飛ばすことで、復元するまで番号を予約する
-// (削除→新規作成→復元で番号が衝突するのを防ぐ)。番号が解放されるのは
-// 永久削除で行が消えたときだけ (docs/12-ゴミ箱計画.md §4)。
-//
-// 予約はしない。番号が競合するのは別タブで同時に作ったときだけで、単一
-// ユーザでは実質起きない。万一先を越されても、編集ページは既存ノートなら
-// その本文を表示する (事前入力しない) ので開いた瞬間に気づける。
-//
-// alsoUsed は「DB にはまだ無いが使用中とみなす番号」。ZIP の取り込みで衝突した
-// ノートに番号を振るとき (docs/28 §5「新しい番号で取り込む」)、**同じ ZIP の
-// 中でまだ書いていないノートの番号**を渡す。これが無いと、空き番号がたまたま
-// ZIP 側の別ノートの番号だったときにそれを横取りしてしまい、衝突していな
-// かったノートまで後から衝突する (元の番号のまま入るという約束が崩れる)。
-export async function nextItemNo(alsoUsed: readonly number[] = []): Promise<string> {
-  const rows = await prisma.item.findMany({
-    where: { itemNoNum: { gte: MIN_ITEM_NO } },
-    select: { itemNoNum: true },
-    orderBy: { itemNoNum: 'asc' },
-  })
-  const used = rows.flatMap((row) => (row.itemNoNum === null ? [] : [row.itemNoNum]))
-  // firstUnusedNo は昇順を前提にする (重複は読み飛ばせる)
-  const usedAsc = alsoUsed.length === 0 ? used : [...used, ...alsoUsed].sort((a, b) => a - b)
-  return String(firstUnusedNo(usedAsc, MIN_ITEM_NO))
 }
 
 export interface TagCount {
@@ -109,7 +74,7 @@ export async function countFolderTotals(): Promise<FolderTotals> {
   return rows[0] ?? { total: 0, untagged: 0 }
 }
 
-// 一覧の中での隣 (docs/60-学習進捗計画.md §4)。itemNo が一覧の何番目かを
+// 一覧の中での隣 (docs/60-学習進捗計画.md §4)。itemId が一覧の何番目かを
 // 探さずに、SQL の lag/lead で前後 1 件だけを返す。
 export interface ListNeighbors {
   prev: string | null
@@ -122,25 +87,25 @@ export interface ListNeighbors {
 // 本来の並び位置に差し込まれ、前後が求まる (一覧に残っているときは足しても
 // 結果が変わらないので、場合分けは要らない)。
 //
-// 未登録の itemNo (QR シールだけ貼った番号) では一致する行が無く、
+// 未登録の itemId (作成中のノート) では一致する行が無く、
 // 前後とも null になる = 呼び出し側はナビを出さない。
 export async function findListNeighbors(
   query: string,
   sort: Sort,
-  itemNo: string,
+  itemId: string,
 ): Promise<ListNeighbors> {
   // 並び順は prefs/sortOrder.ts の定数のみ (buildOrderBy と同じ理由で raw に通せる)。
   // WINDOW 句で 1 度だけ書き、lag と lead が必ず同じ並びを見るようにする
   const rows = await prisma.$queryRaw<ListNeighbors[]>`
     WITH ordered AS (
-      SELECT item_no,
-             lag(item_no)  OVER w AS prev,
-             lead(item_no) OVER w AS next
+      SELECT id,
+             (lag(id)  OVER w)::text AS prev,
+             (lead(id) OVER w)::text AS next
       FROM items
-      ${buildNeighborsWhere(query, itemNo)}
+      ${buildNeighborsWhere(query, itemId)}
       WINDOW w AS (ORDER BY ${Prisma.raw(orderByClause(sort))})
     )
-    SELECT prev, next FROM ordered WHERE item_no = ${itemNo}
+    SELECT prev, next FROM ordered WHERE id = ${itemId}::uuid
   `
   return { prev: rows[0]?.prev ?? null, next: rows[0]?.next ?? null }
 }

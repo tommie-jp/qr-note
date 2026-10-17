@@ -57,7 +57,7 @@ trap cleanup EXIT
 # 内容そのものを突き合わせる
 readonly SIGNATURE_SQL="select (select count(*) from items)||' items / '\
 ||(select count(*) from images)||' images / memo md5='\
-||(select coalesce(md5(string_agg(item_no||':'||memo, '|' order by item_no)), 'なし') from items)"
+||(select coalesce(md5(string_agg(id::text||':'||memo, '|' order by id)), 'なし') from items)"
 
 log "0/7 事前チェック"
 [ -f .env ] || die ".env がない。cp .env.example .env して値を設定すること"

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { isDemoMode } from '@/lib/appEnv'
 import { removeNotes } from '@/lib/git/notesRepo'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
-import { parseBackUrl, parseSelectedItemNos } from '@/lib/items/itemSelection'
+import { parseBackUrl, parseSelectedItemIds } from '@/lib/items/itemSelection'
 import { requireUser } from '@/lib/auth/session'
 import { revalidateItem, revalidateLists } from './_revalidate'
 
@@ -14,11 +14,11 @@ import { revalidateItem, revalidateLists } from './_revalidate'
 // 一括タグと同じフォームから formAction で分岐して呼ばれる。
 export async function trashItemsAction(formData: FormData): Promise<void> {
   await requireUser()
-  const itemNos = parseSelectedItemNos(formData)
+  const itemIds = parseSelectedItemIds(formData)
   const back = parseBackUrl(formData)
 
-  if (itemNos.length > 0) {
-    await trashItems(itemNos)
+  if (itemIds.length > 0) {
+    await trashItems(itemIds)
     revalidateLists()
   }
 
@@ -30,15 +30,15 @@ export async function trashItemsAction(formData: FormData): Promise<void> {
 // (Next.js は revalidatePath で現在のルートを再レンダリングして返す)。
 export async function restoreItemsAction(formData: FormData): Promise<void> {
   await requireUser()
-  const itemNos = parseSelectedItemNos(formData)
-  if (itemNos.length === 0) {
+  const itemIds = parseSelectedItemIds(formData)
+  if (itemIds.length === 0) {
     return
   }
 
-  await restoreItems(itemNos)
+  await restoreItems(itemIds)
   revalidateLists()
-  for (const itemNo of itemNos) {
-    revalidateItem(itemNo)
+  for (const itemId of itemIds) {
+    revalidateItem(itemId)
   }
 }
 
@@ -46,12 +46,12 @@ export async function restoreItemsAction(formData: FormData): Promise<void> {
 // (UI の confirm は最後の一押しで、防護そのものではない)。
 export async function purgeItemsAction(formData: FormData): Promise<void> {
   await requireUser()
-  const itemNos = parseSelectedItemNos(formData)
-  if (itemNos.length === 0) {
+  const itemIds = parseSelectedItemIds(formData)
+  if (itemIds.length === 0) {
     return
   }
 
-  const purged = await purgeItems(itemNos)
+  const purged = await purgeItems(itemIds)
   await tombstoneNotes(purged)
   revalidateLists()
 }
@@ -65,20 +65,20 @@ export async function emptyTrashAction(): Promise<void> {
 
 // 永久削除を git 履歴にも「この版で消えた」として刻む墓石コミット
 // (docs/57-ノートgit履歴計画.md §4)。対象は purgeItems / emptyTrash が返す
-// **実際に消えた itemNo だけ** (消えなかったノートの履歴に墓石を立てない)。
+// **実際に消えた itemId だけ** (消えなかったノートの履歴に墓石を立てない)。
 //
 // 失敗しても投げない。DB の削除はもう終わっていて、git の都合で削除操作を
 // エラーにする理由がない (履歴にファイルが残るだけで無害。次に同じ番号を
 // 使って永久削除すればそのとき消える)。ただし黙らせはせずログには残す。
-async function tombstoneNotes(itemNos: string[]): Promise<void> {
-  if (itemNos.length === 0 || isDemoMode()) {
+async function tombstoneNotes(itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0 || isDemoMode()) {
     return
   }
   const message =
-    itemNos.length === 1 ? `delete ${itemNos[0]}` : `delete ${itemNos.length} notes`
+    itemIds.length === 1 ? `delete ${itemIds[0]}` : `delete ${itemIds.length} notes`
   try {
-    await removeNotes(itemNos, message)
+    await removeNotes(itemIds, message)
   } catch (error) {
-    console.error(`git 履歴の墓石コミットに失敗しました (${itemNos.join(', ')}):`, error)
+    console.error(`git 履歴の墓石コミットに失敗しました (${itemIds.join(', ')}):`, error)
   }
 }

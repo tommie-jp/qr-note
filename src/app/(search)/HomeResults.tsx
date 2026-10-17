@@ -58,12 +58,12 @@ export async function HomeResults({
   // 消える。ここで描けば URL は検索のまま保てる。
   // 中身の重さは一覧のプレビュー (buildNotePreviews は最大 20 ノートぶんの
   // markdown を描く) と同じ桁で、1 ノート増えるだけ。
-  // 中身は横取りしたペイン ((search)/@detail/(.)item/[itemNo]/page.tsx) と
+  // 中身は横取りしたペイン ((search)/@detail/(.)item/[itemId]/page.tsx) と
   // 同じ組み合わせを、同じ部品 (ItemDetail) で組み立てる
   const first = showsAutoNote(paneMode) ? result.items[0] : undefined;
   const autoNote = first ? (
     <ItemDetail
-      itemNo={first.itemNo}
+      itemId={first.itemId}
       q={query}
       sort={sort}
       shell={{ kind: "auto" }}

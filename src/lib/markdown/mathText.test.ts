@@ -45,10 +45,10 @@ describe('renderInlineMathHtml', () => {
 
 describe('buildMathTexts', () => {
   const makeItem = (
-    itemNo: string,
+    itemId: string,
     memo: string,
     mode: 'memo' | 'url' = 'memo',
-  ) => ({ itemNo, memo, mode })
+  ) => ({ itemId, memo, mode })
 
   test('タイトルとプレビューの両方を数式つきで返す (mode=both)', () => {
     const map = buildMathTexts(
@@ -88,10 +88,10 @@ describe('buildMathTexts', () => {
 
 describe('buildMathTexts のモードと予算', () => {
   const makeItem = (
-    itemNo: string,
+    itemId: string,
     memo: string,
     mode: 'memo' | 'url' = 'memo',
-  ) => ({ itemNo, memo, mode })
+  ) => ({ itemId, memo, mode })
 
   test("mode='title' はプレビューを描かない (小/画像モードでは使われない)", () => {
     const map = buildMathTexts(
@@ -116,8 +116,8 @@ describe('buildMathTexts のモードと予算', () => {
 describe('buildMathSummaries', () => {
   test('数式入りの要約だけを HTML にする', () => {
     const map = buildMathSummaries([
-      { itemNo: '1', summary: '$E=100$ の回路' },
-      { itemNo: '2', summary: '数式なし' },
+      { itemId: '1', summary: '$E=100$ の回路' },
+      { itemId: '2', summary: '数式なし' },
     ])
 
     expect(map['1']).toContain('class="katex"')
@@ -128,7 +128,7 @@ describe('buildMathSummaries', () => {
     const titles = { '1': { title: '<span class="katex">再利用</span>' } }
 
     const map = buildMathSummaries(
-      [{ itemNo: '1', summary: '$E=100$ の回路' }],
+      [{ itemId: '1', summary: '$E=100$ の回路' }],
       titles,
     )
 

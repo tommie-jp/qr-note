@@ -6,7 +6,7 @@
 // なので、置き場を分けてクライアントが合法的に import できるようにする。
 // このファイルに値の依存を足さないこと
 
-// itemNo → 数式入りのタイトル/プレビュー (KaTeX 済み HTML)。数式の無い
+// itemId → 数式入りのタイトル/プレビュー (KaTeX 済み HTML)。数式の無い
 // フィールドは持たない (表示側がプレーンテキストへフォールバック)。
 // サーバ→クライアント境界を越える prop なので素の Record
 export type MathTextMap = Record<string, { title?: string; preview?: string }>

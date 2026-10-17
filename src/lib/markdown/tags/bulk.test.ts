@@ -55,13 +55,13 @@ describe('parseTagInput', () => {
 
 describe('selectedTagsUnion', () => {
   const items = [
-    { itemNo: '1', tags: ['bjt', 'npn'] },
-    { itemNo: '2', tags: ['npn', 'pnp'] },
-    { itemNo: '3', tags: ['diode'] },
+    { itemId: '00000000-0000-7000-8000-000000000001', tags: ['bjt', 'npn'] },
+    { itemId: '00000000-0000-7000-8000-000000000002', tags: ['npn', 'pnp'] },
+    { itemId: '00000000-0000-7000-8000-000000000003', tags: ['diode'] },
   ]
 
   test('選択したアイテムのタグだけを和集合にする', () => {
-    expect(selectedTagsUnion(items, ['1', '2'])).toEqual([
+    expect(selectedTagsUnion(items, ['00000000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-000000000002'])).toEqual([
       'bjt',
       'npn',
       'pnp',
@@ -73,15 +73,15 @@ describe('selectedTagsUnion', () => {
   })
 
   test('結果はタグ名昇順で重複なし', () => {
-    expect(selectedTagsUnion(items, ['2', '3'])).toEqual([
+    expect(selectedTagsUnion(items, ['00000000-0000-7000-8000-000000000002', '00000000-0000-7000-8000-000000000003'])).toEqual([
       'diode',
       'npn',
       'pnp',
     ])
   })
 
-  test('存在しない itemNo は無視する', () => {
-    expect(selectedTagsUnion(items, ['1', 'zzz'])).toEqual(['bjt', 'npn'])
+  test('存在しない itemId は無視する', () => {
+    expect(selectedTagsUnion(items, ['00000000-0000-7000-8000-000000000001', 'zzz'])).toEqual(['bjt', 'npn'])
   })
 })
 
@@ -90,13 +90,13 @@ describe('parseBulkTagForm', () => {
     const req = parseBulkTagForm(
       form([
         ['addTags', 'bjt #npn'],
-        ['itemNo', '1'],
-        ['itemNo', '2'],
+        ['itemId', '00000000-0000-7000-8000-000000000001'],
+        ['itemId', '00000000-0000-7000-8000-000000000002'],
       ]),
     )
     expect(req.mode).toBe('add')
     expect(req.tags).toEqual(['bjt', 'npn'])
-    expect(req.itemNos).toEqual(['1', '2'])
+    expect(req.itemIds).toEqual(['00000000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-000000000002'])
     expect(req.back).toBe('/')
   })
 
@@ -105,36 +105,36 @@ describe('parseBulkTagForm', () => {
       form([
         ['removeTag', 'bjt'],
         ['addTags', 'npn'],
-        ['itemNo', '1'],
+        ['itemId', '00000000-0000-7000-8000-000000000001'],
       ]),
     )
     expect(req.mode).toBe('remove')
     expect(req.tags).toEqual(['bjt'])
   })
 
-  test('不正な itemNo を除き、重複はまとめる', () => {
+  test('不正な itemId を除き、重複はまとめる', () => {
     const req = parseBulkTagForm(
       form([
         ['addTags', 'bjt'],
-        ['itemNo', '1'],
-        ['itemNo', '1'],
-        ['itemNo', 'bad id!'],
-        ['itemNo', '2'],
+        ['itemId', '00000000-0000-7000-8000-000000000001'],
+        ['itemId', '00000000-0000-7000-8000-000000000001'],
+        ['itemId', 'bad id!'],
+        ['itemId', '00000000-0000-7000-8000-000000000002'],
       ]),
     )
-    expect(req.itemNos).toEqual(['1', '2'])
+    expect(req.itemIds).toEqual(['00000000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-000000000002'])
   })
 
   test('戻り先 URL に q / page / sort を反映する', () => {
     const req = parseBulkTagForm(
       form([
         ['addTags', 'bjt'],
-        ['itemNo', '1'],
+        ['itemId', '00000000-0000-7000-8000-000000000001'],
         ['q', '抵抗'],
         ['page', '3'],
         ['sort', 'itemNo'],
       ]),
     )
-    expect(req.back).toBe('/?q=%E6%8A%B5%E6%8A%97&page=3&sort=itemNo')
+    expect(req.back).toBe('/?q=%E6%8A%B5%E6%8A%97&page=3&sort=registered')
   })
 })

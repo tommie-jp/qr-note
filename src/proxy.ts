@@ -11,6 +11,8 @@ import {
 } from '@/lib/auth/proxyDecision'
 import { resolveSession } from '@/lib/auth/requestAuth'
 import { apiFail } from '@/lib/route/respond'
+import { parseLegacyItemPath } from '@/lib/items/legacyPath'
+import { resolveItemKey } from '@/lib/items/resolve'
 import { renewSession } from '@/lib/auth/sessionStore'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
 
@@ -43,7 +45,43 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const decision =
     decideWithoutSession(facts) ??
     decideWithSession(facts, await lookupSession(request), new Date())
+  if (decision.kind !== 'loopback-redirect' && decision.kind !== 'unauthorized') {
+    const legacy = await redirectLegacyItemPath(request)
+    if (legacy !== null) {
+      return legacy
+    }
+  }
   return respond(request, decision)
+}
+
+// 旧番号の URL (印刷済みの QR シール・X に投稿した URL) を id の URL へ付け替える
+// (docs/107 §3-2。なぜページではなくここかは lib/items/legacyPath.ts)。
+//
+//   1 件に決まる   → 308 (恒久)。X や検索エンジンに新しい URL を覚えてもらう
+//   0 件・複数     → 307 で検索へ (状況で変わるので一時)
+//   旧番号でない   → null (いつもの判定へ)
+//
+// 未ログインなら公開ノートだけで引く (非公開ノートの有無と id を外に出さない)。
+// 引けなければ検索へ送り、そこでログインを求められる
+async function redirectLegacyItemPath(request: NextRequest): Promise<NextResponse | null> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null
+  }
+  const path = parseLegacyItemPath(request.nextUrl.pathname)
+  if (path === null) {
+    return null
+  }
+  const session = await lookupSession(request)
+  const resolution = await resolveItemKey(path.key, { publicOnly: session === null })
+  if (resolution.kind === 'legacy') {
+    const url = new URL(`${path.prefix}${resolution.itemId}${path.suffix}`, request.nextUrl)
+    url.search = request.nextUrl.search
+    return NextResponse.redirect(url, 308)
+  }
+  if (resolution.kind === 'search') {
+    return NextResponse.redirect(new URL(resolution.href, request.nextUrl), 307)
+  }
+  return null
 }
 
 async function lookupSession(request: NextRequest): Promise<ProxySession | null> {

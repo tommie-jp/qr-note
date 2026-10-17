@@ -8,9 +8,9 @@ const TABLE: MatrixTableData = {
   kind: "checks",
   columns: ["学習済み", "自信あり"],
   rows: [
-    { itemNo: "4551", summary: "問1", cells: ["checked", "checked"] },
-    { itemNo: "4552", summary: "問2", cells: ["checked", "unchecked"] },
-    { itemNo: "4553", summary: "問3", cells: ["unchecked", "absent"] },
+    { itemId: "00000000-0000-7000-8000-000000004551", summary: "問1", cells: ["checked", "checked"] },
+    { itemId: "00000000-0000-7000-8000-000000004552", summary: "問2", cells: ["checked", "unchecked"] },
+    { itemId: "00000000-0000-7000-8000-000000004553", summary: "問3", cells: ["unchecked", "absent"] },
   ],
   total: 3,
   done: [2, 1],
@@ -29,7 +29,7 @@ const tableResult = (table: MatrixTableData): MatrixResult => ({
   kind: "table",
   table,
   query: "#電験三種",
-  sort: "itemNo",
+  sort: "registered",
   marks: null,
 });
 
@@ -38,7 +38,7 @@ describe("MatrixTable", () => {
     const html = render(tableResult(TABLE));
     expect(html).toContain("学習済み");
     expect(html).toContain("自信あり");
-    expect(html).toContain("#4551");
+    expect(html).toContain("問1");
     expect(html).toContain("問3");
   });
 
@@ -51,7 +51,7 @@ describe("MatrixTable", () => {
     );
     expect(headers).toEqual(["学習済み", "自信あり", "ノート"]);
     // 行の中も同じ並び (セル → リンク)
-    expect(html.indexOf("✓")).toBeLessThan(html.indexOf("#4551"));
+    expect(html.indexOf("✓")).toBeLessThan(html.indexOf(">問1<"));
   });
 
   test("件数と、列ごとの率 + 実数を出す", () => {
@@ -89,7 +89,7 @@ describe("MatrixTable", () => {
           kind: "table",
           table: TABLE,
           query: "#電験三種",
-          sort: "itemNo",
+          sort: "registered",
           marks: { unchecked: "🟥", checked: "✅️", absent: "➖" },
         }}
         code="#電験三種"
@@ -116,8 +116,10 @@ describe("MatrixTable", () => {
   // (docs/60-学習進捗計画.md §4)
   test("行のリンクに検索式と並びが載る", () => {
     const html = render(tableResult(TABLE));
-    expect(html).toContain("/item/4551?q=%23%E9%9B%BB%E9%A8%93%E4%B8%89%E7%A8%AE");
-    expect(html).toContain("sort=itemNo");
+    expect(html).toContain(
+      "/item/00000000-0000-7000-8000-000000004551?q=%23%E9%9B%BB%E9%A8%93%E4%B8%89%E7%A8%AE",
+    );
+    expect(html).toContain("sort=registered");
   });
 
   // 記号だけだと読み上げが済 / 未 / 項目なし を区別できない
@@ -134,9 +136,9 @@ describe("MatrixTable", () => {
         kind: "status",
         columns: ["状態"],
         rows: [
-          { itemNo: "4551", summary: "問1", cells: ["mastered"] },
-          { itemNo: "4552", summary: "問2", cells: ["learning"] },
-          { itemNo: "4553", summary: "問3", cells: ["untouched"] },
+          { itemId: "00000000-0000-7000-8000-000000004551", summary: "問1", cells: ["mastered"] },
+          { itemId: "00000000-0000-7000-8000-000000004552", summary: "問2", cells: ["learning"] },
+          { itemId: "00000000-0000-7000-8000-000000004553", summary: "問3", cells: ["untouched"] },
         ],
         total: 3,
         done: [1],
@@ -175,12 +177,12 @@ describe("MatrixTable", () => {
       ...TABLE,
       rows: [
         {
-          itemNo: "7000",
+          itemId: "00000000-0000-7000-8000-000000007000",
           summary: "01電験三種 01理論 01直流回路 問01 (合成抵抗)",
           cells: ["checked", "checked"],
         },
         {
-          itemNo: "7001",
+          itemId: "00000000-0000-7000-8000-000000007001",
           summary: "01電験三種 01理論 01直流回路 問02 (分圧則)",
           cells: ["unchecked", "unchecked"],
         },

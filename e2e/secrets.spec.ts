@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test'
-import { BASE_URL, E2E_ITEM_PREFIX, secretsDbProblem } from './env'
+import { BASE_URL, E2E_HEADING_PREFIX, secretsDbProblem } from './env'
 import {
   clearEditor,
   closePage,
@@ -10,7 +10,7 @@ import {
   newLoggedInPage,
   test,
 } from './helpers'
-import { removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote } from './notes'
 import { attachVirtualAuthenticator } from './webauthn'
 
 // シークレット (部分暗号化。docs/51-部分暗号化計画.md) の一連の流れ (docs/96 §4-3):
@@ -27,13 +27,15 @@ import { attachVirtualAuthenticator } from './webauthn'
 //
 // 認証器は仮想 (e2e/webauthn.ts)。1 本の CDP セッションに付けた 1 枚のページを
 // beforeAll から afterAll まで使い回す — 別のページを開くと認証器が付いてこない
-const ITEM_NO = `${E2E_ITEM_PREFIX}-s1`
-const PASSKEY_LABEL = E2E_ITEM_PREFIX
 const STAMP = Date.now()
+// 本文 1 行目は E2E の見出し (片付けが検索で引く)。2 行目にシークレットを入れる
+const NOTE = e2eNote(15, `secret ${STAMP}`)
+const ITEM_ID = NOTE.id
+const PASSKEY_LABEL = E2E_HEADING_PREFIX
 
 // 断片に書く平文。**ブラウザの console に出さない** — dev はブラウザのログを
 // /logs へ転送する (docs/30)。Playwright 側の失敗表示に出るぶんは手元に閉じる
-const SECRET_TEXT = `${E2E_ITEM_PREFIX} secret ${STAMP} ひみつ`
+const SECRET_TEXT = `${E2E_HEADING_PREFIX} secret ${STAMP} ひみつ`
 
 // ラベル欄を空で保存したときの表示名 (lib/secret/secrets.ts の DEFAULT_SECRET_LABEL)
 const DEFAULT_LABEL = 'シークレット'
@@ -131,15 +133,15 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
       .grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE_URL })
     page.on('request', record)
     await attachVirtualAuthenticator(page)
-    // 前の回が途中で落ちて残した同じ番号を消しておく (無ければ何もしない)
-    await removeE2eNote(page, ITEM_NO)
+    // 前の回が途中で落ちて残した同じ id を消しておく (無ければ何もしない)
+    await removeE2eNote(page, NOTE)
   })
 
   test.afterAll(async () => {
     if (sharedPage === undefined) {
       return
     }
-    await removeE2eNote(sharedPage, ITEM_NO)
+    await removeE2eNote(sharedPage, NOTE)
     await closePage(sharedPage)
   })
 
@@ -250,12 +252,15 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
   })
 
   test('編集画面の「秘密」で書いた本文は、記法だけが本文に入る', async () => {
-    // Arrange: 未登録の番号の編集画面。「更新」は portal で、見えればハイドレート済み
+    // Arrange: 未登録の id の編集画面。「更新」は portal で、見えればハイドレート済み
     const page = shared()
-    await page.goto(`/edit/${ITEM_NO}`)
+    await page.goto(`/edit/${ITEM_ID}`)
     const save = page.getByRole('button', { name: '更新', exact: true })
     await expect(save).toBeVisible()
     await clearEditor(page)
+    // 見出しの行を打ち、次の行へカーソルを置く (シークレットはカーソルの位置に入る)
+    await memoEditor(page).pressSequentially(NOTE.heading, { delay: 10 })
+    await page.keyboard.press('Enter')
 
     // Act: ダイアログに書いて封をする。goto で鍵は消えているので、保存の前に
     // パスキー (PRF) での解錠が挟まる — 仮想認証器が黙って応える
@@ -264,10 +269,12 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
     await secretBody(page).fill(SECRET_TEXT)
     await sealButton(page).click()
 
-    // Assert: 本文に入るのは記法だけ
+    // Assert: 本文に入るのは記法だけ (見出しの行の下)
     await expect(secretBody(page)).toHaveCount(0)
     await expect(memoField(page)).toHaveValue(
-      new RegExp(`^!\\[${DEFAULT_LABEL}\\]\\(${SECRET_API}${SECRET_NAME}\\)$`),
+      new RegExp(
+        `^${NOTE.heading}\\n+!\\[${DEFAULT_LABEL}\\]\\(${SECRET_API}${SECRET_NAME}\\)\\n*$`,
+      ),
     )
     await expect(memoEditor(page)).not.toContainText(SECRET_TEXT)
 
@@ -275,7 +282,7 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
     await save.click()
 
     // Assert: 閲覧画面。平文はどこにも描かれていない
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await expect(lockedBlock(page)).toBeVisible()
     await expect(page.getByText(SECRET_TEXT)).toHaveCount(0)
   })

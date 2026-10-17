@@ -29,10 +29,10 @@ export async function searchItemHealth(query: string): Promise<ItemHealthResult>
   return searchItemRows<HealthSourceRow>(
     buildWhere(query),
     Prisma.sql`
-      item_no AS "itemNo",
+      id::text AS "itemId",
       memo
     `,
-    'itemNo',
+    'registered',
     HEALTH_ROW_LIMIT,
   )
 }

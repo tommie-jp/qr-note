@@ -14,7 +14,7 @@ test('末尾の次は先頭に戻る', () => {
 })
 
 test('全部の値が鍵になる (押せない値を作らない)', () => {
-  const values = ['updated', 'accessed', 'itemNo', 'title'] as const
+  const values = ['updated', 'accessed', 'itemId', 'title'] as const
   const next = cycleOf(values)
   expect(Object.keys(next).sort()).toEqual([...values].sort())
 })

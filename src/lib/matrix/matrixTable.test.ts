@@ -10,12 +10,12 @@ import {
 } from './matrixTable'
 
 function row(
-  itemNo: string,
+  itemId: string,
   memo: string,
   todo: number,
   done: number,
 ): MatrixSourceRow {
-  return { itemNo, memo, taskTodo: todo, taskDone: done }
+  return { itemId, memo, taskTodo: todo, taskDone: done }
 }
 
 // 問題ノートの形 (docs-ignore の原稿と同じ 2 チェック)
@@ -44,7 +44,7 @@ describe('buildMatrixTable (名前付きの列)', () => {
 
   test('行は渡された順のまま (並べ替えは SQL の仕事)', () => {
     const table = buildMatrixTable(rows, columns, 0)
-    expect(table.rows.map((r) => r.itemNo)).toEqual(['4551', '4552', '4553'])
+    expect(table.rows.map((r) => r.itemId)).toEqual(['4551', '4552', '4553'])
   })
 
   test('セルはチェックの状態になる', () => {

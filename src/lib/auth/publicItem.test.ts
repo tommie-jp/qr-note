@@ -28,7 +28,7 @@ describe('isPublicItem', () => {
     expect(isPublicItem(item())).toBe(false)
   })
 
-  // 未登録の itemNo。呼び出し側は getItem() の null をそのまま渡せる
+  // 未登録の itemId。呼び出し側は getItem() の null をそのまま渡せる
   test('未登録 (null) は非公開', () => {
     expect(isPublicItem(null)).toBe(false)
   })

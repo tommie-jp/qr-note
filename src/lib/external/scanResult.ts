@@ -1,5 +1,5 @@
 import { buildSearchUrl } from '../search/url'
-import { isValidItemNo } from '../validation'
+import { isLegacyItemNo, isValidItemId } from '../validation'
 
 // 読み取ったコードの遷移先を決める (設計は docs/09-スキャン計画.md §3)。
 //
@@ -21,15 +21,15 @@ export function resolveScanPath(rawValue: string, itemHosts: string[]): string |
     return null
   }
 
-  const itemNo = itemNoFromUrl(value, itemHosts)
-  if (itemNo) {
-    return `/item/${itemNo}`
+  const itemId = itemIdFromUrl(value, itemHosts)
+  if (itemId) {
+    return `/item/${itemId}`
   }
   return buildSearchUrl(value, 1, 'updated')
 }
 
-// 部品シールの URL なら itemNo を返す。それ以外は null。
-function itemNoFromUrl(value: string, itemHosts: string[]): string | null {
+// 部品シールの URL なら itemId を返す。それ以外は null。
+function itemIdFromUrl(value: string, itemHosts: string[]): string | null {
   let url: URL
   try {
     url = new URL(value)
@@ -52,16 +52,18 @@ function itemNoFromUrl(value: string, itemHosts: string[]): string | null {
     return null
   }
 
-  // path をそのまま使わず、検証済みの itemNo から組み立て直す (呼び出し側)。
+  // path をそのまま使わず、検証済みの itemId から組み立て直す (呼び出し側)。
   // 読み取った文字列は他人が作った QR かもしれず、遷移先を仕込ませない
-  let itemNo: string
+  let itemId: string
   try {
-    itemNo = decodeURIComponent(match[1])
+    itemId = decodeURIComponent(match[1])
   } catch {
     // 壊れた %シーケンス (例 /item/%E0%A4%A) は decodeURIComponent が
     // URIError を投げる。URL のパースは通ってしまうのでここで受ける。
     // 部品 URL として扱えないだけなので、検索に落として読み直させる
     return null
   }
-  return isValidItemNo(itemNo) ? itemNo : null
+  // 印刷済みのシールは旧番号 (/item/1003)。番号のまま /item へ送り、ページ側
+  // (pageGuard・@detail) がタグ #1003 で引き直す (docs/107 §3-2)
+  return isValidItemId(itemId) || isLegacyItemNo(itemId) ? itemId : null
 }

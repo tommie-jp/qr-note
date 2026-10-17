@@ -43,7 +43,7 @@ export function buildTrashUrl(sort: TrashSort): string {
 // 表示ゲート (PreviewPane) が「いまどのノートが開いているか」を**同じ規則で**
 // 読むための 1 か所 (docs/86 §4)。別々に startsWith を書くと、ルートの形を
 // 変えた日に行の印とペインの表示が食い違う。
-export function itemNoFromPathname(
+export function itemIdFromPathname(
   pathname: string | null | undefined,
 ): string | null {
   const prefix = '/item/'
@@ -54,7 +54,7 @@ export function itemNoFromPathname(
   if (rest === '' || rest.includes('/')) {
     return null
   }
-  // usePathname はデコード済みの値を返すことがあり、旧データの itemNo は
+  // usePathname はデコード済みの値を返すことがあり、旧データの itemId は
   // `%` そのものを含みうる (validation の英数制限より古い)。二重デコードで
   // URIError に落ちるくらいなら、デコードできない値は素のまま番号として扱う
   try {
@@ -68,16 +68,16 @@ export function itemNoFromPathname(
 // /new)。全画面ノートの「閉じる」が、戻る先の履歴から飛ばす画面の規則
 // (components/item/closeNote.ts)。
 //
-// itemNoFromPathname より広い — あちらは「いまペインに出ている番号」を
+// itemIdFromPathname より広い — あちらは「いまペインに出ている番号」を
 // 決めるので /item/<番号> ちょうどだけを見るが、こちらは「閉じた先に
 // ノートの画面が出てこないこと」が要件なので、履歴・編集・新規も含める
 export function isNotePathname(pathname: string): boolean {
   return /^\/(?:item|edit)\/[^/]+(?:\/|$)|^\/new(?:\/|$)/.test(pathname)
 }
 
-export function buildItemUrl(itemNo: string, query: string, sort: Sort): string {
+export function buildItemUrl(itemId: string, query: string, sort: Sort): string {
   const trimmed = query.trim()
-  const path = `/item/${encodeURIComponent(itemNo)}`
+  const path = `/item/${encodeURIComponent(itemId)}`
   if (!trimmed) {
     return path
   }

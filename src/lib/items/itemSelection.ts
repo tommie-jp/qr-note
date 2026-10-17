@@ -1,30 +1,30 @@
 // 検索結果で選択したノートに対する一括操作フォームの共通部分 (DB 非依存)。
 // 一括タグ (markdown/tags/bulk.ts) とゴミ箱行き (app/actions/trash.ts の trashItemsAction) が
-// 同じ形のフォーム (itemNo[] + q/page/sort) を送るため、解釈をここに集約する。
+// 同じ形のフォーム (itemId[] + q/page/sort) を送るため、解釈をここに集約する。
 
 import { buildSearchUrl } from '../search/url'
-import { isValidItemNo, parseSort } from '../validation'
+import { isValidItemId, parseSort } from '../validation'
 
 // 1 回の一括操作で処理する最大アイテム数。オンデマンド表示 (docs/33) で
 // 選択は読み込んだ全件に及ぶようになったため、全ノート規模 (数百〜数千)
 // を上限にする。細工されたフォームに備えてループを有界にする意図は同じ。
 const MAX_BULK_ITEMS = 5000
 
-// チェックされた itemNo を検証済み・重複なしで返す (フォームの並び順)。
-export function parseSelectedItemNos(formData: FormData): string[] {
+// チェックされた itemId を検証済み・重複なしで返す (フォームの並び順)。
+export function parseSelectedItemIds(formData: FormData): string[] {
   const seen = new Set<string>()
-  const itemNos: string[] = []
-  for (const value of formData.getAll('itemNo')) {
-    if (typeof value !== 'string' || !isValidItemNo(value) || seen.has(value)) {
+  const itemIds: string[] = []
+  for (const value of formData.getAll('itemId')) {
+    if (typeof value !== 'string' || !isValidItemId(value) || seen.has(value)) {
       continue
     }
     seen.add(value)
-    itemNos.push(value)
-    if (itemNos.length >= MAX_BULK_ITEMS) {
+    itemIds.push(value)
+    if (itemIds.length >= MAX_BULK_ITEMS) {
       break
     }
   }
-  return itemNos
+  return itemIds
 }
 
 // 操作後に戻る一覧 URL。検索状態 (q/page/sort) から**必ずここで組み立てる**。
@@ -49,21 +49,21 @@ export function parseBackUrl(formData: FormData): string {
 //
 // 手で FormData を組む場所が増えたので、ここに 1 本化して検査を効かせる
 // (組み立てはブラウザの中でしか走らず、抜けても型では捕まらない)。
-// ノート 1 件を指すフォーム (itemNo だけ)。parseSelectedItemNos と対で、
+// ノート 1 件を指すフォーム (itemId だけ)。parseSelectedItemIds と対で、
 // 項目名をここ 1 か所に置く。ゴミ箱の画像表示の復元・永久削除が使う
 // (docs/107 §9)。手で組むと、項目名が変わったときに空の選択を送り、
 // サーバーアクションが黙って何もしない
-export function buildItemFormData(itemNo: string): FormData {
+export function buildItemFormData(itemId: string): FormData {
   const formData = new FormData()
-  formData.append('itemNo', itemNo)
+  formData.append('itemId', itemId)
   return formData
 }
 
 export function buildTrashFormData(
-  itemNo: string,
+  itemId: string,
   back: { q: string; page: number; sort: string },
 ): FormData {
-  const formData = buildItemFormData(itemNo)
+  const formData = buildItemFormData(itemId)
   formData.append('q', back.q)
   formData.append('page', String(back.page))
   formData.append('sort', back.sort)

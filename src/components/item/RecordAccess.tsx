@@ -9,7 +9,7 @@ import type { recordAccessAction } from "@/app/actions";
 type RecordAccessActionType = typeof recordAccessAction;
 
 interface RecordAccessProps {
-  itemNo: string;
+  itemId: string;
   action: RecordAccessActionType;
 }
 
@@ -28,13 +28,13 @@ interface RecordAccessProps {
 //
 // 連打・StrictMode の二重発火は DB 側の 1 分ガード (items/flags.ts の
 // recordItemAccess) が吸収するので、ここでは重複呼び出しを気にしない。
-export function RecordAccess({ itemNo, action }: RecordAccessProps) {
+export function RecordAccess({ itemId, action }: RecordAccessProps) {
   useEffect(() => {
-    void action(itemNo).catch((error: unknown) => {
+    void action(itemId).catch((error: unknown) => {
       // 画面には出さない。ブラウザ側のログは DebugConsole から見える
       console.error("アクセス日時を記録できませんでした", error);
     });
-  }, [itemNo, action]);
+  }, [itemId, action]);
 
   return null;
 }

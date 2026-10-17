@@ -6,7 +6,7 @@ import { cache } from 'react'
 import { buildNotePreviews, type NotePreviewMap } from '@/components/item/NotePreviewThumb'
 import type { CircuitThumbMap } from '@/lib/circuit/types'
 import { loadCircuitThumbs } from '@/lib/circuit/thumbs'
-import { nextItemNo } from '@/lib/items/read'
+import { newItemId } from '@/lib/items/itemId'
 import {
   countTaskProgress,
   searchItemProps,
@@ -74,17 +74,15 @@ export async function loadSearchResults({
   ])
 
   // 0 件のときだけ引く 2 つ。どちらも独立なので並べて撃つ。
-  // - 採番: スキャンした未登録コードから新規ノートを作る導線
+  // - 新規 id: スキャンした未登録コードから新規ノートを作る導線
   //   (docs/10-スキャン新規登録計画.md §3)。タグにできる語のときだけ。
   //   ヒットした検索や URL・複数語では引かない (無駄な問い合わせをしないためと、
   //   ボタンを出さないため)
   // - ゴミ箱の一致: 消したノートを探して 0 件のときに知らせる
   //   (docs/12-ゴミ箱計画.md §5)。ゴミ箱が空なら数えるまでもない
-  const [nextNo, trashedMatches] = await Promise.all([
-    result.total === 0 && isTaggableCode(query) ? nextItemNo() : null,
-    result.total === 0 && trashCount > 0 ? countTrashedMatches(query) : 0,
-  ])
-  const registerHref = nextNo === null ? null : scanRegisterHref(nextNo, query)
+  const newId = result.total === 0 && isTaggableCode(query) ? newItemId() : null
+  const trashedMatches = result.total === 0 && trashCount > 0 ? await countTrashedMatches(query) : 0
+  const registerHref = newId === null ? null : scanRegisterHref(newId, query)
 
   // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md)。キャッシュ済みの
   // SVG を引くだけで描画はしない。小/大は画像の無いノートの先頭 1 枚、

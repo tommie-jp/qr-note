@@ -1,6 +1,6 @@
 // エクスポート ZIP の中の配置 (docs/28-エクスポート計画.md §1)。
 //
-//   notes/<itemNo>.md   … frontmatter + 本文
+//   notes/<itemId>.md   … frontmatter + 本文
 //   images/<保存名>      … 添付をそのままファイル化
 //
 // **書くときと読むときで同じ規則を使う**のがこのファイルの役目。エクスポートが
@@ -10,7 +10,7 @@
 // 決められるので、`../` や `notes/sub/` のような形はここで断つ。
 
 import { isValidAttachmentName } from '@/lib/uploads/names'
-import { isValidItemNo } from '@/lib/validation'
+import { isValidItemId } from '@/lib/validation'
 
 const NOTES_DIR = 'notes'
 const IMAGES_DIR = 'images'
@@ -23,16 +23,16 @@ export const META_ENTRY_PATH = 'export.json'
 
 // ノート 1 件のパス。
 //
-// git 履歴 (lib/git/notePath.ts) も同じ `notes/<itemNo>.md` を使うが、**意図して
+// git 履歴 (lib/git/notePath.ts) も同じ `notes/<itemId>.md` を使うが、**意図して
 // 別に持つ**。あちらはリポジトリの内部配置、こちらは外へ出す公開フォーマットで、
 // 片方の都合 (階層を分ける等) がもう片方を黙って変えてはならない。
-export function noteEntryPath(itemNo: string): string {
-  // itemNo は Ver1 由来の文字列 PK = 利用者由来の文字列。呼ぶ側の検証を
+export function noteEntryPath(itemId: string): string {
+  // itemId は Ver1 由来の文字列 PK = 利用者由来の文字列。呼ぶ側の検証を
   // 当てにせず、ファイル名にする直前でもう一度確かめる
-  if (!isValidItemNo(itemNo)) {
-    throw new Error(`itemNo が不正です: ${itemNo}`)
+  if (!isValidItemId(itemId)) {
+    throw new Error(`itemId が不正です: ${itemId}`)
   }
-  return `${NOTES_DIR}/${itemNo}${NOTE_EXT}`
+  return `${NOTES_DIR}/${itemId}${NOTE_EXT}`
 }
 
 // 添付 1 件のパス。保存名 (UUID + 拡張子) はそのまま使う — 名前を変えると
@@ -79,7 +79,7 @@ export function classifyEntry(path: string): EntryKind {
   }
 
   if (dir === NOTES_DIR) {
-    // 拡張子だけ見る。ファイル名は目印でしかなく、itemNo の正本は
+    // 拡張子だけ見る。ファイル名は目印でしかなく、itemId の正本は
     // frontmatter 側にある (手書きの Markdown を受けるため)
     return rest.endsWith(NOTE_EXT)
       ? { kind: 'note' }

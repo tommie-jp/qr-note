@@ -1,10 +1,20 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-// auth/session.ts は cookies() を呼ぶので差し替える。notFound() は本物 —
-// Next が 404 に読み替える印 (digest) を持った例外を投げる
-const mocks = vi.hoisted(() => ({ requireUser: vi.fn() }))
+// auth/session.ts は cookies() を呼ぶので差し替える。items/resolve.ts は db.ts
+// (DATABASE_URL) を引き込むので差し替える。notFound() / redirect() /
+// permanentRedirect() は本物 — Next が 404 や転送に読み替える印 (digest) を
+// 持った例外を投げる
+const mocks = vi.hoisted(() => ({
+  requireUser: vi.fn(),
+  currentUser: vi.fn(),
+  resolveItemKey: vi.fn(),
+}))
 
-vi.mock('@/lib/auth/session', () => ({ requireUser: mocks.requireUser }))
+vi.mock('@/lib/auth/session', () => ({
+  requireUser: mocks.requireUser,
+  currentUser: mocks.currentUser,
+}))
+vi.mock('@/lib/items/resolve', () => ({ resolveItemKey: mocks.resolveItemKey }))
 
 const { guardItemPage, requireSettingsPage } = await import('./pageGuard')
 
@@ -12,25 +22,86 @@ const NOT_FOUND = expect.objectContaining({
   digest: expect.stringContaining('404'),
 })
 
+// redirect() は 307 (一時)、permanentRedirect() は 308 (永久) の印を持つ
+const redirectTo = (url: string, status: 307 | 308) =>
+  expect.objectContaining({
+    digest: expect.stringMatching(
+      new RegExp(`^NEXT_REDIRECT;[a-z]+;${url.replace(/[?]/g, '\\?')};${status};$`),
+    ),
+  })
+
+const ID = '00000000-0000-7000-8000-000000004951'
+const pathOf = (itemId: string) => `/item/${itemId}/history`
+
 beforeEach(() => {
   mocks.requireUser.mockReset()
   mocks.requireUser.mockResolvedValue('tommie')
+  mocks.currentUser.mockReset()
+  mocks.currentUser.mockResolvedValue('tommie')
+  mocks.resolveItemKey.mockReset()
 })
 
 afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-test('正しい形のノート番号は素通しする', () => {
-  // Act / Assert
-  expect(() => guardItemPage('4951')).not.toThrow()
-  expect(() => guardItemPage('100x')).not.toThrow()
+test('UUID はそのまま返し、DB もセッションも引かない', async () => {
+  // Act
+  const itemId = await guardItemPage(ID, pathOf)
+
+  // Assert
+  expect(itemId).toBe(ID)
+  expect(mocks.resolveItemKey).not.toHaveBeenCalled()
+  expect(mocks.currentUser).not.toHaveBeenCalled()
 })
 
-test('形の合わないノート番号は 404 にする', () => {
+test('旧番号が 1 件に決まれば、id の URL へ永久に転送する', async () => {
+  // Arrange
+  mocks.resolveItemKey.mockResolvedValue({ kind: 'legacy', itemId: ID })
+
   // Act / Assert
-  expect(() => guardItemPage('../etc')).toThrow(NOT_FOUND)
-  expect(() => guardItemPage('')).toThrow(NOT_FOUND)
+  await expect(guardItemPage('1003', pathOf)).rejects.toThrow(
+    redirectTo(`/item/${ID}/history`, 308),
+  )
+  expect(mocks.resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: false })
+})
+
+test('旧番号が 0 件・複数なら検索へ一時の転送をする', async () => {
+  // Arrange
+  mocks.resolveItemKey.mockResolvedValue({ kind: 'search', href: '/?q=100x' })
+
+  // Act / Assert
+  await expect(guardItemPage('100x', pathOf)).rejects.toThrow(redirectTo('/?q=100x', 307))
+})
+
+// 非公開ノートまで引いて付け替えると、id が外から判ってしまう
+test('未ログインなら公開ノートだけで旧番号を引く', async () => {
+  // Arrange
+  mocks.currentUser.mockResolvedValue(null)
+  mocks.resolveItemKey.mockResolvedValue({ kind: 'search', href: '/?q=1003' })
+
+  // Act / Assert
+  await expect(guardItemPage('1003', pathOf)).rejects.toThrow(redirectTo('/?q=1003', 307))
+  expect(mocks.resolveItemKey).toHaveBeenCalledWith('1003', { publicOnly: true })
+})
+
+test('形の合わない値は DB を引かずに 404 にする', async () => {
+  // Act / Assert
+  await expect(guardItemPage('../etc', pathOf)).rejects.toThrow(NOT_FOUND)
+  await expect(guardItemPage('', pathOf)).rejects.toThrow(NOT_FOUND)
+  // 大文字の UUID は URL を 1 つに保つため受けない。旧番号にしては長すぎる
+  await expect(
+    guardItemPage('0192F5E8-7A3B-7C4D-8E5F-0123456789AB', pathOf),
+  ).rejects.toThrow(NOT_FOUND)
+  expect(mocks.resolveItemKey).not.toHaveBeenCalled()
+})
+
+test('解決できない結果が返っても 404 に倒す', async () => {
+  // Arrange
+  mocks.resolveItemKey.mockResolvedValue({ kind: 'invalid' })
+
+  // Act / Assert
+  await expect(guardItemPage('1003', pathOf)).rejects.toThrow(NOT_FOUND)
 })
 
 test('設定ページはデモでなければログインを確かめてユーザーを返す', async () => {

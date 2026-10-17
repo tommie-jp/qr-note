@@ -3,7 +3,9 @@ import { access, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { simpleGit, type SimpleGit } from 'simple-git'
 import { pathEnv, qrGitDirEnv } from '../appEnv'
-import { isValidCommitOid, noteFilePath } from './notePath'
+import { newItemId } from '../items/itemId'
+import { isValidItemId } from '../validation'
+import { isValidCommitOid, legacyNoteFilePath, noteFilePath } from './notePath'
 
 // ノート本文の git 履歴 (docs/57-ノートgit履歴計画.md)。
 //
@@ -11,7 +13,7 @@ import { isValidCommitOid, noteFilePath } from './notePath'
 // の置き場に徹する。保存経路はこのモジュールを通らない — コミット・履歴・
 // 復元のときだけ呼ばれる。
 //
-// リポジトリはインスタンス全体で 1 つ・非 bare。ノートは notes/<itemNo>.md。
+// リポジトリはインスタンス全体で 1 つ・非 bare。ノートは notes/<itemId>.md。
 // author を固定するのはシングルユーザーだから (複数ユーザー化するときに
 // アプリのユーザー情報へ差し替える)。
 const GIT_AUTHOR_NAME = 'qr-note'
@@ -103,6 +105,7 @@ async function openRepo(): Promise<{ git: SimpleGit; dir: string }> {
       // HEAD を常に在らせるための空コミット (identity が要るのでこの順)
       await git.commit('init', undefined, { '--allow-empty': null })
     }
+    await renameLegacyNotes(git)
     ensuredDirs.add(dir)
   }
 
@@ -128,6 +131,68 @@ async function ensureIdentity(git: SimpleGit): Promise<void> {
   }
 }
 
+// 移行前の notes/<旧番号>.md を notes/<id>.md へ付け替える (docs/107 §4-1)。
+//
+// **リポジトリを開いた最初の 1 回にアプリ自身がやる**。本番のリポジトリは
+// コンテナの volume の中にあり、配布の手順に「改名のスクリプトを流す」を
+// 足すと忘れたときに履歴が全部見えなくなる。ここに置けば、どの環境でも
+// 配った後に最初に履歴へ触れたときに済む。済んだリポジトリでは ls-files を
+// 1 回撃つだけで、DB にも触らない。
+//
+// 1 コミットの純粋な改名にするのが要点。中身が同じなので git の完全一致の
+// 改名検出 (件数の上限 diff.renameLimit が効かない) に乗り、`log --follow` が
+// 改名前の版まで辿れる (noteHistory)。
+//
+// 控え (legacy_item_nos) に無い名前は、永久削除の後に墓石が立つ前のもの
+// (HEAD に在るのにノートの行が無い) で、新しい id を振って改名する。履歴から
+// 復元すれば、その id のノートとして戻る
+async function renameLegacyNotes(git: SimpleGit): Promise<void> {
+  const files = (await git.raw(['ls-files', '--', 'notes'])).split('\n').filter(Boolean)
+  const legacyNos = files
+    .map((file) => /^notes\/(.+)\.md$/.exec(file)?.[1])
+    .filter((name): name is string => name !== undefined && !isValidItemId(name))
+  if (legacyNos.length === 0) {
+    return
+  }
+  const { legacyItemIds } = await import('./legacyNoteNames')
+  const known = await legacyItemIds(legacyNos)
+  const moves = legacyNos.map((itemNo) => ({
+    from: legacyNoteFilePath(itemNo),
+    to: noteFilePath(known.get(itemNo) ?? newItemId()),
+  }))
+  for (const { from, to } of moves) {
+    await git.mv(from, to)
+  }
+  await git.commit(`chore: ノートのファイル名を id にする (${moves.length} 件)`, [
+    ...moves.map((move) => move.from),
+    ...moves.map((move) => move.to),
+  ])
+  console.info(`git 履歴のノート ${moves.length} 件を id の名前へ付け替えました`)
+}
+
+// 改名前の名前 (notes/<旧番号>.md)。そのノートが改名されていなければ null。
+// 改名のコミットは 1 つだけなので、ノートごとに 1 回引けば変わらない
+const legacyPathCache = new Map<string, string | null>()
+
+async function legacyPathOf(git: SimpleGit, rel: string): Promise<string | null> {
+  const cached = legacyPathCache.get(rel)
+  if (cached !== undefined) {
+    return cached
+  }
+  // `R100<TAB>notes/1003.md<TAB>notes/<id>.md` の行が改名のコミットぶんだけ出る
+  const out = await git.raw([
+    'log', '--follow', '--diff-filter=R', '--name-status', '--format=', '--', rel,
+  ])
+  const from = out
+    .split('\n')
+    .map((line) => line.split('\t'))
+    .find((cols) => cols[0]?.startsWith('R') && cols[2] === rel)?.[1]
+  const itemNo = from === undefined ? undefined : /^notes\/(.+)\.md$/.exec(from)?.[1]
+  const legacy = itemNo === undefined ? null : legacyNoteFilePath(itemNo)
+  legacyPathCache.set(rel, legacy)
+  return legacy
+}
+
 async function headOid(git: SimpleGit): Promise<string> {
   return (await git.revparse(['HEAD'])).trim()
 }
@@ -135,11 +200,11 @@ async function headOid(git: SimpleGit): Promise<string> {
 // いまの本文を 1 版としてコミットする。本文が HEAD と同じなら null
 // (履歴を空コミットで汚さない)。戻り値は新しいコミットの oid。
 export async function commitNote(
-  itemNo: string,
+  itemId: string,
   memo: string,
   message: string,
 ): Promise<string | null> {
-  const rel = noteFilePath(itemNo)
+  const rel = noteFilePath(itemId)
   return serialized(async () => {
     const { git, dir } = await openRepo()
     await writeFile(join(dir, rel), memo, 'utf8')
@@ -159,10 +224,10 @@ export async function commitNote(
 // 過去の版は読めるままにする。一度もコミットされていないノートは対象外
 // (消す物がない)。すべて対象外なら null。
 export async function removeNotes(
-  itemNos: string[],
+  itemIds: string[],
   message: string,
 ): Promise<string | null> {
-  const rels = itemNos.map(noteFilePath)
+  const rels = itemIds.map(noteFilePath)
   return serialized(async () => {
     const { git, dir } = await openRepo()
     const targets: string[] = []
@@ -193,12 +258,14 @@ export async function removeNotes(
 }
 
 // そのノートのコミット一覧 (新しい順)。一度もコミットされていなければ空。
-export async function noteHistory(itemNo: string): Promise<NoteCommit[]> {
-  const rel = noteFilePath(itemNo)
+export async function noteHistory(itemId: string): Promise<NoteCommit[]> {
+  const rel = noteFilePath(itemId)
   return serialized(async () => {
     const { git } = await openRepo()
+    // --follow で改名 (notes/<旧番号>.md → notes/<id>.md。docs/107) の前まで辿る
     const log = await git.log({
       file: rel,
+      '--follow': null,
       format: { oid: '%H', parents: '%P', date: '%aI', message: '%s' },
     })
     return log.all.map((entry) => ({
@@ -215,22 +282,22 @@ export async function noteHistory(itemNo: string): Promise<NoteCommit[]> {
 // その版の本文。その版にこのノートが存在しなければ null (削除後・登場前)。
 // oid は noteHistory が返した 40 桁 hex だけを受ける。
 export async function noteAtCommit(
-  itemNo: string,
+  itemId: string,
   oid: string,
 ): Promise<string | null> {
   if (!isValidCommitOid(oid)) {
     throw new Error(`コミット oid が不正です: ${oid}`)
   }
-  return showNote(itemNo, oid)
+  return showNote(itemId, oid)
 }
 
 // HEAD の本文 (未コミット差分の比較元)。コミットが 1 つもなければ null。
-export async function noteAtHead(itemNo: string): Promise<string | null> {
-  return showNote(itemNo, 'HEAD')
+export async function noteAtHead(itemId: string): Promise<string | null> {
+  return showNote(itemId, 'HEAD')
 }
 
-async function showNote(itemNo: string, rev: string): Promise<string | null> {
-  const rel = noteFilePath(itemNo)
+async function showNote(itemId: string, rev: string): Promise<string | null> {
+  const rel = noteFilePath(itemId)
   return serialized(async () => {
     const { git } = await openRepo()
     // その版にファイルが在るかは ls-tree で見る。**空出力 (exit 0) = 無い**、
@@ -239,23 +306,36 @@ async function showNote(itemNo: string, rev: string): Promise<string | null> {
     // リポジトリ破損や I/O エラーまで「その版に存在しない (= 削除された)」
     // に化け、ログも残らず気づけなくなる。本物の失敗はそのまま投げて
     // error boundary / 呼び出し元に見せる
-    const entry = await git.raw(['ls-tree', rev, '--', rel])
-    if (entry.trim() === '') {
+    const path = await pathAt(git, rev, rel)
+    if (path === null) {
       return null
     }
     // show は blob をそのまま返す (末尾改行も込み)。復元の可逆性はここで決まる
-    return git.show([`${rev}:${rel}`])
+    return git.show([`${rev}:${path}`])
   })
+}
+
+// その版でこのノートが置かれていたパス。無ければ null。
+// 改名 (docs/107) より前の版では notes/<旧番号>.md にある
+async function pathAt(git: SimpleGit, rev: string, rel: string): Promise<string | null> {
+  if ((await git.raw(['ls-tree', rev, '--', rel])).trim() !== '') {
+    return rel
+  }
+  const legacy = await legacyPathOf(git, rel)
+  if (legacy === null) {
+    return null
+  }
+  return (await git.raw(['ls-tree', rev, '--', legacy])).trim() === '' ? null : legacy
 }
 
 // 既存の全ノートを 1 コミットで取り込む (scripts/backfillGitHistory.ts)。
 // 冪等: 差がなければ何もコミットせず null。
 export async function backfillNotes(
-  notes: { itemNo: string; memo: string }[],
+  notes: { itemId: string; memo: string }[],
   message: string,
 ): Promise<string | null> {
   const entries = notes.map((note) => ({
-    rel: noteFilePath(note.itemNo),
+    rel: noteFilePath(note.itemId),
     memo: note.memo,
   }))
   return serialized(async () => {

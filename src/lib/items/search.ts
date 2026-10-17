@@ -33,7 +33,7 @@ export async function countItemsWhere(where: Prisma.Sql): Promise<number> {
   return rows[0]?.count ?? 0
 }
 
-// q は memo / url の全文検索 (&@)、または itemNo の前方一致。
+// q は memo / url の全文検索 (&@)、または itemId の前方一致。
 // 空白 (半角/全角) 区切りは AND、"OR"/"|" は OR (DNF)。文法は search/parse.ts 参照。
 //
 // page N は「N ページ目の 20 件」ではなく「1〜N ページ目の累積」を返す
@@ -116,13 +116,13 @@ export async function searchItemProps(
   sort: Sort = 'updated',
 ): Promise<ItemPropsResult> {
   const { rows, omitted } = await searchItemRows<{
-    itemNo: string
+    itemId: string
     memo: string
     props: unknown
   }>(
     buildPropsWhere(query),
     Prisma.sql`
-      item_no AS "itemNo",
+      id::text AS "itemId",
       memo,
       props
     `,
@@ -132,7 +132,7 @@ export async function searchItemProps(
 
   return {
     rows: rows.map((row) => ({
-      itemNo: row.itemNo,
+      itemId: row.itemId,
       summary: memoSummary(row.memo),
       props: parseStoredProps(row.props),
     })),

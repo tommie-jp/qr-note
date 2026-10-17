@@ -18,23 +18,23 @@ import { getItem } from '@/lib/items/read'
 // 原則で、ここは利用者が「消してよい」と選んだ経路。消える版を残せないなら
 // 消さないほうが約束に合う
 export async function checkpointBeforeOverwrite(
-  itemNo: string,
+  itemId: string,
   incoming: string,
 ): Promise<boolean> {
   // デモは履歴機能ごと閉じている (docs/57 §4)。刻めないのが正常なので通す
   if (isDemoMode()) {
     return true
   }
-  const current = await getItem(itemNo)
+  const current = await getItem(itemId)
   if (current === null || current.memo === incoming) {
     return true
   }
   try {
     // HEAD と同じ内容なら commitNote は null を返すだけ (履歴は汚れない)
-    await commitNote(itemNo, current.memo, `conflict ${itemNo}`)
+    await commitNote(itemId, current.memo, `conflict ${itemId}`)
     return true
   } catch (error) {
-    console.error(`競合チェックポイントのコミットに失敗しました (${itemNo})`, error)
+    console.error(`競合チェックポイントのコミットに失敗しました (${itemId})`, error)
     return false
   }
 }
@@ -42,6 +42,6 @@ export async function checkpointBeforeOverwrite(
 // 保存後の「保存しました」トースト用の戻り先 (docs/11-アプリ的UIUX計画.md §2-3)。
 // 値を時刻にするのは、連続保存でも毎回トーストを出すため (SavedToast の key に
 // 使う)。印はトーストを出した直後にクライアントが URL から消す
-export function savedHref(itemNo: string): string {
-  return `/item/${itemNo}?saved=${Date.now()}`
+export function savedHref(itemId: string): string {
+  return `/item/${itemId}?saved=${Date.now()}`
 }

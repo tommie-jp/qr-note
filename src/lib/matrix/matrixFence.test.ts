@@ -32,12 +32,12 @@ describe('parseMatrixFence', () => {
   })
 
   test('並び順の既定は番号順', () => {
-    expect(spec('#電験三種').sort).toBe('itemNo')
+    expect(spec('#電験三種').sort).toBe('registered')
   })
 
   test('sort= で並び順を変えられる', () => {
     expect(spec('#電験三種\nsort=updated').sort).toBe('updated')
-    expect(spec('#電験三種\nsort=itemNoDesc').sort).toBe('itemNoDesc')
+    expect(spec('#電験三種\nsort=registeredDesc').sort).toBe('registeredDesc')
   })
 
   test('列を省くと空 (状態 1 列)', () => {
@@ -70,7 +70,7 @@ describe('parseMatrixFence', () => {
   })
 
   test('キーの大文字小文字と全角は畳む', () => {
-    expect(spec('#電験三種\nSORT=ItemNo').sort).toBe('itemNo')
+    expect(spec('#電験三種\nSORT=itemNo').sort).toBe('registered')
     expect(spec('#電験三種\nｓｏｒｔ＝ｕｐｄａｔｅｄ').sort).toBe('updated')
   })
 
@@ -85,7 +85,7 @@ describe('parseMatrixFence', () => {
   })
 
   test('= の無い行はエラー', () => {
-    expect(error('#電験三種\nsort itemNo')).toContain('キー=値')
+    expect(error('#電験三種\nsort itemId')).toContain('キー=値')
   })
 
   test('SORTS に無い並び順はエラー (黙って既定に畳まない)', () => {

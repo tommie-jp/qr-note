@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { readItemNo, readText } from '@/lib/actionForm'
+import { readItemId, readText } from '@/lib/actionForm'
 import { isValidCommitOid } from '@/lib/git/notePath'
 import { commitNote, noteAtCommit, noteHistory } from '@/lib/git/notesRepo'
 import { getItem } from '@/lib/items/read'
@@ -27,7 +27,7 @@ const DEMO_HISTORY_MESSAGE = 'デモモードでは履歴機能は使えませ�
 // 「保存していない本文がコミットだけされる」というねじれが作れてしまう。
 export async function commitNoteAction(formData: FormData): Promise<void> {
   await requireUserOutsideDemo(DEMO_HISTORY_MESSAGE)
-  const itemNo = readItemNo(formData)
+  const itemId = readItemId(formData)
   // メッセージは 1 行目だけ使う (git の subject。履歴一覧に出るのはここ)。
   // 制御文字も除く — アプリ内表示は React が守るが、bundle を手元の端末で
   // `git log` したときの表示崩れ/エスケープ注入をここで断つ。
@@ -36,20 +36,20 @@ export async function commitNoteAction(formData: FormData): Promise<void> {
     readText(formData, 'message')
       .split('\n')[0]
       ?.replace(/[\x00-\x1f\x7f]/g, '')
-      .trim() || `update ${itemNo}`
+      .trim() || `update ${itemId}`
 
-  const item = await getItem(itemNo)
+  const item = await getItem(itemId)
   if (item === null) {
     throw new Error('ノートが見つかりません')
   }
-  const oid = await commitNote(itemNo, item.memo, message)
-  revalidatePath(`/item/${itemNo}/history`)
+  const oid = await commitNote(itemId, item.memo, message)
+  revalidatePath(`/item/${itemId}/history`)
   // 「コミットした」と「変化なし (null)」を画面で見分けられるようにする
   // (backfillHistoryAction と同じ ?done= の流儀)。変化なしは、画面の描画と
   // 送信の間に別タブが同じ内容を先にコミットしたときに起こる — その場合
   // 入力したメッセージは使われないので、成功と同じ顔をさせない
   redirect(
-    `/item/${itemNo}/history?done=${oid === null ? 'noop' : 'committed'}`,
+    `/item/${itemId}/history?done=${oid === null ? 'noop' : 'committed'}`,
   )
 }
 
@@ -62,31 +62,31 @@ export async function commitNoteAction(formData: FormData): Promise<void> {
 // 永久削除済みのノートも upsert なので蘇る (履歴からの回収口)。
 export async function restoreNoteVersionAction(formData: FormData): Promise<void> {
   await requireUserOutsideDemo(DEMO_HISTORY_MESSAGE)
-  const itemNo = readItemNo(formData)
+  const itemId = readItemId(formData)
   const oid = String(formData.get('oid') ?? '')
   if (!isValidCommitOid(oid)) {
     throw new Error('コミット oid が不正です')
   }
   // このノートの履歴に載っている oid だけを受ける ([oid]/page.tsx と同じ約束)。
-  // showNote はパスを notes/<itemNo>.md に固定するので他ノートの本文は
+  // showNote はパスを notes/<itemId>.md に固定するので他ノートの本文は
   // 漏れないが、履歴と無関係なコミットからの「復元」を意味として許さない
-  const history = await noteHistory(itemNo)
+  const history = await noteHistory(itemId)
   if (!history.some((commit) => commit.oid === oid)) {
     throw new Error('このノートの履歴にないコミットです')
   }
 
-  const memo = await noteAtCommit(itemNo, oid)
+  const memo = await noteAtCommit(itemId, oid)
   if (memo === null) {
     throw new Error('この版にノートの本文がありません')
   }
   // 復元は「いま DB にある本文」を失う操作。未コミットのまま消える版が
   // 出ないよう、先に 1 版刻む (docs/87 §4)。刻めなければ復元しない
-  if (!(await checkpointBeforeOverwrite(itemNo, memo))) {
+  if (!(await checkpointBeforeOverwrite(itemId, memo))) {
     throw new Error('いまの本文を履歴に残せませんでした。復元していません')
   }
-  await upsertMemo(itemNo, memo)
-  revalidateItem(itemNo)
-  redirect(savedHref(itemNo))
+  await upsertMemo(itemId, memo)
+  revalidateItem(itemId)
+  redirect(savedHref(itemId))
 }
 
 // 既存ノートの一括取り込み (docs/57 §6)。設定ページ (/settings/history) の

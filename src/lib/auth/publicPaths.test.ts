@@ -129,7 +129,7 @@ describe('isSelfGuardedPath', () => {
   test.each([
     '/item/4518',
     '/item/ABC123',
-    '/item/100x', // Ver1 由来の非数字 itemNo
+    '/item/100x', // Ver1 由来の非数字 itemId
     '/print/4518',
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.png',
     // 音声も公開ノートで再生できるよう素通しする (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
@@ -182,7 +182,7 @@ describe('isSelfGuardedPath', () => {
     expect(isSelfGuardedPath(path)).toBe(false)
   })
 
-  // 末尾は itemNo / 画像名の書式に完全一致すること。前方一致で通すと
+  // 末尾は itemId / 画像名の書式に完全一致すること。前方一致で通すと
   // /items-secret や /item/4518/../../ まで素通しする
   test('does not open paths that merely start with a self-guarded prefix', () => {
     expect(isSelfGuardedPath('/itemsecret')).toBe(false)

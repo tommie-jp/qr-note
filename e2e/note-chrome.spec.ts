@@ -1,5 +1,4 @@
 import type { Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -12,16 +11,18 @@ import {
   selectNoteTab,
   test,
 } from './helpers'
-import { removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote } from './notes'
 
 // ノートの全画面表示 (docs/108-ノート全画面表示計画.md)。
 // 読むタブの間は見出し行・タグ・タブ・時刻を畳み、上端の行へのホバー (PC)・
 // ⋯ (指)・Tab (キーボード) で本文の上に重ねて出す
-const ITEM_NO = `${E2E_ITEM_PREFIX}108`
-const BODY = `${E2E_ITEM_PREFIX} chrome ${Date.now()}`
+const NOTE = e2eNote(108, `chrome ${Date.now()}`)
+const ITEM_ID = NOTE.id
+const BODY = NOTE.heading
 
 function heading(page: Page) {
-  return page.getByRole('heading', { name: `item #${ITEM_NO}` })
+  // 見出しは「item」だけ (番号は出ない)
+  return page.getByRole('heading', { name: 'item', exact: true })
 }
 
 function bar(page: Page) {
@@ -33,7 +34,7 @@ function trigger(page: Page) {
 }
 
 async function openNote(page: Page): Promise<void> {
-  await page.goto(`/item/${ITEM_NO}`)
+  await page.goto(`/item/${ITEM_ID}`)
   await expect(page.getByText(BODY).first()).toBeVisible()
   // ⋯ は「常に出す」の端末には無いので、行のほうで待つ
   await expectHydrated(bar(page))
@@ -42,20 +43,20 @@ async function openNote(page: Page): Promise<void> {
 test.describe('ノートの操作を畳んで重ねる', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
-    await page.goto(`/edit/${ITEM_NO}`)
+    await removeE2eNote(page, NOTE)
+    await page.goto(`/edit/${ITEM_ID}`)
     const save = page.getByRole('button', { name: '更新', exact: true })
     await expect(save).toBeVisible()
     await clearEditor(page)
     await memoEditor(page).pressSequentially(`${BODY}\n\n#e2etag`, { delay: 10 })
     await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, NOTE)
     await closePage(page)
   })
 

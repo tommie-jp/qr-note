@@ -23,25 +23,25 @@ import { parseSort, SORTS, TRASH_SORTS } from '../validation'
 test('基底の 4 値は自分自身が種別', () => {
   expect(baseOf('updated')).toBe('updated')
   expect(baseOf('accessed')).toBe('accessed')
-  expect(baseOf('itemNo')).toBe('itemNo')
+  expect(baseOf('registered')).toBe('registered')
   expect(baseOf('title')).toBe('title')
 })
 
 test('逆順の値も同じ種別に畳まれる', () => {
   expect(baseOf('updatedAsc')).toBe('updated')
   expect(baseOf('accessedAsc')).toBe('accessed')
-  expect(baseOf('itemNoDesc')).toBe('itemNo')
+  expect(baseOf('registeredDesc')).toBe('registered')
   expect(baseOf('titleDesc')).toBe('title')
 })
 
 // 日時は「新しい順」が既定、番号とタイトルは「小さい順・昇順」が既定。
 // どちらも**既定を選び直したときに戻る先**なので、基底 = 逆順ではない側
-test('日時の既定は降順、番号とタイトルの既定は昇順', () => {
+test('日時の既定は降順、登録順とタイトルの既定は昇順', () => {
   expect(isReversed('updated')).toBe(false)
   expect(isReversed('accessed')).toBe(false)
-  expect(isReversed('itemNo')).toBe(false)
+  expect(isReversed('registered')).toBe(false)
   expect(isReversed('title')).toBe(false)
-  for (const sort of ['updatedAsc', 'accessedAsc', 'itemNoDesc', 'titleDesc'] as const) {
+  for (const sort of ['updatedAsc', 'accessedAsc', 'registeredDesc', 'titleDesc'] as const) {
     expect(isReversed(sort)).toBe(true)
   }
 })
@@ -68,11 +68,11 @@ test('逆順の値も parseSort を素通りする', () => {
 
 // バーのアイコンの向き。**既定の向きは種別で違う** ので、逆順かどうかだけでは
 // 決まらない (日時は新しい順 = 降順が既定、番号とタイトルは昇順が既定)
-test('日時の既定は降順、番号とタイトルの既定は昇順のアイコンになる', () => {
+test('日時の既定は降順、登録順とタイトルの既定は昇順のアイコンになる', () => {
   expect(isDescending('updated')).toBe(true)
   expect(isDescending('updatedAsc')).toBe(false)
-  expect(isDescending('itemNo')).toBe(false)
-  expect(isDescending('itemNoDesc')).toBe(true)
+  expect(isDescending('registered')).toBe(false)
+  expect(isDescending('registeredDesc')).toBe(true)
 })
 
 // 画面の矢印と実際の並びが食い違うのがいちばん困る。並べる鍵 (末尾の
@@ -80,7 +80,7 @@ test('日時の既定は降順、番号とタイトルの既定は昇順のア�
 test('アイコンの向きは ORDER BY の向きと一致する', () => {
   for (const sort of SORTS) {
     const clause = orderByClause(sort)
-    const keys = clause.slice(0, clause.lastIndexOf('item_no ASC'))
+    const keys = clause.replace(/(, )?id ASC$/, '')
     expect(keys.includes(' DESC')).toBe(isDescending(sort))
   }
 })
@@ -125,7 +125,7 @@ test('削除順の既定は降順', () => {
 test('ゴミ箱でもアイコンの向きは ORDER BY の向きと一致する', () => {
   for (const sort of TRASH_SORTS) {
     const clause = orderByClause(sort)
-    const keys = clause.slice(0, clause.lastIndexOf('item_no ASC'))
+    const keys = clause.replace(/(, )?id ASC$/, '')
     expect(keys.includes(' DESC')).toBe(trashIsDescending(sort))
   }
 })

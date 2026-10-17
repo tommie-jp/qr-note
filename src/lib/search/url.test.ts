@@ -5,7 +5,7 @@ import {
   buildSearchUrl,
   buildTrashUrl,
   isNotePathname,
-  itemNoFromPathname,
+  itemIdFromPathname,
 } from './url'
 
 test('既定値 (page=1 / sort=updated) は省略する', () => {
@@ -14,7 +14,7 @@ test('既定値 (page=1 / sort=updated) は省略する', () => {
 })
 
 test('page と sort が既定でなければ付ける', () => {
-  expect(buildSearchUrl('bjt', 3, 'itemNo')).toBe('/?q=bjt&page=3&sort=itemNo')
+  expect(buildSearchUrl('bjt', 3, 'registered')).toBe('/?q=bjt&page=3&sort=registered')
 })
 
 test('クエリが空でも page/sort は付く', () => {
@@ -41,7 +41,7 @@ describe('buildItemUrl', () => {
   })
 
   test('既定でない並び順も載せる (一覧と順序を揃えるため)', () => {
-    expect(buildItemUrl('42', 'bjt', 'itemNo')).toBe('/item/42?q=bjt&sort=itemNo')
+    expect(buildItemUrl('42', 'bjt', 'registered')).toBe('/item/42?q=bjt&sort=registered')
     expect(buildItemUrl('42', 'bjt', 'accessed')).toBe(
       '/item/42?q=bjt&sort=accessed',
     )
@@ -50,19 +50,19 @@ describe('buildItemUrl', () => {
   // 並び順だけでは前後ナビを出せない (q が無ければ一覧の文脈が無い) ので、
   // 空クエリのときは sort も載せない。素の URL に揃える
   test('クエリが空なら sort も載せない', () => {
-    expect(buildItemUrl('42', '', 'itemNo')).toBe('/item/42')
+    expect(buildItemUrl('42', '', 'registered')).toBe('/item/42')
   })
 
   // 進捗の表の行リンク (docs/77-進捗マトリックス計画.md §7)。フェンスの
   // 検索式が空でも「チェックを持つ」条件が式として載るので、**並び順が落ちない**
   // — 落ちるとノート側が cookie の並びで前後を求め、表と順序が食い違う
   test('表の行リンクは空の検索式でも並び順を保つ', () => {
-    expect(buildItemUrl('42', narrowToChecks(''), 'itemNo')).toBe(
-      '/item/42?q=is%3Atodo+OR+is%3Adone&sort=itemNo',
+    expect(buildItemUrl('42', narrowToChecks(''), 'registered')).toBe(
+      '/item/42?q=is%3Atodo+OR+is%3Adone&sort=registered',
     )
   })
 
-  test('itemNo は URL エンコードする', () => {
+  test('itemId は URL エンコードする', () => {
     expect(buildItemUrl('a b', 'bjt', 'updated')).toBe('/item/a%20b?q=bjt')
   })
 })
@@ -75,28 +75,28 @@ describe('buildTrashUrl', () => {
 
   test('既定でない並びは ?sort= に載せる', () => {
     expect(buildTrashUrl('deletedAsc')).toBe('/trash?sort=deletedAsc')
-    expect(buildTrashUrl('itemNo')).toBe('/trash?sort=itemNo')
+    expect(buildTrashUrl('registered')).toBe('/trash?sort=registered')
   })
 })
 
 // どのノートが開いているかの共通の読み取り (docs/86 §4)
-describe('itemNoFromPathname', () => {
+describe('itemIdFromPathname', () => {
   test('/item/<番号> なら番号を返す (エンコードは戻す)', () => {
-    expect(itemNoFromPathname('/item/4951')).toBe('4951')
-    expect(itemNoFromPathname('/item/a%20b')).toBe('a b')
+    expect(itemIdFromPathname('/item/4951')).toBe('4951')
+    expect(itemIdFromPathname('/item/a%20b')).toBe('a b')
   })
 
   test('デコードできない % はそのまま番号として返す (二重デコードで落とさない)', () => {
-    // usePathname がデコード済みを返す環境で、旧 itemNo が % を含む場合
-    expect(itemNoFromPathname('/item/50%')).toBe('50%')
+    // usePathname がデコード済みを返す環境で、旧 itemId が % を含む場合
+    expect(itemIdFromPathname('/item/50%')).toBe('50%')
   })
 
   test('/item の深い階層 (履歴など) や別ルートは null', () => {
-    expect(itemNoFromPathname('/item/4951/history')).toBe(null)
-    expect(itemNoFromPathname('/item/')).toBe(null)
-    expect(itemNoFromPathname('/')).toBe(null)
-    expect(itemNoFromPathname('/trash')).toBe(null)
-    expect(itemNoFromPathname(null)).toBe(null)
+    expect(itemIdFromPathname('/item/4951/history')).toBe(null)
+    expect(itemIdFromPathname('/item/')).toBe(null)
+    expect(itemIdFromPathname('/')).toBe(null)
+    expect(itemIdFromPathname('/trash')).toBe(null)
+    expect(itemIdFromPathname(null)).toBe(null)
   })
 })
 

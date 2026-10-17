@@ -18,10 +18,13 @@ vi.mock('@/lib/appEnv', () => ({
 
 const exportEntries = vi.fn()
 vi.mock('@/lib/zip/exportZip', () => ({
-  exportEntries: (itemNos: string[] | null) => exportEntries(itemNos),
+  exportEntries: (itemIds: string[] | null) => exportEntries(itemIds),
 }))
 
 const { POST } = await import('./route')
+
+const ID_A = '00000000-0000-7000-8000-000000001042'
+const ID_B = '00000000-0000-7000-8000-000000000007'
 
 async function* noEntries(): AsyncGenerator<ZipEntry> {}
 
@@ -69,7 +72,7 @@ test('第三者のページからの呼び出しは 403', async () => {
 
 // 選択の受け渡しが壊れたときに黙って全件を書き出さない
 test('scope が無ければ 400 (全件に倒さない)', async () => {
-  const response = await POST(postRequest('itemNo=1042'))
+  const response = await POST(postRequest(`itemId=${ID_A}`))
   expect(response.status).toBe(400)
   expect(exportEntries).not.toHaveBeenCalled()
 })
@@ -87,14 +90,21 @@ test('scope=all は全件 (null) を対象にする', async () => {
 })
 
 test('scope=selected は選んだ番号だけを対象にする', async () => {
-  await POST(postRequest('scope=selected&itemNo=1042&itemNo=7'))
-  expect(exportEntries).toHaveBeenCalledWith(['1042', '7'])
+  await POST(postRequest(`scope=selected&itemId=${ID_A}&itemId=${ID_B}`))
+  expect(exportEntries).toHaveBeenCalledWith([ID_A, ID_B])
 })
 
-// 書式外の番号は parseSelectedItemNos が落とす。全部落ちたら 400
-test('書式外の番号は落とす', async () => {
-  await POST(postRequest('scope=selected&itemNo=1042&itemNo=..%2Fetc'))
-  expect(exportEntries).toHaveBeenCalledWith(['1042'])
+// 書式外の id は parseSelectedItemIds が落とす。全部落ちたら 400
+test('書式外の id は落とす', async () => {
+  await POST(postRequest(`scope=selected&itemId=${ID_A}&itemId=..%2Fetc`))
+  expect(exportEntries).toHaveBeenCalledWith([ID_A])
+})
+
+// 旧番号は UUID ではないので選択には使えない (選択は画面の行から来る = 必ず id)
+test('旧番号だけを選んだ形は 400', async () => {
+  const response = await POST(postRequest('scope=selected&itemId=1042'))
+  expect(response.status).toBe(400)
+  expect(exportEntries).not.toHaveBeenCalled()
 })
 
 test('ZIP としてダウンロードさせる見出しを付ける', async () => {

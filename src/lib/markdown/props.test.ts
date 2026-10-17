@@ -258,7 +258,7 @@ describe('parseStoredProps', () => {
 describe('buildPropsTable', () => {
   const rows = [
     {
-      itemNo: '1',
+      itemId: '1',
       summary: '2SC1815',
       props: [
         { key: 'hfe', label: 'hFE', value: '400' },
@@ -266,7 +266,7 @@ describe('buildPropsTable', () => {
       ],
     },
     {
-      itemNo: '2',
+      itemId: '2',
       summary: '2SC2712-Y',
       props: [
         { key: 'hfe', label: 'hFE', value: '208' },
@@ -285,25 +285,25 @@ describe('buildPropsTable', () => {
 
   test('keeps the first-seen label spelling for a column', () => {
     const table = buildPropsTable([
-      { itemNo: '1', summary: 'a', props: [{ key: 'hfe', label: 'hFE', value: '1' }] },
-      { itemNo: '2', summary: 'b', props: [{ key: 'hfe', label: 'HFE', value: '2' }] },
+      { itemId: '1', summary: 'a', props: [{ key: 'hfe', label: 'hFE', value: '1' }] },
+      { itemId: '2', summary: 'b', props: [{ key: 'hfe', label: 'HFE', value: '2' }] },
     ])
     expect(table.columns).toEqual([{ key: 'hfe', label: 'hFE' }])
   })
 
   test('builds one row per item with cells keyed by property key', () => {
     expect(buildPropsTable(rows).rows).toEqual([
-      { itemNo: '1', summary: '2SC1815', cells: { hfe: '400', vf: '650mV' } },
-      { itemNo: '2', summary: '2SC2712-Y', cells: { hfe: '208', vce: '50V' } },
+      { itemId: '1', summary: '2SC1815', cells: { hfe: '400', vf: '650mV' } },
+      { itemId: '2', summary: '2SC2712-Y', cells: { hfe: '208', vce: '50V' } },
     ])
   })
 
   test('drops items that have no properties', () => {
     const table = buildPropsTable([
-      { itemNo: '1', summary: 'a', props: [{ key: 'hfe', label: 'hFE', value: '1' }] },
-      { itemNo: '2', summary: 'b', props: [] },
+      { itemId: '1', summary: 'a', props: [{ key: 'hfe', label: 'hFE', value: '1' }] },
+      { itemId: '2', summary: 'b', props: [] },
     ])
-    expect(table.rows.map((r) => r.itemNo)).toEqual(['1'])
+    expect(table.rows.map((r) => r.itemId)).toEqual(['1'])
   })
 
   test('returns empty columns and rows for no input', () => {
@@ -313,57 +313,57 @@ describe('buildPropsTable', () => {
 
 describe('sortTableRows', () => {
   const rows: PropsTableRow[] = [
-    { itemNo: '1', summary: 'a', cells: { hfe: '400' } },
-    { itemNo: '2', summary: 'b', cells: { hfe: '208' } },
-    { itemNo: '3', summary: 'c', cells: {} },
+    { itemId: '1', summary: 'a', cells: { hfe: '400' } },
+    { itemId: '2', summary: 'b', cells: { hfe: '208' } },
+    { itemId: '3', summary: 'c', cells: {} },
   ]
 
   test('returns the original order when no sort key is given', () => {
-    expect(sortTableRows(rows, null, 'asc').map((r) => r.itemNo)).toEqual(['1', '2', '3'])
+    expect(sortTableRows(rows, null, 'asc').map((r) => r.itemId)).toEqual(['1', '2', '3'])
   })
 
   test('sorts by the numeric part ascending', () => {
-    expect(sortTableRows(rows, 'hfe', 'asc').map((r) => r.itemNo)).toEqual(['2', '1', '3'])
+    expect(sortTableRows(rows, 'hfe', 'asc').map((r) => r.itemId)).toEqual(['2', '1', '3'])
   })
 
   test('sorts by the numeric part descending', () => {
-    expect(sortTableRows(rows, 'hfe', 'desc').map((r) => r.itemNo)).toEqual(['1', '2', '3'])
+    expect(sortTableRows(rows, 'hfe', 'desc').map((r) => r.itemId)).toEqual(['1', '2', '3'])
   })
 
   test('keeps rows without the column at the end in both directions', () => {
-    expect(sortTableRows(rows, 'hfe', 'asc').at(-1)?.itemNo).toBe('3')
-    expect(sortTableRows(rows, 'hfe', 'desc').at(-1)?.itemNo).toBe('3')
+    expect(sortTableRows(rows, 'hfe', 'asc').at(-1)?.itemId).toBe('3')
+    expect(sortTableRows(rows, 'hfe', 'desc').at(-1)?.itemId).toBe('3')
   })
 
   test('sorts text values by name when there is no numeric part', () => {
     const textRows: PropsTableRow[] = [
-      { itemNo: '1', summary: 'a', cells: { pkg: 'TO-92' } },
-      { itemNo: '2', summary: 'b', cells: { pkg: 'SOT-23' } },
+      { itemId: '1', summary: 'a', cells: { pkg: 'TO-92' } },
+      { itemId: '2', summary: 'b', cells: { pkg: 'SOT-23' } },
     ]
-    expect(sortTableRows(textRows, 'pkg', 'asc').map((r) => r.itemNo)).toEqual(['2', '1'])
+    expect(sortTableRows(textRows, 'pkg', 'asc').map((r) => r.itemId)).toEqual(['2', '1'])
   })
 
   // device=2SC1815 と device=2N2222 はどちらも数値部が 2 で並ばないため、
   // 数値が同値のときは文字列で比べる。
   test('falls back to a name compare when the numeric parts tie', () => {
     const deviceRows: PropsTableRow[] = [
-      { itemNo: '1', summary: 'a', cells: { device: '2SC1815' } },
-      { itemNo: '2', summary: 'b', cells: { device: '2N2222' } },
+      { itemId: '1', summary: 'a', cells: { device: '2SC1815' } },
+      { itemId: '2', summary: 'b', cells: { device: '2N2222' } },
     ]
-    expect(sortTableRows(deviceRows, 'device', 'asc').map((r) => r.itemNo)).toEqual(['2', '1'])
+    expect(sortTableRows(deviceRows, 'device', 'asc').map((r) => r.itemId)).toEqual(['2', '1'])
   })
 
   test('keeps identical values in their original relative order', () => {
     const tied: PropsTableRow[] = [
-      { itemNo: '1', summary: 'a', cells: { hfe: '208' } },
-      { itemNo: '2', summary: 'b', cells: { hfe: '208' } },
+      { itemId: '1', summary: 'a', cells: { hfe: '208' } },
+      { itemId: '2', summary: 'b', cells: { hfe: '208' } },
     ]
-    expect(sortTableRows(tied, 'hfe', 'asc').map((r) => r.itemNo)).toEqual(['1', '2'])
+    expect(sortTableRows(tied, 'hfe', 'asc').map((r) => r.itemId)).toEqual(['1', '2'])
   })
 
   test('does not mutate the input array', () => {
     const input = [...rows]
     sortTableRows(input, 'hfe', 'asc')
-    expect(input.map((r) => r.itemNo)).toEqual(['1', '2', '3'])
+    expect(input.map((r) => r.itemId)).toEqual(['1', '2', '3'])
   })
 })

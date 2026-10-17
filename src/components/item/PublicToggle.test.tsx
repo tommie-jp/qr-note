@@ -6,7 +6,7 @@ const noop = () => {};
 
 const render = (publicAt: Date | null) =>
   renderToStaticMarkup(
-    <PublicToggle itemNo="1234" publicAt={publicAt} setPublicAction={noop} />,
+    <PublicToggle itemId="1234" publicAt={publicAt} setPublicAction={noop} />,
   );
 
 // フォームが送るのは「望む状態」であって「裏返せ」ではない。二重送信や

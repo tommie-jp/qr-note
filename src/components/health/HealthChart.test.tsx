@@ -18,7 +18,7 @@ function chart(
 ): string {
   const result: HealthResult = {
     kind: "chart",
-    series: buildHealthSeries([{ itemNo: "4551", memo }], item, days),
+    series: buildHealthSeries([{ itemId: "4551", memo }], item, days),
     query: "#健康管理",
     omittedNotes: 0,
     ...extra,
@@ -32,7 +32,7 @@ function chartWithForm(memo: string, item: string | null = null): string {
     <HealthChart
       result={{
         kind: "chart",
-        series: buildHealthSeries([{ itemNo: "4551", memo }], item, 30),
+        series: buildHealthSeries([{ itemId: "4551", memo }], item, 30),
         query: "#健康管理",
         omittedNotes: 0,
       }}

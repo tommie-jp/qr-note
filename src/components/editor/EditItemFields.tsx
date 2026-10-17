@@ -112,7 +112,7 @@ export function EditItemFields({
       />
 
       {/* 本文だけでなく URL や種別も食い違っていることがある。
-          これらは git 履歴に入らない (notes/<itemNo>.md は本文だけ) ので、
+          これらは git 履歴に入らない (notes/<itemId>.md は本文だけ) ので、
           上書きしたら戻せない — バナーの本文差分とは別に、ここで言い添える */}
       {server && server.url !== url && (
         <p aria-live="polite" className="break-all text-sm text-amber-800">

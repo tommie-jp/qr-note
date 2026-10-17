@@ -7,7 +7,7 @@
 import type { Item } from '@/generated/prisma/client'
 import { parseBase, type SaveBase } from '@/lib/editor/saveBase'
 import { noteSnapshot, type SaveState } from '@/lib/editor/saveState'
-import { isValidItemNo, MAX_TEXT_LENGTH } from '@/lib/validation'
+import { isValidItemId, MAX_TEXT_LENGTH } from '@/lib/validation'
 
 export function readText(formData: FormData, key: string): string {
   const value = formData.get(key)
@@ -20,12 +20,12 @@ export function readText(formData: FormData, key: string): string {
   return value
 }
 
-export function readItemNo(formData: FormData): string {
-  const itemNo = String(formData.get('itemNo') ?? '')
-  if (!isValidItemNo(itemNo)) {
-    throw new Error('itemNo が不正です')
+export function readItemId(formData: FormData): string {
+  const itemId = String(formData.get('itemId') ?? '')
+  if (!isValidItemId(itemId)) {
+    throw new Error('itemId が不正です')
   }
-  return itemNo
+  return itemId
 }
 
 // 画面が見ていた版 (docs/87-編集競合対策計画.md §2-1)。

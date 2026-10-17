@@ -18,7 +18,7 @@ import { requireUser } from "@/lib/auth/session";
 export const dynamic = "force-dynamic";
 
 interface HistoryPageProps {
-  params: Promise<{ itemNo: string }>;
+  params: Promise<{ itemId: string }>;
   // done … commitNoteAction の結果 (committed = 刻んだ / noop = 変化なし)
   searchParams: Promise<{ done?: string }>;
 }
@@ -35,8 +35,7 @@ export default async function HistoryPage({
   params,
   searchParams,
 }: HistoryPageProps) {
-  const { itemNo } = await params;
-  guardItemPage(itemNo);
+  const itemId = await guardItemPage((await params).itemId, (id) => `/item/${id}/history`);
   // デモは履歴機能ごと閉じる (docs/57 §4)。リンクも出していないので 404 でよい
   if (isDemoMode()) {
     notFound();
@@ -44,9 +43,9 @@ export default async function HistoryPage({
   await requireUser();
 
   const [item, history, headMemo, { done }] = await Promise.all([
-    getItem(itemNo),
-    noteHistory(itemNo),
-    noteAtHead(itemNo),
+    getItem(itemId),
+    noteHistory(itemId),
+    noteAtHead(itemId),
     searchParams,
   ]);
 
@@ -65,11 +64,11 @@ export default async function HistoryPage({
       <div className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h1 className="text-xl font-bold">
-            履歴 <span className="font-mono">#{itemNo}</span>
+            履歴
           </h1>
           <div className="flex gap-1">
             <Link
-              href={`/item/${itemNo}`}
+              href={`/item/${itemId}`}
               className={ACTION_LINK_CLASS}
               transitionTypes={["nav-back"]}
             >
@@ -105,13 +104,13 @@ export default async function HistoryPage({
             <h2 className="font-medium">未コミットの変更</h2>
             <NoteDiffView oldText={headMemo ?? ""} newText={memo ?? ""} />
             <form action={commitNoteAction} className="flex gap-2">
-              <input type="hidden" name="itemNo" value={itemNo} />
+              <input type="hidden" name="itemId" value={itemId} />
               {/* 本文は送らない。コミットされるのは DB のいまの本文
                   (commitNoteAction のコメント参照) */}
               <input
                 name="message"
                 maxLength={200}
-                placeholder={`update ${itemNo}`}
+                placeholder={`update ${itemId}`}
                 aria-label="コミットメッセージ"
                 className={`${BOX_CLASS} min-w-0 flex-1`}
               />
@@ -134,7 +133,7 @@ export default async function HistoryPage({
               {history.map((commit) => (
                 <li key={commit.oid}>
                   <Link
-                    href={`/item/${itemNo}/history/${commit.oid}`}
+                    href={`/item/${itemId}/history/${commit.oid}`}
                     className="flex min-h-11 flex-wrap items-center gap-x-3 py-2 text-blue-600 transition-colors active:bg-blue-50"
                     transitionTypes={["nav-forward"]}
                   >

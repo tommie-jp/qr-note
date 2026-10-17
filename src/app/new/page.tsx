@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { nextItemNo } from "@/lib/items/read";
+import { newItemId } from "@/lib/items/itemId";
 import { requireUser } from "@/lib/auth/session";
 
 // 「+」から空ノートを作る入口 (docs/27-新規ノート追加計画.md)。
@@ -11,7 +11,7 @@ import { requireUser } from "@/lib/auth/session";
 // 採番はページ描画時ではなくこのクリック時に行う。検索ページの描画で
 // 毎回引くと無駄なクエリが増え、タブを開きっぱなしにすると番号が古くなる。
 // ここは redirect するだけの薄いページに保ち、新しいロジックは持ち込まない
-// (採番は nextItemNo() に集約)。
+// (採番は newItemId() に集約)。
 //
 // 認証は二重に見る。/new は publicPaths に載せていないので proxy が既定で
 // 未ログインを止める (src/lib/auth/publicPaths.ts)。ただしそれは楽観的な検査で
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NewNotePage() {
   await requireUser();
-  const itemNo = await nextItemNo();
+  const itemId = newItemId();
   // redirect は NEXT_REDIRECT を throw して描画を打ち切る (return は不要)
-  redirect(`/edit/${itemNo}`);
+  redirect(`/edit/${itemId}`);
 }

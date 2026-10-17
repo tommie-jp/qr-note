@@ -25,14 +25,14 @@ export type MatrixCell = CheckCell | StatusCell
 
 // 表の元になる 1 行 (matrix/matrixQuery.ts の searchItemChecks が返す形)
 export interface MatrixSourceRow {
-  itemNo: string
+  itemId: string
   memo: string
   taskTodo: number
   taskDone: number
 }
 
 export interface MatrixTableRow {
-  itemNo: string
+  itemId: string
   // 一覧と同じ 1 行目の要約。**memo はここで捨てる** — 表は client へ渡るので、
   // 本文全文を送らない (特性表と同じ約束)
   summary: string
@@ -273,7 +273,7 @@ export function buildMatrixTable(
   const keys = shown.map(normalizeCheckLabel)
 
   const rows: MatrixTableRow[] = sourceRows.map((row) => ({
-    itemNo: row.itemNo,
+    itemId: row.itemId,
     summary: memoSummary(row.memo),
     cells: isStatus ? [statusOf(row)] : checkCellsOf(row, keys, parseCache),
   }))

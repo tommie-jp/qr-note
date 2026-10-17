@@ -112,7 +112,7 @@ export function BulkTagToolbar({
             送信ボタンはブラウザの素の送信に戻る** (React はこのとき
             preventDefault しない)。画面遷移のまま Content-Disposition を
             受けるので、JS がファイル全体をメモリに抱えずに済む。
-            チェックボックス (name="itemNo") がそのまま本体へ渡り、
+            チェックボックス (name="itemId") がそのまま本体へ渡り、
             scope はこのボタン自身の name/value で送られる */}
         <button
           type="submit"

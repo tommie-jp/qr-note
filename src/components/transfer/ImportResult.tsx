@@ -49,7 +49,7 @@ export function ImportResult({ report }: { report: ImportReport }) {
       ) : (
         <ul className="space-y-2">
           {report.imported.map((note) => (
-            <li key={note.itemNo} className={`${BOX_CLASS} py-3`}>
+            <li key={note.itemId} className={`${BOX_CLASS} py-3`}>
               {/* 振り直したものは「旧 → 新」で出す。どれが振り直されたか
                   判らないと、手元の QR シールとの対応を確かめられない */}
               {note.renumberedFrom !== undefined && (
@@ -59,10 +59,10 @@ export function ImportResult({ report }: { report: ImportReport }) {
                 </span>
               )}
               <Link
-                href={`/item/${note.itemNo}`}
+                href={`/item/${note.itemId}`}
                 className="text-blue-600 underline"
               >
-                {note.itemNo}
+                {note.itemId}
               </Link>
               <span className="ml-2 text-gray-700">
                 {note.title === "" ? "(無題)" : note.title}

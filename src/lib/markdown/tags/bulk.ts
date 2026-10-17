@@ -2,10 +2,10 @@
 // タグの抽出・正規化は tags.ts に委ね、ここは「入力の解釈」と
 // 「選択アイテムのタグ集計」だけを担う。
 
-import { parseBackUrl, parseSelectedItemNos } from '../../items/itemSelection'
+import { parseBackUrl, parseSelectedItemIds } from '../../items/itemSelection'
 import { parseTagToken } from './tags'
 
-// タグ入力の上限。itemNo と同様、細工された巨大入力で 1 回の操作が
+// タグ入力の上限。itemId と同様、細工された巨大入力で 1 回の操作が
 // item 数 × タグ数の重い処理にならないよう有界にする。
 const MAX_INPUT_LENGTH = 1000
 const MAX_TAGS = 50
@@ -37,13 +37,13 @@ export function parseTagInput(input: string): string[] {
 
 // 削除チップ用に、選択したアイテムが持つタグの和集合 (タグ名昇順・重複なし) を返す。
 export function selectedTagsUnion(
-  items: ReadonlyArray<{ itemNo: string; tags: string[] }>,
+  items: ReadonlyArray<{ itemId: string; tags: string[] }>,
   selected: Iterable<string>,
 ): string[] {
   const selectedSet = new Set(selected)
   const union = new Set<string>()
   for (const item of items) {
-    if (selectedSet.has(item.itemNo)) {
+    if (selectedSet.has(item.itemId)) {
       for (const tag of item.tags) {
         union.add(tag)
       }
@@ -54,7 +54,7 @@ export function selectedTagsUnion(
 
 export interface BulkTagRequest {
   mode: 'add' | 'remove'
-  itemNos: string[] // 検証済み・重複除去済み
+  itemIds: string[] // 検証済み・重複除去済み
   tags: string[] // 正規化済み
   back: string // 操作後に戻る一覧 URL
 }
@@ -70,7 +70,7 @@ export function parseBulkTagForm(formData: FormData): BulkTagRequest {
 
   return {
     mode: isRemove ? 'remove' : 'add',
-    itemNos: parseSelectedItemNos(formData),
+    itemIds: parseSelectedItemIds(formData),
     tags: parseTagInput(rawTags),
     back: parseBackUrl(formData),
   }

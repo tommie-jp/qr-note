@@ -203,7 +203,7 @@ function check(file: string): number {
 function printReport(file: string, report: ImportReport): void {
   console.log(`\n[${path.basename(file)}] 取り込み: ${report.imported.length} 件`)
   for (const note of report.imported.slice(0, 100)) {
-    console.log(`  ${note.itemNo}  ${note.title || '(無題)'}`)
+    console.log(`  ${note.itemId}  ${note.title || '(無題)'}`)
   }
   if (report.imported.length > 100) {
     console.log(`  ... 他 ${report.imported.length - 100} 件`)

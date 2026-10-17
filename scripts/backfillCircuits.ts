@@ -47,8 +47,8 @@ async function main(): Promise<void> {
   // フェンスの有無は SQL で絞らず JS で見る — PGroonga が LIKE を乗っ取って
   // いる環境では contains の意味が変わりうるし、memo 全件でもたかが知れている
   const items = await prisma.item.findMany({
-    select: { itemNo: true, memo: true },
-    orderBy: { itemNoNum: 'asc' },
+    select: { itemId: true, memo: true },
+    orderBy: { itemId: 'asc' },
   })
 
   // 同じ図が複数ノートにあっても 1 回で済むよう hash で束ねる。

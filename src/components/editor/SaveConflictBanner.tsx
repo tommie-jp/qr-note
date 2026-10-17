@@ -49,7 +49,7 @@ export function SaveConflictBanner({
     >
       <p>{message(state)}</p>
 
-      {/* url / mode は notes/<itemNo>.md に入らない = 履歴から戻せない。
+      {/* url / mode は notes/<itemId>.md に入らない = 履歴から戻せない。
           上書きする前に見せておく (docs/87 §3-3) */}
       {server && server.url !== "" && (
         <p className="break-all text-sm">

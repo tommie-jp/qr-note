@@ -14,7 +14,7 @@ import { prisma } from '@/lib/db'
 import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/import/importDuplicate'
 import type { BaseImportReport } from '@/lib/import/importReport'
-import { nextItemNo } from '@/lib/items/read'
+import { newItemId } from '@/lib/items/itemId'
 import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
 import { MAX_TEXT_LENGTH } from '@/lib/validation'
 import { buildMemo, enexTagToMemoTag } from './buildMemo'
@@ -32,7 +32,7 @@ import {
 } from './parseEnex'
 
 // 1 回の取り込みで作るノートの上限。個人利用の実感からは十分に大きく、
-// 細工したファイルで採番 (nextItemNo) を延々と回されないための安全弁でもある
+// 細工したファイルで採番 (newItemId) を延々と回されないための安全弁でもある
 export const MAX_NOTES_PER_IMPORT = 500
 
 export interface ImportOptions {
@@ -111,8 +111,8 @@ export async function importEnex(
     })
   }
 
-  // **直列に回す**。nextItemNo() は「いま未使用の最小番号」を返すので、
-  // 並列にすると同じ番号を 2 件が掴んで後勝ちで消える
+  // **直列に回す**。id (UUID v7) は振った順に並ぶので、直列なら ENEX の中の
+  // 順がそのまま登録順になる (並列にすると書き込みの順が揺れる)
   for (const note of targets) {
     try {
       await importNote(note, report, options)
@@ -205,20 +205,20 @@ async function writeNote(
     }
   }
 
-  const itemNo = await nextItemNo()
+  const itemId = newItemId()
   // mode は memo 固定。ENEX に「URL ノート」に当たる区分は無い
-  await upsertItem(itemNo, { memo, url: '', mode: 'memo' })
+  await upsertItem(itemId, { memo, url: '', mode: 'memo' })
 
   // **行ができた直後に載せる**。日時の反映で転んだときに外側の catch が
   // 「入らなかった」と報告すると、利用者は取り込み直して二重に作ってしまう
-  report.imported.push({ itemNo, title: note.title })
+  report.imported.push({ itemId, title: note.title })
 
   try {
-    await applyEnexTimestamps(itemNo, note)
+    await applyEnexTimestamps(itemId, note)
   } catch (error) {
     // 本文は入っている。日時が取り込み時刻のままになるだけなので、
     // ノートごと失敗にはせず「何が欠けたか」だけ伝える
-    console.error(`ENEX の日時を反映できませんでした (${itemNo}):`, error)
+    console.error(`ENEX の日時を反映できませんでした (${itemId}):`, error)
     report.skipped.push({
       label: `${noteLabel(note)} の作成・更新日時`,
       reason: '反映できませんでした (本文は取り込めています)',
@@ -365,8 +365,8 @@ async function isDuplicate(note: EnexNote): Promise<boolean> {
 
 // ENEX の作成・更新日時をそのまま反映する (中身は lib/items/write.ts に集約。
 // ZIP インポートも同じ関数を通る)。
-async function applyEnexTimestamps(itemNo: string, note: EnexNote): Promise<void> {
-  await applyImportedTimestamps(itemNo, note.createdAt, note.updatedAt)
+async function applyEnexTimestamps(itemId: string, note: EnexNote): Promise<void> {
+  await applyImportedTimestamps(itemId, note.createdAt, note.updatedAt)
 }
 
 // 取り込みをやめたノートの添付を消す。

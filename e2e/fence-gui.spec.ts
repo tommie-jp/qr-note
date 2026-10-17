@@ -1,5 +1,5 @@
 import type { FrameLocator, Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
+import { e2eItemId } from './env'
 import {
   clearEditor,
   closePage,
@@ -19,7 +19,7 @@ import {
 //
 // **保存はしない。** 見るのはエディタの本文 (hidden の memo 欄) だけなので、
 // ノートは作らず、DB にも何も残さない
-const ITEM_NO = `${E2E_ITEM_PREFIX}6`
+const ITEM_ID = e2eItemId(6)
 
 const BODY = [
   '図を編集の試験',
@@ -36,7 +36,7 @@ const BODY = [
 // 編集画面を開いて本文を入れる。**貼り付けで入れる** — 1 字ずつ打つと
 // CodeMirror の自動閉じがバッククォートを足してフェンスが壊れる
 async function openWithBody(page: Page, body = BODY): Promise<void> {
-  await page.goto(`/edit/${ITEM_NO}`)
+  await page.goto(`/edit/${ITEM_ID}`)
   await expect(page.getByRole('button', { name: '更新', exact: true })).toBeVisible()
   await clearEditor(page)
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])

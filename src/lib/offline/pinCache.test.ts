@@ -11,8 +11,7 @@ const SECRET = '44444444-5555-6666-7777-888888888888'
 
 function item(memo: string): OfflineItem {
   return {
-    itemNo: '4518',
-    itemNoNum: 4518,
+    itemId: '4518',
     memo,
     url: '',
     mode: 'memo',

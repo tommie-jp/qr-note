@@ -224,7 +224,7 @@ describe('/api/export の失敗 (no-store)', () => {
   })
 
   test('scope が無ければ 400', async () => {
-    expect(await responseContract(await call('itemNo=1'))).toEqual(
+    expect(await responseContract(await call('itemId=1'))).toEqual(
       jsonContract(400, failEnvelope('scope には all か selected を指定して下さい')),
     )
   })
@@ -388,11 +388,11 @@ describe('no-store を付けている成功応答', () => {
   })
 
   test('/api/image-search/index: entries を包んで返す', async () => {
-    mocks.buildImageSearchIndex.mockResolvedValue([{ itemNo: '1' }])
+    mocks.buildImageSearchIndex.mockResolvedValue([{ itemId: '1' }])
     const { GET } = await import('./image-search/index/route')
 
     expect(await responseContract(await GET(new Request('http://localhost/x')))).toEqual(
-      jsonContract(200, okEnvelope({ entries: [{ itemNo: '1' }] })),
+      jsonContract(200, okEnvelope({ entries: [{ itemId: '1' }] })),
     )
   })
 

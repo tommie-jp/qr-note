@@ -3,7 +3,7 @@
 import { startTransition, useState } from "react";
 
 // 押されたら呼ぶ保存処理。ノート番号は呼び出し側で束ねておく
-// (ItemView が `toggleMemoTaskAction.bind(null, itemNo)` で渡す) —
+// (ItemView が `toggleMemoTaskAction.bind(null, itemId)` で渡す) —
 // MarkdownView は「本文をどう描くか」だけを受け取る道具にしておきたいので、
 // どのノートかという素性はここまで下りてこない
 export type ToggleTaskHandler = (

@@ -12,14 +12,14 @@ import { RecordAccess } from './RecordAccess'
 // 検索結果の全ノートがアクセス順の先頭に来る。ここで気づけるようにしておく。
 test('サーバ描画では記録を呼ばない (先読みで誤発火しない)', () => {
   const action = vi.fn()
-  renderToStaticMarkup(<RecordAccess itemNo="1042" action={action} />)
+  renderToStaticMarkup(<RecordAccess itemId="1042" action={action} />)
   expect(action).not.toHaveBeenCalled()
 })
 
 test('何も描画しない (画面の見た目に影響しない)', () => {
   const action = vi.fn()
   const html = renderToStaticMarkup(
-    <RecordAccess itemNo="1042" action={action} />,
+    <RecordAccess itemId="1042" action={action} />,
   )
   expect(html).toBe('')
 })

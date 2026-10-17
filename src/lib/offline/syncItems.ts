@@ -38,8 +38,7 @@ export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
   const rows = await prisma.item.findMany({
     where: { deletedAt: null },
     select: {
-      itemNo: true,
-      itemNoNum: true,
+      itemId: true,
       memo: true,
       url: true,
       mode: true,
@@ -51,7 +50,7 @@ export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
       accessedAt: true,
       offlinePin: true,
     },
-    orderBy: [{ updatedAt: 'desc' }, { itemNo: 'asc' }],
+    orderBy: [{ updatedAt: 'desc' }, { itemId: 'asc' }],
     take: OFFLINE_SYNC_LIMIT + 1,
   })
 

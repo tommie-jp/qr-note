@@ -12,18 +12,18 @@ const A = '0421547b-ee29-4613-a6d4-da0f41f94054.jpg'
 const B = '11108562-47b2-4c00-846d-23dd7e804ff8.png'
 
 test('本文の画像を埋め込み付きで索引に載せる', () => {
-  const items = [{ itemNo: '001', memo: `抵抗 10kΩ\n![](/api/images/${A})` }]
+  const items = [{ itemId: '001', memo: `抵抗 10kΩ\n![](/api/images/${A})` }]
   const embeddings = new Map([[A, 'AAAA']])
 
   const index = assembleIndex(items, embeddings)
 
   expect(index).toEqual([
-    { itemNo: '001', title: '抵抗 10kΩ', imageName: A, embedding: 'AAAA' },
+    { itemId: '001', title: '抵抗 10kΩ', imageName: A, embedding: 'AAAA' },
   ])
 })
 
 test('埋め込みが無い画像は載せない (検索対象から外す)', () => {
-  const items = [{ itemNo: '001', memo: `![](/api/images/${A})\n![](/api/images/${B})` }]
+  const items = [{ itemId: '001', memo: `![](/api/images/${A})\n![](/api/images/${B})` }]
   const embeddings = new Map([[A, 'AAAA']]) // B は未生成
 
   const index = assembleIndex(items, embeddings)
@@ -31,8 +31,8 @@ test('埋め込みが無い画像は載せない (検索対象から外す)', ()
   expect(index.map((e) => e.imageName)).toEqual([A])
 })
 
-test('1 ノートに複数枚あれば同じ itemNo で複数並ぶ', () => {
-  const items = [{ itemNo: '001', memo: `![](/api/images/${A})\n![](/api/images/${B})` }]
+test('1 ノートに複数枚あれば同じ itemId で複数並ぶ', () => {
+  const items = [{ itemId: '001', memo: `![](/api/images/${A})\n![](/api/images/${B})` }]
   const embeddings = new Map([
     [A, 'AAAA'],
     [B, 'BBBB'],
@@ -41,17 +41,17 @@ test('1 ノートに複数枚あれば同じ itemNo で複数並ぶ', () => {
   const index = assembleIndex(items, embeddings)
 
   expect(index).toHaveLength(2)
-  expect(index.every((e) => e.itemNo === '001')).toBe(true)
+  expect(index.every((e) => e.itemId === '001')).toBe(true)
 })
 
 test('要約が空なら部品番号をラベルにする', () => {
-  const items = [{ itemNo: '042', memo: `![](/api/images/${A})` }]
+  const items = [{ itemId: '042', memo: `![](/api/images/${A})` }]
   const index = assembleIndex(items, new Map([[A, 'AAAA']]))
 
   expect(index[0].title).toBe('042')
 })
 
 test('画像の無いノートは索引に出ない', () => {
-  const items = [{ itemNo: '001', memo: 'ただのメモ' }]
+  const items = [{ itemId: '001', memo: 'ただのメモ' }]
   expect(assembleIndex(items, new Map())).toEqual([])
 })

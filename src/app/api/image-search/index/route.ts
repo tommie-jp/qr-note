@@ -4,7 +4,7 @@ import { guardRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 
 // 画像検索の索引を配る (docs/25-画像検索計画.md §5)。
-// ゴミ箱を除く全ノートの埋め込み済み画像を [{itemNo,title,imageName,embedding}]
+// ゴミ箱を除く全ノートの埋め込み済み画像を [{itemId,title,imageName,embedding}]
 // で返す。照合はクライアントで総当たり cosine を取る (embedding/imageSearch.ts)。
 //
 // 登録画像の見た目が漏れると困る (非公開の在庫) ので、ログインと同一サイトの

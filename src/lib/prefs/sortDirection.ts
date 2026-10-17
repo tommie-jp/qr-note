@@ -24,7 +24,7 @@ import {
 export const SORT_BASES: readonly SortBase[] = [
   'updated',
   'accessed',
-  'itemNo',
+  'registered',
   'title',
 ]
 
@@ -38,18 +38,18 @@ export const TRASH_SORT_BASES: readonly TrashSortBase[] = [
 const REVERSED_OF: Record<SortBase, Sort> = {
   updated: 'updatedAsc',
   accessed: 'accessedAsc',
-  itemNo: 'itemNoDesc',
+  registered: 'registeredDesc',
   title: 'titleDesc',
 }
 
 const BASE_OF: Record<Sort, SortBase> = {
   updated: 'updated',
   accessed: 'accessed',
-  itemNo: 'itemNo',
+  registered: 'registered',
   title: 'title',
   updatedAsc: 'updated',
   accessedAsc: 'accessed',
-  itemNoDesc: 'itemNo',
+  registeredDesc: 'registered',
   titleDesc: 'title',
 }
 
@@ -73,13 +73,13 @@ export function reverseOf(sort: Sort): Sort {
 // その並びが降順か。下部バーのアイコン (↑ / ↓) の向きを決める。
 //
 // **既定の向きは種別で違う** — 日時は「新しい順」つまり降順が既定で、
-// 番号とタイトルは昇順が既定。逆順かどうかだけでは矢印は描けない。
+// 登録順とタイトルは昇順が既定。逆順かどうかだけでは矢印は描けない。
 // SQL 側 (prefs/sortOrder.ts) の ORDER BY と必ず一致させる (prefs/sortDirection.test.ts
 // が両方を突き合わせている)
 const DESCENDING_BY_DEFAULT: Record<SortBase, boolean> = {
   updated: true,
   accessed: true,
-  itemNo: false,
+  registered: false,
   title: false,
 }
 

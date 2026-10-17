@@ -18,10 +18,11 @@ interface ItemRowCardProps {
 // 大 (card) 表示の 1 枚。番号と見出し + タグ + 本文プレビュー 3 行 + 大きめのサムネ。
 // 枠と地色は各カードが持つ (CARD_FRAME_CLASS)
 export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
-  const { itemNo, href, selected, checkbox, title, tags, footer, thumb } = parts;
+  const { itemId, name, href, selected, checkbox, title, tags, footer, thumb } = parts;
   return (
     <MaybeSwipeRow
-      itemNo={itemNo}
+      itemId={itemId}
+      name={name}
       swipe={swipe}
       view="card"
       frameClassName={CARD_FRAME_CLASS}
@@ -41,13 +42,6 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
           className={`flex min-w-0 flex-1 flex-col ${swipe && !thumb ? "pr-8" : ""}`}
         >
           <div className="flex items-baseline gap-2">
-            <Link
-              href={href}
-              transitionTypes={["nav-forward"]}
-              className="shrink-0 font-mono text-sm font-bold"
-            >
-              #{itemNo}
-            </Link>
             <Link
               href={href}
               transitionTypes={["nav-forward"]}

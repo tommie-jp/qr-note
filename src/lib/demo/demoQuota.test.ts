@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 // demoQuota は @/lib/db (prisma) と @/lib/images/imageStore (SUM) を引く。どちらも
 // 差し替えて、判定の分岐だけを実 DB なしで確かめる。値はテストから制御する
 const mocks = vi.hoisted(() => ({
-  existingItem: null as { itemNo: string } | null,
+  existingItem: null as { itemId: string } | null,
   itemCount: 0,
   totalBytes: 0,
 }))
@@ -79,7 +79,7 @@ describe('assertDemoItemQuota', () => {
 
   test('デモでも既存ノートの更新は、件数に関わらず通す', async () => {
     process.env.DEMO_MODE = '1'
-    mocks.existingItem = { itemNo: '1' } // 既存
+    mocks.existingItem = { itemId: '1' } // 既存
     mocks.itemCount = DEMO_MAX_ITEMS * 10
     await expect(assertDemoItemQuota('1')).resolves.toBeUndefined()
   })

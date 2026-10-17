@@ -4,21 +4,21 @@ import { MAX_TEXT_LENGTH } from '@/lib/validation'
 // DB と添付の保存は差し替える。ここで確かめたいのは繋ぎ役の振る舞い —
 // 「入らなかったものが必ずレポートに出るか」であって、Postgres や sharp ではない
 const upsertItem = vi.fn()
-const nextItemNo = vi.fn()
+const newItemId = vi.fn()
 const applyImportedTimestamps = vi.fn()
 const storeAttachment = vi.fn()
 const executeRaw = vi.fn()
 const deleteMany = vi.fn()
 const isAlreadyImported = vi.fn()
 
-vi.mock('@/lib/items/read', () => ({
-  nextItemNo: () => nextItemNo(),
+vi.mock('@/lib/items/itemId', () => ({
+  newItemId: () => newItemId(),
 }))
 
 vi.mock('@/lib/items/write', () => ({
-  upsertItem: (itemNo: string, data: unknown) => upsertItem(itemNo, data),
-  applyImportedTimestamps: (itemNo: string, created: Date | null, updated: Date | null) =>
-    applyImportedTimestamps(itemNo, created, updated),
+  upsertItem: (itemId: string, data: unknown) => upsertItem(itemId, data),
+  applyImportedTimestamps: (itemId: string, created: Date | null, updated: Date | null) =>
+    applyImportedTimestamps(itemId, created, updated),
 }))
 
 vi.mock('@/lib/attachments/store', () => ({
@@ -55,10 +55,13 @@ const enex = (notes: string) => `<?xml version="1.0" encoding="UTF-8"?>
 
 const note = (inner: string) => `<note>${inner}</note>`
 
+// 採番の差し替えが振る id (末尾 12 桁に連番)
+const idOf = (n: number) => `00000000-0000-7000-8000-${String(n).padStart(12, '0')}`
+
 beforeEach(() => {
   vi.clearAllMocks()
   let no = 1000
-  nextItemNo.mockImplementation(async () => String(no++))
+  newItemId.mockImplementation(() => idOf(no++))
   upsertItem.mockResolvedValue(undefined)
   executeRaw.mockResolvedValue(1)
   applyImportedTimestamps.mockResolvedValue(undefined)
@@ -77,9 +80,9 @@ test('ノートを採番して保存する', async () => {
     enex(note(`<title>題名</title><content>${enml('<div>本文</div>')}</content>`)),
   )
 
-  expect(report.imported).toEqual([{ itemNo: '1000', title: '題名' }])
+  expect(report.imported).toEqual([{ itemId: idOf(1000), title: '題名' }])
   expect(report.skipped).toEqual([])
-  expect(upsertItem).toHaveBeenCalledWith('1000', {
+  expect(upsertItem).toHaveBeenCalledWith(idOf(1000), {
     memo: '題名\n\n本文',
     url: '',
     mode: 'memo',
@@ -93,7 +96,7 @@ test('複数ノートには別々の番号を振る', async () => {
         note(`<title>B</title><content>${enml('<div>b</div>')}</content>`),
     ),
   )
-  expect(report.imported.map((n) => n.itemNo)).toEqual(['1000', '1001'])
+  expect(report.imported.map((n) => n.itemId)).toEqual([idOf(1000), idOf(1001)])
 })
 
 // --- 重複判定 (docs/28 §4) ---
@@ -350,7 +353,7 @@ test('日時の反映で転んでも取り込み済みとして報告する', as
     ),
   )
 
-  expect(report.imported).toEqual([{ itemNo: '1000', title: '題名' }])
+  expect(report.imported).toEqual([{ itemId: idOf(1000), title: '題名' }])
   expect(report.skipped.some((s) => s.label.includes('日時'))).toBe(true)
 })
 
@@ -376,7 +379,7 @@ test('ENEX の日時を反映する', async () => {
     ),
   )
   expect(applyImportedTimestamps).toHaveBeenCalledWith(
-    '1000',
+    idOf(1000),
     new Date('2024-01-15T09:30:00.000Z'),
     new Date('2024-02-20T10:15:00.000Z'),
   )
@@ -387,7 +390,7 @@ test('日時が無いノートは null のまま渡す (取り込んだ時刻の
   await importEnex(
     enex(note(`<title>題名</title><content>${enml('<div>本文</div>')}</content>`)),
   )
-  expect(applyImportedTimestamps).toHaveBeenCalledWith('1000', null, null)
+  expect(applyImportedTimestamps).toHaveBeenCalledWith(idOf(1000), null, null)
 })
 
 // --- 同じ添付の重複 ---

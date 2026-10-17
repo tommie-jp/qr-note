@@ -13,7 +13,7 @@ export const SORT_BASE_LABEL: Record<TrashSortBase, string> = {
   deleted: '削除順',
   updated: '更新順',
   accessed: 'アクセス順',
-  itemNo: '番号順',
+  registered: '登録順',
   title: 'タイトル順',
 }
 
@@ -27,6 +27,6 @@ export const SORT_DIRECTION_LABEL: Record<
   deleted: ['新しい順', '古い順'],
   updated: ['新しい順', '古い順'],
   accessed: ['新しい順', '古い順'],
-  itemNo: ['小さい順', '大きい順'],
+  registered: ['古い順', '新しい順'],
   title: ['昇順', '降順'],
 }

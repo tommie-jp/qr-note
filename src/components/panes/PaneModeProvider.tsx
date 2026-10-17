@@ -16,13 +16,13 @@ interface PaneModeState {
   // (docs/86 §4-4): 3 ペインでは検索語を打ち替えてもページを送っても
   // ノートを閉じないので、URL が /item/… から離れても出たままになる。
   // 一覧の行・画像タイルのハイライトはこれを見る
-  shownItemNo: string | null;
+  shownItemId: string | null;
   // 横取りスロット (@detail) がノートを持っているか。持っていれば
   // 「先頭を自動で選ぶ」ペイン (AutoNotePane) は引っ込む
   hasDetail: boolean;
   // 出していない間は null を流す (閉じたのに行だけ選ばれたまま、にしない)
-  setDetailItemNo: (itemNo: string | null) => void;
-  setAutoItemNo: (itemNo: string | null) => void;
+  setDetailItemId: (itemId: string | null) => void;
+  setAutoItemId: (itemId: string | null) => void;
 }
 
 const PaneModeContext = createContext<PaneModeState | null>(null);
@@ -33,10 +33,10 @@ export function usePaneMode(): PaneModeState {
   return (
     useContext(PaneModeContext) ?? {
       mode: DEFAULT_PANE_MODE,
-      shownItemNo: null,
+      shownItemId: null,
       hasDetail: false,
-      setDetailItemNo: () => {},
-      setAutoItemNo: () => {},
+      setDetailItemId: () => {},
+      setAutoItemId: () => {},
     }
   );
 }
@@ -56,25 +56,25 @@ export function PaneModeProvider({
   mode: PaneMode;
   children: ReactNode;
 }) {
-  const [detailItemNo, setDetail] = useState<string | null>(null);
-  const [autoItemNo, setAuto] = useState<string | null>(null);
+  const [detailItemId, setDetail] = useState<string | null>(null);
+  const [autoItemId, setAuto] = useState<string | null>(null);
 
-  const setDetailItemNo = useCallback((itemNo: string | null) => {
-    setDetail(itemNo);
+  const setDetailItemId = useCallback((itemId: string | null) => {
+    setDetail(itemId);
   }, []);
-  const setAutoItemNo = useCallback((itemNo: string | null) => {
-    setAuto(itemNo);
+  const setAutoItemId = useCallback((itemId: string | null) => {
+    setAuto(itemId);
   }, []);
 
   const value = useMemo(
     () => ({
       mode,
-      shownItemNo: detailItemNo ?? autoItemNo,
-      hasDetail: detailItemNo !== null,
-      setDetailItemNo,
-      setAutoItemNo,
+      shownItemId: detailItemId ?? autoItemId,
+      hasDetail: detailItemId !== null,
+      setDetailItemId,
+      setAutoItemId,
     }),
-    [mode, detailItemNo, autoItemNo, setDetailItemNo, setAutoItemNo],
+    [mode, detailItemId, autoItemId, setDetailItemId, setAutoItemId],
   );
 
   return (

@@ -6,11 +6,11 @@
 //
 // 記法の綴りは短く英語で統一している (`col` / `sort`)。理由は計画の §3 に
 // あるが要点は 2 つ — 並び順は種別と方向を 1 語に畳んでおり
-// (docs/64、`itemNoDesc` など)、日本語の呼び名では逆順が 1 語で書けない。
+// (docs/64、`registeredDesc` など)、日本語の呼び名では逆順が 1 語で書けない。
 // そして 1 行目の検索式が既に `is:todo` / `OR` / `!` と英語である。
 
 import { editDistance } from '../markdown/fenceLanguages'
-import { SORTS, type Sort } from '../validation'
+import { LEGACY_SORTS, SORTS, type Sort } from '../validation'
 
 // 1 つの表に並べる列の上限。横に伸びた表はスマホで読めないうえ、
 // 列が増えるほど 1 行の情報量ではなく横スクロールの量が増える
@@ -18,7 +18,7 @@ export const MAX_MATRIX_COLUMNS = 4
 
 // 並び順の既定。docs/60-学習進捗計画.md §4 のとおり、順に回す用途では
 // 番号順を使う (更新順はチェックを押した瞬間に並びが動いて前後が狂う)
-const DEFAULT_MATRIX_SORT: Sort = 'itemNo'
+const DEFAULT_MATRIX_SORT: Sort = 'registered'
 
 // セルに出す記号 (計画 §3 の `mark=`)。null なら既定 (✓ / ☐ / —)
 export interface MatrixMarkSet {
@@ -78,7 +78,7 @@ export function splitGraphemes(text: string): string[] {
 // エラーも出ないので、書いた本人には「表が壊れた」としか見えない。
 //
 // 半角カンマに畳まれる文字はどれも区切りにする (全角 `，`・小字形 `﹐` など)。
-// 表を作れる綴りは 1 つだけ、という門番にはしない (`sort=ItemNo` を通すのと
+// 表を作れる綴りは 1 つだけ、という門番にはしない (`sort=ItemId` を通すのと
 // 同じ作法)。読点 `、` は畳んでも読点なので区切りにしない — 名前の一部
 // (`- [ ] 読んだ、解いた`) でありうるほうを立てる
 const COMMA = ','
@@ -138,13 +138,15 @@ function unknownKeyError(key: string): string {
     : `知らない設定「${key}」です。${suggestion}= のことですか?`
 }
 
-// 大文字小文字と全角の違いは通す (`sort=ItemNo` / `ｓｏｒｔ＝ｕｐｄａｔｅｄ`)。
+// 大文字小文字と全角の違いは通す (`sort=Registered` / `ｓｏｒｔ＝ｕｐｄａｔｅｄ`)。
 // 半角に直させるだけの門番にはしない、という quizParse (全角コロン・全角数字を
 // 許す) と同じ作法。**畳むのはこの値だけ** — 行ごと NFKC すると `mark=` の
 // 絵文字を潰す (囲み文字の 🈚 が素の 無 になる)
 function parseSortValue(value: string): Sort | null {
   const folded = value.normalize('NFKC').toLowerCase()
-  return SORTS.find((sort) => sort.toLowerCase() === folded) ?? null
+  // 旧い名前 (`sort=registered`) は登録順へ寄せる (docs/107 §4-6)
+  const legacy = Object.entries(LEGACY_SORTS).find(([name]) => name.toLowerCase() === folded)
+  return legacy?.[1] ?? SORTS.find((sort) => sort.toLowerCase() === folded) ?? null
 }
 
 // キー=値 の区切り。全角の ＝ も区切りとして認める

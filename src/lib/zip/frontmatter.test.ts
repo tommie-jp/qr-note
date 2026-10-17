@@ -3,10 +3,10 @@ import { parseFrontmatter, serializeFrontmatter } from './frontmatter'
 
 test('key: value の並びを --- で挟んで書く', () => {
   const text = serializeFrontmatter([
-    ['itemNo', { quoted: '1042' }],
+    ['itemId', { quoted: '1042' }],
     ['mode', { bare: 'memo' }],
   ])
-  expect(text).toBe('---\nitemNo: "1042"\nmode: memo\n---\n')
+  expect(text).toBe('---\nitemId: "1042"\nmode: memo\n---\n')
 })
 
 // 引用符付きは JSON の書き方 (YAML 1.2 の二重引用スカラーと同じ) にする。
@@ -17,8 +17,8 @@ test('引用符付きの値は JSON と同じ書き方で逃がす', () => {
 })
 
 test('読むと key/value と本文に分かれる', () => {
-  const parsed = parseFrontmatter('---\nitemNo: "1042"\nmode: memo\n---\n本文\n')
-  expect(parsed?.fields.get('itemNo')).toBe('1042')
+  const parsed = parseFrontmatter('---\nitemId: "1042"\nmode: memo\n---\n本文\n')
+  expect(parsed?.fields.get('itemId')).toBe('1042')
   expect(parsed?.fields.get('mode')).toBe('memo')
   expect(parsed?.body).toBe('本文\n')
 })
@@ -32,8 +32,8 @@ test('書いて読むと元の値に戻る', () => {
 })
 
 test('引用符なしの値もそのまま読む (手書きの Markdown 用)', () => {
-  const parsed = parseFrontmatter('---\nitemNo: 1042\npublic: false\n---\n')
-  expect(parsed?.fields.get('itemNo')).toBe('1042')
+  const parsed = parseFrontmatter('---\nitemId: 1042\npublic: false\n---\n')
+  expect(parsed?.fields.get('itemId')).toBe('1042')
   expect(parsed?.fields.get('public')).toBe('false')
 })
 

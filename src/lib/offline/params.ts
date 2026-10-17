@@ -12,29 +12,29 @@
 // ペイロードを取りに行くので、圏外では**どのみち別ルートへは進めない**。
 // 1 ページの中で query だけを書き換えるなら通信は起きない。
 //
-// **パラメータ名は sw.js と対**。取れなかった /item/:itemNo を ?item= へ、
+// **パラメータ名は sw.js と対**。取れなかった /item/:itemId を ?item= へ、
 // /?q=… を ?q= へ翻訳して送ってくる (sw.js の offlineRedirectUrl)。
 
-import { isValidItemNo } from '@/lib/validation'
+import { isValidItemId } from '@/lib/validation'
 
 export const OFFLINE_PATH = '/offline'
 
 export interface OfflineRoute {
   query: string
   // null = 一覧を出す
-  itemNo: string | null
+  itemId: string | null
 }
 
 // location.search (先頭の ? を含んでよい) から画面状態を読む。
 //
-// URL は誰でも書き換えられる外部入力なので、itemNo は書式を確かめてから使う
-// (auth/publicPaths.ts が /item/:itemNo に isValidItemNo を通すのと同じ線引き)。
+// URL は誰でも書き換えられる外部入力なので、itemId は書式を確かめてから使う
+// (auth/publicPaths.ts が /item/:itemId に isValidItemId を通すのと同じ線引き)。
 export function readOfflineRoute(search: string): OfflineRoute {
   const params = new URLSearchParams(search)
-  const itemNo = params.get('item') ?? ''
+  const itemId = params.get('item') ?? ''
   return {
     query: params.get('q') ?? '',
-    itemNo: isValidItemNo(itemNo) ? itemNo : null,
+    itemId: isValidItemId(itemId) ? itemId : null,
   }
 }
 
@@ -47,8 +47,8 @@ export function offlineRouteUrl(route: OfflineRoute): string {
   if (route.query !== '') {
     params.set('q', route.query)
   }
-  if (route.itemNo !== null) {
-    params.set('item', route.itemNo)
+  if (route.itemId !== null) {
+    params.set('item', route.itemId)
   }
   const search = params.toString()
   return search === '' ? OFFLINE_PATH : `${OFFLINE_PATH}?${search}`

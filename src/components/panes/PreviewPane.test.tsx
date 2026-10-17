@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({
 const render = (openHref?: string, mode: PaneMode = "2") =>
   renderToStaticMarkup(
     <PaneModeProvider mode={mode}>
-      <PreviewPane bgClass="bg-gray-50" itemNo="4951" openHref={openHref}>
+      <PreviewPane bgClass="bg-gray-50" itemId="4951" openHref={openHref}>
         <p>ノート本文</p>
       </PreviewPane>
     </PaneModeProvider>,

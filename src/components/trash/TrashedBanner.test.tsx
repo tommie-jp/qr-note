@@ -4,9 +4,9 @@ import { TrashedBanner } from "./TrashedBanner";
 
 const noop = () => {};
 
-const render = (itemNo: string) =>
+const render = (itemId: string) =>
   renderToStaticMarkup(
-    <TrashedBanner itemNo={itemNo} restoreAction={noop} />,
+    <TrashedBanner itemId={itemId} restoreAction={noop} />,
   );
 
 // QR シールから開いたときにゴミ箱と分かるようにする (docs/12-ゴミ箱計画.md §5)。

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Item } from '@/generated/prisma/client'
-import { conflictState, readBase, readItemNo, readText } from './actionForm'
+import { conflictState, readBase, readItemId, readText } from './actionForm'
 import { MAX_TEXT_LENGTH } from './validation'
 
 function formWith(key: string, value: string | Blob): FormData {
@@ -42,17 +42,19 @@ describe('readText', () => {
   })
 })
 
-describe('readItemNo', () => {
-  test('英数字の番号を返す', () => {
-    expect(readItemNo(formWith('itemNo', '100x'))).toBe('100x')
+describe('readItemId', () => {
+  test('UUID の識別子を返す', () => {
+    const id = '00000000-0000-7000-8000-000000001042'
+    expect(readItemId(formWith('itemId', id))).toBe(id)
   })
 
   test.each([
     ['無い', new FormData()],
-    ['パス区切りを含む', formWith('itemNo', '../1')],
-    ['空', formWith('itemNo', '')],
+    ['パス区切りを含む', formWith('itemId', '../1')],
+    ['空', formWith('itemId', '')],
+    ['旧番号', formWith('itemId', '100x')],
   ])('%s なら投げる', (_label, formData) => {
-    expect(() => readItemNo(formData)).toThrow('itemNo が不正です')
+    expect(() => readItemId(formData)).toThrow('itemId が不正です')
   })
 })
 
@@ -77,8 +79,7 @@ describe('readBase', () => {
 
 describe('conflictState', () => {
   const current: Item = {
-    itemNo: '1',
-    itemNoNum: 1,
+    itemId: '00000000-0000-7000-8000-000000000001',
     memo: '別の端末の本文',
     url: 'https://example.com',
     mode: 'url',

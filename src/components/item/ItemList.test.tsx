@@ -16,8 +16,7 @@ vi.mock("next/navigation", () => ({
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
-    itemNo: "1",
-    itemNoNum: 1,
+    itemId: "1",
     memo: "",
     url: "",
     mode: "memo",
@@ -70,8 +69,8 @@ const render = (
 
 test("各アイテムを行として描画する", () => {
   const html = render([
-    makeItem({ itemNo: "4951", memo: "BJT NPN" }),
-    makeItem({ itemNo: "4502", memo: "BFP420" }),
+    makeItem({ itemId: "4951", memo: "BJT NPN" }),
+    makeItem({ itemId: "4502", memo: "BFP420" }),
   ]);
   expect(html).toContain('href="/item/4951"');
   expect(html).toContain('href="/item/4502"');
@@ -79,7 +78,7 @@ test("各アイテムを行として描画する", () => {
 
 test("選択モードに入るまではツールバーもチェックボックスも出さない", () => {
   // 選択モードの入り口 (「選択」ボタン) は下部バーが持つので、ここには無い
-  const html = render([makeItem({ itemNo: "4951" })]);
+  const html = render([makeItem({ itemId: "4951" })]);
   expect(html).not.toContain("件を選択中");
   expect(html).not.toContain('type="checkbox"');
 });
@@ -109,7 +108,7 @@ test("0 件でも登録リンクが無ければ「新規登録」を出さない
 
 test("1 件以上あれば「新規登録」を出さない", () => {
   const html = render(
-    [makeItem({ itemNo: "4951" })],
+    [makeItem({ itemId: "4951" })],
     "9784873115658",
     "/edit/4952?code=9784873115658",
   );
@@ -180,8 +179,8 @@ const IMAGE = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
 test("画像表示は画像だけを Grid で敷き詰め、画像なしノートを出さない", () => {
   const html = render(
     [
-      makeItem({ itemNo: "10", memo: `![](/api/images/${IMAGE})` }),
-      makeItem({ itemNo: "20", memo: "画像なしのノート" }),
+      makeItem({ itemId: "10", memo: `![](/api/images/${IMAGE})` }),
+      makeItem({ itemId: "20", memo: "画像なしのノート" }),
     ],
     "",
     null,
@@ -206,7 +205,7 @@ const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
 
 test("小/大表示は回路図サムネの先頭 1 枚を行へ降ろす", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: "RC 回路" })],
+    [makeItem({ itemId: "10", memo: "RC 回路" })],
     "",
     null,
     0,
@@ -219,7 +218,7 @@ test("小/大表示は回路図サムネの先頭 1 枚を行へ降ろす", () =
 
 test("画像表示は回路図サムネを masonry へ丸ごと降ろす", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: "RC 回路" })],
+    [makeItem({ itemId: "10", memo: "RC 回路" })],
     "",
     null,
     0,
@@ -248,7 +247,7 @@ const MATH_HTML = '<span class="katex">E=100</span>';
 
 test("小/大表示は数式 HTML を行へ降ろす", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: "$E=100$ の回路" })],
+    [makeItem({ itemId: "10", memo: "$E=100$ の回路" })],
     "",
     null,
     0,
@@ -262,7 +261,7 @@ test("小/大表示は数式 HTML を行へ降ろす", () => {
 
 test("画像表示は数式 HTML を masonry へ降ろす", () => {
   const html = render(
-    [makeItem({ itemNo: "10", memo: `$E=100$\n![](/api/images/${IMAGE})` })],
+    [makeItem({ itemId: "10", memo: `$E=100$\n![](/api/images/${IMAGE})` })],
     "",
     null,
     0,
@@ -279,8 +278,8 @@ test("プレビュー中のノートの行にだけ選択の印を付ける", ()
   nav.pathname = "/item/4951";
   try {
     const html = render([
-      makeItem({ itemNo: "4951", memo: "BJT NPN" }),
-      makeItem({ itemNo: "4502", memo: "BFP420" }),
+      makeItem({ itemId: "4951", memo: "BJT NPN" }),
+      makeItem({ itemId: "4502", memo: "BFP420" }),
     ]);
     // aria-current は選択行のタイトルリンク 1 か所だけ
     expect(html.split('aria-current="page"').length - 1).toBe(1);
@@ -293,7 +292,7 @@ test("プレビュー中のノートの行にだけ選択の印を付ける", ()
 });
 
 test("プレビューを開いていなければ選択の印は無い", () => {
-  const html = render([makeItem({ itemNo: "4951" })]);
+  const html = render([makeItem({ itemId: "4951" })]);
   expect(html).not.toContain('aria-current="page"');
   expect(html).not.toContain("bg-[var(--row-tint-bg)]");
 });

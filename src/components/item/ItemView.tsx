@@ -45,7 +45,7 @@ import { allImageNames } from "@/lib/images/memoImages";
 import { SavedDraftCleanup } from "@/components/editor/SavedDraftCleanup";
 
 interface ItemViewProps {
-  itemNo: string;
+  itemId: string;
   item: Item | null;
   // 更新直後だけ付く保存時刻。トーストを出す印 (docs/11 §2-3)
   saved?: string;
@@ -56,9 +56,9 @@ interface ItemViewProps {
 // ログインしていない人が見るのは PublicItemView のほう (docs/22-ノート公開計画.md §4)。
 // 分岐は page.tsx が持ち、ここは「ログイン済み」だけを考える。
 //
-// Ver1 と同じく未登録の itemNo でも開けて、その場で memo を書いて新規作成できる
+// Ver1 と同じく未登録の itemId でも開けて、その場で memo を書いて新規作成できる
 // (QR シールを先に貼っておける)。
-export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
+export async function ItemView({ itemId, item, saved }: ItemViewProps) {
   const memo = item?.memo ?? "";
   // ```circuitikz は TeX (WASM) で描くため非同期。**ここでは待たない**
   // (docs/85-回路図表示待ち計画.md §3)。始めるだけ始めて約束を渡し、
@@ -103,7 +103,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold">
-          item <span className="font-mono">#{itemNo}</span>
+          item
         </h1>
         {/* 未登録のノートにはトグルを出さない。まだ公開する中身がない
             (docs/22 §7)。デモモードでは公開機能を封じるのでトグル自体を
@@ -113,12 +113,12 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         {item && !isDemoMode() && (
           <>
             <PublicToggle
-              itemNo={itemNo}
+              itemId={itemId}
               publicAt={item.publicAt}
               setPublicAction={setItemPublicAction}
             />
             <OfflinePinToggle
-              itemNo={itemNo}
+              itemId={itemId}
               pinned={item.offlinePin}
               attachmentBytes={attachmentBytes}
               setPinAction={setItemOfflinePinAction}
@@ -134,7 +134,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
       <div className="flex flex-wrap gap-1">
         <PressTip label="このノートを編集する">
           <Link
-            href={`/edit/${itemNo}`}
+            href={`/edit/${itemId}`}
             className={ACTION_LINK_CLASS}
             transitionTypes={["nav-forward"]}
           >
@@ -147,7 +147,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         {!isDemoMode() && (
           <PressTip label="いつ何を書き換えたかを見る">
             <Link
-              href={`/item/${itemNo}/history`}
+              href={`/item/${itemId}/history`}
               className={ACTION_LINK_CLASS}
               transitionTypes={["nav-forward"]}
             >
@@ -160,7 +160,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
             押してから画面が変わるまでの間はリンク側でスピナーを出す */}
         <PressTip label="QR シールを印刷する">
           <PendingLink
-            href={`/print/${itemNo}`}
+            href={`/print/${itemId}`}
             className={ACTION_LINK_CLASS}
             transitionTypes={["nav-forward"]}
           >
@@ -200,7 +200,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         </p>
       ) : null}
       {item?.deletedAt ? (
-        <TrashedBanner itemNo={itemNo} restoreAction={restoreItemsAction} />
+        <TrashedBanner itemId={itemId} restoreAction={restoreItemsAction} />
       ) : null}
       {item?.url ? <ItemUrlBox url={item.url} /> : null}
     </div>
@@ -229,11 +229,11 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           入れると fixed で場所を取らないのに束が空でなくなり、消えるまでの
           2 秒だけ余白が開いて、消えた瞬間に本文が跳ね上がる */}
       {saved && <SavedToast key={saved} />}
-      {saved && <SavedDraftCleanup draftKey={itemNo} />}
+      {saved && <SavedDraftCleanup draftKey={itemId} />}
 
       {/* key: item 間のソフトナビゲーションでタブ選択状態を持ち越さない */}
       <MemoPanel
-        key={itemNo}
+        key={itemId}
         chrome={{ heading, notices, tags, footer, badge }}
         defaultMode={memo ? "markdown" : "edit"}
         markdownView={
@@ -245,8 +245,8 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
               health={health}
               allowRotate
               allowSecretEdit
-              onToggleTask={toggleMemoTaskAction.bind(null, itemNo)}
-              onRecordHealth={recordHealthAction.bind(null, itemNo)}
+              onToggleTask={toggleMemoTaskAction.bind(null, itemId)}
+              onRecordHealth={recordHealthAction.bind(null, itemId)}
             />
           </ImageFitScope>
         }
@@ -260,7 +260,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
         editForm={
           <NoteSaveForm
             action={updateMemoAction}
-            itemNo={itemNo}
+            itemId={itemId}
             className="space-y-3"
           >
             <UnsavedGuard />
@@ -272,7 +272,7 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
               minHeight="18rem"
               autoFocus={memo === ""}
               // 下書きにも基点が乗るようになったので、この画面でも安全に残せる
-              draftKey={itemNo}
+              draftKey={itemId}
             />
             {/* 「更新」は画面下部の操作バーへ移した (MemoEditorInner が portal で
                 差し込む)。この form の子孫のまま送信される */}

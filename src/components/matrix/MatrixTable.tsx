@@ -193,7 +193,7 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
             {table.rows.map((row) => (
               // 行を追うための色。灰より青のほうが「いま見ている行」が
               // はっきりする (触る端末には hover が無いので PC 向けの助け)
-              <tr key={row.itemNo} className="hover:bg-sky-50">
+              <tr key={row.itemId} className="hover:bg-sky-50">
                 {row.cells.map((cell, index) => (
                   <td
                     key={table.columns[index]}
@@ -209,13 +209,10 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                       (docs/60-学習進捗計画.md §4)。表は入口であって
                       行き止まりではない */}
                   <Link
-                    href={buildItemUrl(row.itemNo, query, sort)}
+                    href={buildItemUrl(row.itemId, query, sort)}
                     className="flex items-baseline gap-2"
                     title={row.summary}
                   >
-                    <span className="shrink-0 font-mono font-bold">
-                      #{row.itemNo}
-                    </span>
                     {/* 共通の先頭を省いた残り。title (上の Link) は全文の
                         まま持っているので、行の上に置けば全体が読める */}
                     <span className="min-w-0 truncate text-gray-600">

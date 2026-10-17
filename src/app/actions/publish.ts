@@ -1,6 +1,6 @@
 'use server'
 
-import { readItemNo } from '@/lib/actionForm'
+import { readItemId } from '@/lib/actionForm'
 import { setItemPublic } from '@/lib/items/flags'
 import { requireUserOutsideDemo } from './_guards'
 import { revalidateItem } from './_revalidate'
@@ -21,9 +21,9 @@ export async function setItemPublicAction(formData: FormData): Promise<void> {
   // 判れば叩ける口なので、ここでも塞ぐ。isPublicItem() 側でも公開を認めないので
   // 二重の防御になる (万一 public_at が立っても未ログインには見えない)。
   await requireUserOutsideDemo('デモモードでは公開機能は使えません')
-  const itemNo = readItemNo(formData)
+  const itemId = readItemId(formData)
   // '1' だけを公開と読む。判らない値は非公開へ倒す (既定を閉じる側へ)
   const isPublic = formData.get('public') === '1'
-  await setItemPublic(itemNo, isPublic)
-  revalidateItem(itemNo)
+  await setItemPublic(itemId, isPublic)
+  revalidateItem(itemId)
 }

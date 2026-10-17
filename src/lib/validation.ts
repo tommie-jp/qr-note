@@ -7,27 +7,29 @@ export type Mode = 'memo' | 'url'
 //
 // 10,000 字から上げた (docs/74-ページ計画.md §7)。ページは本文が伸びる前提の
 // 機能で、1 ページ 500 字 × 60 ページを目安にした。上げすぎないのは、この列が
-// pg_dump・git 履歴 (notes/<itemNo>.md)・オフライン同期の全部を通るため
+// pg_dump・git 履歴 (notes/<itemId>.md)・オフライン同期の全部を通るため
 export const MAX_TEXT_LENGTH = 32000
 
-// Ver1 の実データは 4 桁数字が大半だが、"100x" のような
-// 非数字の itemNo も 1 件存在するため英数字を許容する
-const ITEM_NO_PATTERN = /^[0-9A-Za-z_-]{1,20}$/
+// ノートの識別子 (docs/107-ノート主キー計画.md §2-1)。UUID v7 の小文字表記。
+//
+// DB の列は uuid 型なので、**形の違う文字列を SQL まで持ち込まない**のが要点。
+// 持ち込むと `invalid input syntax for type uuid` で 500 になる。URL・フォーム・
+// ZIP から来た値は、ここを通してから引く。大文字は受けない (URL を 1 つに保つ)
+const ITEM_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
-export function isValidItemNo(itemNo: string): boolean {
-  return ITEM_NO_PATTERN.test(itemNo)
+export function isValidItemId(itemId: string): boolean {
+  return ITEM_ID_PATTERN.test(itemId)
 }
 
-// DB の item_no_num 列は Int (int4) なので、その範囲を超える値は入れない
-const INT4_MAX = 2147483647
+// 旧番号 (Ver1 の itemNo と教科書の wb01-03-08 など) の形。
+//
+// 主キーではなくなったが、印刷済みシールと X に投稿済みの URL
+// (`/item/1003`) を受けるために形だけは見分ける (docs/107 §3-2)。
+// 旧番号は移行で本文タグ `#1003` になったので、引くのはタグ検索
+const LEGACY_ITEM_NO_PATTERN = /^[0-9A-Za-z_-]{1,20}$/
 
-// 一覧の数値ソート用。非数字・int4 範囲外の itemNo は null (末尾に表示)
-export function itemNoToNum(itemNo: string): number | null {
-  if (!/^[0-9]+$/.test(itemNo)) {
-    return null
-  }
-  const num = Number(itemNo)
-  return num <= INT4_MAX ? num : null
+export function isLegacyItemNo(value: string): boolean {
+  return LEGACY_ITEM_NO_PATTERN.test(value) && !isValidItemId(value)
 }
 
 // Prisma の contains / startsWith は LIKE メタ文字をエスケープしないため、
@@ -43,7 +45,7 @@ export function parseMode(value: unknown): Mode {
 
 // 一覧の並び順の種別。accessed = 最近見た順 (docs/37-アクセス順計画.md)、
 // title = 一覧の見出し順 (docs/63-タイトル順計画.md)
-export type SortBase = 'itemNo' | 'updated' | 'accessed' | 'title'
+export type SortBase = 'registered' | 'updated' | 'accessed' | 'title'
 
 // 種別を逆向きに辿る並び (docs/64-並び順逆順計画.md)。
 //
@@ -54,7 +56,7 @@ export type SortBase = 'itemNo' | 'updated' | 'accessed' | 'title'
 // 名前は「種別 + 逆向きの方向」。基底の 4 値が**その種別の既定の方向**を
 // 指すのは変えないので、前に選んだ cookie (寿命 1 年) も共有された
 // `?sort=title` も、意味が変わらないまま開ける (移行処理が要らない)
-export type ReversedSort = 'itemNoDesc' | 'updatedAsc' | 'accessedAsc' | 'titleDesc'
+export type ReversedSort = 'registeredDesc' | 'updatedAsc' | 'accessedAsc' | 'titleDesc'
 
 export type Sort = SortBase | ReversedSort
 
@@ -63,11 +65,11 @@ export type Sort = SortBase | ReversedSort
 export const SORTS: readonly Sort[] = [
   'updated',
   'accessed',
-  'itemNo',
+  'registered',
   'title',
   'updatedAsc',
   'accessedAsc',
-  'itemNoDesc',
+  'registeredDesc',
   'titleDesc',
 ]
 
@@ -75,7 +77,16 @@ export const SORTS: readonly Sort[] = [
 // **既定を変えない**のが要点 — アクセス順やタイトル順、逆順は明示的に
 // 選んだときだけ使う (日常の画面が導入で突然変わらないように)
 export function parseSort(value: unknown): Sort {
-  return SORTS.includes(value as Sort) ? (value as Sort) : 'updated'
+  const sort = LEGACY_SORTS[String(value)] ?? value
+  return SORTS.includes(sort as Sort) ? (sort as Sort) : 'updated'
+}
+
+// 番号順 (itemNo) は登録順 (registered) になった (docs/107 §4-6)。旧い名前は
+// cookie (寿命 1 年)・共有した URL・本文のリンク (教科書の目次の `&sort=itemNo`)・
+// matrix フェンスに残っているので、読むときに新しい名前へ寄せる
+export const LEGACY_SORTS: Readonly<Record<string, Sort>> = {
+  itemNo: 'registered',
+  itemNoDesc: 'registeredDesc',
 }
 
 // ゴミ箱だけが持つ並び (docs/67-ゴミ箱表示形式計画.md §2)。
@@ -85,7 +96,7 @@ export function parseSort(value: unknown): Sort {
 // 型を分けておけば、検索側の parseSort がゴミ箱の値を既定へ倒してくれる。
 //
 // 逆に Sort の 4 種別はゴミ箱でもそのまま使える (更新順で消し忘れを探す、
-// 番号順でシールと突き合わせる) ので、TrashSort は Sort を含む上位集合にする。
+// 登録順で古いものから見る) ので、TrashSort は Sort を含む上位集合にする。
 export type TrashSortBase = SortBase | 'deleted'
 export type TrashSort = Sort | 'deleted' | 'deletedAsc'
 
@@ -98,9 +109,10 @@ export const TRASH_SORTS: readonly TrashSort[] = [
 // ゴミ箱の既定は削除順 (新しい順)。今までの並び (deleted_at desc 固定) と
 // 同じにして、この機能が入っても何もしていない人の画面は変わらないようにする
 export function parseTrashSort(value: unknown): TrashSort {
-  return TRASH_SORTS.includes(value as TrashSort) ? (value as TrashSort) : 'deleted'
+  const sort = LEGACY_SORTS[String(value)] ?? value
+  return TRASH_SORTS.includes(sort as TrashSort) ? (sort as TrashSort) : 'deleted'
 }
 
-export function buildItemUrl(baseUrl: string, itemNo: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}/item/${itemNo}`
+export function buildItemUrl(baseUrl: string, itemId: string): string {
+  return `${baseUrl.replace(/\/+$/, '')}/item/${itemId}`
 }

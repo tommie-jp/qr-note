@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import { SwipeToTrashRow, type RowSwipe } from "@/components/item/row-actions/SwipeToTrashRow";
 
 interface MaybeSwipeRowProps {
-  itemNo: string;
+  itemId: string;
+  // 読み上げで名乗るノートの呼び名 (lib/items/noteName.ts)
+  name: string;
   // スワイプ削除の袋。無ければ素の li で包む (選択モード・ゴミ箱の一覧)
   swipe?: RowSwipe;
   view: "compact" | "card";
@@ -18,7 +20,8 @@ interface MaybeSwipeRowProps {
 // 素の li の overflow-hidden … 角丸の枠から中身 (選択色の地・サムネ) を
 // はみ出させない。SwipeToTrashRow の li は自前で overflow-hidden を持つ
 export function MaybeSwipeRow({
-  itemNo,
+  itemId,
+  name,
   swipe,
   view,
   frameClassName,
@@ -27,7 +30,8 @@ export function MaybeSwipeRow({
   if (swipe) {
     return (
       <SwipeToTrashRow
-        itemNo={itemNo}
+        itemId={itemId}
+        name={name}
         swipe={swipe}
         view={view}
         liClassName={frameClassName}

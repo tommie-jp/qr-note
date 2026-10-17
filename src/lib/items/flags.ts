@@ -11,13 +11,13 @@ import { Prisma } from '@/generated/prisma/client'
 // condition は「書く必要がある行か」。既に望む状態の行には書かないので、
 // 戻り値の件数 0 は正常な結果になりうる
 function updateItemQuietly(
-  itemNo: string,
+  itemId: string,
   set: Prisma.Sql,
   condition: Prisma.Sql,
 ): Promise<number> {
   return prisma.$executeRaw`
     UPDATE items SET ${set}
-    WHERE item_no = ${itemNo} AND ${condition}
+    WHERE id = ${itemId}::uuid AND ${condition}
   `
 }
 
@@ -34,16 +34,16 @@ function updateItemQuietly(
 //
 // WHERE の状態条件が要点: 既に公開中のノートへもう一度「公開」しても
 // public_at を上書きしない。押し直すたびに公開日時が今へ進むのは嘘になる。
-export async function setItemPublic(itemNo: string, isPublic: boolean): Promise<number> {
+export async function setItemPublic(itemId: string, isPublic: boolean): Promise<number> {
   if (isPublic) {
     return updateItemQuietly(
-      itemNo,
+      itemId,
       Prisma.sql`public_at = now()`,
       Prisma.sql`public_at IS NULL`,
     )
   }
   return updateItemQuietly(
-    itemNo,
+    itemId,
     Prisma.sql`public_at = NULL`,
     Prisma.sql`public_at IS NOT NULL`,
   )
@@ -57,9 +57,9 @@ export async function setItemPublic(itemNo: string, isPublic: boolean): Promise<
 // 印は読み方の設定であって本文の変更ではないため、付けただけで更新順の
 // 先頭に来るのは嘘になる — しかも同期は更新の新しい順に打ち切るので、
 // 動かすと「印を付けたノートが他を押し出す」という別の嘘まで生む。
-export async function setItemOfflinePin(itemNo: string, pinned: boolean): Promise<number> {
+export async function setItemOfflinePin(itemId: string, pinned: boolean): Promise<number> {
   return updateItemQuietly(
-    itemNo,
+    itemId,
     Prisma.sql`offline_pin = ${pinned}`,
     Prisma.sql`offline_pin <> ${pinned}`,
   )
@@ -82,9 +82,9 @@ const ACCESS_THROTTLE = '1 minute'
 //
 // ゴミ箱の行も記録してよい。ゴミ箱から開いて中身を確かめることはあり、
 // 復元したときに「最近見た」順で見つかるほうが自然。
-export async function recordItemAccess(itemNo: string): Promise<void> {
+export async function recordItemAccess(itemId: string): Promise<void> {
   await updateItemQuietly(
-    itemNo,
+    itemId,
     Prisma.sql`accessed_at = now()`,
     Prisma.sql`accessed_at < now() - ${ACCESS_THROTTLE}::interval`,
   )

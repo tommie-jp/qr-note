@@ -19,10 +19,35 @@ export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? 'e2e-test-pass'
 // setup プロジェクトが保存するセッション cookie (.gitignore 済み)
 export const AUTH_FILE = path.join(__dirname, '.auth', 'session.json')
 
-// E2E が作るノートの番号の頭。ローカル DB には本物のノートが入っているので、
-// **この頭を持たない番号は決して書き換え・ゴミ箱・永久削除しない**
-// (統合テストの `zzft` と同じ流儀。notes.ts の assertE2eItemNo が門番)
-export const E2E_ITEM_PREFIX = 'zze2e'
+// E2E が作るノートの id (UUID v7 の形) の頭 (docs/107-ノート主キー計画.md)。
+// ローカル DB には本物のノートが入っているので、**この頭を持たない id は
+// 決して書き換え・ゴミ箱・永久削除しない** (統合テストの `zzft` と同じ流儀。
+// notes.ts の assertE2eItemId が門番)。本物の id は uuidv7() が時刻から作るので、
+// 時刻の欄が e2e0e2e0-0000 のものは出てこない
+export const E2E_ITEM_PREFIX = 'e2e0e2e0-0000-7000-8000-'
+
+// id の末尾 (12 桁) に置ける最大の番号
+const MAX_E2E_ITEM_NUMBER = 999_999_999_999
+const E2E_ITEM_SUFFIX_LENGTH = 12
+
+// E2E のノートの n 番の id。末尾 12 桁を 0 埋めする (`e2e0e2e0-0000-7000-8000-000000000007`)。
+// /edit/<この id> を開いて保存すると、その id で新しいノートができる
+export function e2eItemId(n: number): string {
+  if (!Number.isInteger(n) || n < 0 || n > MAX_E2E_ITEM_NUMBER) {
+    throw new Error(`E2E のノートの番号が範囲外: ${n}`)
+  }
+  return `${E2E_ITEM_PREFIX}${String(n).padStart(E2E_ITEM_SUFFIX_LENGTH, '0')}`
+}
+
+// E2E のノートの本文 1 行目 (= 一覧の見出し・呼び名) の頭。n 番のノートは
+// `zze2e<n>` で始める (e2eKey)。検索は `/?q=zze2e<n>` の全文検索で引き、
+// 永久削除の確認は文面が `「zze2e` で始まるときだけ受け入れる
+export const E2E_HEADING_PREFIX = 'zze2e'
+
+// n 番のノートの見出しの頭 (検索語)
+export function e2eKey(n: number): string {
+  return `${E2E_HEADING_PREFIX}${n}`
+}
 
 // シークレットの E2E (secrets.spec.ts) が向く専用 DB の接続文字列 (docs/96 §4-3)。
 // 設定 (webServer) が dev サーバに DATABASE_URL として渡し、spec は下の

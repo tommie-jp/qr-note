@@ -12,7 +12,7 @@ import { isPasskeyEnabled } from "@/lib/auth/webauthnConfig";
 //
 // 文言を 2 か所に書くとずれるので、ここに 1 つだけ置く。
 //
-// **非公開のノートと未登録の itemNo で同じものを出すこと**。分けると
+// **非公開のノートと未登録の itemId で同じものを出すこと**。分けると
 // /item/1, /item/2, … を順に叩くだけでノートの存在が数えられる (docs/22 §8)。
 export function LoginRequiredNotice() {
   return (

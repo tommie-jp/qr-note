@@ -4,8 +4,8 @@
 // 「この画像を消す」と読まれやすい。実際にはノートごとゴミ箱へ入り、同じ
 // ノートの他のタイルもまとめて一覧から消える。
 // 複数あるときだけ枚数を言う — 1 枚なら「まとめて」の驚きは無い
-export function tileTrashConfirmMessage(itemNo: string, tileCount: number): string {
-  const head = `#${itemNo} をノートごとゴミ箱へ移動します。`;
+export function tileTrashConfirmMessage(name: string, tileCount: number): string {
+  const head = `${name}をノートごとゴミ箱へ移動します。`;
   const tiles =
     tileCount > 1
       ? `このノートの ${tileCount} 枚のタイルがまとめて一覧から消えます。`

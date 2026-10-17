@@ -25,15 +25,15 @@ import { currentUser } from "@/lib/auth/session";
 // (docs/93-リファクタリング計画.md §4-8)。器は 3 つあり、中身の組み合わせは
 // どれも同じ — 別々に書いていた頃は近似クローンが 3 本並んでいた:
 //
-//   page … 全画面の /item (item/[itemNo]/page.tsx)。PageTransition に入れ、
+//   page … 全画面の /item (item/[itemId]/page.tsx)。PageTransition に入れ、
 //          開いたことを記録する (RecordAccess)
 //   pane … /item へのソフト遷移を検索画面が横取りしたペイン
-//          ((search)/@detail/(.)item/[itemNo]/page.tsx。docs/86 §2)
+//          ((search)/@detail/(.)item/[itemId]/page.tsx。docs/86 §2)
 //   auto … 3 / 2 ペインで、まだ何も選んでいないときに検索結果の先頭を出す
 //          ペイン ((search)/HomeResults.tsx。docs/86 §4-4)
 //
 // 置き場所を src/components にしたのは、使う側が 3 つのルートセグメント
-// (item/[itemNo]・(search)/@detail・(search) の一覧) にまたがり、どれか 1 つの
+// (item/[itemId]・(search)/@detail・(search) の一覧) にまたがり、どれか 1 つの
 // ルートの持ち物ではないため。中身の ItemView・PublicItemView・PreviewPane も
 // ここに居る。番号の形の検査 (404 にするか、ペインの中で知らせるか) は
 // 器ごとに違うので呼ぶ側 (page.tsx) に残す。
@@ -58,7 +58,7 @@ export type ItemDetailShell =
   | { kind: "auto" };
 
 interface ItemDetailProps {
-  itemNo: string;
+  itemId: string;
   // 一覧から開いたときに持ち回している検索状態。同じ名前を 2 回書いた URL
   // (`?q=a&q=b`) では配列で届くので、その形のまま受けて
   // resolveItemListContext が 1 本に畳む
@@ -85,42 +85,42 @@ type LoadedDetail =
 // 引く時機は分割前の各ページのまま: 全画面はログイン中と分かってから引き、
 // ペインは本文と並べて引く
 async function loadDetail(
-  itemNo: string,
+  itemId: string,
   q: ItemDetailProps["q"],
   sort: ItemDetailProps["sort"],
   kind: ItemDetailShell["kind"],
 ): Promise<LoadedDetail> {
   if (kind === "page") {
-    const [user, item] = await Promise.all([currentUser(), getItem(itemNo)]);
+    const [user, item] = await Promise.all([currentUser(), getItem(itemId)]);
     if (user === null) {
       return { user, item };
     }
-    return { user, item, ctx: await resolveItemListContext(itemNo, q, sort) };
+    return { user, item, ctx: await resolveItemListContext(itemId, q, sort) };
   }
 
   const [user, item, ctx] = await Promise.all([
     currentUser(),
-    getItem(itemNo),
-    resolveItemListContext(itemNo, q, sort),
+    getItem(itemId),
+    resolveItemListContext(itemId, q, sort),
   ]);
   return user === null ? { user, item } : { user, item, ctx };
 }
 
 export async function ItemDetail({
-  itemNo,
+  itemId,
   q,
   sort,
   saved,
   shell,
 }: ItemDetailProps) {
-  const loaded = await loadDetail(itemNo, q, sort, shell.kind);
+  const loaded = await loadDetail(itemId, q, sort, shell.kind);
 
   if (loaded.user === null) {
-    return renderLoggedOut(itemNo, loaded.item, shell);
+    return renderLoggedOut(itemId, loaded.item, shell);
   }
 
   const { item, ctx } = loaded;
-  const view = <ItemView itemNo={itemNo} item={item} saved={saved} />;
+  const view = <ItemView itemId={itemId} item={item} saved={saved} />;
   // page … 本文の下 (タイムスタンプの下)。問題を解いて読み終えたところに
   //        「次」があるのが自然な流れ
   // pane / auto … ペインの中の「前 / 次」も Link なのでまた横取りされ、
@@ -133,7 +133,7 @@ export async function ItemDetail({
       sort={ctx.sort}
     />
   );
-  const openHref = buildItemUrl(itemNo, ctx.query, ctx.sort);
+  const openHref = buildItemUrl(itemId, ctx.query, ctx.sort);
 
   switch (shell.kind) {
     case "page":
@@ -144,7 +144,7 @@ export async function ItemDetail({
               置くと、他人やクローラが開くたびに自分の並びが書き換わる。
               描画では記録せずマウント後に呼ぶ理由は components/item/RecordAccess.tsx に書いた。
               ペイン (pane / auto) には置かない (docs/86 §3) */}
-          <RecordAccess itemNo={itemNo} action={shell.recordAccessAction} />
+          <RecordAccess itemId={itemId} action={shell.recordAccessAction} />
           {/* ペインの操作行 (PreviewPane) と同じ位置に「閉じる」を置く
               (docs/86 §4-17)。「全画面で開く」で来た後も同じ所で閉じられる。
               **ログイン中の枝だけ** — 未ログインの公開ノートには一覧が無い */}
@@ -171,9 +171,9 @@ export async function ItemDetail({
         // key … ノート間をペインのまま移ったとき器を作り直し、前のノートの
         // スクロール位置を持ち越さない
         <PreviewPane
-          key={itemNo}
+          key={itemId}
           bgClass={paneBgClass()}
-          itemNo={itemNo}
+          itemId={itemId}
           openHref={openHref}
         >
           {view}
@@ -183,9 +183,9 @@ export async function ItemDetail({
     case "auto":
       return (
         <AutoNotePane
-          key={itemNo}
+          key={itemId}
           bgClass={paneBgClass()}
-          itemNo={itemNo}
+          itemId={itemId}
           openHref={openHref}
         >
           {view}
@@ -196,12 +196,12 @@ export async function ItemDetail({
 }
 
 function renderLoggedOut(
-  itemNo: string,
+  itemId: string,
   item: Item | null,
   shell: ItemDetailShell,
 ): ReactNode {
   const body = isPublicItem(item) ? (
-    <PublicItemView itemNo={itemNo} item={item} />
+    <PublicItemView itemId={itemId} item={item} />
   ) : (
     <LoginRequiredNotice />
   );
@@ -215,7 +215,7 @@ function renderLoggedOut(
       return (
         <PreviewPane
           bgClass={paneBgClass()}
-          openHref={`/item/${encodeURIComponent(itemNo)}`}
+          openHref={`/item/${encodeURIComponent(itemId)}`}
         >
           {body}
         </PreviewPane>

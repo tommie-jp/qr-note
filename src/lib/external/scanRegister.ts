@@ -5,7 +5,7 @@ import { parseTagToken } from '../markdown/tags/tags'
 // スキャンした未登録コードから新規ノートを作る導線の組み立て
 // (設計は docs/10-スキャン新規登録計画.md)。
 //
-// コードは itemNo ではなくタグ (#9784873115658) として本文に置く。
+// コードは itemId ではなくタグ (#9784873115658) として本文に置く。
 // 正本はメモ本文というこのアプリの流儀に揃い、tags 派生キャッシュ・
 // タグリンク・タグチップが既存の仕組みでそのまま動く。
 
@@ -115,7 +115,7 @@ export function scanRegisterMemo(
   return `${header}\n\n#${code}${kind}`
 }
 
-// 「新規登録」ボタンのリンク先。itemNo は採番済みの次番号を渡す。
-export function scanRegisterHref(itemNo: string, code: string): string {
-  return `/edit/${itemNo}?code=${encodeURIComponent(code)}`
+// 「新規登録」ボタンのリンク先。itemId は採番済みの次番号を渡す。
+export function scanRegisterHref(itemId: string, code: string): string {
+  return `/edit/${itemId}?code=${encodeURIComponent(code)}`
 }

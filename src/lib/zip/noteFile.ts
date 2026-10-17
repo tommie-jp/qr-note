@@ -9,7 +9,8 @@
 
 import { isValidAttachmentName } from '@/lib/uploads/names'
 import {
-  isValidItemNo,
+  isLegacyItemNo,
+  isValidItemId,
   MAX_TEXT_LENGTH,
   type Mode,
   parseMode,
@@ -20,8 +21,17 @@ import {
   serializeFrontmatter,
 } from './frontmatter'
 
+// ノートの識別は 2 通り (docs/107 §4-2)。
+//   id     … このアプリの v0.24 以降が書き出した ZIP。UUID v7
+//   itemNo … それより前の ZIP と、教科書の変換スクリプトが組む ZIP。旧番号
+// どちらか片方は必ずある。旧番号しか無いノートは、取り込み側が本文のタグ
+// `#<旧番号>` で既存ノートを探す (lib/zip/importZip.ts の writeNote)
+export type NoteKey =
+  | { kind: 'id'; itemId: string }
+  | { kind: 'legacy'; itemNo: string }
+
 export interface PortableNote {
-  itemNo: string
+  key: NoteKey
   memo: string
   url: string
   mode: Mode
@@ -52,11 +62,12 @@ function escapeRegExp(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 }
 
-export function buildNoteFile(note: PortableNote): string {
+// 書き出すノート。DB の行なので必ず id がある
+export type ExportNote = Omit<PortableNote, 'key'> & { itemId: string }
+
+export function buildNoteFile(note: ExportNote): string {
   const fields: [string, FrontmatterValue][] = [
-    // 数字だけの itemNo ("1042") を数値として読まれないよう引用符で囲む。
-    // 文字列 PK なので、往復して 1042 (number) になっては困る
-    ['itemNo', { quoted: note.itemNo }],
+    ['id', { quoted: note.itemId }],
     ['mode', { bare: note.mode }],
     ['url', { quoted: note.url }],
     ['created', { bare: isoOrEmpty(note.createdAt) }],
@@ -85,15 +96,9 @@ export function parseNoteFile(text: string): ParsedNoteFile {
     }
   }
 
-  const itemNo = parsed.fields.get('itemNo') ?? ''
-  if (!isValidItemNo(itemNo)) {
-    return {
-      ok: false,
-      reason:
-        itemNo === ''
-          ? 'itemNo がありません'
-          : `itemNo が書式外です (${itemNo})`,
-    }
+  const key = parseNoteKey(parsed.fields.get('id'), parsed.fields.get('itemNo'))
+  if (typeof key === 'string') {
+    return { ok: false, reason: key }
   }
 
   const createdAt = parseDateField(parsed.fields.get('created'))
@@ -117,7 +122,7 @@ export function parseNoteFile(text: string): ParsedNoteFile {
   return {
     ok: true,
     note: {
-      itemNo,
+      key,
       memo,
       url,
       // 既定は memo。手書きの Markdown で mode を書き忘れても取り込める
@@ -127,6 +132,23 @@ export function parseNoteFile(text: string): ParsedNoteFile {
       isPublic,
     },
   }
+}
+
+// id を先に見る。両方あれば id が正本 (旧番号は本文のタグにも入っている)。
+// 戻り値が文字列なら断る理由
+function parseNoteKey(
+  id: string | undefined,
+  itemNo: string | undefined,
+): NoteKey | string {
+  if (id !== undefined && id !== '') {
+    return isValidItemId(id) ? { kind: 'id', itemId: id } : `id が書式外です (${id})`
+  }
+  if (itemNo !== undefined && itemNo !== '') {
+    return isLegacyItemNo(itemNo)
+      ? { kind: 'legacy', itemNo }
+      : `itemNo が書式外です (${itemNo})`
+  }
+  return 'id がありません'
 }
 
 // 本文が参照している添付の保存名を出現順・重複なしで返す。

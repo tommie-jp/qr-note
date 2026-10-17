@@ -22,7 +22,6 @@ import {
   waitForHistory,
   withLayerPanel,
 } from './drawCanvas'
-import { E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -33,7 +32,7 @@ import {
   test,
 } from './helpers'
 import { formFilePart, type ImageInfo, readImageInfo, solidPng } from './imageBytes'
-import { removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote } from './notes'
 
 // お絵かき画面 (components/draw/) の操作を順に通す (docs/96 §3-3)。
 // 前の段が描いた絵に次の段が描き足すので、1 枚のページを直列で使い回す。
@@ -44,8 +43,9 @@ import { removeE2eNote } from './notes'
 // - **画素は同じ実行の中の前後比較で見る。** 黄金ファイルは持たない
 //   (Chromium の版で描画の画素がずれる)。書き出しは送信本文の PNG / WebP
 //   ヘッダから寸法と形式を読む
-const ITEM_NO = `${E2E_ITEM_PREFIX}4`
-const BODY = `${E2E_ITEM_PREFIX} draw ${Date.now()}`
+const NOTE = e2eNote(4, `draw ${Date.now()}`)
+const ITEM_ID = NOTE.id
+const BODY = NOTE.heading
 
 // 横取りで配る画像の名前 (実在しない UUID)。アップロードの URL は連番を足す
 const UPLOAD_ID_HEAD = 'e2e0d4a1-0000-4000-8000-00000000010'
@@ -128,7 +128,7 @@ function memoField(page: Page): Locator {
 }
 
 async function openEditor(page: Page): Promise<void> {
-  await page.goto(`/edit/${ITEM_NO}`)
+  await page.goto(`/edit/${ITEM_ID}`)
   // 「更新」は下部バーへ portal され、マウント後にしか現れない
   await expect(saveButton(page)).toBeVisible()
 }
@@ -166,8 +166,8 @@ test.describe('お絵かき', () => {
 
   test.beforeAll(async ({ browser }) => {
     page = await newLoggedInPage(browser)
-    // 前の回が途中で落ちて残した同じ番号を消しておく (無ければ何もしない)
-    await removeE2eNote(page, ITEM_NO)
+    // 前の回が途中で落ちて残した同じ id を消しておく (無ければ何もしない)
+    await removeE2eNote(page, NOTE)
     await interceptImages(page.context())
     page.on('dialog', (dialog) => {
       dialogs.push(dialog.message())
@@ -181,16 +181,16 @@ test.describe('お絵かき', () => {
     }
     // 途中で落ちても本物の DB に残さない
     const cleanup = await newLoggedInPage(browser)
-    await removeE2eNote(cleanup, ITEM_NO)
+    await removeE2eNote(cleanup, NOTE)
     await closePage(cleanup)
   })
 
   test('編集画面から開くと、白紙・ペン・戻せない状態で始まる', async () => {
-    // Arrange: 番号を /edit で決めて普通に保存する (note-lifecycle と同じ作り方)
+    // Arrange: id を /edit で決めて普通に保存する (note-lifecycle と同じ作り方)
     await openEditor(page)
     await replaceBody(page, BODY)
     await saveButton(page).click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await openEditor(page)
 
     // Act
@@ -580,7 +580,7 @@ test.describe('お絵かき', () => {
     await saveButton(page).click()
 
     // Assert
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
     await expect(page.getByText(BODY).first()).toBeVisible()
   })
 })

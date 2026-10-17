@@ -30,7 +30,8 @@ export interface RowAction {
 export const ROW_ACTION_SELECTOR = "[data-row-action]";
 
 interface RowActionButtonsProps {
-  itemNo: string;
+  // 読み上げで名乗るノートの呼び名 (lib/items/noteName.ts)
+  name: string;
   actions: RowAction[];
   view: "compact" | "card";
 }
@@ -57,7 +58,7 @@ interface RowActionButtonsProps {
 // Tailwind v4 の hover 系は @media (hover: hover) に包まれるので、スマホで
 // 触れた指にボタンが貼り付くことはない (あちらは ⋮ と長押しのメニューが受ける)。
 export function RowActionButtons({
-  itemNo,
+  name,
   actions,
   view,
 }: RowActionButtonsProps) {
@@ -79,9 +80,9 @@ export function RowActionButtons({
           key={action.key}
           type="button"
           onClick={action.onSelect}
-          // 「#12 をゴミ箱へ移動」。読み上げでは行の見出しが離れて聞こえる
+          // 「「抵抗」をゴミ箱へ移動」。読み上げでは行の見出しが離れて聞こえる
           // ので、どのノートに対する操作かを毎回名乗る
-          aria-label={`#${itemNo} を${action.label}`}
+          aria-label={`${name}を${action.label}`}
           title={action.label}
           className={`${COMPACT_ICON_BUTTON_CLASS} ${
             action.danger ? "hover:bg-red-50" : ""
@@ -119,7 +120,8 @@ const TRIGGER_PLACEMENT_CLASS: Record<RowMenuTriggerPlacement, string> = {
 };
 
 interface RowMenuTriggerProps {
-  itemNo: string;
+  // 読み上げで名乗るノートの呼び名 (lib/items/noteName.ts)
+  name: string;
   view: RowMenuTriggerPlacement;
   isOpen: boolean;
   // 送信中。押しても何もしない
@@ -161,7 +163,7 @@ export function anchorOriginOf(element: Element, shiftX = 0): MenuOrigin {
 // (useRowGestureArbiter)。ここを押して行が滑ったりノートが開いたりしない。
 // z-10 … タイトルの当たり判定 (::after) より前に出す
 export function RowMenuTrigger({
-  itemNo,
+  name,
   view,
   isOpen,
   disabled,
@@ -181,7 +183,7 @@ export function RowMenuTrigger({
         if (!disabled) onClick(event);
       }}
       aria-disabled={disabled || undefined}
-      aria-label={`#${itemNo} の操作`}
+      aria-label={`${name}の操作`}
       aria-haspopup="menu"
       aria-expanded={isOpen}
       title="操作"

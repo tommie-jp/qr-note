@@ -3,7 +3,7 @@ import { PressTip } from "@/components/item/row-actions/PressTip";
 import { STATE_TOGGLE_CLASS } from "@/components/ui";
 
 interface OfflinePinToggleProps {
-  itemNo: string;
+  itemId: string;
   pinned: boolean;
   // 印を付けたときに端末へ落とす量の目安 (バイト)。0 なら添付が無い
   attachmentBytes: number;
@@ -26,7 +26,7 @@ interface OfflinePinToggleProps {
 // ならないよう絵を変える (雲 = 中身はサーバ / 受け皿 = 端末に落とした) のは
 // そのままで、読み上げには aria-pressed で状態を渡す。
 export function OfflinePinToggle({
-  itemNo,
+  itemId,
   pinned,
   attachmentBytes,
   setPinAction,
@@ -45,7 +45,7 @@ export function OfflinePinToggle({
 
   return (
     <form action={setPinAction}>
-      <input type="hidden" name="itemNo" value={itemNo} />
+      <input type="hidden" name="itemId" value={itemId} />
       <input type="hidden" name="pin" value={pinned ? "0" : "1"} />
       <PressTip label={hint}>
         <button

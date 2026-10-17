@@ -8,12 +8,17 @@ datasource db {
 }
 
 // Ver1 (MongoDB) の item コレクションを引き継ぐ。
-// itemNo は Ver1 の実データが文字列のため文字列主キー
-// (印刷済み QR シールの URL 互換を最優先)。
-// itemNoNum は数値ソート用 (非数字の itemNo は null)。
+//
+// 主キーは UUID v7 (docs/107-ノート主キー計画.md)。もとは Ver1 の itemNo
+// (印刷済み QR シールの URL に載る 4 桁番号) を文字列主キーにしていたが、
+// コードはスキャンして検索するものになったので、旧番号は本文のタグ `#1003`
+// へ移した。旧 URL `/item/1003` はタグで引き直して受ける (lib/items/resolve.ts)。
+//
+// v7 は先頭 48 bit が時刻なので **id 順 = 作った順**。移行時は旧番号の昇順で
+// 振ったので、既存ノートは id 順 = 旧番号順になっている (並び順「登録順」)。
+// 列名は id、TS 側は itemId と呼ぶ (画像・シークレットの name と取り違えない)
 model Item {
-  itemNo    String   @id @map("item_no")
-  itemNoNum Int?     @map("item_no_num")
+  itemId    String   @id @default(dbgenerated("uuidv7()")) @map("id") @db.Uuid
   memo      String   @default("")
   url       String   @default("")
   mode      Mode     @default(memo)
@@ -59,11 +64,9 @@ model Item {
   accessedAt DateTime @default(now()) @map("accessed_at")
   // ゴミ箱 (二段階削除)。null = 通常、非 null = ゴミ箱行き日時。
   // 検索・タグ集計は null の行だけを見る。永久削除は行の DELETE。
-  // ゴミ箱の行も items に残るため、nextItemNo の採番はその番号を
-  // 自然に飛ばす (= 復元まで番号が予約される。docs/12-ゴミ箱計画.md §4)。
   deletedAt DateTime? @map("deleted_at")
   // 公開 (docs/22-ノート公開計画.md)。null = 非公開、非 null = 公開した日時。
-  // 非 null のノートだけが、ログインしていない人にも /item/<itemNo> で開ける。
+  // 非 null のノートだけが、ログインしていない人にも /item/<id> で開ける。
   // 判定の正本は src/lib/auth/publicItem.ts の isPublicItem() で、ゴミ箱 (deleted_at
   // 非 null) の行はここが非 null でも公開しない。
   publicAt  DateTime? @map("public_at")
@@ -80,9 +83,21 @@ model Item {
   // (task_todo / title と同じ判断)。
   offlinePin Boolean @default(false) @map("offline_pin")
 
-  @@index([itemNoNum])
   @@index([tags], type: Gin)
   @@map("items")
+}
+
+// 移行の控え: 旧番号 → id (docs/107 §6)。移行の時点で 1 度だけ書き、以後は
+// 書かない。読むのは git 履歴のファイル名を notes/<旧番号>.md から
+// notes/<id>.md へ付け替えるスクリプト (scripts/renameGitNotes.ts) だけで、
+// 旧 URL の解決には使わない (正本は本文のタグ)。
+//
+// 外部キーは張らない — 永久削除したノートの行も控えとして残すため
+model LegacyItemNo {
+  itemNo String @id @map("item_no")
+  itemId String @map("item_id") @db.Uuid
+
+  @@map("legacy_item_nos")
 }
 
 enum Mode {

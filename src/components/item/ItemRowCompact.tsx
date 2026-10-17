@@ -16,9 +16,9 @@ interface ItemRowCompactProps {
 // 違いはタグの有無とサムネの寸法だけで、どちらも ItemRow が parts に組んで渡す。
 // 枠は ul が持ち区切り線で仕切るので、li は枠を持たない
 export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
-  const { itemNo, href, selected, checkbox, title, tags, footer, thumb } = parts;
+  const { itemId, name, href, selected, checkbox, title, tags, footer, thumb } = parts;
   return (
-    <MaybeSwipeRow itemNo={itemNo} swipe={swipe} view="compact">
+    <MaybeSwipeRow itemId={itemId} name={name} swipe={swipe} view="compact">
       {/* relative … タイトルの当たり判定を広げる ::after の基準にする。
           pr-10 … 操作がある行 (swipe あり) は右端に ⋮ が常に居るので、
           サムネと題をその幅 (w-10) だけ左へ寄せる (docs/107 §2) */}
@@ -28,13 +28,6 @@ export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
         } ${parts.tintClass}`}
       >
         {checkbox}
-        <Link
-          href={href}
-          transitionTypes={["nav-forward"]}
-          className="shrink-0 font-mono text-sm font-bold"
-        >
-          #{itemNo}
-        </Link>
         <div className="min-w-0 flex-1">
           <Link
             href={href}

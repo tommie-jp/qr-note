@@ -28,9 +28,9 @@ export function ImageSearchResults({
       )}
       <ul className="flex flex-col gap-2">
         {matches.map((m) => (
-          <li key={m.itemNo}>
+          <li key={m.itemId}>
             <Link
-              href={`/item/${m.itemNo}`}
+              href={`/item/${m.itemId}`}
               onClick={onSelect}
               className="flex items-center gap-3 rounded bg-white/10 p-2 transition-colors active:bg-white/20"
             >
@@ -44,7 +44,7 @@ export function ImageSearchResults({
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{m.title}</span>
                 <span className="block text-sm text-white/60">
-                  {m.itemNo}・一致度 {Math.round(m.score * 100)}%
+                  {m.itemId}・一致度 {Math.round(m.score * 100)}%
                 </span>
               </span>
             </Link>

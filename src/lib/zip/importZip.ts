@@ -17,14 +17,15 @@ import { errorText } from '@/lib/errorMessage'
 import { isAlreadyImported } from '@/lib/import/importDuplicate'
 import type { BaseImportReport } from '@/lib/import/importReport'
 import { setItemPublic } from '@/lib/items/flags'
-import { nextItemNo } from '@/lib/items/read'
+import { newItemId } from '@/lib/items/itemId'
+import { findItemIdsByLegacyNo } from '@/lib/items/resolve'
+import { addTagToMemo } from '@/lib/markdown/tags/edit'
 import { applyImportedTimestamps, upsertItem } from '@/lib/items/write'
 import { isValidImageName } from '@/lib/uploads/names'
-import { itemNoToNum } from '@/lib/validation'
 import type { ConflictPolicy } from './conflictPolicy'
 import { classifyEntry } from './layout'
 import { MAX_ZIP_NOTE_BYTES } from './limits'
-import { collectAttachmentNames, parseNoteFile, type PortableNote } from './noteFile'
+import { collectAttachmentNames, type NoteKey, parseNoteFile, type PortableNote } from './noteFile'
 import { readZipStream, ZipReadError } from './readZip'
 
 // 本文は UTF-8 で書き出している (buildNoteFile)。使い回してよい
@@ -212,10 +213,6 @@ async function importNotes(
   const referenced = new Set<string>()
 
   const conflict = options.conflict ?? 'skip'
-  // 採番から外す番号 (renumber のときだけ要る)。ここでもう一度読み直すのは、
-  // 解釈した結果を全件抱えると本文の複製をメモリに載せることになるため
-  // (抱えてよいのは番号だけ)
-  const reservedNos = conflict === 'renumber' ? reservedItemNoNums(notes) : []
 
   options.onNotesStart?.(notes.length)
 
@@ -231,11 +228,11 @@ async function importNotes(
 
     let outcome: WriteOutcome
     try {
-      outcome = await writeNote(parsed.note, conflict, reservedNos)
+      outcome = await writeNote(parsed.note, conflict)
     } catch (error) {
-      console.error(`ノートを戻せませんでした (${parsed.note.itemNo}):`, error)
+      console.error(`ノートを戻せませんでした (${keyLabel(parsed.note.key)}):`, error)
       report.skipped.push({
-        label: `${entry.path} (#${parsed.note.itemNo})`,
+        label: `${entry.path} (${keyLabel(parsed.note.key)})`,
         reason: errorText(error, '保存できませんでした'),
       })
       continue
@@ -253,7 +250,7 @@ async function importNotes(
     }
 
     report.imported.push({
-      itemNo: outcome.itemNo,
+      itemId: outcome.itemId,
       title: firstLine(parsed.note.memo),
       // 振り直したときだけ載せる (JSON に undefined は出ない)
       ...(outcome.renumberedFrom === null
@@ -270,84 +267,96 @@ async function importNotes(
   await reportMissingAttachments(referenced, report)
 }
 
-// ZIP 側のノートが使う番号 (item_no_num にできるものだけ)。
-//
-// **まだ書いていないノートの番号も含めて**採番から外すために集める。空き番号が
-// たまたま ZIP の別ノートの番号だと、それを横取りして「衝突していないノートは
-// 元の番号のまま」という約束が崩れる。読めないファイルは番号が判らないので
-// 外れるが、そのファイルはどのみち取り込まれない。
-function reservedItemNoNums(notes: PendingNote[]): number[] {
-  const nums: number[] = []
-  for (const entry of notes) {
-    const parsed = parseNoteFile(entry.text)
-    if (!parsed.ok) {
-      continue
-    }
-    const num = itemNoToNum(parsed.note.itemNo)
-    if (num !== null) {
-      nums.push(num)
-    }
-  }
-  return nums
+function keyLabel(key: NoteKey): string {
+  return key.kind === 'id' ? key.itemId : `#${key.itemNo}`
 }
 
 type WriteOutcome =
   // 入れた。renumberedFrom は振り直したときの元の番号 (振っていなければ null)
-  | { kind: 'written'; itemNo: string; renumberedFrom: string | null }
+  | { kind: 'written'; itemId: string; renumberedFrom: string | null }
   // 番号が衝突したので見送った (skip)
   | { kind: 'conflict' }
   // 番号は衝突したが、同じ内容のノートが既にいたので見送った (renumber)
   | { kind: 'duplicate' }
 
+// 取り込み先で同じノートに当たる行 (docs/107 §4-2)。
+//   id     … その id の行
+//   旧番号 … 本文のタグ #<旧番号> を持つ行。1 件に決まったときだけ同じノート
+//            とみなす。複数あるときは、どれを指すか決められないので衝突として
+//            見送る (上書きも振り直しも当て推量になる)
+// ゴミ箱の行も含める。ゴミ箱にある間も行は残っており、そこへ別の中身を
+// 入れると、復元したときに中身が入れ替わっている事故になる (docs/12 §4)
+type Existing = { kind: 'none' } | { kind: 'one'; itemId: string } | { kind: 'ambiguous' }
+
+async function findExisting(key: NoteKey): Promise<Existing> {
+  if (key.kind === 'id') {
+    const row = await prisma.item.findUnique({
+      where: { itemId: key.itemId },
+      select: { itemId: true },
+    })
+    return row === null ? { kind: 'none' } : { kind: 'one', itemId: row.itemId }
+  }
+  const ids = await findItemIdsByLegacyNo(key.itemNo, { includeTrashed: true })
+  if (ids.length === 0) {
+    return { kind: 'none' }
+  }
+  return ids.length === 1 ? { kind: 'one', itemId: ids[0] } : { kind: 'ambiguous' }
+}
+
 // ノート 1 件を入れる。「見送る」は例外ではなく戻り値で返す (呼ぶ側が数える)。
 async function writeNote(
   note: PortableNote,
   conflict: ConflictPolicy,
-  reservedNos: readonly number[],
 ): Promise<WriteOutcome> {
-  // ゴミ箱の行も「使用中の番号」として数える。番号はゴミ箱にある間じゅう
-  // 予約されている (docs/12-ゴミ箱計画.md §4) ので、衝突の可否も同じ扱いに
-  // しないと、復元したときに中身が入れ替わっている事故になる
-  const existing = await prisma.item.findUnique({
-    where: { itemNo: note.itemNo },
-    select: { itemNo: true },
-  })
+  const existing = await findExisting(note.key)
+  if (existing.kind === 'ambiguous') {
+    return { kind: 'conflict' }
+  }
 
-  let itemNo = note.itemNo
+  // 書き込み先の id。既にあればその行、無ければ id 付きの ZIP はその id のまま
+  // (別インスタンスへ移しても URL が変わらない)、旧番号の ZIP は新しく振る
+  let itemId =
+    existing.kind === 'one'
+      ? existing.itemId
+      : note.key.kind === 'id'
+        ? note.key.itemId
+        : newItemId()
   let renumberedFrom: string | null = null
-  if (existing !== null) {
+  if (existing.kind === 'one') {
     if (conflict === 'skip') {
       return { kind: 'conflict' }
     }
     if (conflict === 'renumber') {
       // **再実行で増やさない** (docs/28 §5)。同じ ZIP を 2 回流すと毎回衝突
-      // するので、素朴に採番すると全ノートが複製される。同内容のノートが
+      // するので、素朴に振り直すと全ノートが複製される。同内容のノートが
       // 既にいるなら、それは取り込み済みということなので見送る
       const created = note.createdAt ?? note.updatedAt
       if (await isAlreadyImported(created, firstLine(note.memo))) {
         return { kind: 'duplicate' }
       }
-      // 採番は ENEX と同じ nextItemNo (空き番号の最小値)。ノートのループは
-      // 直列なので採番の競合はない
-      itemNo = await nextItemNo(reservedNos)
-      renumberedFrom = note.itemNo
+      itemId = newItemId()
+      renumberedFrom = existing.itemId
     }
   }
 
+  // 旧番号の ZIP は、番号を本文のタグとして残す (DB の移行と同じ扱い)。
+  // 上書きのときも、入ってくる本文 (教科書の原稿など) にはタグが無いので足す
+  const memo = note.key.kind === 'legacy' ? addTagToMemo(note.memo, note.key.itemNo) : note.memo
+
   // 本文は書き換えない。本文中の /item/<番号> は「取り込み先に元からある
   // ノート」を指す意図かもしれず、書き換えは当て推量になる (§5)
-  await upsertItem(itemNo, {
-    memo: note.memo,
+  await upsertItem(itemId, {
+    memo,
     url: note.url,
     mode: note.mode,
   })
   // 書き出した日時をそのまま戻す (ENEX の取り込みと同じ関数)。日時の無い
   // ファイル (手書きの Markdown) は取り込んだ時刻のままになる
-  await applyImportedTimestamps(itemNo, note.createdAt, note.updatedAt)
+  await applyImportedTimestamps(itemId, note.createdAt, note.updatedAt)
   // 公開の状態もファイルに合わせる。setItemPublic は状態が変わるときだけ
   // 書くので、取り込みを繰り返しても公開日時は進まない
-  await setItemPublic(itemNo, note.isPublic)
-  return { kind: 'written', itemNo, renumberedFrom }
+  await setItemPublic(itemId, note.isPublic)
+  return { kind: 'written', itemId, renumberedFrom }
 }
 
 // 本文が指しているのに、ZIP にも DB にも無い添付を report に載せる。

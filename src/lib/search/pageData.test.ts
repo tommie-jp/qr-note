@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   countTaskProgress: vi.fn(),
   countTrashedItems: vi.fn(),
   countTrashedMatches: vi.fn(),
-  nextItemNo: vi.fn(),
+  newItemId: vi.fn(),
   loadCircuitThumbs: vi.fn(),
   buildMathTexts: vi.fn(),
   buildMathSummaries: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('@/lib/items/trash', () => ({
   countTrashedItems: mocks.countTrashedItems,
   countTrashedMatches: mocks.countTrashedMatches,
 }))
-vi.mock('@/lib/items/read', () => ({ nextItemNo: mocks.nextItemNo }))
+vi.mock('@/lib/items/itemId', () => ({ newItemId: mocks.newItemId }))
 vi.mock('@/lib/circuit/thumbs', () => ({
   loadCircuitThumbs: mocks.loadCircuitThumbs,
 }))
@@ -40,11 +40,11 @@ vi.mock('@/components/item/NotePreviewThumb', () => ({
 
 const { loadSearchResults } = await import('./pageData')
 
-const ITEMS = [{ itemNo: '4951', memo: 'BJT NPN', mode: 'memo' }] as Item[]
-const THUMBS = { '4951': ['<svg/>'] }
-const MATH = { '4951': { title: '<span/>' } }
-const SUMMARIES = { '4951': '<span/>' }
-const PREVIEWS = { '4951': 'preview' }
+const ITEMS = [{ itemId: '00000000-0000-7000-8000-000000004951', memo: 'BJT NPN', mode: 'memo' }] as Item[]
+const THUMBS = { '00000000-0000-7000-8000-000000004951': ['<svg/>'] }
+const MATH = { '00000000-0000-7000-8000-000000004951': { title: '<span/>' } }
+const SUMMARIES = { '00000000-0000-7000-8000-000000004951': '<span/>' }
+const PREVIEWS = { '00000000-0000-7000-8000-000000004951': 'preview' }
 
 const searchResult = (total: number) => ({
   items: total === 0 ? [] : ITEMS,
@@ -56,11 +56,11 @@ const searchResult = (total: number) => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.searchItems.mockResolvedValue(searchResult(1))
-  mocks.searchItemProps.mockResolvedValue({ rows: [{ itemNo: '4951' }], omitted: 2 })
+  mocks.searchItemProps.mockResolvedValue({ rows: [{ itemId: '00000000-0000-7000-8000-000000004951' }], omitted: 2 })
   mocks.countTaskProgress.mockResolvedValue({ done: 3, total: 5 })
   mocks.countTrashedItems.mockResolvedValue(0)
   mocks.countTrashedMatches.mockResolvedValue(4)
-  mocks.nextItemNo.mockResolvedValue('5000')
+  mocks.newItemId.mockReturnValue('00000000-0000-7000-8000-000000005000')
   mocks.loadCircuitThumbs.mockResolvedValue(THUMBS)
   mocks.buildMathTexts.mockReturnValue(MATH)
   mocks.buildMathSummaries.mockReturnValue(SUMMARIES)
@@ -78,7 +78,7 @@ test('素の検索は一覧だけを引き、特性表・進捗・0 件時の 2 
   expect(mocks.searchItems).toHaveBeenCalledWith('', 1, 'updated')
   expect(mocks.searchItemProps).not.toHaveBeenCalled()
   expect(mocks.countTaskProgress).not.toHaveBeenCalled()
-  expect(mocks.nextItemNo).not.toHaveBeenCalled()
+  expect(mocks.newItemId).not.toHaveBeenCalled()
   expect(mocks.countTrashedMatches).not.toHaveBeenCalled()
   expect(data.props).toEqual({ rows: [], omitted: 0 })
   expect(data.progress).toEqual({ done: 0, total: 0 })
@@ -98,11 +98,11 @@ test('ページ番号は数にして渡し、数でなければ 1 ページ目',
 
 test('タグ検索のときだけ特性表を同じ並びで引く', async () => {
   // Act
-  const data = await load({ query: '#npn', sort: 'itemNo' })
+  const data = await load({ query: '#npn', sort: 'registered' })
 
   // Assert
-  expect(mocks.searchItemProps).toHaveBeenCalledWith('#npn', 'itemNo')
-  expect(data.props).toEqual({ rows: [{ itemNo: '4951' }], omitted: 2 })
+  expect(mocks.searchItemProps).toHaveBeenCalledWith('#npn', 'registered')
+  expect(data.props).toEqual({ rows: [{ itemId: '00000000-0000-7000-8000-000000004951' }], omitted: 2 })
 })
 
 test('チェック状態で絞っているときだけ進捗を数える', async () => {
@@ -122,8 +122,8 @@ test('0 件でタグにできる語なら採番して新規登録のリンクを
   const data = await load({ query: '4901234567894' })
 
   // Assert
-  expect(mocks.nextItemNo).toHaveBeenCalledOnce()
-  expect(data.registerHref).toBe('/edit/5000?code=4901234567894')
+  expect(mocks.newItemId).toHaveBeenCalledOnce()
+  expect(data.registerHref).toBe('/edit/00000000-0000-7000-8000-000000005000?code=4901234567894')
 })
 
 test('ヒットした検索では採番しない', async () => {
@@ -131,7 +131,7 @@ test('ヒットした検索では採番しない', async () => {
   const data = await load({ query: '4901234567894' })
 
   // Assert
-  expect(mocks.nextItemNo).not.toHaveBeenCalled()
+  expect(mocks.newItemId).not.toHaveBeenCalled()
   expect(data.registerHref).toBeNull()
 })
 
@@ -179,7 +179,7 @@ test('数式はカードだけプレビューまで作り、特性表の要約�
   // Assert
   expect(mocks.buildMathTexts).toHaveBeenNthCalledWith(1, ITEMS, 'both')
   expect(mocks.buildMathTexts).toHaveBeenNthCalledWith(2, ITEMS, 'title')
-  expect(mocks.buildMathSummaries).toHaveBeenNthCalledWith(1, [{ itemNo: '4951' }], MATH)
+  expect(mocks.buildMathSummaries).toHaveBeenNthCalledWith(1, [{ itemId: '00000000-0000-7000-8000-000000004951' }], MATH)
   expect(card.mathTexts).toBe(MATH)
   expect(card.mathSummaries).toBe(SUMMARIES)
 })

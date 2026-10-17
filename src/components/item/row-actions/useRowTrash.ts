@@ -20,11 +20,11 @@ export type RowTrashAction = NoteAction;
 // 戻り先 (q/page/sort) も一緒に載る。手で組むと載せ忘れても型では
 // 捕まらないので、組み立ては lib の 1 本に寄せてある
 export function sendTrash(
-  itemNo: string,
+  itemId: string,
   trashAction: RowTrashAction,
   searchState: RowSearchState,
 ): Promise<boolean> {
-  return sendNoteAction(trashAction, buildTrashFormData(itemNo, searchState));
+  return sendNoteAction(trashAction, buildTrashFormData(itemId, searchState));
 }
 
 // 1 行ぶんのゴミ箱行き (docs/43 §6、docs/66 §3)。スワイプの「削除」・
@@ -36,7 +36,7 @@ export function sendTrash(
 //              ように見せない)。成功時は revalidate で行ごと消えるまで畳んだまま
 //   failed   … 本物の失敗。畳みを戻して行内にエラーを出す
 export function useRowTrash(
-  itemNo: string,
+  itemId: string,
   trashAction: RowTrashAction,
   searchState: RowSearchState,
 ) {
@@ -51,7 +51,7 @@ export function useRowTrash(
     setRemoving(true);
     startTransition(async () => {
       // 成功時は revalidate で一覧からこの行ごと消えるので、畳んだまま待つ。
-      if (await sendTrash(itemNo, trashAction, searchState)) {
+      if (await sendTrash(itemId, trashAction, searchState)) {
         return;
       }
       // 本物の失敗は畳みを戻してエラーを見せる (静かに握りつぶさない)。

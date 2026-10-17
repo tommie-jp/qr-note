@@ -1,5 +1,6 @@
 "use client";
 
+import { noteName } from "@/lib/items/noteName";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -11,7 +12,7 @@ import type { Item } from "@/generated/prisma/client";
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
 import type { NotePreviewMap } from "./NotePreviewThumb";
-import { buildItemUrl, itemNoFromPathname } from "@/lib/search/url";
+import { buildItemUrl, itemIdFromPathname } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { BulkTagToolbar } from "../search/BulkTagToolbar";
@@ -47,14 +48,14 @@ interface ItemListProps {
   registerHref: string | null;
   // 同じ検索条件でゴミ箱に当たった件数 (0 件検索のときだけサーバが数える)
   trashedMatches: number;
-  // itemNo → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §5)。
+  // itemId → 描画済み回路図の SVG (docs/68-一覧回路図サムネ計画.md §5)。
   // page.tsx (サーバ) が loadCircuitThumbs で引いて降ろす。小/大は先頭 1 枚を
   // 行のサムネに、画像モードは全部をタイルに使う
   circuitThumbs?: CircuitThumbMap;
-  // itemNo → 数式入りタイトル/プレビューの KaTeX 済み HTML
+  // itemId → 数式入りタイトル/プレビューの KaTeX 済み HTML
   // (docs/69-一覧数式計画.md)。page.tsx (サーバ) が buildMathTexts で作って降ろす
   mathTexts?: MathTextMap;
-  // itemNo → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
+  // itemId → ノート全体の縮小プレビュー (docs/71-一覧ノートプレビュー計画.md)。
   // page.tsx (サーバ) が buildNotePreviews で描いて降ろす。画像も回路図も
   // 無いノートの顔になる (優先順位は lib/items/itemRowDecor.ts の rowFace が持つ)
   notePreviews?: NotePreviewMap;
@@ -136,15 +137,15 @@ export function ItemList({
 
   // スワイプで開いている行 (docs/43-スワイプ削除計画.md)。開くのは常に 1 行
   // だけにするため、ここで一元管理する。小表示・非選択のときだけ効く。
-  const [openItemNo, setOpenItemNo] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
 
   // ノートのペイン (docs/86 §4) に出ている番号。ペイン自身が context へ
   // 流したものを見る (docs/86 §4-4) — 3 ペインでは URL が /item から
   // 離れてもノートが出たままなので、pathname だけでは決まらない。
   // provider の外 (ペインのない画面) では pathname に落とす
   const pathname = usePathname();
-  const { shownItemNo } = usePaneMode();
-  const previewItemNo = shownItemNo ?? itemNoFromPathname(pathname);
+  const { shownItemId } = usePaneMode();
+  const previewItemId = shownItemId ?? itemIdFromPathname(pathname);
 
   // 選択モードを抜けたら選択を捨てる。バーから抜けることもあるので、
   // 抜ける操作それぞれに後始末を配らず、モードの変化 1 か所で受ける
@@ -156,13 +157,13 @@ export function ItemList({
     }
   }
 
-  const toggle = (itemNo: string) =>
+  const toggle = (itemId: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(itemNo)) {
-        next.delete(itemNo);
+      if (next.has(itemId)) {
+        next.delete(itemId);
       } else {
-        next.add(itemNo);
+        next.add(itemId);
       }
       return next;
     });
@@ -190,7 +191,7 @@ export function ItemList({
   // ノートへのリンクに検索状態を載せる (docs/60-学習進捗計画.md §4)。
   // 開いた先で「一覧の前後」を辿れるようにするため。検索していないときは
   // buildItemUrl が素の /item/<番号> に畳むので、今までと同じ URL になる
-  const itemHref = (itemNo: string) => buildItemUrl(itemNo, query, sort);
+  const itemHref = (itemId: string) => buildItemUrl(itemId, query, sort);
 
   // 1 件を削除した後に戻る先。**戻り先を持ち回さないと素の / へ飛ばされる** —
   // trashItemsAction は最後に redirect(parseBackUrl(formData)) を呼ぶので、
@@ -223,7 +224,7 @@ export function ItemList({
           itemHref={itemHref}
           circuitThumbs={circuitThumbs}
           mathTexts={mathTexts}
-          previewItemNo={previewItemNo}
+          previewItemId={previewItemId}
           tileActions
         />
       </SearchTileMenuProvider>
@@ -238,23 +239,23 @@ export function ItemList({
       <ul className={listClass}>
         {items.map((item) => (
           <ItemRow
-            key={item.itemNo}
+            key={item.itemId}
             item={item}
-            href={itemHref(item.itemNo)}
+            href={itemHref(item.itemId)}
             view={rowView}
-            circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
-            mathTitle={mathTexts?.[item.itemNo]?.title}
-            mathPreview={mathTexts?.[item.itemNo]?.preview}
-            notePreview={notePreviews?.[item.itemNo]}
-            selected={item.itemNo === previewItemNo}
+            circuitThumb={circuitThumbs?.[item.itemId]?.[0]}
+            mathTitle={mathTexts?.[item.itemId]?.title}
+            mathPreview={mathTexts?.[item.itemId]?.preview}
+            notePreview={notePreviews?.[item.itemId]}
+            selected={item.itemId === previewItemId}
             swipe={
               swipeEnabled
                 ? {
                     trashAction,
                     searchState,
-                    isOpen: openItemNo === item.itemNo,
+                    isOpen: openItemId === item.itemId,
                     onOpenChange: (open) =>
-                      setOpenItemNo(open ? item.itemNo : null),
+                      setOpenItemId(open ? item.itemId : null),
                   }
                 : undefined
             }
@@ -275,30 +276,30 @@ export function ItemList({
         selected={selected}
         trashAction={trashAction}
         pinAction={pinAction}
-        onSelectAll={() => setSelected(new Set(items.map((i) => i.itemNo)))}
+        onSelectAll={() => setSelected(new Set(items.map((i) => i.itemId)))}
         onClear={() => setSelected(new Set())}
         onCancel={exit}
       />
       <ul className={listClass}>
         {items.map((item) => (
           <ItemRow
-            key={item.itemNo}
+            key={item.itemId}
             item={item}
-            href={itemHref(item.itemNo)}
+            href={itemHref(item.itemId)}
             view={rowView}
-            circuitThumb={circuitThumbs?.[item.itemNo]?.[0]}
-            mathTitle={mathTexts?.[item.itemNo]?.title}
-            mathPreview={mathTexts?.[item.itemNo]?.preview}
-            notePreview={notePreviews?.[item.itemNo]}
-            selected={item.itemNo === previewItemNo}
+            circuitThumb={circuitThumbs?.[item.itemId]?.[0]}
+            mathTitle={mathTexts?.[item.itemId]?.title}
+            mathPreview={mathTexts?.[item.itemId]?.preview}
+            notePreview={notePreviews?.[item.itemId]}
+            selected={item.itemId === previewItemId}
             checkbox={
               <input
                 type="checkbox"
-                name="itemNo"
-                value={item.itemNo}
-                checked={selected.has(item.itemNo)}
-                onChange={() => toggle(item.itemNo)}
-                aria-label={`#${item.itemNo} を選択`}
+                name="itemId"
+                value={item.itemId}
+                checked={selected.has(item.itemId)}
+                onChange={() => toggle(item.itemId)}
+                aria-label={`${noteName(item)}を選択`}
                 className="size-4 shrink-0 self-center"
               />
             }

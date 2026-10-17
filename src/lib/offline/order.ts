@@ -26,7 +26,7 @@ function compareText(a: string, b: string): number {
 }
 
 // null を**向きに関わらず末尾**へ回す (SQL の NULLS LAST と同じ)。
-// 逆順にしたとたん、番号として読めない itemNo や見出しの無いノートが先頭を
+// 逆順にしたとたん、見出しの無いノートが先頭を
 // 埋めるのでは、逆順にした意味 (端から辿る) が消える (prefs/sortOrder.ts と同じ判断)
 function compareNullsLast<T>(
   a: T | null,
@@ -49,15 +49,17 @@ function titleKey(item: OfflineItem): string | null {
   return key === '' ? null : key
 }
 
-// 並び順ごとの比較。**同着は必ず itemNo で決着させる** (下の tiebreak)。
+// 並び順ごとの比較。**同着は必ず itemId で決着させる** (下の tiebreak)。
 // 揺れると、開き直すたびに一覧の順が変わって読み込みのたびに位置がずれる
 // (docs/15 §2-2)
 function primaryComparator(sort: Sort): (a: OfflineItem, b: OfflineItem) => number {
   switch (sort) {
-    case 'itemNo':
-      return (a, b) => compareNullsLast(a.itemNoNum, b.itemNoNum, 1, (x, y) => x - y)
-    case 'itemNoDesc':
-      return (a, b) => compareNullsLast(a.itemNoNum, b.itemNoNum, -1, (x, y) => x - y)
+    // id は UUID v7 (先頭が時刻) で、小文字の 16 進なので辞書順 = 作った順
+    // (prefs/sortOrder.ts の `id ASC` と同じ並び。docs/107 §4-6)
+    case 'registered':
+      return (a, b) => compareText(a.itemId, b.itemId)
+    case 'registeredDesc':
+      return (a, b) => compareText(b.itemId, a.itemId)
     case 'accessed':
       // 見ていないノートが同着になったときは更新順で解く
       return (a, b) =>
@@ -83,6 +85,6 @@ export function sortOfflineItems(
 ): OfflineItem[] {
   const primary = primaryComparator(sort)
   return [...items].sort(
-    (a, b) => primary(a, b) || compareText(a.itemNo, b.itemNo),
+    (a, b) => primary(a, b) || compareText(a.itemId, b.itemId),
   )
 }

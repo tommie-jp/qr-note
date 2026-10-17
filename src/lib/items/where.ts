@@ -12,11 +12,11 @@ import { parseSearchExpr } from '@/lib/search/parse'
 import { stripTaskTerms } from '@/lib/search/rewrite'
 import type { SearchExpr, SearchTerm } from '@/lib/search/types'
 import { orderByClause } from '@/lib/prefs/sortOrder'
-import { escapeLike, type TrashSort } from '@/lib/validation'
+import type { TrashSort } from '@/lib/validation'
 
 // 検索語 1 語ぶんの WHERE 条件を組み立てる。
 // text: memo / url は PGroonga の全文一致 (&@, 日本語バイグラム・全半角/大小の
-//   正規化つき)、itemNo は前方一致 (ILIKE, 旧データの英字入り itemNo に備え大小無視)。
+//   正規化つき)、itemId は前方一致 (ILIKE, 旧データの英字入り itemId に備え大小無視)。
 // tag: items.tags 配列の完全一致 (@>, GIN インデックスが効く)。
 //   タグ名は search/tokenize.ts が正規化済み (NFKC + 小文字化)。
 // 語種ごとに必ず case を書く (exprCondition と同じ網羅 switch)。
@@ -36,10 +36,11 @@ export function termCondition(term: SearchTerm): Prisma.Sql {
     // 配列なので cardinality だけで判定できる (NULL の三値論理は出ない)
     case 'untagged':
       return Prisma.sql`cardinality(tags) = 0`
-    case 'text': {
-      const likePrefix = `${escapeLike(term.value)}%`
-      return Prisma.sql`(memo &@ ${term.value} OR url &@ ${term.value} OR item_no ILIKE ${likePrefix})`
-    }
+    // 旧番号の前方一致 (item_no ILIKE 語%) は列ごと無くなった。旧番号は本文の
+    // タグ `#1003` になったので、全文検索 (PGroonga の bigram) にもタグ検索にも
+    // そのまま当たる (docs/107 §4-5)
+    case 'text':
+      return Prisma.sql`(memo &@ ${term.value} OR url &@ ${term.value})`
   }
 }
 
@@ -132,12 +133,12 @@ export function buildProgressWhere(query: string): Prisma.Sql {
 // 一覧の前後ナビの WHERE 句。検索条件に「今のノート自身」を OR で足す
 // (理由は read.ts の findListNeighbors のコメント)。空クエリなら全件が
 // 対象なので足さない
-export function buildNeighborsWhere(query: string, itemNo: string): Prisma.Sql {
+export function buildNeighborsWhere(query: string, itemId: string): Prisma.Sql {
   const condition = buildQueryCondition(query)
   const scope =
     condition === null
       ? null
-      : Prisma.sql`${condition} OR item_no = ${itemNo}`
+      : Prisma.sql`${condition} OR id = ${itemId}::uuid`
   return buildWhereFrom([NOT_TRASHED, scope])
 }
 
@@ -146,8 +147,7 @@ export function buildNeighborsWhere(query: string, itemNo: string): Prisma.Sql {
 // 返すので、列の並びを 2 か所に書かない — 片方にだけ列を足すと、そちらでしか
 // 使えない Item が生まれる。
 export const ITEM_COLUMNS = Prisma.sql`
-  item_no     AS "itemNo",
-  item_no_num AS "itemNoNum",
+  id::text    AS "itemId",
   memo,
   url,
   mode,
