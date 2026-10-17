@@ -17,6 +17,7 @@ import {
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
+import { ScanBeepMenuItem } from "@/components/bottombar/ScanBeepMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { isAdminUser } from "@/lib/auth/admin";
@@ -72,6 +73,11 @@ export function AppHeaderMenu({
           ログイン状態やデモに依らず出す — 読みやすさの設定であって、
           ノートを持っているかとは関係がない (公開ノートにも効く) */}
       <TextSizeMenuItem />
+      {/* QR・バーコードを読めたときの音の大きさ (docs/112-スキャン音量計画.md)。
+          テキストサイズと同じく端末に覚える好みで、保存先がサーバに無い。
+          選択色のように「保存する相手」を要らないので、ログイン状態・
+          デモに依らず出す */}
+      <ScanBeepMenuItem />
       {user ? (
         <>
           {/* デモでは設定系の導線を出さない (docs/38-デモモード計画.md §4)。

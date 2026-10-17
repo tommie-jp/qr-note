@@ -8,11 +8,17 @@ import {
   type IScannerHandle,
 } from "@yudiel/react-qr-scanner";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { scanBeepDataUri } from "@/lib/audio/scanBeepWav";
 import { SCANNER_ERROR_MESSAGES } from "@/lib/camera/cameraErrors";
 import { SCAN_FORMATS } from "@/lib/external/scanFormats";
 import { resolveScanPath } from "@/lib/external/scanResult";
+import { browserStorage } from "@/lib/prefs/storagePref";
+import {
+  loadScanBeepLevel,
+  scanBeepAmplitude,
+} from "@/lib/prefs/scanBeepVolume";
 import { cameraControlClass } from "./cameraControlButton";
 import { useEscapeKey } from "../modal/useEscapeKey";
 import { useScannerCamera } from "./useScannerCamera";
@@ -60,6 +66,13 @@ export function ScannerModal({
   // トーチ・ズームを直接効かせ、内外・近接は constraints で開き直す
   const scannerRef = useRef<IScannerHandle>(null);
   const cam = useScannerCamera(scannerRef);
+  // 読み取り音 (docs/112-スキャン音量計画.md)。ライブラリ内蔵のビープの
+  // 代わりに、メニューで選んだ段の振幅を焼き込んだ WAV を渡す。消音なら
+  // false で鳴らさない。開いている間にメニューは触れないので、開いた時点の
+  // 段を 1 度読めば足りる (購読しない)
+  const [beepLevel] = useState(() => loadScanBeepLevel(browserStorage()));
+  const sound =
+    beepLevel === "off" ? false : scanBeepDataUri(scanBeepAmplitude(beepLevel));
 
   useEscapeKey(onClose);
 
@@ -163,6 +176,7 @@ export function ScannerModal({
               formats={SCAN_FORMATS}
               onScan={handleScan}
               onError={handleError}
+              sound={sound}
               // 内外・近接は constraints の差で開き直す (useScannerCamera)。
               // トーチ・ズームはライブラリ内蔵オーバーレイを使わず、下部バーの
               // 自前ボタンから生きているトラックへ直接効かせる (録画バーと統一)。
