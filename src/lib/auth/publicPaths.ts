@@ -14,6 +14,7 @@ import { OFFLINE_PATH } from '../offline/params'
 import { FENCE_MAP_SCRIPT } from '../fenceGui/mapScript'
 import { isValidAttachmentName } from '../uploads/names'
 import { isLegacyItemNo, isValidItemId } from '../validation'
+import { SHORT_ITEM_PREFIX } from '../items/noteNumber'
 import { ABOUT_PATH, SECURITY_TXT_PATH, THIRD_PARTY_LICENSES_PATH } from '../projectLinks'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。
@@ -134,6 +135,11 @@ const IMAGE_PREFIX = '/api/images/'
 // 末尾は itemId (旧番号を含む) / 画像名の書式に**完全一致**すること。前方一致で
 // 通すと '/item/4518/edit' のような、別のページを指すパスまで素通しする
 export function isSelfGuardedPath(pathname: string): boolean {
+  // 短縮 URL (docs/111)。番号だけを受け、proxy が公開ノートだけで引き直す。
+  // id は載せない口なので UUID は通さない
+  if (pathname.startsWith(SHORT_ITEM_PREFIX)) {
+    return isLegacyItemNo(pathname.slice(SHORT_ITEM_PREFIX.length))
+  }
   const itemIdPrefix = ITEM_ID_PREFIXES.find((prefix) => pathname.startsWith(prefix))
   if (itemIdPrefix !== undefined) {
     // 旧番号 (/item/1003) も通す。印刷済みのシールを未ログインで読んだときに

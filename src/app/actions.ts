@@ -9,6 +9,7 @@
 //
 //   actions/items.ts   … 本文の保存・チェック・健康記録・開いた記録
 //   actions/publish.ts … 公開 (docs/22)
+//   actions/number.ts  … 番号を振る (docs/111)
 //   actions/offline.ts … オフラインの印 (docs/65)
 //   actions/trash.ts   … ゴミ箱 (docs/12)
 //   actions/tags.ts    … 一括タグ
@@ -26,6 +27,7 @@ export {
   updateMemoAction,
 } from './actions/items'
 export { setItemPublicAction } from './actions/publish'
+export { assignNoteNumberAction } from './actions/number'
 export { setItemOfflinePinAction, setItemsOfflinePinAction } from './actions/offline'
 export {
   emptyTrashAction,

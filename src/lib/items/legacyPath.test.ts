@@ -12,6 +12,8 @@ describe('parseLegacyItemPath', () => {
     ['/item/wb01-03-08', { prefix: '/item/', key: 'wb01-03-08', suffix: '' }],
     ['/item/1003/history', { prefix: '/item/', key: '1003', suffix: '/history' }],
     [`/item/1003/history/${OID}`, { prefix: '/item/', key: '1003', suffix: `/history/${OID}` }],
+    // 短縮 URL (docs/111) は /item/ の別名。着地は /item/<id>
+    ['/s/1234', { prefix: '/item/', key: '1234', suffix: '' }],
   ])('旧番号の URL %s を切り分ける', (pathname, expected) => {
     expect(parseLegacyItemPath(pathname)).toEqual(expected)
   })
@@ -25,6 +27,9 @@ describe('parseLegacyItemPath', () => {
     ['/item/a.b', '旧番号の形でない'],
     ['/item/', '空'],
     ['/trash', 'ノートの URL でない'],
+    ['/s/1234/history', '短縮 URL は続きを取らない'],
+    [`/s/${ID}`, '短縮 URL に id は載せない'],
+    ['/s/', '短縮 URL の空'],
   ])('%s は対象外 (%s)', (pathname) => {
     expect(parseLegacyItemPath(pathname)).toBeNull()
   })

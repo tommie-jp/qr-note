@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Item } from "@/generated/prisma/client";
 import {
+  assignNoteNumberAction,
   recordHealthAction,
   restoreItemsAction,
   setItemOfflinePinAction,
@@ -27,6 +28,7 @@ import { ImageFitScope } from "@/components/markdown/ImageFitScope";
 import { ImageFitToggle } from "@/components/markdown/ImageFitToggle";
 import { splitPages } from "@/components/notepage/notePages";
 import { OfflinePinToggle } from "@/components/item/OfflinePinToggle";
+import { NumberAssignButton } from "@/components/item/NumberAssignButton";
 import { PendingLink } from "@/components/chrome/PendingLink";
 import { PressTip } from "@/components/item/row-actions/PressTip";
 import { PublicToggle } from "@/components/item/PublicToggle";
@@ -35,6 +37,7 @@ import { TrashedBanner } from "@/components/trash/TrashedBanner";
 import { UnsavedGuard } from "@/components/editor/UnsavedGuard";
 import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
+import { hasNoteNumber } from "@/lib/items/noteNumber";
 import { planCircuits } from "@/lib/circuit/cache";
 import { buildHealthCharts } from "@/lib/health/healthData";
 import { buildMatrices } from "@/lib/matrix/matrixData";
@@ -154,6 +157,12 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
               履歴
             </Link>
           </PressTip>
+        )}
+        {/* 番号を振る (docs/111 §6)。QR の左 — 振ると QR が短くなる、の順に並べる。
+            番号の無いノートだけ。未登録のノートには振る本文が無く、デモは
+            種 DB が毎時戻るので出さない (アクション側でも断る) */}
+        {item && !hasNoteNumber(item.tags) && !isDemoMode() && (
+          <NumberAssignButton itemId={itemId} assignAction={assignNoteNumberAction} />
         )}
         {/* /print は loading.tsx を持たない force-dynamic なページなので、
             押してから画面が変わるまでの間はリンク側でスピナーを出す */}

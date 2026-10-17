@@ -8,6 +8,7 @@ import { isPublicItem } from "@/lib/auth/publicItem";
 import { currentUser } from "@/lib/auth/session";
 import { qrBaseUrl } from "@/lib/site";
 import { buildItemUrl } from "@/lib/validation";
+import { buildShortItemUrl, noteNumberOf } from "@/lib/items/noteNumber";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,15 @@ export default async function PrintPage({ params }: PrintPageProps) {
   // ないのでノートの見出しを出す (docs/107 §2-4)。旧番号はタグとして見出しに
   // 出ることがある (本文が画像だけのノート)。作成前の id でもシールは刷れる
   const label = item === null ? "" : item.title;
+  // 番号タグ (#1234) がちょうど 1 つなら短縮 URL を載せる (docs/111-短縮URL計画.md §5)。
+  // QR が 33x33 → 25x25 になり、番号はポストイットに写して手で打てる。
+  // 番号が無い・2 つ以上あるノートは今までどおり id の URL
+  const noteNumber = item === null ? null : noteNumberOf(item.tags);
 
-  const itemUrl = buildItemUrl(qrBaseUrl(), itemId);
+  const itemUrl =
+    noteNumber === null
+      ? buildItemUrl(qrBaseUrl(), itemId)
+      : buildShortItemUrl(qrBaseUrl(), noteNumber);
   const qrDataUrl = await QRCode.toDataURL(itemUrl, {
     margin: 1,
     width: 240,
@@ -57,12 +65,25 @@ export default async function PrintPage({ params }: PrintPageProps) {
       <div className="inline-block border border-gray-300 bg-white p-3 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qrDataUrl} alt={`QR: ${itemUrl}`} width={240} height={240} />
+        {/* 番号があれば番号が主。手で写すのは番号なので大きく、見出しは添える */}
+        {noteNumber !== null && (
+          <div className="mt-1 text-2xl font-bold tabular-nums">#{noteNumber}</div>
+        )}
         {label !== "" && (
-          <div className="mt-1 max-w-[240px] truncate text-lg font-bold">{label}</div>
+          <div
+            className={`mt-1 max-w-[240px] truncate ${noteNumber === null ? "text-lg font-bold" : "text-sm"}`}
+          >
+            {label}
+          </div>
         )}
       </div>
 
       <p className="break-all text-sm text-gray-500 print:hidden">{itemUrl}</p>
+      {noteNumber === null && item !== null && (
+        <p className="text-sm text-gray-500 print:hidden">
+          ノートの画面で「番号」を押すと、短い QR (/s/1234) になり、番号を手で打って開けます。
+        </p>
+      )}
 
       <PrintButton />
     </div>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/git/notesRepo";
 import { recordMeasurement } from "@/lib/health/healthEdit";
 import { getItem } from "@/lib/items/read";
+import { nextFreeNoteNumber } from "@/lib/items/noteNumber.server";
 import { modifyMemo, saveItemIfUnchanged, upsertMemo } from "@/lib/items/write";
 import {
   recordItemAccess,
@@ -26,6 +27,7 @@ import { addTagsToMemo, removeTagsFromMemo } from "@/lib/markdown/tags/edit";
 import { differsOnlyInTaskMarks } from "@/lib/markdown/taskCheckbox";
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
 import {
+  assignNoteNumberAction,
   backfillHistoryAction,
   bulkTagAction,
   commitNoteAction,
@@ -107,6 +109,9 @@ vi.mock("@/lib/appEnv", async (importOriginal) => ({
 }));
 vi.mock("@/lib/items/read", () => ({
   getItem: vi.fn(),
+}));
+vi.mock("@/lib/items/noteNumber.server", () => ({
+  nextFreeNoteNumber: vi.fn(),
 }));
 vi.mock("@/lib/items/write", () => ({
   modifyMemo: vi.fn(),
@@ -683,6 +688,92 @@ describe("setItemPublicAction", () => {
     await expect(setItemPublicAction(form({ itemId: "../1" }))).rejects.toThrow(
       "デモモードでは公開機能は使えません",
     );
+  });
+});
+
+describe("assignNoteNumberAction (docs/111)", () => {
+  const ID = "00000000-0000-7000-8000-000000000001";
+
+  // modifyMemo は本物の代わりに、渡された書き換えを本文に当てた結果を返す
+  function applyTransformTo(memo: string): { written: () => string | null } {
+    let written: string | null = null;
+    vi.mocked(modifyMemo).mockImplementation(async (_id, transform) => {
+      const next = await transform(memo);
+      written = next;
+      return next === memo ? "unchanged" : "saved";
+    });
+    return { written: () => written };
+  }
+
+  test("番号の無いノートに空き番号のタグを足し、ノートと一覧を再検証する", async () => {
+    vi.mocked(getItem).mockResolvedValue(item({ memo: "抵抗 10k", tags: [] }));
+    vi.mocked(nextFreeNoteNumber).mockResolvedValue("1471");
+    const run = applyTransformTo("抵抗 10k");
+
+    await assignNoteNumberAction(form({ itemId: ID }));
+
+    expect(run.written()).toBe("抵抗 10k\n#1471");
+    expect(revalidated()).toEqual([`/item/${ID}`, "/", "/trash"]);
+  });
+
+  test("番号が 2 つあっても 3 つ目は足さない", async () => {
+    vi.mocked(getItem).mockResolvedValue(item({ tags: ["1003", "2026"] }));
+
+    await assignNoteNumberAction(form({ itemId: ID }));
+
+    expect(modifyMemo).not.toHaveBeenCalled();
+  });
+
+  test("番号が既にあれば何も書かない", async () => {
+    vi.mocked(getItem).mockResolvedValue(item({ memo: "#1003", tags: ["1003"] }));
+
+    await assignNoteNumberAction(form({ itemId: ID }));
+
+    expect(nextFreeNoteNumber).not.toHaveBeenCalled();
+    expect(modifyMemo).not.toHaveBeenCalled();
+  });
+
+  test("読んでから書くまでに番号が付いていれば、二重に足さない", async () => {
+    vi.mocked(getItem).mockResolvedValue(item({ memo: "本文", tags: [] }));
+    vi.mocked(nextFreeNoteNumber).mockResolvedValue("1471");
+    // 別の端末が先に #1500 を振った本文に当たる
+    const run = applyTransformTo("本文\n#1500");
+
+    await assignNoteNumberAction(form({ itemId: ID }));
+
+    expect(run.written()).toBe("本文\n#1500");
+  });
+
+  test("空き番号が尽きていれば断る", async () => {
+    vi.mocked(getItem).mockResolvedValue(item({ tags: [] }));
+    vi.mocked(nextFreeNoteNumber).mockResolvedValue(null);
+
+    await expect(assignNoteNumberAction(form({ itemId: ID }))).rejects.toThrow(
+      "空き番号がありません (1000〜9999)",
+    );
+    expect(modifyMemo).not.toHaveBeenCalled();
+  });
+
+  test("ノートが無ければ断る", async () => {
+    vi.mocked(getItem).mockResolvedValue(null);
+
+    await expect(assignNoteNumberAction(form({ itemId: ID }))).rejects.toThrow(
+      "ノートが見つかりません",
+    );
+  });
+
+  test("ログインの検査がデモ拒否より先、デモ拒否が itemId の検めより先", async () => {
+    mocks.user = null;
+    mocks.demo = true;
+    await expect(assignNoteNumberAction(form({ itemId: "../1" }))).rejects.toThrow(
+      "ログインが必要です",
+    );
+
+    mocks.user = "tommie";
+    await expect(assignNoteNumberAction(form({ itemId: "../1" }))).rejects.toThrow(
+      "デモモードでは番号は振れません",
+    );
+    expect(modifyMemo).not.toHaveBeenCalled();
   });
 });
 

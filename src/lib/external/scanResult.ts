@@ -1,5 +1,6 @@
 import { buildSearchUrl } from '../search/url'
 import { isLegacyItemNo, isValidItemId } from '../validation'
+import { SHORT_ITEM_PREFIX } from '../items/noteNumber'
 
 // 読み取ったコードの遷移先を決める (設計は docs/09-スキャン計画.md §3)。
 //
@@ -47,16 +48,18 @@ function itemIdFromUrl(value: string, itemHosts: string[]): string | null {
     return null
   }
 
-  const match = /^\/item\/([^/]+)\/?$/.exec(url.pathname)
+  // /item/<id または旧番号> と、短縮 URL /s/<番号> (docs/111-短縮URL計画.md)
+  const match = /^\/(item|s)\/([^/]+)\/?$/.exec(url.pathname)
   if (!match) {
     return null
   }
+  const isShort = `/${match[1]}/` === SHORT_ITEM_PREFIX
 
   // path をそのまま使わず、検証済みの itemId から組み立て直す (呼び出し側)。
   // 読み取った文字列は他人が作った QR かもしれず、遷移先を仕込ませない
   let itemId: string
   try {
-    itemId = decodeURIComponent(match[1])
+    itemId = decodeURIComponent(match[2])
   } catch {
     // 壊れた %シーケンス (例 /item/%E0%A4%A) は decodeURIComponent が
     // URIError を投げる。URL のパースは通ってしまうのでここで受ける。
@@ -64,6 +67,10 @@ function itemIdFromUrl(value: string, itemHosts: string[]): string | null {
     return null
   }
   // 印刷済みのシールは旧番号 (/item/1003)。番号のまま /item へ送り、ページ側
-  // (pageGuard・@detail) がタグ #1003 で引き直す (docs/107 §3-2)
+  // (pageGuard・@detail) がタグ #1003 で引き直す (docs/107 §3-2)。
+  // 短縮 URL も同じく /item/<番号> へ送る。短縮 URL に id は載せない
+  if (isShort) {
+    return isLegacyItemNo(itemId) ? itemId : null
+  }
   return isValidItemId(itemId) || isLegacyItemNo(itemId) ? itemId : null
 }

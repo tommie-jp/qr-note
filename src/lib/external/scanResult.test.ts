@@ -37,6 +37,17 @@ test('末尾スラッシュ付きでも部品ページへ飛ばす', () => {
   expect(resolveScanPath('https://qr.tommie.jp/item/1003/', [HOST])).toBe('/item/1003')
 })
 
+test('短縮 URL のシールは /item/<番号> へ送る (docs/111)', () => {
+  expect(resolveScanPath('https://qr.tommie.jp/s/1234', [HOST])).toBe('/item/1234')
+})
+
+test('短縮 URL に id を載せた QR は検索に落とす', () => {
+  const id = '01a14854-8d04-732d-8712-f52debf9e66a'
+  expect(resolveScanPath(`https://qr.tommie.jp/s/${id}`, [HOST])).toBe(
+    `/?q=${encodeURIComponent(`https://qr.tommie.jp/s/${id}`)}`,
+  )
+})
+
 test('外部サイトの URL は開かずに検索に落とす', () => {
   // カメラにたまたま写った QR で外部へ飛ばされないようにする
   expect(resolveScanPath('https://example.com/evil', [HOST])).toBe(

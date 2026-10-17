@@ -5,7 +5,8 @@
 // 色は**アイコン側**が持つ (メニューと同じ流儀)。押下で反転しないうえ、
 // 4 つの操作リンクを「絵の形より先に色で拾い分ける」ためのものなので、
 // 行の中で色が重ならないことがこの一群の要件になる:
-//   編集 emerald / 履歴 orange / QR sky / ページ indigo / 画像 amber / 記法 purple
+//   編集 emerald / 履歴 orange / 番号 rose / QR sky / ページ indigo / 画像 amber /
+//   記法 purple
 //
 // 状態を出すトグル (公開・オフライン) だけは逆で、色を持たない — ボタンの
 // 地色ごと状態で変わるので、色は使う側 (STATE_TOGGLE_CLASS の colorClass) が
@@ -214,6 +215,17 @@ export function PinIcon({ pinned }: { pinned: boolean }) {
     >
       <path {...(pinned ? TINT : {})} d="M9 3h6l-1 5 3 3v2H7v-2l3-3z" />
       <path d="M12 13v8" />
+    </StrokeIcon>
+  );
+}
+
+// 番号を振る (docs/111-短縮URL計画.md §6): 番号タグの「#」。タグの記号そのもので、
+// 振った結果が本文の #1234 になることを絵で言う
+export function NumberIcon() {
+  return (
+    <StrokeIcon className="text-rose-600">
+      <rect {...TINT} x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M10 6.5 8.5 17.5M15.5 6.5 14 17.5M7 10h10.5M6.5 14H17" />
     </StrokeIcon>
   );
 }

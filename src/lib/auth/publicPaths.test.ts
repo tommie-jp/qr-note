@@ -131,6 +131,8 @@ describe('isSelfGuardedPath', () => {
     '/item/ABC123',
     '/item/100x', // Ver1 由来の非数字 itemId
     '/print/4518',
+    // 短縮 URL (docs/111)。公開ノートのシールを未ログインで読む
+    '/s/1234',
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.png',
     // 音声も公開ノートで再生できるよう素通しする (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.mp3',
@@ -191,6 +193,10 @@ describe('isSelfGuardedPath', () => {
     expect(isSelfGuardedPath('/item/4518/edit')).toBe(false)
     expect(isSelfGuardedPath('/item/4518/../../trash')).toBe(false)
     expect(isSelfGuardedPath('/printer/4518')).toBe(false)
+    // 短縮 URL は番号だけ。id を載せる口にはしない (docs/111 §4-1)
+    expect(isSelfGuardedPath('/s/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f')).toBe(false)
+    expect(isSelfGuardedPath('/s/')).toBe(false)
+    expect(isSelfGuardedPath('/s/1234/x')).toBe(false)
     expect(isSelfGuardedPath('/api/imagesx/a.png')).toBe(false)
   })
 

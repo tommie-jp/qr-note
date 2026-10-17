@@ -325,6 +325,27 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
     )
   })
 
+  test('短縮 URL /s/<番号> は /item/<id> へ 308 (docs/111)', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'legacy', itemId: ID })
+
+    const res = await proxy(loggedIn('/s/1234'))
+
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location')).toBe(`https://qr.tommie.jp/item/${ID}`)
+    expect(resolveItemKey).toHaveBeenCalledWith('1234', { publicOnly: false })
+  })
+
+  test('未ログインの短縮 URL は公開ノートだけで引き、決まらなければ検索へ', async () => {
+    vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=1234' })
+
+    const res = await proxy(pageRequest('/s/1234'))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toBe('https://qr.tommie.jp/?q=1234')
+    expect(resolveItemKey).toHaveBeenCalledWith('1234', { publicOnly: true })
+  })
+
   test('id の URL と、GET 以外では引かない', async () => {
     vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
 
