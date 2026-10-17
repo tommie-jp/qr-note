@@ -5,7 +5,7 @@ import { PropsTable } from "./PropsTable";
 
 const rows: ItemPropsRow[] = [
   {
-    itemId: "4951",
+    itemId: "0199f3a0-0000-7000-8000-000000004951",
     summary: "2SC2712-Y",
     props: [
       { key: "hfe", label: "hFE", value: "208" },
@@ -13,7 +13,7 @@ const rows: ItemPropsRow[] = [
     ],
   },
   {
-    itemId: "4924",
+    itemId: "0199f3a0-0000-7000-8000-000000004924",
     summary: "2SC1815",
     props: [
       { key: "hfe", label: "hFE", value: "440" },
@@ -41,8 +41,16 @@ describe("PropsTable", () => {
 
   test("links each row to its item page", () => {
     const out = html();
-    expect(out).toContain('href="/item/4951"');
-    expect(out).toContain('href="/item/4924"');
+    expect(out).toContain('href="/item/0199f3a0-0000-7000-8000-000000004951"');
+    expect(out).toContain('href="/item/0199f3a0-0000-7000-8000-000000004924"');
+  });
+
+  // 主キーは UUID v7 (docs/107)。番号だった頃の「#4951」の名残で id を
+  // 本文に出すと、36 文字の UUID が部品列を埋めて名前が読めなくなる。
+  // 行を指す手段はリンク先 (href) だけでよい
+  test("does not print the item id as text", () => {
+    const out = html();
+    expect(out).not.toContain("#0199f3a0-0000-7000-8000-000000004951");
   });
 
   test("shows the memo summary as the device name", () => {

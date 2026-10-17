@@ -98,12 +98,14 @@ export function PropsTable({
                 {/* 部品名は長くなりがちなので幅を抑えて省略する。抑えないと
                     横スクロールの表で hFE などの列が画面外へ押し出され、
                     「並べて比べる」という表の目的が崩れる (特にスマホ)。 */}
+                {/* 行頭に id は出さない。主キーが UUID v7 になり (docs/107)、
+                    番号だった頃の「#4951」を続けると 36 文字が名前を押し出す。
+                    一覧と学習状況の表 (MatrixTable) も同じコミットで外している */}
                 <Link
                   href={buildItemUrl(row.itemId, query, sort)}
-                  className="flex max-w-56 items-baseline gap-2"
+                  className="flex max-w-56 items-baseline"
                   title={row.summary}
                 >
-                  <span className="shrink-0 font-mono font-bold">#{row.itemId}</span>
                   {/* ツールチップ (title 属性) は上でプレーンテキストのまま。
                       属性に HTML は入らないので、数式は表示側だけ KaTeX にする */}
                   <span className="min-w-0 truncate text-gray-600">
