@@ -4,6 +4,34 @@ X (Twitter) に URL を貼ったとき、サムネ付きのカードを出す。
 デモ (qr-demo.tommie.jp) を X で紹介する予定があり、裸の URL では
 「何のリンクか」が伝わらないため。
 
+## 0. 現状 (2026-10-18)
+
+実装済み・本番とデモで稼働。カードはサイト単位の 1 種類 (静的 PNG と root の
+metadata) で、ノート別のカードは作っていない (§7)。
+
+| 項目 | 今 |
+| --- | --- |
+| 状態 | 実装済み・本番稼働 (v0.22.93〜) |
+| 計画から変わった点 | 下の 3 点 |
+| 関連 | docs/90 (クローラ対策)・docs/39 (デモ公開) |
+
+計画から変わった点:
+
+- metadata の組み立ては `layout.tsx` から `src/app/metadata.ts` へ分けた
+- 本番の robots.txt は AI 学習用のクローラーだけ断る形になった (docs/90 §3。§5)
+- サイトの根 `/` には noindex を付けない (docs/90 §2。§6)
+
+主なコード:
+
+- `src/app/opengraph-image.png`・`opengraph-image.alt.txt` — カードの絵
+- `src/app/metadata.ts` — `generateMetadata` (`layout.tsx` が re-export する)
+- `src/lib/site.ts` — `siteBaseUrl` / `siteTitle`
+- `src/app/robots.ts` — robots.txt
+- `src/lib/auth/publicPaths.ts` — `CRAWLER_PATHS`
+
+関連: [90-クローラ対策計画.md](./90-クローラ対策計画.md)・
+[39-デモ公開計画.md](./39-デモ公開計画.md)
+
 ## 1. 方針
 
 | § | 変更対象 | 守るもの / 得るもの |
@@ -16,6 +44,8 @@ X (Twitter) に URL を貼ったとき、サムネ付きのカードを出す。
 表のパスは当時のパス。現在は次のとおり。
 
 - `src/lib/publicPaths.ts` → `src/lib/auth/publicPaths.ts`
+- `layout.tsx` の generateMetadata → `src/app/metadata.ts`
+  (`layout.tsx` は re-export だけ)
 
 本番とデモは**同一イメージ**なので、アプリ側の変更は 1 回で両方に効く。
 
@@ -80,7 +110,8 @@ dev で `og:image` が localhost なのは正常で、絶対 URL の確認は本
 **閉じたままだと症状が分かりにくい。** メタタグは出るのに画像の取得だけが
 案内 HTML に化けるので、カードは「出るが画像が無い」形になり、原因が見えない。
 
-判定は pathname だけを見る (proxy.ts が `request.nextUrl.pathname` を渡す) ので、
+判定は pathname だけを見る (`src/lib/auth/proxyDecision.ts` が
+`request.nextUrl.pathname` を `isPublicPath()` に渡す) ので、
 `?<contenthash>` が付いていても完全一致でよい。
 
 ## 5. robots — デモはカード生成クローラーだけ通す
@@ -115,6 +146,11 @@ X に貼ると被リンクができるので、Google が「URL だけ」を検�
 あり得る (crawl は禁止なので説明文なし)。guest の中身は crawl されないままなので、
 元の懸念は守られる。
 
+本番 (デモでない) の robots.txt は別の形で、`*` は allow のまま AI 学習用の
+クローラー (GPTBot・ClaudeBot など) だけを disallow にしている
+(docs/90 §3。`src/app/robots.ts` の `AI_TRAINING_CRAWLERS`)。カード生成の
+クローラーはそこに含めていないので、本番のカードもこの形で立つ。
+
 ## 6. 検証
 
 1. ローカル (dev): og/twitter タグが出る・og:title が案内ページの title に
@@ -135,9 +171,14 @@ X に貼ると被リンクができるので、Google が「URL だけ」を検�
 **X はカードを数日キャッシュする。** 画像を後から差し替えても反映が遅れるので、
 全部揃ってから初投稿する。
 
+**サイトの根 `/` に noindex を付けないこと。** 未ログインの画面は案内ページへ
+rewrite され、案内には noindex を付けている (docs/90 §2) が、根だけは外してある
+(`src/lib/auth/proxyDecision.ts` の `SITE_ROOT`)。根はカード生成のクローラーが
+読む場所で、noindex を見たクローラーはカードを出さないことがある。
+
 ## 7. やらないこと
 
-- 公開ノート (`/item/<no>`) のノート別 og:title / サムネ。
+- 公開ノート (`/item/<id>`) のノート別 og:title / サムネ。
   需要が出たら別途 (self-guarded な口なので画像の扱いに一考が要る)
 - デモ専用の description 差し替え。分岐が増える割に効果が薄い。
   カードの見出しは `siteTitle()` 経由で「[DEMO] QR Note」になるので、

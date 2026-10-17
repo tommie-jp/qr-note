@@ -9,6 +9,26 @@
 13 で決めた設計判断 (本文へコピーする理由・失敗時の扱い・
 打ち始めたら書き換えない) はそのまま踏襲し、ここでは差分だけを書く。
 
+## 0. 現状 (2026-10-18)
+
+実装済み・本番稼働 (v0.9.9〜)。Yahoo!ショッピング 1 本で引く形は計画どおりで、
+楽天のフォールバックは今も見送り。書籍と共用の部品は、その後のリファクタリングで
+さらに 1 本に寄せた (取得は `prefillSummary.ts`、API の骨格は `route/lookup.ts`)。
+
+| 項目 | 今 |
+| --- | --- |
+| 状態 | 実装済み・本番稼働 (v0.9.9〜)。デモでは取得しない (§4) |
+| 主なコード | 下の一覧 |
+| 計画から変わった点 | 編集中スキャンでも商品情報を挿入できる (§4)。ほかは無し |
+| 関連 | docs/13 (書誌)・docs/39 §5 (デモ)・docs/93 §3-3 (骨格の共通化) |
+
+- `src/app/api/products/[jan]/route.ts` — 商品情報 API (`isJan` で検算)
+- `src/lib/external/yahooShopping.ts` — Yahoo!ショッピングの境界とパーサ
+- `src/lib/external/productLookup.ts` — 8 秒上限 (`withSourceTimeout`)
+- `src/lib/external/prefillSummary.ts` — 書籍・商品の取得をクライアントで共用
+- `src/lib/route/lookup.ts` — books / products 共通の API の骨格
+- `src/components/editor/usePrefill.ts` — 新規ノートへの事前入力
+
 ## 1. 方針: Yahoo!ショッピング商品検索 API v3 を 1 本だけ引く
 
 導線の全体像 (太字が今回足すところ):
@@ -16,7 +36,7 @@
 ```text
 JAN をスキャン
   → /?q=<JAN> が 0 件 + 「#<JAN> を新規登録」ボタン
-  → /edit/<次番号>?code=<JAN>
+  → /edit/<新しいノートの id>?code=<JAN>
   → **ブラウザが /api/products/<JAN> を引く**
   → **サーバが Yahoo!ショッピングを引く**
   → **商品名・ブランドが入ったエディタ** (取れなければ従来どおり空)
@@ -95,12 +115,15 @@ Client ID は `YAHOO_SHOPPING_APP_ID` としてサーバの環境変数に置き
   `scanRegisterMemo` の見出し組み立ては書籍・商品で共用できる形に均す
 - `useBookPrefill.ts` … fetch 先と文言以外は商品でも完全に同じなので、
   コード種別を受け取る形に一般化する (`usePrefill({ kind, code, ... })`)。
-  フックは複製しない
+  フックは複製しない。今は `src/components/editor/usePrefill.ts` の
+  `usePrefill({ target, value, pristine, setMemo })` で、`target` が
+  `{ kind, code }` (`PrefillTarget`) を持つ
 - `MemoEditor.tsx` (当時のパス。現在は `src/components/editor/MemoEditor.tsx`) … `isbn`
   prop を
   `prefill?: { kind: 'book' | 'product'; code: string }` に一般化。
   取得中の文言は種別で出し分ける (「商品情報を取得中…」)
-- `edit/[itemNo]/page.tsx` … `isIsbn` → 書籍、それ以外で `isJan` → 商品、の分岐
+- `edit/[itemNo]/page.tsx` (今は `src/app/edit/[itemId]/page.tsx`) …
+  `isIsbn` → 書籍、それ以外で `isJan` → 商品、の分岐
 
 ### JAN の判定は緩くてよい
 
@@ -142,6 +165,18 @@ Yahoo! の商品名は「【送料無料】」のような店舗の飾り文字�
 
 - **キー未設定** … 収録漏れと同じ `data: null` に落とす (§1)。
   UI には「商品情報が見つかりませんでした」が出る
+
+後から足した分:
+
+- **デモでは取得しない**。デモには Yahoo! の Client ID を置かないので、API が
+  `demoDisabled` を返し、UI は「デモ版では JAN 情報を取得できません」と出す
+  ([39-デモ公開計画.md](./39-デモ公開計画.md) §5)。書誌 (docs/13) はデモでも引く
+- **門番**: API はログインとクロスサイトの検査を通ったときだけ引く
+  (`route/lookup.ts` の `externalLookup`)。第三者のページの `<img src>` から
+  Yahoo! の利用枠を使われないため
+- **編集中スキャン**: 編集画面のツールバーの「スキャン」で JAN を読むと、
+  商品名・ブランドをカーソル位置へ挿入する (`useEditorScanInsert`。
+  [09-スキャン計画.md](./09-スキャン計画.md) §2)
 
 ## 5. 段階と見送り
 

@@ -9,6 +9,23 @@ TeX → SVG は既存の回路図パイプライン (docs/68 / 70 / 85) にそ�
 既存ノートは全部そちらで書かれており、YAML 側は上位互換ではない
 (TeX を直に書きたい図もある)。2 つは別のフェンス言語として共存する。
 
+## 0. 現状 (2026-10-18)
+
+**実装済み・本番稼働。** ` ```circuit ` は v0.23.1 (2026-08-31) から描け、
+今は circuit-fence **0.38.1** を使う。計画との大きな違いは 3 つ —
+読めない行があっても描く (下の追記)、番地が `x,y` になった (0.35.0)、
+「図を編集」で掴んで動かせるようになった (docs/100)。
+
+| 項目 | 今 |
+| --- | --- |
+| 状態 | 実装済み・本番稼働 (v0.23.1〜)。0.38.1 は v0.23.19〜 |
+| 処理系 | `vendor/circuit-fence-0.38.1.tgz` (上流 tommie-fence の Release) |
+| 描画とキャッシュ | `src/lib/circuit/yaml.ts` (compile → TeX → 仕上げ → DB) |
+| 閲覧 | `src/components/markdown/CircuitDiagram.tsx` |
+| 編集 | `src/components/editor/fenceBlocks.ts`・`src/lib/fenceGui/` |
+| 旧い番地の書き直し | `src/lib/circuit/migrateAddresses.ts` |
+| 関連 | docs/97・99・100・102 |
+
 ## 追記 (2026-09-21): 読めたところまで描く
 
 circuit-fence 0.8.0 で **読めない行があっても組めたところまで描く**ようになり、
@@ -42,13 +59,15 @@ circuit-fence は npm レジストリに公開していない (VS Code 拡張が
 `exports` に `circuit-fence/core` (ESM / CJS / 型定義) が生えており、
 `npm pack` の tarball で渡せる。
 
-- [vendor/circuit-fence-0.2.0.tgz](../vendor/circuit-fence-0.2.0.tgz) に置いた。
+- `vendor/circuit-fence-0.2.0.tgz` に置いた。
   使うときに `"circuit-fence": "file:vendor/circuit-fence-0.2.0.tgz"` を
-  dependencies へ足す
+  dependencies へ足す (今は `vendor/circuit-fence-0.38.1.tgz`。古い tarball は
+  差し替えのたびに消している)
 - git 依存 (`github:`) にしない: Docker のビルダ (node:24-slim) に git が無く、
   `npm ci` が落ちる。tarball ならビルド文脈の COPY だけで済む
 - 更新は circuit-fence 側で `npm pack` して置き換える (ファイル名に版が入るので、
-  package.json の指定も一緒に変わる)
+  package.json の指定も一緒に変わる)。今は上流が tommie-fence のモノレポになり、
+  GitHub Release の tgz を `SHA256SUMS` で照合して置く (docs/97 §1・docs/102)
 
 ### 最初に置いた 0.1.0 は差し替えた (2026-08-30)
 
@@ -101,6 +120,9 @@ YAML ソース
       finishSvg / markSvg … 仕上げと data-circuit-fence 属性
   → assertSafeCircuitSvg → DB キャッシュ (circuit_svgs)
 ```
+
+(今の実装は後処理を core の `finishSvg` 1 つに任せている。注釈 → 塗り替え →
+外寸 → 刻印の順を向こうが持つので、こちらで組み直さない。`src/lib/circuit/yaml.ts`)
 
 決めどころ:
 
@@ -192,6 +214,7 @@ docs/83 (健康フェンス) が新フェンス追加の前例。同じ場所を
 
 段取り 1〜5 を通した。`circuit-fence` は **0.2.1** を vendor に置いている
 (0.2.0 から `style: debug: on/off` が増えた。図そのものは 1 ドットも変わらない)。
+その後 0.3.0 → 0.8.0 → 0.9.1 → **0.38.1** と上げた (0.38.1 は docs/102)。
 
 ### 決めたこと (計画から変えたところ)
 
@@ -238,3 +261,5 @@ docs/83 (健康フェンス) が新フェンス追加の前例。同じ場所を
 
 - 本番ノートへ図を戻す経路 (denken の Phase 3)。手で編集するか、
   エクスポート zip を書き換えて import API に流すか
+  — **ZIP を流す経路ができた。** 教科書の取り込み (docs/104) で `doImportZip.sh` を
+  作り、04-denken を含む 6 冊を本番へ入れた (2026-10-14)

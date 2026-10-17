@@ -7,7 +7,27 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
 
 前提の調査: ワークスペース側 `41-QR-search/docs/10-画像OCR調査メモ.md`
 (エンジン比較・検索対象化方式・日本語優先の3方式)。
-**このメモは計画のみ。実装はまだ行わない。**(2026-07-18)
+(当初 2026-07-18 は「計画のみ」だった。同日中に実装した)
+
+## 0. 現状 (2026-10-18)
+
+実装済み・本番稼働。Phase 1〜3 (§7) に加え、OCR を Web Worker へ移す改修 (§9-1) と
+三段構えの復旧 (§9-2) まで入っている。挿入時に OCR するかの切替と、ノートの全画像を
+まとめて読む機能は docs/106 で足した。
+
+| 項目 | 今 |
+| --- | --- |
+| 状態 | 実装済み・本番稼働 (v0.11.19〜)。Worker 化・三段構えは v0.18.1〜v0.18.2 |
+| 主なコード | 下の箇条書き |
+| 計画から変わった点 | OCR は Web Worker で走る (§9-1)。モデルは SW で抱えない (§3) |
+| 関連 | docs/106 (OCR の切替・全画像 OCR) |
+
+- `src/components/ocr/ocrService.ts` — Worker の窓口・復旧 (§9-1・§9-2)
+- `src/components/ocr/ocrWorker.ts` — Worker 本体と DOM shim
+- `src/components/ocr/ocrPipeline.ts` — SDK の組み立て・入力の縮小
+- `src/components/editor/hooks/useEditorOcr.ts` — エディタ結線 (挿入時・後から・全画像)
+- `src/lib/ocr/ocrQuote.ts` — 引用の整形・プレースホルダ・対象の画像選び
+- `scripts/assets.mjs` — ort wasm とモデルを `public/` へ揃える (当初の 2 本をまとめた)
 
 ## 1. 方針: クライアントで OCR し、結果は memo が正本
 
@@ -74,10 +94,17 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
   **Access-Control-Allow-Origin を返さずブラウザから CORS で弾かれる**
   (実機で確認)。`scripts/fetchPaddleOcrModels.mjs` が `public/paddle-ocr/` へ
   落とし、`ocrService.ts` が同 URL を指す。
+  (当時のスクリプト名。今は `scripts/assets.mjs` の `paddle-ocr models` の項が
+  `public/paddle-ocr/` へ取得する。`npm run dev` / `npm run build` の `copy:assets` が呼ぶ。
+  モデルを指すのは `ocrPipeline.ts`)
   モデル名は tar 内 `inference.yml` の `model_name` と一致が必要
 - モデル (数 MB) はページロードでは読まず、**初回の OCR 実行時に遅延ロード**。
-  Service Worker キャッシュで 2 回目以降は即時
-- 初回は「準備しています (初回のみ)」の表示を出す
+  (当初は Service Worker のキャッシュで 2 回目以降を即時にするつもりだった。
+  今の `public/sw.js` は `public/` のモデルを抱えず素通しする — 180MB を抱え込まないため。
+  取得の扱いは §9-2 の注意を参照)
+- モデルが載っていない間は「OCR モデルを準備しています…」を出す。
+  (当初は「(初回のみ)」と書いていた。編集画面を離れるとモデルを解放する (§9-1) ので、
+  戻ってきた 2 回目以降も出る)
 
 ## 4. エディタ統合
 
@@ -91,9 +118,11 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
   > DC FAN 40mm
   ```
 
-- 処理中は `> (OCR処理中…)` を置き、完了時に CodeMirror の位置追跡で
-  置換する (ユーザーが打鍵中でも正しい場所に入る)
-- **後から OCR**: 編集ツールバーに「OCR」ボタン。カーソル位置の画像記法を
+- 処理中は `> ⏳ OCR処理中 <連番>…` (`ocrPlaceholder`) を置き、完了時に
+  **この一意な文字列を探して置換する** (ユーザーが打鍵中でも正しい場所に入る)。
+  位置は控えない — 画像アップロードのプレースホルダと同じ流儀
+- **後から OCR**: 編集ツールバーに「OCR」ボタン (今は `OcrMenuButton` のメニューの
+  「この画像 (カーソルの近く)」。docs/106 §2)。カーソル位置の画像記法を
   対象に `/api/images/<name>` を fetch して実行。
   **挿入時 OCR と同一関数に集約**する (経路が 2 つ、処理は 1 つ)
 - 失敗・0 文字のときは黙らない: 「文字が見つかりませんでした」を明示して
@@ -123,11 +152,13 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
   `onnxruntime-web`、ort wasm の自前配布
   (`scripts/copyOnnxWasm.mjs` → `public/onnxruntime/`)、モデルの自前配布
   (`scripts/fetchPaddleOcrModels.mjs` → `public/paddle-ocr/`)、
-  正規化表 (`src/lib/ocr/normalizeJapanese.ts`)。Web Worker は未 (下記)
+  正規化表 (`src/lib/ocr/normalizeJapanese.ts`)。Web Worker は §9-1 で実装済み。
+  (2 本のスクリプトは今は `scripts/assets.mjs` にまとまっている)
 - **Phase 2: 挿入時 OCR (実装済み)** — 画像挿入後にプレースホルダを差し込み、
   `ocrImageToQuote` で認識 → 引用ブロックに置換。処理中/初回 UI、
   0 文字・失敗時のメッセージ (`MemoEditorInner.tsx`。当時のパス。現在は `src/components/editor/hooks/useEditorOcr.ts`)
-- **Phase 3: 後から OCR (実装済み)** — ツールバー「画像をOCR」ボタン。
+- **Phase 3: 後から OCR (実装済み)** — ツールバー「画像をOCR」ボタン
+  (今は OCR メニューの「この画像」。docs/106 §2)。
   カーソル近傍の自前画像を取り直して OCR (Phase 2 と同一関数 `ocrIntoDoc`)
 
 ### 実装の構成 (2026-07-18)
@@ -145,6 +176,11 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
 表のパスは当時のパス。現在は次のとおり。
 
 - `src/components/MemoEditorInner.tsx` → `src/components/editor/MemoEditorInner.tsx`
+  (OCR の結線は `src/components/editor/hooks/useEditorOcr.ts` に分かれた)
+- `src/components/ocr/ocrService.ts` は Worker の窓口になり、SDK の組み立ては
+  `ocrPipeline.ts`、Worker 本体は `ocrWorker.ts`、フォールバックは `ocrMainFallback.ts` (§9-1・§9-2)
+- `scripts/copyOnnxWasm.mjs`・`scripts/fetchPaddleOcrModels.mjs` → `scripts/assets.mjs`
+  (`onnxruntime wasm`・`paddle-ocr models` の項)
 
 検証済み: 型チェック・eslint・`next build`・ユニットテスト (801 通過)。
 
@@ -170,13 +206,15 @@ PGroonga の全文検索がそのまま効き、誤認識は保存前に人間�
 `turbopack.ignoreIssue` で SDK 配下の未解決を無視する。`path` は **glob ではなく
 RegExp** で書く必要があり、範囲も `dist/assets/` に絞ると OpenCV.js
 (SDK の node_modules にネスト) が漏れて落ちる。
+今は SDK 全体ではなく **上の 2 ファイルの、この 2 つの未解決だけ**を無視している
+(docs/93 §2-5)。SDK を上げてファイル名や文言が変わればビルドが落ちるので、そのとき書き直す。
 
 ### 既知の未了 (次に詰める)
 
-- **Web Worker 化**: 現状はメインスレッド実行 (処理中は UI に出す)。
-  公式 SDK は `worker: true` を持つので、重い画像で固まるようならそれに乗る
+- ~~**Web Worker 化**~~: §9-1 で実装済み。SDK の `worker: true` ではなく自前の
+  Worker に載せた (理由は §9-1)
 - **正規化表**: 実画像で出た簡体字を `normalizeJapanese.ts` に追記していく
-  (E2E で使った印刷体では混入なし)
+  (E2E で使った印刷体では混入なし。2026-10-18 時点で表への追記は無い)
 - **上下反転の縦書き列**: textline orientation が SDK 未実装なので弱いはず。
   実害が出たら SDK の対応を待つか、自前で列画像を反転して再認識する
 
@@ -202,8 +240,9 @@ OpenCV の行列に展開される。上限を超えると WebKit がタブご�
    画像検索 embedder の「WASM が基準性能」方針に合わせる
 
 加えて**下書き保護** (`src/lib/memoDraft.ts` (当時のパス。現在は `src/lib/prefs/memoDraft.ts`) +
-`MemoEditor`): 編集中の本文を
-localStorage に退避 (400ms debounce、ノートごとに `draftKey` = itemNo)。
+`MemoEditor`。debounce は今は `src/components/editor/hooks/useDraftAutosave.ts`): 編集中の本文を
+localStorage に退避 (400ms debounce、ノートごとに `draftKey` = itemNo。
+今はノートの UUID — docs/107)。
 再訪時にサーバ値と食い違う下書きがあれば復元して知らせ、「下書きを破棄」で
 保存済みの本文に戻せる。保存が成功すると次回訪問時に下書きは自動で掃除される。
 これでタブがどんな理由で落ちても編集内容は失われない。

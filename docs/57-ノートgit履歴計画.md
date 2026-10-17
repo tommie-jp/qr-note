@@ -12,6 +12,30 @@
 進めるように、履歴の持ち方だけは git 本物にしておく — 独自のリビジョン
 テーブルにすると、ブランチ相当を全部自作することになる。
 
+## 0. 現状 (2026-10-18)
+
+**実装済み・本番稼働 (v0.20.13〜)。** 範囲の 4 つはこの計画のとおり動いている。
+後から 2 つ変わった: 上書きの前に 1 版刻む例外 (docs/87) と、ノートの
+ファイル名が旧番号から id (UUID v7) になったこと (docs/107)。
+
+| 項目 | 今 |
+| --- | --- |
+| 状態 | 実装済み・本番稼働 (v0.20.13〜) |
+| 計画から変わった点 | ファイル名が `notes/<id>.md`・バックアップは別スクリプト |
+| 関連 | docs/87 (競合時の版)・docs/107 (主キーの UUID 化) |
+
+主なコード:
+
+- `src/lib/git/notesRepo.ts` — リポジトリ操作と直列化キュー
+- `src/lib/git/notePath.ts` — git へ渡すパスを作る唯一の場所
+- `src/app/actions/history.ts` — コミットと復元
+- `src/app/item/[itemId]/history/` — 履歴と差分の画面
+- `src/lib/git/noteHistoryBackfill.ts` — 既存ノートの取り込み
+- `doDumpGit-from-vps2.sh` — 本番の履歴を bundle で持ち帰る (§7)
+
+旧名 `notes/<旧番号>.md` は、リポジトリを開いた最初の 1 回にアプリが
+1 コミットで `notes/<id>.md` へ改名する (docs/107 §12)。
+
 ## 1. 方針: DB が正本・作業コピー、git は履歴専用
 
 このアプリの確立した型「正本はメモ本文 (items.memo)、他は派生キャッシュ」
@@ -38,11 +62,14 @@ git 履歴に残るのは参照文字列だけ — 暗号文が書き換え不�
 
 ## 2. リポジトリの形
 
-- **インスタンス全体で 1 リポジトリ・非 bare**。ノートは `notes/<itemNo>.md`。
+- **インスタンス全体で 1 リポジトリ・非 bare**。ノートは `notes/<itemNo>.md`
+  (今は `notes/<id>.md`。id は UUID v7 の小文字表記。docs/107)。
   シングルユーザーなので分割する理由がなく、非 bare なら「ファイルを書いて
   add + commit」だけで済む (bare + plumbing での tree 操作が丸ごと消える)。
 - itemNo は `[0-9A-Za-z_-]{1,20}` ([validation.ts](../src/lib/validation.ts))
-  なので、そのままファイル名にできる。パス区切りも `..` も先頭 `-` も
+  なので、そのままファイル名にできる (今は `isValidItemId` を通った UUID だけを
+  ファイル名にする。改名前の版を読むときだけ `legacyNoteFilePath` が旧番号の
+  名前を作る)。パス区切りも `..` も先頭 `-` も
   混ざらないことをこの書式が保証する (git へ渡すパスは
   [notePath.ts](../src/lib/git/notePath.ts) だけが作る)。
 - 置き場は `QR_GIT_DIR`、未設定なら `<cwd>/data/git-notes`。
@@ -74,7 +101,8 @@ git 追加は §7。
 
 ## 3. ライブラリ層 (src/lib/git/)
 
-すべて Promise を返し、書き込み系は直列化キューを通る。
+すべて Promise を返し、書き込み系は直列化キューを通る。引数の `itemNo` は
+今は `itemId` (UUID)。
 
 | 関数 | 中身 |
 | ------ | ------ |
@@ -86,9 +114,15 @@ git 追加は §7。
 | `backfillNotes(notes, message)` | 既存全ノートを 1 コミットで取り込む (§6)。冪等 |
 
 リポジトリは初回操作時に自動で `git init` + 空の初期コミットを作る
-(HEAD が常に在ると分岐が減る)。
+(HEAD が常に在ると分岐が減る)。同じ初回に、旧番号の名前のノートを id の名前へ
+1 コミットで改名する (`renameLegacyNotes`。docs/107 §12)。`noteHistory` は
+`--follow` で改名の前の版まで辿る。
 
 ## 4. Server Actions ([actions.ts](../src/app/actions.ts))
+
+実体は分野別のファイルに分かれた (docs/93)。コミットと復元は
+`src/app/actions/history.ts`、上書き前の 1 版は `src/app/actions/_save.ts`。
+`src/app/actions.ts` は再輸出の入口。下の `<itemNo>` は今は id。
 
 - `commitNoteAction` — requireUser + デモ拒否。**DB のいまの本文**をコミット
   する (フォームから本文は受けない。編集画面は自動保存込みで DB が最新)。
@@ -126,7 +160,8 @@ UI はリンクごと出さず、Server Action と履歴ページでも拒む
 - 差分表示は **@codemirror/merge** の unifiedMergeView (読み取り専用)。
   既存エディタと同じ CodeMirror 6 系なので依存が素直に足せて、
   将来の 3-way マージ UI (衝突解決) も同じ部品で作れる。
-- 入口は ItemView のヘッダー行に「履歴」リンク (デモでは出さない)。
+- 入口は ItemView の操作リンクの列に「履歴」リンク (デモでは出さない。
+  アイコン付きの並びは docs/82)。
 
 認証: `/item/<itemNo>/history` は [publicPaths.ts](../src/lib/publicPaths.ts)
 (当時のパス。現在は `src/lib/auth/publicPaths.ts`) の
@@ -159,9 +194,12 @@ per-note のコミットに分けて created_at を偽装することはしな�
   (doDeploy.sh はイメージだけを運ぶ。RAKUTEN_APP_ID のときと同じ罠)。
 - **バックアップ**: 「pg_dump だけでメモと画像が揃う」という設計
   (compose.yaml の volumes コメント) からの**唯一の逸脱**になる。
-  穴を塞ぐため、DB ダンプ取得のスクリプトに `git bundle create` を足して
+  穴を塞ぐため、`git bundle create` で
   履歴も単一ファイルで持ち帰る (bundle は整合したスナップショットで、
-  `git clone <bundle>` で丸ごと復元できる)。
+  `git clone <bundle>` で丸ごと復元できる)。実装は DB ダンプのスクリプトに
+  足さず、別の `doDumpGit-from-vps2.sh` にした。出力は
+  `backup/vps2-git-notes_<timestamp>.bundle`。DB ダンプ (`doDumpDB-from-vps2.sh`)
+  とセットで流す。
 - デモスタック (compose.demo.yaml) には volume を足さない。機能ごと
   閉じているので書き込みは起きない。
 
