@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Browser, Page } from '@playwright/test'
 import { BASE_URL, E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
@@ -16,6 +16,23 @@ import { removeE2eNote, rowOf, searchResults } from './notes'
 // PC でもスマホでも、行の右端に常に居る ⋮ から全部の操作を辿れること。
 const ITEM_NO = `${E2E_ITEM_PREFIX}7`
 const BODY = `${E2E_ITEM_PREFIX} row menu ${Date.now()}`
+// Tab の行き先を比べるテストで、ITEM_NO の 1 つ上に置くもう 1 件 (下の test を見よ)
+const UPPER_ITEM_NO = `${E2E_ITEM_PREFIX}9`
+const UPPER_BODY = `${E2E_ITEM_PREFIX} row menu upper ${Date.now()}`
+
+// 本文を書いて保存する (無ければ作る)。途中で落ちた回の残りは先に消す
+async function saveNote(browser: Browser, itemNo: string, body: string) {
+  const page = await newLoggedInPage(browser)
+  await removeE2eNote(page, itemNo)
+  await page.goto(`/edit/${itemNo}`)
+  const save = page.getByRole('button', { name: '更新', exact: true })
+  await expect(save).toBeVisible()
+  await clearEditor(page)
+  await memoEditor(page).pressSequentially(body, { delay: 10 })
+  await save.click()
+  await expect(page).toHaveURL((url) => url.pathname === `/item/${itemNo}`)
+  await closePage(page)
+}
 
 async function openRow(page: Page) {
   await page.goto(`/?q=${encodeURIComponent(ITEM_NO)}`)
@@ -29,27 +46,19 @@ async function openRow(page: Page) {
   return { row, trigger }
 }
 
-function rowMenu(page: Page) {
-  return page.getByRole('menu', { name: `#${ITEM_NO} の操作`, exact: true })
+function rowMenu(page: Page, itemNo = ITEM_NO) {
+  return page.getByRole('menu', { name: `#${itemNo} の操作`, exact: true })
 }
 
 test.describe('検索結果の行の ⋮ メニュー', () => {
   test.beforeEach(async ({ browser }) => {
-    const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, ITEM_NO)
-    await page.goto(`/edit/${ITEM_NO}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).pressSequentially(BODY, { delay: 10 })
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_NO}`)
-    await closePage(page)
+    await saveNote(browser, ITEM_NO, BODY)
   })
 
   test.afterEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, ITEM_NO)
+    await removeE2eNote(page, UPPER_ITEM_NO)
     await closePage(page)
   })
 
@@ -82,26 +91,34 @@ test.describe('検索結果の行の ⋮ メニュー', () => {
     await expect(trigger).toBeFocused()
   })
 
-  test('PC: Tab で閉じ、フォーカスは ⋮ の次へ進む', async ({ page }) => {
+  test('PC: Tab で閉じ、フォーカスは ⋮ の次へ進む', async ({ page, browser }) => {
     // Arrange: メニュー無しで ⋮ から Tab したときの行き先に印を付けておく。
     // 行き先は一覧の件数や画面の部品で変わるので、決め打ちせず比べる。
-    // 開くのは全件の一覧 — 1 件だけの検索結果では ⋮ の次に部品が無く、
-    // 素の Tab でもページの外 (ブラウザの枠) へ出てしまい比べられない。
-    // 保存したばかりの ITEM_NO が更新順の先頭に居て、次の行が後ろに続く
+    //
+    // 比べるには ⋮ の次に部品が要る。専用 DB (CI もこれ) には ITEM_NO しか
+    // 無く、1 行だけの一覧では ⋮ がページ最後のフォーカス要素で、素の Tab でも
+    // ページの外 (ブラウザの枠) へ出てしまう。外へ出ると document.hasFocus()
+    // が偽になり、Playwright の toBeFocused は body にすら通らない。そこで
+    // もう 1 件作って行を 2 つにする。一覧は更新順 (新しい順) なので、後から
+    // 保存した UPPER_ITEM_NO が先頭、ITEM_NO がその次の行になる。Tab するのは
+    // 先頭 (UPPER_ITEM_NO) の ⋮
+    await saveNote(browser, UPPER_ITEM_NO, UPPER_BODY)
     await page.goto('/')
-    const trigger = page.getByRole('button', { name: `#${ITEM_NO} の操作`, exact: true })
+    const trigger = page.getByRole('button', { name: `#${UPPER_ITEM_NO} の操作`, exact: true })
     await expectHydrated(trigger)
     await trigger.focus()
     await page.keyboard.press('Tab')
     await page.evaluate(() => document.activeElement?.setAttribute('data-e2e-next', ''))
+    // 印が body に付いたら、⋮ の次に部品が無い (上の前提が崩れている)
+    await expect(page.locator('body[data-e2e-next]')).toHaveCount(0)
     await trigger.click()
-    await expect(rowMenu(page)).toBeVisible()
+    await expect(rowMenu(page, UPPER_ITEM_NO)).toBeVisible()
 
     // Act
     await page.keyboard.press('Tab')
 
     // Assert: ⋮ に留まらず (行ごとに Tab が 1 回余計に要る)、body にも落ちない
-    await expect(rowMenu(page)).toHaveCount(0)
+    await expect(rowMenu(page, UPPER_ITEM_NO)).toHaveCount(0)
     await expect(page.locator('[data-e2e-next]')).toBeFocused()
   })
 
