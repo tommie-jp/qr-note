@@ -30,18 +30,22 @@ export function TrashIcon({ small = false }: { small?: boolean } = {}) {
   );
 }
 
-// その他の操作 (縦の三点 ⋮。docs/107-行メニュー計画.md §2)。
+// その他の操作 (輪で囲んだ横の三点。docs/107-行メニュー計画.md §2)。
 //
-// 縦にするのは Android・Google 系の作法に合わせるため。横の ⋯ は iOS では
-// 「その他」だが、一覧の右端に置くと行末の省略記号 (…) と見分けにくい。
+// もとは縦の三点 ⋮ (Android・Google 系の作法) だったが、輪も地も無い点 3 つは
+// 「押せる物」に見えなかった。ホバーで濃くなる手がかりも、ホバーの無い
+// iPhone では出ない。そこで iOS のファイル・メモ・写真が使う ellipsis.circle の
+// 形にした — iPhone の利用者にいちばん馴染みがあり、輪がボタンの縁を兼ねる。
+// 横の ⋯ だけだと行末の省略記号 (…) と見分けにくいが、輪で囲めば紛れない。
 // 点は塗りの丸で描く — 線画の円では 20px のとき中が抜けて輪にしか見えない。
 // 色は currentColor のまま (ROW_MENU_TRIGGER_CLASS がホバーで濃くする)
 export function MoreIcon() {
   return (
     <StrokeIcon>
-      <circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="7.5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="16.5" cy="12" r="1.5" fill="currentColor" stroke="none" />
     </StrokeIcon>
   );
 }
