@@ -147,6 +147,17 @@ flowchart LR
 `docs/<番号>` で参照する。文書とコードは同じコミットで直す
 (参照切れは `scripts/checkDocLinks.mjs` が CI で検査する)。
 
+## 開発の進め方 (Claude Code)
+
+このリポジトリのコードと文書 (この README を含む) は、作者が
+[Claude Code](https://claude.com/claude-code) (Anthropic) と対話しながら
+書いている。何を作るか・どう決めるかは作者が判断し、Claude Code が書いた
+コミットには `Co-Authored-By: Claude` の帰属行が付く。
+
+- 対話の記録は `docs/` の計画書に残す (何を・なぜ・どう決めたか)
+- 変更は作者が画面と実機 (iPhone) で確かめてから配る
+- 不具合の報告や提案はこの流れに乗せるので、Issue には「どう動いてほしいか」を書くと速い
+
 ## 開発
 
 ```bash
