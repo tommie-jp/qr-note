@@ -14,6 +14,7 @@ import {
   shouldMakeThumbs,
 } from "@/lib/editor/attachmentKinds";
 import { insertText, replaceToken } from "@/lib/editor/cmDoc";
+import { droppedImageUrl, externalImageMarkup } from "@/lib/editor/dropFiles";
 import { errorText } from "@/lib/errorMessage";
 import type { UploadProgress } from "@/lib/progress/progressLabels";
 import { canShrink, shrinkImageFile } from "@/lib/images/shrinkImage";
@@ -57,6 +58,18 @@ type ReportIgnored = (
   picked: File[],
 ) => void;
 
+// ドロップされたものを pos (null なら今のカーソル) に入れる。始末したら true。
+// 対応外のファイルだけだったときも、知らせを出して true を返す (CodeMirror
+// 標準のドロップに回すと、そのファイルを文字として読んで本文に入れてしまう)。
+// false は「ファイルでも画像でもない」で、文字として入れるのは呼び出し側
+// エディタの本文の上 (CodeMirror の口) と、編集画面のそれ以外の所
+// (useDropZone) の両方がここを通る (docs/105-画像ドロップ計画.md)
+export type DropInto = (
+  view: EditorView,
+  data: DataTransfer,
+  pos: number | null,
+) => boolean;
+
 export interface AttachmentInsert {
   // 進行中アップロードの表示用スナップショット (何枚目 / 全何枚 / 送信 %)。
   // null なら待機中。busy 判定は従来の uploading boolean と同じ意味を保つ
@@ -65,6 +78,7 @@ export interface AttachmentInsert {
   insertFiles: InsertFiles;
   // ペースト・ドロップで添付を拾う拡張。**参照は変わらない** (拡張一式に入る)
   fileEvents: Extension;
+  dropInto: DropInto;
   fileInputRef: RefObject<HTMLInputElement | null>;
   openFilePicker: () => void;
   handleFilePick: (files: FileList | null) => void;
@@ -106,6 +120,38 @@ async function fitToLimit(file: File, allowShrink: boolean): Promise<File> {
   return shrunk;
 }
 
+// 画像そのものを引っ張ったときの <img> の src (そうでなければ null)。
+//
+// **文字を含む HTML からは採らない。** 別のサイトの段落を選んで引くと、
+// 中のアイコンや写真も text/html に入る。それを拾うと、引いた文章が画像
+// 1 枚に化ける。画像だけを引いたときは text/html に文字が無い。
+// uri-list が無いドラッグ (文字の選択) は、HTML を解析する前に断る
+function draggedImgSrc(data: DataTransfer): string | null {
+  if (!Array.from(data.types).includes("text/uri-list")) {
+    return null;
+  }
+  const html = data.getData("text/html");
+  if (html === "") {
+    return null;
+  }
+  const body = new DOMParser().parseFromString(html, "text/html").body;
+  if ((body.textContent ?? "").trim() !== "") {
+    return null;
+  }
+  return body.querySelector("img[src]")?.getAttribute("src") ?? null;
+}
+
+// pos (落とした位置) へカーソルを移す。null (本文の外に落とした) なら今の
+// カーソルのまま、そこまでスクロールする。触っていないノートのカーソルは
+// 先頭にあり、見えない所に入ると何も起きなかったように見える
+function moveCursor(view: EditorView, pos: number | null): void {
+  view.dispatch(
+    pos === null
+      ? { scrollIntoView: true }
+      : { selection: { anchor: pos } },
+  );
+}
+
 // ペースト/ドロップで添付を拾う CodeMirror の口。
 //
 // 拡張は編集画面につき一度しか組まない (useEditorExtensions) ので、ここで
@@ -114,7 +160,11 @@ async function fitToLimit(file: File, allowShrink: boolean): Promise<File> {
 // (かつては useMemo の依存から外して lint 警告 1 件を抱えていた)
 function fileEventHandlers(
   handlersRef: Readonly<
-    RefObject<{ insertFiles: InsertFiles; reportIgnored: ReportIgnored }>
+    RefObject<{
+      insertFiles: InsertFiles;
+      reportIgnored: ReportIgnored;
+      dropInto: DropInto;
+    }>
   >,
 ): Extension {
   return EditorView.domEventHandlers({
@@ -136,21 +186,19 @@ function fileEventHandlers(
       return true;
     },
     drop: (event, view) => {
-      const { insertFiles, reportIgnored } = handlersRef.current;
-      const files = pickFiles(event.dataTransfer?.files);
-      if (files.length === 0) {
-        reportIgnored(event.dataTransfer?.files, files);
+      const { dropInto } = handlersRef.current;
+      const data = event.dataTransfer;
+      if (data === null) {
         return false;
       }
-      event.preventDefault();
       // ドロップした位置にカーソルを移してから挿入する
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-      if (pos !== null) {
-        view.dispatch({ selection: { anchor: pos } });
+      if (dropInto(view, data, pos)) {
+        event.preventDefault();
+        return true;
       }
-      void insertFiles(view, files);
-      reportIgnored(event.dataTransfer?.files, files);
-      return true;
+      // 拾えるものが無かった。文字の移動などは CodeMirror 標準のドロップに任せる
+      return false;
     },
   });
 }
@@ -272,7 +320,36 @@ export function useAttachmentInsert({
     }
   };
 
-  const handlersRef = useLatest({ insertFiles, reportIgnored });
+  // ファイルが先、無ければ外部画像の URL。どちらも無ければ false
+  // (文字のドロップは呼び出し側が CodeMirror 標準の処理へ回す)
+  const dropInto: DropInto = (view, data, pos) => {
+    const files = pickFiles(data.files);
+    if (files.length > 0) {
+      moveCursor(view, pos);
+      void insertFiles(view, files);
+      reportIgnored(data.files, files);
+      return true;
+    }
+    if (data.files.length > 0) {
+      reportIgnored(data.files, files); // 対応外のファイルだけだった
+      return true;
+    }
+    const url = droppedImageUrl(
+      {
+        uriList: data.getData("text/uri-list"),
+        imgSrc: draggedImgSrc(data),
+      },
+      window.location.origin,
+    );
+    if (url === null) {
+      return false;
+    }
+    moveCursor(view, pos);
+    insertText(view, externalImageMarkup(url));
+    return true;
+  };
+
+  const handlersRef = useLatest({ insertFiles, reportIgnored, dropInto });
   const fileEvents = useMemo(
     () => fileEventHandlers(handlersRef),
     [handlersRef],
@@ -296,6 +373,7 @@ export function useAttachmentInsert({
     uploading: upload !== null,
     insertFiles,
     fileEvents,
+    dropInto,
     fileInputRef,
     openFilePicker: () => fileInputRef.current?.click(),
     handleFilePick,

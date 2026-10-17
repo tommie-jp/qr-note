@@ -25,6 +25,7 @@ import { EditorBanners } from "./EditorBanners";
 import { EditorBottomBarPortal } from "./EditorBottomBarPortal";
 import { EditorModals } from "./EditorModals";
 import { useAttachmentInsert } from "./hooks/useAttachmentInsert";
+import { useDropZone } from "./hooks/useDropZone";
 import { useEditorClipboard } from "./hooks/useEditorClipboard";
 import { useEditorCommands } from "./hooks/useEditorCommands";
 import { useEditorDrawing } from "./hooks/useEditorDrawing";
@@ -94,10 +95,12 @@ export default function MemoEditorInner({
     uploading,
     insertFiles,
     fileEvents,
+    dropInto,
     fileInputRef,
     openFilePicker,
     handleFilePick,
   } = useAttachmentInsert({ editorRef, setError, ocrIntoDoc: ocr.ocrIntoDoc });
+  const dropZone = useDropZone({ editorRef, dropInto });
   const { recording, videoRecording, isRecording } = useEditorRecordings({
     editorRef,
     setError,
@@ -197,8 +200,14 @@ export default function MemoEditorInner({
   };
 
   return (
-    <div ref={wrapperRef} className="space-y-2">
-      <div className="overflow-hidden rounded border border-gray-300 bg-white">
+    <div ref={wrapperRef} className="space-y-2" {...dropZone.handlers}>
+      <div
+        className={`overflow-hidden rounded border bg-white ${
+          dropZone.dragging
+            ? "border-blue-500 ring-2 ring-blue-300"
+            : "border-gray-300"
+        }`}
+      >
         <CodeMirror
           ref={editorRef}
           value={value}
@@ -217,9 +226,15 @@ export default function MemoEditorInner({
       <div className="flex flex-wrap items-center gap-3 text-sm">
         {/* ペースト・ドラッグ&ドロップは実質デスクトップの操作なので、
             幅が狭いときは畳む */}
-        <span className="hidden text-gray-400 sm:inline">
-          画像・音声・動画・PDF はペースト・ドラッグ&ドロップでも挿入できます
-        </span>
+        {dropZone.dragging ? (
+          <span className="font-bold text-blue-600">
+            離すと挿入します
+          </span>
+        ) : (
+          <span className="hidden text-gray-400 sm:inline">
+            画像・音声・動画・PDF はペースト・ドラッグ&ドロップでも挿入できます
+          </span>
+        )}
         <span
           className={`ml-auto ${
             value.length >= MAX_TEXT_LENGTH
