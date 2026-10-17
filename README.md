@@ -1,7 +1,9 @@
 # QR Note
 
-部品に貼った QR コードシール(URL 埋め込み)を読み取り、
-部品 ID から情報を表示・管理する Web アプリ。
+部品に貼った QR コードシール (URL 埋め込み) を読み取り、そのノートを
+開く Web アプリ。ノートは Markdown で、電子工作向けの記法 (回路図・
+実体配線図・計器の画面・数式) と、学習向けの記法 (問題・答え隠し・
+学習状況の表) を持つ。1 人〜少人数で使う前提で、スマホ (PWA) を主戦場にしている。
 
 ## デモ
 
@@ -30,6 +32,23 @@ QR シールで電子部品を管理する様子を実際に触れます。タ�
 <!-- markdownlint-disable MD013 MD033 -->
 <img src="docs/assets/qr-item2.png" width="150" alt="qr-demo.tommie.jp/item/2 を開く QR コード">
 <!-- markdownlint-enable MD013 MD033 -->
+
+## 主な機能
+
+| 分野 | できること | 計画書 |
+| --- | --- | --- |
+| ノート | Markdown 本文、タグ `#tag`、プロパティ `hFE=208`、画像・動画・音声の添付、ページ分け、タスクリスト | [docs/メモ記法.md](docs/メモ記法.md) |
+| 検索 | 全文検索 (PGroonga)。AND / OR / NOT・括弧・タグ・`is:todo`、番号順 / 更新順 / タイトル順 | [docs/05-全文検索の使い方.md](docs/05-全文検索の使い方.md) |
+| 電子工作の記法 | CircuiTikZ と YAML の回路図、ブレッドボード・ユニバーサル基板の実体配線図、VNA・オシロ・スペアナ・ロジアナの画面、x-y グラフ、銅張り基板の寸法図 | [docs/91](docs/91-回路YAMLフェンス計画.md)・[97](docs/97-実体配線図フェンス計画.md)・[103](docs/103-計器の画面と寸法図フェンス計画.md) |
+| 学習の記法 | 数式 (KaTeX)、mermaid、問題 (quiz)、答え隠し、学習状況の表 (matrix)、日々の記録のグラフ (health)、単語の読み上げ | [docs/58](docs/58-CBT問題集計画.md)・[77](docs/77-進捗マトリックス計画.md)・[83](docs/83-健康管理フェンス計画.md) |
+| スキャン | QR・JAN・ISBN の読み取り。JAN は Yahoo!ショッピング、ISBN は openBD・NDL・楽天ブックスから書誌と書影を引く | [docs/09](docs/09-スキャン計画.md)・[13](docs/13-書誌自動取得計画.md)・[14](docs/14-JAN商品情報取得計画.md) |
+| 画像 | OCR (端末内で実行)、お絵かき、画像の類似検索、回転、動画のアニメサムネ | [docs/24](docs/24-画像OCR計画.md)・[25](docs/25-画像検索計画.md)・[34](docs/34-お絵かき計画.md) |
+| 秘密 | ノートの一部をパスキー (PRF) で暗号化するシークレット | [docs/51-部分暗号化計画.md](docs/51-部分暗号化計画.md) |
+| 履歴 | ノートの本文を git で版管理。差分の閲覧と復元 | [docs/57-ノートgit履歴計画.md](docs/57-ノートgit履歴計画.md) |
+| 持ち出し | ZIP で全件エクスポート / インポート、Evernote (.enex) の取り込み | [docs/28-エクスポート計画.md](docs/28-エクスポート計画.md) |
+| 公開 | ノート単位の公開 (ログイン不要で閲覧)、OGP カード、QR シール印刷 | [docs/22-ノート公開計画.md](docs/22-ノート公開計画.md)・[89](docs/89-OGP計画.md) |
+| PWA | ホーム画面への追加、圏外での検索・閲覧 | [docs/65-オフライン対応計画.md](docs/65-オフライン対応計画.md) |
+| 運用 | サーバログの閲覧、管理者向けのサーバー情報とヘルスチェック | [docs/21](docs/21-ログ表示計画.md)・[109](docs/109-サーバー情報計画.md) |
 
 ## 構成
 
@@ -120,20 +139,50 @@ flowchart LR
   文書参照の検査 (`node scripts/checkDocLinks.mjs`) の使い方
 - [docs/93-リファクタリング計画.md](docs/93-リファクタリング計画.md) —
   挙動を変えずに構造を整える全体計画
+- [docs/メモ記法.md](docs/メモ記法.md)・[docs/05-全文検索の使い方.md](docs/05-全文検索の使い方.md) —
+  アプリ内のヘルプ (`/docs/memo`・`/docs/search`) がそのまま読み込む
+- [e2e/README.md](e2e/README.md) — E2E の書き方と罠
+
+計画書は「何を・なぜ・どう決めたか」を残す場所で、コードのコメントから
+`docs/<番号>` で参照する。文書とコードは同じコミットで直す
+(参照切れは `scripts/checkDocLinks.mjs` が CI で検査する)。
 
 ## 開発
 
 ```bash
-cp .env.example .env   # 値を設定
+cp .env.example .env   # 値を設定 (各変数の説明は .env.example のコメント)
 npm install            # postinstall で prisma generate が走る
-docker compose up -d db
-npx prisma migrate dev
+npm run db:up          # docker compose up -d db (PostgreSQL 18 + PGroonga)
+npm run db:migrate     # prisma migrate dev
 npm run dev            # http://localhost:3000
 ```
+
+`npm run dev` と `npm run build` は先に `scripts/assets.mjs` (OCR モデル等の
+複製) と第三者ライセンス一覧の生成を走らせる。
 
 `src/lib` を import するスクリプトを `tsx` で直接走らせるときは
 `npx tsx --conditions=react-server scripts/xxx.ts` のように条件を付ける
 (サーバ専用 module が `import 'server-only'` を持ち、付けないと import 時に throw する)。
+
+### 環境変数
+
+正本は [.env.example](.env.example) のコメント。要点だけ表にする。
+
+| 変数 | 必須 | 用途 |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` / `DATABASE_URL` | 必須 | DB の接続 |
+| `BASIC_AUTH_USER` / `BASIC_AUTH_HASH_B64` | 必須 | パスワードログイン |
+| `QR_BASE_URL` | 必須 | 印刷する QR に埋め込む URL のベース |
+| `APP_ENV` | 本番のみ | `production` 以外は画面がピンクになり `[LOCAL]` が付く (本番の誤操作防止) |
+| `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` | 任意 | パスキー。両方揃って初めて有効 |
+| `ADMIN_USER` | 任意 | 「サーバー情報」を開ける管理者。未設定なら誰も管理者ではない |
+| `DEMO_MODE` / `DEMO_LOGIN_HINT` | デモのみ | 隔離デモ用。本番・ローカルでは空にする |
+| `YAHOO_SHOPPING_APP_ID` | 任意 | JAN から商品名を引く |
+| `RAKUTEN_APP_ID` / `RAKUTEN_ACCESS_KEY` | 任意 | ISBN から書影を引く |
+| `RAKUTEN_APP_ORIGIN` | 任意 | 同上。3 つとも要る |
+| `DB_PORT` / `APP_PORT` | 任意 | ホストへ開くポート (既定 5432 / 3000。デモは 5433 / 3100) |
+| `QR_GIT_DIR` | 任意 | ノートの git 履歴の置き場 (既定 `data/git-notes`) |
+| `SITE_ADDRESS` | ローカルのみ | Caddy (proxy プロファイル) のアドレス |
 
 環境変数を足したとき・アップロードや取り込みの上限を変えたときは、3 か所が
 揃っているかを検査する (`.env.example`・`compose.yaml` の app の `environment:`・
@@ -217,7 +266,7 @@ npm run test:e2e                  # 別の端末で
 
 `--nobuild` では版番号などビルド時に埋め込む値が古いままになる。
 
-Caddy (HTTPS + Basic 認証) 込みで試す場合は:
+Caddy (HTTPS) 込みで試す場合は:
 
 ```bash
 docker compose --profile proxy up -d
@@ -295,9 +344,37 @@ vps2 でイメージ取得 → SSH トンネル経由で DB マイグレーシ�
 (見出しとタスク数は `doDeploy.sh` が毎回流している。詳細は `-h`):
 
 ```bash
-./doBackfill.sh circuits          # 本番へ (titles|taskcounts|thumbs|circuits)
+./doBackfill.sh circuits          # 本番へ
 ./doBackfill.sh thumbs --demo     # デモの live (qr) と種 (qr_seed) の両方へ
+./doBackfill.sh titles --seed     # デモの種 (qr_seed) だけ
 ```
+
+| タスク | 埋め直すもの | 流すとき |
+| --- | --- | --- |
+| `titles` | 見出し (タイトル順の並び) | 列を足した直後 (いまは doDeploy.sh が毎回流す) |
+| `taskcounts` | タスクの数 (`is:todo` の検索) | 同上 |
+| `thumbs` | 画像のサムネ | サムネの生成パラメータを変えた後 |
+| `circuits` | 回路図の SVG | 回路図フェンスの描画器を上げた後 |
+| `circuit-addresses` | 回路図フェンスの番地 (本文を書き換える) | `DRY_RUN=1` で対象を確かめてから |
+
+### 運用スクリプト
+
+どれもローカルから叩く (リモートにはソースが無い)。説明は各スクリプトの冒頭と `-h`。
+
+| スクリプト | 用途 |
+| --- | --- |
+| `doStart.sh` | ローカルで本番相当 (docker compose) に起動 |
+| `doVersion.sh` | 版を上げてタグを打つ |
+| `doDeploy.sh` | 本番 / デモへ配る |
+| `doDeployNginx.sh` | vps2 の nginx 設定を反映 |
+| `doBackfill.sh` | 派生データの埋め直し |
+| `doImportZip.sh` / `doImportEnex.sh` | ZIP / Evernote を本番へ直接取り込む |
+| `doDumpDB-from-vps2.sh` / `doDumpGit-from-vps2.sh` | 本番のバックアップ (DB + git 履歴) |
+| `doCopyDBfromVPS2.sh` | 本番の DB でローカルを上書き |
+| `scripts/reseedDemo.sh` | デモを種 DB から作り直す (vps2 の systemd timer が毎時呼ぶ) |
+| `scripts/doDemoSeedEdit.sh` | デモの種ノートを編集するセッション |
+| `scripts/e2eDb.sh` | E2E 専用 DB の作成と削除 |
+| `npm run backfill:git` / `backfill:embeddings` | git 履歴・画像の埋め込みをローカル DB へ |
 
 ## nginx 設定 (本番)
 
@@ -319,22 +396,44 @@ vps2 でイメージ取得 → SSH トンネル経由で DB マイグレーシ�
 `doDeployNginx.sh` はこれをドリフトとして検知して中断するので、
 指示に従ってサーバ側の内容を取り込み直してからコミットする。
 
-Basic 認証のパスワードファイル `/etc/nginx/.htpasswd-qr` は
-リポジトリ管理外。再発行は vps2 で `sudo htpasswd -c /etc/nginx/.htpasswd-qr tommie`。
+nginx は認証しない。パスワードの正本はアプリの `BASIC_AUTH_*` (`.env`) で、
+変えるときは `npm run hash-password` で作り直して app を再作成する。
 
-なお `Caddyfile` は同じ構成をローカルで再現するためのもので、本番では使わない。
-**認証やアップロード制限を変えたら両方に反映すること。**
+`Caddyfile` は同じ構成をローカルで再現するためのもので、本番では使わない。
+**ボディ上限やレート制限を変えたら両方に反映すること** (`scripts/checkEnv.mjs` が
+上限の大小関係を見張る)。
 
-## ルーティング
+## 画面とルート
+
+ノートの主キーは UUID v7 で、URL は `/item/<uuid>`
+([docs/107-ノート主キー計画.md](docs/107-ノート主キー計画.md))。古い番号の
+URL (`/item/1003`) は印刷済みの QR のために残してあり、`src/proxy.ts` が
+308 で新しい URL へ送る。
 
 | パス | 用途 |
 | --- | --- |
-| `/` | 一覧 + 検索(番号順 / 更新順) |
-| `/item/:itemNo` | 部品表示 + メモ更新(QR の飛び先。未登録なら新規作成) |
-| `/edit/:itemNo` | mode / memo / url の編集 |
-| `/print/:itemNo` | QR コード印刷 |
+| `/` | 一覧 + 検索。PC は一覧と詳細の 2 ペイン |
+| `/new` | 「+」で空ノートを採番して `/edit` へ送る |
+| `/item/:id` | ノートの表示 (QR の飛び先)。公開ノートはログイン不要 |
+| `/item/:id/history` | ノートの git 履歴と差分 |
+| `/edit/:id` | 本文・公開設定の編集 |
+| `/print/:id` | QR コード印刷 |
+| `/trash` | ゴミ箱 (復元と永久削除) |
+| `/offline` | 圏外のとき Service Worker が出す殻 |
+| `/logs` | サーバログ |
 | `/settings/passkeys` | パスキーの登録・削除 |
-| `/manifest.webmanifest` | PWA の manifest(`src/app/manifest.ts` が生成) |
+| `/settings/secrets` | シークレットの鍵の設定と復旧キー |
+| `/settings/import` | ZIP / Evernote の取り込みと全件エクスポート |
+| `/settings/history` | 既存ノートの git 履歴への取り込み |
+| `/settings/server` | サーバー情報とヘルスチェック (`ADMIN_USER` だけ) |
+| `/docs/memo` / `/docs/search` | 記法と検索のヘルプ (ログイン不要) |
+| `/about` | クレジットと第三者ライセンス (ログイン不要) |
+| `/login` / `/login-required` | パスワードログインの口 / 未ログイン時の案内 |
+| `/api/*` | 画像・添付・取り込み・パスキー・シークレット・検索候補などの JSON API |
+| `/manifest.webmanifest` · `/sw.js` | PWA の manifest と Service Worker |
+| `/.well-known/security.txt` | 脆弱性の連絡先 (RFC 9116) |
+
+ログイン無しで開けるパスの正本は `src/lib/auth/publicPaths.ts`。
 
 ## ログイン
 
@@ -376,15 +475,13 @@ manifest・アイコンに加えて Service Worker (`public/sw.js`) を持つ。
 設計は [docs/65-オフライン対応計画.md](docs/65-オフライン対応計画.md)。
 編集・新規作成は対象外 (サーバ必須)。
 
-**逆プロキシで manifest とアイコンの認証を外すこと。** ブラウザはこれらを
-Authorization ヘッダなしで取得するため、サイト全体を Basic 認証下に置くと
-401 になり「インストール可能」と判定されない。対象は
-`/manifest.webmanifest` `/icon-*.png` `/apple-icon.png` の 3 種
-(どれも秘密情報を含まない)。この Caddyfile には設定済み。
+**manifest・アイコン・`sw.js`・`/offline` はログイン無しで取れる。** ブラウザは
+これらを資格情報なしで取りに来るため、閉じると 401 になり「インストール可能」と
+判定されない。一覧は `src/lib/auth/publicPaths.ts` が manifest から導出する
+(アイコンを足したとき書き落とさないため)。どれも秘密を含まない。
 
-そのとき **ボディ上限 (`request_body` / `client_max_body_size`) は
-認証側のブロックの内側に置かないこと**。認証除外パスがボディ無制限になり、
-未認証で巨大なリクエストを投げ込めるようになる。
+逆プロキシで認証していた頃の名残で、**ボディ上限は認証の内側に置かない**。
+認証除外パスがボディ無制限になり、未認証で巨大なリクエストを投げ込めるようになる。
 
 アイコンは `public/icon-*.png` と `src/app/apple-icon.png`。元絵の SVG は
 生成スクリプトに直書きしてあり、意匠を変えるときだけ手で叩く
