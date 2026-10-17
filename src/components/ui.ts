@@ -250,26 +250,40 @@ export const SLOT_LABEL_CLASS =
 export const SLOT_MENU_ITEM_CLASS =
   "flex min-h-11 w-full items-center gap-2 whitespace-nowrap px-3 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200";
 
-// 行アクションのメニュー項目 (docs/66-行アクション計画.md §5-3)。
+// 行アクションのメニュー項目 (docs/66 §5-3、docs/107-行メニュー計画.md §3)。
 //
-// **こちらは文字を出さずアイコンだけ**にする。下部バーのメニューは 3 つの値の
-// うちどれを選ぶかを読む場所なので文字が要るが、行アクションは操作が並ぶだけで、
-// 指のすぐ上に出る小さな的に文字まで載せると横に広がって行を覆う。名前は
-// aria-label で言う (伏せているのは絵の説明であって、意味ではない)。
+// **アイコン + 文字**で並べる。docs/66 の当初は「操作が数個並ぶだけ」として
+// アイコンだけにしていたが、項目が増える前提では絵だけで意味を読ませられない
+// (ゴミ箱以外の操作は絵が似通う)。高さは 44px で SLOT_MENU_ITEM_CLASS と揃える。
 //
 // 色は使う側から与える。**色抜きで分けるのが要点** — 土台に text-gray-700 を
 // 残したまま使う側で text-red-700 を足すと、どちらが勝つかは class 属性の
 // 並び順ではなく生成された CSS の並び順で決まる (同じ詳細度の同族
 // ユーティリティ)。効いたり効かなかったりする指定になる。
 //
-// 44px 角。文字が無いぶん的が細くなるので、幅の下限も高さと同じだけ取る
-const ROW_MENU_ICON_ITEM_SKIN =
-  "flex min-h-11 min-w-11 items-center justify-center transition-colors";
+// focus-visible の地色 … メニューは開いた時点で先頭の項目へフォーカスを移し、
+// ↑↓ で項目を渡る。どこに居るかを地色で見せる (枠線だと角丸の外へ切れる)
+const ROW_MENU_ITEM_SKIN =
+  "flex min-h-11 w-full items-center gap-3 whitespace-nowrap px-4 text-left text-sm font-medium outline-none transition-colors";
 
-export const ROW_MENU_ICON_ITEM_CLASS = `${ROW_MENU_ICON_ITEM_SKIN} text-gray-700 hover:bg-gray-100 active:bg-gray-200`;
+export const ROW_MENU_ITEM_CLASS = `${ROW_MENU_ITEM_SKIN} text-gray-700 hover:bg-gray-100 focus-visible:bg-gray-100 active:bg-gray-200`;
 
 // 取り返しの付きにくい操作 (ゴミ箱へ移動)。押下の地色も赤系に合わせる
-export const ROW_MENU_ICON_ITEM_DANGER_CLASS = `${ROW_MENU_ICON_ITEM_SKIN} text-red-700 hover:bg-red-50 active:bg-red-100`;
+export const ROW_MENU_ITEM_DANGER_CLASS = `${ROW_MENU_ITEM_SKIN} text-red-700 hover:bg-red-50 focus-visible:bg-red-50 active:bg-red-100`;
+
+// 行の右端に常設する ⋮ ボタン (docs/107 §2)。
+//
+// 枠も地も持たない — 一覧の全行に並ぶので、枠を描くと行ごとに箱が積まれて
+// 見える。文字色は PC では控えめ (gray-400) にしてホバー中の行だけ濃くし、
+// タッチ端末 (hover が無い) では最初から読める濃さ (gray-500) で出す。
+// 寸法 (高さ・幅) と角丸・地色は置き場所 (小表示は行の全高、カードは右上の丸)
+// で違うので、使う側が足す。**角丸 (rounded*) と素の bg-* を土台に入れない** —
+// 同族のユーティリティを使う側でも足すと、どちらが勝つかが生成 CSS の並び順
+// 任せになる (上の ROW_MENU_ITEM_SKIN の色と同じ事情)。
+// 濃い色は gray-700 の 1 段だけ。行のホバー (group-hover) と ⋮ 自身のホバーで
+// 段を分けると、詳細度の高い group-hover が勝って ⋮ 自身の段が出ない
+export const ROW_MENU_TRIGGER_CLASS =
+  "flex items-center justify-center text-gray-500 outline-none transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:bg-gray-100 focus-visible:text-gray-700 active:bg-gray-200 aria-expanded:bg-gray-100 aria-expanded:text-gray-700 [@media(hover:hover)]:text-gray-400 [@media(hover:hover)]:group-hover:text-gray-700";
 
 // 描けなかった図・問題のエラーカードに添える「元のソース」。
 //

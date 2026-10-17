@@ -28,21 +28,27 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-// 押した点を起点に、メニュー全体が画面へ収まる位置を返す。
+// 1 つの軸で、メニューを画面へ収める位置。縦横で同じ規則を使う。
 //
-// 収まらない向きは諦めて反対側へ回す。**負の座標は返さない** — 上端や左端が
-// 画面の外へ出ると、そこにある項目が押せないまま残る (スクロールもできない)。
+// メニューのほうが画面より大きければ始端 (左・上) に寄せる。clamp の
+// min > max を避けるため — 逆順に渡すと max 側が勝って負の座標へ飛び、
+// 始端の項目が押せないまま残る (スクロールもできない)
+function fitAxis(preferred: number, size: number, viewportSize: number, margin: number) {
+  const max = viewportSize - size - margin;
+  return max < margin ? margin : clamp(preferred, margin, max);
+}
+
+// 押した点を起点に、メニュー全体が画面へ収まる位置を返す (長押しから開いたとき)。
+//
+// 収まらない向きは諦めて反対側へ回す。
 export function placeRowActionMenu(
   point: MenuPoint,
   menu: MenuSize,
   viewport: MenuSize,
   margin = ROW_ACTION_MENU_MARGIN,
 ): MenuPosition {
-  // 横: 押した指の中心に揃える。メニューのほうが画面より広ければ左端に寄せる
-  // (clamp の min > max を避ける。逆順に渡すと max 側が勝って右へ飛ぶ)
-  const maxLeft = viewport.width - menu.width - margin;
-  const left =
-    maxLeft < margin ? margin : clamp(point.x - menu.width / 2, margin, maxLeft);
+  // 横: 押した指の中心に揃える
+  const left = fitAxis(point.x - menu.width / 2, menu.width, viewport.width, margin);
 
   // 縦: まず指の上へ。iOS の触覚メニューと同じで、押している指がメニューを
   // 隠さない。上に入らなければ下へ回す
@@ -55,10 +61,61 @@ export function placeRowActionMenu(
   if (below <= maxTop) {
     return { left, top: below };
   }
-  // どちらにも入らない (横持ちの浅い画面など)。押した位置は諦め、
-  // 全部が見える場所へ寄せる
+  // どちらにも入らない。押した位置は諦め、全部が見える場所へ寄せる
   return {
     left,
-    top: maxTop < margin ? margin : clamp(point.y - menu.height / 2, margin, maxTop),
+    top: fitAxis(point.y - menu.height / 2, menu.height, viewport.height, margin),
   };
+}
+
+// 画面上の矩形 (getBoundingClientRect の 4 辺)
+export interface AnchorRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+// ⋮ ボタンを起点に置く (docs/107-行メニュー計画.md §4)。
+//
+// 指の点と違って起点が見えたまま残るので、上へ逃がす理由が無い。
+// PC アプリの通例どおり**ボタンの真下に、右端を揃えて**出す (⋮ は行の
+// 右端にあるので、左へ開けば画面に収まる)。下に入らなければ上へ回す。
+// ボタンとメニューの間は空けない — 離すと、どのボタンから出たのかが
+// 読み取りにくくなる
+export function placeRowActionMenuAtAnchor(
+  anchor: AnchorRect,
+  menu: MenuSize,
+  viewport: MenuSize,
+  margin = ROW_ACTION_MENU_MARGIN,
+): MenuPosition {
+  const left = fitAxis(anchor.right - menu.width, menu.width, viewport.width, margin);
+
+  const maxTop = viewport.height - menu.height - margin;
+  if (anchor.bottom <= maxTop) {
+    return { left, top: anchor.bottom };
+  }
+  const above = anchor.top - menu.height;
+  if (above >= margin) {
+    return { left, top: above };
+  }
+  return {
+    left,
+    top: fitAxis(anchor.bottom, menu.height, viewport.height, margin),
+  };
+}
+
+// メニューをどこから開いたか。長押しは指の点、⋮ はボタンの矩形
+export type MenuOrigin =
+  | { kind: "point"; point: MenuPoint }
+  | { kind: "anchor"; rect: AnchorRect };
+
+export function placeRowActionMenuFrom(
+  origin: MenuOrigin,
+  menu: MenuSize,
+  viewport: MenuSize,
+): MenuPosition {
+  return origin.kind === "point"
+    ? placeRowActionMenu(origin.point, menu, viewport)
+    : placeRowActionMenuAtAnchor(origin.rect, menu, viewport);
 }

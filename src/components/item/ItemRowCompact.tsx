@@ -19,9 +19,13 @@ export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
   const { itemNo, href, selected, checkbox, title, tags, footer, thumb } = parts;
   return (
     <MaybeSwipeRow itemNo={itemNo} swipe={swipe} view="compact">
-      {/* relative … タイトルの当たり判定を広げる ::after の基準にする */}
+      {/* relative … タイトルの当たり判定を広げる ::after の基準にする。
+          pr-10 … 操作がある行 (swipe あり) は右端に ⋮ が常に居るので、
+          サムネと題をその幅 (w-10) だけ左へ寄せる (docs/107 §2) */}
       <div
-        className={`relative flex items-baseline gap-3 px-4 py-1.5 transition-colors ${parts.tintClass}`}
+        className={`relative flex items-baseline gap-3 py-1.5 pl-4 transition-colors ${
+          swipe ? "pr-10" : "pr-4"
+        } ${parts.tintClass}`}
       >
         {checkbox}
         <Link

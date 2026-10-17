@@ -1,5 +1,9 @@
 import { expect, test } from "vitest";
-import { ROW_ACTION_MENU_MARGIN, placeRowActionMenu } from "./rowActionMenu";
+import {
+  ROW_ACTION_MENU_MARGIN,
+  placeRowActionMenu,
+  placeRowActionMenuAtAnchor,
+} from "./rowActionMenu";
 
 // 余裕のある画面と、その真ん中あたりを押した指。個々のテストで
 // 「どこが狭いか」だけを変える
@@ -51,4 +55,42 @@ test("メニューが画面より大きくても左上を画面内に置く", ()
   const at = placeRowActionMenu({ x: 195, y: 400 }, huge, VIEWPORT);
   expect(at.left).toBe(MARGIN);
   expect(at.top).toBe(MARGIN);
+});
+
+// ⋮ ボタンから開いたとき (docs/107-行メニュー計画.md §4)。起点は指の点ではなく
+// ボタンの矩形で、メニューはボタンの真下に右端を揃えて出す
+// (Gmail や Google Drive の ⋮ と同じ)。
+const BUTTON = { left: 340, top: 300, right: 380, bottom: 340 };
+
+test("⋮ のメニューはボタンの真下に出す", () => {
+  const at = placeRowActionMenuAtAnchor(BUTTON, MENU, VIEWPORT);
+  expect(at.top).toBe(BUTTON.bottom);
+});
+
+test("⋮ のメニューは右端をボタンの右端に揃える", () => {
+  const at = placeRowActionMenuAtAnchor(BUTTON, MENU, VIEWPORT);
+  expect(at.left).toBe(BUTTON.right - MENU.width);
+});
+
+test("⋮ の下に入らなければボタンの上へ回す", () => {
+  // 一覧の最後の行。下へ出すと画面の外に消える
+  const low = { left: 340, top: 740, right: 380, bottom: 780 };
+  const at = placeRowActionMenuAtAnchor(low, MENU, VIEWPORT);
+  expect(at.top).toBe(low.top - MENU.height);
+});
+
+test("⋮ が左寄りでも余白を割らない", () => {
+  // 狭い画面でボタンより広いメニューを右揃えにすると左へはみ出す
+  const left = { left: 0, top: 300, right: 40, bottom: 340 };
+  const at = placeRowActionMenuAtAnchor(left, MENU, VIEWPORT);
+  expect(at.left).toBe(MARGIN);
+});
+
+test("⋮ の上下どちらにも入らなければ画面の中へ収める", () => {
+  const tall = { width: 200, height: 300 };
+  const shallow = { width: 390, height: 320 };
+  const mid = { left: 340, top: 140, right: 380, bottom: 180 };
+  const at = placeRowActionMenuAtAnchor(mid, tall, shallow);
+  expect(at.top).toBeGreaterThanOrEqual(MARGIN);
+  expect(at.top + tall.height).toBeLessThanOrEqual(shallow.height - MARGIN);
 });

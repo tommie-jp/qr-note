@@ -32,7 +32,14 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
         className={`relative flex h-full gap-3 px-4 py-3 transition-colors ${parts.tintClass}`}
       >
         {checkbox}
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* pr-8 … 操作があるカードは右上に ⋮ が居る (高さ 36px で、題の下の
+            タグの行まで届く)。サムネが無いと題・タグ・本文が右端まで伸びて
+            ⋮ の下に潜るので、列ごと空ける (docs/107 §2)。サムネがあれば ⋮ は
+            サムネの角に重なる (白い地を敷いてある) ので空けない — 空けると
+            狭いカードで題が無駄に短く切れる */}
+        <div
+          className={`flex min-w-0 flex-1 flex-col ${swipe && !thumb ? "pr-8" : ""}`}
+        >
           <div className="flex items-baseline gap-2">
             <Link
               href={href}

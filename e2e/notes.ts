@@ -22,7 +22,7 @@ export function searchResults(page: Page): Locator {
 
 // 一覧の行 (li) のうち、その番号のリンク (`#zze2e1`) を持つもの。
 // has に渡す locator は行からの相対で引かれるので、page から作る
-function rowOf(page: Page, scope: Page | Locator, itemNo: string): Locator {
+export function rowOf(page: Page, scope: Page | Locator, itemNo: string): Locator {
   return scope.getByRole('listitem').filter({
     has: page.getByRole('link', { name: `#${itemNo}`, exact: true }),
   })

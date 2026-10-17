@@ -1,11 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { COMPACT_ICON_BUTTON_CLASS } from "../../ui";
+import type { MouseEvent as ReactMouseEvent, ReactNode, Ref } from "react";
+import { MoreIcon } from "../../icons";
+import { COMPACT_ICON_BUTTON_CLASS, ROW_MENU_TRIGGER_CLASS } from "../../ui";
 
 // 検索結果の 1 行に対して行える操作 (docs/66-行アクション計画.md §3)。
 //
-// **一覧を 1 か所で組み、PC のボタン列とスマホのメニューを同じ配列から作る。**
+// **一覧を 1 か所で組み、PC のボタン列と ⋮ / 長押しのメニューを同じ配列から作る。**
 // 増える見込みのある物 (ピン留め・複製など) を 2 か所に書き分けると、必ず
 // 片方だけ足りない状態になる。組む場所は SwipeToTrashRow — 送信中/失敗の
 // 状態を持てるのがあそこだけなので、実行する手と同じ所に置く。
@@ -14,8 +15,12 @@ export interface RowAction {
   // 「ゴミ箱へ移動」。ボタンでは aria-label、メニューでは表示される文字
   label: string;
   icon: ReactNode;
-  // 取り返しの付きにくい操作。赤で描く
+  // 取り返しの付きにくい操作。赤で描き、メニューでは区切り線の下 (末尾) に置く
   danger?: boolean;
+  // PC でホバーしたとき ⋮ の左に並べる近道にするか (docs/107-行メニュー計画.md §2)。
+  // 付けるのはよく使う 1〜2 個だけ — 増やすとサムネを覆う帯が伸び、
+  // 「⋮ を開けば全部ある」という形が崩れる。付けなくてもメニューには必ず出る
+  quick?: boolean;
   onSelect: () => void;
 }
 
@@ -29,7 +34,8 @@ interface RowActionButtonsProps {
   view: "compact" | "card";
 }
 
-// PC でホバーしたときだけ現れる、行の右端のアイコンボタン列。
+// PC でホバーしたときだけ現れる、⋮ の左のアイコンボタン列 (近道)。
+// 並べるのは quick の付いた操作だけ (docs/107 §2)。
 //
 // 1 件をゴミ箱へ入れる道はこれまでスワイプ (指) と選択モード (3 手) しか
 // なく、**マウスに近道が無かった** (docs/66 §1)。
@@ -40,17 +46,22 @@ interface RowActionButtonsProps {
 //     Tab で辿り着けない。行の高さも出し入れのたびに変わる。
 //   - pointer-events-none が要る … opacity だけだと、ホバーの無い環境で
 //     **見えないボタンがタップを吸う**。
-//   - group-focus-within でも出す … ホバーでしか出ないボタンは、
-//     キーボードの利用者にとって存在しないのと同じ。
+//   - キーボードのフォーカスが行に入ったときも出す … ホバーでしか出ない
+//     ボタンは、キーボードの利用者にとって存在しないのと同じ。
+//     **focus-within ではなく「行の中に :focus-visible があるか」で見る**
+//     (docs/107 §2)。Android の Chrome はタップしたボタンにフォーカスを
+//     置くので、focus-within だと ⋮ をタップしただけでスマホにも近道が
+//     出てしまう。タップのフォーカスは focus-visible にならない。
 //
 // Tailwind v4 の hover 系は @media (hover: hover) に包まれるので、スマホで
-// 触れた指にボタンが貼り付くことはない (あちらは長押しのメニューが受ける)。
+// 触れた指にボタンが貼り付くことはない (あちらは ⋮ と長押しのメニューが受ける)。
 export function RowActionButtons({
   itemNo,
   actions,
   view,
 }: RowActionButtonsProps) {
-  if (actions.length === 0) {
+  const quick = actions.filter((action) => action.quick);
+  if (quick.length === 0) {
     return null;
   }
   return (
@@ -58,11 +69,11 @@ export function RowActionButtons({
       data-row-action=""
       // z-10 … タイトルの当たり判定 (::after) より前に出す。膜の下に居ると
       // ボタンを押してもノートが開く (タグを relative z-10 にするのと同じ)
-      className={`pointer-events-none absolute z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${
-        view === "card" ? "top-2 right-2" : "inset-y-0 right-2 items-center"
+      className={`pointer-events-none absolute z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100 ${
+        view === "card" ? "top-2 right-11" : "inset-y-0 right-11 items-center"
       }`}
     >
-      {actions.map((action) => (
+      {quick.map((action) => (
         <button
           key={action.key}
           type="button"
@@ -85,5 +96,59 @@ export function RowActionButtons({
         </button>
       ))}
     </div>
+  );
+}
+
+interface RowMenuTriggerProps {
+  itemNo: string;
+  view: "compact" | "card";
+  isOpen: boolean;
+  disabled: boolean;
+  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  ref: Ref<HTMLButtonElement>;
+}
+
+// 行の右端に常設する ⋮ ボタン (docs/107-行メニュー計画.md §2)。
+//
+// **長押しとホバーは「知っている人の近道」で、見える入口ではない。**
+// スマホで行に操作があると知る手掛かりが無かったので、PC・スマホとも
+// これを常に出し、全部の操作はここから辿れるようにする。
+//
+// 置き場所:
+//   - 小・中表示 … 行の全高を当たり判定にする (inset-y-0)。行は 32px ほどで、
+//     36px 角のボタンを中央に置くと上下が li の overflow-hidden に切られる。
+//     全高にすれば指で狙う縦幅も行の高さぶん取れる。
+//   - カード … 右上の 36px 角。サムネの角に重なることがあるので白い地を敷く。
+//
+// data-row-action … 押下をスワイプ・長押し・stretched link に渡さない印
+// (useRowGestureArbiter)。ここを押して行が滑ったりノートが開いたりしない。
+// z-10 … タイトルの当たり判定 (::after) より前に出す
+export function RowMenuTrigger({
+  itemNo,
+  view,
+  isOpen,
+  disabled,
+  onClick,
+  ref,
+}: RowMenuTriggerProps) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      data-row-action=""
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={`#${itemNo} の操作`}
+      aria-haspopup="menu"
+      aria-expanded={isOpen}
+      title="操作"
+      className={`absolute z-10 disabled:opacity-50 ${ROW_MENU_TRIGGER_CLASS} ${
+        view === "card"
+          ? "top-1.5 right-1.5 size-9 rounded-full bg-white/85"
+          : "inset-y-0 right-0 w-10 rounded"
+      }`}
+    >
+      <MoreIcon />
+    </button>
   );
 }

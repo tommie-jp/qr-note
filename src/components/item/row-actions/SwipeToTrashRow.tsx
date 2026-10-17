@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import type { MenuPoint } from "@/lib/gesture/rowActionMenu";
+import { useRef, useState, type ReactNode } from "react";
+import type { MenuOrigin } from "@/lib/gesture/rowActionMenu";
 import { SWIPE_BUTTON_WIDTH } from "@/lib/gesture/swipeRow";
 import { useRowGestureArbiter } from "./useRowGestureArbiter";
 import {
@@ -12,7 +12,11 @@ import {
 import { useSwipeDrawer } from "./useSwipeDrawer";
 import { TrashIcon } from "../../icons";
 import { RowActionMenu } from "./RowActionMenu";
-import { RowActionButtons, type RowAction } from "./RowActions";
+import {
+  RowActionButtons,
+  RowMenuTrigger,
+  type RowAction,
+} from "./RowActions";
 
 // 1 行ぶんのスワイプ削除に要る物 (docs/43-スワイプ削除計画.md)。
 //
@@ -47,8 +51,9 @@ interface SwipeToTrashRowProps {
 // ノートの 1 行 / 1 カードに操作を付けるラッパー。
 //
 //   左スワイプ … 右端の赤い「削除」ボタンを露出させる (docs/43-スワイプ削除計画.md)。
-//   ホバー     … 右端にアイコンボタン列を出す。PC 用 (docs/66-行アクション計画.md §4)。
-//   長押し     … 指の近くに操作メニューを出す。スマホ用 (docs/66 §5)。
+//   ⋮ ボタン   … 右端に常設。押すと真下に操作メニューを出す (docs/107-行メニュー計画.md)。
+//   ホバー     … ⋮ の左に近道のアイコンを出す。PC 用 (docs/66-行アクション計画.md §4)。
+//   長押し     … 指の近くに同じメニューを出す。スマホの近道 (docs/66 §5)。
 //
 // 引き出しの動きは useSwipeDrawer、押下の振り分けは useRowGestureArbiter、
 // ゴミ箱行きの送信は useRowTrash が持つ。ここは DOM を並べて繋ぐだけ。
@@ -58,7 +63,7 @@ interface SwipeToTrashRowProps {
 //
 // **行アクションの一覧 (actions) をここで組む。** 送信中・失敗の状態を持てるのが
 // この階層だけなので、実行する手と一覧を同じ所に置く。今後ピン留めなどを足す
-// ときは actions に 1 つ足せば、ホバーの列とメニューの両方に同時に現れる。
+// ときは actions に 1 つ足せば、メニューに現れる (quick を付ければホバーの列にも)。
 export function SwipeToTrashRow({
   itemNo,
   swipe,
@@ -73,13 +78,14 @@ export function SwipeToTrashRow({
     trashAction,
     searchState,
   );
-  // 長押しメニューを開いている位置 (画面座標)。閉じているときは null。
+  // メニューをどこから開いているか (長押しの点 / ⋮ の矩形)。閉じているときは null。
   //
   // **開いているメニューを 1 つに保つのに、親へ持ち上げる必要はない。**
   // RowActionMenu は document の pointerdown を capture で拾って閉じるので、
   // 別の行を押した時点で先に閉じる (スワイプの開閉が openItemNo を親に
   // 置いているのは、あちらが「押されていない間も開いたまま」だから)
-  const [menuAt, setMenuAt] = useState<MenuPoint | null>(null);
+  const [menuOrigin, setMenuOrigin] = useState<MenuOrigin | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const gestures = useRowGestureArbiter({
     busy,
     drawer,
@@ -87,7 +93,7 @@ export function SwipeToTrashRow({
       // 開きかけの引き出しは畳む。引き出しとメニューが同時に出ていると、
       // どちらの削除を押したのか判らなくなる
       onOpenChange(false);
-      setMenuAt(point);
+      setMenuOrigin({ kind: "point", point });
     },
   });
 
@@ -101,6 +107,7 @@ export function SwipeToTrashRow({
       label: "ゴミ箱へ移動",
       icon: <TrashIcon />,
       danger: true,
+      quick: true,
       onSelect: trash,
     },
   ];
@@ -155,26 +162,62 @@ export function SwipeToTrashRow({
         style={{ transform: `translateX(${drawer.offset}px)` }}
       >
         {children}
-        {/* PC 用のボタン列。スマホでは hover が無いので出ない (§4) */}
+        {/* PC 用の近道。スマホでは hover が無いので出ない (§4) */}
         <RowActionButtons itemNo={itemNo} actions={actions} view={view} />
+        <RowMenuTrigger
+          ref={triggerRef}
+          itemNo={itemNo}
+          view={view}
+          isOpen={menuOrigin?.kind === "anchor"}
+          disabled={busy}
+          onClick={(event) => {
+            // 押すたびに開閉する。外側の押下で閉じる仕組みは ⋮ への押下を
+            // 数えない (RowActionMenu の anchorRef) ので、ここで閉じられる
+            if (menuOrigin) {
+              setMenuOrigin(null);
+              return;
+            }
+            // 開きかけの引き出しは畳む (長押しと同じ理由)。
+            //
+            // **測った矩形からずらし量を差し引く。** ⋮ は前面 div ごと
+            // translateX で左へずれており、いま測ると引き出しが開いた位置を
+            // 返す。畳むと ⋮ は右へ戻るが、メニューは fixed で測った所に
+            // 残るので、ボタンから離れて宙に浮く。畳んだ後の位置を先に出す
+            const shift = drawer.offset;
+            onOpenChange(false);
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenuOrigin({
+              kind: "anchor",
+              rect: {
+                left: rect.left - shift,
+                top: rect.top,
+                right: rect.right - shift,
+                bottom: rect.bottom,
+              },
+            });
+          }}
+        />
         {failed && (
-          <p className="px-4 pb-1 text-sm text-red-600" role="alert">
+          // pr-10 … 小表示の ⋮ は行の全高 (この段落も含む) を占めるので、
+          // 文が ⋮ の下に潜らないよう、その幅だけ空ける
+          <p className="pb-1 pl-4 pr-10 text-sm text-red-600" role="alert">
             削除に失敗しました。通信を確認して再度お試しください。
           </p>
         )}
       </div>
 
-      {/* 長押しメニュー (§5-3)。**前面 div の中に置いてはいけない** —
+      {/* ⋮ と長押しのメニュー (§5-3、docs/107)。**前面 div の中に置いてはいけない** —
           あちらは translateX を持ち、transform のある要素は fixed の包含
           ブロックになるので、画面座標のつもりの位置が行の中を指す。
           ここに置けば body へ portal されるだけで、li の overflow-hidden にも
           切られない */}
-      {menuAt && (
+      {menuOrigin && (
         <RowActionMenu
           label={`#${itemNo} の操作`}
           actions={actions}
-          at={menuAt}
-          onClose={() => setMenuAt(null)}
+          origin={menuOrigin}
+          anchorRef={triggerRef}
+          onClose={() => setMenuOrigin(null)}
         />
       )}
     </li>

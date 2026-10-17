@@ -30,6 +30,22 @@ export function TrashIcon({ small = false }: { small?: boolean } = {}) {
   );
 }
 
+// その他の操作 (縦の三点 ⋮。docs/107-行メニュー計画.md §2)。
+//
+// 縦にするのは Android・Google 系の作法に合わせるため。横の ⋯ は iOS では
+// 「その他」だが、一覧の右端に置くと行末の省略記号 (…) と見分けにくい。
+// 点は塗りの丸で描く — 線画の円では 20px のとき中が抜けて輪にしか見えない。
+// 色は currentColor のまま (ROW_MENU_TRIGGER_CLASS がホバーで濃くする)
+export function MoreIcon() {
+  return (
+    <StrokeIcon>
+      <circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none" />
+    </StrokeIcon>
+  );
+}
+
 // コピー (docs/21-ログ表示計画.md §6)。重ねた 2 枚の紙で「同じ物が 2 つに
 // なる」を描く。クリップボードの絵にはしない — バインダーの留め具は 20px では
 // ただの突起に潰れ、SaveIcon (フロッピー) と見分けが付かなくなる。
