@@ -7,8 +7,10 @@
 #
 # 前提:
 #   - ローカル / vps2 とも docker compose の db サービスが起動している
-#   - 両者の db は同じイメージ (groonga/pgroonga:*-alpine-16) のため、
-#     pg_dump / pg_restore のバージョン差を考えなくてよい
+#   - 両者の db は同じイメージ (groonga/pgroonga:*-alpine-18) のため、
+#     pg_dump / pg_restore のバージョン差を考えなくてよい。
+#     **PG18 への移行中に片方だけ 16 のとき:** 16 → 18 (vps2 が 16) は通るが、
+#     18 → 16 は pg_restore が新しい形式を読めずに失敗する
 #   - DB 操作はコンテナ内の Unix ソケット (trust 認証) 経由で行うので、
 #     パスワードも SSH トンネルも要らない (doDeploy.sh のような .env 取得は不要)
 #

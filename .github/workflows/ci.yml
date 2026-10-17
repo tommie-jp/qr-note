@@ -79,7 +79,7 @@ jobs:
     services:
       db:
         # compose.yaml の db と同じイメージ (上げるときは両方)
-        image: groonga/pgroonga:4.0.6-alpine-16
+        image: groonga/pgroonga:4.1.0-alpine-18
         env:
           POSTGRES_USER: qr
           POSTGRES_PASSWORD: ci
@@ -128,7 +128,7 @@ jobs:
     services:
       db:
         # compose.yaml の db と同じイメージ (上げるときは両方)
-        image: groonga/pgroonga:4.0.6-alpine-16
+        image: groonga/pgroonga:4.1.0-alpine-18
         env:
           POSTGRES_USER: qr
           POSTGRES_PASSWORD: ci

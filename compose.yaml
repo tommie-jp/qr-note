@@ -6,9 +6,9 @@ name: qr-search
 
 services:
   db:
-    # 全文検索 (Ver2.1) 用に PGroonga 入り PostgreSQL 16 を使う。
-    # postgres:16-alpine と同じ PG16/alpine ベースのためデータ volume はそのまま流用できる。
-    image: groonga/pgroonga:4.0.6-alpine-16
+    # 全文検索 (Ver2.1) 用に PGroonga 入り PostgreSQL 18 を使う
+    # (PG16 からの移行は 41-QR-search/docs/27 §PG16 から PG18 への移行の検討)。
+    image: groonga/pgroonga:4.1.0-alpine-18
     restart: unless-stopped
     environment:
       POSTGRES_USER: qr
@@ -17,7 +17,12 @@ services:
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
-      - db-data:/var/lib/postgresql/data
+      # PG18 のイメージは /var/lib/postgresql に 1 つ mount し、その下の
+      # 18/docker にデータを置く。旧 mount (/var/lib/postgresql/data) のまま
+      # 版を上げると、既存データを見つけてエラーで起動しない。
+      # **PG16 の db-data とは別の volume にする** — 同じ volume を新しい場所に
+      # mount すると、PG16 のファイルの横に 18/ が作られて戻せなくなる
+      - db-data-18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U qr -d qr"]
       interval: 5s
@@ -107,6 +112,10 @@ services:
 volumes:
   # 画像は images テーブルに入れるため uploads volume は持たない
   # (pg_dump だけでメモと画像が揃う)
+  db-data-18:
+  # PG16 時代のデータ。PG18 へ移した後は使わないが、戻すときのために残す
+  # (image と mount を 4.0.6-alpine-16 / db-data:/var/lib/postgresql/data に
+  # 戻せばそのまま起動する)。消すのは PG18 での運用が落ち着いてから
   db-data:
   # ノートの git 履歴 (docs/57)。デプロイでこの volume 定義を反映するには
   # compose.yaml の scp + `docker compose up -d` のやり直しが要る
