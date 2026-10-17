@@ -185,8 +185,9 @@ test("全画面 (1 ペイン) の操作行も浮かせる (閉じる・全画面
   const html = render("/item/4951", "1");
   expect(html).toContain("data-note-chrome-floating");
   expect(html).toMatch(/data-note-chrome-spacer=""[^>]*float-right/);
-  // 左の「閉じる」の札のぶんも空ける
-  expect(html).toContain("float-left");
+  // 「閉じる」は右の札に合流する (左の札は無い)
+  expect(html).not.toContain("float-left");
+  expect(html.indexOf("全画面で開く")).toBeLessThan(html.indexOf("閉じる"));
 });
 
 test("本文の頭に 1/4em の余白を持つ", () => {

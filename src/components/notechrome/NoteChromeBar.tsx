@@ -20,7 +20,7 @@ const SPACER_HEIGHT_CLASS = "h-12";
 // 詰め物の幅。札 (⋯ 44px + 全画面 44px + 余白) より少し広く取る
 const SPACER_WIDTH_CLASS = "w-28";
 // 右が文字の釦 (全画面で開く) のとき / 左の「閉じる」の札
-const SPACER_WIDTH_WIDE_CLASS = "w-48";
+const SPACER_WIDTH_WIDE_CLASS = "w-72";
 const SPACER_WIDTH_START_CLASS = "w-28";
 // 札の見た目 (左右共通)
 const PILL_CLASS =

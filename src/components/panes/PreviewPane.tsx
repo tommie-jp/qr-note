@@ -169,41 +169,42 @@ export function PreviewPane({
             // 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
             // ペインとして常設されている間は押しても閉じられないので、
             // ボタンにすると嘘になる (畳みたいときはヘッダーの構成を変える)。
-            // 閉じられるのは全画面 (1 ペイン) のときだけ
-            start={
-              isBottomPane ? undefined : (
-                <button
-                  type="button"
-                  onClick={() => router.back()}
-                  className={ACTION_LINK_CLASS}
-                >
-                  <ClearIcon />
-                  閉じる
-                </button>
-              )
-            }
+            // 閉じられるのは全画面 (1 ペイン) のときだけ。右の札に合流させ、
+            // 左は空ける (⋯ 全画面で開く 閉じる の順)
             // 下部ペインでは絵だけ (⋯ と同じ 44px の輪) にして札を小さく保つ。
             // 名前は aria-label と長押しの吹き出し (PressTip) が言う。全画面は
             // 場所があるので文字のまま
             end={
-              openHref &&
-              (isBottomPane ? (
-                <PressTip label="全画面で開く">
-                  <a
-                    href={openHref}
-                    aria-label="全画面で開く"
-                    // ACTION_LINK_CLASS の rounded と rounded-full は同じ
-                    // プロパティで競るので、絵だけの輪はここで組む
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-blue-600 transition-colors active:bg-blue-50"
+              <>
+                {openHref &&
+                  (isBottomPane ? (
+                    <PressTip label="全画面で開く">
+                      <a
+                        href={openHref}
+                        aria-label="全画面で開く"
+                        // ACTION_LINK_CLASS の rounded と rounded-full は同じ
+                        // プロパティで競るので、絵だけの輪はここで組む
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-blue-600 transition-colors active:bg-blue-50"
+                      >
+                        <OpenFullIcon />
+                      </a>
+                    </PressTip>
+                  ) : (
+                    <a href={openHref} className={ACTION_LINK_CLASS}>
+                      全画面で開く
+                    </a>
+                  ))}
+                {!isBottomPane && (
+                  <button
+                    type="button"
+                    onClick={() => router.back()}
+                    className={ACTION_LINK_CLASS}
                   >
-                    <OpenFullIcon />
-                  </a>
-                </PressTip>
-              ) : (
-                <a href={openHref} className={ACTION_LINK_CLASS}>
-                  全画面で開く
-                </a>
-              ))
+                    <ClearIcon />
+                    閉じる
+                  </button>
+                )}
+              </>
             }
           />
           {/* pb-safe … 画面の下端に接する器 (全画面・下部バーの無い画面の
@@ -220,7 +221,6 @@ export function PreviewPane({
                 折り返す)。本文の器の先頭でなければ効かない */}
             <NoteChromeFloatSpacer
               canFloat
-              withStart={!isBottomPane}
               wideEnd={!isBottomPane}
             />
             {children}
