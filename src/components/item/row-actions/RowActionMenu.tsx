@@ -191,9 +191,12 @@ export function RowActionMenu({
             role="menuitem"
             // 項目は ↑↓ で渡る。Tab の巡回からは外す (Tab はメニューを閉じる)
             tabIndex={-1}
+            // **先に閉じてから実行する。** 操作が確認ダイアログを出すとき
+            // (画像モードのゴミ箱)、メニューが開いたままダイアログの後ろに
+            // 残らないように
             onClick={() => {
-              action.onSelect();
               closeAndRestore();
+              action.onSelect();
             }}
             className={
               action.danger ? ROW_MENU_ITEM_DANGER_CLASS : ROW_MENU_ITEM_CLASS

@@ -16,6 +16,29 @@ export interface RowSearchState {
 // ノートをゴミ箱へ入れるサーバーアクション (BulkTagToolbar と同じ trashItemsAction)。
 export type RowTrashAction = (formData: FormData) => void | Promise<void>;
 
+// 1 件をゴミ箱へ送る。成功なら true、本物の失敗なら false。
+// 行 (useRowTrash) と画像モードのタイル (TileTrashProvider) が共有する。
+//
+// **成功しても例外は飛んでくる。** trashItemsAction は最後に redirect() を
+// 呼び、これは内部エラーを投げることで動く仕組みなので、素の catch は成功
+// した削除まで「失敗」にしてしまう (実際、消えた行の上に一瞬エラーが出て
+// いた)。フレームワークの例外はここで投げ直す。
+// 戻り先 (q/page/sort) も一緒に載る。手で組むと載せ忘れても型では
+// 捕まらないので、組み立ては lib の 1 本に寄せてある
+export async function sendTrash(
+  itemNo: string,
+  trashAction: RowTrashAction,
+  searchState: RowSearchState,
+): Promise<boolean> {
+  try {
+    await trashAction(buildTrashFormData(itemNo, searchState));
+    return true;
+  } catch (error) {
+    unstable_rethrow(error);
+    return false;
+  }
+}
+
 // 1 行ぶんのゴミ箱行き (docs/43 §6、docs/66 §3)。スワイプの「削除」・
 // ホバーのボタン列・長押しメニューの 3 つの入口が同じ trash を呼ぶ。
 //
@@ -38,23 +61,14 @@ export function useRowTrash(
     if (busy) return;
     setFailed(false);
     setRemoving(true);
-    // 戻り先 (q/page/sort) も一緒に載る。手で組むと載せ忘れても型では
-    // 捕まらないので、組み立ては lib の 1 本に寄せてある
-    const formData = buildTrashFormData(itemNo, searchState);
     startTransition(async () => {
-      try {
-        await trashAction(formData);
-        // 成功時は revalidate で一覧からこの行ごと消えるので、畳んだまま待つ。
-      } catch (error) {
-        // **成功しても例外は飛んでくる。** trashItemsAction は最後に
-        // redirect() を呼び、これは内部エラーを投げることで動く仕組みなので、
-        // 素の catch は成功した削除まで「失敗」にしてしまう (実際、消えた行の
-        // 上に一瞬エラーが出ていた)。フレームワークの例外はここで投げ直す
-        unstable_rethrow(error);
-        // 本物の失敗は畳みを戻してエラーを見せる (静かに握りつぶさない)。
-        setRemoving(false);
-        setFailed(true);
+      // 成功時は revalidate で一覧からこの行ごと消えるので、畳んだまま待つ。
+      if (await sendTrash(itemNo, trashAction, searchState)) {
+        return;
       }
+      // 本物の失敗は畳みを戻してエラーを見せる (静かに握りつぶさない)。
+      setRemoving(false);
+      setFailed(true);
     });
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { MouseEvent as ReactMouseEvent, ReactNode, Ref } from "react";
+import type { MenuOrigin } from "@/lib/gesture/rowActionMenu";
 import { MoreIcon } from "../../icons";
 import { COMPACT_ICON_BUTTON_CLASS, ROW_MENU_TRIGGER_CLASS } from "../../ui";
 
@@ -99,13 +100,48 @@ export function RowActionButtons({
   );
 }
 
+// ⋮ の置き場所。tile は画像モードのタイル (docs/107 §7)
+export type RowMenuTriggerPlacement = "compact" | "card" | "tile";
+
+// 置き場所ごとの寸法と位置。
+//   tile … 画像の下のキャプション行 (#番号 タイトル) の右端。タイル (li) を
+//     @container にしておき、top を 100cqw (= タイルの幅 = 正方形の画像の高さ)
+//     にすると画像のすぐ下に揃う。画像の上に置かないのは、画像への操作ではなく
+//     ノートへの操作だと読ませるため。高さは 24px、幅は他と同じく指で狙える
+//     36px を取る。**キャプション行 (ImageMasonry) は ⋮ より高く取る** —
+//     タグの無いタイルで ⋮ が li の下端からはみ出すと、押してフォーカスが
+//     移った瞬間にブラウザが li (overflow-hidden) の中をスクロールして ⋮ を
+//     見せようとし、そのスクロールでメニューが閉じる (E2E で実際に踏んだ)
+const TRIGGER_PLACEMENT_CLASS: Record<RowMenuTriggerPlacement, string> = {
+  compact: "inset-y-0 right-0 w-10 rounded",
+  card: "top-1.5 right-1.5 size-9 rounded-full bg-white/85",
+  tile: "top-[100cqw] right-0 h-6 w-9 rounded",
+};
+
 interface RowMenuTriggerProps {
   itemNo: string;
-  view: "compact" | "card";
+  view: RowMenuTriggerPlacement;
   isOpen: boolean;
+  // 送信中。押しても何もしない
   disabled: boolean;
   onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   ref: Ref<HTMLButtonElement>;
+}
+
+// ⋮ の矩形からメニューの起点を作る。
+// shiftX … ⋮ が今ずれている量 (スワイプの引き出しの translateX)。開くと同時に
+// 引き出しを畳むので、畳んだ後の位置を先に出す (SwipeToTrashRow)
+export function anchorOriginOf(element: Element, shiftX = 0): MenuOrigin {
+  const rect = element.getBoundingClientRect();
+  return {
+    kind: "anchor",
+    rect: {
+      left: rect.left - shiftX,
+      top: rect.top,
+      right: rect.right - shiftX,
+      bottom: rect.bottom,
+    },
+  };
 }
 
 // 行の右端に常設する ⋮ ボタン (docs/107-行メニュー計画.md §2)。
@@ -136,17 +172,19 @@ export function RowMenuTrigger({
       ref={ref}
       type="button"
       data-row-action=""
-      onClick={onClick}
-      disabled={disabled}
+      // **disabled 属性ではなく aria-disabled で止める。** メニューで操作を
+      // 選ぶとフォーカスはここへ返る (RowActionMenu) が、直後に送信中で
+      // disabled にすると、フォーカスを持ったまま無効になって body へ落ちる。
+      // Tab がページの先頭からやり直しになる
+      onClick={(event) => {
+        if (!disabled) onClick(event);
+      }}
+      aria-disabled={disabled || undefined}
       aria-label={`#${itemNo} の操作`}
       aria-haspopup="menu"
       aria-expanded={isOpen}
       title="操作"
-      className={`absolute z-10 disabled:opacity-50 ${ROW_MENU_TRIGGER_CLASS} ${
-        view === "card"
-          ? "top-1.5 right-1.5 size-9 rounded-full bg-white/85"
-          : "inset-y-0 right-0 w-10 rounded"
-      }`}
+      className={`absolute z-10 aria-disabled:opacity-50 ${ROW_MENU_TRIGGER_CLASS} ${TRIGGER_PLACEMENT_CLASS[view]}`}
     >
       <MoreIcon />
     </button>

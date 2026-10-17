@@ -16,6 +16,7 @@ import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
 import { BulkTagToolbar } from "../search/BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
+import { TileTrashProvider } from "./row-actions/TileActions";
 import { ItemRow } from "./ItemRow";
 import { usePaneMode } from "../panes/PaneModeProvider";
 import { TrashIcon } from "../icons";
@@ -213,14 +214,19 @@ export function ItemList({
         </ul>
       );
     }
+    // TileTrashProvider … タイルの ⋮ からゴミ箱へ入れる送信の状態を、
+    // ノート単位で 1 か所に持つ (docs/107 §7)
     return (
-      <ImageMasonry
-        items={items}
-        itemHref={itemHref}
-        circuitThumbs={circuitThumbs}
-        mathTexts={mathTexts}
-        previewItemNo={previewItemNo}
-      />
+      <TileTrashProvider trashAction={trashAction} searchState={searchState}>
+        <ImageMasonry
+          items={items}
+          itemHref={itemHref}
+          circuitThumbs={circuitThumbs}
+          mathTexts={mathTexts}
+          previewItemNo={previewItemNo}
+          tileActions
+        />
+      </TileTrashProvider>
     );
   }
 

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { E2E_ITEM_PREFIX } from './env'
+import { BASE_URL, E2E_ITEM_PREFIX } from './env'
 import {
   clearEditor,
   closePage,
@@ -145,5 +145,92 @@ test.describe('検索結果の行の ⋮ メニュー', () => {
     // Assert
     await expect(row).toHaveCount(0)
     await closePage(page)
+  })
+})
+
+// 画像モードのタイルの ⋮ (docs/107 §7)。タイルは画像 1 枚ごとなので、
+// ゴミ箱へ入れる前に「ノートごと・他のタイルもまとめて消える」と確認する
+const TILE_ITEM_NO = `${E2E_ITEM_PREFIX}8`
+// 画像の実体は要らない (タイルは本文の参照から組まれる。読み込めない画像は
+// 地色の正方形で出るだけ)。uuid の形でないと画像として拾われない
+const TILE_BODY = [
+  `${E2E_ITEM_PREFIX} tile menu ${Date.now()}`,
+  '![](/api/images/00000000-0000-4000-8000-0000000000a1.png)',
+  '![](/api/images/00000000-0000-4000-8000-0000000000a2.png)',
+  '',
+].join('\n')
+
+async function openImageMode(page: Page) {
+  await page.context().addCookies([{ name: 'view', value: 'image', url: BASE_URL }])
+  await page.goto(`/?q=${encodeURIComponent(TILE_ITEM_NO)}`)
+  // 結果は Suspense の中で、hidden の器に居る間は数えても押せない (openRow と同じ)
+  await expect(
+    searchResults(page).getByText(`「${TILE_ITEM_NO}」の検索結果`),
+  ).toBeVisible()
+  const triggers = searchResults(page).getByRole('button', {
+    name: `#${TILE_ITEM_NO} の操作`,
+    exact: true,
+  })
+  await expect(triggers).toHaveCount(2)
+  await expectHydrated(triggers.first())
+  return triggers
+}
+
+test.describe('画像モードのタイルの ⋮ メニュー', () => {
+  test.beforeEach(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, TILE_ITEM_NO)
+    await page.goto(`/edit/${TILE_ITEM_NO}`)
+    const save = page.getByRole('button', { name: '更新', exact: true })
+    await expect(save).toBeVisible()
+    await clearEditor(page)
+    await memoEditor(page).click()
+    // insertText は 1 回の入力なので、![ の括弧の自動補完が挟まらない
+    await page.keyboard.insertText(TILE_BODY)
+    await save.click()
+    await expect(page).toHaveURL((url) => url.pathname === `/item/${TILE_ITEM_NO}`)
+    await closePage(page)
+  })
+
+  test.afterEach(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, TILE_ITEM_NO)
+    await closePage(page)
+  })
+
+  test('確認で取り消すと、タイルは残る', async ({ page }) => {
+    // Arrange
+    const triggers = await openImageMode(page)
+    let message = ''
+    page.once('dialog', (dialog) => {
+      message = dialog.message()
+      void dialog.dismiss()
+    })
+
+    // Act
+    await triggers.first().click()
+    await page.getByRole('menuitem', { name: 'ゴミ箱へ移動', exact: true }).click()
+
+    // Assert: 確認文はノートごと・2 枚まとめて消えることを言う
+    expect(message).toContain(`#${TILE_ITEM_NO} をノートごとゴミ箱へ移動します`)
+    expect(message).toContain('2 枚')
+    // 取り消しが効かずに送っていても、一覧から消えるのは revalidate の後。
+    // 直後に数えるだけでは検証にならないので、読み直してから数える
+    await page.waitForTimeout(1000)
+    await page.reload()
+    await expect(triggers).toHaveCount(2)
+  })
+
+  test('確認で OK すると、同じノートのタイルがまとめて消える', async ({ page }) => {
+    // Arrange
+    const triggers = await openImageMode(page)
+    page.once('dialog', (dialog) => void dialog.accept())
+
+    // Act: 2 枚目の ⋮ から入れても、ノートごと入る
+    await triggers.nth(1).click()
+    await page.getByRole('menuitem', { name: 'ゴミ箱へ移動', exact: true }).click()
+
+    // Assert
+    await expect(triggers).toHaveCount(0)
   })
 })

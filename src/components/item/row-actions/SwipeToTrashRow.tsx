@@ -15,6 +15,7 @@ import { RowActionMenu } from "./RowActionMenu";
 import {
   RowActionButtons,
   RowMenuTrigger,
+  anchorOriginOf,
   type RowAction,
 } from "./RowActions";
 
@@ -185,16 +186,7 @@ export function SwipeToTrashRow({
             // 残るので、ボタンから離れて宙に浮く。畳んだ後の位置を先に出す
             const shift = drawer.offset;
             onOpenChange(false);
-            const rect = event.currentTarget.getBoundingClientRect();
-            setMenuOrigin({
-              kind: "anchor",
-              rect: {
-                left: rect.left - shift,
-                top: rect.top,
-                right: rect.right - shift,
-                bottom: rect.bottom,
-              },
-            });
+            setMenuOrigin(anchorOriginOf(event.currentTarget, shift));
           }}
         />
         {failed && (
