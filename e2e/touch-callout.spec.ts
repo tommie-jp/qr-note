@@ -9,6 +9,7 @@ import {
   newTouchPage,
   searchBox,
   test,
+  selectNoteTab,
 } from './helpers'
 import { removeE2eNote } from './notes'
 
@@ -102,12 +103,12 @@ test.describe('長押しで OS のメニューを出さない', () => {
     await expect(rendered).toBeVisible()
     expect(await selectedText(rendered)).toBe(BODY)
 
-    await page.getByRole('tab', { name: 'テキスト' }).click()
+    await selectNoteTab(page, 'テキスト')
     const plain = page.getByText(BODY).locator('visible=true').first()
     await expect(plain).toBeVisible()
     expect(await selectedText(plain)).toContain(BODY)
 
-    await page.getByRole('tab', { name: '編集' }).click()
+    await selectNoteTab(page, '編集')
     await expect(memoEditor(page)).toBeVisible()
     expect(await selectedText(memoEditor(page))).toContain(BODY)
 

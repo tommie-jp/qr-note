@@ -9,6 +9,7 @@ import {
   newLoggedInPage,
   searchFor,
   test,
+  openNoteChrome,
 } from './helpers'
 import { purgeFromTrash, removeE2eNote, searchResults, trashFromSearch } from './notes'
 
@@ -141,6 +142,8 @@ test.describe('ノートの一生', () => {
     await expect(pane.getByText(BODY).first()).toBeVisible()
     // 横取りを抜けるハード遷移。着いた先は素の /item (ペインは無い)
     await pane.getByRole('link', { name: '全画面で開く' }).click()
+    // 見出しは畳まれている (docs/108)。開いて番号を確かめる
+    await openNoteChrome(page)
     await expect(page.getByRole('heading', { name: `item #${ITEM_NO}` })).toBeVisible()
     await expect(pane).toHaveCount(0)
     const close = page.getByRole('button', { name: '閉じる' })

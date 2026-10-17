@@ -26,6 +26,7 @@ const PROP_VARIANTS: Readonly<
   TriangleIcon: [{ direction: "back" }, { direction: "forward" }],
   EyeIcon: [{ hidden: false }, { hidden: true }],
   MenuToggleIcon: [{ isOpen: false }, { isOpen: true }],
+  PinIcon: [{ pinned: false }, { pinned: true }],
 };
 
 function caseName(name: string, props: Readonly<Record<string, unknown>>) {

@@ -161,6 +161,30 @@ export async function clearEditor(page: Page): Promise<void> {
   await page.keyboard.press('Delete')
 }
 
+// --- ノートの操作 (docs/108-ノート全画面表示計画.md) ---
+
+// 見出し行・タグ・タブ・時刻は、読むタブの間は畳まれている。上端の行の ⋯ で
+// 本文の上に重ねて出す。編集タブの間は畳まないので、そのときは何もしない
+export async function openNoteChrome(scope: Page | Locator): Promise<void> {
+  const trigger = scope.getByRole('button', { name: 'ノートの操作', exact: true })
+  await expectHydrated(trigger)
+  // マウスで押すと、ホバーで先に開いていることがある。開いているときに
+  // 押すと閉じてしまうので、出ていれば押さない
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+    await trigger.click()
+  }
+  await expect(scope.locator('[data-note-chrome-overlay]')).toBeVisible()
+}
+
+// ノートのタブを選ぶ。畳まれていれば先に開く
+export async function selectNoteTab(page: Page, name: string): Promise<void> {
+  const tab = page.getByRole('tab', { name, exact: true })
+  if (!(await tab.isVisible())) {
+    await openNoteChrome(page)
+  }
+  await tab.click()
+}
+
 // --- ファイル選択 ---
 
 export interface InjectedFile {

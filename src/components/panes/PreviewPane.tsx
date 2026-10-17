@@ -3,6 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { ClearIcon } from "@/components/icons";
+import { NoteChromeBar } from "@/components/notechrome/NoteChromeBar";
+import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
 import { PaneResizer } from "@/components/panes/PaneResizer";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { ACTION_LINK_CLASS, CONTENT_WIDTH_CLASS } from "@/components/ui";
@@ -129,68 +131,70 @@ export function PreviewPane({
           バーのボタンを塞がない */}
       {/* data-note-pane … 器の中では引っ張って更新を始めない目印
           (PullToRefresh)。data-preview-pane と違い、全画面でも付ける */}
-      <section
-        data-preview-pane={isBottomPane ? "" : undefined}
-        data-note-pane=""
-        aria-label="選択したノート"
-        // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
-        // (ペインが出ている構成のときだけ効かせたいので :has で見る)
-        // m-0 … **親の余白ユーティリティを打ち消す** (docs/86 §4-12)。
-        // 自動で選ぶノートは検索結果の器 (space-y-2) の子として描かれるので、
-        // 放っておくと 8px の margin-top が付く。fixed の位置は
-        // 「上端 + margin + 高さ + margin + 下端 = 画面の高さ」で解かれるため、
-        // margin のぶんだけ上へずれて一覧の最下部に重なった (実機で判明)
-        className={`fixed inset-x-0 m-0 overflow-y-auto overscroll-contain ${bgClass} ${PANE_BOX_CLASS[layout]}`}
-      >
-        {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
-            下を通る本文を透けさせないため。z-10 … 本文側の relative z-10
-            (タグ・補助行) より DOM 順で後にはならないので、同層にして
-            sticky 側を上に出す。
+      <NoteChromeProvider>
+        <section
+          data-preview-pane={isBottomPane ? "" : undefined}
+          data-note-pane=""
+          aria-label="選択したノート"
+          // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
+          // (ペインが出ている構成のときだけ効かせたいので :has で見る)
+          // m-0 … **親の余白ユーティリティを打ち消す** (docs/86 §4-12)。
+          // 自動で選ぶノートは検索結果の器 (space-y-2) の子として描かれるので、
+          // 放っておくと 8px の margin-top が付く。fixed の位置は
+          // 「上端 + margin + 高さ + margin + 下端 = 画面の高さ」で解かれるため、
+          // margin のぶんだけ上へずれて一覧の最下部に重なった (実機で判明)
+          className={`fixed inset-x-0 m-0 overflow-y-auto overscroll-contain ${bgClass} ${PANE_BOX_CLASS[layout]}`}
+        >
+          {/* 操作行は深くスクロールしても届くよう貼り付ける。地色を重ねるのは
+            下を通る本文を透けさせないため。
+            z-20 … 行の直下にノートの操作を重ねる (docs/108 §3-1)。本文側の
+            relative z-10 (タグ・補助行) は DOM 順で後に来るので、同じ z では
+            重ねた面の上に本文が透けて出る。器 (fixed + z) が積み重ねの文脈を
+            作るので、ヘッダー (z-20) と競り合うことはない。
             pt-1 … **pt-safe にしない。** 器の上端はヘッダーの下 (--header-h が
             ステータスバーぶんを含む) か画面の下半分なので、standalone の
             iPhone で inset (47〜59px) を足すと、その分だけ空白が挟まる */}
-        <div className={`sticky top-0 z-10 ${bgClass}`}>
-          <div
-            className={`mx-auto flex items-center justify-between px-safe pt-1 ${CONTENT_WIDTH_CLASS}`}
-          >
-            {/* 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
-                ペインとして常設されている間は押しても閉じられないので、
-                ボタンにすると嘘になる (畳みたいときはヘッダーの構成を変える)。
-                閉じられるのは全画面 (1 ペイン) のときだけ。
-                空でも要素は置く — justify-between の右端 (全画面で開く) が
-                左へ寄ってしまうため */}
-            {isBottomPane ? (
-              <span />
-            ) : (
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className={ACTION_LINK_CLASS}
-              >
-                <ClearIcon />
-                閉じる
-              </button>
-            )}
-            {openHref && (
-              <a href={openHref} className={ACTION_LINK_CLASS}>
-                全画面で開く
-              </a>
-            )}
-          </div>
-        </div>
-        {/* pb-safe … 画面の下端に接する器 (全画面・下部バーの無い画面の
+          <NoteChromeBar
+            className={`sticky top-0 z-20 ${bgClass}`}
+            rowClassName={`mx-auto px-safe pt-1 ${CONTENT_WIDTH_CLASS}`}
+            // 「閉じる」は**閉じられるときだけ**出す (docs/86 §4-4)。
+            // ペインとして常設されている間は押しても閉じられないので、
+            // ボタンにすると嘘になる (畳みたいときはヘッダーの構成を変える)。
+            // 閉じられるのは全画面 (1 ペイン) のときだけ
+            start={
+              isBottomPane ? undefined : (
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className={ACTION_LINK_CLASS}
+                >
+                  <ClearIcon />
+                  閉じる
+                </button>
+              )
+            }
+            end={
+              openHref && (
+                <a href={openHref} className={ACTION_LINK_CLASS}>
+                  全画面で開く
+                </a>
+              )
+            }
+          />
+          {/* pb-safe … 画面の下端に接する器 (全画面・下部バーの無い画面の
             下部ペイン) ではホームバーに潜らせない。
             lg:pb-20 … ペインの下端は下部バーの上で終わるが、テキストサイズ
             設定でバーが伸びた分やスクロールの余韻も考えて広めに取る */}
-        {/* 幅は本文の器 (main) と同じ CONTENT_WIDTH_CLASS。ペインでも全画面
+          {/* 幅は本文の器 (main) と同じ CONTENT_WIDTH_CLASS。ペインでも全画面
             (1 ペイン) でも幅いっぱいに使う (docs/101。以前は全画面だけ読み幅に
             収めていた — docs/86 §4-8) */}
-        <div
-          className={`mx-auto px-safe pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
-        >
-          {children}
-        </div>
-      </section>
+          <div
+            className={`mx-auto px-safe pb-safe lg:pb-20 ${CONTENT_WIDTH_CLASS}`}
+          >
+            {children}
+          </div>
+        </section>
+      </NoteChromeProvider>
     </>
   );
 }

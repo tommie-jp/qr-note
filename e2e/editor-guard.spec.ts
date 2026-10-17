@@ -8,6 +8,7 @@ import {
   memoEditor,
   newLoggedInPage,
   test,
+  selectNoteTab,
 } from './helpers'
 import { removeE2eNote } from './notes'
 
@@ -73,9 +74,9 @@ test.describe('編集画面の離脱確認と下書き', () => {
   test('チェックを押して黙って追随した直後は、離脱の確認を出さない', async ({ page }) => {
     // Arrange: 編集タブを一度開いてエディタを乗せてから、markdown タブに戻る
     await createNote(page, FOLLOW_NO, `- [ ] ${E2E_ITEM_PREFIX} task ${STAMP}`)
-    await page.getByRole('tab', { name: '編集' }).click()
+    await selectNoteTab(page, '編集')
     await expect(memoEditor(page)).toBeVisible()
-    await page.getByRole('tab', { name: 'markdown' }).click()
+    await selectNoteTab(page, 'markdown')
     expect(await wouldBlockUnload(page)).toBe(false)
 
     // Act: チェックを押す → サーバーアクション → 再描画 → エディタが黙って追随
@@ -91,7 +92,7 @@ test.describe('編集画面の離脱確認と下書き', () => {
   test('「別の版を読み込む」の直後は、離脱の確認を出さない', async ({ page, browser }) => {
     // Arrange: こちらで打ちかけている間に、別のページが別の本文を保存する
     await createNote(page, FOLLOW_NO, `- [ ] ${E2E_ITEM_PREFIX} task ${STAMP}`)
-    await page.getByRole('tab', { name: '編集' }).click()
+    await selectNoteTab(page, '編集')
     await expect(memoEditor(page)).toBeVisible()
     await memoEditor(page).click()
     await page.keyboard.press('End')

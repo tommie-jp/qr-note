@@ -4,6 +4,8 @@ import { AutoNotePane } from "@/components/notepage/AutoNotePane";
 import { CloseNoteButton } from "@/components/item/CloseNoteButton";
 import { ItemListNav } from "@/components/item/ItemListNav";
 import { ItemView } from "@/components/item/ItemView";
+import { NoteChromeBar } from "@/components/notechrome/NoteChromeBar";
+import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
 import { LoginRequiredNotice } from "@/components/auth/LoginRequiredNotice";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { PreviewPane } from "@/components/panes/PreviewPane";
@@ -146,10 +148,21 @@ export async function ItemDetail({
           {/* ペインの操作行 (PreviewPane) と同じ位置に「閉じる」を置く
               (docs/86 §4-17)。「全画面で開く」で来た後も同じ所で閉じられる。
               **ログイン中の枝だけ** — 未ログインの公開ノートには一覧が無い */}
-          <div className="flex pt-1 print:hidden">
-            <CloseNoteButton listHref={buildSearchUrl(ctx.query, 1, ctx.sort)} />
-          </div>
-          {view}
+          {/* 行はヘッダーの下に貼り付け、直下にノートの操作を重ねる
+              (docs/108 §3-1)。地色は body と同じ (paneBgClass) にして、下を
+              通る本文を透けさせない。左右の余白は main (px-safe) が持つ */}
+          <NoteChromeProvider>
+            <NoteChromeBar
+              className={`sticky top-[var(--header-h)] z-10 ${paneBgClass()}`}
+              rowClassName="pt-1"
+              start={
+                <CloseNoteButton
+                  listHref={buildSearchUrl(ctx.query, 1, ctx.sort)}
+                />
+              }
+            />
+            {view}
+          </NoteChromeProvider>
           {nav}
         </PageTransition>
       );

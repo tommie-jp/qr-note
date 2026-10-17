@@ -202,3 +202,18 @@ export function SpeakerIcon({ speaking }: { speaking: boolean }) {
     </svg>
   );
 }
+
+// ノートの操作を常に出す / 畳む (docs/108-ノート全画面表示計画.md §2)。
+// 画鋲。**刺さっている (常に出す) ときだけ色を持つ** — 状態のトグルなので、
+// 押した後ではなくいまの状態を絵で言う。見出し行の色 (このファイルの頭) と
+// 重ならない rose にする。畳む側は灰色で斜めに寝かせ、「留めていない」を出す
+export function PinIcon({ pinned }: { pinned: boolean }) {
+  return (
+    <StrokeIcon
+      className={pinned ? "text-rose-600" : "-rotate-45 text-gray-500"}
+    >
+      <path {...(pinned ? TINT : {})} d="M9 3h6l-1 5 3 3v2H7v-2l3-3z" />
+      <path d="M12 13v8" />
+    </StrokeIcon>
+  );
+}

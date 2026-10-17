@@ -59,6 +59,12 @@ vi.mock("@/components/item/RecordAccess", () => ({ RecordAccess: mocks.stub("Rec
 vi.mock("@/components/item/CloseNoteButton", () => ({
   CloseNoteButton: mocks.stub("CloseNoteButton"),
 }));
+vi.mock("@/components/notechrome/NoteChromeProvider", () => ({
+  NoteChromeProvider: mocks.stub("NoteChromeProvider"),
+}));
+vi.mock("@/components/notechrome/NoteChromeBar", () => ({
+  NoteChromeBar: mocks.stub("NoteChromeBar"),
+}));
 
 const { ItemDetail } = await import("./ItemDetail");
 const { AutoNotePane } = await import("@/components/notepage/AutoNotePane");
@@ -70,6 +76,8 @@ const { PreviewPane } = await import("@/components/panes/PreviewPane");
 const { PublicItemView } = await import("@/components/item/PublicItemView");
 const { RecordAccess } = await import("@/components/item/RecordAccess");
 const { CloseNoteButton } = await import("@/components/item/CloseNoteButton");
+const { NoteChromeProvider } = await import("@/components/notechrome/NoteChromeProvider");
+const { NoteChromeBar } = await import("@/components/notechrome/NoteChromeBar");
 
 const recordAccessAction = async () => {};
 
@@ -107,7 +115,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-test("全画面はログイン中なら記録・閉じる・本文・前後ナビを PageTransition に入れる", async () => {
+test("全画面はログイン中なら記録・閉じる行と本文・前後ナビを PageTransition に入れる", async () => {
   // Act
   const element = await render({
     saved: "1700000000",
@@ -116,13 +124,16 @@ test("全画面はログイン中なら記録・閉じる・本文・前後ナ�
 
   // Assert
   expect(element?.type).toBe(PageTransition);
-  expect(childTypes(element!)).toEqual([RecordAccess, "div", ItemView, ItemListNav]);
-  const [record, closeRow, view, nav] = ([] as Element[]).concat(
+  expect(childTypes(element!)).toEqual([RecordAccess, NoteChromeProvider, ItemListNav]);
+  const [record, chrome, nav] = ([] as Element[]).concat(
     element!.props.children as Element[],
   );
   expect(record.props).toEqual({ itemNo: "4951", action: recordAccessAction });
+  // 上端の行と本文は同じ器に入れる。行の直下に本文の操作を重ねるため (docs/108 §3)
+  expect(childTypes(chrome)).toEqual([NoteChromeBar, ItemView]);
+  const [bar, view] = ([] as Element[]).concat(chrome.props.children as Element[]);
   // 「閉じる」の行き先 (戻れる履歴が無いとき) は持ち回している一覧 (docs/86 §4-17)
-  const close = closeRow.props.children as Element;
+  const close = bar.props.start as Element;
   expect(close.type).toBe(CloseNoteButton);
   expect(close.props).toEqual({ listHref: "/?q=npn&sort=accessed" });
   expect(view.props).toMatchObject({ itemNo: "4951", saved: "1700000000" });

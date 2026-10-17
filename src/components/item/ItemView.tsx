@@ -15,8 +15,10 @@ import {
   EditIcon,
   HistoryIcon,
   NotationIcon,
+  PublicIcon,
   QrIcon,
 } from "@/components/icons";
+import { NoteChromePinToggle } from "@/components/notechrome/NoteChromePinToggle";
 import { NoteBody } from "@/components/markdown/NoteBody";
 import { MemoPanel } from "@/components/editor/MemoPanel";
 import { MemoEditor } from "@/components/editor/MemoEditor";
@@ -89,127 +91,150 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
   // 画像の表示モード (docs/106) も、画像の無いノートには出さない (同じ理由)
   const hasImages = allImageNames(memo).length > 0;
 
-  return (
-    // 縦に隙間を持たない (docs/75-ノート上部圧縮計画.md §4)。見出し行・タグ・
-    // 本文パネルは地続きに積み、間隔が要る物 (通知の束・タイムスタンプ) だけが
-    // 自分で余白を持つ。space-y-4 のままだと、出ていない要素の分まで縦が空く
-    <div>
-      {/* flex-wrap … テキストサイズ (docs/61) を上げると見出しと操作リンク
-          (編集 / 履歴 / QR / 記法) が 1 行に収まらない。折り返さないと画面ごと
-          横スクロールになるので、2 行になるほうを取る (ヘッダーの帯と同じ判断)。
-          items-center … 枠付きのトグルは baseline で揃えると沈む */}
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-bold">
-            item <span className="font-mono">#{itemNo}</span>
-          </h1>
-          {/* 未登録のノートにはトグルを出さない。まだ公開する中身がない
-              (docs/22 §7)。デモモードでは公開機能を封じるのでトグル自体を
-              出さない (docs/38-デモモード計画.md §3。Server Action 側でも
-              塞いでいる)。オフラインの印も同じ判断 — デモは同期の口ごと
-              閉じてある (api/sync/items) ので、押せても何も起きない */}
-          {item && !isDemoMode() && (
-            <>
-              <PublicToggle
-                itemNo={itemNo}
-                publicAt={item.publicAt}
-                setPublicAction={setItemPublicAction}
-              />
-              <OfflinePinToggle
-                itemNo={itemNo}
-                pinned={item.offlinePin}
-                attachmentBytes={attachmentBytes}
-                setPinAction={setItemOfflinePinAction}
-              />
-            </>
-          )}
-        </div>
-        {/* 操作リンクは色付きのアイコン + 文字 (docs/82-ノート操作アイコン計画.md §2)。
-            並んだ 4〜5 個を**絵の形より先に色で拾い分ける**ための色なので、
-            行の中で色が重ならないことがこの一群の要件になる。
-            長押しの吹き出し (PressTip) には、文字より少し詳しい説明を入れる —
-            見えているラベルをなぞるだけの tooltip は読む値打ちがない */}
-        <div className="flex flex-wrap gap-1">
-          <PressTip label="このノートを編集する">
-            <Link
-              href={`/edit/${itemNo}`}
-              className={ACTION_LINK_CLASS}
-              transitionTypes={["nav-forward"]}
-            >
-              <EditIcon />
-              編集
-            </Link>
-          </PressTip>
-          {/* git 履歴 (docs/57-ノートgit履歴計画.md)。デモでは機能ごと閉じる
-              のでリンクも出さない (PublicToggle と同じ判断) */}
-          {!isDemoMode() && (
-            <PressTip label="いつ何を書き換えたかを見る">
-              <Link
-                href={`/item/${itemNo}/history`}
-                className={ACTION_LINK_CLASS}
-                transitionTypes={["nav-forward"]}
-              >
-                <HistoryIcon />
-                履歴
-              </Link>
-            </PressTip>
-          )}
-          {/* /print は loading.tsx を持たない force-dynamic なページなので、
-              押してから画面が変わるまでの間はリンク側でスピナーを出す */}
-          <PressTip label="QR シールを印刷する">
-            <PendingLink
-              href={`/print/${itemNo}`}
-              className={ACTION_LINK_CLASS}
-              transitionTypes={["nav-forward"]}
-            >
-              <QrIcon />
-              QR
-            </PendingLink>
-          </PressTip>
-          {/* ページの切り替えは QR の右 (docs/82 §3)。区切りのあるノートだけ */}
-          {hasPages && <NotePageModeToggle />}
-          {/* 画像の表示モードはページの右 (docs/106)。どちらも本文の読み方 */}
-          {hasImages && <ImageFitToggle />}
-          <PressTip label="メモ記法の書き方を見る">
-            <Link
-              href="/docs/memo"
-              className={ACTION_LINK_CLASS}
-              transitionTypes={["nav-forward"]}
-            >
-              <NotationIcon />
-              記法
-            </Link>
-          </PressTip>
-        </div>
+  // ノートの操作は MemoPanel が畳むか積むかを決める (docs/108-ノート全画面表示計画.md)。
+  // 積むときの並びは 見出し行 → 通知の束 → タグ → タブ → 時刻 で、これまでと同じ。
+  // 畳むときは通知の束だけを本文の上に残す (警告と QR の飛び先は隠さない)
+  //
+  // 見出し行の flex-wrap … テキストサイズ (docs/61) を上げると見出しと操作リンク
+  // (編集 / 履歴 / QR / 記法) が 1 行に収まらない。折り返さないと画面ごと
+  // 横スクロールになるので、2 行になるほうを取る (ヘッダーの帯と同じ判断)。
+  // items-center … 枠付きのトグルは baseline で揃えると沈む
+  const heading = (
+    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-xl font-bold">
+          item <span className="font-mono">#{itemNo}</span>
+        </h1>
+        {/* 未登録のノートにはトグルを出さない。まだ公開する中身がない
+            (docs/22 §7)。デモモードでは公開機能を封じるのでトグル自体を
+            出さない (docs/38-デモモード計画.md §3。Server Action 側でも
+            塞いでいる)。オフラインの印も同じ判断 — デモは同期の口ごと
+            閉じてある (api/sync/items) ので、押せても何も起きない */}
+        {item && !isDemoMode() && (
+          <>
+            <PublicToggle
+              itemNo={itemNo}
+              publicAt={item.publicAt}
+              setPublicAction={setItemPublicAction}
+            />
+            <OfflinePinToggle
+              itemNo={itemNo}
+              pinned={item.offlinePin}
+              attachmentBytes={attachmentBytes}
+              setPinAction={setItemOfflinePinAction}
+            />
+          </>
+        )}
       </div>
+      {/* 操作リンクは色付きのアイコン + 文字 (docs/82-ノート操作アイコン計画.md §2)。
+          並んだ 4〜5 個を**絵の形より先に色で拾い分ける**ための色なので、
+          行の中で色が重ならないことがこの一群の要件になる。
+          長押しの吹き出し (PressTip) には、文字より少し詳しい説明を入れる —
+          見えているラベルをなぞるだけの tooltip は読む値打ちがない */}
+      <div className="flex flex-wrap gap-1">
+        <PressTip label="このノートを編集する">
+          <Link
+            href={`/edit/${itemNo}`}
+            className={ACTION_LINK_CLASS}
+            transitionTypes={["nav-forward"]}
+          >
+            <EditIcon />
+            編集
+          </Link>
+        </PressTip>
+        {/* git 履歴 (docs/57-ノートgit履歴計画.md)。デモでは機能ごと閉じる
+            のでリンクも出さない (PublicToggle と同じ判断) */}
+        {!isDemoMode() && (
+          <PressTip label="いつ何を書き換えたかを見る">
+            <Link
+              href={`/item/${itemNo}/history`}
+              className={ACTION_LINK_CLASS}
+              transitionTypes={["nav-forward"]}
+            >
+              <HistoryIcon />
+              履歴
+            </Link>
+          </PressTip>
+        )}
+        {/* /print は loading.tsx を持たない force-dynamic なページなので、
+            押してから画面が変わるまでの間はリンク側でスピナーを出す */}
+        <PressTip label="QR シールを印刷する">
+          <PendingLink
+            href={`/print/${itemNo}`}
+            className={ACTION_LINK_CLASS}
+            transitionTypes={["nav-forward"]}
+          >
+            <QrIcon />
+            QR
+          </PendingLink>
+        </PressTip>
+        {/* ページの切り替えは QR の右 (docs/82 §3)。区切りのあるノートだけ */}
+        {hasPages && <NotePageModeToggle />}
+        {/* 画像の表示モードはページの右 (docs/106)。どちらも本文の読み方 */}
+        {hasImages && <ImageFitToggle />}
+        <PressTip label="メモ記法の書き方を見る">
+          <Link
+            href="/docs/memo"
+            className={ACTION_LINK_CLASS}
+            transitionTypes={["nav-forward"]}
+          >
+            <NotationIcon />
+            記法
+          </Link>
+        </PressTip>
+        {/* 操作を畳むか常に出すか (docs/108)。この行そのものの出し方なので末尾 */}
+        <NoteChromePinToggle />
+      </div>
+    </div>
+  );
 
+  // 出たときだけ間隔を持つ通知の束。1 つも出なければ empty:hidden で
+  // 箱ごと消え、余白も残らない。
+  // **&& ではなく三項で null を返す**のが要点 — item.url が空文字だと
+  // && は "" を返し、空のテキストノードで :empty が外れて余白だけが残る
+  const notices = (
+    <div className="space-y-3 py-3 empty:hidden">
+      {!item ? (
+        <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
+          未登録の部品番号です。メモを保存すると新規登録されます。
+        </p>
+      ) : null}
+      {item?.deletedAt ? (
+        <TrashedBanner itemNo={itemNo} restoreAction={restoreItemsAction} />
+      ) : null}
+      {item?.url ? <ItemUrlBox url={item.url} /> : null}
+    </div>
+  );
+
+  const tags = item ? <ItemTags tags={item.tags} /> : null;
+  // ItemTimestamps 自体は /edit と公開ビューでも使われるので、余白は
+  // 置く側 (MemoPanel) が持つ
+  const footer = <ItemTimestamps item={item} />;
+  // 畳んでいる間も公開中だけは見えるようにする (docs/108 §2)。気づかずに
+  // 公開したままにしないため。押す物ではなく印
+  const badge = item?.publicAt ? (
+    <span
+      role="img"
+      aria-label="公開中"
+      title="公開中 — この URL を知っていれば誰でも見られます"
+      className="inline-flex size-8 items-center justify-center rounded-full bg-green-50 text-green-800"
+    >
+      <PublicIcon />
+    </span>
+  ) : null;
+
+  return (
+    <div>
       {/* 画面下部に浮くトーストなので、下の「通知の束」には入れない。
           入れると fixed で場所を取らないのに束が空でなくなり、消えるまでの
           2 秒だけ余白が開いて、消えた瞬間に本文が跳ね上がる */}
       {saved && <SavedToast key={saved} />}
       {saved && <SavedDraftCleanup draftKey={itemNo} />}
 
-      {/* 出たときだけ間隔を持つ通知の束。1 つも出なければ empty:hidden で
-          箱ごと消え、余白も残らない。
-          **&& ではなく三項で null を返す**のが要点 — item.url が空文字だと
-          && は "" を返し、空のテキストノードで :empty が外れて余白だけが残る */}
-      <div className="space-y-3 py-3 empty:hidden">
-        {!item ? (
-          <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
-            未登録の部品番号です。メモを保存すると新規登録されます。
-          </p>
-        ) : null}
-        {item?.deletedAt ? (
-          <TrashedBanner itemNo={itemNo} restoreAction={restoreItemsAction} />
-        ) : null}
-        {item?.url ? <ItemUrlBox url={item.url} /> : null}
-      </div>
-
-      {item && <ItemTags tags={item.tags} />}
-
       {/* key: item 間のソフトナビゲーションでタブ選択状態を持ち越さない */}
       <MemoPanel
         key={itemNo}
+        chrome={{ heading, notices, tags, footer, badge }}
         defaultMode={memo ? "markdown" : "edit"}
         markdownView={
           <ImageFitScope>
@@ -254,13 +279,6 @@ export async function ItemView({ itemNo, item, saved }: ItemViewProps) {
           </NoteSaveForm>
         }
       />
-
-      {/* 本文と地続きだと日時が本文の続きに見えるので、ここだけ間隔を残す。
-          余白は使う側が持つ — ItemTimestamps 自体は /edit と公開ビューでも
-          使われており、そちらの積み方まで動かしたくない */}
-      <div className="mt-4">
-        <ItemTimestamps item={item} />
-      </div>
     </div>
   );
 }
