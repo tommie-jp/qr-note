@@ -176,15 +176,15 @@ test("下部ペインの操作行は本文の上に浮く (高さを本文に貸
     expect(html).toMatch(
       /data-note-chrome-bar=""[^>]*class="[^"]*-mb-12[^"]*pointer-events-none/,
     );
-    // 本文の先頭に札ぶんの詰め物 (最初の数行が札を避けて折り返す)
-    expect(html).toMatch(/data-note-chrome-spacer=""[^>]*float-right/);
+    // 本文は札を避けない (札は重なるだけ。折り返しの詰め物を置かない)
+    expect(html).not.toContain("data-note-chrome-spacer");
   }
 });
 
 test("全画面 (1 ペイン) の操作行も浮かせる (閉じる・全画面で開くの両方が札)", () => {
   const html = render("/item/4951", "1");
   expect(html).toContain("data-note-chrome-floating");
-  expect(html).toMatch(/data-note-chrome-spacer=""[^>]*float-right/);
+  expect(html).not.toContain("data-note-chrome-spacer");
   // 「閉じる」は右の札に合流する (左の札は無い)
   expect(html).not.toContain("float-left");
   expect(html.indexOf("全画面で開く")).toBeLessThan(html.indexOf("閉じる"));
