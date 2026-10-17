@@ -18,7 +18,7 @@ const ROW_MIN_HEIGHT_CLASS = "min-h-12";
 const ROW_PULL_CLASS = "-mb-12";
 // 札の見た目 (左右共通)
 const PILL_CLASS =
-  "pointer-events-auto rounded-full bg-white/85 shadow-sm backdrop-blur";
+  "pointer-events-auto rounded-full bg-white/50 shadow-sm";
 
 interface NoteChromeBarProps {
   // 貼り付く位置 (器ごとに違う)。sticky と z はここで持つ
