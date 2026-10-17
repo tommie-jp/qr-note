@@ -16,7 +16,7 @@ import type { TrashSort } from '@/lib/validation'
 
 // 検索語 1 語ぶんの WHERE 条件を組み立てる。
 // text: memo / url は PGroonga の全文一致 (&@, 日本語バイグラム・全半角/大小の
-//   正規化つき)、itemId は前方一致 (ILIKE, 旧データの英字入り itemId に備え大小無視)。
+//   正規化つき)。id は見ない (旧番号の前方一致は docs/107 で無くなった)。
 // tag: items.tags 配列の完全一致 (@>, GIN インデックスが効く)。
 //   タグ名は search/tokenize.ts が正規化済み (NFKC + 小文字化)。
 // 語種ごとに必ず case を書く (exprCondition と同じ網羅 switch)。

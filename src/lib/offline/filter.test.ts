@@ -53,10 +53,22 @@ describe('filterOfflineItems', () => {
     expect(hits(items, 'akizuki')).toEqual(['1'])
   })
 
-  test('語は itemId の前方一致でも当たる (シールの番号を打ったとき)', () => {
-    const items = [item({ itemId: '4518' }), item({ itemId: '1451' })]
-    // 前方一致なので 1451 の "451" は当たらない
-    expect(hits(items, '451')).toEqual(['4518'])
+  // サーバ (items/where.ts の termCondition) は memo / url しか見ない。id の
+  // 前方一致を残すと、UUID の頭の数字を打ったときだけ圏外で余計に当たり、
+  // オンラインとオフラインで結果が割れる (docs/107 §4-5)
+  test('語は id には当たらない (サーバと同じく memo / url だけを見る)', () => {
+    const items = [item({ itemId: '0199f3a0-0000-7000-8000-000000004518' })]
+    expect(hits(items, '0199')).toEqual([])
+  })
+
+  // 旧番号は本文のタグ #4518 になった。全文検索でもタグ検索でも当たる
+  test('旧番号は本文のタグとして当たる', () => {
+    const items = [
+      item({ itemId: 'a', memo: '2SC1815 #4518', tags: ['4518'] }),
+      item({ itemId: 'b', memo: '1451 の抵抗' }),
+    ]
+    expect(hits(items, '4518')).toEqual(['a'])
+    expect(hits(items, '#4518')).toEqual(['a'])
   })
 
   test('全角・大小は同一視する (PGroonga の NormalizerAuto と揃える)', () => {
@@ -149,6 +161,5 @@ describe('buildOfflineIndex', () => {
     const index = buildOfflineIndex([item({ itemId: '4518', memo: 'ＮＰＮ', url: 'HTTP://X' })])
     expect(index[0].haystack).toContain('npn')
     expect(index[0].haystack).toContain('http://x')
-    expect(index[0].itemIdKey).toBe('4518')
   })
 })

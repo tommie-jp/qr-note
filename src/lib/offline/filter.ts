@@ -7,8 +7,9 @@
 //
 // 葉の評価の対応 (items/where.ts の termCondition と対で読むこと):
 //
-//   text … PGroonga の `memo &@ 語 OR url &@ 語 OR item_no ILIKE 語%`
-//          → 正規化済み文字列の部分一致 + itemId の前方一致。
+//   text … PGroonga の `memo &@ 語 OR url &@ 語`
+//          → 正規化済み文字列の部分一致。id は見ない (旧番号の前方一致は
+//          docs/107 で無くなった。旧番号は本文のタグ #1003 として当たる)。
 //          `&@` はバイグラムの全文一致なので厳密には別物だが、「メモ内の
 //          部分文字列を探す」用途では体感差が出ない (docs/65 の調査結果)。
 //          むしろ部分一致のほうが直感どおりのことも多い。
@@ -35,7 +36,6 @@ export interface OfflineIndexEntry {
   // `&@` が memo か url のどちらかに当たれば良いのと同じ判定になるため。
   // 改行で挟んで、memo の末尾と url の先頭が繋がって偽の一致を作らないようにする
   haystack: string
-  itemIdKey: string
 }
 
 export function buildOfflineIndex(
@@ -44,7 +44,6 @@ export function buildOfflineIndex(
   return items.map((item) => ({
     item,
     haystack: normalizeTag(`${item.memo}\n${item.url}`),
-    itemIdKey: normalizeTag(item.itemId),
   }))
 }
 
@@ -65,8 +64,7 @@ function matchesTerm(entry: OfflineIndexEntry, term: SearchTerm): boolean {
     case 'untagged':
       return entry.item.tags.length === 0
     case 'text': {
-      const needle = normalizeTag(term.value)
-      return entry.haystack.includes(needle) || entry.itemIdKey.startsWith(needle)
+      return entry.haystack.includes(normalizeTag(term.value))
     }
   }
 }
