@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { SERVICE_LINKS } from "@/components/chrome/AttributionFooter";
 import { YahooAttribution } from "@/components/chrome/YahooAttribution";
 import {
+  CLAUDE_CODE_URL,
   QR_NOTE_DEMO_URL,
   QR_NOTE_GITHUB_URL,
   THIRD_PARTY_LICENSES_PATH,
@@ -245,6 +246,15 @@ export default function AboutPage() {
             {QR_NOTE_DEMO_URL}
           </ExternalLink>
           (ログイン demo / demo) です。
+        </p>
+        {/* 作り方の帰属。外部 API やライブラリと同じく「何を使って作ったか」を
+            ここに並べる (README の「開発の進め方」と同じ内容)。判断と確認は
+            作者が行う旨も添え、「AI が勝手に作った物」と読まれないようにする */}
+        <p className="text-gray-600">
+          コードと文書は、作者が
+          <ExternalLink href={CLAUDE_CODE_URL}>Claude Code</ExternalLink>
+          (Anthropic) と対話しながら書いています。何を作るか・どう決めるかは
+          作者が判断し、動作は作者が確かめています。
         </p>
       </section>
 

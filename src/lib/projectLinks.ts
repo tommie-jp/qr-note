@@ -7,6 +7,10 @@ export const QR_NOTE_DEMO_URL = "https://qr-demo.tommie.jp";
 export const TOMMIE_CIRCUIT_WORKBOOK_GITHUB_URL =
   "https://github.com/tommie-jp/tommie-circuit-workbook";
 
+// 作り方の帰属 (クレジットページと README の「開発の進め方」)。コードと文書は
+// Claude Code (Anthropic) との対話で書いている
+export const CLAUDE_CODE_URL = "https://claude.com/claude-code";
+
 // クレジットページと、ビルド時に生成する第三者ライセンスの一覧 (.glf.json の
 // output と対。projectLinks.test.ts が揃っていることを見る)
 export const ABOUT_PATH = "/about";

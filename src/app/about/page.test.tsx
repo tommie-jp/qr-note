@@ -88,3 +88,11 @@ test("QR Note のライセンスを出す", () => {
   expect(pkg.license).toBe("MIT");
   expect(html()).toContain("で公開しています (MIT)。デモ版は");
 });
+
+// 作り方の帰属。コードと文書は Claude Code との対話で書いている (README の
+// 「開発の進め方」と同じ内容)。判断と確認は作者が行う旨も添える
+test("Claude Code で書いている旨を出す", () => {
+  const out = html();
+  expect(out).toContain("https://claude.com/claude-code");
+  expect(out).toContain("Claude Code");
+});
