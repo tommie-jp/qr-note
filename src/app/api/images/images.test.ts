@@ -81,9 +81,19 @@ const runDbTests =
 // (「DB に触れる前に弾く」契約そのもののテストにもなっている)
 process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:1/unused'
 
-// 公開判定のテストが作るノートの itemId プレフィックス。実データと衝突させない
-// (items.test.ts と同じ約束)
-const TEST_PREFIX = 'zzft'
+// 公開判定のテストが作るノートの id。実データと衝突しないよう固定の UUID 接頭辞で
+// 揃え、後始末で消す (docs/107: id は UUID 型なので文字列の接頭辞は使えない)。
+// items.test.ts (f7f7f7f7-…) とは別の接頭辞にして、互いの後始末を混ぜない
+const ID_PREFIX = 'f7f7f7f8-0000-7000-8000-'
+
+// 短い名前 (英小文字・数字 6 文字まで) をテスト用の UUID にする
+function tid(key: string): string {
+  if (!/^[a-z0-9]{1,6}$/.test(key)) {
+    throw new Error(`テスト用 id の名前が長すぎるか形が違う: ${key}`)
+  }
+  const hex = Array.from(key, (c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  return `${ID_PREFIX}${hex.padEnd(12, '0')}`
+}
 
 // 1x1 の PNG (最小の有効な画像バイナリ)
 const PNG_BYTES = Buffer.from(
@@ -460,8 +470,7 @@ describe.skipIf(!runDbTests)(
 
     // テストで作った画像は UUID 名のため前方一致で消せない。作った名前を控えて後始末する。
     const created: string[] = []
-    // 公開判定のテストで作るノート。実データと衝突しないよう items.test.ts と
-    // 同じ "zzft" プレフィックスで統一し、後始末で消す
+    // 公開判定のテストで作るノート。id は tid() の固定接頭辞で揃え、後始末で消す
     const noteItemIds: string[] = []
 
     beforeAll(async () => {
@@ -934,7 +943,7 @@ describe.skipIf(!runDbTests)(
       }
 
       test('公開ノートに貼った画像は配る', async () => {
-        const name = await noteWithImage(`${TEST_PREFIX}pub`, {
+        const name = await noteWithImage(tid('pub'), {
           publicAt: new Date(),
         })
 
@@ -947,7 +956,7 @@ describe.skipIf(!runDbTests)(
       })
 
       test('非公開ノートに貼った画像は 401 (名前を知っていても配らない)', async () => {
-        const name = await noteWithImage(`${TEST_PREFIX}priv`, {
+        const name = await noteWithImage(tid('priv'), {
           publicAt: null,
         })
 
@@ -960,7 +969,7 @@ describe.skipIf(!runDbTests)(
       // サムネは一覧のための別の口だが、認可は原寸とまったく同じでなければ
       // ならない。?thumb=1 を付けるだけで非公開の写真が取れては元も子もない
       test('非公開ノートの画像は ?thumb=1 でも 401', async () => {
-        const name = await noteWithImage(`${TEST_PREFIX}privt`, {
+        const name = await noteWithImage(tid('privt'), {
           publicAt: null,
         })
 
@@ -971,7 +980,7 @@ describe.skipIf(!runDbTests)(
       })
 
       test('公開ノートの画像は ?thumb=1 でも配る', async () => {
-        const name = await noteWithImage(`${TEST_PREFIX}pubt`, {
+        const name = await noteWithImage(tid('pubt'), {
           publicAt: new Date(),
         })
 
@@ -985,7 +994,7 @@ describe.skipIf(!runDbTests)(
       // isPublicItem() と同じ規則 (docs/22 §3)。捨てたノートの写真が
       // 公開され続けるほうが驚きが大きい
       test('ゴミ箱のノートに貼った画像は、公開済みでも 401', async () => {
-        const name = await noteWithImage(`${TEST_PREFIX}trash`, {
+        const name = await noteWithImage(tid('trash'), {
           publicAt: new Date(),
           deletedAt: new Date(),
         })
