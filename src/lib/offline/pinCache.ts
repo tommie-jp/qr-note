@@ -4,7 +4,7 @@
 //
 // 「印を付けたら落とす・外したら消す」と出来事で書くと、取りこぼしが永久に
 // 残る。印を外した瞬間に圏外だった、別の端末で外した、添付を差し替えた、
-// ノートごと消した — どれも起こるうえ、qr-pin-v1 は**期限で腐らない棚**
+// ノートごと消した — どれも起こるうえ、qr-pin-v2 は**期限で腐らない棚**
 // なので、消し損ねた物は次に容量が問題になるまで誰にも気づかれない。
 //
 // そこで毎回、印付きノートから**あるべき URL の集合**を作り直し、棚と
@@ -21,7 +21,7 @@
 import 'client-only'
 import { allAttachments, attachmentUrl, thumbUrl } from '@/lib/images/memoImages'
 import { allSecretNames, secretUrl } from '@/lib/secret/secrets'
-import { PIN_CACHE } from './cacheNames'
+import { LEGACY_PIN_CACHE, PIN_CACHE } from './cacheNames'
 import type { OfflineItem } from './item'
 
 // 同時に投げる本数。原寸の画像・動画を含むので、サムネ (sync.ts) より控えめに
@@ -64,6 +64,11 @@ export function pinnedUrls(item: OfflineItem): string[] {
     urls.push(secretUrl(name))
   }
   return urls
+}
+
+// サムネの URL か。sw.js の添付の分岐と同じ規則 (query に thumb がある)
+function isThumbUrl(url: string): boolean {
+  return new URL(url, 'http://localhost').searchParams.has('thumb')
 }
 
 // 印付きノートの添付を端末へ揃える。あるべき集合と棚を突き合わせる。
@@ -114,7 +119,13 @@ export async function syncPinnedAssets(
     while (next < total) {
       const url = missing[next++]
       try {
-        const res = await fetch(url, { credentials: 'same-origin' })
+        // 原寸は HTTP キャッシュを飛ばす。撮影情報を抜く前の写しが 1 年 immutable で
+        // 残っていると、棚を作り直してもそれが戻ってくる (docs/113 §8-5)。
+        // サムネ (?thumb=) は撮影情報が無いのでそのまま
+        const res = await fetch(url, {
+          credentials: 'same-origin',
+          ...(isThumbUrl(url) ? {} : { cache: 'reload' as const }),
+        })
         // 206 は来ない (Range を付けていない)。ok でない応答を入れると
         // 「圏外でログイン案内が画像として出る」ことになるので入れない
         if (res.ok && res.status === 200) {
@@ -133,6 +144,12 @@ export async function syncPinnedAssets(
   }
 
   await Promise.all(Array.from({ length: Math.min(PIN_CONCURRENCY, total) }, worker))
+
+  // v2 が揃ったので、撮影情報の残る旧い棚 (v1) を捨てる。取りこぼしがあるうちは
+  // 残す — 圏外でそちらが最後の拠り所になる (sw.js の pinnedFirst)
+  if (failed === 0) {
+    await caches.delete(LEGACY_PIN_CACHE)
+  }
 
   return { notes: pinned.length, files: wanted.size, failed, removed }
 }

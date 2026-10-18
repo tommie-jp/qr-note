@@ -8,16 +8,24 @@
 // 棚を分けているのは、**捨てる判断が棚ごとに違う**ため:
 //
 //   qr-shell-<版> … /offline の殻。版が変われば丸ごと捨てる
-//   qr-media-v1   … 見たついでに貯まった添付。上限 600 件で古い順に捨てる
-//   qr-pin-v1     … 印付きノートの持ち出し。**上限も期限も無い**。捨てるのは
+//   qr-media-v2   … 見たついでに貯まった添付。上限 600 件で古い順に捨てる
+//   qr-pin-v2     … 印付きノートの持ち出し。**上限も期限も無い**。捨てるのは
 //                    印を外したときだけ (pinCache.ts が突き合わせて消す)
+
 //   qr-secret-v1  … シークレット断片の暗号文。名前が UUID で中身が変わらない
+//
+// media / pin の v1 → v2 は、写真の撮影情報を抜いたバックフィルの後 (docs/113
+// §8-5)。v1 の写しには撮影情報が残っているので、名前を変えて捨てさせた。
+// **原本のバイト列を書き換える作業をしたら、また上げる**。
+// 棚を足したら public/sw.js の activate の一覧にも足す (sw.test.ts が見張る)
 
 import 'client-only'
 
-export const MEDIA_CACHE = 'qr-media-v1'
-export const PIN_CACHE = 'qr-pin-v1'
+export const MEDIA_CACHE = 'qr-media-v2'
+export const PIN_CACHE = 'qr-pin-v2'
 export const SECRET_CACHE = 'qr-secret-v1'
+// v2 を取り直し終えたら捨てる旧い持ち出しの棚 (sw.js の LEGACY_PIN_CACHE と対)
+export const LEGACY_PIN_CACHE = 'qr-pin-v1'
 
 // 保存済みの応答を捨てる。**中身を書き換えた後に呼ぶ** — 添付は UUID で
 // 名前が変わるので取り直しが要らないが、シークレット断片は**同じ名前のまま

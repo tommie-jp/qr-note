@@ -37,15 +37,22 @@ const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev'
 // アプリの殻 (/offline の HTML とその JS/CSS)。版ごとに分ける — 古い版の
 // HTML と新しい版のチャンクが混ざると、読み込めないチャンクを指したまま固まる
 const SHELL_CACHE = `qr-shell-${VERSION}`
-// 添付 (サムネ・画像・動画)。名前が UUID で中身が変わらないので版を分けない。
-// 分けるとリリースのたびに数十 MB を落とし直すことになる
-const MEDIA_CACHE = 'qr-media-v1'
+// 添付 (サムネ・画像・動画)。名前が UUID で中身が変わらないので、リリースごとには
+// 版を分けない (分けると毎回数十 MB を落とし直す)。**上げるのは原本のバイト列を
+// 書き換えたときだけ** — v2 は写真の撮影情報を抜いたバックフィル
+// (docs/113 §8-5) の後。v1 の写しには撮影情報が残っており、activate で捨てる
+const MEDIA_CACHE = 'qr-media-v2'
 // 印付きノート (offline_pin) の持ち出し (docs/65-オフライン対応計画.md §10)。
 // **MEDIA_CACHE と分けるのが要点。** あちらは上限 600 件で古い順に捨てるので、
 // 混ぜると「オフラインで常に使う」と言われた添付が、別のノートを眺めただけで
 // 押し出される。こちらに上限は無く、捨てるのは印を外したときだけ。
 // 出し入れするのは画面側 (pinCache.ts) で、ここは返すだけ
-const PIN_CACHE = 'qr-pin-v1'
+const PIN_CACHE = 'qr-pin-v2' // MEDIA_CACHE と同じ理由で v2
+// 旧い持ち出しの棚。**activate では捨てない** — 上限も期限も無い棚で、v2 が
+// 揃う前に消すと、更新直後に圏外へ出た人の印付きノートの添付が全部消える。
+// 圏外で v2 に無いときだけ読み (pinnedFirst)、v2 を取り直し終えたら画面側の
+// pinCache.ts が捨てる。オンラインでは読まない (撮影情報が残る写しのため)
+const LEGACY_PIN_CACHE = 'qr-pin-v1'
 // シークレット断片の暗号文 (docs/65-オフライン対応計画.md §9)。
 // 置くのは**暗号文だけ**で、鍵はここを通らない (端末に写すのは鍵束 = 包んだ鍵で、
 // それは IndexedDB。開けるのは Face ID か復旧キーだけ)
@@ -112,11 +119,15 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // 古い版の殻を片付ける。添付 (MEDIA_CACHE) は版に依らないので残す
+      // 現行の棚以外の qr- を片付ける。古い版の殻と、棚の名前を上げた後の旧い
+      // 添付の棚 (qr-media-v1 / qr-pin-v1 = 撮影情報が残る写し)。
+      // qr- で始まらない他所の棚には触らない
+      // **棚を足したらここにも足すこと** (offline/cacheNames.ts と対。sw.test.ts が見張る)
+      const current = [SHELL_CACHE, MEDIA_CACHE, PIN_CACHE, SECRET_CACHE, LEGACY_PIN_CACHE]
       const names = await caches.keys()
       await Promise.all(
         names
-          .filter((name) => name.startsWith('qr-shell-') && name !== SHELL_CACHE)
+          .filter((name) => name.startsWith('qr-') && !current.includes(name))
           .map((name) => caches.delete(name)),
       )
       // 既に開いているタブもこの Worker の管理下に入れる。これが無いと
@@ -288,7 +299,7 @@ function offlineRedirectUrl(url) {
 // 印付きの棚へ**書くのはここではない** (画面側の pinCache.ts が突き合わせて
 // 出し入れする)。書く側と捨てる側が同じ場所にいないと、印を外したときに
 // 消し残る — 期限で腐らせる棚ではないので、消し残りは永久に残る。
-async function pinnedFirst(request, cacheName, event) {
+async function pinnedFirst(request, cacheName, event, init) {
   // **caches.open で開いてから match する。** caches.match({ cacheName }) は
   // その名前の棚がまだ無いと NotFoundError で落ちる仕様で、印を 1 つも
   // 付けていない端末ではそれが常態になる — 落ちれば respondWith ごと失敗し、
@@ -298,16 +309,28 @@ async function pinnedFirst(request, cacheName, event) {
   if (pinned) {
     return pinned
   }
-  return cacheFirst(request, cacheName, event)
+  try {
+    return await cacheFirst(request, cacheName, event, init)
+  } catch (error) {
+    // 圏外で、v2 にも見たついでの棚にも無い。旧い持ち出しの棚にあれば、
+    // 撮影情報が残っていても無いよりは増しなので返す (更新直後の窓だけ)
+    const legacy = await (await caches.open(LEGACY_PIN_CACHE)).match(request)
+    if (legacy) {
+      return legacy
+    }
+    throw error
+  }
 }
 
-async function cacheFirst(request, cacheName, event) {
+// init … 棚に無かったときの fetch へ渡す。原寸は {cache: 'reload'} で HTTP
+// キャッシュを飛ばす (添付の取得を参照)
+async function cacheFirst(request, cacheName, event, init) {
   const cache = await caches.open(cacheName)
   const hit = await cache.match(request)
   if (hit) {
     return hit
   }
-  const res = await fetch(request)
+  const res = await fetch(request, init)
   // 部分応答 (206) は動画のシーク要求。継ぎ接ぎを保存しても再生できないので
   // 素通しする (httpRange.ts が返す形)
   if (res.ok && res.status === 200) {
@@ -402,8 +425,18 @@ self.addEventListener('fetch', (event) => {
   // **Range 付きは素通しする**。Cache Storage の match は Range を解さず
   // 全体 (200) を返してしまい、動画のシークが壊れる (httpRange.ts が
   // 206 を返す前提でプレイヤーが動いている)
+  //
+  // (飛ばすのは棚に無かったときの取り直しだけ。上限 600 件で押し出された動画・
+  // 大きな画像の再表示も毎回ネットから取るが、頻度が低いので許容する)
+  //
+  // **原寸だけは取り直しで HTTP キャッシュを飛ばす** ({cache: 'reload'})。原寸は
+  // 1 年 immutable で配るため、撮影情報を抜く前に取った写しがブラウザの HTTP
+  // キャッシュに残っている。棚を空にしても、そのまま fetch するとその写しが棚に
+  // 戻ってくる (docs/113 §8-5)。サムネ (?thumb=) は sharp が作り直した物で撮影
+  // 情報が無く、一覧で枚数も多いので従来どおり HTTP キャッシュを使う
   if (url.pathname.startsWith(MEDIA_PREFIX) && !request.headers.has('Range')) {
-    event.respondWith(pinnedFirst(request, MEDIA_CACHE, event))
+    const init = url.searchParams.has('thumb') ? undefined : { cache: 'reload' }
+    event.respondWith(pinnedFirst(request, MEDIA_CACHE, event, init))
     return
   }
 

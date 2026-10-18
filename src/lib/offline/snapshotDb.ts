@@ -54,7 +54,7 @@ const CACHE_PREFIX = 'qr-'
 //   keyring  (IndexedDB) … シークレットの鍵束の写し (keyring.ts)。中身は
 //     包んだ鍵なので単体では読めないが、ログアウトした端末に残す理由が無い
 //   Cache Storage … 添付のサムネと原寸 (/api/images/)、印付きノートの持ち出し
-//     (qr-pin-v1)、シークレットの暗号文 (qr-secret-v1)。sw.js はキャッシュから
+//     (qr-pin-v2)、シークレットの暗号文 (qr-secret-v1)。sw.js はキャッシュから
 //     返すとき認証を見ないので、残すと画像だけ読めてしまう
 //
 // 殻 (qr-shell-*) も消す。中身にノートは無いが、ログイン中に描いた HTML
