@@ -1,4 +1,4 @@
-// 写真の撮影情報 (位置・日時・機種など) を抜く入口 (docs/97-写真の撮影情報削除計画.md)。
+// 写真の撮影情報 (位置・日時・機種など) を抜く入口 (docs/113-写真の撮影情報削除計画.md)。
 //
 // 保存経路 (attachments/storeImage.ts・attachments/restore.ts) とバックフィル
 // (scripts/backfillPhotoMeta.ts) がここを呼ぶ。形式ごとの抜き方は同じ階層の

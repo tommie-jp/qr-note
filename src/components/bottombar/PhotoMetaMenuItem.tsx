@@ -6,10 +6,10 @@ import { HEADER_MENU_ROW_CLASS } from "@/components/ui";
 import type { PhotoMetaMode } from "@/lib/prefs/photoMeta";
 
 // ハンバーガーメニューの「写真の撮影情報 (EXIF)」
-// (docs/97-写真の撮影情報削除計画.md §4)。
+// (docs/113-写真の撮影情報削除計画.md §4)。
 //
 // 添付した写真と動画の位置・日時・機種などを、保存するときに消すか残すかを選ぶ
-// (動画は docs/97 §10。項目名は写真のまま — 利用者が決めた名前)。
+// (動画は docs/113 §10。項目名は写真のまま — 利用者が決めた名前)。
 // 既定は「消す」。**保存先はサーバ (user_settings)** — 消すかどうかは写真を
 // 受けたサーバが決めるので、端末ごとに持つと PC と iPhone で食い違う。
 //

@@ -56,7 +56,7 @@ vi.mock('@/lib/video/videoMeta', () => ({
 const { storeAttachment: storeAttachmentWith } = await import('./store')
 type StoreOptions = Parameters<typeof storeAttachmentWith>[1]
 
-// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。振り分けを見るテストでは
+// 撮影情報の扱いは必須の指定 (docs/113 §2-4)。振り分けを見るテストでは
 // 「残す」を既定にして、写真でない偽のバイト列を抜きにいかないようにする
 const storeAttachment = (
   bytes: Uint8Array<ArrayBuffer>,
@@ -347,7 +347,7 @@ describe('動画', () => {
     })
   })
 
-  // 動画の撮影情報 (docs/97-写真の撮影情報削除計画.md §10)。消すのは詰め替えの後 —
+  // 動画の撮影情報 (docs/113-写真の撮影情報削除計画.md §10)。消すのは詰め替えの後 —
   // 箱の長さを変えないので、詰め替えた位置表はそのまま正しい
   test('「消す」なら mp4 は詰め替えた後に撮影情報を消して保存する', async () => {
     // Arrange

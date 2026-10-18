@@ -487,7 +487,7 @@ describe.skipIf(!runDbTests)(
       return name
     }
 
-    // 写真の撮影情報 (docs/97-写真の撮影情報削除計画.md)。利用者の設定
+    // 写真の撮影情報 (docs/113-写真の撮影情報削除計画.md)。利用者の設定
     // (user_settings の photo-meta) で消すか残すかが決まる。手元の DB の値を
     // 壊さないよう、元の値を控えて戻す
     test.each([

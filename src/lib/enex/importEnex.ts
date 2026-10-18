@@ -37,7 +37,7 @@ import {
 export const MAX_NOTES_PER_IMPORT = 500
 
 export interface ImportOptions {
-  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 写真の撮影情報を消すか (docs/113-写真の撮影情報削除計画.md §2-4)。
   // Web の口は利用者の設定を、CLI は既定の「消す」(--keep-photo-meta で残す) を渡す。
   // 省略させない (渡し忘れが素通しになるため)
   photoMeta: PhotoMetaMode

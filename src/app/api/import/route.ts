@@ -76,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiFail(CONFLICT_POLICY_ERROR, 400)
   }
 
-  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 写真の撮影情報を消すか (docs/113-写真の撮影情報削除計画.md §2-4)。
   // 進捗の控えを取る前に読む — DB で落ちたとき控えを握ったまま抜けない
   const photoMeta = await loadPhotoMetaMode(guard.user)
 

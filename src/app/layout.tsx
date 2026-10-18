@@ -55,7 +55,7 @@ export default async function RootLayout({
   // 未ログインなら既定 (DB を引かない)。1 クエリ増えるが、この layout は
   // 既に currentUser() でセッションを引いており、同じ 1 往復に収まる
   //
-  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md) もメニューの行が
+  // 写真の撮影情報を消すか (docs/113-写真の撮影情報削除計画.md) もメニューの行が
   // 今の値を出すためにここで読む。どちらも user_settings の 1 行なので並べて引く。
   // 未ログイン・デモは DB を引かない (loadPhotoMetaMode が畳む)
   const [rowTintId, photoMetaMode] = await Promise.all([

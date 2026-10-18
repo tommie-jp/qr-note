@@ -37,7 +37,7 @@ export interface VideoThumbSources {
 }
 
 export interface StoreVideoOptions extends VideoThumbSources {
-  // 撮影情報 (位置・日時・機種など) を消すか (docs/97-写真の撮影情報削除計画.md §10)
+  // 撮影情報 (位置・日時・機種など) を消すか (docs/113-写真の撮影情報削除計画.md §10)
   photoMeta: PhotoMetaSource
 }
 

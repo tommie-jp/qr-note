@@ -44,7 +44,7 @@ vi.mock('@/lib/import/importDuplicate', () => ({
 const { importEnex: importEnexWith } = await import('./importEnex')
 type EnexOptions = Parameters<typeof importEnexWith>[1]
 
-// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。既定を「消す」にして流す
+// 撮影情報の扱いは必須の指定 (docs/113 §2-4)。既定を「消す」にして流す
 const importEnex = (xml: string, options: Partial<EnexOptions> = {}) =>
   importEnexWith(xml, { photoMeta: 'strip', ...options })
 
@@ -451,7 +451,7 @@ test('添付 1 件の上限を呼び出し側から渡せる', async () => {
 })
 
 // 写真の撮影情報を消すかは利用者の設定。Web の口と CLI が決めて渡す
-// (docs/97-写真の撮影情報削除計画.md §2-4)
+// (docs/113-写真の撮影情報削除計画.md §2-4)
 test.each(['strip', 'keep'] as const)('撮影情報の扱い (%s) を添付の保存へ渡す', async (photoMeta) => {
   await importEnex(
     enex(

@@ -259,7 +259,7 @@ test('名乗りではなく中身の先頭で振り分ける', async () => {
 })
 
 // 写真の撮影情報を消すかは、ログイン中の利用者の設定で決める
-// (docs/97-写真の撮影情報削除計画.md §2-4)
+// (docs/113-写真の撮影情報削除計画.md §2-4)
 test.each(['strip', 'keep'] as const)('撮影情報の扱い (%s) を ZIP と ENEX の取り込みへ渡す', async (photoMeta) => {
   mocks.photoMeta = photoMeta
 

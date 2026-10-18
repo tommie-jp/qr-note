@@ -4,7 +4,7 @@ import { ascii, concat, containsAscii } from '@/test/photoFixtures'
 import { stripVideoMeta } from './videoMeta'
 
 // ISO-BMFF の箱を手で組む。再生できる必要はなく、箱の並びと位置が
-// 保たれることを見る (再生できることは ffmpeg で別に確かめた。docs/97 §10)
+// 保たれることを見る (再生できることは ffmpeg で別に確かめた。docs/113 §10)
 function rawBox(type: ArrayLike<number>, ...parts: ArrayLike<number>[]): Uint8Array<ArrayBuffer> {
   const out = concat([new Uint8Array(4), type, concat(parts)])
   new DataView(out.buffer).setUint32(0, out.byteLength)

@@ -19,7 +19,7 @@ interface AppHeaderProps {
   // ('@/app/actions' をここで読むと DB の層まで巻き込む。RecordAccess と同じ)
   paneModeAction: ComponentProps<typeof PaneModeButton>["action"];
   rowTintId: RowTintId;
-  // 写真の撮影情報を消すか (docs/97)。メニューの行へそのまま渡す
+  // 写真の撮影情報を消すか (docs/113)。メニューの行へそのまま渡す
   photoMetaMode: PhotoMetaMode;
   // ヘッダの QR が指すサイトの URL と、その QR 画像 (data URL)
   siteUrl: string;

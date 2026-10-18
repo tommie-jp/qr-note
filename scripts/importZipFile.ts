@@ -15,7 +15,8 @@ async function main(): Promise<void> {
   if (conflict === null) {
     throw new Error('conflict は skip / overwrite / renumber')
   }
-  const report = await importZip(createReadStream(path), { conflict })
+  // 撮影情報はアプリの既定どおり消す (docs/113)。ログインしないので利用者の設定は引けない
+  const report = await importZip(createReadStream(path), { conflict, photoMeta: 'strip' })
   console.log(
     JSON.stringify(
       {

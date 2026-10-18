@@ -58,7 +58,7 @@ export interface StoreAttachmentOptions extends SaveImageOptions, VideoThumbSour
   fileName?: string | null
 
   // 写真の撮影情報 (位置・日時・機種などの EXIF) を消すか残すか
-  // (docs/97-写真の撮影情報削除計画.md)。
+  // (docs/113-写真の撮影情報削除計画.md)。
   //
   // **省略させない。** 既定値を持たせると、新しい取り込み口を足した人が
   // 渡し忘れて素通しになる (§2-4)。呼ぶ側は利用者の設定

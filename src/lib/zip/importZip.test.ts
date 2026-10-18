@@ -59,7 +59,7 @@ vi.mock('@/lib/db', () => ({
 const { importZip: importZipWith } = await import('./importZip')
 type ZipOptions = Parameters<typeof importZipWith>[1]
 
-// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。既定を「消す」にして流す
+// 撮影情報の扱いは必須の指定 (docs/113 §2-4)。既定を「消す」にして流す
 const importZip = (source: AsyncIterable<Uint8Array>, options: Partial<ZipOptions> = {}) =>
   importZipWith(source, { photoMeta: 'strip', ...options })
 
@@ -145,7 +145,7 @@ test('images/ の添付を元の名前のまま戻す', async () => {
 })
 
 // 書き出した ZIP の写真にも撮影情報は残っている。戻すときにも利用者の設定を当てる
-// (docs/97-写真の撮影情報削除計画.md §2-4)
+// (docs/113-写真の撮影情報削除計画.md §2-4)
 test('撮影情報の扱いを添付の復元へそのまま渡す', async () => {
   await importZip(
     zip({ [`images/${UUID}.jpg`]: new Uint8Array([1, 2, 3]) }),

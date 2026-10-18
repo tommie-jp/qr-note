@@ -29,7 +29,7 @@ import {
 } from './result'
 
 export interface RestoreOptions {
-  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 写真の撮影情報を消すか (docs/113-写真の撮影情報削除計画.md §2-4)。
   // 書き出した ZIP の中の写真にも撮影情報は残っているので、戻すときにも
   // 利用者の設定を当てる。省略させない (渡し忘れが素通しになるため)
   photoMeta: PhotoMetaMode
@@ -121,7 +121,7 @@ async function restoreImage(
   return restoreRow(name, kept, mime)
 }
 
-// 動画 (MP4 / MOV) も同じ設定で撮影情報を消す (docs/97 §10)。長さは変えない
+// 動画 (MP4 / MOV) も同じ設定で撮影情報を消す (docs/113 §10)。長さは変えない
 function restoreVideo(
   name: string,
   bytes: Uint8Array<ArrayBuffer>,

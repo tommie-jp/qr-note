@@ -11,7 +11,7 @@ afterEach(() => {
 
 // TextSizeMenuItem.test.tsx と同じ制約 — jsdom を持たないので、確かめられるのは
 // 開いた直後の描画まで。押して保存する流れはブラウザで実物を通して確認する
-// (docs/97-写真の撮影情報削除計画.md §7 Phase 4)
+// (docs/113-写真の撮影情報削除計画.md §7 Phase 4)
 const render = (value: "strip" | "keep") =>
   renderToStaticMarkup(<PhotoMetaMenuItem value={value} />);
 

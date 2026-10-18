@@ -6,7 +6,7 @@ import { parseJsonBody } from '@/lib/route/parse'
 import { apiOk } from '@/lib/route/respond'
 
 // 写真の撮影情報 (EXIF) を保存時に消すか残すかを保存する口
-// (docs/97-写真の撮影情報削除計画.md §5)。形は選択色の口 (api/settings/row-tint) と同じ。
+// (docs/113-写真の撮影情報削除計画.md §5)。形は選択色の口 (api/settings/row-tint) と同じ。
 //
 // PUT だけ。読み出しの口は要らない — 値はサーバが layout で読んでメニューへ降ろし、
 // 写真を受ける口 (api/images・api/import) も自分で読む。

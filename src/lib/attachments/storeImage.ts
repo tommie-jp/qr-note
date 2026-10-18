@@ -12,7 +12,7 @@ export interface StoreImageOptions extends SaveImageOptions {
 }
 
 // 画像の保存。HEIC/TIFF は WebP へ変換し、設定が「消す」なら撮影情報を抜いてから
-// 保存する (docs/97-写真の撮影情報削除計画.md)。抜くのは正規化の後 — 変換した
+// 保存する (docs/113-写真の撮影情報削除計画.md)。抜くのは正規化の後 — 変換した
 // WebP には撮影情報が無いので、抜く相手は素通しの 5 形式だけになる。
 export async function storeImage(
   bytes: Uint8Array<ArrayBuffer>,

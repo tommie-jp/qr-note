@@ -14,7 +14,7 @@ vi.mock('@/lib/images/imageStore', () => ({
 
 const { restoreAttachment: restoreAttachmentWith } = await import('./restore')
 
-// 撮影情報の扱いは必須の指定 (docs/97 §2-4)。判定を見るテストでは「残す」を
+// 撮影情報の扱いは必須の指定 (docs/113 §2-4)。判定を見るテストでは「残す」を
 // 既定にして、写真でない偽のバイト列を抜きにいかないようにする
 const restoreAttachment = (
   name: string,
@@ -165,7 +165,7 @@ test('大きすぎる添付の理由は DB に入りうる最大 (50MB) を示�
   expect(result).toEqual({ ok: false, reason: 'ファイルが大きすぎます (最大 50MB)' })
 })
 
-// --- 撮影情報 (docs/97-写真の撮影情報削除計画.md) ---
+// --- 撮影情報 (docs/113-写真の撮影情報削除計画.md) ---
 
 test('「消す」なら撮影情報を抜いた中身で行を作る (名前はそのまま)', async () => {
   // Arrange

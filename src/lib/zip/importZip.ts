@@ -33,7 +33,7 @@ import { readZipStream, ZipReadError } from './readZip'
 const DECODER = new TextDecoder()
 
 export interface ZipImportOptions {
-  // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md §2-4)。
+  // 写真の撮影情報を消すか (docs/113-写真の撮影情報削除計画.md §2-4)。
   // 書き出した ZIP の写真にも撮影情報は残っているので、戻すときにも利用者の
   // 設定を当てる。省略させない (渡し忘れが素通しになるため)
   photoMeta: PhotoMetaMode

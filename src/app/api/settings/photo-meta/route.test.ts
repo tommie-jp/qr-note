@@ -6,7 +6,7 @@ import {
   responseContract,
 } from '@/test/routeResponse'
 
-// 写真の撮影情報を残すかを保存する口 (docs/97-写真の撮影情報削除計画.md §5)。
+// 写真の撮影情報を残すかを保存する口 (docs/113-写真の撮影情報削除計画.md §5)。
 // 選択色の口 (api/settings/row-tint/route.test.ts) と同じ流儀: next/headers と
 // セッションの DB を差し替え、門番の判定そのものは本物を通す。保存は偽物
 const mocks = vi.hoisted(() => ({

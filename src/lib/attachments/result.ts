@@ -8,7 +8,7 @@ export const UNSUPPORTED_ATTACHMENT_MESSAGE =
 export const IMAGE_UNREADABLE_MESSAGE = '画像を読み込めませんでした (壊れているか未対応の画像です)'
 
 // 動画の撮影情報を消せなかった (箱の並びが読めない)。動画は作り直す手段を
-// 持たないので断る (docs/97 §10)。
+// 持たないので断る (docs/113 §10)。
 //
 // 「残す」にすれば保存できる、という案内はここに書かない。この文言は CLI の取り込み
 // (旗は --keep-photo-meta) やデモ (メニューに出ない) とも共有するので、案内が

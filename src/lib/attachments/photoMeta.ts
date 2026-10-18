@@ -1,5 +1,5 @@
 // 保存と復元の両方で使う「設定どおりに撮影情報を消す」一手
-// (docs/97-写真の撮影情報削除計画.md §2-4)。抜き方そのものは images/photoMeta/ が持つ。
+// (docs/113-写真の撮影情報削除計画.md §2-4)。抜き方そのものは images/photoMeta/ が持つ。
 import 'server-only'
 import { isPhotoFormat, stripPhotoMeta } from '@/lib/images/photoMeta'
 import type { PhotoMetaMode } from '@/lib/prefs/photoMeta'
@@ -34,7 +34,7 @@ export async function applyPhotoMeta(
   return stripPhotoMeta(bytes, ext)
 }
 
-// 動画 (MP4 / MOV) の撮影情報も同じ設定で消す (docs/97 §10)。WebM はブラウザの
+// 動画 (MP4 / MOV) の撮影情報も同じ設定で消す (docs/113 §10)。WebM はブラウザの
 // 録画が出す形でカメラは書かないので触らない。箱の長さは変えないので、
 // moov の詰め替え (video/mp4Faststart.ts) の前でも後でもよい。
 //

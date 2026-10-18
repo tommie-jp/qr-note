@@ -30,15 +30,15 @@
 #               circuit-fence 0.35.0 を載せたデプロイの直後に 1 回。**本文 (正本) を書き換える**
 #               ので、先に `DRY_RUN=1 ./doBackfill.sh circuit-addresses` で対象を確かめる。
 #   photometa   保存済みの写真と動画 (MP4 / MOV) から撮影情報 (位置・日時・機種など) を抜いて
-#               images.data を差し替える (docs/97-写真の撮影情報削除計画.md §2-6 / §10)。保存時の削除を入れた
-#               デプロイの後に 1 回。名前は変えない。**これは派生キャッシュではなく原本の
+#               images.data を差し替える (docs/113-写真の撮影情報削除計画.md §2-6 / §10)。
+#               保存時の削除を入れたデプロイの後に 1 回。名前は変えない。**これは派生キャッシュではなく原本の
 #               書き換え**で、抜いた情報は戻らない。先に photometa-check で件数を見ること。
 #   photometa-check
 #               photometa の下見 (--dry-run)。何が何件に残っているかを数えるだけで書かない。
 #
 # photometa と circuit-addresses 以外は派生キャッシュなので何度流しても安全 (冪等)。
-# 値が既に合っている行・描画済みの図は書かない。photometa も冪等 (抜くものが無い写真は書かない) だが、1 回目は
-# 原本を書き換える。backfill*.ts は全件失敗のときだけ exit 1 を返す。
+# 値が既に合っている行・描画済みの図は書かない。photometa も冪等 (抜くものが無い写真は
+# 書かない) だが、1 回目は原本を書き換える。backfill*.ts は全件失敗のときだけ exit 1 を返す。
 #
 # 以前は doBackfillTitles.sh / doBackfillTaskCounts.sh / doBackfillThumbs.sh /
 # doBackfillCircuits.sh / doBackfillThumbs-demo.sh の 5 本だった (docs/93-リファクタリング計画.md §7-2)。

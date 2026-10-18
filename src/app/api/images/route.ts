@@ -125,7 +125,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     maxBytes: maxAttachmentBytes(),
     videoThumb,
     videoFrames,
-    // 写真の撮影情報を消すか (docs/97-写真の撮影情報削除計画.md)。
+    // 写真の撮影情報を消すか (docs/113-写真の撮影情報削除計画.md)。
     // 利用者の設定で決まる。デモ・未設定は「消す」(loadPhotoMetaMode が畳む)。
     // **関数で渡す** — 画像を保存すると決まってから引き、中身で断る経路では
     // DB に触れない (このファイルのテストの契約)
@@ -139,7 +139,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 // 動画の撮影情報を消せずに断ったとき、「残す」にすれば保存できると添える
-// (docs/97-写真の撮影情報削除計画.md §10)。メニューで選べるのは画面から上げる人
+// (docs/113-写真の撮影情報削除計画.md §10)。メニューで選べるのは画面から上げる人
 // だけなので、案内はこの口で足す。デモはメニューに項目が無く、常に「消す」
 function withKeepHint(reason: string): string {
   return reason === VIDEO_META_FAILED_MESSAGE && !isDemoMode()
