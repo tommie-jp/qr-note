@@ -1,4 +1,4 @@
-# vps2 に常駐させる私設 Docker レジストリ (registry:2)。
+# vps2 に常駐させる私設 Docker レジストリ (registry:3)。
 # doDeploy.sh 5/8 のレイヤー差分転送先。
 #
 # 127.0.0.1 だけに束ねて外部へは一切公開しない。SSH トンネル越しにだけ push/pull する
@@ -10,7 +10,7 @@
 # 一度きりの設置は deploy/setupRegistry.sh から。古い版の掃除は deploy/registryGc.sh。
 services:
   registry:
-    image: registry:2
+    image: registry:3
     restart: always
     ports:
       - "127.0.0.1:5000:5000"

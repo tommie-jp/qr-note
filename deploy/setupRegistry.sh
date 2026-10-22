@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# vps2 に私設 Docker レジストリ (registry:2) を一度きり設置する。
+# vps2 に私設 Docker レジストリ (registry:3) を一度きり設置する。
 # doDeploy.sh 4/8 のレイヤー差分転送先。詳細は docs/41-デプロイ高速化.md。
 #
 # 環境変数 (doDeploy.sh と共通):
@@ -16,7 +16,7 @@ echo "==> $REMOTE:$REGISTRY_DIR に registry-compose.yaml を配置"
 ssh "$REMOTE" "mkdir -p '$REGISTRY_DIR'"
 scp -q deploy/registry-compose.yaml "$REMOTE:$REGISTRY_DIR/compose.yaml"
 
-echo "==> registry:2 を起動"
+echo "==> registry:3 を起動"
 ssh "$REMOTE" "cd '$REGISTRY_DIR' && docker compose up -d"
 
 echo "==> 疎通確認"

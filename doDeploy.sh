@@ -13,7 +13,7 @@
 # 転送はレジストリのレイヤー差分で行う (docs/41-デプロイ高速化.md)。
 #   旧: docker save | gzip | ssh | docker load — 毎回イメージ全体 (631MB) を送っていた。
 #   新: buildx で rewrite-timestamp を効かせて全レイヤーの mtime を固定日時に揃え、
-#       SSH トンネル越しに vps2 の registry:2 へ push する。中身が変わらないレイヤー
+#       SSH トンネル越しに vps2 の registry:3 へ push する。中身が変わらないレイヤー
 #       (ベース + public の 188MB モデル群 + onnx 35MB) は「既に存在」で飛び、実際に
 #       変わる .next の static/standalone (計 ~55MB 圧縮) だけが転送される。
 #   rewrite-timestamp が要る理由: COPY 層の tar には親ディレクトリ app/ のエントリが
@@ -110,7 +110,7 @@
 #   DEPLOY_DB_PORT         マイグレーション先の **リモート側** DB ポート (default: 5432 / --demo: 5433)
 #   DEPLOY_APP_PORT        ヘルスチェックで叩くリモート側 app ポート (default: 3000 / --demo: 3100)
 #   DEPLOY_REGISTRY_PORT   レジストリ転送用トンネルのローカルポート (default: 15000)
-#   DEPLOY_REGISTRY_REMOTE_PORT リモート registry:2 の待受ポート (default: 5000)
+#   DEPLOY_REGISTRY_REMOTE_PORT リモート registry:3 の待受ポート (default: 5000)
 #   DEPLOY_ACTION_KEY_FILE Server Action の暗号鍵の置き場 (default: ~/.config/qr-note/server-actions-key)
 #
 # デモは compose.demo.yaml + デモ .env が配置済みの前提 (docs/39-デモ公開計画.md §5)。
@@ -307,7 +307,7 @@ ssh_master_open "$REGISTRY_PORT" "$REGISTRY_REMOTE_PORT"
 
 # レジストリの疎通を先に確認する。ビルドで時間を使う前に、設置忘れを弾く。
 if ! curl -fsS "http://127.0.0.1:${REGISTRY_PORT}/v2/" >/dev/null 2>&1; then
-  die "${REMOTE} の私設レジストリ (registry:2) に到達できない。
+  die "${REMOTE} の私設レジストリ (registry:3) に到達できない。
      初回は設置が必要 (一度きり):
        ./deploy/setupRegistry.sh
      (DEPLOY_REMOTE 等の環境変数は doDeploy.sh と共通)"
