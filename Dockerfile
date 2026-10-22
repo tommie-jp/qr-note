@@ -6,7 +6,7 @@
 # 「Error loading shared library ld-linux-x86-64.so.2」で読めない (実測)。
 # builder と runner は必ず同じ libc にする (sharp 等のネイティブ依存は
 # npm ci 時の libc で選ばれるため、片方だけ変えると壊れる)
-FROM node:24-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /app
 
 # 依存レイヤーは **版番号を潰した写し** (.deps/) から入れる。
@@ -133,7 +133,7 @@ RUN --mount=type=secret,id=next_action_key \
  && mv .next/standalone/node_modules /standalone-nm/node_modules
 
 # 実行ステージ: standalone 出力のみの最小イメージ (builder と同じ libc に揃える)
-FROM node:24-slim AS runner
+FROM node:26-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
