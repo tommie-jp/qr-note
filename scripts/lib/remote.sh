@@ -95,6 +95,14 @@ remote_compose() {
 local_db() { docker compose exec -T db "$@"; }
 remote_db() { remote_compose exec -T db "$@"; }
 
+# DB を複製したときの照合に使う、items / images の件数と memo 全体のハッシュ。
+# 件数だけだと中身の欠損を見逃すため、内容そのものを突き合わせる
+# (doCopyDBfromVPS2.sh・doServerDeploy.sh)
+# shellcheck disable=SC2034  # source した側が使う
+readonly DB_SIGNATURE_SQL="select (select count(*) from items)||' items / '\
+||(select count(*) from images)||' images / memo md5='\
+||(select coalesce(md5(string_agg(id::text||':'||memo, '|' order by id)), 'なし') from items)"
+
 # query_local / query_remote <SQL> [DB 名 (既定 qr)]
 query_local() { local_db psql -U qr -d "${2:-qr}" -tA -v ON_ERROR_STOP=1 <<< "$1"; }
 query_remote() { remote_db psql -U qr -d "${2:-qr}" -tA -v ON_ERROR_STOP=1 <<< "$1"; }

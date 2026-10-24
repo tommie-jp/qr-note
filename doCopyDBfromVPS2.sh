@@ -53,11 +53,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# items / images の件数と memo 全体のハッシュ。件数だけだと中身の欠損を見逃すため、
-# 内容そのものを突き合わせる
-readonly SIGNATURE_SQL="select (select count(*) from items)||' items / '\
-||(select count(*) from images)||' images / memo md5='\
-||(select coalesce(md5(string_agg(id::text||':'||memo, '|' order by id)), 'なし') from items)"
+# items / images の件数と memo 全体のハッシュ (scripts/lib/remote.sh の DB_SIGNATURE_SQL)
+readonly SIGNATURE_SQL="$DB_SIGNATURE_SQL"
 
 log "0/7 事前チェック"
 [ -f .env ] || die ".env がない。cp .env.example .env して値を設定すること"

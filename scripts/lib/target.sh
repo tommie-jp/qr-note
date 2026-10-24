@@ -5,7 +5,7 @@
 #   resolve_target <prod|demo|demo-seed>
 #
 # 決めるもの (括弧内は prod / demo / demo-seed の既定):
-#   REMOTE           ssh 接続先 (vps2 / vps2 / vps2)
+#   REMOTE           ssh 接続先 (deploy_host の値。控えが無ければ vps2)
 #   REMOTE_DIR       リモートの compose ディレクトリ、$HOME 相対
 #                    (41-QR-search/qr-search / qr-demo / qr-demo)
 #   REMOTE_DB_PORT   リモート側 DB ポート (5432 / 5433 / 5433)
@@ -31,6 +31,27 @@
 
 DEMO_SEED_DB="qr_seed"   # デモの毎時リセットの種 (docs/39-デモ公開計画.md §6)
 
+# 本番・デモがいま載っている VPS の控え。doServerDeploy.sh の cutover が書き換える。
+#
+# **ssh 接続先の既定をここから読むのが要点。** 引っ越しの後も既定が vps2 のままだと、
+# 素の ./doDeploy.sh が止めたはずの旧サーバの app を作り直し、2 台が同時に書き込める
+# 状態に戻ってしまう。控えはリポジトリの外 (手元の設定) に置く — どのサーバに居るかは
+# コードの版ではなく運用の状態なので、配布用ワークツリーから流しても同じ値を拾える
+DEPLOY_HOST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/qr-note"
+
+# deploy_host <prod|demo> — 控えの値 (無ければ vps2)
+deploy_host() {
+  local file="$DEPLOY_HOST_DIR/host-$1" host=""
+  if [ -s "$file" ]; then host="$(cat "$file")"; fi
+  echo "${host:-vps2}"
+}
+
+# set_deploy_host <prod|demo> <ssh 接続先>
+set_deploy_host() {
+  mkdir -p "$DEPLOY_HOST_DIR"
+  echo "$2" >"$DEPLOY_HOST_DIR/host-$1"
+}
+
 # target_alias <正式名> <旧名>
 # 旧名に値があれば正式名へ写す (旧名が勝つ)。無ければ何もしない
 target_alias() {
@@ -41,14 +62,14 @@ target_alias() {
 }
 
 resolve_target() {
-  local dir db_port app_port db_name
+  local stack dir db_port app_port db_name
   case "$1" in
-    prod) dir="41-QR-search/qr-search"; db_port=5432; app_port=3000; db_name=qr ;;
-    demo) dir="qr-demo"; db_port=5433; app_port=3100; db_name=qr ;;
-    demo-seed) dir="qr-demo"; db_port=5433; app_port=3100; db_name="$DEMO_SEED_DB" ;;
+    prod) stack=prod; dir="41-QR-search/qr-search"; db_port=5432; app_port=3000; db_name=qr ;;
+    demo) stack=demo; dir="qr-demo"; db_port=5433; app_port=3100; db_name=qr ;;
+    demo-seed) stack=demo; dir="qr-demo"; db_port=5433; app_port=3100; db_name="$DEMO_SEED_DB" ;;
     *) die "未知の配布先: $1 (prod | demo | demo-seed)" ;;
   esac
-  REMOTE="${DEPLOY_REMOTE:-vps2}"
+  REMOTE="${DEPLOY_REMOTE:-$(deploy_host "$stack")}"
   REMOTE_DIR="${DEPLOY_REMOTE_DIR:-$dir}"
   REMOTE_DB_PORT="${DEPLOY_DB_PORT:-$db_port}"
   REMOTE_APP_PORT="${DEPLOY_APP_PORT:-$app_port}"
