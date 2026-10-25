@@ -221,3 +221,27 @@ export function PhotoMetaIcon() {
     </StrokeIcon>
   );
 }
+
+// サーバ経由のクリップボード (docs/114-サーバクリップボード計画.md): 板に挟んだ紙と、
+// 出ていく / 入ってくる矢印。「サーバへ」と「サーバから」を向きだけで描き分ける
+// (同じ板なので、2 行が対の操作だと一目で分かる)。
+// 板の形は 2 つで揃え、変えるのは矢印の向きと色だけ
+export function ClipboardUpIcon() {
+  return (
+    <StrokeIcon className="text-indigo-600">
+      <rect {...TINT} x="5" y="4.5" width="14" height="17" rx="2" />
+      <path d="M9 4.5V3.5h6v1" />
+      <path d="M12 18v-6M9.5 14.5 12 12l2.5 2.5" />
+    </StrokeIcon>
+  );
+}
+
+export function ClipboardDownIcon() {
+  return (
+    <StrokeIcon className="text-emerald-600">
+      <rect {...TINT} x="5" y="4.5" width="14" height="17" rx="2" />
+      <path d="M9 4.5V3.5h6v1" />
+      <path d="M12 12v6M9.5 15.5 12 18l2.5-2.5" />
+    </StrokeIcon>
+  );
+}

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   storeAttachment: vi.fn(),
   importZip: vi.fn(),
   buildImageSearchIndex: vi.fn(),
+  slotMeta: null as unknown,
 }))
 
 vi.mock('next/headers', async () => {
@@ -70,6 +71,15 @@ vi.mock('@/lib/prefs/photoMetaStore', () => ({
   loadPhotoMetaMode: async () => 'strip',
 }))
 
+// サーバ経由のクリップボード (docs/114)。応答の形だけを見るので store は固定する
+vi.mock('@/lib/clipboard/slotStore', () => ({
+  readSlotMeta: async () => mocks.slotMeta,
+  readSlotImage: async () => null,
+  writeSlotText: async () => mocks.slotMeta,
+  writeSlotImage: async () => mocks.slotMeta,
+  clearSlot: async () => {},
+}))
+
 vi.mock('@/lib/zip/importZip', () => ({
   importZip: (source: unknown, options: unknown) => mocks.importZip(source, options),
 }))
@@ -101,6 +111,7 @@ beforeEach(() => {
   mocks.storeAttachment.mockReset().mockResolvedValue({ ok: true, url: `/api/images/${PNG_NAME}` })
   mocks.importZip.mockReset().mockResolvedValue({ imported: [], skipped: [] })
   mocks.buildImageSearchIndex.mockReset().mockResolvedValue([])
+  mocks.slotMeta = { kind: 'image', bytes: 4, updatedAt: '2026-10-25T12:00:00.000Z' }
 })
 
 afterEach(() => {
@@ -461,5 +472,51 @@ describe('no-store を付けている成功応答', () => {
     expect(
       await responseContract(await POST(new Request('http://localhost/x', { method: 'POST' }))),
     ).toEqual(jsonContract(200, okEnvelope(null)))
+  })
+})
+
+describe('/api/clipboard (no-store・デモは閉じる)', () => {
+  const META = { kind: 'image', bytes: 4, updatedAt: '2026-10-25T12:00:00.000Z' }
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+  test('メタ・文字・消すは封筒で返す', async () => {
+    const { GET, PUT, DELETE } = await import('./clipboard/route')
+    const url = 'http://localhost/api/clipboard'
+    const put = new Request(url, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'abc' }),
+    })
+
+    expect(await responseContract(await GET(new Request(url)))).toEqual(
+      jsonContract(200, okEnvelope({ slot: META })),
+    )
+    expect(await responseContract(await PUT(put))).toEqual(
+      jsonContract(200, okEnvelope({ slot: META })),
+    )
+    expect(await responseContract(await DELETE(new Request(url, { method: 'DELETE' })))).toEqual(
+      jsonContract(200, okEnvelope({ slot: null })),
+    )
+  })
+
+  test('画像の中身: 無ければ 404 の封筒、置けば封筒', async () => {
+    const { GET, PUT } = await import('./clipboard/data/route')
+    const url = 'http://localhost/api/clipboard/data'
+
+    expect(await responseContract(await GET(new Request(url)))).toEqual(
+      jsonContract(404, failEnvelope('サーバのクリップボードに画像がありません')),
+    )
+    expect(
+      await responseContract(await PUT(new Request(url, { method: 'PUT', body: PNG }))),
+    ).toEqual(jsonContract(200, okEnvelope({ slot: META })))
+  })
+
+  test('デモは 403 の封筒', async () => {
+    const { GET } = await import('./clipboard/data/route')
+    vi.stubEnv('DEMO_MODE', '1')
+
+    expect(await responseContract(await GET(new Request('http://localhost/x')))).toEqual(
+      jsonContract(403, DEMO_DENIED),
+    )
   })
 })

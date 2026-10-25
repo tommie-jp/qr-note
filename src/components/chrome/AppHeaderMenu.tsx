@@ -16,6 +16,7 @@ import {
   ServerIcon,
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
+import { ServerClipboardMenuItems } from "@/components/clipboard/ServerClipboardMenuItems";
 import { PhotoMetaMenuItem } from "@/components/bottombar/PhotoMetaMenuItem";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
 import { ScanBeepMenuItem } from "@/components/bottombar/ScanBeepMenuItem";
@@ -89,6 +90,11 @@ export function AppHeaderMenu({
               塞いでいるが、押せない物を見せない */}
           {!isDemo && (
             <>
+              {/* サーバ経由のクリップボード (docs/114-サーバクリップボード計画.md)。
+                  設定ではなく操作なので、設定の行 (選択色・撮影情報) より上に置く。
+                  **ログイン中の非デモだけ**: 保存先がサーバの 1 枠で、デモは共有
+                  アカウントなので全員に見えてしまう (API もデモを断る) */}
+              <ServerClipboardMenuItems />
               {/* 検索結果で選択中の行の色 (docs/88-選択行の色計画.md)。
                   テキストサイズのすぐ下に置く — どちらも「どう見えるか」
                   の設定で、探す場所は同じであってほしい。

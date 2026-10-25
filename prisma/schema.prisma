@@ -300,3 +300,24 @@ model UserSetting {
   @@id([userName, key])
   @@map("user_settings")
 }
+
+// サーバ経由のクリップボード (docs/114-サーバクリップボード計画.md)。
+// Windows と iPhone の間で OS のクリップボードの中身を運ぶ。
+//
+// 利用者ごとに 1 行・上書きのみ。文字 (text) か画像 (mime + data) の
+// どちらか一方だけが入り、空にするときは行ごと消す。期限 (10 分) は
+// updatedAt から読む側が判定する (clipboard/slot.ts の isSlotExpired)。
+//
+// userName で仕切る。UserSetting と同じく User 表は作らず名前の文字列で持つ
+model ClipboardSlot {
+  userName  String   @id @map("user_name")
+  text      String?
+  mime      String?
+  data      Bytes?
+  // 中身の大きさ (文字は UTF-8 のバイト数)。メニューを開くたびに「画像 1.2MB」を
+  // 出すので、最大 10MB の data を読まずに済むよう列に持つ
+  bytes     Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("clipboard_slots")
+}
