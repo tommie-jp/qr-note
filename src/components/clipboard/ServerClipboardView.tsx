@@ -3,13 +3,12 @@
 import { useRef, useState } from "react";
 import { ClipboardDownIcon, ClipboardUpIcon, ImportIcon } from "@/components/icons";
 import { HEADER_MENU_ITEM_CLASS, HEADER_MENU_ROW_CLASS } from "@/components/ui";
+import { SaveSlotFile } from "./SaveSlotFile";
 import { hasDroppedFiles } from "@/lib/editor/dropFiles";
-import { SERVER_CLIPBOARD_DATA_URL } from "@/lib/clipboard/serverClipboard";
 import {
   agoLabel,
   type ClipboardSlotMeta,
   isPasteable,
-  slotFileName,
   slotLabel,
 } from "@/lib/clipboard/slot";
 
@@ -135,20 +134,16 @@ export function ServerClipboardView({
       <PickFileRow disabled={busy !== null} busy={busy === "file"} onPick={onSendFile} />
       {slot && !isPasteable(slot.kind) ? (
         // クリップボードに載せられない種類 (動画・音声・PDF・テキストのファイル)。
-        // 保存のリンクにする。JS を挟まないので iOS のユーザー操作の扱いも関係ない
-        <a
-          href={SERVER_CLIPBOARD_DATA_URL}
-          download={slotFileName(slot, now)}
-          className={`${HEADER_MENU_ITEM_CLASS} justify-between`}
-        >
-          <span className="flex items-center gap-2">
-            <ClipboardDownIcon />
-            サーバから保存
-          </span>
-          <span className="shrink-0 text-xs font-normal text-gray-500">
-            {slotSummary(slot, loadFailed, now)}
-          </span>
-        </a>
+        // PC は保存のリンク、iPhone は共有シート (リンクだと standalone の PWA で
+        // ファイルへ遷移して戻れなくなる。SaveSlotFile に理由がある)。
+        // key で枠が置き換わったら取得済みを捨てる
+        <SaveSlotFile
+          key={slot.updatedAt}
+          slot={slot}
+          now={now}
+          variant="row"
+          summary={slotSummary(slot, loadFailed, now)}
+        />
       ) : (
         <button
           type="button"
@@ -172,13 +167,7 @@ export function ServerClipboardView({
         {hasSlot && slot.kind === "image" && (
           // 画像は貼り付けのほかに、元のファイルとして保存もできる
           // (貼れない先・形式のとき。HEIC は JPEG にして置いてある)
-          <a
-            href={SERVER_CLIPBOARD_DATA_URL}
-            download={slotFileName(slot, now)}
-            className="flex min-h-8 shrink-0 items-center px-2 text-sm font-medium text-sky-700"
-          >
-            保存
-          </a>
+          <SaveSlotFile key={slot.updatedAt} slot={slot} now={now} variant="small" />
         )}
         {hasSlot && (
           <button

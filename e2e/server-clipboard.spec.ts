@@ -185,6 +185,44 @@ test.describe('サーバ経由のクリップボード', () => {
       expect(Buffer.concat(chunks).equals(mp4)).toBe(true)
     })
 
+    // iPhone のホーム画面アプリには戻るボタンが無い。download 付きのリンクだと
+    // ファイルそのものへ遷移して戻れなくなる (実機の報告)。iOS 相当 (navigator.standalone が
+    // ある + files 付き share が使える) では、リンクではなく共有シートを開く
+    test('iOS 相当では保存がリンクでなく共有シートになり、画面は遷移しない', async ({ browser }) => {
+      const ios = await newLoggedInPage(browser)
+      await ios.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE_URL })
+      await ios.addInitScript(() => {
+        Object.defineProperty(navigator, 'standalone', { value: false, configurable: true })
+        const shared: Array<{ name: string; type: string; size: number }> = []
+        ;(window as unknown as { __shared: typeof shared }).__shared = shared
+        navigator.canShare = () => true
+        navigator.share = async (data) => {
+          for (const f of data?.files ?? []) {
+            shared.push({ name: f.name, type: f.type, size: f.size })
+          }
+        }
+      })
+      try {
+        await ios.goto('/')
+        const mp4 = Buffer.from(mp4WithHandlers('isom', ['vide', 'soun']))
+        await openMenu(ios)
+        await fileInput(ios).setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: mp4 })
+        await expect(statusNote(ios)).toContainText('サーバへ送りました (動画 ')
+        const url = ios.url()
+
+        // リンクではなくボタン
+        await expect(ios.getByRole('link', { name: /サーバから/ })).toHaveCount(0)
+        await ios.getByRole('button', { name: /サーバから共有/ }).click()
+
+        await expect
+          .poll(() => ios.evaluate(() => (window as unknown as { __shared: unknown[] }).__shared))
+          .toEqual([{ name: expect.stringMatching(/^clipboard-\d{8}-\d{6}\.mp4$/), type: 'video/mp4', size: mp4.byteLength }])
+        expect(ios.url()).toBe(url)
+      } finally {
+        await closePage(ios)
+      }
+    })
+
     test('PDF とテキスト (日本語名の csv) も送れる', async () => {
       await openMenu(page)
 

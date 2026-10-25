@@ -255,3 +255,41 @@ async function readJsonOrNull(response: Response): Promise<Envelope | null> {
     return null
   }
 }
+
+export interface SlotBytes {
+  readonly bytes: Uint8Array
+  readonly mime: string
+}
+
+// 枠のファイルをバイト列で取る。iOS の共有シートは、押した直後の同期部でしか開けない
+// (clipboard/shareFile.ts)。先に取っておき、手元にあれば通信なしで共有に回す。
+// 同時に呼んでも 1 回しか取りに行かず、失敗は覚えない (次の押下でやり直せる)
+export function createSlotBytesLoader(fetchFn: typeof fetch = (input, init) => fetch(input, init)) {
+  let cached: SlotBytes | null = null
+  let loading: Promise<SlotBytes> | null = null
+  return {
+    cached: (): SlotBytes | null => cached,
+    load(): Promise<SlotBytes> {
+      if (cached) {
+        return Promise.resolve(cached)
+      }
+      loading ??= (async () => {
+        // 同一オリジンなので Cookie は既定で付く
+        const response = await fetchFn(SERVER_CLIPBOARD_DATA_URL)
+        if (!response.ok) {
+          throw new Error(`ファイルを取得できませんでした (HTTP ${response.status})`)
+        }
+        const value: SlotBytes = {
+          bytes: new Uint8Array(await response.arrayBuffer()),
+          mime: response.headers.get('content-type') ?? 'application/octet-stream',
+        }
+        cached = value
+        return value
+      })().catch((error: unknown) => {
+        loading = null
+        throw error
+      })
+      return loading
+    },
+  }
+}

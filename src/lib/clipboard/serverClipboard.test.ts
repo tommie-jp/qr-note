@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
   clearServerSlot,
+  createSlotBytesLoader,
   fetchServerSlot,
   receiveFromServer,
   sendClipboardToServer,
@@ -351,5 +352,47 @@ describe('serverClipboardErrorMessage', () => {
 
   test('それ以外はメッセージをそのまま', () => {
     expect(serverClipboardErrorMessage(new Error('boom'), 'send')).toBe('boom')
+  })
+})
+
+// 共有シートは押した直後の同期部で呼ぶ必要がある (iOS の transient activation)。
+// 先に取っておけば、2 回目の押下を通信なしで共有に回せる (動画プレイヤーと同じ二段構え)
+describe('createSlotBytesLoader', () => {
+  const bytesResponse = (type = 'video/mp4') =>
+    new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': type } })
+
+  test('取得して、バイト列と mime を返す', async () => {
+    const fetchFn = vi.fn(async () => bytesResponse())
+    const loader = createSlotBytesLoader(fetchFn as unknown as typeof fetch)
+
+    const data = await loader.load()
+
+    expect(data.mime).toBe('video/mp4')
+    expect([...data.bytes]).toEqual([1, 2, 3])
+    expect(fetchFn).toHaveBeenCalledWith(SERVER_CLIPBOARD_DATA_URL)
+  })
+
+  test('取得済みなら通信しない。同時に呼んでも 1 回だけ', async () => {
+    const fetchFn = vi.fn(async () => bytesResponse())
+    const loader = createSlotBytesLoader(fetchFn as unknown as typeof fetch)
+
+    await Promise.all([loader.load(), loader.load()])
+    expect(loader.cached()).not.toBeNull()
+    await loader.load()
+
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  test('失敗したら覚えず、次はもう一度取りに行く', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(failure('サーバのクリップボードにファイルがありません', 404))
+      .mockResolvedValueOnce(bytesResponse())
+    const loader = createSlotBytesLoader(fetchFn as unknown as typeof fetch)
+
+    await expect(loader.load()).rejects.toThrow('ファイルを取得できませんでした (HTTP 404)')
+    expect(loader.cached()).toBeNull()
+
+    await expect(loader.load()).resolves.toMatchObject({ mime: 'video/mp4' })
   })
 })
