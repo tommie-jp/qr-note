@@ -314,6 +314,9 @@ model ClipboardSlot {
   text      String?
   mime      String?
   data      Bytes?
+  // 元のファイル名 (整形済み。clipboard/slot.ts の sanitizeFileName)。保存・共有の名前に
+  // 使う。クリップボードの画像など名前の無いものは null
+  name      String?
   // 中身の大きさ (文字は UTF-8 のバイト数)。メニューを開くたびに「画像 1.2MB」を
   // 出すので、最大 10MB の data を読まずに済むよう列に持つ
   bytes     Int

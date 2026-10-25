@@ -240,6 +240,24 @@ describe('sendFileToServer (ファイルを選んで送る)', () => {
     )
   })
 
+  // type が空で来る形式 (Windows の mov など) は、拡張子で動画と見て 30MB まで通す
+  test('type が空でも .mov は動画として 30MB まで通す', async () => {
+    const d = ok()
+
+    await sendFileToServer(fileOf('IMG_1.MOV', '', 25 * MB), d)
+  })
+
+  test('zip や Office など、動画でも写真でもない物は 10MB で止める', async () => {
+    const d = ok()
+
+    await expect(
+      sendFileToServer(fileOf('a.zip', 'application/zip', 11 * MB), d),
+    ).rejects.toThrow('ファイルが大きすぎます (最大 10MB)')
+    await expect(sendFileToServer(fileOf('a.docx', '', 11 * MB), d)).rejects.toThrow(
+      'ファイルが大きすぎます (最大 10MB)',
+    )
+  })
+
   test('PDF など写真以外の 10MB 超は断る', async () => {
     const d = ok()
 
@@ -251,11 +269,11 @@ describe('sendFileToServer (ファイルを選んで送る)', () => {
   test('サーバが断ればその文言を投げる', async () => {
     const d = deps({
       fetchFn: (async () =>
-        failure('この形式のファイルは送れません (画像・動画・音声・PDF・テキストに対応しています)', 400)) as unknown as typeof fetch,
+        failure('ファイルが空です', 400)) as unknown as typeof fetch,
     })
 
     await expect(sendFileToServer(fileOf('a.zip', 'application/zip'), d)).rejects.toThrow(
-      'この形式のファイルは送れません',
+      'ファイルが空です',
     )
   })
 })

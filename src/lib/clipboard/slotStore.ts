@@ -28,6 +28,7 @@ interface SlotColumns {
   text: string | null
   mime: string | null
   data: Uint8Array<ArrayBuffer> | null
+  name: string | null
   bytes: number
 }
 
@@ -38,7 +39,7 @@ export async function readSlotMeta(
   // 画像の中身 (最大 10MB) は読まない。大きさは bytes 列にある
   const row = await prisma.clipboardSlot.findUnique({
     where: { userName },
-    select: { text: true, mime: true, bytes: true, updatedAt: true },
+    select: { text: true, mime: true, name: true, bytes: true, updatedAt: true },
   })
   if (row === null) {
     return null
@@ -50,10 +51,12 @@ export async function readSlotMeta(
   return metaOf(row)
 }
 
-// 画像・動画・音声・PDF・テキストのファイル。種類は mime が決める
+// 枠のファイル (なんでも)。種類は mime が決める
 export interface SlotMedia {
   readonly mime: string
   readonly data: Uint8Array
+  // 元のファイル名 (整形済み)。無いこともある
+  readonly name: string | null
 }
 
 // ファイルの中身。文字の枠・無い・期限切れはどれも null (呼ぶ側は 404 にする)
@@ -72,19 +75,21 @@ export async function readSlotMedia(
   if (row.mime === null || row.data === null) {
     return null
   }
-  return { mime: row.mime, data: row.data }
+  return { mime: row.mime, data: row.data, name: row.name }
 }
 
 export async function writeSlotText(userName: string, text: string): Promise<ClipboardSlotMeta> {
-  return writeSlot(userName, { text, mime: null, data: null, bytes: textByteLength(text) })
+  return writeSlot(userName, { text, mime: null, data: null, name: null, bytes: textByteLength(text) })
 }
 
 export async function writeSlotMedia(
   userName: string,
   mime: string,
   data: Uint8Array<ArrayBuffer>,
+  // 整形済みの名前 (sanitizeFileName)。呼ぶ側が通すこと — ここでは信じて置く
+  name: string | null = null,
 ): Promise<ClipboardSlotMeta> {
-  return writeSlot(userName, { text: null, mime, data, bytes: data.byteLength })
+  return writeSlot(userName, { text: null, mime, data, name, bytes: data.byteLength })
 }
 
 // 無くても投げない (deleteMany)。「消す」の二度押しや、期限切れと手で消すの競合で
@@ -125,6 +130,7 @@ async function writeSlot(userName: string, columns: SlotColumns): Promise<Clipbo
 function metaOf(row: {
   text: string | null
   mime: string | null
+  name: string | null
   bytes: number
   updatedAt: Date
 }): ClipboardSlotMeta | null {
@@ -137,5 +143,5 @@ function metaOf(row: {
   const kind = row.mime === null ? null : kindOfMime(row.mime)
   return kind === null || row.mime === null
     ? null
-    : { kind, bytes: row.bytes, updatedAt, mime: row.mime }
+    : { kind, bytes: row.bytes, updatedAt, mime: row.mime, ...(row.name ? { name: row.name } : {}) }
 }

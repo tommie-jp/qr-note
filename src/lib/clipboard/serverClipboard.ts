@@ -128,11 +128,14 @@ export async function sendFileToServer(
   })
 }
 
-// 送る前に断る上限。動画は 30MB、それ以外は 10MB。種類が分からない (iPhone 以外の
-// HEIC などは type が空) ものは大きいほうに合わせ、最終的な判定はサーバに任せる
+// 動画の拡張子。type が空で来る形式 (Windows の mov など) を動画と見るのに使う
+const VIDEO_EXT_PATTERN = /\.(mp4|m4v|mov|webm)$/i
+
+// 送る前に断る上限。動画は 30MB、それ以外は 10MB (サーバと同じ。種類の最終判定は
+// サーバが中身で行う)。動画かどうかは type か拡張子で見る
 function clientLimitOf(file: File): number {
-  const known = file.type !== ''
-  return known && !file.type.startsWith('video/') ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES
+  const looksLikeVideo = file.type.startsWith('video/') || VIDEO_EXT_PATTERN.test(file.name)
+  return looksLikeVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES
 }
 
 // 上限を超える画像だけ縮める (iOS の写真は PNG で 20〜30MB になる)。上限以下は

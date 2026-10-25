@@ -19,8 +19,8 @@ const PDF = new TextEncoder().encode('%PDF-1.7\n%EOF')
 const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
   validToken: 'valid-session-token',
-  image: null as { mime: string; data: Uint8Array } | null,
-  written: [] as Array<{ user: string; mime: string; bytes: number }>,
+  image: null as { mime: string; data: Uint8Array; name: string | null } | null,
+  written: [] as Array<{ user: string; mime: string; bytes: number; name?: string }>,
 }))
 
 vi.mock('next/headers', async () => {
@@ -45,8 +45,8 @@ vi.mock('@/lib/auth/sessionStore', () => ({
 
 vi.mock('@/lib/clipboard/slotStore', () => ({
   readSlotMedia: async () => mocks.image,
-  writeSlotMedia: async (user: string, mime: string, data: Uint8Array) => {
-    mocks.written.push({ user, mime, bytes: data.byteLength })
+  writeSlotMedia: async (user: string, mime: string, data: Uint8Array, name: string | null) => {
+    mocks.written.push({ user, mime, bytes: data.byteLength, ...(name ? { name } : {}) })
     return { kind: 'image', bytes: data.byteLength, updatedAt: '2026-10-25T12:00:00.000Z' }
   },
 }))
@@ -123,7 +123,7 @@ describe('GET', () => {
   })
 
   test('画像があれば生バイトを no-store で返す', async () => {
-    mocks.image = { mime: 'image/png', data: PNG }
+    mocks.image = { mime: 'image/png', data: PNG, name: null }
 
     const res = await GET(getRequest())
 
@@ -135,6 +135,49 @@ describe('GET', () => {
     // 直接開かれたときにスクリプトが走る余地を残さない
     expect(res.headers.get('content-security-policy')).toBe('sandbox')
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG)
+  })
+})
+
+describe('GET: ダウンロード専用のファイル', () => {
+  test('octet-stream は attachment で配る (名前は RFC 5987)', async () => {
+    mocks.image = { mime: 'application/octet-stream', data: new Uint8Array([1]), name: "成績 (1)'.zip" }
+
+    const res = await GET(getRequest())
+
+    expect(res.headers.get('content-disposition')).toBe(
+      "attachment; filename*=UTF-8''%E6%88%90%E7%B8%BE%20%281%29%27.zip",
+    )
+    expect(res.headers.get('content-type')).toBe('application/octet-stream')
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+  })
+
+  test('名前が無ければ名前なしの attachment', async () => {
+    mocks.image = { mime: 'application/octet-stream', data: new Uint8Array([1]), name: null }
+
+    const res = await GET(getRequest())
+
+    expect(res.headers.get('content-disposition')).toBe('attachment')
+  })
+
+  test('Office も attachment', async () => {
+    mocks.image = {
+      mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      data: new Uint8Array([1]),
+      name: 'a.docx',
+    }
+
+    const res = await GET(getRequest())
+
+    expect(res.headers.get('content-disposition')).toContain('attachment')
+  })
+
+  // 画像は <img> や貼り付けの取得で使うので attachment にしない
+  test('画像には付けない', async () => {
+    mocks.image = { mime: 'image/png', data: PNG, name: null }
+
+    const res = await GET(getRequest())
+
+    expect(res.headers.get('content-disposition')).toBeNull()
   })
 })
 
@@ -192,16 +235,19 @@ describe('PUT', () => {
     expect(mocks.written[0]?.mime).toBe(mime)
   })
 
-  test('名前の無い文字は受けない (何のテキストか決められない)', async () => {
+  // 名前の無い文字は何のテキストか決められない。普通のファイルとして置く
+  test('名前の無い文字は octet-stream の普通のファイル', async () => {
     const res = await PUT(putRequest(new TextEncoder().encode('hello')))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(200)
+    expect(mocks.written[0]?.mime).toBe('application/octet-stream')
   })
 
   test('壊れた X-File-Name は名前なし扱い (落ちない)', async () => {
     const res = await PUT(putRequest(new TextEncoder().encode('hello'), { 'x-file-name': '%E0%A4%A' }))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(200)
+    expect(mocks.written[0]).not.toHaveProperty('name')
   })
 
   // 写真は JPEG に揃える (HEIC・TIFF は受け取る側のアプリが読めないことがある)
@@ -234,24 +280,50 @@ describe('PUT', () => {
     expect(mocks.written).toEqual([])
   })
 
-  // HTML・SVG・実行ファイル・zip は、名前を偽っても置けない (配信時に XSS になる)
+  // Office は名前と署名が合えば既知の mime で置き、元の名前も残す
+  test('docx は Office の mime で、名前つきで置く', async () => {
+    const docx = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0])
+
+    const res = await PUT(putRequest(docx, { 'x-file-name': encodeURIComponent('議事録.docx') }))
+
+    expect(res.status).toBe(200)
+    expect(mocks.written).toEqual([
+      {
+        user: 'tommie',
+        mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        bytes: 8,
+        name: '議事録.docx',
+      },
+    ])
+  })
+
+  // 知らない形式でも置く。mime は固定の octet-stream で、ブラウザは開かず保存だけにする
   test.each([
     ['HTML', new TextEncoder().encode('<html><script>alert(1)</script></html>'), 'x.html'],
     ['SVG', new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'x.svg'],
     ['zip', new Uint8Array([0x50, 0x4b, 3, 4, 0, 0, 0, 0]), 'a.zip'],
     ['exe', new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0]), 'a.exe'],
-    ['空', new Uint8Array(0), 'a.txt'],
-  ])('対応しない形式は 400: %s', async (_name, bytes, fileName) => {
-    const res = await PUT(putRequest(bytes, { 'x-file-name': fileName }))
+  ])('%s も置ける (octet-stream に固定)', async (_name, bytes, fileName) => {
+    const res = await PUT(putRequest(bytes, { 'x-file-name': fileName, 'content-type': 'text/html' }))
 
-    expect(await responseContract(res)).toEqual(
-      jsonContract(
-        400,
-        failEnvelope(
-          'この形式のファイルは送れません (画像・動画・音声・PDF・テキストに対応しています)',
-        ),
-      ),
+    expect(res.status).toBe(200)
+    expect(mocks.written[0]).toMatchObject({ mime: 'application/octet-stream', name: fileName })
+  })
+
+  test('名前は整形して残す (パスや制御文字は信じない)', async () => {
+    await PUT(
+      putRequest(new Uint8Array([1, 2, 3]), {
+        'x-file-name': encodeURIComponent('C:\\fakepath\\..\\a:b.bin'),
+      }),
     )
+
+    expect(mocks.written[0]?.name).toBe('a_b.bin')
+  })
+
+  test('空のファイルだけは断る', async () => {
+    const res = await PUT(putRequest(new Uint8Array(0), { 'x-file-name': 'a.docx' }))
+
+    expect(await responseContract(res)).toEqual(jsonContract(400, failEnvelope('ファイルが空です')))
     expect(mocks.written).toEqual([])
   })
 

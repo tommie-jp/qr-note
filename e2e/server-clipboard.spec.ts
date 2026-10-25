@@ -176,7 +176,8 @@ test.describe('サーバ経由のクリップボード', () => {
       await expect(save).toBeVisible()
       await expect(page.getByRole('button', { name: /サーバからペースト/ })).toHaveCount(0)
       const [download] = await Promise.all([page.waitForEvent('download'), save.click()])
-      expect(download.suggestedFilename()).toMatch(/^clipboard-\d{8}-\d{6}\.mp4$/)
+      // 元の名前を残す (拡張子が要る)
+      expect(download.suggestedFilename()).toBe('clip.mp4')
       const { createReadStream } = await import('node:fs')
       const chunks: Buffer[] = []
       for await (const chunk of createReadStream((await download.path()) ?? '')) {
@@ -216,7 +217,7 @@ test.describe('サーバ経由のクリップボード', () => {
 
         await expect
           .poll(() => ios.evaluate(() => (window as unknown as { __shared: unknown[] }).__shared))
-          .toEqual([{ name: expect.stringMatching(/^clipboard-\d{8}-\d{6}\.mp4$/), type: 'video/mp4', size: mp4.byteLength }])
+          .toEqual([{ name: 'clip.mp4', type: 'video/mp4', size: mp4.byteLength }])
         expect(ios.url()).toBe(url)
       } finally {
         await closePage(ios)
@@ -268,7 +269,39 @@ test.describe('サーバ経由のクリップボード', () => {
       expect(types).toContain('image/png')
     })
 
-    test('対応しない形式 (zip) は理由を出して置かない', async () => {
+    // Office もあらゆるファイルも運べる。名前と拡張子を保ったまま落ちる
+    test('docx を送ると、元の名前のまま保存できる', async () => {
+      const docx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4])
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({
+        name: '議事録 2026.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer: docx,
+      })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (議事録 2026.docx ')
+      const save = page.getByRole('link', { name: /サーバから保存/ })
+      const [download] = await Promise.all([page.waitForEvent('download'), save.click()])
+      expect(download.suggestedFilename()).toBe('議事録 2026.docx')
+    })
+
+    // 知らない形式 (zip) も置ける。HTML は名前を偽っても開かれず、保存だけになる
+    test('HTML を送っても、ブラウザは開かずダウンロード扱いで配る', async () => {
+      const html = Buffer.from('<html><script>document.title="pwned"</script></html>')
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({ name: 'evil.html', mimeType: 'text/html', buffer: html })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (evil.html ')
+      const stored = await page.request.get('/api/clipboard/data')
+      expect(stored.headers()['content-type']).toBe('application/octet-stream')
+      expect(stored.headers()['content-disposition']).toContain('attachment')
+      expect(stored.headers()['x-content-type-options']).toBe('nosniff')
+      expect(stored.headers()['content-security-policy']).toBe('sandbox')
+    })
+
+    test('zip も送れる', async () => {
       await openMenu(page)
 
       await fileInput(page).setInputFiles({
@@ -277,7 +310,15 @@ test.describe('サーバ経由のクリップボード', () => {
         buffer: Buffer.from([0x50, 0x4b, 3, 4, 0, 0, 0, 0]),
       })
 
-      await expect(alertNote(page)).toContainText('この形式のファイルは送れません')
+      await expect(statusNote(page)).toContainText('サーバへ送りました (a.zip ')
+    })
+
+    test('空のファイルだけは理由を出して置かない', async () => {
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({ name: 'empty.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) })
+
+      await expect(alertNote(page)).toContainText('ファイルが空です')
       expect(((await (await page.request.get('/api/clipboard')).json()).data).slot).toBeNull()
     })
   })

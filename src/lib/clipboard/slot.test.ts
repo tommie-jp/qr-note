@@ -4,6 +4,7 @@ import {
   CLIPBOARD_TTL_MS,
   isSlotExpired,
   isPasteable,
+  sanitizeFileName,
   kindOfMime,
   slotFileName,
   MAX_CLIPBOARD_TEXT_BYTES,
@@ -72,6 +73,31 @@ describe('slotLabel (画像以外のファイル)', () => {
   })
 })
 
+describe('slotLabel (ファイル)', () => {
+  test('名前があれば名前と大きさ', () => {
+    expect(
+      slotLabel({ kind: 'file', bytes: 2.5 * 1024 * 1024, updatedAt: '', mime: 'x/y', name: 'a.docx' }),
+    ).toBe('a.docx 2.5MB')
+  })
+
+  test('名前が長ければ省く', () => {
+    const label = slotLabel({
+      kind: 'file',
+      bytes: 1024,
+      updatedAt: '',
+      mime: 'x/y',
+      name: `${'あ'.repeat(40)}.docx`,
+    })
+
+    expect(label).toContain('…')
+    expect(label.endsWith('.docx 1KB')).toBe(true)
+  })
+
+  test('名前が無ければ「ファイル」', () => {
+    expect(slotLabel({ kind: 'file', bytes: 1024, updatedAt: '', mime: 'x/y' })).toBe('ファイル 1KB')
+  })
+})
+
 describe('kindOfMime', () => {
   test.each([
     ['image/png', 'image'],
@@ -84,9 +110,48 @@ describe('kindOfMime', () => {
     expect(kindOfMime(mime)).toBe(kind)
   })
 
-  // HTML や任意のバイナリは種類として認めない (サーバは受けない)
-  test.each(['application/octet-stream', 'application/zip', '', 'x'])('%s は null', (mime) => {
-    expect(kindOfMime(mime)).toBeNull()
+  // Office・zip・任意のバイナリは「ファイル」(ダウンロード専用)。種類を決められない空だけ null
+  test.each([
+    'application/octet-stream',
+    'application/zip',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'x',
+  ])('%s は file', (mime) => {
+    expect(kindOfMime(mime)).toBe('file')
+  })
+
+  test('空は null', () => {
+    expect(kindOfMime('')).toBeNull()
+  })
+})
+
+describe('sanitizeFileName (外へ出る保存名)', () => {
+  test.each([
+    ['report.docx', 'report.docx'],
+    ['成績 1.xlsx', '成績 1.xlsx'],
+    // パスは落とす (Windows の C:\fakepath\ も)
+    ['C:\\fakepath\\a.pdf', 'a.pdf'],
+    ['../../etc/passwd', 'passwd'],
+    // ファイル名に使えない文字は _ に
+    ['a:b*c?d"e<f>g|h.txt', 'a_b_c_d_e_f_g_h.txt'],
+    // 制御文字と先頭のドット (隠しファイル・相対指定)
+    ['\u0000\u0007x\ny.txt', 'xy.txt'],
+    ['..hidden', 'hidden'],
+  ])('%j → %j', (raw, expected) => {
+    expect(sanitizeFileName(raw)).toBe(expected)
+  })
+
+  test.each([null, undefined, '', '   ', '...', '/'])('名前にならない %j は null', (raw) => {
+    expect(sanitizeFileName(raw)).toBeNull()
+  })
+
+  // 長すぎる名前は拡張子を残して切る (拡張子が無いと開けない)
+  test('長い名前は 100 字以内に収め、拡張子を残す', () => {
+    const name = sanitizeFileName(`${'あ'.repeat(200)}.xlsx`)
+
+    expect(name?.length).toBeLessThanOrEqual(100)
+    expect(name?.endsWith('.xlsx')).toBe(true)
   })
 })
 
@@ -94,7 +159,7 @@ describe('isPasteable', () => {
   test('クリップボードに載せられるのは文字と画像だけ', () => {
     expect(isPasteable('text')).toBe(true)
     expect(isPasteable('image')).toBe(true)
-    for (const kind of ['video', 'audio', 'pdf', 'textfile'] as const) {
+    for (const kind of ['video', 'audio', 'pdf', 'textfile', 'file'] as const) {
       expect(isPasteable(kind)).toBe(false)
     }
   })
@@ -116,6 +181,22 @@ describe('slotFileName (保存するときの名前)', () => {
     expect(
       slotFileName({ kind: kindOfMime(mime) ?? 'image', bytes: 1, updatedAt: '', mime }, AT),
     ).toBe(`clipboard-20261025-120304.${ext}`)
+  })
+
+  // 元の名前が残っているファイルは、その名前で保存する (拡張子が要る)
+  test('名前があればそれを使う', () => {
+    expect(
+      slotFileName(
+        { kind: 'file', bytes: 1, updatedAt: '', mime: 'application/octet-stream', name: '成績.xlsx' },
+        AT,
+      ),
+    ).toBe('成績.xlsx')
+  })
+
+  test('名前の無いファイルは mime から拡張子を決める (知らない物は bin)', () => {
+    expect(
+      slotFileName({ kind: 'file', bytes: 1, updatedAt: '', mime: 'application/octet-stream' }, AT),
+    ).toBe('clipboard-20261025-120304.bin')
   })
 
   test('文字は txt', () => {
@@ -159,7 +240,14 @@ describe('parseSlotMeta', () => {
     ).toEqual({ kind: 'image', bytes: 10, updatedAt: '2026-10-25T12:00:00.000Z', mime: 'image/png' })
   })
 
-  test.each(['video', 'audio', 'pdf', 'textfile'])('%s も読む', (kind) => {
+  test('名前は文字列のときだけ載せる', () => {
+    const base = { kind: 'file', bytes: 1, updatedAt: 'x', mime: 'a/b' }
+
+    expect(parseSlotMeta({ ...base, name: 'a.docx' })).toMatchObject({ name: 'a.docx' })
+    expect(parseSlotMeta({ ...base, name: 5 })).not.toHaveProperty('name')
+  })
+
+  test.each(['video', 'audio', 'pdf', 'textfile', 'file'])('%s も読む', (kind) => {
     expect(
       parseSlotMeta({ kind, bytes: 1, updatedAt: 'x', mime: 'application/x' }),
     ).toMatchObject({ kind })

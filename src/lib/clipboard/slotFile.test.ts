@@ -86,23 +86,64 @@ describe('classifySlotFile: 中身の署名で形式を決める (申告は見�
   })
 })
 
-describe('classifySlotFile: 受けないもの', () => {
+const ZIP_HEAD = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]) as Uint8Array<ArrayBuffer>
+const OLE_HEAD = Uint8Array.from([
+  0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0,
+]) as Uint8Array<ArrayBuffer>
+
+describe('classifySlotFile: Office 形式', () => {
+  // OOXML・ODF は zip、旧 Office は OLE、RTF は文字。名前と署名が合ったときだけ既知の mime にする
   test.each([
-    ['HTML (.html を名乗る)', ascii('<html><script>alert(1)</script></html>'), 'x.html'],
-    ['SVG (スクリプトを埋め込める)', ascii('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'x.svg'],
-    ['名前の無い文字', ascii('hello'), null],
-    ['知らない拡張子の文字', ascii('hello'), 'run.sh'],
-    ['任意のバイナリ', Uint8Array.from([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0]) as Uint8Array<ArrayBuffer>, 'a.exe'],
-    ['zip', Uint8Array.from([0x50, 0x4b, 3, 4, 0, 0, 0, 0]) as Uint8Array<ArrayBuffer>, 'a.zip'],
-    ['空', new Uint8Array(0), 'a.txt'],
-  ])('%s は null', (_name, bytes, fileName) => {
-    expect(classifySlotFile(bytes, fileName)).toBeNull()
+    ['a.docx', ZIP_HEAD, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    ['a.xlsx', ZIP_HEAD, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+    ['a.pptx', ZIP_HEAD, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    ['a.odt', ZIP_HEAD, 'application/vnd.oasis.opendocument.text'],
+    ['a.doc', OLE_HEAD, 'application/msword'],
+    ['a.xls', OLE_HEAD, 'application/vnd.ms-excel'],
+    ['a.ppt', OLE_HEAD, 'application/vnd.ms-powerpoint'],
+    ['a.rtf', ascii('{\\rtf1\\ansi hello}') as Uint8Array<ArrayBuffer>, 'application/rtf'],
+    ['A.DOCX', ZIP_HEAD, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ])('%s', (name, bytes, mime) => {
+    expect(classifySlotFile(bytes, name)).toMatchObject({ mime, limit: MAX_IMAGE_BYTES })
   })
 
-  test('HTML が .txt を名乗ってもテキストとしては通る (表示は text/plain 固定・nosniff)', () => {
-    // 名前でも中身でも HTML を弾けないのは添付と同じ。配るときの mime が text/plain で
-    // 固定される (HTML として解釈されない) ことで守る。ここでは mime を確かめる
-    const found = classifySlotFile(ascii('<html></html>'), 'x.txt')
-    expect(found?.mime).toBe('text/plain; charset=utf-8')
+  // 拡張子だけ docx で中身が違う物を、docx として配らない
+  test('名前と署名が食い違えば、既知の mime にしない', () => {
+    expect(classifySlotFile(pad(ascii('hello world')), 'fake.docx')?.mime).toBe(
+      'application/octet-stream',
+    )
+  })
+
+  test('名前の無い zip は普通のファイル', () => {
+    expect(classifySlotFile(ZIP_HEAD, null)?.mime).toBe('application/octet-stream')
+  })
+})
+
+describe('classifySlotFile: それ以外はダウンロード専用のファイル', () => {
+  // mime は常に固定。HTML・SVG・実行ファイルでも、ブラウザが開いて実行することはない
+  // (配信は attachment + nosniff + CSP sandbox)
+  test.each([
+    ['HTML', ascii('<html><script>alert(1)</script></html>'), 'x.html'],
+    ['SVG', ascii('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'x.svg'],
+    ['zip', ZIP_HEAD, 'a.zip'],
+    ['exe', Uint8Array.from([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0]) as Uint8Array<ArrayBuffer>, 'a.exe'],
+    ['名前の無い文字', ascii('hello'), null],
+    ['知らない拡張子の文字', ascii('hello'), 'run.sh'],
+    ['json', ascii('{"a":1}'), 'a.json'],
+  ])('%s', (_name, bytes, fileName) => {
+    expect(classifySlotFile(bytes, fileName)).toMatchObject({
+      mime: 'application/octet-stream',
+      data: bytes,
+      limit: MAX_IMAGE_BYTES,
+    })
+  })
+
+  test('空のファイルは受けない (中身が無い)', () => {
+    expect(classifySlotFile(new Uint8Array(0), 'a.docx')).toBeNull()
+  })
+
+  // 名前がテキストなら、これまでどおり UTF-8 のテキストとして扱う
+  test('HTML が .txt を名乗ってもテキスト (配信は text/plain 固定・nosniff)', () => {
+    expect(classifySlotFile(ascii('<html></html>'), 'x.txt')?.mime).toBe('text/plain; charset=utf-8')
   })
 })

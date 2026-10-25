@@ -1,5 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { IMAGE_UNREADABLE_MESSAGE } from '@/lib/attachments/result'
+import { kindOfMime, sanitizeFileName } from '@/lib/clipboard/slot'
 import { classifySlotFile } from '@/lib/clipboard/slotFile'
 import { prepareSlotFile } from '@/lib/clipboard/slotPrepare'
 import { readSlotMedia, writeSlotMedia } from '@/lib/clipboard/slotStore'
@@ -17,8 +18,10 @@ import { checkUploadRequest } from '@/lib/uploads/request'
 // サーバ経由のクリップボードのファイルの口 (docs/114-サーバクリップボード計画.md §2)。
 // 文字とメタは /api/clipboard。こちらはファイルの生バイトだけを運ぶ。
 //
-// 受けるのは、このアプリが添付として扱える形式 (画像・動画・音声・PDF・テキスト)。
-// 形式は**中身の署名**で決め (lib/clipboard/slotFile.ts)、申告の Content-Type は見ない。
+// **どんなファイルも受ける。** 中身を解釈するのは、このアプリが添付として扱える形式
+// (画像・動画・音声・PDF・テキスト) と Office だけで、それ以外は mime を
+// application/octet-stream に固定した「ダウンロード専用のファイル」にする。
+// 形式は**中身の署名と名前**で決め (lib/clipboard/slotFile.ts)、申告の Content-Type は見ない。
 // ブラウザが読めない写真 (HEIC・TIFF) は JPEG に変換して置く (slotPrepare.ts)。
 //
 // **デモでは閉じる** (口の理由は api/clipboard/route.ts)。
@@ -34,8 +37,7 @@ const MAX_BODY_BYTES = MAX_VIDEO_BYTES + MULTIPART_OVERHEAD_BYTES
 const FILE_NAME_HEADER = 'x-file-name'
 const MAX_FILE_NAME_LENGTH = 255
 
-const UNSUPPORTED_MESSAGE =
-  'この形式のファイルは送れません (画像・動画・音声・PDF・テキストに対応しています)'
+const EMPTY_FILE_MESSAGE = 'ファイルが空です'
 
 export async function GET(request: Request): Promise<NextResponse> {
   const guard = await guardRequest(request, { demo: 'deny' })
@@ -47,6 +49,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (media === null) {
     return apiFail('サーバのクリップボードにファイルがありません', 404)
   }
+  const isOpaqueFile = kindOfMime(media.mime) === 'file'
   return bytesResponse(
     media.data,
     byteHeaders({
@@ -56,7 +59,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       noindex: true,
       // 保存した mime は固定の表から決めたものだけ (HTML・SVG は置けない)。それでも
       // 直接開かれたときにスクリプトが走る余地を残さない
-      extra: { 'Content-Security-Policy': 'sandbox' },
+      extra: {
+        'Content-Security-Policy': 'sandbox',
+        // 中身を解釈しないファイル (Office・zip・HTML など) は、ブラウザが開かず保存だけにする
+        ...(isOpaqueFile ? { 'Content-Disposition': attachmentDisposition(media.name) } : {}),
+      },
     }),
   )
 }
@@ -81,9 +88,11 @@ export async function PUT(request: Request): Promise<NextResponse> {
 
   // **申告の Content-Type は信じない。** 中身の署名で形式を決め、その mime で保存する
   // (保存した mime がそのまま GET の Content-Type になる)
-  const file = classifySlotFile(bytes, fileNameOf(request))
+  const fileName = fileNameOf(request)
+  const file = classifySlotFile(bytes, fileName)
   if (file === null) {
-    return apiFail(UNSUPPORTED_MESSAGE, 400)
+    // 受けないのは中身が空のときだけ
+    return apiFail(EMPTY_FILE_MESSAGE, 400)
   }
   // 上限は種類で違う (動画 30MB / それ以外 10MB)。判定は変換前のバイト列に対して行う
   if (bytes.byteLength > file.limit) {
@@ -99,7 +108,9 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return apiFail(IMAGE_UNREADABLE_MESSAGE, 400)
   }
 
-  return apiOk({ slot: await writeSlotMedia(guard.user, prepared.mime, prepared.data) })
+  return apiOk({
+    slot: await writeSlotMedia(guard.user, prepared.mime, prepared.data, sanitizeFileName(fileName)),
+  })
 }
 
 // X-File-Name を読む。壊れたエンコード・長すぎる名前は「名前なし」にする
@@ -115,4 +126,17 @@ function fileNameOf(request: Request): string | null {
   } catch {
     return null
   }
+}
+
+// attachment の Content-Disposition。日本語名が通るよう RFC 5987 の filename* で書く
+// (encodeURIComponent が残す ' ( ) * も、この書式では符号化が要る)
+function attachmentDisposition(name: string | null): string {
+  if (name === null) {
+    return 'attachment'
+  }
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  )
+  return `attachment; filename*=UTF-8''${encoded}`
 }

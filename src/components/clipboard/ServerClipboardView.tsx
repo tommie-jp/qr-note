@@ -49,30 +49,10 @@ const ROW_DISABLED_CLASS =
 
 const DESCRIPTION =
   "どれも 10 分で消えます。送るときはクリップボードの読み取りを許可してください。" +
-  "動画・PDF などは「ファイルを選んで送る」か、ファイルをここへドロップして送れます";
+  "どんなファイルも「ファイルを選んで送る」か、ここへドロップして送れます (動画 30MB・他 10MB まで)";
 
 // ファイルをドラッグしてきている間の見た目。点線の枠でここが受け皿だと示す
 const DRAGGING_CLASS = "rounded outline-2 outline-dashed outline-sky-500 bg-sky-50";
-
-// ファイル選択で受ける形式。写真・動画・音声・PDF・テキストの添付と同じ範囲。
-// type が空で来る形式 (Windows 以外の HEIC・.md など) のため、拡張子でも許す。
-// 最終的な判定はサーバが中身で行う (api/clipboard/data)
-const FILE_ACCEPT = [
-  "image/*",
-  "video/*",
-  "audio/*",
-  "application/pdf",
-  "text/*",
-  ".heic",
-  ".heif",
-  ".tif",
-  ".tiff",
-  ".md",
-  ".csv",
-  ".txt",
-  ".s1p",
-  ".s2p",
-].join(",");
 
 export function ServerClipboardView({
   slot,
@@ -244,7 +224,6 @@ function PickFileRow({
       <input
         ref={input}
         type="file"
-        accept={FILE_ACCEPT}
         disabled={disabled}
         hidden
         onChange={(event) => {

@@ -8,6 +8,7 @@ interface Row {
   text: string | null
   mime: string | null
   data: Uint8Array | null
+  name: string | null
   bytes: number
   updatedAt: Date
 }
@@ -159,6 +160,7 @@ describe('ファイルの種類は mime から決まる', () => {
     ['application/pdf', 'pdf'],
     ['text/csv; charset=utf-8', 'textfile'],
     ['image/heic', 'image'],
+    ['application/octet-stream', 'file'],
   ])('%s は %s', async (mime, kind) => {
     const meta = await writeSlotMedia(USER, mime, PNG)
 
@@ -166,18 +168,43 @@ describe('ファイルの種類は mime から決まる', () => {
     expect(await readSlotMeta(USER, mocks.now)).toMatchObject({ kind, mime })
   })
 
-  // サーバは classifySlotFile を通った mime しか置かない。壊れた行は「無い」と見なす
-  test('知らない mime の行は無いものとして扱う', async () => {
+  // mime が無い行 (文字でもファイルでもない) は壊れた行。「無い」と見なす
+  test('mime も文字も無い行は無いものとして扱う', async () => {
     mocks.row = {
       userName: USER,
       text: null,
-      mime: 'application/zip',
+      mime: null,
       data: PNG,
+      name: null,
       bytes: 4,
       updatedAt: mocks.now,
     }
 
     expect(await readSlotMeta(USER, mocks.now)).toBeNull()
+  })
+})
+
+describe('ファイル名', () => {
+  test('名前つきで置くとメタに載り、読み出しでも返る', async () => {
+    const meta = await writeSlotMedia(USER, 'application/octet-stream', PNG, '成績.xlsx')
+
+    expect(meta).toMatchObject({ kind: 'file', name: '成績.xlsx' })
+    expect(await readSlotMeta(USER, mocks.now)).toMatchObject({ name: '成績.xlsx' })
+    expect(await readSlotMedia(USER, mocks.now)).toMatchObject({ name: '成績.xlsx' })
+  })
+
+  test('名前が無ければメタに name を載せない', async () => {
+    const meta = await writeSlotMedia(USER, 'image/png', PNG)
+
+    expect(meta).not.toHaveProperty('name')
+  })
+
+  // 文字で上書きしたら、前のファイルの名前を引きずらない
+  test('文字で上書きすると名前は消える', async () => {
+    await writeSlotMedia(USER, 'application/octet-stream', PNG, 'a.zip')
+    await writeSlotText(USER, 'x')
+
+    expect(mocks.row).toMatchObject({ text: 'x', name: null })
   })
 })
 
@@ -218,7 +245,7 @@ describe('readSlotMedia', () => {
   test('生きている画像は mime とバイト列を返す', async () => {
     await writeSlotMedia(USER, 'image/png', PNG)
 
-    expect(await readSlotMedia(USER, mocks.now)).toEqual({ mime: 'image/png', data: PNG })
+    expect(await readSlotMedia(USER, mocks.now)).toEqual({ mime: 'image/png', data: PNG, name: null })
   })
 
   test('文字の枠には画像が無い', async () => {

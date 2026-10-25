@@ -120,16 +120,13 @@ test("枠を読めなかったときは理由を出す (行は押せるまま)",
   expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>[^]*サーバへコピー/);
 });
 
-test("ファイルを選んで送る行がある。受ける形式を絞って写真・動画・PDF などを選べる", () => {
+test("ファイルを選んで送る行がある。形式は絞らない (Office もあらゆるファイルも選べる)", () => {
   const html = render();
 
   expect(html).toContain("ファイルを選んで送る");
   expect(html).toMatch(/<input[^>]*type="file"/);
-  expect(html).toContain("video/*");
-  expect(html).toContain("image/*");
-  expect(html).toContain("application/pdf");
-  // iPhone の HEIC は type が空で来ることがあるので拡張子でも許す
-  expect(html).toContain(".heic");
+  // accept を付けると、選べないファイルが灰色になって「送れない」と誤解させる
+  expect(html).not.toMatch(/<input[^>]*accept=/);
 });
 
 test("ファイル送信中は文言が変わり、全部の操作を止める", () => {
@@ -158,6 +155,22 @@ test("画像は貼り付けも保存もできる", () => {
   expect(html).toMatch(/<a[^>]*download="clipboard-\d{8}-\d{6}\.png"/);
 });
 
+test("名前つきのファイル (Office など) は名前と大きさを出し、保存名にも名前を使う", () => {
+  const html = render({
+    slot: {
+      kind: "file",
+      bytes: 2.5 * 1024 * 1024,
+      updatedAt: "2026-10-25T12:00:00.000Z",
+      mime: "application/octet-stream",
+      name: "議事録.docx",
+    },
+  });
+
+  expect(html).toContain("議事録.docx 2.5MB");
+  expect(html).toContain('download="議事録.docx"');
+  expect(html).toContain("サーバから保存");
+});
+
 test("文字は保存のリンクを出さない (貼り付けだけ)", () => {
   const html = render({ slot: TEXT });
 
@@ -171,5 +184,5 @@ test("枠が無ければ保存のリンクも出さない", () => {
 // ドロップの受け皿は、ドラッグ中の見た目 (点線の枠と案内) を出す。events は jsdom が無く
 // 確かめられないので、描画の入口だけを見る。流れは E2E (e2e/server-clipboard.spec.ts)
 test("ドロップで送れることを案内する", () => {
-  expect(render()).toContain("ファイルをここへドロップして送れます");
+  expect(render()).toContain("ここへドロップして送れます");
 });
