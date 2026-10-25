@@ -5,6 +5,7 @@ import {
   isSlotExpired,
   isPasteable,
   sanitizeFileName,
+  withExtension,
   kindOfMime,
   slotFileName,
   MAX_CLIPBOARD_TEXT_BYTES,
@@ -152,6 +153,22 @@ describe('sanitizeFileName (外へ出る保存名)', () => {
 
     expect(name?.length).toBeLessThanOrEqual(100)
     expect(name?.endsWith('.xlsx')).toBe(true)
+  })
+})
+
+describe('withExtension (変換した後の名前)', () => {
+  test.each([
+    ['photo.heic', 'jpg', 'photo.jpg'],
+    ['IMG 1.TIFF', 'jpg', 'IMG 1.jpg'],
+    ['a.b.tiff', 'jpg', 'a.b.jpg'],
+    // 拡張子が無ければ足す
+    ['photo', 'jpg', 'photo.jpg'],
+  ])('%s → %s', (name, ext, expected) => {
+    expect(withExtension(name, ext)).toBe(expected)
+  })
+
+  test('名前が無ければ null のまま', () => {
+    expect(withExtension(null, 'jpg')).toBeNull()
   })
 })
 

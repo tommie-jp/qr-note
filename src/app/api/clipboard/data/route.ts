@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { IMAGE_UNREADABLE_MESSAGE } from '@/lib/attachments/result'
-import { kindOfMime, sanitizeFileName } from '@/lib/clipboard/slot'
+import { kindOfMime, sanitizeFileName, withExtension } from '@/lib/clipboard/slot'
 import { classifySlotFile } from '@/lib/clipboard/slotFile'
 import { prepareSlotFile } from '@/lib/clipboard/slotPrepare'
 import { readSlotMedia, writeSlotMedia } from '@/lib/clipboard/slotStore'
@@ -109,7 +109,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
   }
 
   return apiOk({
-    slot: await writeSlotMedia(guard.user, prepared.mime, prepared.data, sanitizeFileName(fileName)),
+    slot: await writeSlotMedia(guard.user, prepared.mime, prepared.data, nameAfterConvert(file, prepared, fileName)),
   })
 }
 
@@ -139,4 +139,14 @@ function attachmentDisposition(name: string | null): string {
     (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
   )
   return `attachment; filename*=UTF-8''${encoded}`
+}
+
+// 残す名前。変換して mime が変わったなら、拡張子もそれに合わせる (HEIC → JPEG)
+function nameAfterConvert(
+  original: { mime: string },
+  prepared: { mime: string },
+  fileName: string | null,
+): string | null {
+  const name = sanitizeFileName(fileName)
+  return prepared.mime === original.mime ? name : withExtension(name, 'jpg')
 }

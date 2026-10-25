@@ -118,6 +118,17 @@ export function sanitizeFileName(raw: string | null | undefined): string | null 
   return chars.slice(0, MAX_FILE_NAME_CHARS - Array.from(ext).length).join('') + ext
 }
 
+// 中身を変換したあとの名前。拡張子を付け替える (HEIC を JPEG にしたのに photo.heic のまま
+// だと、開く側が形式を取り違える)。拡張子が無い名前には足す。名前が無ければ null
+export function withExtension(name: string | null, ext: string): string | null {
+  if (name === null) {
+    return null
+  }
+  const dot = name.lastIndexOf('.')
+  const base = dot > 0 ? name.slice(0, dot) : name
+  return `${base}.${ext}`
+}
+
 // 保存するときの名前。元の名前が残っていればそれ (拡張子が要る)、無ければ時刻と mime から
 export function slotFileName(meta: ClipboardSlotMeta, at: Date = new Date()): string {
   if (meta.name) {

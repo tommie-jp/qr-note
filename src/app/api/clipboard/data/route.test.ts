@@ -273,6 +273,19 @@ describe('PUT', () => {
     expect(mocks.written).toEqual([])
   })
 
+  // 中身が JPEG になったのに名前が photo.tiff のままだと、開く側が形式を取り違える
+  test('変換したら名前の拡張子も付け替える', async () => {
+    const tiff = new Uint8Array(
+      await sharp({ create: { width: 8, height: 6, channels: 3, background: '#3366cc' } })
+        .tiff()
+        .toBuffer(),
+    )
+
+    await PUT(putRequest(tiff, { 'x-file-name': encodeURIComponent('旅行 1.TIFF') }))
+
+    expect(mocks.written[0]).toMatchObject({ mime: 'image/jpeg', name: '旅行 1.jpg' })
+  })
+
   test('壊れた TIFF は 400 (置かない)', async () => {
     const res = await PUT(putRequest(new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0, 0, 0, 0])))
 
