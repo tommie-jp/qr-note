@@ -271,7 +271,10 @@ phase_check() {
   local missing mem_mb disk_gb
   missing="$(dst_sh 'for c in docker nginx certbot curl; do command -v "$c" >/dev/null || printf "%s " "$c"; done
     docker compose version >/dev/null 2>&1 || printf "docker-compose "
-    sudo -n true 2>/dev/null || printf "sudo(NOPASSWD) "')"
+    sudo -n true 2>/dev/null || printf "sudo(NOPASSWD) "
+    # 証明書の renewal は nginx 方式で書かれている。certbot 本体だけだと
+    # cutover の更新試行で初めて落ちる (vps1 で実際に踏んだ)
+    sudo -n certbot plugins 2>/dev/null | grep -q "^\* nginx" || printf "python3-certbot-nginx "')"
   [ -z "$missing" ] || die "$DST に足りないもの: $missing"
   mem_mb="$(dst_sh "awk '/MemAvailable/ {print int(\$2 / 1024)}' /proc/meminfo")"
   disk_gb="$(dst_sh "df -BG --output=avail ~ | tail -1 | tr -dc 0-9")"
