@@ -74,9 +74,9 @@ vi.mock('@/lib/prefs/photoMetaStore', () => ({
 // サーバ経由のクリップボード (docs/114)。応答の形だけを見るので store は固定する
 vi.mock('@/lib/clipboard/slotStore', () => ({
   readSlotMeta: async () => mocks.slotMeta,
-  readSlotImage: async () => null,
+  readSlotMedia: async () => null,
   writeSlotText: async () => mocks.slotMeta,
-  writeSlotImage: async () => mocks.slotMeta,
+  writeSlotMedia: async () => mocks.slotMeta,
   clearSlot: async () => {},
 }))
 
@@ -499,12 +499,12 @@ describe('/api/clipboard (no-store・デモは閉じる)', () => {
     )
   })
 
-  test('画像の中身: 無ければ 404 の封筒、置けば封筒', async () => {
+  test('ファイルの中身: 無ければ 404 の封筒、置けば封筒', async () => {
     const { GET, PUT } = await import('./clipboard/data/route')
     const url = 'http://localhost/api/clipboard/data'
 
     expect(await responseContract(await GET(new Request(url)))).toEqual(
-      jsonContract(404, failEnvelope('サーバのクリップボードに画像がありません')),
+      jsonContract(404, failEnvelope('サーバのクリップボードにファイルがありません')),
     )
     expect(
       await responseContract(await PUT(new Request(url, { method: 'PUT', body: PNG }))),

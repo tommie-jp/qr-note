@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test'
+import sharp from 'sharp'
 import { BASE_URL } from './env'
+import { mp4WithHandlers } from '../src/lib/uploads/sniff/__fixtures__/media'
 import { closePage, expect, newLoggedInPage, test } from './helpers'
 
 // メニューの「サーバへコピー」「サーバからペースト」
@@ -157,5 +159,170 @@ test.describe('サーバ経由のクリップボード', () => {
     await expect(alertNote(page)).toContainText(/クリップボード/)
     const res = await page.request.get('/api/clipboard')
     expect((await res.json()).data.slot).toBeNull()
+  })
+
+  // ファイルを選んで送る: 動画・PDF・テキストはクリップボードに載らないので「保存」になる
+  test.describe('ファイルを選んで送る', () => {
+    const fileInput = (p: Page) => p.locator('input[type="file"]')
+
+    test('動画: 送ると「サーバから保存」になり、保存すると同じバイト列が落ちる', async () => {
+      const mp4 = Buffer.from(mp4WithHandlers('isom', ['vide', 'soun']))
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: mp4 })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (動画 ')
+      const save = page.getByRole('link', { name: /サーバから保存/ })
+      await expect(save).toBeVisible()
+      await expect(page.getByRole('button', { name: /サーバからペースト/ })).toHaveCount(0)
+      const [download] = await Promise.all([page.waitForEvent('download'), save.click()])
+      expect(download.suggestedFilename()).toMatch(/^clipboard-\d{8}-\d{6}\.mp4$/)
+      const { createReadStream } = await import('node:fs')
+      const chunks: Buffer[] = []
+      for await (const chunk of createReadStream((await download.path()) ?? '')) {
+        chunks.push(chunk as Buffer)
+      }
+      expect(Buffer.concat(chunks).equals(mp4)).toBe(true)
+    })
+
+    test('PDF とテキスト (日本語名の csv) も送れる', async () => {
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({
+        name: 'doc.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.7\n%EOF'),
+      })
+      await expect(statusNote(page)).toContainText('サーバへ送りました (PDF ')
+
+      await fileInput(page).setInputFiles({
+        name: '成績 1.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('名前,点\nあ,90\n'),
+      })
+      await expect(statusNote(page)).toContainText('サーバへ送りました (テキストファイル ')
+      const stored = await page.request.get('/api/clipboard/data')
+      expect(stored.headers()['content-type']).toBe('text/csv; charset=utf-8')
+    })
+
+    // 写真は JPEG に揃う。TIFF はブラウザが読めないので変換される
+    test('TIFF の写真は JPEG に変換されて置かれ、貼り付けも保存もできる', async () => {
+      const tiff = await sharp({
+        create: { width: 12, height: 8, channels: 3, background: '#cc3333' },
+      })
+        .tiff()
+        .toBuffer()
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({ name: 'photo.tiff', mimeType: 'image/tiff', buffer: tiff })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (画像 ')
+      const stored = await page.request.get('/api/clipboard/data')
+      expect(stored.headers()['content-type']).toBe('image/jpeg')
+      await expect(page.getByRole('link', { name: '保存', exact: true })).toBeVisible()
+
+      await page.evaluate(() => navigator.clipboard.writeText('x'))
+      await page.getByRole('button', { name: /サーバからペースト/ }).click()
+      await expect(statusNote(page)).toContainText('クリップボードにコピーしました')
+      const types = await page.evaluate(async () =>
+        (await navigator.clipboard.read()).flatMap((item) => [...item.types]),
+      )
+      expect(types).toContain('image/png')
+    })
+
+    test('対応しない形式 (zip) は理由を出して置かない', async () => {
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({
+        name: 'a.zip',
+        mimeType: 'application/zip',
+        buffer: Buffer.from([0x50, 0x4b, 3, 4, 0, 0, 0, 0]),
+      })
+
+      await expect(alertNote(page)).toContainText('この形式のファイルは送れません')
+      expect(((await (await page.request.get('/api/clipboard')).json()).data).slot).toBeNull()
+    })
+  })
+
+  // メニューへのドロップ。エクスプローラから引いたファイルと同じ形 (types に Files) を投げる
+  test.describe('メニューへのドロップ', () => {
+    interface DropFile {
+      name: string
+      type: string
+      bytes: number[]
+    }
+
+    async function dropOnMenu(
+      p: Page,
+      payload: { files?: DropFile[]; text?: string },
+    ): Promise<void> {
+      // 行をまとめる枠 (ドロップの受け皿) は「サーバへコピー」ボタンの親
+      const zone = p.getByRole('button', { name: 'サーバへコピー' }).locator('..')
+      await zone.evaluate((el, { files, text }) => {
+        const dt = new DataTransfer()
+        for (const f of files ?? []) {
+          dt.items.add(new File([new Uint8Array(f.bytes)], f.name, { type: f.type }))
+        }
+        if (text !== undefined) {
+          dt.setData('text/plain', text)
+        }
+        const init = { dataTransfer: dt, bubbles: true, cancelable: true }
+        for (const type of ['dragenter', 'dragover', 'drop']) {
+          el.dispatchEvent(new DragEvent(type, init))
+        }
+      }, payload)
+    }
+
+    test('ファイルをドロップすると送られる (動画)', async () => {
+      const mp4 = [...mp4WithHandlers('isom', ['vide', 'soun'])]
+      await openMenu(page)
+
+      await dropOnMenu(page, { files: [{ name: 'clip.mp4', type: 'video/mp4', bytes: mp4 }] })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (動画 ')
+      await expect(page.getByRole('link', { name: /サーバから保存/ })).toBeVisible()
+    })
+
+    test('ドラッグ中は受け皿の見た目になり、落とすと戻る', async () => {
+      await openMenu(page)
+      const zone = page.getByRole('button', { name: 'サーバへコピー' }).locator('..')
+
+      await zone.evaluate((el) => {
+        const dt = new DataTransfer()
+        dt.items.add(new File(['x'], 'a.txt', { type: 'text/plain' }))
+        el.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }))
+      })
+      await expect(zone).toHaveClass(/outline-dashed/)
+
+      await zone.evaluate((el) => el.dispatchEvent(new DragEvent('dragleave', { bubbles: true })))
+      await expect(zone).not.toHaveClass(/outline-dashed/)
+    })
+
+    // 枠は 1 つ。先頭だけ黙って送ると、残りも届いたと思い込む
+    test('2 つ以上は送らず、理由を出す', async () => {
+      const bytes = [...Buffer.from('%PDF-1.7\n%EOF')]
+      await openMenu(page)
+
+      await dropOnMenu(page, {
+        files: [
+          { name: 'a.pdf', type: 'application/pdf', bytes },
+          { name: 'b.pdf', type: 'application/pdf', bytes },
+        ],
+      })
+
+      await expect(alertNote(page)).toContainText('ファイルは 1 つずつ送ってください')
+      expect(((await (await page.request.get('/api/clipboard')).json()).data).slot).toBeNull()
+    })
+
+    // 文字の選択や別タブのリンクを引いてきたときは反応しない
+    test('文字のドロップは無視する', async () => {
+      await openMenu(page)
+
+      await dropOnMenu(page, { text: 'ただの文字' })
+
+      await expect(statusNote(page)).toHaveCount(0)
+      await expect(alertNote(page)).toHaveCount(0)
+      expect(((await (await page.request.get('/api/clipboard')).json()).data).slot).toBeNull()
+    })
   })
 })

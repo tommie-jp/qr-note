@@ -55,15 +55,7 @@ export async function normalizeImage(
   }
 
   // ここに来るのは heic / tiff のみ。どちらも WebP へ変換する
-  const source =
-    format === 'heic'
-      ? await heicToSharp(bytes)
-      : sharp(bytes, { failOn: 'none', limitInputPixels: MAX_INPUT_PIXELS })
-
-  const webp = await source
-    // EXIF/HEIF の向きを画素へ焼く。スマホ写真は横倒しで保存され、向きは
-    // メタデータにしかない。変換で落ちるメタデータに向きを残すと倒れて出る
-    .rotate()
+  const webp = await (await decodeUnsupported(bytes, format))
     .resize(WEBP_MAX_DIMENSION, WEBP_MAX_DIMENSION, {
       fit: 'inside',
       withoutEnlargement: true,
@@ -73,6 +65,42 @@ export async function normalizeImage(
 
   // Buffer は共有プールを指しうるため自前の ArrayBuffer へ写す
   return { bytes: new Uint8Array(webp), mime: CONVERTED_MIME, ext: CONVERTED_EXT }
+}
+
+// サーバ経由のクリップボード (docs/114) 向けの変換。ブラウザが表示できない写真
+// (heic / tiff) を **JPEG** にする。WebP にしないのは、枠から受け取った写真を貼る先が
+// LINE・X・Windows のアプリなど、WebP を読めないことがある外のアプリだから。
+// JPEG は透過を持てないので白で下地を敷く。表示できる形式は変換せずそのまま返す。
+// 失敗は例外 (壊れた画像を黙って置かない)
+const TRANSFER_JPEG_QUALITY = 90
+const TRANSFER_JPEG_BACKGROUND = '#ffffff'
+
+export async function normalizeImageForTransfer(
+  bytes: Uint8Array<ArrayBuffer>,
+  format: ImageFormat,
+): Promise<NormalizedImage> {
+  if (PASSTHROUGH_MIME[format]) {
+    return normalizeImage(bytes, format)
+  }
+  const jpeg = await (await decodeUnsupported(bytes, format))
+    .flatten({ background: TRANSFER_JPEG_BACKGROUND })
+    .jpeg({ quality: TRANSFER_JPEG_QUALITY })
+    .toBuffer()
+  return { bytes: new Uint8Array(jpeg), mime: 'image/jpeg', ext: 'jpg' }
+}
+
+// heic / tiff を復号し、向きを画素へ焼いた sharp を返す。
+// EXIF/HEIF の向きを画素へ焼く: スマホ写真は横倒しで保存され、向きはメタデータにしか
+// ない。変換で落ちるメタデータに向きを残すと倒れて出る
+async function decodeUnsupported(
+  bytes: Uint8Array<ArrayBuffer>,
+  format: ImageFormat,
+): Promise<sharp.Sharp> {
+  const source =
+    format === 'heic'
+      ? await heicToSharp(bytes)
+      : sharp(bytes, { failOn: 'none', limitInputPixels: MAX_INPUT_PIXELS })
+  return source.rotate()
 }
 
 // HEIC を復号し、sharp が扱える raw 画素の入力にする。

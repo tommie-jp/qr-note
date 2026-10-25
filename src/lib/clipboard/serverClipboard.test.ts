@@ -4,13 +4,19 @@ import {
   fetchServerSlot,
   receiveFromServer,
   sendClipboardToServer,
+  sendFileToServer,
   serverClipboardErrorMessage,
   SERVER_CLIPBOARD_DATA_URL,
   type ServerClipboardDeps,
 } from './serverClipboard'
 
 const META_TEXT = { kind: 'text', bytes: 3, updatedAt: '2026-10-25T12:00:00.000Z', text: 'abc' }
-const META_IMAGE = { kind: 'image', bytes: 8, updatedAt: '2026-10-25T12:00:00.000Z' }
+const META_IMAGE = {
+  kind: 'image',
+  bytes: 8,
+  updatedAt: '2026-10-25T12:00:00.000Z',
+  mime: 'image/png',
+}
 
 const envelope = (data: unknown, status = 200) =>
   new Response(JSON.stringify({ success: true, data, error: null }), { status })
@@ -149,6 +155,110 @@ describe('sendClipboardToServer', () => {
   })
 })
 
+describe('sendFileToServer (ファイルを選んで送る)', () => {
+  const MB = 1024 * 1024
+  const fileOf = (name: string, type: string, size = 100) =>
+    new File([new Uint8Array(size)], name, { type })
+  const ok = () =>
+    deps({ fetchFn: (async () => envelope({ slot: META_IMAGE })) as unknown as typeof fetch })
+
+  test('生バイトを PUT し、元の名前を X-File-Name に URL エンコードで添える', async () => {
+    const d = ok()
+    const spy = vi.spyOn(d, 'fetchFn')
+    const file = fileOf('資料 1.csv', 'text/csv')
+
+    const meta = await sendFileToServer(file, d)
+
+    expect(meta).toEqual(META_IMAGE)
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe(SERVER_CLIPBOARD_DATA_URL)
+    expect(init.method).toBe('PUT')
+    const headers = init.headers as Record<string, string>
+    expect(headers['Content-Type']).toBe('text/csv')
+    expect(headers['X-File-Name']).toBe(encodeURIComponent('資料 1.csv'))
+    expect(init.body).toBe(file)
+  })
+
+  test('種類が分からないファイルは octet-stream で送る (形式の判定はサーバの仕事)', async () => {
+    const d = ok()
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    await sendFileToServer(fileOf('a.heic', ''), d)
+
+    const [, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/octet-stream')
+  })
+
+  test('空のファイルは送らない', async () => {
+    const d = ok()
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    await expect(sendFileToServer(fileOf('a.txt', 'text/plain', 0), d)).rejects.toThrow(
+      'ファイルが空です',
+    )
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  // 必要なら変換する: 10MB を超える写真は縮めて送る (動画のように縮められないものは除く)
+  test('10MB を超える写真は縮めてから送る', async () => {
+    const d = ok()
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    await sendFileToServer(fileOf('big.png', 'image/png', 11 * MB), d)
+
+    expect(d.shrink).toHaveBeenCalledTimes(1)
+    const [, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('image/jpeg')
+    expect((init.headers as Record<string, string>)['X-File-Name']).toBe('shrunk.jpg')
+  })
+
+  test('10MB 以下の写真は触らない (原本のまま)', async () => {
+    const d = ok()
+
+    await sendFileToServer(fileOf('photo.jpg', 'image/jpeg', 9 * MB), d)
+
+    expect(d.shrink).not.toHaveBeenCalled()
+  })
+
+  test('縮められない形式 (GIF) の 10MB 超は送る前に断る', async () => {
+    const d = ok()
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    await expect(sendFileToServer(fileOf('a.gif', 'image/gif', 11 * MB), d)).rejects.toThrow(
+      'ファイルが大きすぎます (最大 10MB)',
+    )
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  test('動画は 30MB まで。超えれば送る前に断る', async () => {
+    const d = ok()
+
+    await sendFileToServer(fileOf('a.mp4', 'video/mp4', 25 * MB), d)
+    await expect(sendFileToServer(fileOf('b.mp4', 'video/mp4', 31 * MB), d)).rejects.toThrow(
+      'ファイルが大きすぎます (最大 30MB)',
+    )
+  })
+
+  test('PDF など写真以外の 10MB 超は断る', async () => {
+    const d = ok()
+
+    await expect(
+      sendFileToServer(fileOf('a.pdf', 'application/pdf', 11 * MB), d),
+    ).rejects.toThrow('ファイルが大きすぎます (最大 10MB)')
+  })
+
+  test('サーバが断ればその文言を投げる', async () => {
+    const d = deps({
+      fetchFn: (async () =>
+        failure('この形式のファイルは送れません (画像・動画・音声・PDF・テキストに対応しています)', 400)) as unknown as typeof fetch,
+    })
+
+    await expect(sendFileToServer(fileOf('a.zip', 'application/zip'), d)).rejects.toThrow(
+      'この形式のファイルは送れません',
+    )
+  })
+})
+
 describe('receiveFromServer', () => {
   test('文字は writeText に渡す', async () => {
     const d = deps()
@@ -175,6 +285,18 @@ describe('receiveFromServer', () => {
     void receiveFromServer(META_TEXT as never, d)
 
     expect(d.clipboard.writeText).toHaveBeenCalledTimes(1)
+  })
+
+  // 動画・音声・PDF・テキストのファイルは、ブラウザからクリップボードに載せる手段が無い。
+  // 受け取りは「保存」のリンクで、ここへ来るのは呼ぶ側の取り違え
+  test('クリップボードに載せられない種類は断る', async () => {
+    const d = deps()
+    const video = { kind: 'video', bytes: 1, updatedAt: 'x', mime: 'video/mp4' }
+
+    await expect(receiveFromServer(video as never, d)).rejects.toThrow(
+      'この種類のファイルはクリップボードに載せられません',
+    )
+    expect(d.copyImage).not.toHaveBeenCalled()
   })
 
   test('writeText が無い環境は理由を言って断る', async () => {

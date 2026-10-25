@@ -1,4 +1,6 @@
+import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { mp4WithHandlers, webmFile } from '@/lib/uploads/sniff/__fixtures__/media'
 import { failEnvelope, jsonContract, okEnvelope, responseContract } from '@/test/routeResponse'
 
 // サーバ経由のクリップボードの画像の口 (docs/114-サーバクリップボード計画.md §2)。
@@ -12,7 +14,7 @@ const WEBP = new Uint8Array([
 const HEIC = new Uint8Array([
   0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63, 0, 0, 0, 0,
 ])
-const PDF = new TextEncoder().encode('%PDF-1.7')
+const PDF = new TextEncoder().encode('%PDF-1.7\n%EOF')
 
 const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
@@ -42,8 +44,8 @@ vi.mock('@/lib/auth/sessionStore', () => ({
 }))
 
 vi.mock('@/lib/clipboard/slotStore', () => ({
-  readSlotImage: async () => mocks.image,
-  writeSlotImage: async (user: string, mime: string, data: Uint8Array) => {
+  readSlotMedia: async () => mocks.image,
+  writeSlotMedia: async (user: string, mime: string, data: Uint8Array) => {
     mocks.written.push({ user, mime, bytes: data.byteLength })
     return { kind: 'image', bytes: data.byteLength, updatedAt: '2026-10-25T12:00:00.000Z' }
   },
@@ -116,7 +118,7 @@ describe('GET', () => {
     const res = await GET(getRequest())
 
     expect(await responseContract(res)).toEqual(
-      jsonContract(404, failEnvelope('サーバのクリップボードに画像がありません')),
+      jsonContract(404, failEnvelope('サーバのクリップボードにファイルがありません')),
     )
   })
 
@@ -130,6 +132,8 @@ describe('GET', () => {
     expect(res.headers.get('cache-control')).toBe('no-store')
     // 保存した画像が HTML として解釈されないようにする (配信の定石)
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    // 直接開かれたときにスクリプトが走る余地を残さない
+    expect(res.headers.get('content-security-policy')).toBe('sandbox')
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG)
   })
 })
@@ -161,22 +165,113 @@ describe('PUT', () => {
     expect(mocks.written[0]?.mime).toBe('image/jpeg')
   })
 
-  // PDF や HEIC など、クリップボードに載せられない形式を置いても受け取れない
   test.each([
-    ['PDF', PDF],
-    ['HEIC', HEIC],
-    ['空', new Uint8Array(0)],
-  ])('画像でない・載せられない形式は 400: %s', async (_name, bytes) => {
+    ['PDF', PDF, 'application/pdf'],
+    ['mp4 動画', mp4WithHandlers('isom', ['vide', 'soun']), 'video/mp4'],
+    ['iPhone の mov 動画', mp4WithHandlers('qt  ', ['vide', 'soun']), 'video/quicktime'],
+    ['webm 動画', webmFile(['V_VP9', 'A_OPUS']), 'video/webm'],
+    ['m4a 音声', mp4WithHandlers('M4A ', ['soun']), 'audio/mp4'],
+  ])('%s も受ける', async (_name, bytes, mime) => {
     const res = await PUT(putRequest(bytes))
 
+    expect(res.status).toBe(200)
+    expect(mocks.written).toEqual([{ user: 'tommie', mime, bytes: bytes.byteLength }])
+  })
+
+  // テキストには署名が無く、名前でしか区別できない
+  test.each([
+    ['memo.txt', 'text/plain; charset=utf-8'],
+    ['データ.csv', 'text/csv; charset=utf-8'],
+    ['note.md', 'text/markdown; charset=utf-8'],
+  ])('テキスト %s は X-File-Name で判定する', async (name, mime) => {
+    const bytes = new TextEncoder().encode('あ,い\n1,2\n')
+
+    const res = await PUT(putRequest(bytes, { 'x-file-name': encodeURIComponent(name) }))
+
+    expect(res.status).toBe(200)
+    expect(mocks.written[0]?.mime).toBe(mime)
+  })
+
+  test('名前の無い文字は受けない (何のテキストか決められない)', async () => {
+    const res = await PUT(putRequest(new TextEncoder().encode('hello')))
+
+    expect(res.status).toBe(400)
+  })
+
+  test('壊れた X-File-Name は名前なし扱い (落ちない)', async () => {
+    const res = await PUT(putRequest(new TextEncoder().encode('hello'), { 'x-file-name': '%E0%A4%A' }))
+
+    expect(res.status).toBe(400)
+  })
+
+  // 写真は JPEG に揃える (HEIC・TIFF は受け取る側のアプリが読めないことがある)
+  test('TIFF の写真は JPEG に変換して置く', async () => {
+    const tiff = new Uint8Array(
+      await sharp({ create: { width: 8, height: 6, channels: 3, background: '#3366cc' } })
+        .tiff()
+        .toBuffer(),
+    )
+
+    const res = await PUT(putRequest(tiff))
+
+    expect(res.status).toBe(200)
+    expect(mocks.written[0]?.mime).toBe('image/jpeg')
+    expect(mocks.written[0]?.bytes).not.toBe(tiff.byteLength)
+  })
+
+  // ブラウザが読めない写真 (HEIC) は JPEG に変換する。壊れていれば復号に失敗して断る
+  test('復号できない HEIC は 400 (置かない)', async () => {
+    const res = await PUT(putRequest(HEIC))
+
+    expect(res.status).toBe(400)
+    expect(mocks.written).toEqual([])
+  })
+
+  test('壊れた TIFF は 400 (置かない)', async () => {
+    const res = await PUT(putRequest(new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0, 0, 0, 0])))
+
+    expect(res.status).toBe(400)
+    expect(mocks.written).toEqual([])
+  })
+
+  // HTML・SVG・実行ファイル・zip は、名前を偽っても置けない (配信時に XSS になる)
+  test.each([
+    ['HTML', new TextEncoder().encode('<html><script>alert(1)</script></html>'), 'x.html'],
+    ['SVG', new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'x.svg'],
+    ['zip', new Uint8Array([0x50, 0x4b, 3, 4, 0, 0, 0, 0]), 'a.zip'],
+    ['exe', new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0]), 'a.exe'],
+    ['空', new Uint8Array(0), 'a.txt'],
+  ])('対応しない形式は 400: %s', async (_name, bytes, fileName) => {
+    const res = await PUT(putRequest(bytes, { 'x-file-name': fileName }))
+
     expect(await responseContract(res)).toEqual(
-      jsonContract(400, failEnvelope('クリップボードに載せられる画像ではありません')),
+      jsonContract(
+        400,
+        failEnvelope(
+          'この形式のファイルは送れません (画像・動画・音声・PDF・テキストに対応しています)',
+        ),
+      ),
     )
     expect(mocks.written).toEqual([])
   })
 
+  test('動画は 30MB まで通り、画像は 10MB で止まる', async () => {
+    const mp4 = mp4WithHandlers('isom', ['vide'])
+    const bigVideo = new Uint8Array(20 * 1024 * 1024)
+    bigVideo.set(mp4)
+    const bigImage = new Uint8Array(11 * 1024 * 1024)
+    bigImage.set(PNG)
+
+    const video = await PUT(putRequest(bigVideo))
+    const image = await PUT(putRequest(bigImage))
+
+    expect(video.status).toBe(200)
+    expect(image.status).toBe(413)
+    expect((await image.json()).error).toBe('ファイルが大きすぎます (最大 10MB)')
+  })
+
   test('Content-Length が上限を超えていれば本文を読まず 413', async () => {
-    const res = await PUT(putRequest(PNG, { 'content-length': String(12 * 1024 * 1024) }))
+    const res = await PUT(putRequest(PNG, { 'content-length': String(32 * 1024 * 1024) }))
 
     expect(res.status).toBe(413)
     expect(mocks.written).toEqual([])
@@ -200,7 +295,7 @@ describe('PUT', () => {
 
     expect(res.status).toBe(413)
     expect(mocks.written).toEqual([])
-    expect(pulled).toBeLessThan(15)
+    expect(pulled).toBeLessThan(40)
   })
 
   // Content-Length を申告しない送信 (chunked) は事前検査を素通りする

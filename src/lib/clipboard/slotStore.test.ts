@@ -54,7 +54,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-const { clearExpiredSlot, clearSlot, readSlotImage, readSlotMeta, writeSlotImage, writeSlotText } = await import(
+const { clearExpiredSlot, clearSlot, readSlotMedia, readSlotMeta, writeSlotMedia, writeSlotText } = await import(
   './slotStore'
 )
 
@@ -82,20 +82,25 @@ describe('writeSlotText', () => {
 
   // 1 枠だけ。画像が入っていても、文字で上書きされれば画像は残らない
   test('画像の上に文字を書くと画像は消える', async () => {
-    await writeSlotImage(USER, 'image/png', PNG)
+    await writeSlotMedia(USER, 'image/png', PNG)
     await writeSlotText(USER, 'x')
 
     expect(mocks.row).toMatchObject({ text: 'x', mime: null, data: null })
   })
 })
 
-describe('writeSlotImage', () => {
+describe('writeSlotMedia', () => {
   test('画像を入れ、文字の列は空にしてメタを返す (中身は載せない)', async () => {
     await writeSlotText(USER, 'x')
 
-    const meta = await writeSlotImage(USER, 'image/png', PNG)
+    const meta = await writeSlotMedia(USER, 'image/png', PNG)
 
-    expect(meta).toEqual({ kind: 'image', bytes: 4, updatedAt: mocks.now.toISOString() })
+    expect(meta).toEqual({
+      kind: 'image',
+      bytes: 4,
+      updatedAt: mocks.now.toISOString(),
+      mime: 'image/png',
+    })
     expect(mocks.row).toMatchObject({ text: null, mime: 'image/png', bytes: 4 })
   })
 })
@@ -112,7 +117,7 @@ describe('書き込み時の掃除', () => {
   })
 
   test('掃除は書き込みより先に行う (いま書く行を巻き込まない)', async () => {
-    await writeSlotImage(USER, 'image/png', PNG)
+    await writeSlotMedia(USER, 'image/png', PNG)
 
     expect(mocks.row).not.toBeNull()
   })
@@ -144,6 +149,35 @@ describe('期限切れの削除と書き込みの競合', () => {
 
     expect(deleted).toBeUndefined()
     expect(mocks.row).not.toBeNull()
+  })
+})
+
+describe('ファイルの種類は mime から決まる', () => {
+  test.each([
+    ['video/mp4', 'video'],
+    ['audio/mpeg', 'audio'],
+    ['application/pdf', 'pdf'],
+    ['text/csv; charset=utf-8', 'textfile'],
+    ['image/heic', 'image'],
+  ])('%s は %s', async (mime, kind) => {
+    const meta = await writeSlotMedia(USER, mime, PNG)
+
+    expect(meta).toMatchObject({ kind, mime })
+    expect(await readSlotMeta(USER, mocks.now)).toMatchObject({ kind, mime })
+  })
+
+  // サーバは classifySlotFile を通った mime しか置かない。壊れた行は「無い」と見なす
+  test('知らない mime の行は無いものとして扱う', async () => {
+    mocks.row = {
+      userName: USER,
+      text: null,
+      mime: 'application/zip',
+      data: PNG,
+      bytes: 4,
+      updatedAt: mocks.now,
+    }
+
+    expect(await readSlotMeta(USER, mocks.now)).toBeNull()
   })
 })
 
@@ -180,24 +214,24 @@ describe('readSlotMeta', () => {
   })
 })
 
-describe('readSlotImage', () => {
+describe('readSlotMedia', () => {
   test('生きている画像は mime とバイト列を返す', async () => {
-    await writeSlotImage(USER, 'image/png', PNG)
+    await writeSlotMedia(USER, 'image/png', PNG)
 
-    expect(await readSlotImage(USER, mocks.now)).toEqual({ mime: 'image/png', data: PNG })
+    expect(await readSlotMedia(USER, mocks.now)).toEqual({ mime: 'image/png', data: PNG })
   })
 
   test('文字の枠には画像が無い', async () => {
     await writeSlotText(USER, 'abc')
 
-    expect(await readSlotImage(USER, mocks.now)).toBeNull()
+    expect(await readSlotMedia(USER, mocks.now)).toBeNull()
   })
 
   test('期限切れは null で、行を消す', async () => {
-    await writeSlotImage(USER, 'image/png', PNG)
+    await writeSlotMedia(USER, 'image/png', PNG)
 
     const later = new Date(mocks.now.getTime() + CLIPBOARD_TTL_MS)
-    expect(await readSlotImage(USER, later)).toBeNull()
+    expect(await readSlotMedia(USER, later)).toBeNull()
     expect(mocks.deleted).toEqual([USER])
   })
 })

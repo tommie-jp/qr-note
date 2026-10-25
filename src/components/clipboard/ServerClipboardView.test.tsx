@@ -17,6 +17,13 @@ const IMAGE: ClipboardSlotMeta = {
   kind: "image",
   bytes: 1.2 * 1024 * 1024,
   updatedAt: "2026-10-25T12:00:30.000Z",
+  mime: "image/png",
+};
+const VIDEO: ClipboardSlotMeta = {
+  kind: "video",
+  bytes: 12.3 * 1024 * 1024,
+  updatedAt: "2026-10-25T12:00:00.000Z",
+  mime: "video/mp4",
 };
 
 function render(overrides: Partial<Parameters<typeof ServerClipboardView>[0]> = {}) {
@@ -28,6 +35,8 @@ function render(overrides: Partial<Parameters<typeof ServerClipboardView>[0]> = 
       notice={null}
       now={NOW}
       onSend={vi.fn()}
+      onSendFile={vi.fn()}
+      onDropFiles={vi.fn()}
       onReceive={vi.fn()}
       onClear={vi.fn()}
       {...overrides}
@@ -109,4 +118,58 @@ test("枠を読めなかったときは理由を出す (行は押せるまま)",
 
   expect(html).toContain("サーバの状態を読めませんでした");
   expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>[^]*サーバへコピー/);
+});
+
+test("ファイルを選んで送る行がある。受ける形式を絞って写真・動画・PDF などを選べる", () => {
+  const html = render();
+
+  expect(html).toContain("ファイルを選んで送る");
+  expect(html).toMatch(/<input[^>]*type="file"/);
+  expect(html).toContain("video/*");
+  expect(html).toContain("image/*");
+  expect(html).toContain("application/pdf");
+  // iPhone の HEIC は type が空で来ることがあるので拡張子でも許す
+  expect(html).toContain(".heic");
+});
+
+test("ファイル送信中は文言が変わり、全部の操作を止める", () => {
+  const html = render({ busy: "file", slot: TEXT });
+
+  expect(html).toContain("ファイルを送っています…");
+  expect(html).toMatch(/<input[^>]*disabled=""/);
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*>[^]*サーバへコピー/);
+});
+
+// クリップボードに載せられない種類は、貼り付けではなく保存のリンクにする
+test("動画が入っていれば、ペーストの代わりに保存のリンクを出す", () => {
+  const html = render({ slot: VIDEO });
+
+  expect(html).toContain("動画 12.3MB");
+  expect(html).toMatch(/<a[^>]*href="\/api\/clipboard\/data"/);
+  expect(html).toMatch(/download="clipboard-\d{8}-\d{6}\.mp4"/);
+  expect(html).toContain("サーバから保存");
+  expect(html).not.toContain("サーバからペースト");
+});
+
+test("画像は貼り付けも保存もできる", () => {
+  const html = render({ slot: IMAGE });
+
+  expect(html).toContain("サーバからペースト");
+  expect(html).toMatch(/<a[^>]*download="clipboard-\d{8}-\d{6}\.png"/);
+});
+
+test("文字は保存のリンクを出さない (貼り付けだけ)", () => {
+  const html = render({ slot: TEXT });
+
+  expect(html).not.toContain("download=");
+});
+
+test("枠が無ければ保存のリンクも出さない", () => {
+  expect(render({ slot: null })).not.toContain("download=");
+});
+
+// ドロップの受け皿は、ドラッグ中の見た目 (点線の枠と案内) を出す。events は jsdom が無く
+// 確かめられないので、描画の入口だけを見る。流れは E2E (e2e/server-clipboard.spec.ts)
+test("ドロップで送れることを案内する", () => {
+  expect(render()).toContain("ファイルをここへドロップして送れます");
 });

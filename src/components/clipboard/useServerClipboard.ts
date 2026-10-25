@@ -6,8 +6,10 @@ import {
   fetchServerSlot,
   receiveFromServer,
   sendClipboardToServer,
+  sendFileToServer,
   serverClipboardErrorMessage,
 } from "@/lib/clipboard/serverClipboard";
+import { pickDroppedFile } from "@/lib/clipboard/dropFile";
 import { type ClipboardSlotMeta, slotLabel } from "@/lib/clipboard/slot";
 import type { ServerClipboardBusy, ServerClipboardNotice } from "./ServerClipboardView";
 
@@ -22,6 +24,8 @@ export interface ServerClipboardState {
   // 枠を読んだ(置いた)時刻。「3 分前」の基準
   now: Date;
   send: () => void;
+  sendFile: (file: File) => void;
+  dropFiles: (files: File[]) => void;
   receive: () => void;
   clear: () => void;
 }
@@ -112,6 +116,42 @@ export function useServerClipboard(): ServerClipboardState {
       .finally(() => setBusy(null));
   };
 
+  // ファイルを選んで送る。選択はユーザー操作の後に非同期で返ってくるので、ここでは
+  // 同期部の制約が無い (read() を使わない)。HEIC・TIFF の JPEG 変換はサーバが行い、
+  // 返ってきたメタ (種類・大きさ) は変換後のもの
+  const sendFile = (file: File) => {
+    if (busy !== null) {
+      return;
+    }
+    setBusy("file");
+    setNotice(null);
+    sendFileToServer(file)
+      .then((meta) => {
+        setLoadFailed(false);
+        applySlot(meta);
+        showOk(`サーバへ送りました (${slotLabel(meta)})`);
+      })
+      .catch((cause: unknown) => {
+        console.error("サーバのクリップボードへファイルを送れませんでした:", cause);
+        showError(serverClipboardErrorMessage(cause, "send"));
+      })
+      .finally(() => setBusy(null));
+  };
+
+  // メニューへドロップされたファイル。枠は 1 つなので複数は断る (先頭だけ送ると、
+  // 残りも届いたと思い込む)
+  const dropFiles = (files: File[]) => {
+    const picked = pickDroppedFile(files);
+    if (picked === null) {
+      return;
+    }
+    if ("error" in picked) {
+      showError(picked.error);
+      return;
+    }
+    sendFile(picked.file);
+  };
+
   const receive = () => {
     if (busy !== null || !slot) {
       return;
@@ -150,5 +190,5 @@ export function useServerClipboard(): ServerClipboardState {
       .finally(() => setBusy(null));
   };
 
-  return { slot, loadFailed, busy, notice, now, send, receive, clear };
+  return { slot, loadFailed, busy, notice, now, send, sendFile, dropFiles, receive, clear };
 }

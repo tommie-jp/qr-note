@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { describe, expect, test } from 'vitest'
-import { normalizeImage } from './normalizeImage'
+import { normalizeImage, normalizeImageForTransfer } from './normalizeImage'
 
 // テスト用フィクスチャはコミットせず sharp でその場で作る (HEIC を除く)。
 // 依存を増やさず、環境の sharp が読める形式であることも同時に確かめられる。
@@ -71,5 +71,36 @@ describe.skipIf(!existsSync(HEIC_FIXTURE))('normalizeImage (HEIC)', () => {
     expect(meta.format).toBe('webp')
     expect(meta.width).toBeGreaterThan(0)
     expect(meta.height).toBeGreaterThan(0)
+  })
+})
+
+describe('normalizeImageForTransfer (サーバのクリップボード用: 写真は JPEG に揃える)', () => {
+  test('表示できる形式は変換しない', async () => {
+    const bytes = await makeImage('jpeg')
+
+    const result = await normalizeImageForTransfer(bytes, 'jpg')
+
+    expect(result.bytes).toBe(bytes)
+    expect(result.mime).toBe('image/jpeg')
+  })
+
+  // 貼り先が外のアプリ (LINE・X・Windows) なので、WebP ではなく JPEG にする
+  test('TIFF は JPEG へ変換する (寸法は保つ)', async () => {
+    const tiff = await makeImage('tiff')
+
+    const result = await normalizeImageForTransfer(tiff, 'tiff')
+
+    expect(result.mime).toBe('image/jpeg')
+    expect(result.ext).toBe('jpg')
+    const meta = await sharp(result.bytes).metadata()
+    expect(meta.format).toBe('jpeg')
+    expect(meta.width).toBe(24)
+    expect(meta.height).toBe(16)
+  })
+
+  test('壊れた入力は例外を投げる', async () => {
+    const garbage = new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    await expect(normalizeImageForTransfer(garbage, 'tiff')).rejects.toThrow()
   })
 })

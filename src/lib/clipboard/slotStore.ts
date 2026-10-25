@@ -16,7 +16,13 @@
 
 import 'server-only'
 import { prisma } from '@/lib/db'
-import { CLIPBOARD_TTL_MS, type ClipboardSlotMeta, isSlotExpired, textByteLength } from './slot'
+import {
+  CLIPBOARD_TTL_MS,
+  type ClipboardSlotMeta,
+  isSlotExpired,
+  kindOfMime,
+  textByteLength,
+} from './slot'
 
 interface SlotColumns {
   text: string | null
@@ -44,16 +50,17 @@ export async function readSlotMeta(
   return metaOf(row)
 }
 
-export interface SlotImage {
+// 画像・動画・音声・PDF・テキストのファイル。種類は mime が決める
+export interface SlotMedia {
   readonly mime: string
   readonly data: Uint8Array
 }
 
-// 画像の中身。文字の枠・無い・期限切れはどれも null (呼ぶ側は 404 にする)
-export async function readSlotImage(
+// ファイルの中身。文字の枠・無い・期限切れはどれも null (呼ぶ側は 404 にする)
+export async function readSlotMedia(
   userName: string,
   now: Date = new Date(),
-): Promise<SlotImage | null> {
+): Promise<SlotMedia | null> {
   const row = await prisma.clipboardSlot.findUnique({ where: { userName } })
   if (row === null) {
     return null
@@ -72,7 +79,7 @@ export async function writeSlotText(userName: string, text: string): Promise<Cli
   return writeSlot(userName, { text, mime: null, data: null, bytes: textByteLength(text) })
 }
 
-export async function writeSlotImage(
+export async function writeSlotMedia(
   userName: string,
   mime: string,
   data: Uint8Array<ArrayBuffer>,
@@ -108,7 +115,11 @@ async function writeSlot(userName: string, columns: SlotColumns): Promise<Clipbo
     create: { userName, ...columns },
     update: columns,
   })
-  return metaOf(row)
+  const meta = metaOf(row)
+  if (meta === null) {
+    throw new Error('クリップボードの枠の種類を決められません')
+  }
+  return meta
 }
 
 function metaOf(row: {
@@ -116,10 +127,15 @@ function metaOf(row: {
   mime: string | null
   bytes: number
   updatedAt: Date
-}): ClipboardSlotMeta {
+}): ClipboardSlotMeta | null {
   const updatedAt = row.updatedAt.toISOString()
-  // 文字の枠は mime が null。画像の枠は text が null
-  return row.text !== null
-    ? { kind: 'text', bytes: row.bytes, updatedAt, text: row.text }
-    : { kind: 'image', bytes: row.bytes, updatedAt }
+  if (row.text !== null) {
+    return { kind: 'text', bytes: row.bytes, updatedAt, text: row.text }
+  }
+  // 種類は mime から決まる。mime が無い・知らない行は壊れた行なので「無い」と見なす
+  // (サーバは classifySlotFile を通った mime しか置かない)
+  const kind = row.mime === null ? null : kindOfMime(row.mime)
+  return kind === null || row.mime === null
+    ? null
+    : { kind, bytes: row.bytes, updatedAt, mime: row.mime }
 }

@@ -12,7 +12,7 @@
 // await までは同期で走るので、下の 2 関数は最初の文でそれを呼ぶ。
 
 import { errorText } from '../errorMessage'
-import { MAX_IMAGE_BYTES } from '../uploads/limits'
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, tooLargeMessage } from '../uploads/limits'
 import { copyImageToClipboard } from './clipboardImage'
 import {
   type ClipboardEntry,
@@ -20,7 +20,7 @@ import {
   clipboardReadErrorMessage,
   pickClipboardEntry,
 } from './clipboardRead'
-import { type ClipboardSlotMeta, parseSlotMeta } from './slot'
+import { type ClipboardSlotMeta, isPasteable, parseSlotMeta } from './slot'
 import { canShrink, shrinkImageFile } from '../images/shrinkImage'
 
 const CLIPBOARD_URL = '/api/clipboard'
@@ -30,6 +30,8 @@ export const SERVER_CLIPBOARD_DATA_URL = '/api/clipboard/data'
 // 返らないままメニューの「送っています…」が残り続けるのを避ける
 const TEXT_TIMEOUT_MS = 10_000
 const IMAGE_TIMEOUT_MS = 60_000
+// 動画 (最大 30MB) をモバイル回線で送る時間
+const FILE_TIMEOUT_MS = 5 * 60_000
 
 export interface ServerClipboardDeps {
   // navigator.clipboard のうち使う部分。無い環境があるので全部 optional
@@ -92,6 +94,47 @@ export async function sendClipboardToServer(
   })
 }
 
+// ファイルを選んで送る (動画・音声・PDF・テキスト・写真)。クリップボードには載らない物も
+// 運べる口。形式の判定と、HEIC・TIFF の JPEG 変換はサーバが行う (api/clipboard/data)。
+//
+// **必要なときだけ変換する。** 10MB を超える写真は長辺 2048 の JPEG に縮める
+// (clipboard 由来と同じ。iPhone の PNG など)。上限以下は原本のまま。縮められない物
+// (GIF・動画・PDF など) の上限超えは、送る前にここで断る — 数十 MB を送ってから
+// サーバに断られるのは、回線にも利用者にも無駄
+export async function sendFileToServer(
+  source: File,
+  deps: ServerClipboardDeps = browserDeps(),
+): Promise<ClipboardSlotMeta> {
+  if (source.size === 0) {
+    throw new Error('ファイルが空です')
+  }
+  let file = source
+  const limit = clientLimitOf(file)
+  if (file.size > limit) {
+    // 縮めて収まるのは写真だけ。GIF は縮めると動かなくなるので縮めない
+    if (!file.type.startsWith('image/') || !canShrink(file)) {
+      throw new Error(tooLargeMessage(limit))
+    }
+    file = await deps.shrink(file)
+  }
+  return putSlot(deps, SERVER_CLIPBOARD_DATA_URL, {
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      // 元の名前は、テキスト (txt/csv/md) の判定にだけ使われる。日本語名が通るよう URL エンコード
+      'X-File-Name': encodeURIComponent(file.name),
+    },
+    body: file,
+    timeoutMs: FILE_TIMEOUT_MS,
+  })
+}
+
+// 送る前に断る上限。動画は 30MB、それ以外は 10MB。種類が分からない (iPhone 以外の
+// HEIC などは type が空) ものは大きいほうに合わせ、最終的な判定はサーバに任せる
+function clientLimitOf(file: File): number {
+  const known = file.type !== ''
+  return known && !file.type.startsWith('video/') ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES
+}
+
 // 上限を超える画像だけ縮める (iOS の写真は PNG で 20〜30MB になる)。上限以下は
 // 触らない (再圧縮で劣化させない)。縮められない形式 (GIF) はそのまま送り、
 // サーバの「大きすぎます」で断ってもらう — 動くものを黙って止めるよりよい
@@ -108,6 +151,11 @@ export async function receiveFromServer(
   meta: ClipboardSlotMeta,
   deps: ServerClipboardDeps = browserDeps(),
 ): Promise<void> {
+  // 動画・音声・PDF・テキストのファイルは、ブラウザからクリップボードに載せる手段が無い。
+  // 受け取りは「保存」のリンク (ServerClipboardView) で、ここへ来るのは呼ぶ側の取り違え
+  if (!isPasteable(meta.kind)) {
+    throw new Error('この種類のファイルはクリップボードに載せられません')
+  }
   if (meta.kind === 'image') {
     // 取得と PNG への描き直しは ClipboardItem の中で待たせる (copyImage が同期部で
     // 器を作る)。ここで先に fetch して待つと Safari が弾く
