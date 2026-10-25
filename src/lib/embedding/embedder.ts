@@ -95,7 +95,7 @@ async function loadLib(): Promise<Transformers> {
   if (isNodeRuntime()) {
     // モデルキャッシュを書き込める場所に移す。既定はパッケージ相対の
     // node_modules/@huggingface/transformers/.cache で、本番 Docker は
-    // /app が root 所有・実行ユーザーが node のため mkdir が EACCES で落ち、
+    // /app が root 所有・実行ユーザーが非 root (qrapp) のため mkdir が EACCES で落ち、
     // 埋め込み生成がまるごと失敗する (実測)。/tmp はどの環境でも書ける。
     // コンテナ再起動でキャッシュは消えるが、初回の再取得 (数十 MB) で済む
     lib.env.cacheDir = `${process.env.TMPDIR ?? '/tmp'}/transformers-cache`

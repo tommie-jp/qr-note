@@ -137,17 +137,31 @@ FROM node:26-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# 実行ユーザー。**node (UID 1000) は使わない** — ホスト (Ubuntu) の最初の通常ユーザー
+# (ubuntu。sudo グループ) も UID 1000 で、コンテナから抜け出した/bind mount 経由で
+# 触れたファイルがその権限で読み書きされてしまう (2026-10-25 の脆弱性監査)。
+# ホストの通常ユーザーが取らない高い UID/GID を専用に切る。HOME は git が使わない
+# (notesRepo.ts は HOME を渡さない) が、Node や各ライブラリが書き込み先に参照しうるので作る。
+#
+# **既存の named volume (git-notes) は UID 1000 のまま残る**。volume は初回マウント時にしか
+# イメージ側の所有権を引き継がないため、このイメージへ切り替える前に 1 度だけ所有権を移すこと:
+#   docker run --rm -v qr-search_git-notes:/d alpine chown -R 10001:10001 /d
+# (volume 名は compose の project 名 + _git-notes。qr-demo は volume を持たない)
+RUN groupadd --system --gid 10001 qrapp \
+ && useradd --system --uid 10001 --gid 10001 --create-home --home-dir /home/qrapp \
+      --shell /usr/sbin/nologin qrapp
+
 # ノート履歴 (docs/57-ノートgit履歴計画.md) の git 本体と、リポジトリの置き場。
 # 置き場は named volume (compose.yaml の git-notes) のマウント先。volume は
 # 初回マウント時にイメージ側ディレクトリの所有権を引き継ぐため、ここで
-# node 所有にしておかないと USER node で書けない。
+# qrapp 所有にしておかないと USER qrapp で書けない (新規 volume の場合)。
 # COPY より前に置くのはレイヤーキャッシュのため (ソースが変わっても apt を
 # 引き直さない)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /app/data/git-notes \
- && chown -R node:node /app/data
+ && chown -R qrapp:qrapp /app/data
 
 # 並びは「変わらないものほど先」。レジストリは層ごとに blob を内容で持つので、
 # 不変の層 (node_modules / media / public) は 2 回目以降の push で「既に存在」で飛ぶ。
@@ -168,6 +182,6 @@ COPY --from=builder /app/.next/standalone ./
 # だけを運ぶ
 COPY --from=builder /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime*.so* ./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/
 
-USER node
+USER qrapp
 EXPOSE 3000
 CMD ["node", "server.js"]
