@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getNavigation } from "@/components/chrome/navigationApi";
 import { ClearIcon } from "@/components/icons";
@@ -21,6 +22,8 @@ import { closeNoteTargetIndex } from "./closeNote";
 // 出す物が食い違う (履歴はクライアントでしか分からない)
 export function CloseNoteButton({ listHref }: { listHref: string }) {
   const router = useRouter();
+  // 押した回数。中断の後始末が、押し直した分の遷移を追い越さないようにする
+  const pressCount = useRef(0);
 
   const close = () => {
     const navigation = getNavigation();
@@ -46,9 +49,24 @@ export function CloseNoteButton({ listHref }: { listHref: string }) {
       return;
     }
     // 別の文書へ戻るときは、この文書ごと捨てられて finished は解けない。
-    // 解けずに失敗したとき (ほかの遷移に割り込まれた等) だけ記録に残す
-    navigation.traverseTo(entries[target].key).finished.catch((error) => {
+    // 解けずに失敗したとき (ほかの遷移に割り込まれた等) だけ記録に残す。
+    //
+    // **committed も受ける。** 中断されると両方が拒否され、片方だけ受けると
+    // もう片方が「未処理の Promise 拒否」になる。
+    //
+    // **戻れなければ一覧へ倒す。** iPhone の PWA は圏外で別の文書へ戻ろうとすると
+    // "Navigation aborted" で中断し、押しても何も起きない (実機ログで 5 秒に 5 回)。
+    // まだこの画面に居て、その後に押し直していなければ、履歴が無いときと同じく
+    // 一覧へ (圏外なら SW が /offline へ送る)
+    const startKey = navigation.currentEntry?.key;
+    const press = ++pressCount.current;
+    const { committed, finished } = navigation.traverseTo(entries[target].key);
+    committed.catch(() => {});
+    finished.catch((error) => {
       console.warn("閉じる: 履歴を戻れませんでした", error);
+      if (press === pressCount.current && navigation.currentEntry?.key === startKey) {
+        router.push(listHref);
+      }
     });
   };
 

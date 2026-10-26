@@ -20,7 +20,8 @@ export interface NavigationApi extends EventTarget {
   readonly canGoForward: boolean;
   readonly currentEntry: NavigationHistoryEntry | null;
   entries(): NavigationHistoryEntry[];
-  traverseTo(key: string): { finished: Promise<unknown> };
+  // committed と finished は、中断されるとどちらも拒否される (両方受けること)
+  traverseTo(key: string): { committed: Promise<unknown>; finished: Promise<unknown> };
 }
 
 export function getNavigation(): NavigationApi | null {
