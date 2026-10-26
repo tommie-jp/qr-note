@@ -609,6 +609,22 @@ if wait_healthy remote_http_status "$HEALTH_URL"; then
   remote_ssh "$REMOTE" "docker rmi '${REG_REMOTE}:v${VERSION}' >/dev/null 2>&1 || true; docker image prune -f" >/dev/null
   step_done "8/8 ヘルスチェック + 後片付け"
   log "デプロイ完了 (v$VERSION)"
+
+  # doVersion.sh が作った release コミットとタグを GitHub へ送る。送らないと
+  # 「本番は動いているのに origin/main は 1 つ前、タグも無い」形でずれる。
+  # 配布はもう成功しているので、push の失敗は警告に留めて終了コードは 0 のまま
+  # (手で直すコマンドを添える)。--demo は版を上げないので送るものが無い
+  if [ "$DEMO" = 0 ] && [ "$NO_VERSION_UP" = 0 ]; then
+    if [ "$(git branch --show-current)" = "main" ]; then
+      if git push origin main && git push origin "v$VERSION"; then
+        echo "OK: origin/main とタグ v$VERSION を push"
+      else
+        echo "WARN: push に失敗した。手で: git push origin main && git push origin v$VERSION" >&2
+      fi
+    else
+      echo "WARN: main ブランチではないので push を省略した" >&2
+    fi
+  fi
   # 処理時間の内訳は EXIT trap の print_timing がこの後に出す
   exit 0
 fi
