@@ -111,7 +111,10 @@ export function useServerClipboard(): ServerClipboardState {
         showOk(`サーバへ送りました (${slotLabel(meta)})`);
       })
       .catch((cause: unknown) => {
-        console.error("サーバのクリップボードへ送れませんでした:", cause);
+        // NotAllowedError は iOS のペーストの吹き出しを閉じた (= 断った) ときにも来る。
+        // 利用者の選択なので不具合のログ (error) にしない。画面には理由を出す
+        const log = (cause as { name?: string } | null)?.name === "NotAllowedError" ? console.warn : console.error;
+        log("サーバのクリップボードへ送れませんでした:", cause);
         showError(serverClipboardErrorMessage(cause, "send"));
       })
       .finally(() => setBusy(null));

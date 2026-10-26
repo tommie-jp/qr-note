@@ -31,8 +31,10 @@ interface RecordAccessProps {
 export function RecordAccess({ itemId, action }: RecordAccessProps) {
   useEffect(() => {
     void action(itemId).catch((error: unknown) => {
-      // 画面には出さない。ブラウザ側のログは DebugConsole から見える
-      console.error("アクセス日時を記録できませんでした", error);
+      // 画面には出さない。ブラウザ側のログは DebugConsole から見える。
+      // ここに来るのはほぼ通信の失敗 (圏外の "Load failed") で、並びが 1 回進まない
+      // だけなので warn に留める。サーバ側の失敗は recordAccessAction が error で残す
+      console.warn("アクセス日時を記録できませんでした", error);
     });
   }, [itemId, action]);
 
