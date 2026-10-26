@@ -261,10 +261,38 @@ test.describe('検索結果の画像ビューア (2 ページ目へ送る)', () 
         'src',
         `${IMAGES_PATH}/${pagedImage(PAGED_COUNT - 1 - n)}`,
       )
+      // 先読み: 残り 10 枚になった所で 2 ページ目を頼むので、1 ページ目の
+      // 末尾 (20 枚目) よりずっと手前 (残り 8 枚) で一覧が伸びている
+      if (n === PAGED_COUNT - 9) {
+        await expect(openers).toHaveCount(PAGED_COUNT)
+      }
     }
 
     // Assert: 2 ページ目の 1 枚 (最初に作ったノート) まで届き、一覧も伸びている
     await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${pagedImage(0)}`)
+    await expect(openers).toHaveCount(PAGED_COUNT)
+  })
+
+  test('一覧は末尾が見える前 (1 画面ぶん手前) で次のページを読み込む', async ({ page }) => {
+    // Arrange: 2 列ほどに狭めて、1 ページ目を器の 1 画面より十分長くする
+    await page.setViewportSize({ width: 700, height: 800 })
+    await page.context().addCookies([
+      { name: 'view', value: 'image', url: BASE_URL },
+      { name: 'panes', value: '3', url: BASE_URL },
+    ])
+    await openSearch(page, PAGED_TOKEN)
+    const openers = searchResults(page).getByRole('button', { name: '画像を大きく表示' })
+    await expect(openers).toHaveCount(PAGED_COUNT - 1)
+    const scroller = page.locator('[data-results-scroll]')
+    const loadMore = page.locator('[data-auto-load-more]')
+    await expect(loadMore).toBeAttached()
+
+    // Act: 末尾の目印が器の下端より半画面ぶん下に隠れる所までスクロール
+    await scroller.evaluate((el) => {
+      el.scrollTop = el.scrollHeight - el.clientHeight * 1.5
+    })
+
+    // Assert: 目印は見えていないが、2 ページ目が届いている
     await expect(openers).toHaveCount(PAGED_COUNT)
   })
 })

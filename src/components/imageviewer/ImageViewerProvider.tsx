@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import { attachmentUrl } from "@/lib/images/memoImages";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
 import {
   neighborTarget,
@@ -40,8 +41,12 @@ export function useImageViewer(): ImageViewerState | null {
 // そのまま利用者の見ている順なので、目印 (data-viewer-*) から組み立てる
 const OPENER_SELECTOR = "[data-viewer-image]";
 
-// 残りがこの枚数以下になったら次のページを先読みする (末尾で待たせない)
-const PREFETCH_REMAINING = 3;
+// 残りがこの枚数以下になったら次のページを先読みする (末尾で待たせない)。
+// 1 ページは 20 件なので、半ページ手前で頼めば → を押し続けても追いつかない
+const PREFETCH_REMAINING = 10;
+// 出している画像の前後で、原寸を先に取っておく枚数 (送った瞬間に原寸が出る)
+const PRELOAD_AHEAD = 2;
+const PRELOAD_BEHIND = 1;
 // 末尾で → を押してから、次のページの画像が出るのを待つ上限 (ms)
 const LOAD_MORE_WAIT_MS = 15_000;
 
@@ -162,8 +167,8 @@ export function ImageViewerProvider({
   // 次のページは**ビューアから直接頼む** (requestLoadMore)。一覧の末尾の
   // 目印はスクロールで画面に入ったときにしか読まないが、2 / 3 ペインの
   // 内側スクロールでは → で末尾の画像まで寄せても目印が器の外に隠れた
-  // ままで、最後の画像で止まっていた (loadMore.ts)。末尾の数枚に来たら
-  // 先読みし、末尾で押されたら読み込みを待ってから送る
+  // ままで、最後の画像で止まっていた (loadMore.ts)。末尾に近づいたら
+  // 先読みし (下の effect)、末尾で押されたら読み込みを待ってから送る
   const step = useCallback(
     (dir: -1 | 1) => {
       if (current === null) {
@@ -180,13 +185,6 @@ export function ImageViewerProvider({
         return;
       }
       showTarget(next, openers, targets);
-      if (
-        dir === 1 &&
-        targets.length - targets.findIndex((t) => sameTarget(t, next)) <=
-          PREFETCH_REMAINING
-      ) {
-        requestLoadMore();
-      }
     },
     [current, showTarget],
   );
@@ -216,6 +214,32 @@ export function ImageViewerProvider({
       clearTimeout(timer);
     };
   }, [awaitingMore, current, showTarget]);
+
+  // 先読み。前後の画像の原寸を先に取っておき (送ってから取りに行くと、
+  // サムネの引き伸ばしから原寸に替わるまでの間が見える)、末尾に近ければ
+  // 次のページを頼む。並びは今の画面から拾う
+  useEffect(() => {
+    if (current === null) {
+      return;
+    }
+    const targets = openersInPage().map(targetOf);
+    const index = targets.findIndex((t) => sameTarget(t, current));
+    if (index === -1) {
+      return;
+    }
+    const neighbors = [
+      ...targets.slice(index + 1, index + 1 + PRELOAD_AHEAD),
+      ...targets.slice(Math.max(0, index - PRELOAD_BEHIND), index),
+    ];
+    for (const t of neighbors) {
+      new Image().src = attachmentUrl(t.name);
+    }
+    // 末尾に近ければ次のページも頼む。送ったときだけでなく、末尾近くの
+    // 画像を押して開いたときにも効く
+    if (targets.length - index <= PREFETCH_REMAINING) {
+      requestLoadMore();
+    }
+  }, [current]);
 
   useEffect(() => {
     if (current === null) {

@@ -19,6 +19,22 @@ import { LOAD_MORE_EVENT } from "./loadMore";
 //
 // 発火が二重になっても replace 先は同じ URL なので害はないが、
 // isPending 中は観測を止めて無駄撃ちを避ける。
+// 先読みの距離。root の高さに対する割合 (1 画面ぶん)
+const PREFETCH_MARGIN = "100% 0px";
+
+// 一覧が内側でスクロールしている器 (2 / 3 ペイン・広い画面の [data-results-scroll])。
+// **実際に overflow でスクロールしているときだけ** root にする — 文書ごと
+// スクロールする構成 (1 ペインの狭い画面) で器を root にすると、器は切り取らない
+// ので目印が常に「見えている」扱いになり、全ページを連鎖読み込みしてしまう
+function scrollRootOf(el: HTMLElement): HTMLElement | null {
+  const scroller = el.closest<HTMLElement>("[data-results-scroll]");
+  if (scroller === null) {
+    return null;
+  }
+  const { overflowY } = getComputedStyle(scroller);
+  return overflowY === "auto" || overflowY === "scroll" ? scroller : null;
+}
+
 export function AutoLoadMore({
   href,
   remaining,
@@ -44,9 +60,12 @@ export function AutoLoadMore({
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) load();
       },
-      // 末尾に届く少し手前 (1 画面の 1/4 ほど) で先読みして、
-      // スクロールが底で止まる感じを減らす
-      { rootMargin: "200px" },
+      // 末尾に届く 1 画面ぶん手前で先読みして、スクロールが底で止まる
+      // 間を作らない。root は一覧が実際にスクロールする器 —
+      // rootMargin は root の縁にしか付かないので、2 / 3 ペインの内側
+      // スクロールで root を画面 (null) のままにすると、器の切り取りで
+      // 余白が効かず、目印が見えてから読み込んでいた
+      { root: scrollRootOf(el), rootMargin: PREFETCH_MARGIN },
     );
     observer.observe(el);
     return () => observer.disconnect();
