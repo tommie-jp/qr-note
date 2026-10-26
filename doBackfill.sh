@@ -35,6 +35,11 @@
 #               書き換え**で、抜いた情報は戻らない。先に photometa-check で件数を見ること。
 #   photometa-check
 #               photometa の下見 (--dry-run)。何が何件に残っているかを数えるだけで書かない。
+#   embeddings  images.embedding が null の画像に、画像検索の埋め込みを作って入れる
+#               (docs/25-画像検索計画.md §4)。本番の埋め込み生成が落ちていた期間
+#               (v0.23.49〜v0.23.55。依存更新で onnxruntime-node と sharp の .so が
+#               イメージから抜けていた) の画像を拾うのに使った。計算は手元の
+#               onnxruntime-node で行う (モデルは本番と同じ版のはず。package.json で固定)。
 #
 # photometa と circuit-addresses 以外は派生キャッシュなので何度流しても安全 (冪等)。
 # 値が既に合っている行・描画済みの図は書かない。photometa も冪等 (抜くものが無い写真は
@@ -77,7 +82,7 @@ cd "$(dirname "$0")"
 . scripts/lib/remote.sh
 
 usage() {
-  echo "usage: $0 <titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check> [--demo | --seed]" >&2
+  echo "usage: $0 <titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check|embeddings> [--demo | --seed]" >&2
   echo "       $0 -h    (詳しい説明)" >&2
   exit 1
 }
@@ -96,7 +101,7 @@ for arg in "$@"; do
     -h|--help) help ;;
     --demo) DEMO=1 ;;
     --seed) SEED=1 ;;
-    titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check)
+    titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check|embeddings)
       [ -z "$TASK" ] || usage
       TASK="$arg"
       ;;
@@ -114,6 +119,7 @@ case "$TASK" in
   circuit-addresses) TASK_LABEL="circuit の旧い番地を x,y に書き直す (DRY_RUN=1 なら書かない)"; TASK_ARGS=(scripts/backfillCircuitAddresses.ts) ;;
   photometa) TASK_LABEL="写真と動画の撮影情報を抜く (原本を書き換える)"; TASK_ARGS=(scripts/backfillPhotoMeta.ts) ;;
   photometa-check) TASK_LABEL="写真と動画の撮影情報を数える (書き換えない)"; TASK_ARGS=(scripts/backfillPhotoMeta.ts --dry-run) ;;
+  embeddings) TASK_LABEL="画像検索の埋め込みを埋める (埋まっている画像は飛ばす)"; TASK_ARGS=(scripts/backfillEmbeddings.ts) ;;
 esac
 
 # 当てる DB の並び。--seed が付けば種だけ (--demo と併記しても種だけ)
