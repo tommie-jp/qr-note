@@ -242,9 +242,12 @@ export function parseSlotMeta(value: unknown): ClipboardSlotMeta | null {
   if (kind === 'text') {
     return typeof text === 'string' ? { kind, bytes, updatedAt, text } : null
   }
-  if (FILE_KINDS.includes(kind as ClipboardSlotKind) && typeof mime === 'string') {
+  // **知らない種類は「ファイル」に倒す。** 配布の直後は古い画面が新しいサーバと
+  // 話す (v0.23.53 の画面が v0.23.54 で増えた 'file' を知らず、届いた送信を
+  // 「応答を読めませんでした」と出した)。保存のリンクならどの種類でも渡せる
+  if (typeof kind === 'string' && typeof mime === 'string') {
     return {
-      kind: kind as ClipboardSlotKind,
+      kind: FILE_KINDS.includes(kind as ClipboardSlotKind) ? (kind as ClipboardSlotKind) : 'file',
       bytes,
       updatedAt,
       mime,

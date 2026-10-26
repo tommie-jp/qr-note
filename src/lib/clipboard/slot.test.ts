@@ -279,12 +279,22 @@ describe('parseSlotMeta', () => {
     ).toMatchObject({ kind })
   })
 
+  // 配布の直後、古い画面が新しいサーバの返す種類を受け取る。成功した送信を
+  // 「応答を読めませんでした」にせず、保存できる「ファイル」として出す
+  test('知らない種類でも mime があれば file として読む (新しいサーバの種類)', () => {
+    expect(
+      parseSlotMeta({ kind: 'spreadsheet', bytes: 1, updatedAt: 'x', mime: 'application/x', name: 'a.xlsx' }),
+    ).toEqual({ kind: 'file', bytes: 1, updatedAt: 'x', mime: 'application/x', name: 'a.xlsx' })
+  })
+
   test.each([
     null,
     undefined,
     'x',
     42,
     {},
+    { kind: 'spreadsheet', bytes: 1, updatedAt: 'x' },
+    { kind: 5, bytes: 1, updatedAt: 'x', mime: 'application/x' },
     { kind: 'video', bytes: 1, updatedAt: 'x' },
     { kind: 'image', bytes: -1, updatedAt: 'x' },
     { kind: 'image', bytes: 1 },
