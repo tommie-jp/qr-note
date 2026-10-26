@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { ImageViewerProvider } from "@/components/imageviewer/ImageViewerProvider";
 import { PaneModeProvider } from "@/components/panes/PaneModeProvider";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 
@@ -23,8 +24,12 @@ export default async function SearchLayout({
 
   return (
     <PaneModeProvider mode={mode}>
-      {children}
-      {detail}
+      {/* 一覧の画像を大きく見せるビューア (docs/116)。ペインの構成と
+          「いま出ているノート」を見るので PaneModeProvider の内側に置く */}
+      <ImageViewerProvider>
+        {children}
+        {detail}
+      </ImageViewerProvider>
     </PaneModeProvider>
   );
 }

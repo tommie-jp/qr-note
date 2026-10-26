@@ -10,6 +10,7 @@ import { allImageNames, thumbUrl } from "@/lib/images/memoImages";
 import { memoSummary } from "@/lib/markdown/memoSummary";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { CircuitThumb } from "./CircuitThumb";
+import { ViewerImageButton } from "../imageviewer/ViewerImageButton";
 import { TileActions } from "./row-actions/TileActions";
 import { MathText } from "../markdown/MathText";
 
@@ -127,37 +128,49 @@ export function ImageMasonry({
                 : "border-gray-200 bg-white"
             }`}
           >
-            {/* 画像 + 1 行目 (#番号 タイトル) をノート詳細への 1 本のリンクにし、
-                ::after を枠いっぱいに広げてタイル全体を当たり判定にする
-                (stretched link)。タグは別の行き先なので入れ子にできず、下で
-                z-10 で膜の上に出す (ItemRow と同じ仕掛け・docs/32 §2) */}
+            {/* 画像はノートへのリンクの外に置く (docs/116 §1)。押すとビューアで
+                大きく見せる釦になり (ViewerImageButton。z-10 で下の膜の上に出る)、
+                1 行目 (#番号 タイトル) がノート詳細へのリンク。リンクの ::after を
+                枠いっぱいに広げてタイルの残りを当たり判定にする (stretched link)。
+                タグは別の行き先なので入れ子にできず、下で z-10 で膜の上に出す
+                (ItemRow と同じ仕掛け・docs/32 §2)。ビューアの provider の外では
+                画像は膜の下に居て、押せば今までどおりノートが開く */}
+            {media.image !== undefined ? (
+              /* next/image は使えない (ItemRow と同じ 401 問題)。
+                 寸法は DB に無く読み込みで高さが決まるため、自然高のままだと
+                 行の高さが読み込み順にガタつく。枠は aspect-square で正方形に
+                 固定してレイアウトシフトを消しつつ、object-contain で画像**全体**
+                 を余白付きで見せる (切り抜かない)。余った所は地色が埋め、これが
+                 レターボックスと読み込み前の場所の気配を兼ねる (docs/32 §2)。
+                 alt="" … すぐ下のキャプションが中身を説明する (ItemRow と同じ) */
+              <ViewerImageButton
+                target={{
+                  itemId: item.itemId,
+                  name: media.image,
+                  href: itemHref(item.itemId),
+                }}
+                className="w-full"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumbUrl(media.image)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="block aspect-square w-full bg-gray-100 object-contain"
+                />
+              </ViewerImageButton>
+            ) : (
+              /* 回路図は SVG をそのまま埋め込む (docs/68 §4)。枠の作法は
+                 画像タイルと同じ正方形 + contain (CircuitThumb 側が持つ) */
+              <CircuitThumb variant="tile" svg={media.svg} />
+            )}
             <Link
               href={itemHref(item.itemId)}
               transitionTypes={["nav-forward"]}
               aria-current={selected ? "page" : undefined}
               className="block after:absolute after:inset-0"
             >
-              {media.image !== undefined ? (
-                /* next/image は使えない (ItemRow と同じ 401 問題)。
-                   寸法は DB に無く読み込みで高さが決まるため、自然高のままだと
-                   行の高さが読み込み順にガタつく。枠は aspect-square で正方形に
-                   固定してレイアウトシフトを消しつつ、object-contain で画像**全体**
-                   を余白付きで見せる (切り抜かない)。余った所は地色が埋め、これが
-                   レターボックスと読み込み前の場所の気配を兼ねる (docs/32 §2)。
-                   alt="" … すぐ下のキャプションが中身を説明する (ItemRow と同じ) */
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={thumbUrl(media.image)}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="aspect-square w-full bg-gray-100 object-contain"
-                />
-              ) : (
-                /* 回路図は SVG をそのまま埋め込む (docs/68 §4)。枠の作法は
-                   画像タイルと同じ正方形 + contain (CircuitThumb 側が持つ) */
-                <CircuitThumb variant="tile" svg={media.svg} />
-              )}
               {/* ⋮ (幅 36px・高さ 24px) はこの行の右端に重なる。
                   pr-9 … 題をその手前で切る。
                   min-h-7 … 行を ⋮ より高く取り、タグの無いタイルでも ⋮ を

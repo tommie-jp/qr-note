@@ -57,6 +57,16 @@ interface RowActionButtonsProps {
 //
 // Tailwind v4 の hover 系は @media (hover: hover) に包まれるので、スマホで
 // 触れた指にボタンが貼り付くことはない (あちらは ⋮ と長押しのメニューが受ける)。
+// 小・中表示での置き場所。既定は ⋮ (右端 40px) のすぐ左。
+// **サムネのある行ではサムネの左へ退く** (docs/116 §1)。サムネは押すと画像を
+// 大きく見せる釦なので、ホバーで釦が重なると押せなくなる (小表示の 24px は
+// ゴミ箱の釦 36px にまるごと隠れていた)。位置は ⋮ の幅 (pr-10 = 40px) +
+// サムネ (size-6 / size-10) + 行の gap-3 (12px)。サムネの寸法 (THUMB_SIZE_CLASS)
+// を変えるときはここも直す。カードはサムネが 96px あり、釦は角にかかるだけ
+// なので退かない
+const COMPACT_PLACEMENT_CLASS =
+  "inset-y-0 right-11 items-center group-has-[[data-row-thumb=compact]]:right-19 group-has-[[data-row-thumb=medium]]:right-23";
+
 export function RowActionButtons({
   name,
   actions,
@@ -72,7 +82,7 @@ export function RowActionButtons({
       // z-10 … タイトルの当たり判定 (::after) より前に出す。膜の下に居ると
       // ボタンを押してもノートが開く (タグを relative z-10 にするのと同じ)
       className={`pointer-events-none absolute z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100 ${
-        view === "card" ? "top-2 right-11" : "inset-y-0 right-11 items-center"
+        view === "card" ? "top-2 right-11" : COMPACT_PLACEMENT_CLASS
       }`}
     >
       {quick.map((action) => (

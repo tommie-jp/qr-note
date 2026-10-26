@@ -6,6 +6,7 @@ import { CircuitThumb } from "@/components/item/CircuitThumb";
 import { MathText } from "@/components/markdown/MathText";
 import { NotePreviewFrame } from "@/components/item/NotePreviewFrame";
 import { RowThumb } from "@/components/item/RowThumb";
+import { ViewerImageButton } from "@/components/imageviewer/ViewerImageButton";
 import {
   rowFace,
   rowTintClass,
@@ -80,13 +81,16 @@ function RowTags({ tags }: { tags: readonly string[] }) {
 
 // 顔の優先順位は rowFace (lib/items/itemRowDecor.ts) が持つ
 function renderThumb(
-  input: Pick<RowPartsInput, "item" | "view" | "circuitThumb" | "notePreview">,
+  input: Pick<
+    RowPartsInput,
+    "item" | "href" | "checkbox" | "view" | "circuitThumb" | "notePreview"
+  >,
 ): ReactNode {
-  const { item, view, circuitThumb, notePreview } = input;
+  const { item, href, checkbox, view, circuitThumb, notePreview } = input;
   const face = rowFace(item, { circuitThumb, hasNotePreview: Boolean(notePreview) });
   switch (face?.kind) {
-    case "image":
-      return (
+    case "image": {
+      const thumb = (
         <RowThumb
           name={face.name}
           isVideo={face.isVideo}
@@ -94,6 +98,25 @@ function renderThumb(
           sizeClass={THUMB_SIZE_CLASS[view]}
         />
       );
+      // 画像のサムネは押すとビューアで大きく見せる (docs/116 §1)。
+      // 動画はノートを開いて再生するので今までどおり膜の下。選択モード中は
+      // 行のどこを押しても選択にしたいので包まない
+      if (face.isVideo || checkbox) {
+        return thumb;
+      }
+      // data-row-thumb … PC のホバーで出る近道の釦 (RowActionButtons) が、
+      // この印を見てサムネの左へ退く。押せないサムネ (動画・回路図・
+      // プレビュー) には付けない — 退くと題の末尾に釦がかぶる
+      return (
+        <ViewerImageButton
+          target={{ itemId: item.itemId, name: face.name, href }}
+          className="shrink-0 self-center rounded"
+          dataRowThumb={view}
+        >
+          {thumb}
+        </ViewerImageButton>
+      );
+    }
     case "circuit":
       return (
         <CircuitThumb

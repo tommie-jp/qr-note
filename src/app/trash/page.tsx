@@ -10,6 +10,7 @@ import {
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { TrashActionBar } from "@/components/bottombar/TrashActionBar";
 import { TrashList } from "@/components/trash/TrashList";
+import { ImageViewerProvider } from "@/components/imageviewer/ImageViewerProvider";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
 import { loadCircuitThumbs } from "@/lib/circuit/thumbs";
@@ -72,17 +73,21 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
         </p>
 
         {/* 器 (main) がもう画面幅いっぱいなので、カード・masonry を広げる
-            細工 (旧 WIDE_RESULTS_CLASS) は要らない (docs/101 §3-3) */}
-        <TrashList
-          items={items}
-          view={view}
-          restoreAction={restoreItemsAction}
-          purgeAction={purgeItemsAction}
-          emptyTrashAction={emptyTrashAction}
-          circuitThumbs={circuitThumbs}
-          mathTexts={mathTexts}
-          notePreviews={notePreviews}
-        />
+            細工 (旧 WIDE_RESULTS_CLASS) は要らない (docs/101 §3-3)。
+            画像を押すと覆いで大きく見せる (docs/116 §2。ノートのペインが
+            無い画面なので常に覆い) */}
+        <ImageViewerProvider overlayOnly>
+          <TrashList
+            items={items}
+            view={view}
+            restoreAction={restoreItemsAction}
+            purgeAction={purgeItemsAction}
+            emptyTrashAction={emptyTrashAction}
+            circuitThumbs={circuitThumbs}
+            mathTexts={mathTexts}
+            notePreviews={notePreviews}
+          />
+        </ImageViewerProvider>
       </div>
 
       <TrashActionBar

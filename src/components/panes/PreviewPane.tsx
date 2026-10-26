@@ -8,29 +8,16 @@ import {
   NoteChromeBar,
 } from "@/components/notechrome/NoteChromeBar";
 import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
+import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
 import { PaneResizer } from "@/components/panes/PaneResizer";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { ACTION_LINK_CLASS, CONTENT_WIDTH_CLASS } from "@/components/ui";
 import {
   keepsNoteOpen,
   notePaneLayout,
-  type NotePaneLayout,
 } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
 
-// 器の置き方。**z の高さが要点** (docs/86 §4-9):
-//   下部ペイン … z-0。下部バー (z-10) より下に置く — 長押しメニューは
-//     バーの上へせり上がるので、ペインと同層だと DOM 順で負けて隠れる。
-//   全画面 … z-10。バーごと覆う (ノートを読む間は検索の帯を出さない)。
-// どちらもヘッダー (z-20) の下から始める (§4-5)。
-// --note-view-h … ノートが見えている高さ。画像の表示モード「全体」(docs/106)
-// が画像の高さの上限に使う。**器の高さと同じ式を書く** — ずれると全体のつもりで
-// ペインからはみ出す (globals.css の :root が単独ページの既定を持つ)
-const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
-  pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)] [--note-view-h:var(--preview-pane-h)]",
-  fullscreen:
-    "top-[var(--header-h)] bottom-0 z-10 [--note-view-h:calc(100dvh-var(--header-h))]",
-};
 
 interface PreviewPaneProps {
   // ペインの地色。本番=灰 / ローカル=ピンクは env から決まるので、サーバ側

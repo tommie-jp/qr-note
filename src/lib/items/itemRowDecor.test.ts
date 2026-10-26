@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  THUMB_SIZE_CLASS,
   hasRowText,
   rowFace,
   rowPreview,
@@ -123,4 +124,12 @@ describe('stretchedLinkClass / rowTintClass', () => {
     expect(selected).not.toContain('bg-gray-50')
     expect(plain).toBe('hover:bg-gray-50 active:bg-gray-100')
   })
+})
+
+test('行のサムネの寸法は、近道の釦の退き先と組で決まっている', () => {
+  // 変えるときは RowActions.tsx の COMPACT_PLACEMENT_CLASS (right-19 / right-23 =
+  // ⋮ の 40px + サムネ + gap-3 の 12px) も直す (docs/116 §1)。直さないと
+  // ホバーで出るゴミ箱の釦がサムネ (押すと画像を大きく見せる) に重なる
+  expect(THUMB_SIZE_CLASS.compact).toBe('size-6')
+  expect(THUMB_SIZE_CLASS.medium).toBe('size-10')
 })
