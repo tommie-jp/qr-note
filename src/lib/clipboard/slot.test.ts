@@ -4,6 +4,8 @@ import {
   CLIPBOARD_TTL_MS,
   isSlotExpired,
   isPasteable,
+  previewText,
+  SLOT_THUMB_URL,
   sanitizeFileName,
   withExtension,
   kindOfMime,
@@ -71,6 +73,13 @@ describe('slotLabel (画像以外のファイル)', () => {
     ['textfile', 'text/csv; charset=utf-8', 'テキストファイル 12.3MB'],
   ] as const)('%s は種類と大きさ', (kind, mime, label) => {
     expect(slotLabel({ kind, bytes: 12.3 * 1024 * 1024, updatedAt: '', mime })).toBe(label)
+  })
+})
+
+describe('slotLabel (大きさの単位)', () => {
+  // 0KB と出すと空のファイルに見える
+  test('1KB 未満はバイトで出す', () => {
+    expect(slotLabel({ kind: 'file', bytes: 500, updatedAt: '', mime: 'x/y' })).toBe('ファイル 500B')
   })
 })
 
@@ -284,5 +293,63 @@ describe('parseSlotMeta', () => {
     { kind: 'text', bytes: 1, updatedAt: 'x' },
   ])('知らない形は null に畳む: %j', (value) => {
     expect(parseSlotMeta(value)).toBeNull()
+  })
+})
+
+describe('見本 (docs/115)', () => {
+  test('見本の絵の口', () => {
+    expect(SLOT_THUMB_URL).toBe('/api/clipboard/thumb')
+  })
+
+  test('メタの hasThumb と preview を読む', () => {
+    const meta = parseSlotMeta({
+      kind: 'image',
+      bytes: 1,
+      updatedAt: 'x',
+      mime: 'image/png',
+      hasThumb: true,
+      preview: 'abc',
+    })
+
+    expect(meta).toMatchObject({ hasThumb: true, preview: 'abc' })
+  })
+
+  test('hasThumb が true でなければ載せない。preview は文字列のときだけ', () => {
+    const meta = parseSlotMeta({
+      kind: 'image',
+      bytes: 1,
+      updatedAt: 'x',
+      mime: 'image/png',
+      hasThumb: 'yes',
+      preview: 5,
+    })
+
+    expect(meta).not.toHaveProperty('hasThumb')
+    expect(meta).not.toHaveProperty('preview')
+  })
+
+  describe('previewText (抜粋)', () => {
+    test('4 行までで切り、続きがあれば … を付ける', () => {
+      expect(previewText('1\n2\n3\n4\n5')).toBe('1\n2\n3\n4…')
+    })
+
+    test('4 行以内ならそのまま', () => {
+      expect(previewText('a\n\nb')).toBe('a\n\nb')
+    })
+
+    test('長い 1 行は 300 字で切る (code point で数える)', () => {
+      const cut = previewText('😀'.repeat(400))
+
+      expect(Array.from(cut)).toHaveLength(301)
+      expect(cut.endsWith('…')).toBe(true)
+    })
+
+    test('CRLF も行として数える', () => {
+      expect(previewText('1\r\n2\r\n3\r\n4\r\n5')).toBe('1\n2\n3\n4…')
+    })
+
+    test('前後の空白行は落とす', () => {
+      expect(previewText('\n\n  a\n')).toBe('  a')
+    })
   })
 })

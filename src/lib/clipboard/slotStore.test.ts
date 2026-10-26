@@ -9,6 +9,8 @@ interface Row {
   mime: string | null
   data: Uint8Array | null
   name: string | null
+  thumb?: Uint8Array | null
+  preview?: string | null
   bytes: number
   updatedAt: Date
 }
@@ -17,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   row: null as Row | null,
   deleted: [] as string[],
   wheres: [] as Array<Record<string, unknown>>,
+  updates: [] as Array<{ where: Record<string, unknown>; data: Record<string, unknown> }>,
   now: new Date('2026-10-25T12:00:00.000Z'),
 }))
 
@@ -28,6 +31,25 @@ vi.mock('@/lib/db', () => ({
       upsert: async ({ where, create }: { where: { userName: string }; create: Omit<Row, 'updatedAt'> }) => {
         mocks.row = { ...create, userName: where.userName, updatedAt: mocks.now }
         return mocks.row
+      },
+      // 本物と同じく、where の全部 (userName・updatedAt・text) に合う行だけを書き換える
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { userName: string; updatedAt: Date; text: null }
+        data: Partial<Row>
+      }) => {
+        mocks.updates.push({ where, data })
+        const hit =
+          mocks.row !== null &&
+          mocks.row.userName === where.userName &&
+          mocks.row.updatedAt.getTime() === where.updatedAt.getTime() &&
+          mocks.row.text === null
+        if (hit && mocks.row) {
+          mocks.row = { ...mocks.row, ...data }
+        }
+        return { count: hit ? 1 : 0 }
       },
       deleteMany: async ({
         where,
@@ -55,9 +77,16 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-const { clearExpiredSlot, clearSlot, readSlotMedia, readSlotMeta, writeSlotMedia, writeSlotText } = await import(
-  './slotStore'
-)
+const {
+  attachSlotThumb,
+  clearExpiredSlot,
+  clearSlot,
+  readSlotMedia,
+  readSlotMeta,
+  readSlotThumb,
+  writeSlotMedia,
+  writeSlotText,
+} = await import('./slotStore')
 
 const USER = 'tommie'
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
@@ -66,6 +95,7 @@ beforeEach(() => {
   mocks.row = null
   mocks.deleted = []
   mocks.wheres = []
+  mocks.updates = []
 })
 
 describe('writeSlotText', () => {
@@ -274,5 +304,93 @@ describe('clearSlot', () => {
 
   test('無くても投げない', async () => {
     await expect(clearSlot(USER)).resolves.toBeUndefined()
+  })
+})
+
+describe('見本 (docs/115)', () => {
+  const THUMB = new Uint8Array([0x52, 0x49, 0x46, 0x46])
+
+  test('置くときに見本も置け、メタに hasThumb と preview が載る', async () => {
+    const meta = await writeSlotMedia(USER, 'text/csv; charset=utf-8', PNG, 'a.csv', {
+      thumb: THUMB,
+      preview: 'a,b',
+    })
+
+    expect(meta).toMatchObject({ hasThumb: true, preview: 'a,b' })
+    expect(await readSlotMeta(USER, mocks.now)).toMatchObject({ hasThumb: true, preview: 'a,b' })
+  })
+
+  test('見本が無ければ hasThumb も preview も載せない', async () => {
+    const meta = await writeSlotMedia(USER, 'application/octet-stream', PNG, 'a.zip')
+
+    expect(meta).not.toHaveProperty('hasThumb')
+    expect(meta).not.toHaveProperty('preview')
+  })
+
+  // 置き直したら前のファイルの見本を引きずらない
+  test('文字で上書きすると見本は消える', async () => {
+    await writeSlotMedia(USER, 'image/png', PNG, null, { thumb: THUMB, preview: 'x' })
+    await writeSlotText(USER, 'y')
+
+    expect(mocks.row).toMatchObject({ thumb: null, preview: null })
+  })
+
+  test('readSlotThumb は見本の絵を返す。無ければ null', async () => {
+    await writeSlotMedia(USER, 'image/png', PNG, null, { thumb: THUMB })
+    expect(await readSlotThumb(USER, mocks.now)).toEqual(THUMB)
+
+    await writeSlotMedia(USER, 'image/png', PNG)
+    expect(await readSlotThumb(USER, mocks.now)).toBeNull()
+  })
+
+  test('期限切れの見本は読めず、行を消す', async () => {
+    await writeSlotMedia(USER, 'image/png', PNG, null, { thumb: THUMB })
+    const later = new Date(mocks.now.getTime() + CLIPBOARD_TTL_MS)
+
+    expect(await readSlotThumb(USER, later)).toBeNull()
+    expect(mocks.row).toBeNull()
+  })
+
+  describe('attachSlotThumb (クライアントが作った絵を後から貼る)', () => {
+    test('版が合えば貼り、hasThumb のメタを返す', async () => {
+      await writeSlotMedia(USER, 'video/mp4', PNG, 'a.mp4')
+
+      const result = await attachSlotThumb(USER, mocks.now, THUMB, mocks.now)
+
+      expect(result).toMatchObject({ status: 'ok', meta: { kind: 'video', hasThumb: true } })
+      expect(mocks.row?.thumb).toEqual(THUMB)
+    })
+
+    // @updatedAt は update のたびに進む。明示して書き戻さないと期限が延び、版もずれる
+    test('updatedAt を見た版のまま書き戻す (進めない)', async () => {
+      await writeSlotMedia(USER, 'video/mp4', PNG, 'a.mp4')
+
+      await attachSlotThumb(USER, mocks.now, THUMB, mocks.now)
+
+      expect(mocks.updates[0]?.data).toMatchObject({ updatedAt: mocks.now })
+      expect(mocks.updates[0]?.where).toMatchObject({ userName: USER, updatedAt: mocks.now })
+    })
+
+    // 別の端末が先に置き直した。古い動画の絵を新しい枠に付けない
+    test('版が違えば貼らずに stale', async () => {
+      await writeSlotMedia(USER, 'video/mp4', PNG, 'a.mp4')
+      const older = new Date(mocks.now.getTime() - 1000)
+
+      const result = await attachSlotThumb(USER, older, THUMB, mocks.now)
+
+      expect(result).toEqual({ status: 'stale' })
+      expect(mocks.row?.thumb ?? null).toBeNull()
+    })
+
+    test('枠が無い・文字の枠・期限切れは missing', async () => {
+      expect(await attachSlotThumb(USER, mocks.now, THUMB, mocks.now)).toEqual({ status: 'missing' })
+
+      await writeSlotText(USER, 'x')
+      expect(await attachSlotThumb(USER, mocks.now, THUMB, mocks.now)).toEqual({ status: 'missing' })
+
+      await writeSlotMedia(USER, 'video/mp4', PNG)
+      const later = new Date(mocks.now.getTime() + CLIPBOARD_TTL_MS)
+      expect(await attachSlotThumb(USER, mocks.now, THUMB, later)).toEqual({ status: 'missing' })
+    })
   })
 })

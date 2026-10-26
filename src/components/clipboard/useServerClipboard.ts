@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  attachThumbToServer,
   clearServerSlot,
   fetchServerSlot,
   receiveFromServer,
@@ -130,6 +131,14 @@ export function useServerClipboard(): ServerClipboardState {
         setLoadFailed(false);
         applySlot(meta);
         showOk(`サーバへ送りました (${slotLabel(meta)})`);
+        // 動画と PDF の見本の絵は、ここで作って後から貼る (docs/115 §1-6)。待たない —
+        // 「送りました」は本体が届いた時点で出し、絵は貼れたら差し替わる
+        void attachThumbToServer(file, meta).then((withThumb) => {
+          if (withThumb) {
+            // 貼っている間に別の物を送っていたら、古い絵で上書きしない
+            setSlot((current) => (current?.updatedAt === withThumb.updatedAt ? withThumb : current));
+          }
+        });
       })
       .catch((cause: unknown) => {
         console.error("サーバのクリップボードへファイルを送れませんでした:", cause);

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   validToken: 'valid-session-token',
   image: null as { mime: string; data: Uint8Array; name: string | null } | null,
   written: [] as Array<{ user: string; mime: string; bytes: number; name?: string }>,
+  previews: [] as Array<{ hasThumb: boolean; preview: string | null }>,
 }))
 
 vi.mock('next/headers', async () => {
@@ -45,8 +46,15 @@ vi.mock('@/lib/auth/sessionStore', () => ({
 
 vi.mock('@/lib/clipboard/slotStore', () => ({
   readSlotMedia: async () => mocks.image,
-  writeSlotMedia: async (user: string, mime: string, data: Uint8Array, name: string | null) => {
+  writeSlotMedia: async (
+    user: string,
+    mime: string,
+    data: Uint8Array,
+    name: string | null,
+    preview?: { thumb?: Uint8Array | null; preview?: string | null },
+  ) => {
     mocks.written.push({ user, mime, bytes: data.byteLength, ...(name ? { name } : {}) })
+    mocks.previews.push({ hasThumb: Boolean(preview?.thumb), preview: preview?.preview ?? null })
     return { kind: 'image', bytes: data.byteLength, updatedAt: '2026-10-25T12:00:00.000Z' }
   },
 }))
@@ -68,6 +76,7 @@ beforeEach(() => {
   mocks.sessionToken = mocks.validToken
   mocks.image = null
   mocks.written = []
+  mocks.previews = []
 })
 
 afterEach(() => {
@@ -135,6 +144,33 @@ describe('GET', () => {
     // 直接開かれたときにスクリプトが走る余地を残さない
     expect(res.headers.get('content-security-policy')).toBe('sandbox')
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG)
+  })
+})
+
+describe('PUT: 見本 (docs/115)', () => {
+  test('画像は置くときに見本の絵を作る', async () => {
+    const png = new Uint8Array(
+      await sharp({ create: { width: 40, height: 30, channels: 3, background: '#cc3333' } })
+        .png()
+        .toBuffer(),
+    )
+
+    await PUT(putRequest(png))
+
+    expect(mocks.previews).toEqual([{ hasThumb: true, preview: null }])
+  })
+
+  test('テキストファイルは抜粋を作る', async () => {
+    await PUT(putRequest(new TextEncoder().encode('a,b\n1,2\n'), { 'x-file-name': 'a.csv' }))
+
+    expect(mocks.previews).toEqual([{ hasThumb: false, preview: 'a,b\n1,2' }])
+  })
+
+  // 動画の絵はクライアントが作って後から貼る
+  test('動画はサーバでは見本を作らない', async () => {
+    await PUT(putRequest(mp4WithHandlers('isom', ['vide'])))
+
+    expect(mocks.previews).toEqual([{ hasThumb: false, preview: null }])
   })
 })
 

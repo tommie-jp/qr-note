@@ -166,7 +166,13 @@ function seekTo(video: HTMLVideoElement, sec: number): Promise<boolean> {
 }
 
 // 動画ファイルから静止サムネと動くサムネのコマを作る。
-export async function makeVideoThumbs(file: File): Promise<VideoThumbs> {
+//
+// withFrames: false なら静止サムネだけ (コマ集めの時間を使わない)。サーバクリップボードの
+// 見本 (docs/115) は静止の絵だけで足りる
+export async function makeVideoThumbs(
+  file: File,
+  { withFrames = true }: { withFrames?: boolean } = {},
+): Promise<VideoThumbs> {
   if (typeof document === 'undefined') {
     return NO_THUMBS
   }
@@ -188,7 +194,7 @@ export async function makeVideoThumbs(file: File): Promise<VideoThumbs> {
     video.pause()
 
     // コマの時刻。空 = 動くサムネは作らない (短すぎる・尺が判らない動画)
-    const times = frameTimes(video.duration, MAX_VIDEO_ANIM_FRAMES)
+    const times = withFrames ? frameTimes(video.duration, MAX_VIDEO_ANIM_FRAMES) : []
 
     // 静止サムネは必ず先頭付近から描く (真っ黒回避)。シーク不可・duration 不正な
     // 録画では、その場のフレームをそのまま描く

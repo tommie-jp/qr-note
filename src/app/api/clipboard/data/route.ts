@@ -3,6 +3,7 @@ import { IMAGE_UNREADABLE_MESSAGE } from '@/lib/attachments/result'
 import { kindOfMime, sanitizeFileName, withExtension } from '@/lib/clipboard/slot'
 import { classifySlotFile } from '@/lib/clipboard/slotFile'
 import { prepareSlotFile } from '@/lib/clipboard/slotPrepare'
+import { makeSlotPreview } from '@/lib/clipboard/slotPreview'
 import { readSlotMedia, writeSlotMedia } from '@/lib/clipboard/slotStore'
 import { readBodyBounded } from '@/lib/route/boundedBody'
 import { byteHeaders, bytesResponse } from '@/lib/route/bytes'
@@ -108,8 +109,19 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return apiFail(IMAGE_UNREADABLE_MESSAGE, 400)
   }
 
+  // 見本 (docs/115)。画像の絵・テキストと Office の抜粋はここで作る。動画と PDF の絵は
+  // クライアントが作って後から貼る (api/clipboard/thumb)。変換した後のバイト列から作る
+  // (HEIC は JPEG になってからでないと sharp が読めない)。作れなくても置くのは止めない
+  const preview = await makeSlotPreview(prepared)
+
   return apiOk({
-    slot: await writeSlotMedia(guard.user, prepared.mime, prepared.data, nameAfterConvert(file, prepared, fileName)),
+    slot: await writeSlotMedia(
+      guard.user,
+      prepared.mime,
+      prepared.data,
+      nameAfterConvert(file, prepared, fileName),
+      preview,
+    ),
   })
 }
 

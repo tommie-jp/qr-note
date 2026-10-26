@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
+  attachThumbToServer,
   clearServerSlot,
   createSlotBytesLoader,
   fetchServerSlot,
@@ -38,6 +39,7 @@ function deps(overrides: Partial<ServerClipboardDeps> = {}) {
     fetchFn: fetchFn as unknown as typeof fetch,
     shrink: vi.fn(async () => new File([new Uint8Array(100)], 'shrunk.jpg', { type: 'image/jpeg' })),
     copyImage: vi.fn(async () => {}),
+    makeThumb: vi.fn(async () => null),
   }
   return { ...base, ...overrides, fetchFn: (overrides.fetchFn ?? base.fetchFn) as typeof fetch }
 }
@@ -412,5 +414,79 @@ describe('createSlotBytesLoader', () => {
     expect(loader.cached()).toBeNull()
 
     await expect(loader.load()).resolves.toMatchObject({ mime: 'video/mp4' })
+  })
+})
+
+// 動画と PDF の見本の絵はクライアントで作り、本体を置いた後に貼る (docs/115 §1-3)
+describe('attachThumbToServer', () => {
+  const VIDEO = {
+    kind: 'video',
+    bytes: 10,
+    updatedAt: '2026-10-26T06:00:00.000Z',
+    mime: 'video/mp4',
+  } as const
+  const jpeg = new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' })
+  const file = new File([new Uint8Array([1])], 'a.mp4', { type: 'video/mp4' })
+
+  test('絵を作り、本体の版を添えて PUT し、貼れたメタを返す', async () => {
+    const d = deps({
+      fetchFn: (async () => envelope({ slot: { ...VIDEO, hasThumb: true } })) as unknown as typeof fetch,
+      makeThumb: vi.fn(async () => jpeg),
+    })
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    const meta = await attachThumbToServer(file, VIDEO, d)
+
+    expect(meta).toMatchObject({ hasThumb: true })
+    expect(d.makeThumb).toHaveBeenCalledWith(file, 'video')
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/clipboard/thumb')
+    expect(init.method).toBe('PUT')
+    expect((init.headers as Record<string, string>)['X-Slot-Version']).toBe(VIDEO.updatedAt)
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('image/jpeg')
+    expect(init.body).toBe(jpeg)
+  })
+
+  test('絵が既にある・動画でも PDF でもないときは何もしない', async () => {
+    const d = deps({ makeThumb: vi.fn(async () => jpeg) })
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    expect(await attachThumbToServer(file, { ...VIDEO, hasThumb: true }, d)).toBeNull()
+    expect(await attachThumbToServer(file, { ...VIDEO, kind: 'image', mime: 'image/png' }, d)).toBeNull()
+    expect(d.makeThumb).not.toHaveBeenCalled()
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  test('絵を作れなければ送らない', async () => {
+    const d = deps({ makeThumb: vi.fn(async () => null) })
+    const spy = vi.spyOn(d, 'fetchFn')
+
+    expect(await attachThumbToServer(file, VIDEO, d)).toBeNull()
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  // 見本は派生物。置き直された (409)・失敗は知らせず、本体はそのまま
+  test.each([
+    ['置き直された', 409],
+    ['枠が無い', 404],
+    ['大きすぎる', 413],
+  ])('%s (%i) は黙って null', async (_name, status) => {
+    const d = deps({
+      fetchFn: (async () => failure('x', status)) as unknown as typeof fetch,
+      makeThumb: vi.fn(async () => jpeg),
+    })
+
+    expect(await attachThumbToServer(file, VIDEO, d)).toBeNull()
+  })
+
+  test('通信の失敗も黙って null', async () => {
+    const d = deps({
+      fetchFn: (async () => Promise.reject(new Error('offline'))) as unknown as typeof fetch,
+      makeThumb: vi.fn(async () => jpeg),
+    })
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(await attachThumbToServer(file, VIDEO, d)).toBeNull()
+    spy.mockRestore()
   })
 })

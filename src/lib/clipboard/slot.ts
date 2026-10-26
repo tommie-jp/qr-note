@@ -26,6 +26,27 @@ export interface ClipboardSlotMeta {
   // 元のファイル名 (整形済み。sanitizeFileName)。保存・共有の名前に使う。無いこともある
   // (クリップボードの画像など)
   readonly name?: string
+  // 見本の絵 (docs/115) があるか。ファイルのときだけ立つ。絵は SLOT_THUMB_URL から取る
+  readonly hasThumb?: boolean
+  // 見本の抜粋 (テキストファイル・Office の本文の先頭)。文字の枠は text をそのまま使う
+  readonly preview?: string
+}
+
+// 見本の絵の口 (docs/115)。WebP の生バイトを返す
+export const SLOT_THUMB_URL = '/api/clipboard/thumb'
+
+const PREVIEW_MAX_LINES = 4
+// 抜粋の字数の上限。サーバが置く preview もこの長さで切る (slotPreview.ts)
+export const PREVIEW_MAX_CHARS = 300
+
+// 見本に出す抜粋。先頭 4 行・300 字 (code point) まで。続きがあれば … を付ける。
+// 前後の空行は落とす (先頭に空行が並ぶファイルで何も見えなくならないように)
+export function previewText(text: string): string {
+  const lines = text.replace(/\r\n?/g, '\n').replace(/^\s*\n|\n\s*$/g, '').split('\n')
+  const head = lines.slice(0, PREVIEW_MAX_LINES).join('\n')
+  const chars = Array.from(head)
+  const cut = chars.length > PREVIEW_MAX_CHARS ? chars.slice(0, PREVIEW_MAX_CHARS).join('') : head
+  return cut !== head || lines.length > PREVIEW_MAX_LINES ? `${cut}…` : cut
 }
 
 const FILE_KINDS: readonly ClipboardSlotKind[] = ['image', 'video', 'audio', 'pdf', 'textfile', 'file']
@@ -177,7 +198,9 @@ export function slotLabel(meta: ClipboardSlotMeta): string {
   const size =
     meta.bytes >= BYTES_PER_MB
       ? `${(meta.bytes / BYTES_PER_MB).toFixed(1)}MB`
-      : `${Math.round(meta.bytes / BYTES_PER_KB)}KB`
+      : meta.bytes >= BYTES_PER_KB
+        ? `${Math.round(meta.bytes / BYTES_PER_KB)}KB`
+        : `${meta.bytes}B`
   const what = meta.kind === 'file' && meta.name ? shortName(meta.name) : KIND_LABEL[meta.kind]
   return `${what} ${size}`
 }
@@ -209,7 +232,10 @@ export function parseSlotMeta(value: unknown): ClipboardSlotMeta | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
-  const { kind, bytes, updatedAt, text, mime, name } = value as Record<string, unknown>
+  const { kind, bytes, updatedAt, text, mime, name, hasThumb, preview } = value as Record<
+    string,
+    unknown
+  >
   if (typeof bytes !== 'number' || !(bytes >= 0) || typeof updatedAt !== 'string') {
     return null
   }
@@ -217,8 +243,15 @@ export function parseSlotMeta(value: unknown): ClipboardSlotMeta | null {
     return typeof text === 'string' ? { kind, bytes, updatedAt, text } : null
   }
   if (FILE_KINDS.includes(kind as ClipboardSlotKind) && typeof mime === 'string') {
-    const base = { kind: kind as ClipboardSlotKind, bytes, updatedAt, mime }
-    return typeof name === 'string' ? { ...base, name } : base
+    return {
+      kind: kind as ClipboardSlotKind,
+      bytes,
+      updatedAt,
+      mime,
+      ...(typeof name === 'string' ? { name } : {}),
+      ...(hasThumb === true ? { hasThumb: true } : {}),
+      ...(typeof preview === 'string' ? { preview } : {}),
+    }
   }
   return null
 }

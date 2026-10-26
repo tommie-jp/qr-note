@@ -106,7 +106,7 @@ export function SaveSlotFile({ slot, now, variant, summary }: SaveSlotFileProps)
     >
       {variant === "row" ? (
         <>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap">
             <ClipboardDownIcon />
             {label ?? "サーバから共有"}
           </span>
@@ -122,7 +122,7 @@ export function SaveSlotFile({ slot, now, variant, summary }: SaveSlotFileProps)
       download={fileName}
       className={`${HEADER_MENU_ITEM_CLASS} justify-between`}
     >
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2 whitespace-nowrap">
         <ClipboardDownIcon />
         サーバから保存
       </span>

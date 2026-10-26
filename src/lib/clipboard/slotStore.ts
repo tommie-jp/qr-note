@@ -29,18 +29,35 @@ interface SlotColumns {
   mime: string | null
   data: Uint8Array<ArrayBuffer> | null
   name: string | null
+  thumb: Uint8Array<ArrayBuffer> | null
+  preview: string | null
   bytes: number
 }
+
+// 置くときに一緒に置く見本 (docs/115)。作れなかったものは null
+export interface SlotPreviewColumns {
+  readonly thumb?: Uint8Array<ArrayBuffer> | null
+  readonly preview?: string | null
+}
+
+// メタを組むのに読む列。本体の data (最大 30MB) は読まない。見本の絵 (数十 KB) は
+// hasThumb を決めるのに読む
+const META_SELECT = {
+  text: true,
+  mime: true,
+  name: true,
+  bytes: true,
+  updatedAt: true,
+  thumb: true,
+  preview: true,
+} as const
 
 export async function readSlotMeta(
   userName: string,
   now: Date = new Date(),
 ): Promise<ClipboardSlotMeta | null> {
-  // 画像の中身 (最大 10MB) は読まない。大きさは bytes 列にある
-  const row = await prisma.clipboardSlot.findUnique({
-    where: { userName },
-    select: { text: true, mime: true, name: true, bytes: true, updatedAt: true },
-  })
+  // 本体 (最大 30MB) は読まない。大きさは bytes 列にある
+  const row = await prisma.clipboardSlot.findUnique({ where: { userName }, select: META_SELECT })
   if (row === null) {
     return null
   }
@@ -79,7 +96,15 @@ export async function readSlotMedia(
 }
 
 export async function writeSlotText(userName: string, text: string): Promise<ClipboardSlotMeta> {
-  return writeSlot(userName, { text, mime: null, data: null, name: null, bytes: textByteLength(text) })
+  return writeSlot(userName, {
+    text,
+    mime: null,
+    data: null,
+    name: null,
+    thumb: null,
+    preview: null,
+    bytes: textByteLength(text),
+  })
 }
 
 export async function writeSlotMedia(
@@ -88,8 +113,70 @@ export async function writeSlotMedia(
   data: Uint8Array<ArrayBuffer>,
   // 整形済みの名前 (sanitizeFileName)。呼ぶ側が通すこと — ここでは信じて置く
   name: string | null = null,
+  { thumb = null, preview = null }: SlotPreviewColumns = {},
 ): Promise<ClipboardSlotMeta> {
-  return writeSlot(userName, { text: null, mime, data, name, bytes: data.byteLength })
+  return writeSlot(userName, { text: null, mime, data, name, thumb, preview, bytes: data.byteLength })
+}
+
+// 見本の絵 (WebP)。無い・期限切れ・文字の枠は null
+export async function readSlotThumb(
+  userName: string,
+  now: Date = new Date(),
+): Promise<Uint8Array | null> {
+  const row = await prisma.clipboardSlot.findUnique({
+    where: { userName },
+    select: { thumb: true, updatedAt: true },
+  })
+  if (row === null) {
+    return null
+  }
+  if (isSlotExpired(row.updatedAt, now)) {
+    await clearExpiredSlot(userName, row.updatedAt)
+    return null
+  }
+  return row.thumb
+}
+
+export type AttachThumbResult =
+  | { readonly status: 'ok'; readonly meta: ClipboardSlotMeta }
+  // 見た版の後に別の端末が置き直した。古いファイルの絵を新しい枠に付けない
+  | { readonly status: 'stale' }
+  // 枠が無い・期限切れ・文字の枠
+  | { readonly status: 'missing' }
+
+// クライアントが作った見本の絵 (動画の先頭コマ・PDF の 1 ページ目) を後から貼る (docs/115 §1-3)。
+// thumb は呼ぶ側が makeThumbnail で作り直したもの。
+//
+// **版 (updatedAt) が合うときだけ貼る。** 合っているかは where で確かめる (読んでから
+// 書くまでの間に置き直されても、古い絵は付かない)。
+// **updatedAt を進めない。** Prisma の @updatedAt は update のたびに今の時刻を書くので、
+// 見た版を明示して書き戻す。進めると期限 (10 分) が延び、版もずれる
+export async function attachSlotThumb(
+  userName: string,
+  version: Date,
+  thumb: Uint8Array<ArrayBuffer>,
+  now: Date = new Date(),
+): Promise<AttachThumbResult> {
+  const row = await prisma.clipboardSlot.findUnique({ where: { userName }, select: META_SELECT })
+  if (row === null || row.text !== null || row.mime === null) {
+    return { status: 'missing' }
+  }
+  if (isSlotExpired(row.updatedAt, now)) {
+    await clearExpiredSlot(userName, row.updatedAt)
+    return { status: 'missing' }
+  }
+  if (row.updatedAt.getTime() !== version.getTime()) {
+    return { status: 'stale' }
+  }
+  const { count } = await prisma.clipboardSlot.updateMany({
+    where: { userName, updatedAt: version, text: null },
+    data: { thumb, updatedAt: version },
+  })
+  if (count === 0) {
+    return { status: 'stale' }
+  }
+  const meta = metaOf({ ...row, thumb })
+  return meta === null ? { status: 'missing' } : { status: 'ok', meta }
 }
 
 // 無くても投げない (deleteMany)。「消す」の二度押しや、期限切れと手で消すの競合で
@@ -131,6 +218,8 @@ function metaOf(row: {
   text: string | null
   mime: string | null
   name: string | null
+  thumb: Uint8Array | null
+  preview: string | null
   bytes: number
   updatedAt: Date
 }): ClipboardSlotMeta | null {
@@ -143,5 +232,13 @@ function metaOf(row: {
   const kind = row.mime === null ? null : kindOfMime(row.mime)
   return kind === null || row.mime === null
     ? null
-    : { kind, bytes: row.bytes, updatedAt, mime: row.mime, ...(row.name ? { name: row.name } : {}) }
+    : {
+        kind,
+        bytes: row.bytes,
+        updatedAt,
+        mime: row.mime,
+        ...(row.name ? { name: row.name } : {}),
+        ...(row.thumb ? { hasThumb: true } : {}),
+        ...(row.preview ? { preview: row.preview } : {}),
+      }
 }

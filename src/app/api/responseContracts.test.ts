@@ -78,6 +78,8 @@ vi.mock('@/lib/clipboard/slotStore', () => ({
   writeSlotText: async () => mocks.slotMeta,
   writeSlotMedia: async () => mocks.slotMeta,
   clearSlot: async () => {},
+  readSlotThumb: async () => null,
+  attachSlotThumb: async () => ({ status: 'missing' }),
 }))
 
 vi.mock('@/lib/zip/importZip', () => ({
@@ -513,6 +515,29 @@ describe('/api/clipboard (no-store・デモは閉じる)', () => {
 
   test('デモは 403 の封筒', async () => {
     const { GET } = await import('./clipboard/data/route')
+    vi.stubEnv('DEMO_MODE', '1')
+
+    expect(await responseContract(await GET(new Request('http://localhost/x')))).toEqual(
+      jsonContract(403, DEMO_DENIED),
+    )
+  })
+})
+
+describe('/api/clipboard/thumb (no-store・デモは閉じる)', () => {
+  test('見本が無ければ 404 の封筒、版の無い PUT は 400 の封筒', async () => {
+    const { GET, PUT } = await import('./clipboard/thumb/route')
+    const url = 'http://localhost/api/clipboard/thumb'
+
+    expect(await responseContract(await GET(new Request(url)))).toEqual(
+      jsonContract(404, failEnvelope('サーバのクリップボードに見本がありません')),
+    )
+    expect(
+      await responseContract(await PUT(new Request(url, { method: 'PUT', body: new Uint8Array([1]) }))),
+    ).toEqual(jsonContract(400, failEnvelope('リクエストの形式が正しくありません')))
+  })
+
+  test('デモは 403 の封筒', async () => {
+    const { GET } = await import('./clipboard/thumb/route')
     vi.stubEnv('DEMO_MODE', '1')
 
     expect(await responseContract(await GET(new Request('http://localhost/x')))).toEqual(

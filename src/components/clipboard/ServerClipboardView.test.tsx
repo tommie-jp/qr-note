@@ -166,7 +166,8 @@ test("名前つきのファイル (Office など) は名前と大きさを出し
     },
   });
 
-  expect(html).toContain("議事録.docx 2.5MB");
+  // 名前は下の見本 (札) に出す。行の右は種類と大きさだけ (長い名前で行が折れないように)
+  expect(html).toContain("ファイル 2.5MB・");
   expect(html).toContain('download="議事録.docx"');
   expect(html).toContain("サーバから保存");
 });

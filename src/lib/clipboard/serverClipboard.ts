@@ -20,7 +20,7 @@ import {
   clipboardReadErrorMessage,
   pickClipboardEntry,
 } from './clipboardRead'
-import { type ClipboardSlotMeta, isPasteable, parseSlotMeta } from './slot'
+import { type ClipboardSlotKind, type ClipboardSlotMeta, isPasteable, parseSlotMeta, SLOT_THUMB_URL } from './slot'
 import { canShrink, shrinkImageFile } from '../images/shrinkImage'
 
 const CLIPBOARD_URL = '/api/clipboard'
@@ -43,6 +43,8 @@ export interface ServerClipboardDeps {
   readonly shrink: (file: File) => Promise<File>
   // 画像を PNG に描き直してクリップボードへ載せる (clipboard/clipboardImage.ts)
   readonly copyImage: (src: string) => Promise<void>
+  // 送るファイルから見本の絵を作る (docs/115。動画の先頭コマ・PDF の 1 ページ目)
+  readonly makeThumb: (file: File, kind: ClipboardSlotKind) => Promise<Blob | null>
 }
 
 // 既定は実ブラウザ。呼ぶ時点で組む (モジュールの読み込み時に navigator を触ると
@@ -53,6 +55,11 @@ export function browserDeps(): ServerClipboardDeps {
     fetchFn: (input, init) => fetch(input, init),
     shrink: shrinkImageFile,
     copyImage: copyImageToClipboard,
+    // pdf.js を含むので、見本を作るときにだけ読む
+    makeThumb: async (file, kind) => {
+      const { makeClientThumb } = await import('./slotThumbClient')
+      return makeClientThumb(file, kind)
+    },
   }
 }
 
@@ -126,6 +133,44 @@ export async function sendFileToServer(
     body: file,
     timeoutMs: FILE_TIMEOUT_MS,
   })
+}
+
+// 見本の絵を貼るのを待つ上限。絵は 200KB 以下なので短くてよい
+const THUMB_TIMEOUT_MS = 30_000
+
+// 本体を置いた後に、見本の絵を作って貼る (docs/115 §1-3)。動画と PDF だけ (画像の絵と、
+// テキスト・Office の抜粋はサーバが置くときに作る)。
+//
+// **版を添える。** 本体の PUT が返したメタの updatedAt を X-Slot-Version に入れ、
+// 絵を作っている間に別の端末が置き直していれば、サーバは貼らずに 409 を返す。
+// **失敗は知らせない** (null)。見本は派生物で、本体はもう届いている
+export async function attachThumbToServer(
+  file: File,
+  meta: ClipboardSlotMeta,
+  deps: ServerClipboardDeps = browserDeps(),
+): Promise<ClipboardSlotMeta | null> {
+  if (meta.hasThumb || (meta.kind !== 'video' && meta.kind !== 'pdf')) {
+    return null
+  }
+  try {
+    const thumb = await deps.makeThumb(file, meta.kind)
+    if (thumb === null) {
+      return null
+    }
+    const response = await deps.fetchFn(SLOT_THUMB_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': thumb.type || 'image/jpeg', 'X-Slot-Version': meta.updatedAt },
+      body: thumb,
+      signal: AbortSignal.timeout(THUMB_TIMEOUT_MS),
+    })
+    if (!response.ok) {
+      return null
+    }
+    return slotOf(await readEnvelope(response))
+  } catch (error) {
+    console.error('クリップボードの見本の絵を貼れませんでした:', error)
+    return null
+  }
 }
 
 // 動画の拡張子。type が空で来る形式 (Windows の mov など) を動画と見るのに使う

@@ -404,4 +404,104 @@ test.describe('サーバ経由のクリップボード', () => {
       expect(((await (await page.request.get('/api/clipboard')).json()).data).slot).toBeNull()
     })
   })
+
+  // 枠の中身の見本 (docs/115)。「ペースト / 保存 / 共有」の行の下に出る
+  test.describe('見本', () => {
+    const fileInput = (p: Page) => p.locator('input[type="file"]')
+    const previewImage = (p: Page) => p.getByAltText('サーバのクリップボードの見本')
+
+    // pdf.js が描ける最小の PDF (1 ページ・四角を 1 つ塗る)。xref の位置はその場で数える
+    function minimalPdf(): Buffer {
+      const content = '1 0 0 RG 0.2 0.4 0.8 rg 20 20 160 100 re f'
+      const objects = [
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 140] /Contents 4 0 R /Resources << >> >>',
+        `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+      ]
+      let pdf = '%PDF-1.4\n'
+      const offsets: number[] = []
+      objects.forEach((body, i) => {
+        offsets.push(pdf.length)
+        pdf += `${i + 1} 0 obj\n${body}\nendobj\n`
+      })
+      const xref = pdf.length
+      pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+      pdf += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')
+      pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+      return Buffer.from(pdf, 'latin1')
+    }
+
+    test('画像を送ると、絵の見本が出て読み込める', async () => {
+      await writeImageToClipboard(page)
+      await openMenu(page)
+
+      await page.getByRole('button', { name: 'サーバへコピー' }).click()
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (画像 ')
+      await expect(previewImage(page)).toBeVisible()
+      await expect
+        .poll(() => previewImage(page).evaluate((img: HTMLImageElement) => img.naturalWidth))
+        .toBeGreaterThan(0)
+      const thumb = await page.request.get('/api/clipboard/thumb')
+      expect(thumb.headers()['content-type']).toBe('image/webp')
+    })
+
+    test('文字を送ると、先頭の抜粋が出る', async () => {
+      await page.evaluate(() => navigator.clipboard.writeText('1 行目\n2 行目\n3\n4\n5 行目'))
+      await openMenu(page)
+
+      await page.getByRole('button', { name: 'サーバへコピー' }).click()
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (文字 ')
+      await expect(page.getByText(/1 行目\s+2 行目\s+3\s+4…/)).toBeVisible()
+    })
+
+    // 動画の絵はクライアントで作って後から貼る。PDF も同じ経路なので、描ける PDF で確かめる
+    test('PDF を送ると、1 ページ目の絵が後から貼られて出る', async () => {
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({ name: 'map.pdf', mimeType: 'application/pdf', buffer: minimalPdf() })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (PDF ')
+      await expect(previewImage(page)).toBeVisible({ timeout: 30_000 })
+      const meta = (await (await page.request.get('/api/clipboard')).json()).data.slot
+      expect(meta).toMatchObject({ kind: 'pdf', hasThumb: true })
+    })
+
+    test('docx を送ると、拡張子の札と本文の抜粋が出る', async () => {
+      const { strToU8, zipSync } = await import('fflate')
+      const docx = Buffer.from(
+        zipSync({
+          'word/document.xml': strToU8('<w:document><w:body><w:p><w:r><w:t>定例会の議事録</w:t></w:r></w:p></w:body></w:document>'),
+        }),
+      )
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({
+        name: '議事録.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer: docx,
+      })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (議事録.docx ')
+      await expect(page.getByText('DOCX', { exact: true })).toBeVisible()
+      await expect(page.getByText('定例会の議事録')).toBeVisible()
+    })
+
+    // chromium は合成の mp4 を描けないので絵は作れず、札で止まる (絵は実機で確かめる)
+    test('描けない動画は札のまま (送るのは成功する)', async () => {
+      await openMenu(page)
+
+      await fileInput(page).setInputFiles({
+        name: 'clip.mp4',
+        mimeType: 'video/mp4',
+        buffer: Buffer.from(mp4WithHandlers('isom', ['vide', 'soun'])),
+      })
+
+      await expect(statusNote(page)).toContainText('サーバへ送りました (動画 ')
+      await expect(page.getByText('MP4', { exact: true })).toBeVisible()
+      await expect(previewImage(page)).toHaveCount(0)
+    })
+  })
 })

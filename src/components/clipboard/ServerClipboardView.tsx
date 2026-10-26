@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { ClipboardDownIcon, ClipboardUpIcon, ImportIcon } from "@/components/icons";
 import { HEADER_MENU_ITEM_CLASS, HEADER_MENU_ROW_CLASS } from "@/components/ui";
 import { SaveSlotFile } from "./SaveSlotFile";
+import { SlotPreview } from "./SlotPreview";
 import { hasDroppedFiles } from "@/lib/editor/dropFiles";
 import {
   agoLabel,
@@ -131,7 +132,7 @@ export function ServerClipboardView({
           disabled={busy !== null || !hasSlot}
           className={`${HEADER_MENU_ITEM_CLASS} ${ROW_DISABLED_CLASS} justify-between`}
         >
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 whitespace-nowrap">
             <ClipboardDownIcon />
             {busy === "receive" ? "コピーしています…" : "サーバからペースト"}
           </span>
@@ -140,6 +141,8 @@ export function ServerClipboardView({
           </span>
         </button>
       )}
+      {/* 中身の見本 (docs/115)。key で置き直されたら作り直す (読めなかった絵の印を捨てる) */}
+      {hasSlot && <SlotPreview key={slot.updatedAt} slot={slot} />}
       <div className={`${HEADER_MENU_ROW_CLASS} flex-wrap justify-between gap-y-0 py-0`}>
         <span className="min-w-0 flex-1 pb-1 text-xs font-normal text-gray-500">
           {DESCRIPTION}
@@ -194,7 +197,9 @@ function slotSummary(
   if (slot === null) {
     return "なし";
   }
-  return `${slotLabel(slot)}・${agoLabel(slot.updatedAt, now)}`;
+  // 名前は下の見本 (docs/115) に出るので、ここは種類と大きさだけ。長い名前で行の
+  // 名前 (「サーバから保存」) が折れないように
+  return `${slotLabel({ ...slot, name: undefined })}・${agoLabel(slot.updatedAt, now)}`;
 }
 
 // ファイルを選んで送る行。<input type=file> は隠し、行を押すと選択を開く
