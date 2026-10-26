@@ -192,3 +192,79 @@ test.describe('検索結果の画像ビューア', () => {
     await expectInside(viewerImage(pane), pane)
   })
 })
+
+// 2 ページ目にまたがる送り (docs/116 §4)。2 / 3 ペインの一覧は内側でスクロール
+// するので、末尾の「さらに表示」は → で寄せても器の外に隠れたまま読まれず、
+// 最後の画像で止まっていた。ビューアが次のページを直接頼むことを確かめる。
+// 1 ページは 20 件 (lib/items/limits.ts の PAGE_SIZE) なので 21 件作る
+const PAGED_TOKEN = `zzvwpage${Date.now()}`
+const PAGED_COUNT = 21
+const PAGED_NOTES = Array.from({ length: PAGED_COUNT }, (_, i) =>
+  e2eNote(200 + i, PAGED_TOKEN),
+)
+const pagedImage = (i: number) =>
+  `00000000-0000-4000-8000-${String(200 + i).padStart(12, '0')}.png`
+// ノート 1 件の作成・片付けは数秒かかる。21 件ぶんの上限
+const PAGED_HOOK_TIMEOUT_MS = 600_000
+
+test.describe('検索結果の画像ビューア (2 ページ目へ送る)', () => {
+  test.beforeAll(async ({ browser }, testInfo) => {
+    testInfo.setTimeout(PAGED_HOOK_TIMEOUT_MS)
+    const page = await newLoggedInPage(browser)
+    // 古い順に作る (一覧は更新の新しい順なので、最初に作った 1 件が 2 ページ目に回る)
+    for (const [i, note] of PAGED_NOTES.entries()) {
+      await removeE2eNote(page, note)
+      await page.goto(`/edit/${note.id}`)
+      const save = page.getByRole('button', { name: '更新', exact: true })
+      await expect(save).toBeVisible()
+      await clearEditor(page)
+      await memoEditor(page).click()
+      await page.keyboard.insertText(`${note.heading}\n![](${IMAGES_PATH}/${pagedImage(i)})\n`)
+      await save.click()
+      await expect(page).toHaveURL((url) => url.pathname === `/item/${note.id}`)
+    }
+    await closePage(page)
+  })
+
+  test.afterAll(async ({ browser }, testInfo) => {
+    testInfo.setTimeout(PAGED_HOOK_TIMEOUT_MS)
+    const page = await newLoggedInPage(browser)
+    for (const note of PAGED_NOTES) {
+      await removeE2eNote(page, note)
+    }
+    await closePage(page)
+  })
+
+  test('3 ペインで → を押し続けると、次のページを読み込んで 21 枚目へ送る', async ({ page }) => {
+    // Arrange
+    const png = solidPng(64, 64, [40, 160, 40])
+    await page.context().route(
+      (url) => url.pathname.startsWith(`${IMAGES_PATH}/00000000-0000-4000-8000-000000000`),
+      (route) => route.fulfill({ contentType: 'image/png', body: png }),
+    )
+    await page.context().addCookies([
+      { name: 'view', value: 'image', url: BASE_URL },
+      { name: 'panes', value: '3', url: BASE_URL },
+    ])
+    await openSearch(page, PAGED_TOKEN)
+    const openers = searchResults(page).getByRole('button', { name: '画像を大きく表示' })
+    await expect(openers).toHaveCount(PAGED_COUNT - 1)
+    await expectHydrated(openers.first())
+    await openers.first().click()
+    const image = viewerImage(page.getByRole('region', { name: '画像の表示' }))
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${pagedImage(PAGED_COUNT - 1)}`)
+
+    // Act: 1 ページ目の末尾まで送り、さらにもう 1 回
+    for (let n = 1; n < PAGED_COUNT; n += 1) {
+      await page.keyboard.press('ArrowRight')
+      await expect(image).toHaveAttribute(
+        'src',
+        `${IMAGES_PATH}/${pagedImage(PAGED_COUNT - 1 - n)}`,
+      )
+    }
+
+    // Assert: 2 ページ目の 1 枚 (最初に作ったノート) まで届き、一覧も伸びている
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${pagedImage(0)}`)
+    await expect(openers).toHaveCount(PAGED_COUNT)
+  })
+})

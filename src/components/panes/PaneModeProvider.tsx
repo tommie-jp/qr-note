@@ -20,6 +20,11 @@ interface PaneModeState {
   // 横取りスロット (@detail) がノートを持っているか。持っていれば
   // 「先頭を自動で選ぶ」ペイン (AutoNotePane) は引っ込む
   hasDetail: boolean;
+  // 横取りスロットが出しているノート (利用者が自分で選んだもの)。自動の
+  // ノートは含まない。画像ビューアが「別のノートを選んだら引っ込む」の
+  // 判定に使う — 自動のノートは一覧より遅れて届くので、shownItemId で見ると
+  // 届いた瞬間に開いたばかりの画像が閉じる (docs/116 §5)
+  detailItemId: string | null;
   // 出していない間は null を流す (閉じたのに行だけ選ばれたまま、にしない)
   setDetailItemId: (itemId: string | null) => void;
   setAutoItemId: (itemId: string | null) => void;
@@ -35,6 +40,7 @@ export function usePaneMode(): PaneModeState {
       mode: DEFAULT_PANE_MODE,
       shownItemId: null,
       hasDetail: false,
+      detailItemId: null,
       setDetailItemId: () => {},
       setAutoItemId: () => {},
     }
@@ -71,6 +77,7 @@ export function PaneModeProvider({
       mode,
       shownItemId: detailItemId ?? autoItemId,
       hasDetail: detailItemId !== null,
+      detailItemId,
       setDetailItemId,
       setAutoItemId,
     }),

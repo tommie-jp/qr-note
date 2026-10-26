@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useTransition } from "react";
 import { PendingLink } from "@/components/chrome/PendingLink";
 import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
+import { LOAD_MORE_EVENT } from "./loadMore";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
 // 画面に入ったら自動で次ページの URL へ replace し、サーバが 1〜N ページの
@@ -51,6 +52,14 @@ export function AutoLoadMore({
     return () => observer.disconnect();
   }, [load, isPending]);
 
+  // 画像ビューアの → からの依頼 (components/search/loadMore.ts)。目印が
+  // 内側スクロールの器に隠れていても読み込めるようにする
+  useEffect(() => {
+    if (isPending) return;
+    window.addEventListener(LOAD_MORE_EVENT, load);
+    return () => window.removeEventListener(LOAD_MORE_EVENT, load);
+  }, [load, isPending]);
+
   return (
     // overflow-anchor: none が要 (検証で発覚)。末尾までスクロールした状態で
     // 行がこの要素の上に挿入されると、ブラウザのスクロールアンカリングが
@@ -61,6 +70,8 @@ export function AutoLoadMore({
     // 「残り n 件」の変化 (=読み込まれたこと) を控えめに読み上げさせる
     <div
       ref={sentinelRef}
+      // data-auto-load-more … 続きがあることの目印 (loadMore.ts が見る)
+      data-auto-load-more=""
       aria-live="polite"
       className="flex justify-center py-2 [overflow-anchor:none]"
     >
