@@ -172,15 +172,29 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
 
-# onnxruntime-node の共有ライブラリを standalone に補う。
-# Next のトレースは require で辿れる onnxruntime_binding.node は運ぶが、
-# その DT_NEEDED (動的リンカが読む依存) である libonnxruntime.so.1 は JS から
-# 参照が見えず、置いていかれる — すると実行時に
-# 「Error loading shared library libonnxruntime.so.1」で埋め込み生成が落ちる。
-# glob なのは、npm ci --ignore-scripts では CUDA 用 .so (315MB、install script
-# が別途落とす) が存在しないため。存在するもの (本体 35MB + providers_shared)
-# だけを運ぶ
-COPY --from=builder /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime*.so* ./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/
+# onnxruntime-node を standalone に補う。
+# transformers 4.3 は onnxruntime-node を createRequire 越しに読むので、Next の
+# トレースからは丸ごと見えず、何も運ばれない — すると実行時に
+# 「Cannot find module 'onnxruntime-node'」で埋め込み生成が落ちる。実行に要る
+# package.json・dist・x64 のバイナリと、dist が require する onnxruntime-common を運ぶ。
+# バイナリは onnxruntime_binding.node と、その DT_NEEDED (動的リンカが読む依存)
+# である libonnxruntime.so.1 ほか。glob なのは、npm ci --ignore-scripts では
+# CUDA 用 .so (270MB、install script が別途落とす) が存在しないため。存在する
+# もの (本体 45MB + providers_shared・tensorrt) だけを運ぶ。
+# 版は package.json で transformers の要求版と同じに固定し、直下の 1 本に
+# まとめておくこと (ずれると transformers の下に入れ子で入り、ここの経路から外れる)
+COPY --from=builder /app/node_modules/onnxruntime-common ./node_modules/onnxruntime-common
+COPY --from=builder /app/node_modules/onnxruntime-node/package.json ./node_modules/onnxruntime-node/
+COPY --from=builder /app/node_modules/onnxruntime-node/dist ./node_modules/onnxruntime-node/dist
+COPY --from=builder /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/onnxruntime_binding.node /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime*.so* ./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/
+
+# transformers が入れ子で持つ sharp (0.35 系。直下の sharp 0.34 とは別物) の
+# libvips も補う。sharp-linux-x64.node の DT_NEEDED である libvips-cpp.so.* は
+# トレースされず、transformers は読み込み時に sharp を import するので、欠けると
+# 「libvips-cpp.so.8.18.7: cannot open shared object file」でモジュールごと読めず
+# 埋め込み生成が全滅する (v0.23.49 の依存更新で入れ子になってから)。
+# 版が変わっても追従するようディレクトリごと運ぶ (18MB)
+COPY --from=builder /app/node_modules/@huggingface/transformers/node_modules/@img/sharp-libvips-linux-x64/lib/ ./node_modules/@huggingface/transformers/node_modules/@img/sharp-libvips-linux-x64/lib/
 
 USER qrapp
 EXPOSE 3000

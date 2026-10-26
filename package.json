@@ -68,7 +68,7 @@
     "micromark-extension-directive": "^4.0.0",
     "next": "16.2.11",
     "node-tikzjax": "^1.0.5",
-    "onnxruntime-node": "1.24.3",
+    "onnxruntime-node": "1.30.0",
     "onnxruntime-web": "^1.30.0",
     "pdfjs-dist": "^6.4.299",
     "perfboard-fence": "file:vendor/perfboard-fence-0.41.0.tgz",
