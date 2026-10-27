@@ -5,7 +5,7 @@
 // 保存し直す** — 同名上書きは immutable キャッシュに阻まれるため (docs/49 §1)。
 
 import 'server-only'
-import sharp from 'sharp'
+import sharp, { type Sharp } from 'sharp'
 import { MAX_INPUT_PIXELS } from './thumbConfig'
 
 // 90° 単位のみ許す。任意角は再符号化のたびに補間で滲むので扱わない。
@@ -26,7 +26,7 @@ export function isRotatableExt(ext: string): ext is RotatableExt {
 }
 
 // ext に応じた再符号化。品質は保存経路 (normalizeImage / thumbnail) と揃える。
-function encodeAs(pipeline: sharp.Sharp, ext: RotatableExt): sharp.Sharp {
+function encodeAs(pipeline: Sharp, ext: RotatableExt): Sharp {
   switch (ext) {
     case 'png':
       return pipeline.png()

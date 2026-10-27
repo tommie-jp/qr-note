@@ -12,7 +12,7 @@
 
 import 'server-only'
 import { all as decodeHeicAll } from 'heic-decode'
-import sharp from 'sharp'
+import sharp, { type Sharp } from 'sharp'
 import { MAX_INPUT_PIXELS } from './thumbConfig'
 import type { ImageFormat } from '../uploads/sniff/image'
 
@@ -95,7 +95,7 @@ export async function normalizeImageForTransfer(
 async function decodeUnsupported(
   bytes: Uint8Array<ArrayBuffer>,
   format: ImageFormat,
-): Promise<sharp.Sharp> {
+): Promise<Sharp> {
   const source =
     format === 'heic'
       ? await heicToSharp(bytes)
@@ -113,7 +113,7 @@ async function decodeUnsupported(
 // 落とせる (単一プロセスなので全体停止になる)。all() はコンテナを解析
 // するだけで画素を確保せず寸法を返すので、**確保の前に**画素数で弾く。
 // (既定エクスポートの one() は先に全画素を確保してしまい先読みできない)
-async function heicToSharp(bytes: Uint8Array<ArrayBuffer>): Promise<sharp.Sharp> {
+async function heicToSharp(bytes: Uint8Array<ArrayBuffer>): Promise<Sharp> {
   const images = await decodeHeicAll({ buffer: bytes })
   try {
     const primary = images[0]

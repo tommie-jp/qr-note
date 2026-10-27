@@ -24,13 +24,14 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // 画面遷移のアニメーション (docs/11-アプリ的UIUX計画.md §4)。
-  // experimental なので、壊れたらこの 1 行と src/components/chrome/PageTransition.tsx の
-  // <ViewTransition> (各ページが <PageTransition> で包んでいる) を外せば元に戻る。
+  // 画面遷移のアニメーション (docs/11-アプリ的UIUX計画.md §4) は React の
+  // <ViewTransition> (src/components/chrome/PageTransition.tsx、各ページが
+  // <PageTransition> で包んでいる) で行う。Next.js 16.4 で experimental.viewTransition
+  // の旗は無くなった (2026-10-27、16.2.11 → 16.4.3 の脆弱性対応で削除。残すと
+  // 型検査が落ちる)。壊れたら PageTransition.tsx の <ViewTransition> を外せば元に戻る。
   // layout ではなくページごとに置く理由は components/chrome/PageTransition.tsx の注。
   // 非対応ブラウザではアニメーションなしで普通に動く
   experimental: {
-    viewTransition: true,
     // proxy (src/proxy.ts) を通るルートは、Next.js が本文をメモリへ丸ごと
     // 複製する (proxy と route handler の両方で読めるようにするため)。
     // **超えたぶんは黙って捨てられる** — 応答はエラーにならず、警告が 1 行
