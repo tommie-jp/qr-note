@@ -151,6 +151,7 @@ RUN groupadd --system --gid 10001 qrapp \
  && useradd --system --uid 10001 --gid 10001 --create-home --home-dir /home/qrapp \
       --shell /usr/sbin/nologin qrapp
 
+# 7zip はサーバー情報の CPU 計測 (7z b) 用。
 # ノート履歴 (docs/57-ノートgit履歴計画.md) の git 本体と、リポジトリの置き場。
 # 置き場は named volume (compose.yaml の git-notes) のマウント先。volume は
 # 初回マウント時にイメージ側ディレクトリの所有権を引き継ぐため、ここで
@@ -158,7 +159,7 @@ RUN groupadd --system --gid 10001 qrapp \
 # COPY より前に置くのはレイヤーキャッシュのため (ソースが変わっても apt を
 # 引き直さない)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git \
+ && apt-get install -y --no-install-recommends git 7zip \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /app/data/git-notes \
  && chown -R qrapp:qrapp /app/data
