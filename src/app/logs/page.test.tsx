@@ -147,4 +147,5 @@ test('計測行は ?perf=1 でだけ出る', async () => {
   expect(perf).toContain("[計測] 検索/サーバ 全体=3ms");
   expect(perf).not.toContain("普通の警告");
   expect(perf).toContain("計測を始める");
+  expect(perf).toContain("取得鍵を発行");
 });

@@ -1,6 +1,7 @@
 import pkg from "../../../package.json";
 import { BootTimingReport } from "@/components/diag/BootTimingReport";
 import { PerfReport } from "@/components/diag/PerfReport";
+import { PerfTestRunner } from "@/components/diag/PerfTestRunner";
 import { ClientLogCapture } from "@/components/diag/ClientLogCapture";
 import { DebugConsole } from "@/components/diag/DebugConsole";
 import { OfflineSync } from "@/components/offline/OfflineSync";
@@ -53,6 +54,9 @@ export function AppSideEffects({ user, isDemo, perf = false }: AppSideEffectsPro
           置かなければ測る場所 (検索窓・同期…) の呼び出しはどれも何もしない。
           行は ClientLogCapture の待ち行列で運ぶので、条件も同じにする */}
       {reportsToServer && perf && <PerfReport />}
+      {/* 計測テスト (docs/120)。メニューの「開始」が付けた印があるときだけ
+          手順を流して進み具合を出す。観測 (PerfReport) と同じ条件で置く */}
+      {reportsToServer && perf && <PerfTestRunner />}
       {/* ?debug=1 の eruda (docs/30 §2)。ログイン状態に依らず置く
           (理由は components/diag/DebugConsole.tsx) */}
       <DebugConsole />

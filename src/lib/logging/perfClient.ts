@@ -90,6 +90,13 @@ export function isPerfActive(): boolean {
   return current() !== undefined
 }
 
+// 進行中・閉じかけの計測が無いか (計測テストが次の操作へ進む合図。
+// docs/120 §2)。仕掛けられていなければ常に空いている
+export function isPerfIdle(): boolean {
+  const s = current()
+  return s === undefined || (s.active === null && s.closing === null)
+}
+
 // 1 行を送る (同期・添付・暖機など、画面遷移でない計測)
 export function perfSend(kind: string, fields: readonly PerfField[]): void {
   if (!isPerfActive()) {

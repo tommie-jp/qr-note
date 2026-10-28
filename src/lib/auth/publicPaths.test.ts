@@ -140,6 +140,8 @@ describe('isSelfGuardedPath', () => {
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.wav',
     // PDF も公開ノートから開けるよう素通しする (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
     '/api/images/0191f0c4-6f3b-7a1e-9c2d-4b5a6c7d8e9f.pdf',
+    // 計測ログの取得口 (docs/120 §3)。取得鍵を route が照合する
+    '/api/logs/perf/export',
   ])('%s is self-guarded (page/handler decides)', (path) => {
     expect(isSelfGuardedPath(path)).toBe(true)
   })
@@ -214,3 +216,11 @@ test('管理者のサーバー情報は公開パスでも自衛パスでもな�
   expect(isPublicPath('/settings/server')).toBe(false)
   expect(isSelfGuardedPath('/settings/server')).toBe(false)
 })
+
+// 計測ログの取得口だけを開ける (docs/120 §3)。隣の口は門番を通る
+test.each(['/api/logs/perf', '/api/logs/perf/token', '/api/logs/perf/export/x', '/api/logs/clear'])(
+  '%s is not self-guarded',
+  (path) => {
+    expect(isSelfGuardedPath(path)).toBe(false)
+  },
+)

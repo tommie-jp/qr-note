@@ -6,6 +6,7 @@ import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs, recentPerfLines } from "@/lib/logging/buffer";
 import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
+import { PerfExportTokenButton } from "./PerfExportTokenButton";
 import { PerfToggleButton } from "./PerfToggleButton";
 import { requireUser } from "@/lib/auth/session";
 import { ClearLogsButton } from "./ClearLogsButton";
@@ -163,6 +164,8 @@ function PerfLogs() {
             <ClearLogsButton perf />
           </span>
         </div>
+        {/* 手元のスクリプトから読むための鍵 (docs/120 §3) */}
+        <PerfExportTokenButton />
         {lines.length === 0 ? (
           <p className="text-gray-500">計測の行はありません。</p>
         ) : (

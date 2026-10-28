@@ -245,3 +245,14 @@ export function ClipboardDownIcon() {
     </StrokeIcon>
   );
 }
+
+// 計測テスト (docs/120-計測テスト自動化計画.md): ストップウォッチ。
+// 上のつまみと、文字盤の中の針 1 本
+export function StopwatchIcon() {
+  return (
+    <StrokeIcon className="text-orange-600">
+      <circle {...TINT} cx="12" cy="13" r="8" />
+      <path d="M10 2h4M12 2v3M12 13l3-3" />
+    </StrokeIcon>
+  );
+}

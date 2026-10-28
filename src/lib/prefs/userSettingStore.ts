@@ -37,3 +37,17 @@ export async function writeUserSetting(
     update: { value },
   })
 }
+
+// key と値が一致する行の持ち主を返す (無ければ null)。値で引くのは、
+// 計測ログの取得鍵 (logging/perfExportToken.ts) のように「値の hash から
+// 誰の物かを知る」設定のため。同じ値を複数人が持つことは想定しない
+export async function findUserSettingOwner(
+  key: string,
+  value: string,
+): Promise<string | null> {
+  const row = await prisma.userSetting.findFirst({
+    where: { key, value },
+    select: { userName: true },
+  })
+  return row?.userName ?? null
+}

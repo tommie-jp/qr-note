@@ -132,9 +132,16 @@ const ITEM_ID_PREFIXES = ['/item/', '/print/']
 // 音声も再生できない (docs/22 §6, 41-QR-search/docs/12-添付ファイル種類拡張メモ.md)
 const IMAGE_PREFIX = '/api/images/'
 
+// 計測ログの取得口 (docs/120-計測テスト自動化計画.md §3)。手元のスクリプトが
+// セッション Cookie なしで読むので、取得鍵の照合は route が自分でやる
+const PERF_EXPORT_PATH = '/api/logs/perf/export'
+
 // 末尾は itemId (旧番号を含む) / 画像名の書式に**完全一致**すること。前方一致で
 // 通すと '/item/4518/edit' のような、別のページを指すパスまで素通しする
 export function isSelfGuardedPath(pathname: string): boolean {
+  if (pathname === PERF_EXPORT_PATH) {
+    return true
+  }
   // 短縮 URL (docs/111)。番号だけを受け、proxy が公開ノートだけで引き直す。
   // id は載せない口なので UUID は通さない
   if (pathname.startsWith(SHORT_ITEM_PREFIX)) {

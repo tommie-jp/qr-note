@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DebugConsoleButton } from "@/components/diag/DebugConsoleButton";
+import { PerfTestMenuItem } from "@/components/diag/PerfTestMenuItem";
 import { HeaderMenu } from "@/components/chrome/HeaderMenu";
 import { HeaderQrButton } from "@/components/chrome/HeaderQrButton";
 import { PendingMenuLink } from "@/components/chrome/PendingMenuLink";
@@ -23,6 +24,7 @@ import { ScanBeepMenuItem } from "@/components/bottombar/ScanBeepMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { isAdminUser } from "@/lib/auth/admin";
+import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import type { PhotoMetaMode } from "@/lib/prefs/photoMeta";
 import type { RowTintId } from "@/lib/prefs/rowTint";
@@ -108,6 +110,10 @@ export function AppHeaderMenu({
                 <LogIcon />
                 ログ
               </Link>
+              {/* 計測テスト (docs/120-計測テスト自動化計画.md)。ログの隣に置く —
+                  結果を読むのは /logs?perf=1 で、どちらも診断系。
+                  切替の口 (api/logs/perf) がデモを断るので、デモでは出さない */}
+              <PerfTestMenuItem running={isPerfLogEnabled()} />
               {/* サーバー情報 (docs/109-サーバー情報計画.md)。**管理者だけ** —
                   判定は isAdminUser (env ADMIN_USER との一致) の 1 か所で、
                   ページ側 (requireAdminPage) も同じ判定で 404 に倒す。
