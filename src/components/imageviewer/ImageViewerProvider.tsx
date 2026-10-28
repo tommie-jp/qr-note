@@ -12,19 +12,26 @@ import {
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { attachmentUrl } from "@/lib/images/memoImages";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
+import { useSlideshowInterval } from "@/lib/prefs/slideshowInterval";
 import {
   neighborTarget,
+  planStep,
   sameTarget,
+  type StepPlan,
   type ViewerTarget,
 } from "@/lib/images/viewerNav";
 import { ImageViewerOverlay } from "./ImageViewerOverlay";
 import { ImageViewerPane } from "./ImageViewerPane";
+import { useScreenWakeLock } from "./useScreenWakeLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
-import { requestLoadMore } from "../search/loadMore";
+import { hasMoreResults, requestLoadMore } from "../search/loadMore";
 
 interface ImageViewerState {
   current: ViewerTarget | null;
   open: (target: ViewerTarget) => void;
+  // 一覧の先頭の画像から、全画面でスライドショーを始める (docs/117 §1)。
+  // 押せる画像が 1 枚も無ければ何もせず false
+  startSlideshow: () => boolean;
 }
 
 const ImageViewerContext = createContext<ImageViewerState | null>(null);
@@ -44,11 +51,18 @@ const OPENER_SELECTOR = "[data-viewer-image]";
 // 残りがこの枚数以下になったら次のページを先読みする (末尾で待たせない)。
 // 1 ページは 20 件なので、半ページ手前で頼めば → を押し続けても追いつかない
 const PREFETCH_REMAINING = 10;
-// 出している画像の前後で、原寸を先に取っておく枚数 (送った瞬間に原寸が出る)
+// 出している画像の前後で、原寸を先に取っておく枚数 (送った瞬間に原寸が出る)。
+// スライドショー中は手で送るより速く進む (3 秒間隔で数 MB の写真が続く)
+// ので、先を厚めに取る
 const PRELOAD_AHEAD = 2;
+const PRELOAD_AHEAD_PLAYING = 4;
 const PRELOAD_BEHIND = 1;
 // 末尾で → を押してから、次のページの画像が出るのを待つ上限 (ms)
 const LOAD_MORE_WAIT_MS = 15_000;
+// スライドショーで、原寸が読み終わるのを待つ上限 (ms)。弱い回線で要求が
+// 返らないまま止まると、消灯も抑えたまま永遠に同じ 1 枚になる。過ぎたら
+// サムネのまま次へ送る
+const SETTLE_WAIT_MS = 15_000;
 
 function openersInPage(): HTMLElement[] {
   return [...document.querySelectorAll<HTMLElement>(OPENER_SELECTOR)];
@@ -104,6 +118,8 @@ interface Opened {
 //                            ペインの高さに縦が全部収まるように縮める
 //
 // どちらも ← → (釦・キー) で一覧の前後の画像へ送れる。
+// ▶ (釦・Space) でスライドショーになり、全画面の覆いで一定の間隔で次へ送る
+// (docs/117)。一覧の見出し行の「スライドショー」からは先頭の画像から始まる。
 // URL には載せない — 載せると送るたびに検索が走り直す (docs/86 §2 と同じ理由)。
 // 再読み込みすればノートの表示に戻る、で足りる
 export function ImageViewerProvider({
@@ -116,11 +132,19 @@ export function ImageViewerProvider({
 }) {
   const { mode, detailItemId } = usePaneMode();
   const [opened, setOpened] = useState<Opened | null>(null);
+  // スライドショーの再生中か (docs/117)。再生中は必ず覆いで出す
+  const [playing, setPlaying] = useState(false);
+  // 自動送りが末尾で止まったことを知らせている間 true
+  const [endNotice, setEndNotice] = useState(false);
+  // 原寸を読み終えた (読めなかった) 画像の名前。自動送りの間隔はここから数える
+  const [settledName, setSettledName] = useState<string | null>(null);
   // 選んだノートが変わったら用済み。描画中に捨てる (React の
   // 「props の変化で state を直す」型) — 隠すだけにすると、前のノートへ
   // 戻った (戻る・題を押し直す) 瞬間に閉じたはずの画像が蘇る
   if (opened !== null && opened.openedFor !== detailItemId) {
     setOpened(null);
+    setPlaying(false);
+    setEndNotice(false);
   }
   const visible = opened !== null && opened.openedFor === detailItemId ? opened : null;
   const current = visible?.target ?? null;
@@ -136,13 +160,22 @@ export function ImageViewerProvider({
   const open = useCallback(
     (target: ViewerTarget) => {
       setAwaitingMore(false);
+      setPlaying(false);
+      setEndNotice(false);
       setOpened({ target, openedFor: detailItemId, fullscreen: false });
     },
     [detailItemId],
   );
   const close = useCallback(() => {
     setAwaitingMore(false);
+    setPlaying(false);
+    setEndNotice(false);
     setOpened(null);
+  }, []);
+  // 自動送りが端に着いた。止めて、最後まで見たことを知らせる
+  const stopAtEnd = useCallback(() => {
+    setPlaying(false);
+    setEndNotice(true);
   }, []);
   const showFullscreen = useCallback(
     () => setOpened((prev) => (prev ? { ...prev, fullscreen: true } : prev)),
@@ -161,33 +194,93 @@ export function ImageViewerProvider({
     [],
   );
 
-  // 前後へ送る。並びは押した瞬間の画面から拾い直す (送っている間に次の
-  // ページが継ぎ足されても、その分まで届く)。
+  // 1 枚送る。並びは送る瞬間の画面から拾い直す (送っている間に次の
+  // ページが継ぎ足されても、その分まで届く)。手の ← → と自動送りが共有し、
+  // どうなったか (planStep) を返す。
   //
   // 次のページは**ビューアから直接頼む** (requestLoadMore)。一覧の末尾の
   // 目印はスクロールで画面に入ったときにしか読まないが、2 / 3 ペインの
   // 内側スクロールでは → で末尾の画像まで寄せても目印が器の外に隠れた
   // ままで、最後の画像で止まっていた (loadMore.ts)。末尾に近づいたら
   // 先読みし (下の effect)、末尾で押されたら読み込みを待ってから送る
-  const step = useCallback(
-    (dir: -1 | 1) => {
+  const advance = useCallback(
+    (dir: -1 | 1): StepPlan["kind"] | null => {
       if (current === null) {
-        return;
+        return null;
       }
       setAwaitingMore(false);
       const openers = openersInPage();
       const targets = openers.map(targetOf);
-      const next = neighborTarget(targets, current, dir);
-      if (next === null) {
-        if (dir === 1 && requestLoadMore()) {
-          setAwaitingMore(true);
-        }
-        return;
+      const plan = planStep(targets, current, dir, hasMoreResults());
+      if (plan.kind === "move") {
+        showTarget(plan.target, openers, targets);
+      } else if (plan.kind === "wait") {
+        requestLoadMore();
+        setAwaitingMore(true);
       }
-      showTarget(next, openers, targets);
+      return plan.kind;
     },
     [current, showTarget],
   );
+
+  // 手で送る (釦・← →)。スライドショーは止める — 手で送ったのは
+  // 「この 1 枚を見たい」意思なので、勝手に次へ行かない (docs/117 §3)
+  const step = useCallback(
+    (dir: -1 | 1) => {
+      setPlaying(false);
+      setEndNotice(false);
+      advance(dir);
+    },
+    [advance],
+  );
+
+  // 再生 / 一時停止。始めるときは全画面にする (ペインのまま流すと、狭い
+  // ペインで眺めることになる)。止めても全画面のまま — 止めた瞬間に
+  // ペインへ戻ると絵が跳ねる。
+  // 自動送りで最後まで見た後 (「最後の画像です」が出ている) にもう一度
+  // 押したら、一覧の先頭から流し直す。手で末尾へ送ってから押したときは
+  // そこから始める (見ていた 1 枚を飛ばさない)
+  const togglePlay = useCallback(() => {
+    setEndNotice(false);
+    // 止めるときは次のページの待ちも解く。残すと、届いた瞬間に止めたはずの
+    // スライドショーが 1 枚進む
+    setAwaitingMore(false);
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    if (endNotice) {
+      const openers = openersInPage();
+      const targets = openers.map(targetOf);
+      if (targets.length > 0) {
+        showTarget(targets[0], openers, targets);
+      }
+    }
+    showFullscreen();
+    setPlaying(true);
+  }, [endNotice, playing, showFullscreen, showTarget]);
+
+  const startSlideshow = useCallback(() => {
+    const openers = openersInPage();
+    if (openers.length === 0) {
+      return false;
+    }
+    openers[0].scrollIntoView({ block: "nearest" });
+    // 押した釦 (一覧の見出し行) に焦点を残すと、Space が釦を押し直して
+    // 先頭から始め直してしまう
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setAwaitingMore(false);
+    setEndNotice(false);
+    setOpened({
+      target: targetOf(openers[0]),
+      openedFor: detailItemId,
+      fullscreen: true,
+    });
+    setPlaying(true);
+    return true;
+  }, [detailItemId]);
 
   // 読み込みを待つ。一覧の DOM が変わるたびに次の画像を探し、見つかれば送る。
   // 読み込んだページに画像が 1 枚も無ければ、続きがある限りもう 1 ページ頼む
@@ -196,6 +289,13 @@ export function ImageViewerProvider({
     if (!awaitingMore || current === null) {
       return;
     }
+    // あきらめたとき、スライドショー中ならそこが末尾
+    const giveUp = () => {
+      setAwaitingMore(false);
+      if (playing) {
+        stopAtEnd();
+      }
+    };
     const observer = new MutationObserver(() => {
       const openers = openersInPage();
       const targets = openers.map(targetOf);
@@ -204,16 +304,40 @@ export function ImageViewerProvider({
         setAwaitingMore(false);
         showTarget(next, openers, targets);
       } else if (!requestLoadMore()) {
-        setAwaitingMore(false);
+        giveUp();
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    const timer = setTimeout(() => setAwaitingMore(false), LOAD_MORE_WAIT_MS);
+    const timer = setTimeout(giveUp, LOAD_MORE_WAIT_MS);
     return () => {
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [awaitingMore, current, showTarget]);
+  }, [awaitingMore, current, playing, showTarget, stopAtEnd]);
+
+  // 自動送り (docs/117 §2)。原寸を読み終えてから間隔を数える — 時計だけで
+  // 進めると、通信が遅いときサムネの引き伸ばしのまま次へ行ってしまう。
+  // 読み終わらないまま SETTLE_WAIT_MS 経ったらあきらめて送る。
+  // 次のページを待っている間は数えない (届いて送られたら、その 1 枚から数え直す)。
+  // 間隔を変えたら、いま出ている 1 枚の時計もその場で掛け直す
+  const intervalSec = useSlideshowInterval();
+  const settled = current !== null && settledName === current.name;
+  useEffect(() => {
+    if (!playing || awaitingMore) {
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        if (advance(1) === "end") {
+          stopAtEnd();
+        }
+      },
+      settled ? intervalSec * 1000 : SETTLE_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [playing, settled, awaitingMore, current, intervalSec, advance, stopAtEnd]);
+
+  useScreenWakeLock(playing && current !== null);
 
   // 先読み。前後の画像の原寸を先に取っておき (送ってから取りに行くと、
   // サムネの引き伸ばしから原寸に替わるまでの間が見える)、末尾に近ければ
@@ -227,8 +351,9 @@ export function ImageViewerProvider({
     if (index === -1) {
       return;
     }
+    const ahead = playing ? PRELOAD_AHEAD_PLAYING : PRELOAD_AHEAD;
     const neighbors = [
-      ...targets.slice(index + 1, index + 1 + PRELOAD_AHEAD),
+      ...targets.slice(index + 1, index + 1 + ahead),
       ...targets.slice(Math.max(0, index - PRELOAD_BEHIND), index),
     ];
     for (const t of neighbors) {
@@ -239,7 +364,7 @@ export function ImageViewerProvider({
     if (targets.length - index <= PREFETCH_REMAINING) {
       requestLoadMore();
     }
-  }, [current]);
+  }, [current, playing]);
 
   useEffect(() => {
     if (current === null) {
@@ -258,16 +383,38 @@ export function ImageViewerProvider({
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
         step(event.key === "ArrowLeft" ? -1 : 1);
+      } else if (event.key === " " && asOverlay) {
+        // Space で再生 / 一時停止 (動画の再生と同じ手)。全画面の覆いの
+        // ときだけ — ペインのときは一覧の Space (スクロール) を奪わない。
+        // 焦点のある釦を押させない — 一覧の画像の釦なら、開き直して再生が止まる
+        event.preventDefault();
+        if (!event.repeat) {
+          togglePlay();
+        }
+      }
+    };
+    // 釦は Space を離したときに押される。keydown を止めても押されるブラウザが
+    // あるので、離す側も止める
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === " " && asOverlay && acceptsArrowKeys(event.target)) {
+        event.preventDefault();
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [current, step]);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [asOverlay, current, step, togglePlay]);
 
   // Esc は覆いのときだけ。ペインは Esc を持たない流儀 (docs/86 §2) に合わせる
   useEscapeKey(close, current !== null && asOverlay);
 
-  const value = useMemo(() => ({ current, open }), [current, open]);
+  const value = useMemo(
+    () => ({ current, open, startSlideshow }),
+    [current, open, startSlideshow],
+  );
 
   return (
     <ImageViewerContext.Provider value={value}>
@@ -278,6 +425,10 @@ export function ImageViewerProvider({
             target={current}
             onClose={close}
             onStep={step}
+            playing={playing}
+            endNotice={endNotice}
+            onTogglePlay={togglePlay}
+            onSettled={setSettledName}
           />
         ) : (
           <ImageViewerPane
@@ -285,6 +436,8 @@ export function ImageViewerProvider({
             onClose={close}
             onStep={step}
             onFullscreen={showFullscreen}
+            onTogglePlay={togglePlay}
+            onSettled={setSettledName}
           />
         ))}
     </ImageViewerContext.Provider>

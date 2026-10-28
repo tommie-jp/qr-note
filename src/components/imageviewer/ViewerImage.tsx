@@ -10,8 +10,17 @@ import { attachmentUrl, thumbUrl } from "@/lib/images/memoImages";
 // 敷いておく。空白の時間が無くなり、前後へ送ったときも絵が途切れない。
 // 原寸が落ちたらサムネのまま残し (壊れた画像アイコンにはしない)、読めなかった
 // ことを下端に出す。
-// 親は relative で大きさを持つこと (中の 2 枚は absolute inset-0)
-export function ViewerImage({ name }: { name: string }) {
+// 親は relative で大きさを持つこと (中の 2 枚は absolute inset-0)。
+//
+// onSettled … 原寸を読み終えた・読めなかった、のどちらかで呼ぶ。スライドショーは
+// ここから間隔を数える (サムネの引き伸ばしのまま次へ行かない。docs/117 §2)
+export function ViewerImage({
+  name,
+  onSettled,
+}: {
+  name: string;
+  onSettled?: (name: string) => void;
+}) {
   // 原寸を読み終えた画像の名前。名前で持つので、送って name が変わった瞬間に
   // 「未読み込み」へ戻り、サムネが敷き直される (effect で戻す必要が無い)
   const [loadedName, setLoadedName] = useState<string | null>(null);
@@ -38,8 +47,14 @@ export function ViewerImage({ name }: { name: string }) {
         key={name}
         src={attachmentUrl(name)}
         alt="ノートの画像"
-        onLoad={() => setLoadedName(name)}
-        onError={() => setFailedName(name)}
+        onLoad={() => {
+          setLoadedName(name);
+          onSettled?.(name);
+        }}
+        onError={() => {
+          setFailedName(name);
+          onSettled?.(name);
+        }}
         className="absolute inset-0 h-full w-full object-contain"
       />
       {failed && (

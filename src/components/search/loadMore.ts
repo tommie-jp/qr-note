@@ -11,10 +11,15 @@ export const LOAD_MORE_EVENT = "qr-note:load-more";
 // AutoLoadMore の器に付ける目印。続きが無い (全件出し切った) ときは描かれない
 export const AUTO_LOAD_MORE_SELECTOR = "[data-auto-load-more]";
 
+// 一覧に続きのページがあるか (頼みはしない)。全件出し切ると目印が消える
+export function hasMoreResults(): boolean {
+  return document.querySelector(AUTO_LOAD_MORE_SELECTOR) !== null;
+}
+
 // 続きがあれば読み込みを頼んで true、無ければ false。読み込み中に重ねて
 // 頼んでも AutoLoadMore の側で 1 回にまとまる
 export function requestLoadMore(): boolean {
-  if (document.querySelector(AUTO_LOAD_MORE_SELECTOR) === null) {
+  if (!hasMoreResults()) {
     return false;
   }
   window.dispatchEvent(new Event(LOAD_MORE_EVENT));

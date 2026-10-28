@@ -41,3 +41,29 @@ export function neighborTarget(
   }
   return unique[index + dir] ?? null;
 }
+
+// 1 枚送ったらどうなるか。手の ← → とスライドショーの自動送りが共有する。
+//
+//   move … 隣の画像へ送る
+//   wait … 一覧の末尾。続きのページがあるので、読み込みを頼んで待つ
+//   end  … 続きも尽きた端 (または前へ送って先頭)。スライドショーはここで止まる
+//
+// hasMore は「一覧に続きのページがあるか」(loadMore.ts の目印が居るか)。
+// 前へ送るときは続きを見ない — 前のページは既に全部読み込まれている
+export type StepPlan =
+  | { kind: "move"; target: ViewerTarget }
+  | { kind: "wait" }
+  | { kind: "end" };
+
+export function planStep(
+  targets: readonly ViewerTarget[],
+  current: ViewerTarget,
+  dir: -1 | 1,
+  hasMore: boolean,
+): StepPlan {
+  const next = neighborTarget(targets, current, dir);
+  if (next !== null) {
+    return { kind: "move", target: next };
+  }
+  return dir === 1 && hasMore ? { kind: "wait" } : { kind: "end" };
+}

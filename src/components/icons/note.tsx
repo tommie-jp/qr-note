@@ -229,3 +229,22 @@ export function NumberIcon() {
     </StrokeIcon>
   );
 }
+
+// スライドショーの再生 / 一時停止 (docs/117)。画像ビューアの白い丸の釦に
+// 置くので、隣の前後 (PagePrevIcon / PageNextIcon) と同じ indigo にそろえる
+export function PlayIcon() {
+  return (
+    <StrokeIcon className="text-indigo-600">
+      <path {...TINT} d="M8 5.5v13l10.5-6.5z" />
+    </StrokeIcon>
+  );
+}
+
+export function PauseIcon() {
+  return (
+    <StrokeIcon className="text-indigo-600">
+      <rect {...TINT} x="7" y="5.5" width="3.5" height="13" rx="1" />
+      <rect {...TINT} x="13.5" y="5.5" width="3.5" height="13" rx="1" />
+    </StrokeIcon>
+  );
+}

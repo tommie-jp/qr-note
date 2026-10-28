@@ -190,6 +190,127 @@ test.describe('検索結果の画像ビューア', () => {
     const pane = page.getByRole('region', { name: '画像の表示' })
     await expect(viewerImage(pane)).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
     await expectInside(viewerImage(pane), pane)
+    // スライドショーの入口は画像表示だけ (行の表示はサムネが 1 ノート 1 枚)
+    await expect(
+      searchResults(page).getByRole('button', { name: 'スライドショー', exact: true }),
+    ).toHaveCount(0)
+  })
+})
+
+// スライドショー (docs/117-検索結果のスライドショー計画.md)。送る間隔は
+// いちばん短い 3 秒にして待ち時間を詰める (端末の設定 = localStorage)
+const SLIDESHOW_INTERVAL_KEY = 'qr-search:slideshow-interval'
+// 3 秒の間隔 + 原寸の読み込み。expect の既定 (5 秒) では際どい
+const SLIDE_WAIT_MS = 10_000
+
+test.describe('検索結果のスライドショー', () => {
+  test.beforeEach(async ({ browser, page }) => {
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, '3')
+    }, SLIDESHOW_INTERVAL_KEY)
+    const setup = await newLoggedInPage(browser)
+    await removeE2eNote(setup, NOTE)
+    await setup.goto(`/edit/${NOTE.id}`)
+    const save = setup.getByRole('button', { name: '更新', exact: true })
+    await expect(save).toBeVisible()
+    await clearEditor(setup)
+    await memoEditor(setup).click()
+    await setup.keyboard.insertText(BODY)
+    await save.click()
+    await expect(setup).toHaveURL((url) => url.pathname === `/item/${NOTE.id}`)
+    await closePage(setup)
+  })
+
+  test.afterEach(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, NOTE)
+    await closePage(page)
+  })
+
+  test('一覧の「スライドショー」で先頭から全画面で流れ、末尾で止まって知らせる', async ({
+    page,
+  }) => {
+    // Arrange
+    await openResults(page, '3', 'image')
+    const start = searchResults(page).getByRole('button', { name: 'スライドショー', exact: true })
+
+    // Act
+    await start.click()
+
+    // Assert: ペインではなく全画面の覆いで、先頭の 1 枚から
+    const image = viewerImage(page)
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
+    await expect(page.getByRole('region', { name: '画像の表示' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '送る間隔 3 秒' })).toBeAttached()
+
+    // Assert: 触らずに待つと次へ送られ、続きの無い末尾で止まる
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`, {
+      timeout: SLIDE_WAIT_MS,
+    })
+    await expect(page.getByRole('status').filter({ hasText: '最後の画像です' })).toBeVisible({
+      timeout: SLIDE_WAIT_MS,
+    })
+    await expect(
+      page.locator('[data-image-viewer]').getByRole('button', { name: 'スライドショー', exact: true }),
+    ).toBeVisible()
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`)
+  })
+
+  test('ペインの ▶ で全画面になり、画像を押すと閉じずに一時停止、→ で手送り', async ({
+    page,
+  }) => {
+    // Arrange
+    const openers = await openResults(page, '3', 'image')
+    await openers.first().click()
+    const pane = page.getByRole('region', { name: '画像の表示' })
+    await expect(pane).toBeVisible()
+
+    // Act: ペインの ▶
+    await pane.getByRole('button', { name: 'スライドショー', exact: true }).click()
+
+    // Assert: 全画面の覆いで再生中
+    await expect(pane).toHaveCount(0)
+    const image = viewerImage(page)
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
+    const viewer = page.locator('[data-image-viewer]')
+    await expect(viewer.getByRole('button', { name: 'スライドショーを止める' })).toBeAttached()
+
+    // Act: 画像を押す (再生中は閉じずに一時停止)
+    await image.click()
+
+    // Assert: 止まっていて、待っても送られない
+    await expect(viewer.getByRole('button', { name: 'スライドショー', exact: true })).toBeVisible()
+    await page.waitForTimeout(4_000)
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
+
+    // Act / Assert: 手で送れて、Esc で閉じる
+    await page.keyboard.press('ArrowRight')
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`)
+    await page.keyboard.press('Escape')
+    await expect(image).toHaveCount(0)
+  })
+
+  test('Space で再生と一時停止を切り替え、手で送ると止まる', async ({ page }) => {
+    // Arrange: 1 ペインの覆いで開く (止まっている)
+    const openers = await openResults(page, '1', 'image')
+    await openers.first().click()
+    const viewer = page.locator('[data-image-viewer]')
+    const image = viewerImage(page)
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
+
+    // Act: Space で再生
+    await page.keyboard.press('Space')
+
+    // Assert
+    await expect(viewer.getByRole('button', { name: 'スライドショーを止める' })).toBeAttached()
+
+    // Act: ← で手送り (先頭なので動かないが、再生は止まる)
+    await page.keyboard.press('ArrowLeft')
+
+    // Assert
+    await expect(viewer.getByRole('button', { name: 'スライドショー', exact: true })).toBeAttached()
+    await page.waitForTimeout(4_000)
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
   })
 })
 

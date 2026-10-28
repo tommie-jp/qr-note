@@ -126,3 +126,14 @@ export function SelectIcon() {
     </StrokeIcon>
   );
 }
+
+// スライドショー: 写真の額に再生の三角 (docs/117)。一覧の見出し行の
+// スロットに置く (選択と同じく色は使う側の SlotIcon が持つ)
+export function SlideshowIcon() {
+  return (
+    <StrokeIcon size="large">
+      <rect {...TINT} x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M10 9v6l5-3z" />
+    </StrokeIcon>
+  );
+}

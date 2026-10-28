@@ -1,8 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { PageNextIcon, PagePrevIcon } from "@/components/icons";
+import {
+  PageNextIcon,
+  PagePrevIcon,
+  PauseIcon,
+  PlayIcon,
+} from "@/components/icons";
 import { IMAGE_OVERLAY_BUTTON_CLASS } from "@/components/ui";
+import {
+  nextSlideshowInterval,
+  setSlideshowInterval,
+  useSlideshowInterval,
+} from "@/lib/prefs/slideshowInterval";
 
 // ペインと覆いが共有する操作の釦 (docs/116 §3)。地が暗い所に置くので
 // どれも拡大表示と同じ白い丸 (IMAGE_OVERLAY_BUTTON_CLASS)。
@@ -59,6 +69,53 @@ export function OpenNoteLink({
     >
       ノートを開く
     </Link>
+  );
+}
+
+// スライドショーの再生 / 一時停止 (docs/117)。名前は「いま押すと何が起きるか」
+export function PlayPauseButton({
+  playing,
+  onToggle,
+  className = "",
+}: {
+  playing: boolean;
+  onToggle: () => void;
+  className?: string;
+}) {
+  const label = playing ? "スライドショーを止める" : "スライドショー";
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={`${ROUND_CLASS} ${className}`}
+    >
+      {playing ? <PauseIcon /> : <PlayIcon />}
+    </button>
+  );
+}
+
+// 送る間隔。押すたびに 3 → 5 → 10 秒と回り、端末に覚える
+// (prefs/slideshowInterval.ts)。再生中に変えれば、いま出ている 1 枚からその場で効く
+export function IntervalButton() {
+  const seconds = useSlideshowInterval();
+  return (
+    <button
+      type="button"
+      aria-label={`送る間隔 ${seconds} 秒`}
+      title="送る間隔 (押すと変わる)"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSlideshowInterval(nextSlideshowInterval(seconds));
+      }}
+      className={`${ROUND_CLASS} px-3 text-sm font-medium tabular-nums whitespace-nowrap`}
+    >
+      {seconds}秒
+    </button>
   );
 }
 

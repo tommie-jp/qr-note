@@ -7,6 +7,7 @@ import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
 import type { ViewerTarget } from "@/lib/images/viewerNav";
 import {
   OpenNoteLink,
+  PlayPauseButton,
   StepButton,
   VIEWER_ROUND_BUTTON_CLASS,
 } from "./ViewerControls";
@@ -17,6 +18,9 @@ interface ImageViewerPaneProps {
   onClose: () => void;
   onStep: (dir: -1 | 1) => void;
   onFullscreen: () => void;
+  // スライドショーを始める (全画面に切り替わる。docs/117)
+  onTogglePlay: () => void;
+  onSettled: (name: string) => void;
 }
 
 // 2 / 3 ペインで、ノートのペインの場所に画像だけを出す (docs/116 §3)。
@@ -34,6 +38,8 @@ export function ImageViewerPane({
   onClose,
   onStep,
   onFullscreen,
+  onTogglePlay,
+  onSettled,
 }: ImageViewerPaneProps) {
   const sectionRef = useRef<HTMLElement>(null);
   // 下に隠れたノートのペインは inert にする。見えていないノートのリンクや
@@ -72,6 +78,8 @@ export function ImageViewerPane({
           折らない) */}
       <div className="flex flex-wrap items-center justify-end gap-2 px-safe pt-1.5 pb-1">
         <OpenNoteLink href={target.href} onClose={onClose} />
+        {/* ペインに出ている間は止まっている (再生は必ず全画面) */}
+        <PlayPauseButton playing={false} onToggle={onTogglePlay} />
         <button
           type="button"
           aria-label="全画面で見る"
@@ -94,7 +102,7 @@ export function ImageViewerPane({
       {/* pb-safe … 下部バーの無い画面ではペインの下端が画面の下端になる */}
       <div className="relative min-h-0 flex-1 px-safe pb-safe">
         <div className="relative h-full w-full">
-          <ViewerImage name={target.name} />
+          <ViewerImage name={target.name} onSettled={onSettled} />
         </div>
         {/* 前後は画像の左右の中ほど (覆いと同じ置き方)。操作行に並べると
             狭いペインで行が溢れる */}

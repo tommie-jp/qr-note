@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SelectIcon } from "@/components/icons";
+import { SelectIcon, SlideshowIcon } from "@/components/icons";
+import { useImageViewer } from "@/components/imageviewer/ImageViewerProvider";
 import { useSelectMode } from "@/components/search/SelectModeProvider";
 import { SlotIcon } from "@/components/bottombar/SlotIcon";
 import { SortSlot } from "@/components/bottombar/SortSlot";
@@ -22,6 +23,9 @@ interface ResultsToolbarProps {
   view: ViewMode;
   viewAction: SlotAction;
   sortAction: SlotAction;
+  // 「スライドショー」を出すか (docs/117 §1)。画像表示で、一覧に画像が
+  // あるときだけ立てる — 押しても何も起きない釦を置かない
+  slideshow?: boolean;
 }
 
 // 検索結果の見出し行 (件数の右) に並べる操作 (docs/86 §4-11)。
@@ -39,8 +43,11 @@ export function ResultsToolbar({
   view,
   viewAction,
   sortAction,
+  slideshow = false,
 }: ResultsToolbarProps) {
   const { selectMode, enter, exit } = useSelectMode();
+  // provider の外 (オフライン一覧など) では出さない
+  const viewer = useImageViewer();
   // 長押しで開いているメニュー。1 つの state で持つので二枚同時には開かない
   // (下部バーと同じ作り)
   const [openMenu, setOpenMenu] = useState<"view" | "sort" | null>(null);
@@ -54,6 +61,22 @@ export function ResultsToolbar({
     // shrink-0 … 詰まったときに譲るのは件数の側 (あちらは truncate する)。
     // ここが縮むと、狭いペインで操作そのものが読めなくなる
     <span className="ml-auto flex shrink-0 items-center gap-1">
+      {/* 一覧の先頭の画像から全画面で流す。選択中は出さない (選択モードは
+          一覧のどこを押しても選択にする流儀。docs/116 §1) */}
+      {slideshow && viewer !== null && !selectMode && (
+        <button
+          type="button"
+          onClick={() => viewer.startSlideshow()}
+          aria-label="スライドショー"
+          title="スライドショー"
+          className={`${INLINE_SLOT_CLASS} text-gray-700`}
+        >
+          <SlotIcon color="text-indigo-600">
+            <SlideshowIcon />
+          </SlotIcon>
+          <span className={SLOT_LABEL_CLASS}>スライドショー</span>
+        </button>
+      )}
       <ViewSlot
         view={view}
         action={viewAction}
