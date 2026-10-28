@@ -132,7 +132,7 @@ test("未ログインなら描かずに投げる", async () => {
 
 // 速度計測の行 (docs/119 §1-3)。既定の一覧には出さず、?perf=1 でだけ出す
 test('計測行は ?perf=1 でだけ出る', async () => {
-  vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   const { pushPerfLine } = await import("@/lib/logging/buffer");
   pushPerfLine("[計測] 検索/サーバ 全体=3ms");
   console.warn("普通の警告");
