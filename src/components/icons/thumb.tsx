@@ -2,12 +2,19 @@
 // もとはそれぞれの部品の中の inline svg。囲み (重ねる位置・読み上げ名) は
 // 使う側が持つ
 
-// 再生バッジの図柄 (半透明の黒丸に白の三角)。RowThumb が poster の中央に重ねる
-export function PlayBadgeIcon() {
+// 再生バッジの図柄 (半透明の黒丸に白の三角)。RowThumb が poster の中央に重ねる。
+// 既定はサムネの 1/3 (行のサムネは 24〜96px と小さいので比で決める)。
+// sizeClass … 寸法を差し替える口。画像表示のタイル (VideoTilePoster) は 160px 前後
+// あり、1/3 では絵を隠しすぎるので固定の大きさにする
+export function PlayBadgeIcon({
+  sizeClass = "size-1/3 min-h-4 min-w-4",
+}: {
+  sizeClass?: string;
+} = {}) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-1/3 min-h-4 min-w-4 drop-shadow"
+      className={`${sizeClass} drop-shadow`}
       fill="white"
     >
       <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.45)" />

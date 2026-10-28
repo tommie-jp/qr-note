@@ -27,6 +27,7 @@ const PROP_VARIANTS: Readonly<
   EyeIcon: [{ hidden: false }, { hidden: true }],
   MenuToggleIcon: [{ isOpen: false }, { isOpen: true }],
   PinIcon: [{ pinned: false }, { pinned: true }],
+  PlayBadgeIcon: [{}, { sizeClass: "size-8" }],
 };
 
 function caseName(name: string, props: Readonly<Record<string, unknown>>) {

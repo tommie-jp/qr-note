@@ -517,6 +517,26 @@ test.describe('検索結果のスライドショー (動画)', () => {
       .toBeGreaterThan(0)
   })
 
+  test('画像表示の動画タイルは、ホバーで動くサムネに替わり ▶ が消える', async ({ page }) => {
+    // Arrange
+    const videoTile = await openVideoResults(page, '3')
+    const poster = videoTile.locator('img')
+    await expect(poster).toHaveAttribute('src', /thumb=1&v=/)
+    await expect(poster).not.toHaveAttribute('src', /anim=1/)
+    const badge = videoTile.locator('svg')
+    await expect(badge).toBeVisible()
+    // ▶ は小さめ (32px)。タイルの 1/3 にしない
+    const badgeBox = await badge.boundingBox()
+    expect(badgeBox?.width ?? 0).toBeLessThanOrEqual(33)
+
+    // Act
+    await videoTile.hover()
+
+    // Assert: 同じ <img> が動くサムネ (アニメ WebP) の URL に替わる
+    await expect(poster).toHaveAttribute('src', /thumb=1&anim=1/)
+    await expect(badge).toHaveCount(0)
+  })
+
   // 行の表示 (中・大) の顔を動画にしたノートで開く
   async function openVideoRows(page: Page, view: 'medium' | 'card') {
     await serveImages(page.context())
