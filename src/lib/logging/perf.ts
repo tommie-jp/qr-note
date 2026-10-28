@@ -92,6 +92,18 @@ export function pickActionResponse(
   return { main, prefetch }
 }
 
+// 表示モードの切替の本体。押した瞬間に描き替える形 (docs/118 §10 案 B) では、
+// cookie を PUT で書いた後の router.refresh() が _rsc 付きの GET で描き直しを
+// 運ぶ。古い画面 (配布前に開いていた) や受け皿の Server Action の経路では
+// POST の応答が運ぶので、RSC が見つからなければそちらを探す
+export function pickViewSwitch(
+  entries: readonly ResourceLike[],
+  window: { t0: number; until: number; pathname: string },
+): RscPick {
+  const rscPick = pickRsc(entries, window)
+  return rscPick.main !== null ? rscPick : pickActionResponse(entries, window)
+}
+
 // 窓 [t0, t1] に始まった長いタスクの本数と合計 (Chromium だけが持つ)
 export function sumLongTasks(
   tasks: readonly LongTaskLike[],

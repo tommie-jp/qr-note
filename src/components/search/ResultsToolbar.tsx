@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { startTransition, useCallback, useState } from "react";
 import { SelectIcon, SlideshowIcon } from "@/components/icons";
-import { perfStart } from "@/lib/logging/perfClient";
+import { perfAddField, perfNow, perfStart } from "@/lib/logging/perfClient";
+import { perfMs } from "@/lib/logging/perfLine";
+import { switchViewMode } from "@/components/search/switchViewMode";
 import { useImageViewer } from "@/components/imageviewer/ImageViewerProvider";
 import { useSelectMode } from "@/components/search/SelectModeProvider";
 import { SlotIcon } from "@/components/bottombar/SlotIcon";
@@ -11,8 +14,8 @@ import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
 import { ViewSlot } from "@/components/bottombar/ViewSlot";
 import { SEARCH_SORT_SPEC } from "@/lib/prefs/sortDirection";
 import { SORT_COOKIE } from "@/lib/prefs/sortMode";
-import { markViewSwitch } from "@/lib/prefs/pendingViewMode";
-import { VIEW_MODE_COOKIE } from "@/lib/prefs/viewMode";
+import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
+import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 
@@ -55,24 +58,39 @@ export function ResultsToolbar({
   // (下部バーと同じ作り)
   const [openMenu, setOpenMenu] = useState<"view" | "sort" | null>(null);
   const closeMenu = useCallback(() => setOpenMenu(null), []);
-  // 表示モードの釦が送信された瞬間 (docs/118 §10 案 D・docs/120 §2-1)。
-  // 送った先を store に置いて一覧を「切替中」にし、計測を始める。
-  //
-  // **Action は包まず、submit を外側で拾う。** form の action は素の Server
-  // Action のままでないと、JS 無効のときネイティブの送信で切り替わらなくなる
-  // (CycleSlot の注)。v0.23.77 で計測のために包んで崩していたのを戻した。
-  // 送った値は submit を起こした釦 (循環の釦かメニューの行) の value にある
+  // 表示モードは押した瞬間に一覧を描き替える (docs/118 §10 案 B)。送った先を
+  // store に置き (一覧と釦が同じ値を読む)、cookie の保存と足りない材料の補充は
+  // switchViewMode が後ろで進める。本番では Server Action の往復 (150〜270ms)
+  // を待ってから一覧が変わっていた (§0-11)
+  const router = useRouter();
+  const shownView = useShownViewMode(view);
+
+  // 釦 (循環の釦かメニューの行) の submit を外側で拾い、Server Action を止めて
+  // 切り替える。**form の action は素の Server Action のまま残す** — JS が
+  // 動かないときはネイティブの送信でそちらが受ける (CycleSlot の注)。
+  // React は通常のイベントの後で defaultPrevented を見て、立っていれば
+  // action を呼ばない。送った値は submit を起こした釦の value にある
   const onViewSubmit = useCallback(
     (event: React.FormEvent<HTMLSpanElement>) => {
       const submitter = (event.nativeEvent as SubmitEvent).submitter;
       if (!(submitter instanceof HTMLButtonElement) || submitter.name !== VIEW_MODE_COOKIE) {
         return;
       }
-      const next = submitter.value;
-      perfStart("表示", "/", undefined, [["切替", `${view}→${next}`]]);
-      markViewSwitch(next);
+      event.preventDefault();
+      const next = parseViewMode(submitter.value);
+      const pressedAt = perfNow();
+      perfStart("表示", "/", undefined, [["切替", `${shownView}→${next}`]]);
+      void switchViewMode(next, () => {
+        startTransition(() => router.refresh());
+      });
+      // 押してから新しいモードが画面に出るまで (2 フレーム目 = 描き替えの後の描画)
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          perfAddField("表示", ["即時", perfMs(perfNow() - pressedAt)]),
+        ),
+      );
     },
-    [view],
+    [shownView, router],
   );
   const openView = useCallback(() => setOpenMenu("view"), []);
   const openSort = useCallback(() => setOpenMenu("sort"), []);
@@ -102,7 +120,7 @@ export function ResultsToolbar({
       {/* contents … 拾うための器で、並びには参加しない */}
       <span className="contents" onSubmitCapture={onViewSubmit}>
       <ViewSlot
-        view={view}
+        view={shownView}
         action={viewAction}
         open={openMenu === "view"}
         onOpen={openView}

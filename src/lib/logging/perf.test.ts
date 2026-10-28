@@ -6,6 +6,7 @@ import {
   itemLinkTarget,
   marksClose,
   pickActionResponse,
+  pickViewSwitch,
   pickRsc,
   serverTimingSummary,
   sumLongTasks,
@@ -84,6 +85,25 @@ describe('pickActionResponse (Server Action の応答)', () => {
     const picked = pickActionResponse(entries, { t0: 50, until: 1000, pathname: '/' })
     expect(picked.main).toBeNull()
     expect(picked.prefetch).toBe(0)
+  })
+})
+
+describe('pickViewSwitch (表示モードの切替の本体)', () => {
+  test('router.refresh の RSC があればそれを本体にする (押した瞬間に替える形)', () => {
+    const entries = [
+      { ...rsc('/', 100, 1), name: 'http://localhost/api/settings/view-mode' },
+      rsc('/?q=a', 120, 90_000),
+    ]
+    expect(pickViewSwitch(entries, { t0: 90, until: 1000, pathname: '/' }).main?.decodedBodySize).toBe(
+      90_000,
+    )
+  })
+
+  test('RSC が無ければ Server Action の応答を本体にする (JS が古い画面・受け皿)', () => {
+    const entries = [{ ...rsc('/', 100, 50_000), name: 'http://localhost/' }]
+    expect(pickViewSwitch(entries, { t0: 90, until: 1000, pathname: '/' }).main?.decodedBodySize).toBe(
+      50_000,
+    )
   })
 })
 

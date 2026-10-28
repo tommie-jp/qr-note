@@ -19,8 +19,8 @@ import {
   formatNavLine,
   itemLinkTarget,
   marksClose,
-  pickActionResponse,
   pickRsc,
+  pickViewSwitch,
   sumLongTasks,
   type LongTaskLike,
   type NavKind,
@@ -114,6 +114,17 @@ export function withViewPhase(
   return phase === null ? extra : [...(extra ?? []), ['区分', phase]]
 }
 
+// 進行中の計測に項目を 1 つ足す (種別が合うときだけ)。表示モードの切替で、
+// 押してから見た目が変わるまで (即時) を、描き直しが届くまでの行に載せる
+// (docs/118 §10 案 B)。計測中でなければ・閉じた後なら何もしない
+export function perfAddField(kind: NavKind, field: PerfField): void {
+  const s = current()
+  if (!s || s.active === null || s.active.kind !== kind) {
+    return
+  }
+  s.active = { ...s.active, extra: [...(s.active.extra ?? []), field] }
+}
+
 // 進行中・閉じかけの計測が無いか (計測テストが次の操作へ進む合図。
 // docs/120 §2)。仕掛けられていなければ常に空いている
 export function isPerfIdle(): boolean {
@@ -147,8 +158,8 @@ function finalize(s: PerfState, closing: Closing): void {
     formatNavLine(measure, closing.marks, {
       committedAt: closing.committedAt,
       paintedAt,
-      // 表示モードの切替は Server Action の POST で、_rsc 付きの GET ではない
-      rsc: (measure.kind === '表示' ? pickActionResponse : pickRsc)(s.resources, {
+      // 表示モードの切替は refresh の RSC か、受け皿の Server Action の POST
+      rsc: (measure.kind === '表示' ? pickViewSwitch : pickRsc)(s.resources, {
         t0: measure.t0,
         until: perfNow(),
         pathname: measure.pathname,

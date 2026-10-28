@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import { ResultsToolbar } from "./ResultsToolbar";
 import { SelectModeProvider } from "./SelectModeProvider";
+
+// 表示モードの切替は router.refresh() で材料を埋める (docs/118 §10 案 B)
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => {} }),
+}));
 
 // 検索結果の見出し行に並ぶ操作 (docs/86 §4-11)。もとは下部バーに居たので、
 // 循環・読み上げ・フォーム送信の約束はそのまま引き継いでいる

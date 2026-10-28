@@ -16,6 +16,7 @@ import type { NotePreviewMap } from "./NotePreviewThumb";
 import { buildItemUrl, itemIdFromPathname } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
+import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
 import { BulkTagToolbar } from "../search/BulkTagToolbar";
 import { ImageMasonry } from "./ImageMasonry";
 import { SearchTileMenuProvider } from "./row-actions/TileActions";
@@ -122,7 +123,7 @@ export function ItemList({
   page,
   sort,
   action,
-  view = DEFAULT_VIEW_MODE,
+  view: serverView = DEFAULT_VIEW_MODE,
   trashAction,
   pinAction,
   registerHref,
@@ -131,6 +132,10 @@ export function ItemList({
   mathTexts,
   notePreviews,
 }: ItemListProps) {
+  // 見せる表示モード。釦を押した瞬間は送った先 (docs/118 §10 案 B)。サーバの
+  // 描き直しが届くまで、カードの本文プレビューや数式は手元の材料で描く
+  // (無ければ素の文字。rowPreview が畳む)
+  const view = useShownViewMode(serverView);
   // 選択モードの入り切りは下部バーが持つ (docs/31-下部操作バー計画.md §5-2)。
   // 選んだ番号の Set はここに残す — バーは「何件選ばれたか」を知る必要がなく、
   // 持ち上げても使い道がない
