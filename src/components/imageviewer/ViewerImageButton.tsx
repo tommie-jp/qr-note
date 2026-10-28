@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { sameTarget, type ViewerTarget } from "@/lib/images/viewerNav";
+import { isValidVideoName } from "@/lib/uploads/names";
 import { useImageViewer } from "./ImageViewerProvider";
 
 // 一覧の画像 (画像タイル・行のサムネ) を、押すとビューアが開く釦にする
@@ -39,7 +40,8 @@ export function ViewerImageButton({
       data-viewer-item={target.itemId}
       data-viewer-href={target.href}
       data-row-thumb={dataRowThumb}
-      aria-label="画像を大きく表示"
+      // 動画のタイルはビューアで再生する (docs/117 §8)
+      aria-label={isValidVideoName(target.name) ? "動画を再生" : "画像を大きく表示"}
       aria-pressed={active}
       onClick={() => viewer.open(target)}
       className={`relative z-10 block cursor-zoom-in ${

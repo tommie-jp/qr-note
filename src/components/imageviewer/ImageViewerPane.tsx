@@ -11,7 +11,7 @@ import {
   StepButton,
   VIEWER_ROUND_BUTTON_CLASS,
 } from "./ViewerControls";
-import { ViewerImage } from "./ViewerImage";
+import { ViewerMedia, type ViewerMediaHandlers } from "./ViewerMedia";
 
 interface ImageViewerPaneProps {
   target: ViewerTarget;
@@ -20,7 +20,7 @@ interface ImageViewerPaneProps {
   onFullscreen: () => void;
   // スライドショーを始める (全画面に切り替わる。docs/117)
   onTogglePlay: () => void;
-  onSettled: (name: string) => void;
+  media: ViewerMediaHandlers;
 }
 
 // 2 / 3 ペインで、ノートのペインの場所に画像だけを出す (docs/116 §3)。
@@ -39,7 +39,7 @@ export function ImageViewerPane({
   onStep,
   onFullscreen,
   onTogglePlay,
-  onSettled,
+  media,
 }: ImageViewerPaneProps) {
   const sectionRef = useRef<HTMLElement>(null);
   // 下に隠れたノートのペインは inert にする。見えていないノートのリンクや
@@ -102,7 +102,7 @@ export function ImageViewerPane({
       {/* pb-safe … 下部バーの無い画面ではペインの下端が画面の下端になる */}
       <div className="relative min-h-0 flex-1 px-safe pb-safe">
         <div className="relative h-full w-full">
-          <ViewerImage name={target.name} onSettled={onSettled} />
+          <ViewerMedia name={target.name} handlers={media} />
         </div>
         {/* 前後は画像の左右の中ほど (覆いと同じ置き方)。操作行に並べると
             狭いペインで行が溢れる */}

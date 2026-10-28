@@ -14,7 +14,7 @@ import { PropsTable } from "@/components/markdown/PropsTable";
 import { ResultsToolbar } from "@/components/search/ResultsToolbar";
 import { SearchResults } from "@/components/search/SearchNav";
 import { TaskProgress } from "@/components/markdown/TaskProgress";
-import { allImageNames } from "@/lib/images/memoImages";
+import { allViewerMedia } from "@/lib/images/memoImages";
 import { showsAutoNote, type PaneMode } from "@/lib/prefs/paneMode";
 import { loadSearchResults } from "@/lib/search/pageData";
 import { buildSearchUrl } from "@/lib/search/url";
@@ -65,10 +65,10 @@ export async function HomeResults({
 
   // スライドショーは画像表示のときだけ (docs/117 §1)。行の表示ではノート 1 件に
   // サムネ 1 枚しか並ばず、「検索結果の画像を全部見る」にならない。
-  // 読み込み済みのページに画像が 1 枚も無ければ出さない
+  // 読み込み済みのページに画像も動画も無ければ出さない
   const slideshow =
     view === "image" &&
-    result.items.some((item) => allImageNames(item.memo).length > 0);
+    result.items.some((item) => allViewerMedia(item.memo).length > 0);
   const autoNote = first ? (
     <ItemDetail
       itemId={first.itemId}

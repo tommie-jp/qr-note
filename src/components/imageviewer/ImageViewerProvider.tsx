@@ -10,18 +10,21 @@ import {
   type ReactNode,
 } from "react";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import { attachmentUrl } from "@/lib/images/memoImages";
+import { attachmentUrl, thumbUrl } from "@/lib/images/memoImages";
+import { isValidVideoName } from "@/lib/uploads/names";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
 import { useSlideshowInterval } from "@/lib/prefs/slideshowInterval";
 import {
   neighborTarget,
   planStep,
   sameTarget,
+  slideDelay,
   type StepPlan,
   type ViewerTarget,
 } from "@/lib/images/viewerNav";
 import { ImageViewerOverlay } from "./ImageViewerOverlay";
 import { ImageViewerPane } from "./ImageViewerPane";
+import type { ViewerMediaHandlers } from "./ViewerMedia";
 import { useScreenWakeLock } from "./useScreenWakeLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
 import { hasMoreResults, requestLoadMore } from "../search/loadMore";
@@ -63,6 +66,9 @@ const LOAD_MORE_WAIT_MS = 15_000;
 // 返らないまま止まると、消灯も抑えたまま永遠に同じ 1 枚になる。過ぎたら
 // サムネのまま次へ送る
 const SETTLE_WAIT_MS = 15_000;
+// スライドショーで動画を見終えてから次へ送るまでの間 (ms)。終わった瞬間に
+// 切り替わると、最後のコマを見る間が無い
+const VIDEO_END_PAUSE_MS = 800;
 
 function openersInPage(): HTMLElement[] {
   return [...document.querySelectorAll<HTMLElement>(OPENER_SELECTOR)];
@@ -109,6 +115,28 @@ interface Opened {
   openedFor: string | null;
   // ペインの構成でも全画面で見たいとき (ペインの「全画面」)
   fullscreen: boolean;
+  // 表示の番号。送る・開く・ペインから全画面へ移るたびに新しくなる。
+  // 読み込み・再生の状態 (MediaStatus) はこの番号に結びつける — 名前で持つと、
+  // 同じ動画へ戻ったときに前の「再生し終えた」が残って即座に送られる
+  visit: number;
+}
+
+// いま出ている 1 枚の読み込み・再生の状態。visit が今の表示と違えば無いのと同じ
+interface MediaStatus {
+  visit: number;
+  // 原寸を読み終えた (読めなかった)・動画を再生できなかった
+  settled: boolean;
+  // 動画を再生し終えた
+  ended: boolean;
+}
+
+const NO_STATUS: MediaStatus = { visit: 0, settled: false, ended: false };
+
+// 表示の番号を振る。一意であればよいのでモジュールの外の数で足りる
+let visitSeq = 0;
+function nextVisit(): number {
+  visitSeq += 1;
+  return visitSeq;
 }
 
 // 検索結果の画像を大きく見せるビューア (docs/116)。
@@ -134,8 +162,11 @@ export function ImageViewerProvider({
   const [opened, setOpened] = useState<Opened | null>(null);
   // スライドショーの再生中か (docs/117)。再生中は必ず覆いで出す
   const [playing, setPlaying] = useState(false);
-  // 原寸を読み終えた (読めなかった) 画像の名前。自動送りの間隔はここから数える
-  const [settledName, setSettledName] = useState<string | null>(null);
+  // いま出ている 1 枚の読み込み・再生の状態。自動送りの時間はここから決める
+  const [mediaStatus, setMediaStatus] = useState<MediaStatus>(NO_STATUS);
+  // 動画を音つきで始めるか。利用者がプレーヤーで消音を切り替えたら次の
+  // 動画もそれに倣う (このタブの間だけ覚える)
+  const [videoSound, setVideoSound] = useState(true);
   // 選んだノートが変わったら用済み。描画中に捨てる (React の
   // 「props の変化で state を直す」型) — 隠すだけにすると、前のノートへ
   // 戻った (戻る・題を押し直す) 瞬間に閉じたはずの画像が蘇る
@@ -158,7 +189,12 @@ export function ImageViewerProvider({
     (target: ViewerTarget) => {
       setAwaitingMore(false);
       setPlaying(false);
-      setOpened({ target, openedFor: detailItemId, fullscreen: false });
+      setOpened({
+        target,
+        openedFor: detailItemId,
+        fullscreen: false,
+        visit: nextVisit(),
+      });
     },
     [detailItemId],
   );
@@ -167,16 +203,25 @@ export function ImageViewerProvider({
     setPlaying(false);
     setOpened(null);
   }, []);
+  // ペインから全画面の覆いへ移ると 1 枚を作り直す (動画は頭から流れ直す)
+  // ので、表示の番号も新しくする。もう覆いなら作り直さないので番号も据え置く
   const showFullscreen = useCallback(
-    () => setOpened((prev) => (prev ? { ...prev, fullscreen: true } : prev)),
-    [],
+    () =>
+      setOpened((prev) =>
+        prev && !prev.fullscreen
+          ? { ...prev, fullscreen: true, visit: asOverlay ? prev.visit : nextVisit() }
+          : prev,
+      ),
+    [asOverlay],
   );
 
   // 送った先を出し、一覧の見える所まで寄せる — ペインの上で送っていても、
   // いまどれを見ているかが一覧の印で追える
   const showTarget = useCallback(
     (next: ViewerTarget, openers: HTMLElement[], targets: ViewerTarget[]) => {
-      setOpened((prev) => (prev ? { ...prev, target: next } : prev));
+      setOpened((prev) =>
+        prev ? { ...prev, target: next, visit: nextVisit() } : prev,
+      );
       openers[targets.findIndex((t) => sameTarget(t, next))]?.scrollIntoView({
         block: "nearest",
       });
@@ -267,6 +312,7 @@ export function ImageViewerProvider({
       target: targetOf(openers[0]),
       openedFor: detailItemId,
       fullscreen: true,
+      visit: nextVisit(),
     });
     setPlaying(true);
     return true;
@@ -310,22 +356,35 @@ export function ImageViewerProvider({
   // 読み終わらないまま SETTLE_WAIT_MS 経ったらあきらめて送る。
   // 次のページを待っている間は数えない (届いて送られたら、その 1 枚から数え直す)。
   // 間隔を変えたら、いま出ている 1 枚の時計もその場で掛け直す
+  //
+  // 動画は間隔ではなく**再生し終えたら**送る (docs/117 §8)。長い動画も
+  // 最後まで見せる。再生できなかった動画 (settled) は画像と同じく間隔ぶん
+  // 見せて送る。再生中の動画は待つ (始まらないときは ViewerVideo が見切る)
   const intervalSec = useSlideshowInterval();
-  const settled = current !== null && settledName === current.name;
+  const visit = visible?.visit ?? 0;
+  const status = mediaStatus.visit === visit ? mediaStatus : NO_STATUS;
+  const delay =
+    current === null
+      ? null
+      : slideDelay({
+          isVideo: isValidVideoName(current.name),
+          settled: status.settled,
+          ended: status.ended,
+          intervalMs: intervalSec * 1000,
+          settleWaitMs: SETTLE_WAIT_MS,
+          endPauseMs: VIDEO_END_PAUSE_MS,
+        });
   useEffect(() => {
-    if (!playing || awaitingMore) {
+    if (!playing || awaitingMore || delay === null) {
       return;
     }
-    const timer = setTimeout(
-      () => {
-        if (advance(1) === "end") {
-          loopToFirst();
-        }
-      },
-      settled ? intervalSec * 1000 : SETTLE_WAIT_MS,
-    );
+    const timer = setTimeout(() => {
+      if (advance(1) === "end") {
+        loopToFirst();
+      }
+    }, delay);
     return () => clearTimeout(timer);
-  }, [playing, settled, awaitingMore, current, intervalSec, advance, loopToFirst]);
+  }, [playing, delay, awaitingMore, current, advance, loopToFirst]);
 
   useScreenWakeLock(playing && current !== null);
 
@@ -347,7 +406,10 @@ export function ImageViewerProvider({
       ...targets.slice(Math.max(0, index - PRELOAD_BEHIND), index),
     ];
     for (const t of neighbors) {
-      new Image().src = attachmentUrl(t.name);
+      // 動画は先に取らない (数十 MB になりうる)。poster だけ温めておく
+      new Image().src = isValidVideoName(t.name)
+        ? thumbUrl(t.name)
+        : attachmentUrl(t.name);
     }
     // 末尾に近ければ次のページも頼む。送ったときだけでなく、末尾近くの
     // 画像を押して開いたときにも効く
@@ -363,6 +425,9 @@ export function ImageViewerProvider({
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         event.defaultPrevented ||
+        // 動画のプレーヤーに焦点があるときは、矢印 (早送り・巻き戻し) と
+        // Space (再生・停止) をプレーヤーに任せる
+        event.target instanceof HTMLVideoElement ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -386,7 +451,12 @@ export function ImageViewerProvider({
     // 釦は Space を離したときに押される。keydown を止めても押されるブラウザが
     // あるので、離す側も止める
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === " " && asOverlay && acceptsArrowKeys(event.target)) {
+      if (
+        event.key === " " &&
+        asOverlay &&
+        !(event.target instanceof HTMLVideoElement) &&
+        acceptsArrowKeys(event.target)
+      ) {
         event.preventDefault();
       }
     };
@@ -400,6 +470,30 @@ export function ImageViewerProvider({
 
   // Esc は覆いのときだけ。ペインは Esc を持たない流儀 (docs/86 §2) に合わせる
   useEscapeKey(close, current !== null && asOverlay);
+
+  // 1 枚の部品から状態を受け取る口。今の表示の番号に結びつけて記録する
+  // (部品は番号ごとに作り直されるので、前の表示の知らせは混ざらない)
+  const media: ViewerMediaHandlers = useMemo(
+    () => ({
+      visit,
+      onSettled: () =>
+        setMediaStatus((prev) => ({
+          visit,
+          settled: true,
+          ended: prev.visit === visit && prev.ended,
+        })),
+      onVideoPlaying: () => setMediaStatus({ visit, settled: false, ended: false }),
+      onVideoEnded: () =>
+        setMediaStatus((prev) => ({
+          visit,
+          settled: prev.visit === visit && prev.settled,
+          ended: true,
+        })),
+      videoSound,
+      onVideoSoundChange: setVideoSound,
+    }),
+    [visit, videoSound],
+  );
 
   const value = useMemo(
     () => ({ current, open, startSlideshow }),
@@ -417,7 +511,7 @@ export function ImageViewerProvider({
             onStep={step}
             playing={playing}
             onTogglePlay={togglePlay}
-            onSettled={setSettledName}
+            media={media}
           />
         ) : (
           <ImageViewerPane
@@ -426,7 +520,7 @@ export function ImageViewerProvider({
             onStep={step}
             onFullscreen={showFullscreen}
             onTogglePlay={togglePlay}
-            onSettled={setSettledName}
+            media={media}
           />
         ))}
     </ImageViewerContext.Provider>

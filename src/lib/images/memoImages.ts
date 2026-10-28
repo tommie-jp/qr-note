@@ -151,6 +151,25 @@ export function allImageNames(memo: string): string[] {
   return [...seen]
 }
 
+// 画像表示のタイル・ビューア・スライドショーに並べる添付 (画像と動画) を、
+// 出現順・重複除去で返す (docs/117 §8)。動画は poster を ?thumb=1 に持つので
+// タイルの絵にできる。**画像検索の索引 (allImageNames) とは分ける** —
+// あちらは画像だけを照合する
+export function allViewerMedia(memo: string): { name: string; isVideo: boolean }[] {
+  if (!memo.includes(IMAGE_PATH_PREFIX)) {
+    return []
+  }
+  const seen = new Set<string>()
+  const media: { name: string; isVideo: boolean }[] = []
+  for (const info of iterThumbAttachments(memo)) {
+    if (!seen.has(info.name)) {
+      seen.add(info.name)
+      media.push(info)
+    }
+  }
+  return media
+}
+
 // サムネ生成パラメータ (images/thumbnail.ts) の版。パラメータを変えたら上げる。
 //
 // ?thumb=1 は 1 年 immutable でブラウザに焼かれる (route.ts の IMMUTABLE_CACHE)

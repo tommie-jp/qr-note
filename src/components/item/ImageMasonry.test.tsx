@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Item } from "@/generated/prisma/client";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
-import { ImageMasonry } from "./ImageMasonry";
+import { ImageMasonry, tileCountOf } from "./ImageMasonry";
 import { SearchTileMenuProvider } from "./row-actions/TileActions";
 
 const IMAGE_1 = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
@@ -110,7 +110,7 @@ test("ページ内に画像が 1 枚も無ければ案内だけを出す", () =>
     makeItem({ itemId: "00000000-0000-7000-8000-000000000050", memo: "画像なし" }),
     makeItem({ itemId: "00000000-0000-7000-8000-000000000060", memo: "https://example.com" }),
   ]);
-  expect(html).toContain("このページには画像・回路図がありません");
+  expect(html).toContain("このページには画像・動画・回路図がありません");
   expect(html).not.toContain("/api/images/");
 });
 
@@ -154,7 +154,7 @@ test("回路図の SVG が無いノートは今までどおり画像タイルだ
 
 test("画像も回路図も無いページは案内だけを出す (文言は両方に触れる)", () => {
   const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000093", memo: "文章だけ" })]);
-  expect(html).toContain("このページには画像・回路図がありません");
+  expect(html).toContain("このページには画像・動画・回路図がありません");
 });
 
 test("行優先で埋まる Grid で組む (multi-column ではない)", () => {
@@ -266,4 +266,30 @@ test("tileActions が無ければ ⋮ を出さない (ゴミ箱の一覧)", () 
     makeItem({ itemId: "00000000-0000-7000-8000-000000004951", memo: `![](/api/images/${IMAGE_1})` }),
   ]);
   expect(html).not.toContain("の操作");
+});
+
+// 動画タイル (docs/117 §8)。スライドショーで流すため、画像と同じく並べる
+const VIDEO_1 = "2232f915-45fe-4121-836f-0fa6bbd9c4dc.mp4";
+
+test("動画は poster と ▶ の印のタイルで、本文の出現順に画像と混ぜて並べる", () => {
+  const html = render([
+    makeItem({
+      itemId: "00000000-0000-7000-8000-000000000095",
+      memo: `動画と写真\n![録画](/api/images/${VIDEO_1})\n![](/api/images/${IMAGE_1})`,
+    }),
+  ]);
+  // 動画 1 + 画像 1 = タイル 2 枚
+  expect(html.match(/href="\/item\/00000000-0000-7000-8000-000000000095"/g)).toHaveLength(2);
+  // poster は ?thumb=1 (サムネ列) を引く。原寸の動画は読まない
+  expect(html).toContain(`/api/images/${VIDEO_1}?thumb=1`);
+  expect(html).not.toContain(`/api/images/${VIDEO_1}"`);
+  expect(html.indexOf(VIDEO_1)).toBeLessThan(html.indexOf(IMAGE_1));
+});
+
+test("動画だけのノートもタイルの数に入る (ゴミ箱の確認文・表示の判定)", () => {
+  const item = makeItem({
+    itemId: "00000000-0000-7000-8000-000000000096",
+    memo: `![録画](/api/images/${VIDEO_1})`,
+  });
+  expect(tileCountOf(item)).toBe(1);
 });

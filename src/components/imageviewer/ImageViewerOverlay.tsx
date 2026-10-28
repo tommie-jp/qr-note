@@ -2,6 +2,7 @@
 
 import { attachmentUrl } from "@/lib/images/memoImages";
 import type { ViewerTarget } from "@/lib/images/viewerNav";
+import { isValidVideoName } from "@/lib/uploads/names";
 import { CopyImageButton } from "../markdown/CopyImageButton";
 import { ModalOverlay } from "../modal/ModalOverlay";
 import { useIdleWhile } from "./useIdleWhile";
@@ -11,7 +12,7 @@ import {
   PlayPauseButton,
   StepButton,
 } from "./ViewerControls";
-import { ViewerImage } from "./ViewerImage";
+import { ViewerMedia, type ViewerMediaHandlers } from "./ViewerMedia";
 
 interface ImageViewerOverlayProps {
   target: ViewerTarget;
@@ -20,7 +21,7 @@ interface ImageViewerOverlayProps {
   // スライドショー (docs/117)
   playing: boolean;
   onTogglePlay: () => void;
-  onSettled: (name: string) => void;
+  media: ViewerMediaHandlers;
 }
 
 // 再生中、触らずにこれだけ経ったら操作を隠す (絵だけを見せる)
@@ -39,7 +40,7 @@ export function ImageViewerOverlay({
   onStep,
   playing,
   onTogglePlay,
-  onSettled,
+  media,
 }: ImageViewerOverlayProps) {
   const idle = useIdleWhile(playing, CONTROLS_HIDE_MS);
   const controlsClass = `transition-opacity duration-300 ${
@@ -51,7 +52,7 @@ export function ImageViewerOverlay({
           (ImageViewerProvider)。contents なので配置には効かない */}
       <div data-image-viewer="" className="contents">
         <div className="relative h-full w-full">
-          <ViewerImage name={target.name} onSettled={onSettled} />
+          <ViewerMedia name={target.name} handlers={media} />
         </div>
         {/* 前後は画面の左右の中ほど。画像の上に重なるが、押すのは輪の中だけ */}
         <StepButton
@@ -70,7 +71,10 @@ export function ImageViewerOverlay({
         >
           <IntervalButton />
           <PlayPauseButton playing={playing} onToggle={onTogglePlay} />
-          <CopyImageButton src={attachmentUrl(target.name)} />
+          {/* 動画はクリップボードへ写せない (画像だけ) */}
+          {!isValidVideoName(target.name) && (
+            <CopyImageButton src={attachmentUrl(target.name)} />
+          )}
           <OpenNoteLink href={target.href} onClose={onClose} />
         </div>
       </div>

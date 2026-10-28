@@ -3,6 +3,7 @@ import {
   neighborTarget,
   planStep,
   sameTarget,
+  slideDelay,
   type ViewerTarget,
 } from "./viewerNav";
 
@@ -59,4 +60,21 @@ test("末尾で続きも尽きていれば end (スライドショーはここ�
 
 test("先頭で前へ送ると、続きのページがあっても end", () => {
   expect(planStep(list, t("a", "1.jpg"), -1, true)).toEqual({ kind: "end" });
+});
+
+const DELAY = { intervalMs: 5000, settleWaitMs: 15000, endPauseMs: 800 };
+
+test("画像は読み終えたら間隔、読み終わらなければ見切りの時間で送る", () => {
+  expect(slideDelay({ ...DELAY, isVideo: false, settled: true, ended: false })).toBe(5000);
+  expect(slideDelay({ ...DELAY, isVideo: false, settled: false, ended: false })).toBe(15000);
+});
+
+test("動画は再生中なら待ち、終わったら少しおいて送る", () => {
+  expect(slideDelay({ ...DELAY, isVideo: true, settled: false, ended: false })).toBeNull();
+  expect(slideDelay({ ...DELAY, isVideo: true, settled: false, ended: true })).toBe(800);
+});
+
+test("再生できなかった動画は画像と同じく間隔ぶん見せる。終わったほうが先", () => {
+  expect(slideDelay({ ...DELAY, isVideo: true, settled: true, ended: false })).toBe(5000);
+  expect(slideDelay({ ...DELAY, isVideo: true, settled: true, ended: true })).toBe(800);
 });

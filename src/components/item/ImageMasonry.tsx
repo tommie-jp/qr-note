@@ -6,10 +6,11 @@ import type { Item } from "@/generated/prisma/client";
 // (offline/circuits.ts と同じ線引き)
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
-import { allImageNames, thumbUrl } from "@/lib/images/memoImages";
+import { allViewerMedia, thumbUrl } from "@/lib/images/memoImages";
 import { memoSummary } from "@/lib/markdown/memoSummary";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
 import { CircuitThumb } from "./CircuitThumb";
+import { VideoTilePoster } from "./VideoTilePoster";
 import { ViewerImageButton } from "../imageviewer/ViewerImageButton";
 import { TileActions } from "./row-actions/TileActions";
 import { MathText } from "../markdown/MathText";
@@ -51,9 +52,12 @@ interface ImageMasonryProps {
   tileActions?: boolean;
 }
 
-// タイルの中身。画像 (サムネ URL を引く) か回路図 (SVG を直接埋め込む) の
-// どちらか。キャプションとリンクの組み方は共通
-type TileMedia = { image: string; svg?: never } | { image?: never; svg: string };
+// タイルの中身。画像・動画 (サムネ / poster の URL を引く) か回路図 (SVG を
+// 直接埋め込む) のどちらか。キャプションとリンクの組み方は共通。
+// 動画も並べるのはスライドショーで流すため (docs/117 §8)。押せばビューアで再生する
+type TileMedia =
+  | { image: string; isVideo: boolean; svg?: never }
+  | { image?: never; isVideo?: never; svg: string };
 
 export function ImageMasonry({
   items,
@@ -63,36 +67,43 @@ export function ImageMasonry({
   previewItemId,
   tileActions = false,
 }: ImageMasonryProps) {
-  // URL モードのノートは memo が空なので allImageNames("") === [] となり
+  // URL モードのノートは memo が空なので allViewerMedia("") === [] となり
   // 自然に落ちる (ItemRow のような isUrl 分岐は要らない)。
   // 回路図はノートごとに画像の後へ並べる (種類内は出現順)。本文の完全な
   // 出現順に混ぜるには画像 (正規表現) と回路図 (remark) の位置突き合わせが
   // 要る割に益が薄いので、この割り切りにしている (docs/68 §4)
-  const tiles = items.flatMap((item) => [
-    ...allImageNames(item.memo).map(
-      (name): { item: Item; key: string; media: TileMedia } => ({
-        item,
-        // name はノート内では重複除去済みだが、別ノートが同じ画像を参照
-        // できるので itemId と組で一意にする
-        key: `${item.itemId}:${name}`,
-        media: { image: name },
-      }),
-    ),
-    ...(circuitThumbs?.[item.itemId] ?? []).map(
-      (svg, i): { item: Item; key: string; media: TileMedia } => ({
-        item,
-        key: `${item.itemId}:circuit:${i}`,
-        media: { svg },
-      }),
-    ),
-  ]);
+  // ノートごとのタイル数 (⋮ の確認文用)。本文の走査はノート 1 件につき 1 回
+  // にしたいので、タイルを組むついでに数える (tileCountOf を毎タイル呼ばない)
+  const tileCounts = new Map<string, number>();
+  const tiles = items.flatMap((item) => {
+    const itemTiles = [
+      ...allViewerMedia(item.memo).map(
+        ({ name, isVideo }): { item: Item; key: string; media: TileMedia } => ({
+          item,
+          // name はノート内では重複除去済みだが、別ノートが同じ画像を参照
+          // できるので itemId と組で一意にする
+          key: `${item.itemId}:${name}`,
+          media: { image: name, isVideo },
+        }),
+      ),
+      ...(circuitThumbs?.[item.itemId] ?? []).map(
+        (svg, i): { item: Item; key: string; media: TileMedia } => ({
+          item,
+          key: `${item.itemId}:circuit:${i}`,
+          media: { svg },
+        }),
+      ),
+    ];
+    tileCounts.set(item.itemId, itemTiles.length);
+    return itemTiles;
+  });
 
   if (tiles.length === 0) {
     // 検索には当たったが、このページの 20 件に画像持ちも描画済みの回路図持ちも
     // 無い。ページ割りはノート単位のまま (docs/32 §4) なので起こり得る
     return (
       <p className="rounded border border-gray-200 bg-white px-4 py-6 text-center text-gray-500">
-        このページには画像・回路図がありません
+        このページには画像・動画・回路図がありません
       </p>
     );
   }
@@ -151,14 +162,18 @@ export function ImageMasonry({
                 }}
                 className="w-full"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumbUrl(media.image)}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="block aspect-square w-full bg-gray-100 object-contain"
-                />
+                {media.isVideo ? (
+                  <VideoTilePoster name={media.image} />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={thumbUrl(media.image)}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="block aspect-square w-full bg-gray-100 object-contain"
+                  />
+                )}
               </ViewerImageButton>
             ) : (
               /* 回路図は SVG をそのまま埋め込む (docs/68 §4)。枠の作法は
@@ -203,7 +218,7 @@ export function ImageMasonry({
               <TileActions
                 itemId={item.itemId}
                 name={noteName(item)}
-                tileCount={tileCountOf(item, circuitThumbs)}
+                tileCount={tileCounts.get(item.itemId) ?? 0}
               />
             )}
           </li>
@@ -213,12 +228,12 @@ export function ImageMasonry({
   );
 }
 
-// ノート 1 件が並べるタイルの数 (画像 + 描画済みの回路図)。⋮ からゴミ箱へ
+// ノート 1 件が並べるタイルの数 (画像・動画 + 描画済みの回路図)。⋮ からゴミ箱へ
 // 入れるときの確認文で「このノートの 3 枚がまとめて消える」と言うのに使う。
 // 数え方は上の tiles の組み方と同じ 2 つを足すだけ。0 ならタイルにならない
 // (ゴミ箱の一覧が「画像表示では見えないノート」を数えるのにも使う)
 export function tileCountOf(item: Item, circuitThumbs?: CircuitThumbMap): number {
   return (
-    allImageNames(item.memo).length + (circuitThumbs?.[item.itemId]?.length ?? 0)
+    allViewerMedia(item.memo).length + (circuitThumbs?.[item.itemId]?.length ?? 0)
   );
 }

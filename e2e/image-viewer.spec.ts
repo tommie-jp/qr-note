@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import type { BrowserContext, Locator, Page } from '@playwright/test'
 import { BASE_URL } from './env'
 import {
@@ -418,5 +420,128 @@ test.describe('検索結果の画像ビューア (2 ページ目へ送る)', () 
 
     // Assert: 目印は見えていないが、2 ページ目が届いている
     await expect(openers).toHaveCount(PAGED_COUNT)
+  })
+})
+
+// スライドショーの動画 (docs/117 §8)。画像表示に動画のタイルが並び、
+// ビューアで自動再生し、スライドショーは再生し終えたら次へ送る。
+// 動画は 1.5 秒の webm (e2e/fixtures/slideshow-clip.webm)。保存規則どおり .mkv の
+// 名前で video/webm として配る。?thumb=1 (poster) には PNG を返す
+const VIDEO_NOTE = e2eNote(13, `slideshow video ${Date.now()}`)
+const CLIP = '00000000-0000-4000-8000-0000000000b3.mkv'
+const VIDEO_BODY = [
+  VIDEO_NOTE.heading,
+  `![](${IMAGES_PATH}/${TALL})`,
+  `![録画](${IMAGES_PATH}/${CLIP})`,
+  `![](${IMAGES_PATH}/${WIDE})`,
+  '',
+].join('\n')
+
+async function serveVideo(context: BrowserContext): Promise<void> {
+  const clip = readFileSync(path.join(__dirname, 'fixtures', 'slideshow-clip.webm'))
+  const poster = solidPng(160, 120, [40, 160, 40])
+  await context.route(
+    (url) => url.pathname === `${IMAGES_PATH}/${CLIP}`,
+    async (route) => {
+      const url = new URL(route.request().url())
+      if (url.searchParams.has('thumb')) {
+        await route.fulfill({ contentType: 'image/png', body: poster })
+        return
+      }
+      await route.fulfill({ contentType: 'video/webm', body: clip })
+    },
+  )
+}
+
+function viewerVideo(scope: Page | Locator): Locator {
+  return scope.locator('video[aria-label="ノートの動画"]')
+}
+
+test.describe('検索結果のスライドショー (動画)', () => {
+  test.beforeEach(async ({ browser, page }) => {
+    await page.addInitScript((key) => {
+      // 間隔は最長の 10 秒。動画 (1.5 秒) がそれより早く送られれば、
+      // 間隔ではなく再生の終わりで送ったと判る
+      window.localStorage.setItem(key, '10')
+    }, SLIDESHOW_INTERVAL_KEY)
+    const setup = await newLoggedInPage(browser)
+    await removeE2eNote(setup, VIDEO_NOTE)
+    await setup.goto(`/edit/${VIDEO_NOTE.id}`)
+    const save = setup.getByRole('button', { name: '更新', exact: true })
+    await expect(save).toBeVisible()
+    await clearEditor(setup)
+    await memoEditor(setup).click()
+    await setup.keyboard.insertText(VIDEO_BODY)
+    await save.click()
+    await expect(setup).toHaveURL((url) => url.pathname === `/item/${VIDEO_NOTE.id}`)
+    await closePage(setup)
+  })
+
+  test.afterEach(async ({ browser }) => {
+    const page = await newLoggedInPage(browser)
+    await removeE2eNote(page, VIDEO_NOTE)
+    await closePage(page)
+  })
+
+  async function openVideoResults(page: Page, panes: '1' | '3') {
+    await serveImages(page.context())
+    await serveVideo(page.context())
+    await page.context().addCookies([
+      { name: 'view', value: 'image', url: BASE_URL },
+      { name: 'panes', value: panes, url: BASE_URL },
+    ])
+    await openSearch(page, VIDEO_NOTE.key)
+    const videoTile = searchResults(page).getByRole('button', { name: '動画を再生' })
+    await expect(videoTile).toBeVisible()
+    await expectHydrated(videoTile)
+    return videoTile
+  }
+
+  test('画像表示に動画のタイルが並び、押すとペインで自動再生する', async ({ page }) => {
+    // Arrange
+    const videoTile = await openVideoResults(page, '3')
+    // 画像 2 + 動画 1 が本文の順に並ぶ
+    await expect(
+      searchResults(page).getByRole('button', { name: /^(画像を大きく表示|動画を再生)$/ }),
+    ).toHaveCount(3)
+
+    // Act
+    await videoTile.click()
+
+    // Assert: ペインに動画が出て、押さなくても再生が進む
+    const pane = page.getByRole('region', { name: '画像の表示' })
+    const video = viewerVideo(pane)
+    await expect(video).toHaveAttribute('src', `${IMAGES_PATH}/${CLIP}`)
+    await expect
+      .poll(() => video.evaluate((el) => (el as HTMLVideoElement).currentTime))
+      .toBeGreaterThan(0)
+  })
+
+  test('スライドショーは動画を最後まで再生したら、間隔を待たずに次の画像へ送る', async ({
+    page,
+  }) => {
+    // Arrange: 動画をペインで開く
+    const videoTile = await openVideoResults(page, '3')
+    await videoTile.click()
+    const pane = page.getByRole('region', { name: '画像の表示' })
+    await expect(viewerVideo(pane)).toBeVisible()
+
+    // Act: ペインの ▶ (全画面の覆いで、動画の頭から流れる)
+    await pane.getByRole('button', { name: 'スライドショー', exact: true }).click()
+
+    // Assert: 覆いで動画が自動で再生される
+    await expect(pane).toHaveCount(0)
+    const video = viewerVideo(page)
+    await expect(video).toHaveAttribute('src', `${IMAGES_PATH}/${CLIP}`)
+    await expect
+      .poll(() => video.evaluate((el) => (el as HTMLVideoElement).currentTime))
+      .toBeGreaterThan(0)
+    const startedAt = Date.now()
+
+    // Assert: 再生し終えたら (1.5 秒 + 間 0.8 秒)、間隔の 10 秒を待たずに次の画像へ
+    await expect(viewerImage(page)).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`, {
+      timeout: SLIDE_WAIT_MS,
+    })
+    expect(Date.now() - startedAt).toBeLessThan(8_000)
   })
 })

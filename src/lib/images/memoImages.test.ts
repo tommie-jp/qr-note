@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import {
   allAttachments,
   allImageNames,
+  allViewerMedia,
   attachmentUrl,
   firstImageName,
   firstThumbInfo,
@@ -189,4 +190,24 @@ test('allAttachments: コードの中と外部 URL と不正な名前は拾わ�
 
 test('attachmentUrl: 原寸の配信 URL を組む', () => {
   expect(attachmentUrl(NAME)).toBe(`/api/images/${NAME}`)
+})
+
+test('allViewerMedia は画像と動画を出現順に返し、動画に印を付ける', () => {
+  const memo = [
+    `![](/api/images/${VIDEO_MP4})`,
+    `![](/api/images/${OTHER})`,
+    `![](/api/images/${AUDIO})`,
+    `![](/api/images/${VIDEO_MKV})`,
+  ].join('\n')
+  expect(allViewerMedia(memo)).toEqual([
+    { name: VIDEO_MP4, isVideo: true },
+    { name: OTHER, isVideo: false },
+    { name: VIDEO_MKV, isVideo: true },
+  ])
+})
+
+test('allViewerMedia は同じ添付を 2 度並べない・添付が無ければ空', () => {
+  const memo = `![](/api/images/${VIDEO_MP4})\n![](/api/images/${VIDEO_MP4})`
+  expect(allViewerMedia(memo)).toEqual([{ name: VIDEO_MP4, isVideo: true }])
+  expect(allViewerMedia('本文だけ')).toEqual([])
 })

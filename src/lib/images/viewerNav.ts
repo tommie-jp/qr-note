@@ -68,3 +68,38 @@ export function planStep(
   }
   return dir === 1 && hasMore ? { kind: "wait" } : { kind: "end" };
 }
+
+// スライドショーで、いま出ている 1 枚を何 ms 見せてから送るか (docs/117 §2・§8-3)。
+// null は「まだ数えない」(再生中の動画は最後まで待つ)。
+//
+//   画像 … 原寸を読み終えたら間隔。読み終わらなければ settleWaitMs で見切る
+//   動画 … 再生し終えたら endPauseMs (最後のコマを見る間)。再生できなかったら
+//          画像と同じく間隔。再生中・始まる前は待つ (始まらないときは
+//          ViewerVideo が見切って settled にする)
+//
+// 順番が要点: 動画は「終わった」を「再生できなかった」より先に見る
+export interface SlideDelayInput {
+  isVideo: boolean;
+  settled: boolean;
+  ended: boolean;
+  intervalMs: number;
+  settleWaitMs: number;
+  endPauseMs: number;
+}
+
+export function slideDelay({
+  isVideo,
+  settled,
+  ended,
+  intervalMs,
+  settleWaitMs,
+  endPauseMs,
+}: SlideDelayInput): number | null {
+  if (isVideo) {
+    if (ended) {
+      return endPauseMs;
+    }
+    return settled ? intervalMs : null;
+  }
+  return settled ? intervalMs : settleWaitMs;
+}
