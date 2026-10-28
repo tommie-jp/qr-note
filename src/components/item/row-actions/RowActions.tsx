@@ -62,10 +62,18 @@ interface RowActionButtonsProps {
 // 大きく見せる釦なので、ホバーで釦が重なると押せなくなる (小表示の 24px は
 // ゴミ箱の釦 36px にまるごと隠れていた)。位置は ⋮ の幅 (pr-10 = 40px) +
 // サムネ (size-6 / size-10) + 行の gap-3 (12px)。サムネの寸法 (THUMB_SIZE_CLASS)
-// を変えるときはここも直す。カードはサムネが 96px あり、釦は角にかかるだけ
-// なので退かない
+// を変えるときはここも直す
 const COMPACT_PLACEMENT_CLASS =
   "inset-y-0 right-11 items-center group-has-[[data-row-thumb=compact]]:right-19 group-has-[[data-row-thumb=medium]]:right-23";
+
+// 大 (カード) 表示での置き場所。既定は ⋮ (右上の丸) のすぐ左。
+// **押せるサムネのあるカードではサムネの左へ退く** (docs/117 §8-6)。
+// かつては「96px のサムネの角にかかるだけ」として退かせなかったが、
+// ゴミ箱の釦が動画の poster と ▶ に重なると言われた (2026-10-28)。
+// 位置はカードの横の余白 (px-4 = 16px) + サムネ (size-24 = 96px) + gap-3 (12px)
+// = 124px。ItemRowCard の余白・THUMB_SIZE_CLASS を変えるときはここも直す
+const CARD_PLACEMENT_CLASS =
+  "top-2 right-11 group-has-[[data-row-thumb=card]]:right-31";
 
 export function RowActionButtons({
   name,
@@ -82,7 +90,7 @@ export function RowActionButtons({
       // z-10 … タイトルの当たり判定 (::after) より前に出す。膜の下に居ると
       // ボタンを押してもノートが開く (タグを relative z-10 にするのと同じ)
       className={`pointer-events-none absolute z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100 ${
-        view === "card" ? "top-2 right-11" : COMPACT_PLACEMENT_CLASS
+        view === "card" ? CARD_PLACEMENT_CLASS : COMPACT_PLACEMENT_CLASS
       }`}
     >
       {quick.map((action) => (

@@ -517,8 +517,8 @@ test.describe('検索結果のスライドショー (動画)', () => {
       .toBeGreaterThan(0)
   })
 
-  test('行の表示でホバーしても、ゴミ箱の釦は動画のサムネに重ならない', async ({ page }) => {
-    // Arrange: 中表示の行 (顔は本文の最初の添付。動画を先頭にしたノートを作る)
+  // 行の表示 (中・大) の顔を動画にしたノートで開く
+  async function openVideoRows(page: Page, view: 'medium' | 'card') {
     await serveImages(page.context())
     await serveVideo(page.context())
     const setup = await newLoggedInPage(page.context().browser()!)
@@ -532,24 +532,52 @@ test.describe('検索結果のスライドショー (動画)', () => {
     await expect(setup).toHaveURL((url) => url.pathname === `/item/${VIDEO_NOTE.id}`)
     await closePage(setup)
     await page.context().addCookies([
-      { name: 'view', value: 'medium', url: BASE_URL },
-      { name: 'panes', value: '1', url: BASE_URL },
+      { name: 'view', value: view, url: BASE_URL },
+      { name: 'panes', value: '3', url: BASE_URL },
     ])
     await openSearch(page, VIDEO_NOTE.key)
     // 印 (data-row-thumb) に頼らず poster で引く — 印が無いときも重なりで落ちるように
     const thumb = searchResults(page).locator(`img[src^="${IMAGES_PATH}/${CLIP}?thumb=1"]`).first()
     await expect(thumb).toBeVisible()
+    return thumb
+  }
+
+  for (const view of ['medium', 'card'] as const) {
+    test(`${view} 表示でホバーしても、ゴミ箱の釦は動画のサムネに重ならない`, async ({ page }) => {
+      // Arrange
+      const thumb = await openVideoRows(page, view)
+
+      // Act
+      await thumb.hover()
+
+      // Assert: ゴミ箱の釦はサムネの左に出て、重ならない
+      const trash = searchResults(page).getByRole('button', { name: /ゴミ箱へ移動$/ })
+      await expect(trash).toBeVisible()
+      const thumbBox = await thumb.boundingBox()
+      const trashBox = await trash.boundingBox()
+      if (!thumbBox || !trashBox) throw new Error('サムネか釦が見つからない')
+      expect(trashBox.x + trashBox.width).toBeLessThanOrEqual(thumbBox.x)
+    })
+  }
+
+  test('大表示の行の動画のサムネを押すと、ノートではなくビューアで再生する', async ({ page }) => {
+    // Arrange
+    const thumb = await openVideoRows(page, 'card')
+    await expectHydrated(searchResults(page).getByRole('button', { name: '動画を再生' }))
 
     // Act
-    await thumb.hover()
+    await thumb.click()
 
-    // Assert: ゴミ箱の釦はサムネの左に出て、重ならない
-    const trash = searchResults(page).getByRole('button', { name: /ゴミ箱へ移動$/ })
-    await expect(trash).toBeVisible()
-    const thumbBox = await thumb.boundingBox()
-    const trashBox = await trash.boundingBox()
-    if (!thumbBox || !trashBox) throw new Error('サムネか釦が見つからない')
-    expect(trashBox.x + trashBox.width).toBeLessThanOrEqual(thumbBox.x)
+    // Assert: ノートのペインの場所に動画が出て再生が進む。ノートは開かない
+    const pane = page.getByRole('region', { name: '画像の表示' })
+    const video = viewerVideo(pane)
+    await expect(video).toHaveAttribute('src', `${IMAGES_PATH}/${CLIP}`)
+    await expect
+      .poll(() => video.evaluate((el) => (el as HTMLVideoElement).currentTime))
+      .toBeGreaterThan(0)
+    await expect(page).toHaveURL((url) => url.pathname === '/')
+    // ▶ でスライドショーにできる
+    await expect(pane.getByRole('button', { name: 'スライドショー', exact: true })).toBeVisible()
   })
 
   // iOS Safari の自動再生の規則を模す: 利用者の操作 (クリック・キー入力) の処理の

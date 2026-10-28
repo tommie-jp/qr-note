@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Item } from "@/generated/prisma/client";
+import { ImageViewerProvider } from "../imageviewer/ImageViewerProvider";
+import { PaneModeProvider } from "../panes/PaneModeProvider";
 import { ItemRow, type RowViewMode } from "./ItemRow";
 
 const IMAGE = "0421547b-ee29-4613-a6d4-da0f41f94054.jpg";
@@ -24,21 +26,26 @@ function makeItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
+const renderRowNode = (
+  item: Item,
+  checkbox?: React.ReactNode,
+  view: RowViewMode = "compact",
+) => (
+  <ul>
+    <ItemRow
+      item={item}
+      href={`/item/${item.itemId}`}
+      checkbox={checkbox}
+      view={view}
+    />
+  </ul>
+);
+
 const renderRow = (
   item: Item,
   checkbox?: React.ReactNode,
   view: RowViewMode = "compact",
-) =>
-  renderToStaticMarkup(
-    <ul>
-      <ItemRow
-        item={item}
-        href={`/item/${item.itemId}`}
-        checkbox={checkbox}
-        view={view}
-      />
-    </ul>,
-  );
+) => renderToStaticMarkup(renderRowNode(item, checkbox, view));
 
 test("要約をアイテム詳細へのリンクにする", () => {
   const html = renderRow(
@@ -504,21 +511,32 @@ test("math props が無ければ今までどおりプレーンテキスト", () 
   expect(html).not.toContain("katex");
 });
 
-// PC のホバーで出るゴミ箱の釦は、data-row-thumb の印を見てサムネの左へ退く
-// (row-actions/RowActions.tsx)。動画のサムネにも付けないと poster に重なる
+// 行の動画のサムネは、画像と同じくビューアで開く釦になる (docs/117 §8-6)。
+// 釦には PC のホバーで出るゴミ箱の釦を退かせる印 (data-row-thumb) も付く
 const VIDEO = "2232f915-45fe-4121-836f-0fa6bbd9c4dc.mp4";
 
-test("動画のサムネにも釦を退かせる印を付ける (押せばノートが開くまま)", () => {
-  const html = renderRow(makeItem({ memo: `録画\n![録画](/api/images/${VIDEO})` }), undefined, "medium");
-  expect(html).toContain('data-row-thumb="medium"');
-  // ビューアの釦にはしない (provider の外でも中でも、行の動画はノートを開く)
-  expect(html).not.toContain("data-viewer-image");
-});
+const renderInViewer = (item: Item, checkbox?: React.ReactNode, view: RowViewMode = "compact") =>
+  renderToStaticMarkup(
+    <PaneModeProvider mode="3">
+      <ImageViewerProvider>{renderRowNode(item, checkbox, view)}</ImageViewerProvider>
+    </PaneModeProvider>,
+  );
 
-test("選択モードの行のサムネには印を付けない (近道の釦が出ない)", () => {
-  const html = renderRow(
+test.each(["compact", "medium", "card"] as const)(
+  "%s 表示の動画のサムネは、ビューアで再生する釦で、釦を退かせる印が付く",
+  (view) => {
+    const html = renderInViewer(makeItem({ memo: `録画\n![録画](/api/images/${VIDEO})` }), undefined, view);
+    expect(html).toContain(`data-viewer-image="${VIDEO}"`);
+    expect(html).toContain('aria-label="動画を再生"');
+    expect(html).toContain(`data-row-thumb="${view}"`);
+  },
+);
+
+test("選択モードの行の動画のサムネは釦にも印にもしない (押せば選択)", () => {
+  const html = renderInViewer(
     makeItem({ memo: `録画\n![録画](/api/images/${VIDEO})` }),
     <input type="checkbox" />,
   );
+  expect(html).not.toContain("data-viewer-image");
   expect(html).not.toContain("data-row-thumb");
 });

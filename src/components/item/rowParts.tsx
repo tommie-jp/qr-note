@@ -103,20 +103,13 @@ function renderThumb(
       if (checkbox) {
         return thumb;
       }
+      // 画像のサムネは押すとビューアで大きく見せ、動画のサムネはビューアで
+      // 再生する (docs/116 §1・docs/117 §8-6)。ビューアからは ▶ でスライドショーに
+      // できる。動画もかつてはノートを開いていたが、「動画を押しても
+      // スライドショーにならない」と言われた (2026-10-28)。
       // data-row-thumb … PC のホバーで出る近道の釦 (RowActionButtons) が、
-      // この印を見てサムネの左へ退く。
-      // 動画はノートを開いて再生するので今までどおり膜の下に置くが、印は
-      // 付ける — 付けないとゴミ箱の釦が poster と ▶ に重なる (2026-10-28 指摘)。
-      // contents の span なので並びには効かない。
-      // 回路図・プレビューの顔には付けない — 退くと題の末尾に釦がかぶるだけ
-      if (face.isVideo) {
-        return (
-          <span data-row-thumb={view} className="contents">
-            {thumb}
-          </span>
-        );
-      }
-      // 画像のサムネは押すとビューアで大きく見せる (docs/116 §1)
+      // この印を見てサムネの左へ退く。回路図・プレビューの顔には付けない
+      // (押すとノートが開く。退くと題の末尾に釦がかぶるだけ)
       return (
         <ViewerImageButton
           target={{ itemId: item.itemId, name: face.name, href }}

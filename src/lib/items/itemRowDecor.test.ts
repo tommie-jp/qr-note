@@ -128,8 +128,10 @@ describe('stretchedLinkClass / rowTintClass', () => {
 
 test('行のサムネの寸法は、近道の釦の退き先と組で決まっている', () => {
   // 変えるときは RowActions.tsx の COMPACT_PLACEMENT_CLASS (right-19 / right-23 =
-  // ⋮ の 40px + サムネ + gap-3 の 12px) も直す (docs/116 §1)。直さないと
-  // ホバーで出るゴミ箱の釦がサムネ (押すと画像を大きく見せる) に重なる
+  // ⋮ の 40px + サムネ + gap-3 の 12px) と CARD_PLACEMENT_CLASS (right-31 =
+  // カードの余白 16px + サムネ 96px + gap-3 の 12px) も直す (docs/116 §1・
+  // docs/117 §8-6)。直さないとホバーで出るゴミ箱の釦がサムネに重なる
   expect(THUMB_SIZE_CLASS.compact).toBe('size-6')
   expect(THUMB_SIZE_CLASS.medium).toBe('size-10')
+  expect(THUMB_SIZE_CLASS.card).toBe('size-24')
 })
