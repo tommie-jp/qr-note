@@ -19,6 +19,7 @@ import {
   formatNavLine,
   itemLinkTarget,
   marksClose,
+  pickActionResponse,
   pickRsc,
   sumLongTasks,
   type LongTaskLike,
@@ -90,6 +91,29 @@ export function isPerfActive(): boolean {
   return current() !== undefined
 }
 
+// 次の「表示」計測に載せる区分 (揃え・測定・戻し。docs/120 §2)。計測テストが
+// 切替の釦を押す直前に置き、perfStart('表示') が 1 回だけ読んで消す。
+// 利用者が普段どおり押した切替には区分が付かない (行にも出ない)
+let nextViewPhase: string | null = null
+
+export function perfSetViewPhase(phase: string | null): void {
+  nextViewPhase = phase
+}
+
+// 表示の切替の計測だけ、置かれた区分を 1 回だけ読んで extra に足す。
+// 利用者が普段どおり押した切替 (区分なし) は extra のまま
+export function withViewPhase(
+  kind: NavKind,
+  extra: readonly PerfField[] | undefined,
+): readonly PerfField[] | undefined {
+  if (kind !== '表示') {
+    return extra
+  }
+  const phase = nextViewPhase
+  nextViewPhase = null
+  return phase === null ? extra : [...(extra ?? []), ['区分', phase]]
+}
+
 // 進行中・閉じかけの計測が無いか (計測テストが次の操作へ進む合図。
 // docs/120 §2)。仕掛けられていなければ常に空いている
 export function isPerfIdle(): boolean {
@@ -123,7 +147,12 @@ function finalize(s: PerfState, closing: Closing): void {
     formatNavLine(measure, closing.marks, {
       committedAt: closing.committedAt,
       paintedAt,
-      rsc: pickRsc(s.resources, { t0: measure.t0, until: perfNow(), pathname: measure.pathname }),
+      // 表示モードの切替は Server Action の POST で、_rsc 付きの GET ではない
+      rsc: (measure.kind === '表示' ? pickActionResponse : pickRsc)(s.resources, {
+        t0: measure.t0,
+        until: perfNow(),
+        pathname: measure.pathname,
+      }),
       domNodes: closing.domNodes,
       longTasks: s.longTasks ? sumLongTasks(s.longTasks, measure.t0, paintedAt) : null,
     }),
@@ -132,7 +161,12 @@ function finalize(s: PerfState, closing: Closing): void {
 
 // 画面遷移の計測を始める。前の計測が閉じていなければ「中断」で閉じ、
 // 閉じかけ (印は届いたが窓が開いている) なら今の時点で閉じる
-export function perfStart(kind: NavKind, pathname: string, itemId?: string): void {
+export function perfStart(
+  kind: NavKind,
+  pathname: string,
+  itemId?: string,
+  extra?: readonly PerfField[],
+): void {
   const s = current()
   if (!s) {
     return
@@ -148,7 +182,13 @@ export function perfStart(kind: NavKind, pathname: string, itemId?: string): voi
         : formatAbortedLine(s.active, now),
     )
   }
-  s.active = { kind, t0: now, pathname, itemId }
+  s.active = {
+    kind,
+    t0: now,
+    pathname,
+    itemId,
+    extra: withViewPhase(kind, extra),
+  }
 }
 
 // サーバの印が届いた (PerfMarks の effect = React が描き終えた)。

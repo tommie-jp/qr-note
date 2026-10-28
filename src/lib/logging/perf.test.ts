@@ -5,6 +5,7 @@ import {
   formatTransfer,
   itemLinkTarget,
   marksClose,
+  pickActionResponse,
   pickRsc,
   serverTimingSummary,
   sumLongTasks,
@@ -51,6 +52,38 @@ describe('pickRsc', () => {
       main: null,
       prefetch: 1,
     })
+  })
+})
+
+describe('pickActionResponse (Server Action の応答)', () => {
+  const post = (path: string, startTime: number, decodedBodySize: number): ResourceLike => ({
+    name: `http://localhost${path}`,
+    startTime,
+    responseStart: startTime + 40,
+    responseEnd: startTime + 90,
+    transferSize: decodedBodySize / 4,
+    decodedBodySize,
+  })
+
+  test('窓の中で行き先のパスに向かう _rsc なしの要求のうち最大を本体にする', () => {
+    const entries = [
+      post('/', 100, 90_000), // Action の POST
+      post('/', 100, 400), // 別の小さな POST
+      rsc('/?q=a', 110, 3_000), // 先読み (_rsc あり) は本体にしない
+    ]
+    const picked = pickActionResponse(entries, { t0: 90, until: 1000, pathname: '/' })
+    expect(picked.main?.decodedBodySize).toBe(90_000)
+    expect(picked.prefetch).toBe(1)
+  })
+
+  test('静的な資源や窓の外は数えない', () => {
+    const entries = [
+      { ...post('/', 100, 1), name: 'http://localhost/_next/static/chunks/a.js' },
+      post('/', 10, 50_000), // 窓の前
+    ]
+    const picked = pickActionResponse(entries, { t0: 50, until: 1000, pathname: '/' })
+    expect(picked.main).toBeNull()
+    expect(picked.prefetch).toBe(0)
   })
 })
 
@@ -109,6 +142,15 @@ describe('formatNavLine', () => {
     expect(line).toContain('長タスク=未対応')
   })
 
+  test('表示モードの切替は、押した側の項目 (何から何へ) を行の先頭に載せる', () => {
+    const line = formatNavLine(
+      { kind: '表示', t0: 0, pathname: '/', extra: [['切替', 'compact→card']] },
+      { fields: [['q', '"a"']], server: '9ms' },
+      { committedAt: 90, paintedAt: 100, rsc: { main: null, prefetch: 0 }, domNodes: 5, longTasks: null },
+    )
+    expect(line).toMatch(/^\[計測\] 表示 切替=compact→card q="a" 全体=100ms /)
+  })
+
   test('閉じる前に次が始まったら中断として残す', () => {
     expect(formatAbortedLine({ kind: '検索', t0: 100, pathname: '/' }, 450)).toBe(
       '[計測] 検索 結果=中断 全体=350ms',
@@ -121,6 +163,10 @@ describe('marksClose', () => {
     expect(marksClose({ kind: '検索', t0: 0, pathname: '/' }, '検索', undefined)).toBe(true)
     expect(marksClose({ kind: '追加', t0: 0, pathname: '/' }, '検索', undefined)).toBe(true)
     expect(marksClose({ kind: 'ノート', t0: 0, pathname: '/item/1', itemId: '1' }, '検索', undefined)).toBe(false)
+  })
+
+  test('検索の印は表示モードの切替も閉じる (切替は一覧を描き直す)', () => {
+    expect(marksClose({ kind: '表示', t0: 0, pathname: '/' }, '検索', undefined)).toBe(true)
   })
 
   test('ノートの印は同じノートの計測だけを閉じる (3 ペインの先頭ノートに横取りさせない)', () => {

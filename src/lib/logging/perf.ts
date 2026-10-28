@@ -64,6 +64,34 @@ export function pickRsc(
   return { main, prefetch: inWindow.length - (main === null ? 0 : 1) }
 }
 
+// Server Action の応答を本体とみなして選ぶ (表示モードの切替用。docs/120 §2)。
+//
+// Action は POST で、URL に `_rsc=` を持たない (pickRsc では拾えない)。一覧を
+// 描き直した結果もこの応答に載って返る。resource timing はメソッドを持たない
+// ので、窓の中で行き先のパス (クエリ無し) に向かう `_rsc` なしの要求のうち、
+// いちばん大きい物を本体にする。_next の静的資源 (JS・CSS) は除く。
+// prefetch は窓の中の `_rsc` あり要求の数 (pickRsc と同じ意味)
+export function pickActionResponse(
+  entries: readonly ResourceLike[],
+  { t0, until, pathname }: { t0: number; until: number; pathname: string },
+): RscPick {
+  const inWindow = entries.filter((e) => e.startTime >= t0 && e.startTime <= until)
+  let main: ResourceLike | null = null
+  for (const entry of inWindow) {
+    if (entry.name.includes(RSC_MARK) || entry.name.includes('/_next/')) {
+      continue
+    }
+    if (pathnameOf(entry.name) !== pathname) {
+      continue
+    }
+    if (main === null || (entry.decodedBodySize ?? 0) > (main.decodedBodySize ?? 0)) {
+      main = entry
+    }
+  }
+  const prefetch = inWindow.filter((e) => e.name.includes(RSC_MARK)).length
+  return { main, prefetch }
+}
+
 // 窓 [t0, t1] に始まった長いタスクの本数と合計 (Chromium だけが持つ)
 export function sumLongTasks(
   tasks: readonly LongTaskLike[],
@@ -93,7 +121,9 @@ export function formatTransfer(entry: ResourceLike | null): string | null {
   return `${transfer}/${perfKB(entry.decodedBodySize ?? null)}`
 }
 
-export type NavKind = '検索' | '追加' | 'ノート'
+// 表示 … 表示モード (小・中・大・画像) の切替。一覧を描き直すので、閉じる印は
+// 検索と同じ (docs/120 §2)
+export type NavKind = '検索' | '追加' | 'ノート' | '表示'
 
 // 画面遷移 1 回ぶんの計測
 export interface NavMeasure {
@@ -104,6 +134,8 @@ export interface NavMeasure {
   pathname: string
   // ノートのときだけ。届いた印 (PerfMarks) と突き合わせる
   itemId?: string
+  // 押した側が知っている項目 (表示の切替の「何から何へ」)。行の先頭に並べる
+  extra?: readonly PerfField[]
 }
 
 // 届いた印 (PerfMarks) が運んでくるサーバ側の値
@@ -141,6 +173,7 @@ export function formatNavLine(
 ): string {
   const { main } = obs.rsc
   return formatPerfLine(measure.kind, [
+    ...(measure.extra ?? []),
     ...marks.fields,
     ['全体', perfMs(obs.paintedAt - measure.t0)],
     ['要求', main ? perfMs(main.startTime - measure.t0) : '未了'],
@@ -174,7 +207,7 @@ export function marksClose(
   itemId: string | undefined,
 ): boolean {
   if (kind === '検索') {
-    return measure.kind === '検索' || measure.kind === '追加'
+    return measure.kind === '検索' || measure.kind === '追加' || measure.kind === '表示'
   }
   return measure.kind === 'ノート' && measure.itemId === itemId
 }

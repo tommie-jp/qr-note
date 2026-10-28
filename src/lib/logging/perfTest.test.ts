@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
+  PERF_TEST_NOTE_INDEXES,
   PERF_TEST_QUERIES,
+  PERF_TEST_VIEW_ORDER,
   runPerfTest,
   type PerfTestDeps,
   type PerfTestStatus,
@@ -11,6 +13,7 @@ function fakeDeps(overrides: Partial<PerfTestDeps> = {}) {
   const calls: string[] = []
   const statuses: PerfTestStatus[] = []
   let clock = 0
+  let view = 'compact'
   const deps: PerfTestDeps = {
     sleep: async (ms) => {
       clock += ms
@@ -20,8 +23,18 @@ function fakeDeps(overrides: Partial<PerfTestDeps> = {}) {
     typeQuery: async (q) => {
       calls.push(`type:${q}`)
     },
-    openNote: () => {
-      calls.push('open')
+    openNote: (index) => {
+      calls.push(`open:${index}`)
+      return true
+    },
+    scrollMore: () => {
+      calls.push('scroll')
+      return true
+    },
+    currentView: () => view,
+    switchView: async (to, phase) => {
+      calls.push(`view:${to}:${phase}`)
+      view = to
       return true
     },
     sync: async () => {
@@ -45,20 +58,88 @@ function fakeDeps(overrides: Partial<PerfTestDeps> = {}) {
   return { deps, calls, statuses }
 }
 
+const withoutHousekeeping = (calls: string[]) =>
+  calls.filter((c) => c !== 'flush' && c !== 'stop')
+
 describe('runPerfTest', () => {
-  test('開始の印 → 検索 3 語 → ノート → 同期 → 完了の印の順に進む', async () => {
+  test('開始の印 → 検索 → 表示モードの切替 → スクロール → ノート → 同期 → 完了の順に進む', async () => {
     const { deps, calls } = fakeDeps()
 
     await runPerfTest(deps)
 
-    expect(calls.filter((c) => c !== 'flush' && c !== 'stop')).toEqual([
+    expect(withoutHousekeeping(calls)).toEqual([
       'send:テスト:結果=開始,panes=2',
       ...PERF_TEST_QUERIES.map((q) => `type:${q}`),
-      'open',
+      // 空の検索 (全件) の 1 ページ目
+      'type:',
+      // 切替。まず小 (compact) に揃え、小→中→大→画像→小の 1 周を測る。
+      // 開始時が compact なので揃える一手は要らず、最後の compact が「戻し」になる
+      ...PERF_TEST_VIEW_ORDER.map((v) => `view:${v}:測定`),
+      'view:compact:測定',
+      'scroll',
+      ...PERF_TEST_NOTE_INDEXES.map((i) => `open:${i}`),
       'sync',
       expect.stringMatching(/^send:テスト:結果=完了,全体=\d+ms$/),
     ])
     expect(calls.slice(-2)).toEqual(['flush', 'stop'])
+  })
+
+  test('開始時が小以外なら、先に小へ揃えてから 1 周し、最後に元の表示へ戻す (区分を付ける)', async () => {
+    let view = 'image'
+    const { deps, calls } = fakeDeps({
+      currentView: () => view,
+      switchView: async (to, phase) => {
+        calls.push(`view:${to}:${phase}`)
+        view = to
+        return true
+      },
+    })
+
+    await runPerfTest(deps)
+
+    const switches = calls.filter((c) => c.startsWith('view:'))
+    expect(switches).toEqual([
+      'view:compact:揃え',
+      ...PERF_TEST_VIEW_ORDER.map((v) => `view:${v}:測定`),
+      'view:compact:測定',
+      'view:image:戻し',
+    ])
+    expect(view).toBe('image')
+  })
+
+  test('表示モードは元の値へ必ず戻す', async () => {
+    let view = 'card'
+    const { deps, calls } = fakeDeps({
+      currentView: () => view,
+      switchView: async (to, phase) => {
+        calls.push(`view:${to}:${phase}`)
+        view = to
+        return true
+      },
+    })
+
+    await runPerfTest(deps)
+
+    expect(view).toBe('card')
+    expect(calls.filter((c) => c.startsWith('view:')).at(-1)).toBe('view:card:戻し')
+  })
+
+  test('切替の途中で例外が出ても元の表示モードへ戻す', async () => {
+    let view = 'compact'
+    let calls = 0
+    const { deps } = fakeDeps({
+      currentView: () => view,
+      switchView: async (to, _phase) => {
+        calls += 1
+        if (calls === 2) throw new Error('boom')
+        view = to
+        return true
+      },
+    })
+
+    await runPerfTest(deps)
+
+    expect(view).toBe('compact')
   })
 
   test('進み具合を段階ごとに知らせ、最後は完了', async () => {
@@ -66,9 +147,16 @@ describe('runPerfTest', () => {
 
     await runPerfTest(deps)
 
-    expect(statuses.map((s) => s.step)).toEqual([1, 2, 3, 4, 5, 5])
-    expect(statuses.every((s) => s.total === 5)).toBe(true)
+    // 分母は実際に数えた段階の数と一致する (最後の「完了」を除く)
+    const counted = statuses.filter((x) => !x.done).length
+    expect(counted).toBe(statuses[0]?.total)
+    const total = statuses[0]?.total ?? 0
+    expect(total).toBeGreaterThan(5)
+    expect(statuses.every((s) => s.total === total)).toBe(true)
     expect(statuses.at(-1)?.done).toBe(true)
+    // 段階は戻らない
+    const steps = statuses.map((s) => s.step)
+    expect(steps).toEqual([...steps].sort((a, b) => a - b))
   })
 
   test('前の計測が閉じるまで次へ進まない', async () => {
@@ -102,7 +190,26 @@ describe('runPerfTest', () => {
 
     await runPerfTest(deps)
 
-    expect(calls).toContain('send:テスト:結果=ノートなし')
+    expect(calls.filter((c) => c === 'send:テスト:結果=ノートなし')).toHaveLength(
+      PERF_TEST_NOTE_INDEXES.length,
+    )
+    expect(calls).toContain('sync')
+  })
+
+  test('続きを読む印が無い (全件が1ページ) なら飛ばして印を残す', async () => {
+    const { deps, calls } = fakeDeps({ scrollMore: () => false })
+
+    await runPerfTest(deps)
+
+    expect(calls).toContain('send:テスト:結果=続きなし')
+  })
+
+  test('表示モードを切り替える釦が無ければ飛ばして印を残す', async () => {
+    const { deps, calls } = fakeDeps({ switchView: async () => false })
+
+    await runPerfTest(deps)
+
+    expect(calls).toContain('send:テスト:結果=表示切替なし')
     expect(calls).toContain('sync')
   })
 

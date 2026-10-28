@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { SelectIcon, SlideshowIcon } from "@/components/icons";
+import { perfStart } from "@/lib/logging/perfClient";
 import { useImageViewer } from "@/components/imageviewer/ImageViewerProvider";
 import { useSelectMode } from "@/components/search/SelectModeProvider";
 import { SlotIcon } from "@/components/bottombar/SlotIcon";
@@ -10,6 +11,7 @@ import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
 import { ViewSlot } from "@/components/bottombar/ViewSlot";
 import { SEARCH_SORT_SPEC } from "@/lib/prefs/sortDirection";
 import { SORT_COOKIE } from "@/lib/prefs/sortMode";
+import { VIEW_MODE_COOKIE } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 
@@ -52,6 +54,18 @@ export function ResultsToolbar({
   // (下部バーと同じ作り)
   const [openMenu, setOpenMenu] = useState<"view" | "sort" | null>(null);
   const closeMenu = useCallback(() => setOpenMenu(null), []);
+  // 表示モードの切替は Server Action で、cookie を書いたあと一覧を描き直す。
+  // 「切替が遅い」を測るため、押した瞬間に計測を始める (docs/120 §2)。
+  // 計測中でなければ perfStart は何もしない
+  const measuredViewAction = useCallback(
+    (formData: FormData) => {
+      perfStart("表示", "/", undefined, [
+        ["切替", `${view}→${String(formData.get(VIEW_MODE_COOKIE) ?? "")}`],
+      ]);
+      return viewAction(formData);
+    },
+    [view, viewAction],
+  );
   const openView = useCallback(() => setOpenMenu("view"), []);
   const openSort = useCallback(() => setOpenMenu("sort"), []);
 
@@ -79,7 +93,7 @@ export function ResultsToolbar({
       )}
       <ViewSlot
         view={view}
-        action={viewAction}
+        action={measuredViewAction}
         open={openMenu === "view"}
         onOpen={openView}
         onClose={closeMenu}

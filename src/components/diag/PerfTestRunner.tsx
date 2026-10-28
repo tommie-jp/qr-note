@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { flushClientLogs } from "@/lib/logging/clientCapture";
-import { isPerfIdle, perfSend } from "@/lib/logging/perfClient";
-import { runPerfTest, type PerfTestStatus } from "@/lib/logging/perfTest";
+import { isPerfIdle, perfSend, perfSetViewPhase } from "@/lib/logging/perfClient";
+import { runPerfTest, type PerfTestStatus, type PerfViewPhase } from "@/lib/logging/perfTest";
 import {
   clearPerfTestRunning,
   markPerfTestRunning,
@@ -20,6 +20,9 @@ import { syncOfflineItems } from "@/lib/offline/sync";
 // 手順の並びは lib/logging/perfTest.ts。ここは DOM の手足だけを組む
 
 const TYPE_DELAY_MS = 120;
+// 表示モードの釦を押してから、次を押すまでの待ち。押した結果が描き直されて
+// 釦の名前が変わるのを待つ (変わる前に押すと同じモードにもう一度送る)
+const VIEW_SWITCH_SETTLE_MS = 1500;
 // 完了の知らせを残しておく時間
 const DONE_NOTICE_MS = 8000;
 
@@ -54,15 +57,76 @@ async function typeQuery(query: string): Promise<void> {
   }
 }
 
-// 2 件目を開く (先頭は 2・3 ペインで自動で開いている)。1 件しか無ければ先頭
-function openNote(): boolean {
+// 一覧の index 番目 (0 始まり) を開く。足りなければ最後の行 (1 件だけの検索でも流す)
+function openNote(index: number): boolean {
   const links = document.querySelectorAll<HTMLAnchorElement>(NOTE_LINKS);
-  const link = links[1] ?? links[0];
+  const link = links[index] ?? links[links.length - 1];
   if (link === undefined) {
     return false;
   }
   link.click();
   return true;
+}
+
+// 一覧の内側スクロールの器 (2・3 ペインと広い画面)。無ければ文書ごとスクロールする
+const RESULTS_SCROLL = "[data-results-scroll]";
+// 続きがあることの目印 (components/search/loadMore.ts)
+const LOAD_MORE_MARK = "[data-auto-load-more]";
+
+// 一覧を一番下まで送って、続きの読み込みを起こす (利用者のスクロールと同じ入口)。
+// 続きの目印が無ければ (全件が 1 ページに収まる) false
+function scrollMore(): boolean {
+  if (document.querySelector(LOAD_MORE_MARK) === null) {
+    return false;
+  }
+  const scroller = document.querySelector<HTMLElement>(RESULTS_SCROLL);
+  if (scroller !== null && scroller.scrollHeight > scroller.clientHeight) {
+    scroller.scrollTo({ top: scroller.scrollHeight });
+  } else {
+    window.scrollTo({ top: document.documentElement.scrollHeight });
+  }
+  return true;
+}
+
+// 表示モードの釦。aria-label は「表示: 小 (押すと中に切替、長押しで一覧)」の形
+// (components/bottombar/ViewSlot.tsx)
+const VIEW_BUTTON = 'button[aria-label^="表示:"]';
+const VIEW_FROM_LABEL: Readonly<Record<string, string>> = {
+  小: "compact",
+  中: "medium",
+  大: "card",
+  画像: "image",
+};
+
+function viewButton(): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(VIEW_BUTTON);
+}
+
+// 釦の名前から今の表示モードを読む。cookie は httpOnly で JS から読めない
+function currentView(): string {
+  const label = viewButton()?.getAttribute("aria-label") ?? "";
+  const shown = /^表示: (\S+)/.exec(label)?.[1] ?? "";
+  return VIEW_FROM_LABEL[shown] ?? "unknown";
+}
+
+// 目的の表示モードになるまで釦を押す (押すたびに次のモードへ循環)。
+// 押してから描き直されるまでは釦の名前が変わらないので、1 回ずつ待つ。
+// 循環は 4 つなので、4 回押して着かなければ諦める (釦が壊れていても止まらない)
+async function switchView(to: string, phase: PerfViewPhase): Promise<boolean> {
+  for (let i = 0; i < Object.keys(VIEW_FROM_LABEL).length; i += 1) {
+    if (currentView() === to) {
+      return true;
+    }
+    const button = viewButton();
+    if (button === null) {
+      return false;
+    }
+    // 押す直前に区分を置く。ResultsToolbar の perfStart('表示') が 1 回読む
+    perfSetViewPhase(phase);
+    button.click();
+    await sleep(VIEW_SWITCH_SETTLE_MS);
+  }
+  return currentView() === to;
 }
 
 function describeDevice(): readonly (readonly [string, string])[] {
@@ -115,6 +179,9 @@ export function PerfTestRunner() {
       isIdle: isPerfIdle,
       typeQuery,
       openNote,
+      scrollMore,
+      currentView,
+      switchView,
       sync: async () => {
         await syncOfflineItems();
       },
