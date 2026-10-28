@@ -13,12 +13,8 @@ import 'server-only'
 import { prisma } from '../db'
 import { assertSafeCircuitSvg, circuitHash } from './hash'
 import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './types'
-import {
-  CIRCUITIKZ_LANG,
-  type CircuitFence,
-  extractCircuitFences,
-  hasNoCircuitFence,
-} from './fences'
+import { CIRCUITIKZ_LANG, type CircuitFence, hasNoCircuitFence } from './fences'
+import { circuitFencesOf } from './fenceMemo'
 import { circuitYamlHash } from './yaml'
 import { firstThumbInfo } from '../images/memoImages'
 
@@ -71,7 +67,9 @@ export async function loadCircuitThumbs(
     }
     // 9 個目以降は描画側 (planCircuits) が描かないので引きにも行かない。
     // **上限は 2 言語の合算**なので、切るのも 1 本に並べた後 (docs/91 §4)
-    const fences = extractCircuitFences(item.memo).slice(0, MAX_CIRCUITS_PER_MEMO)
+    // 解析は覚えておく (docs/118 §1)。追加読み込みは 1〜N ページを描き直すので、
+    // 覚えないと同じノートを毎回解析し直す
+    const fences = circuitFencesOf(item.memo).slice(0, MAX_CIRCUITS_PER_MEMO)
     if (fences.length === 0) {
       return []
     }
