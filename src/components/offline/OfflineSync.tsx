@@ -86,7 +86,7 @@ export function OfflineSync({ version }: OfflineSyncProps) {
 
       let payload: OfflineSyncPayload | null = null;
       try {
-        payload = await syncOfflineItems();
+        payload = (await syncOfflineItems()).payload;
       } catch (error) {
         console.warn("OfflineSync: ノートを同期できませんでした", error);
       }

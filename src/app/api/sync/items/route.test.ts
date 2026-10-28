@@ -43,6 +43,11 @@ vi.mock('@/lib/offline/syncItems', () => ({
   },
 }))
 
+// 版 (ETag) は本文を組む前の安い問い合わせ 1 本で決まる (docs/118 §4-2)
+vi.mock('@/lib/offline/syncVersion', () => ({
+  loadSyncEtag: async () => '"v-1"',
+}))
+
 const { GET } = await import('./route')
 
 function syncRequest(headers: Record<string, string> = {}): Request {
@@ -93,12 +98,48 @@ describe('拒否系 (読み出す前に弾く)', () => {
   })
 })
 
-// 中間キャッシュに持たれると、別の端末で足したノートがいつまでも届かない
-test('中身をキャッシュさせずに返す', async () => {
+// 中間キャッシュに持たれると、別の端末で足したノートがいつまでも届かない。
+// 版 (etag) は本文にも載せ、端末が写しに残して次の If-None-Match に使う
+test('中身をキャッシュさせずに返し、ETag を本文とヘッダの両方に載せる', async () => {
   const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin' }))
 
-  expect(await responseContract(res)).toEqual(jsonContract(200, okEnvelope(mocks.payload)))
+  expect(await responseContract(res)).toEqual(
+    jsonContract(200, okEnvelope({ ...mocks.payload, etag: '"v-1"' })),
+  )
+  expect(res.headers.get('ETag')).toBe('"v-1"')
   expect(mocks.loads).toBe(1)
+})
+
+// 変化が無ければ本文を組まずに 304 (docs/118 §4-2)
+describe('変化が無ければ 304', () => {
+  test('同じ版を If-None-Match で送ってきたら、本文を読まずに 304', async () => {
+    const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin', 'if-none-match': '"v-1"' }))
+
+    expect(res.status).toBe(304)
+    expect(res.headers.get('ETag')).toBe('"v-1"')
+    expect(res.headers.get('Cache-Control')).toBe('no-store')
+    expect(await res.text()).toBe('')
+    expect(mocks.loads).toBe(0)
+  })
+
+  test('違う版なら本文を返す', async () => {
+    const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin', 'if-none-match': '"v-0"' }))
+
+    expect(res.status).toBe(200)
+    expect(mocks.loads).toBe(1)
+  })
+})
+
+// 本文は gzip で返す (docs/118 §4-1)。展開すれば素の封筒と同じ
+test('gzip を受ける相手には圧縮して返す', async () => {
+  const { gunzipSync } = await import('node:zlib')
+  const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin', 'accept-encoding': 'gzip' }))
+
+  expect(res.status).toBe(200)
+  expect(res.headers.get('Content-Encoding')).toBe('gzip')
+  expect(res.headers.get('Cache-Control')).toBe('no-store')
+  const body = gunzipSync(Buffer.from(await res.arrayBuffer())).toString('utf8')
+  expect(JSON.parse(body)).toEqual(okEnvelope({ ...mocks.payload, etag: '"v-1"' }))
 })
 
 // 速度計測中 (docs/119 §2-3)。中身は同じで、Server-Timing と計測行が増えるだけ
@@ -119,11 +160,15 @@ describe('速度計測中', () => {
 
     const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin' }))
 
-    expect(res.headers.get('Server-Timing')).toMatch(/^db;dur=\d+, json;dur=\d+$/)
+    expect(res.headers.get('Server-Timing')).toMatch(/^etag;dur=\d+, db;dur=\d+, json;dur=\d+$/)
     expect(res.headers.get('Cache-Control')).toBe('no-store')
-    expect(await responseContract(res)).toEqual(jsonContract(200, okEnvelope(mocks.payload)))
+    expect(await responseContract(res)).toEqual(
+      jsonContract(200, okEnvelope({ ...mocks.payload, etag: '"v-1"' })),
+    )
     const [line] = recentPerfLines()
-    expect(line.text).toMatch(/^\[計測\] 同期\/サーバ 件数=0 回路=0 rss=\d+MB heap=\d+MB サーバ=\d+ms\(db=\d+ json=\d+\)$/)
+    expect(line.text).toMatch(
+      /^\[計測\] 同期\/サーバ 結果=200 件数=0 回路=0 rss=\d+MB heap=\d+MB サーバ=\d+ms\(etag=\d+ db=\d+ json=\d+\)$/,
+    )
   })
 
   test('計測していなければ Server-Timing を付けない', async () => {

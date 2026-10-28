@@ -87,6 +87,10 @@ export interface OfflineSyncPayload {
   // 予算 (OFFLINE_CIRCUIT_BUDGET) に入り切らず運べなかった回路図の数。
   // 黙って落とすと「圏外でだけ図が出ない」原因の掴めない差になる
   circuitsOmitted: number
+  // サーバが本文を組んだときの版 (api/sync/items の ETag。docs/118 §4-2)。
+  // 次の同期で If-None-Match に載せ、変化が無ければ 304 で本文を受けずに済む。
+  // 古い版のアプリが書いた写しには無い (その 1 回は全件を取り直す)
+  etag?: string
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -196,5 +200,8 @@ export function parseSyncPayload(data: unknown): OfflineSyncPayload | null {
       typeof circuitsOmitted === 'number' && Number.isFinite(circuitsOmitted)
         ? circuitsOmitted
         : 0,
+    ...(isNonEmptyString((data as { etag?: unknown }).etag)
+      ? { etag: (data as { etag: string }).etag }
+      : {}),
   }
 }

@@ -149,9 +149,10 @@ export function OfflineApp() {
     // もう一度落とすのは無駄 (schedule.ts)
     writeMark(LAST_SYNC_ATTEMPT_KEY, String(Date.now()));
     try {
-      const payload = await syncOfflineItems();
+      const { payload, changed } = await syncOfflineItems();
       setSnapshot(payload);
-      report(`${payload.items.length} 件を保存しました`);
+      // 304 (サーバに変化なし) は保存していない。「保存しました」と言うと嘘になる
+      report(changed ? `${payload.items.length} 件を保存しました` : "変更はありません");
     } catch (error) {
       report(errorText(error, "同期に失敗しました"), true);
     } finally {

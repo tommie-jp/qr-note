@@ -1,8 +1,10 @@
-import type { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { loadOfflineSyncPayload } from '@/lib/offline/syncItems'
+import { loadSyncEtag } from '@/lib/offline/syncVersion'
 import { guardRequest } from '@/lib/route/guard'
-import { apiOk } from '@/lib/route/respond'
-import { startPhases } from '@/lib/logging/phase'
+import { apiOkGzip } from '@/lib/route/compress'
+import { startPhases, type PerfPhases } from '@/lib/logging/phase'
+import type { OfflineSyncPayload } from '@/lib/offline/item'
 import { formatServerTiming, perfMB } from '@/lib/logging/perfLine'
 import { reportServerLine } from '@/lib/logging/perfServer'
 import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
@@ -22,40 +24,54 @@ import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 // chrome/AppSideEffects.tsx が !isDemo で仕掛けないようにもしてあるが、**旗の欠落に頼らない**
 // のが route/guard.ts の流儀 — 画面を出さないことと、口を閉じることは別の話。
 //
-// 応答は apiOk が no-store を付ける。中間キャッシュに持たれると、別の端末で
-// 足したノートがいつまでも届かない。
+// 応答は no-store。中間キャッシュに持たれると、別の端末で足したノートが
+// いつまでも届かない。
+//
+// 転送を軽くする 2 段 (docs/118 §4):
+//   ETag … 本文を組む前に安い問い合わせ 1 本で版を決め (syncVersion.ts)、端末が
+//          If-None-Match で同じ版を送ってきたら 304 で本文を送らない
+//   gzip … 版が変わっていれば本文を gzip で返す (11MB → 約 2.3MB)。Next も
+//          nginx も Route Handler の JSON を圧縮しない (route/compress.ts)
 export async function GET(request: Request): Promise<NextResponse> {
   const guard = await guardRequest(request, { demo: 'deny' })
   if (!guard.ok) {
     return guard.response
   }
-  if (!isPerfLogEnabled()) {
-    return apiOk(await loadOfflineSyncPayload())
+  const t = startPhases(isPerfLogEnabled())
+  const etag = await t.time('etag', () => loadSyncEtag())
+  if (request.headers.get('if-none-match') === etag) {
+    const res = new NextResponse(null, {
+      status: 304,
+      headers: { ETag: etag, 'Cache-Control': 'no-store', Vary: 'Accept-Encoding' },
+    })
+    return finish(res, t.done(), null)
   }
-  return measuredResponse()
+  const payload = await t.time('db', () => loadOfflineSyncPayload())
+  // 端末は写しに etag を残し、次の同期で If-None-Match に載せる (offline/sync.ts)。
+  // json … JSON.stringify と gzip を合わせた時間
+  const res = t.timeSync('json', () => apiOkGzip({ ...payload, etag }, request, { ETag: etag }))
+  return finish(res, t.done(), payload)
 }
 
-// 速度計測中の応答 (docs/119 §2-3)。段階は ASCII の名前で測り、そのまま
-// Server-Timing に載せる (ブラウザの行がそこから写す)。
-//
-// json … NextResponse.json は本文を作るときに同期で JSON.stringify するので、
-// apiOk の呼び出しを測ればそれが文字列化の時間になる。
-// rss / heap は応答を組んだ直後 = 10MB の文字列を抱えている山で読む
-// (vps1 は 2GB。docs/118 §2-2 の gzip を足したときの余裕をここで見る)
-async function measuredResponse(): Promise<NextResponse> {
-  const t = startPhases(true)
-  const payload = await t.time('db', () => loadOfflineSyncPayload())
-  const res = await t.time('json', () => apiOk(payload))
-  const perf = t.done()
-  const memory = process.memoryUsage()
-  if (perf !== null) {
-    res.headers.set('Server-Timing', formatServerTiming(perf.phases))
+// 速度計測中の Server-Timing と行 (docs/119 §2-3)。計測していなければ (perf が
+// null) 何もしない。rss / heap は応答を組んだ直後 = 11MB の文字列と圧縮後の
+// 2.3MB を抱えている山で読む (vps1 の余裕を見る)
+function finish(
+  res: NextResponse,
+  perf: PerfPhases | null,
+  payload: OfflineSyncPayload | null,
+): NextResponse {
+  if (perf === null) {
+    return res
   }
+  res.headers.set('Server-Timing', formatServerTiming(perf.phases))
+  const memory = process.memoryUsage()
   reportServerLine(
     '同期/サーバ',
     [
-      ['件数', payload.items.length],
-      ['回路', payload.circuits.length],
+      ['結果', res.status],
+      ['件数', payload?.items.length ?? 0],
+      ['回路', payload?.circuits.length ?? 0],
       ['rss', perfMB(memory.rss)],
       ['heap', perfMB(memory.heapUsed)],
     ],

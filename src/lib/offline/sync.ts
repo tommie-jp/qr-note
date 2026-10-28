@@ -14,20 +14,40 @@
 import 'client-only'
 import { envelopeData } from '@/lib/api/envelope'
 import { firstThumbInfo, thumbUrl } from '@/lib/images/memoImages'
-import { saveOfflineSnapshot } from './snapshotDb'
+import { loadOfflineSnapshot, saveOfflineSnapshot } from './snapshotDb'
 import { awaitResource, isPerfActive, perfNow, perfSend } from '@/lib/logging/perfClient'
 import { formatTransfer, serverTimingSummary } from '@/lib/logging/perf'
 import { perfMs } from '@/lib/logging/perfLine'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'
+
+// 同期の結果。changed が false なら、サーバに変化が無く (304) 端末の写しを
+// そのまま使っている (docs/118 §4-2)
+export interface SyncResult {
+  payload: OfflineSyncPayload
+  changed: boolean
+}
 
 // ノート本文を取り込んで IndexedDB へ置き換える。失敗したら投げる。
 //
 // cache: 'no-store' … 「今どうなっているか」しか意味がない口なので、中間
 // キャッシュに持たれると別の端末で足したノートがいつまでも届かない。
 // Service Worker 側もこの口はキャッシュしない (sw.js の API 判定と対)。
-export async function syncOfflineItems(): Promise<OfflineSyncPayload> {
+//
+// 写しに版 (etag) が残っていれば If-None-Match で送り、サーバが 304 を返したら
+// 写しを触らずにそのまま返す (docs/118 §4-2)。11MB (gzip で 2.3MB) を毎回
+// 受け直さないため。写しが無い・古い版の写しで etag が無いときは全件を取る
+export async function syncOfflineItems(): Promise<SyncResult> {
   const t0 = perfNow()
-  const res = await fetch(SYNC_ITEMS_PATH, { cache: 'no-store' })
+  const stored = await loadOfflineSnapshot()
+  const headers: Record<string, string> =
+    stored?.etag === undefined ? {} : { 'If-None-Match': stored.etag }
+  const res = await fetch(SYNC_ITEMS_PATH, { cache: 'no-store', headers })
+  if (res.status === 304 && stored !== null) {
+    if (isPerfActive()) {
+      perfSend('同期', [['結果', 304], ['全体', perfMs(perfNow() - t0)]])
+    }
+    return { payload: stored, changed: false }
+  }
   if (!res.ok) {
     // 401 はセッション切れ。proxy.ts が画面を 200 で案内へ差し替えるのと違い、
     // この口は必ず 401 を返すので、ここで「ログインし直し」と言い切れる
@@ -52,7 +72,7 @@ export async function syncOfflineItems(): Promise<OfflineSyncPayload> {
   if (isPerfActive()) {
     void reportSync(payload, { t0, tHeaders, tBody, tSaved: perfNow() })
   }
-  return payload
+  return { payload, changed: true }
 }
 
 // 同期 1 回の行 (docs/119 §3-3)。resource entry (転送量・Server-Timing) は
