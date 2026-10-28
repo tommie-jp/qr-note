@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { PendingLink } from "@/components/chrome/PendingLink";
 import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
@@ -9,6 +9,7 @@ import { keepsNoteOpen } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
 import { perfStart } from "@/lib/logging/perfClient";
 import { LOAD_MORE_EVENT } from "./loadMore";
+import { createScrollArm, searchKeyOf } from "./loadMoreGate";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
 // 画面に入ったら自動で次ページの URL へ replace し、サーバが 1〜N ページの
@@ -23,6 +24,11 @@ import { LOAD_MORE_EVENT } from "./loadMore";
 //
 // 発火が二重になっても replace 先は同じ URL なので害はないが、
 // isPending 中は観測を止めて無駄撃ちを避ける。
+//
+// **検索の直後は、利用者が一覧を下へスクロールするまで観測しない**
+// (docs/118 §2、判定は loadMoreGate.ts)。20 件では先読みの距離が埋まらず、
+// 誰も読み進めていないのに追加が 1〜2 回続いていた。画面より短い一覧は
+// スクロールできないので、そのときは末尾の「さらに表示」を押して続ける。
 // 先読みの距離。root の高さに対する割合 (1 画面ぶん)
 const PREFETCH_MARGIN = "100% 0px";
 
@@ -60,6 +66,12 @@ export function AutoLoadMore({
   const coveredByNote =
     !keepsNoteOpen(mode) && itemIdFromPathname(pathname) !== null;
 
+  // 解禁は検索 (ページ番号を除いた href) ごと。ページが進んでも同じ検索の
+  // 間は解禁のまま、検索語か並び順が変わったら止め直す
+  const searchKey = searchKeyOf(href);
+  const [armedFor, setArmedFor] = useState<string | null>(null);
+  const armed = armedFor === searchKey;
+
   const load = useCallback(() => {
     // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
     perfStart("追加", "/");
@@ -68,9 +80,26 @@ export function AutoLoadMore({
     });
   }, [router, href]);
 
+  // 解禁を待つ。一覧が実際にスクロールする器 (無ければ文書) の位置を見て、
+  // 下へ動いたら解禁する。先頭へ戻されるスクロールでは解禁しない
   useEffect(() => {
     const el = sentinelRef.current;
-    if (el === null || isPending || coveredByNote) return;
+    if (el === null || armed || coveredByNote) return;
+    const root = scrollRootOf(el);
+    const topOf = () => (root === null ? window.scrollY : root.scrollTop);
+    const arm = createScrollArm(topOf());
+    const onScroll = () => {
+      if (arm(topOf())) setArmedFor(searchKey);
+    };
+    const target: HTMLElement | Window = root ?? window;
+    target.addEventListener("scroll", onScroll, { passive: true });
+    return () => target.removeEventListener("scroll", onScroll);
+    // mode … 構成を押すとスクロールする器が替わる (下の観測と同じ理由)
+  }, [armed, coveredByNote, mode, searchKey]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (el === null || isPending || coveredByNote || !armed) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -87,7 +116,7 @@ export function AutoLoadMore({
     return () => observer.disconnect();
     // mode … 構成を押した瞬間に一覧のスクロールする器 (window か内側の器) が
     // 替わる (docs/86 §4-18)。root を測り直すため作り直す
-  }, [load, isPending, coveredByNote, mode]);
+  }, [load, isPending, coveredByNote, mode, armed]);
 
   // 画像ビューアの → からの依頼 (components/search/loadMore.ts)。目印が
   // 内側スクロールの器に隠れていても読み込めるようにする
