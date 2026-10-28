@@ -8,6 +8,9 @@ import { LOG_TEXT_LIMIT, type LogLevel } from './entry'
 export interface ClientLogItem {
   level: LogLevel
   text: string
+  // 'perf' は速度計測の行 (docs/119 §1-2)。受け口が別のバッファへ振る。
+  // 無ければ普通のログ
+  kind?: 'perf'
 }
 
 // 1 回の送信で運ぶ件数。エラーが無限ループしても回線とサーバを潰さない
@@ -24,16 +27,21 @@ function parseItem(value: unknown): ClientLogItem | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
-  const { level, text } = value as { level?: unknown; text?: unknown }
+  const { level, text, kind } = value as { level?: unknown; text?: unknown; kind?: unknown }
   if (typeof level !== 'string' || !LEVELS.includes(level)) {
     return null
   }
   if (typeof text !== 'string' || text.length === 0) {
     return null
   }
+  // 知らない種類は断る (黙って普通のログに混ぜると、計測行が警告を押し流す)
+  if (kind !== undefined && kind !== 'perf') {
+    return null
+  }
   // 長さは送る側でも切っているが、受ける側でも切る。
   // 送る側は書き換えられる (ブラウザの console から直接叩ける)
-  return { level: level as LogLevel, text: text.slice(0, LOG_TEXT_LIMIT) }
+  const item: ClientLogItem = { level: level as LogLevel, text: text.slice(0, LOG_TEXT_LIMIT) }
+  return kind === 'perf' ? { ...item, kind } : item
 }
 
 // 妥当なら項目の配列、そうでなければ null (呼び出し側が 400 を返す)。

@@ -8,6 +8,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
+import { perfStart } from "@/lib/logging/perfClient";
 import { recordQueryUse } from "@/lib/search/queryClient";
 import { buildSearchUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
@@ -47,6 +48,8 @@ export function SearchNavProvider({
 
   const navigate = useCallback(
     (query: string) => {
+      // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
+      perfStart("検索", "/");
       startTransition(() => {
         router.replace(buildSearchUrl(query.trim(), 1, sort), { scroll: false });
       });

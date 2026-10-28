@@ -128,3 +128,35 @@ test('ブラウザ側が溢れてもサーバ側は押し流されない (バッ
     '消えては困るサーバの警告',
   ])
 })
+
+// 速度計測の行 (docs/119 §1-2)。警告・エラーとは別の控え
+test('計測行は別の控えに積み、ログの一覧には混ぜない', async () => {
+  const { clearPerfLines, pushPerfLine, recentPerfLines } = await import('./buffer')
+  const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+
+  pushPerfLine('[計測] 検索/サーバ 全体=3ms')
+  pushBrowserLogs(
+    [
+      { level: 'info', text: '[計測] 検索 全体=120ms', kind: 'perf' },
+      { level: 'warn', text: '普通の警告' },
+    ],
+    'iPhone',
+  )
+
+  expect(recentLogs().map((log) => log.text)).toEqual(['普通の警告'])
+  expect(recentPerfLines().map((line) => [line.source, line.device, line.text])).toEqual([
+    ['browser', 'iPhone', '[計測] 検索 全体=120ms'],
+    ['server', undefined, '[計測] 検索/サーバ 全体=3ms'],
+  ])
+  // 200 件を超えた分も docker compose logs で集計できるよう stdout にも出す
+  expect(writeSpy).toHaveBeenCalledWith('[計測] 検索/サーバ 全体=3ms\n')
+
+  // 消去はページごと: 警告の消去は計測行を残し、計測の消去は警告を残す
+  clearLogBuffer()
+  expect(recentLogs()).toEqual([])
+  expect(recentPerfLines()).toHaveLength(2)
+  pushBrowserLogs([{ level: 'warn', text: '残る警告' }], 'PC')
+  clearPerfLines()
+  expect(recentPerfLines()).toEqual([])
+  expect(recentLogs().map((log) => log.text)).toEqual(['残る警告'])
+})

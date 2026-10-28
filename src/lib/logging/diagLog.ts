@@ -168,6 +168,11 @@ export function logEnvironmentOnce(): void {
   })
 }
 
+// 速度計測の 1 行を送る (docs/119 §3-4)。/logs?perf=1 に並ぶ
+export function logPerfEvent(text: string): void {
+  sendClientLogs([{ level: 'info', text, kind: 'perf' }])
+}
+
 // 診断イベントを 1 件送る。/logs に info バッジで並ぶ。
 // 失敗ではないものに warn/error を使わない (本物の警告を info で薄めない)。
 export function logDiagEvent(text: string): void {

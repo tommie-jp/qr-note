@@ -4,11 +4,17 @@ import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isDemoMode } from "@/lib/appEnv";
-import { recentLogs } from "@/lib/logging/buffer";
+import { recentLogs, recentPerfLines } from "@/lib/logging/buffer";
+import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
+import { PerfToggleButton } from "./PerfToggleButton";
 import { requireUser } from "@/lib/auth/session";
 import { ClearLogsButton } from "./ClearLogsButton";
 import { CopyTextButton } from "@/components/CopyTextButton";
-import { formatLogsForCopy, LOG_TIME_FORMAT } from "./formatLogsForCopy";
+import {
+  formatLogsForCopy,
+  formatPerfLinesForCopy,
+  LOG_TIME_FORMAT,
+} from "./formatLogsForCopy";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +46,12 @@ const SOURCE_BADGE: Record<string, string> = {
   browser: "bg-sky-100 text-sky-800",
 };
 
-export default async function LogsPage() {
+interface LogsPageProps {
+  // ?perf=1 で速度計測の行だけを出す (docs/119-速度計測ログ計画.md §1-3)
+  searchParams?: Promise<{ perf?: string | string[] }>;
+}
+
+export default async function LogsPage({ searchParams }: LogsPageProps = {}) {
   // デモでは /logs を閉じる (docs/38-デモモード計画.md §4)。共有アカウントでは
   // 他の訪問者の操作痕 (URL・失敗) が見えてしまうため。導線も隠すが、
   // URL 直打ちに備えてページも 404 に倒す
@@ -49,6 +60,10 @@ export default async function LogsPage() {
   }
   await requireUser();
 
+  if ((await searchParams)?.perf === "1") {
+    return <PerfLogs />;
+  }
+
   const logs = recentLogs();
 
   return (
@@ -56,9 +71,14 @@ export default async function LogsPage() {
       <div className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h1 className="text-xl font-bold">ログ</h1>
-          <Link href="/" transitionTypes={["nav-back"]} className={ACTION_LINK_CLASS}>
-            検索へ
-          </Link>
+          <span className="flex items-baseline gap-1">
+            <Link href="/logs?perf=1" className={ACTION_LINK_CLASS}>
+              計測
+            </Link>
+            <Link href="/" transitionTypes={["nav-back"]} className={ACTION_LINK_CLASS}>
+              検索へ
+            </Link>
+          </span>
         </div>
         <div className="flex items-start justify-between gap-3">
           <p className="text-gray-500">
@@ -101,6 +121,65 @@ export default async function LogsPage() {
                 </div>
                 <pre className="whitespace-pre-wrap break-all font-mono text-sm">
                   {log.text}
+                </pre>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </PageTransition>
+  );
+}
+
+// 速度計測の行 (docs/119 §1-3)。警告・エラーとは別の控えで、ここでだけ出す。
+// 1 行 1 計測を新しい順に。読むときは「コピー」で手元へ持ち出す
+function PerfLogs() {
+  const enabled = isPerfLogEnabled();
+  const lines = recentPerfLines();
+  return (
+    <PageTransition>
+      <div className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-xl font-bold">計測</h1>
+          <span className="flex items-baseline gap-1">
+            <Link href="/logs" className={ACTION_LINK_CLASS}>
+              ログ
+            </Link>
+            <Link href="/" transitionTypes={["nav-back"]} className={ACTION_LINK_CLASS}>
+              検索へ
+            </Link>
+          </span>
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-gray-500">
+            {enabled ? "計測中です。" : "計測は止まっています。"}
+            速度計測の行 (新しい順、200 件)。切り替えは全端末に効き、各端末は
+            読み込み直してから測り始めます。サーバが再起動すると止まります。
+            遅い SQL の行は、起動時に PERF_LOG=1 のときだけ出ます。
+          </p>
+          <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <PerfToggleButton enabled={enabled} />
+            <CopyTextButton text={formatPerfLinesForCopy(lines)} subject="計測" />
+            <ClearLogsButton perf />
+          </span>
+        </div>
+        {lines.length === 0 ? (
+          <p className="text-gray-500">計測の行はありません。</p>
+        ) : (
+          <ul className="space-y-1">
+            {lines.map((line, i) => (
+              <li
+                key={`${line.at}-${i}`}
+                className="rounded border border-gray-300 bg-white px-2 py-1"
+              >
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span className={`rounded px-1.5 py-0.5 ${SOURCE_BADGE[line.source]}`}>
+                    {line.source === "browser" ? (line.device ?? "ブラウザ") : "サーバ"}
+                  </span>
+                  <time>{LOG_TIME_FORMAT.format(line.at)}</time>
+                </div>
+                <pre className="whitespace-pre-wrap break-all font-mono text-sm">
+                  {line.text}
                 </pre>
               </li>
             ))}

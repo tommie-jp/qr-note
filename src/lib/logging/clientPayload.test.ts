@@ -87,3 +87,13 @@ test('User-Agent が無ければ「不明」', () => {
   expect(deviceLabel(null)).toBe('不明')
   expect(deviceLabel('')).toBe('不明')
 })
+
+// 速度計測の行 (docs/119 §1-2)
+test('kind は perf だけを受け、他の値は全部断る', () => {
+  expect(
+    parseClientLogPayload({ items: [{ level: 'info', text: '[計測] 検索', kind: 'perf' }] }),
+  ).toEqual([{ level: 'info', text: '[計測] 検索', kind: 'perf' }])
+  expect(
+    parseClientLogPayload({ items: [{ level: 'info', text: 'x', kind: 'other' }] }),
+  ).toBeNull()
+})

@@ -12,13 +12,16 @@ import { errorText } from "@/lib/errorMessage";
 // useRouter は使わない: /logs の一覧はサーバ側で描くので再読み込みで足り、
 // hook を持ち込むとページの静的描画テスト (page.test.tsx) が router の
 // マウントを要求して壊れる
-export function ClearLogsButton() {
+// perf … 計測ページ (/logs?perf=1) の消去。計測行だけを消す (docs/119 §1-3)
+export function ClearLogsButton({ perf = false }: { perf?: boolean }) {
   const { run, busy, error } = useAsyncAction();
 
   const clear = () =>
     run(
       async () => {
-        const res = await fetch("/api/logs/clear", { method: "POST" });
+        const res = await fetch(perf ? "/api/logs/clear?perf=1" : "/api/logs/clear", {
+          method: "POST",
+        });
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }

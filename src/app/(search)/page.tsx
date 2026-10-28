@@ -14,6 +14,8 @@ import { SearchNavProvider } from "@/components/search/SearchNav";
 import { SelectModeProvider } from "@/components/search/SelectModeProvider";
 import { isDemoMode } from "@/lib/appEnv";
 import { listTags } from "@/lib/items/read";
+import { startPhases } from "@/lib/logging/phase";
+import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 import { showsFolderPane } from "@/lib/prefs/paneMode";
 import { readSearchPrefs } from "@/lib/prefs/searchPrefs";
 import { requireUser } from "@/lib/auth/session";
@@ -49,7 +51,10 @@ export default async function Home({ searchParams }: HomeProps) {
   // 検索窓のタグ補完だけは固定部と一緒に引く (小さな表 1 つで速い)。
   // 重い検索本体は HomeResults に隔離して Suspense で後から流す —
   // ログイン直後や直リンクの初回表示で、固定部 (検索窓) を先に出すため
-  const tags = await listTags();
+  // タグ一覧の時間は結果の行 (HomeResults) に足す (docs/119 §2-1)
+  const fixedTimer = startPhases(isPerfLogEnabled());
+  const tags = await fixedTimer.time("タグ", () => listTags());
+  const fixedPhases = fixedTimer.done()?.phases ?? null;
 
   return (
     // 検索窓と結果をまとめて包み、打つそばからの URL 書き換えと待ち状態を
@@ -107,6 +112,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 sort={sort}
                 view={view}
                 paneMode={paneMode}
+                fixedPhases={fixedPhases}
               />
             </Suspense>
           </ResultsPaneRoot>

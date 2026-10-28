@@ -2,6 +2,10 @@ import type { NextResponse } from 'next/server'
 import { loadOfflineSyncPayload } from '@/lib/offline/syncItems'
 import { guardRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
+import { startPhases } from '@/lib/logging/phase'
+import { formatServerTiming, perfMB } from '@/lib/logging/perfLine'
+import { reportServerLine } from '@/lib/logging/perfServer'
+import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 
 // オフライン用にノートをまるごと持ち出す口 (docs/65-オフライン対応計画.md §1)。
 //
@@ -25,5 +29,37 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!guard.ok) {
     return guard.response
   }
-  return apiOk(await loadOfflineSyncPayload())
+  if (!isPerfLogEnabled()) {
+    return apiOk(await loadOfflineSyncPayload())
+  }
+  return measuredResponse()
+}
+
+// 速度計測中の応答 (docs/119 §2-3)。段階は ASCII の名前で測り、そのまま
+// Server-Timing に載せる (ブラウザの行がそこから写す)。
+//
+// json … NextResponse.json は本文を作るときに同期で JSON.stringify するので、
+// apiOk の呼び出しを測ればそれが文字列化の時間になる。
+// rss / heap は応答を組んだ直後 = 10MB の文字列を抱えている山で読む
+// (vps1 は 2GB。docs/118 §2-2 の gzip を足したときの余裕をここで見る)
+async function measuredResponse(): Promise<NextResponse> {
+  const t = startPhases(true)
+  const payload = await t.time('db', () => loadOfflineSyncPayload())
+  const res = await t.time('json', () => apiOk(payload))
+  const perf = t.done()
+  const memory = process.memoryUsage()
+  if (perf !== null) {
+    res.headers.set('Server-Timing', formatServerTiming(perf.phases))
+  }
+  reportServerLine(
+    '同期/サーバ',
+    [
+      ['件数', payload.items.length],
+      ['回路', payload.circuits.length],
+      ['rss', perfMB(memory.rss)],
+      ['heap', perfMB(memory.heapUsed)],
+    ],
+    perf,
+  )
+  return res
 }

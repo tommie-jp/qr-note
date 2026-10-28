@@ -13,6 +13,7 @@ import { loadRowTintId } from "@/lib/prefs/rowTintStore";
 import { loadPhotoMetaMode } from "@/lib/prefs/photoMetaStore";
 import { demoLoginHintEnv, isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import { currentUser } from "@/lib/auth/session";
+import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 import { qrBaseUrl } from "@/lib/site";
 import { CONTENT_WIDTH_CLASS } from "@/components/ui";
 import "./globals.css";
@@ -127,7 +128,7 @@ export default async function RootLayout({
           {/* 下部バー。中身はノート編集中の編集ボタン (portal) だけで、差し込む
               側がいなければ自身を描かない。戻る/進むはヘッダーへ移した */}
           <PageBottomBar isProd={isProd} />
-          <AppSideEffects user={user} isDemo={isDemo} />
+          <AppSideEffects user={user} isDemo={isDemo} perf={isPerfLogEnabled()} />
         </BottomBarProvider>
       </body>
     </html>

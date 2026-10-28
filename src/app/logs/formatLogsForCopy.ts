@@ -29,3 +29,16 @@ function formatEntry(log: LogEntry): string {
 export function formatLogsForCopy(logs: readonly LogEntry[]): string {
   return logs.map(formatEntry).join("\n\n");
 }
+
+// 計測行のコピー (docs/119 §1-3)。1 行 1 計測で、先頭に時刻と測った所。
+// 表計算に貼って空白で区切れるように、2 行形式 (formatEntry) は使わない
+export function formatPerfLinesForCopy(lines: readonly LogEntry[]): string {
+  return lines
+    .map((line) => {
+      const where = line.source === "browser" ? (line.device ?? "ブラウザ") : "サーバ";
+      // 日付と時刻の間の空白は - にする (空白で区切ったとき 1 列に収める)
+      const at = LOG_TIME_FORMAT.format(line.at).replace(" ", "-");
+      return `${at} ${where} ${line.text}`;
+    })
+    .join("\n");
+}

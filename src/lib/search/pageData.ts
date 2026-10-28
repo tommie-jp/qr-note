@@ -22,6 +22,8 @@ import { queryHasTagTerm, queryTracksTaskProgress } from '@/lib/search/rewrite'
 import { registerCodeOf, scanRegisterHref } from '@/lib/external/scanRegister'
 import type { Sort } from '@/lib/validation'
 import type { ViewMode } from '@/lib/prefs/viewMode'
+import { startPhases, type PerfPhases } from '@/lib/logging/phase'
+import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 
 // ゴミ箱の件数は HomeResults (0 件時の案内) と SearchFolders (フォルダーの
 // バッジ) の両方が使う。別々の Suspense 枝から呼んでも 1 回の問い合わせに
@@ -47,6 +49,8 @@ export interface SearchResultsData {
   mathTexts: MathTextMap
   mathSummaries: Record<string, string>
   notePreviews: NotePreviewMap
+  // 段階ごとの時間 (docs/119 §2-1)。計測していなければ null
+  perf: PerfPhases | null
 }
 
 export async function loadSearchResults({
@@ -62,14 +66,16 @@ export async function loadSearchResults({
   // (docs/60-学習進捗計画.md §2)。常時出すと、チェックを使っていない
   // ノート群にも 0% が並ぶ
   const showProgress = queryTracksTaskProgress(query)
+  // 段階の計時 (docs/119 §2-1)。並べた 4 本はそれぞれの時間を残す
+  const t = startPhases(isPerfLogEnabled())
   const [result, props, trashCount, progress] = await Promise.all([
-    searchItems(query, Number(page) || 1, sort),
+    t.time('検索', () => searchItems(query, Number(page) || 1, sort)),
     showProps
-      ? searchItemProps(query, sort)
+      ? t.time('特性', () => searchItemProps(query, sort))
       : Promise.resolve({ rows: [], omitted: 0 }),
-    countTrashedItemsOnce(),
+    t.time('ゴミ箱', () => countTrashedItemsOnce()),
     showProgress
-      ? countTaskProgress(query)
+      ? t.time('進捗', () => countTaskProgress(query))
       : Promise.resolve({ done: 0, total: 0 }),
   ])
 
@@ -90,18 +96,16 @@ export async function loadSearchResults({
   // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md)。キャッシュ済みの
   // SVG を引くだけで描画はしない。小/大は画像の無いノートの先頭 1 枚、
   // 画像モードは全部 (表示モードはサーバで既知なので引く量を絞れる)
-  const circuitThumbs = await loadCircuitThumbs(
-    result.items,
-    view === 'image' ? 'all' : 'first',
+  const circuitThumbs = await t.time('回路', () =>
+    loadCircuitThumbs(result.items, view === 'image' ? 'all' : 'first'),
   )
 
   // タイトル・プレビューの数式を KaTeX の HTML に (docs/69-一覧数式計画.md)。
   // DB は引かない同期処理。プレビューが描かれるのはカード表示だけなので、
   // それ以外はタイトルだけ作る (circuitThumbs の mode と同じ考え)。
   // 特性表の要約列はタイトルと同じ文字列なので描画を使い回す
-  const mathTexts = buildMathTexts(
-    result.items,
-    view === 'card' ? 'both' : 'title',
+  const mathTexts = t.timeSync('数式', () =>
+    buildMathTexts(result.items, view === 'card' ? 'both' : 'title'),
   )
   const mathSummaries = buildMathSummaries(props.rows, mathTexts)
 
@@ -110,7 +114,9 @@ export async function loadSearchResults({
   // **回路図サムネの後に作る** (出るノートに作っても使われない)。
   // 表示モードごとの出し分け (画像モードは作らない・小はさらに足切り) は
   // buildNotePreviews の中 (circuitThumbs / mathTexts と同じ作法)
-  const notePreviews = buildNotePreviews(result.items, circuitThumbs, view)
+  const notePreviews = t.timeSync('プレビュー', () =>
+    buildNotePreviews(result.items, circuitThumbs, view),
+  )
 
   return {
     result,
@@ -123,5 +129,6 @@ export async function loadSearchResults({
     mathTexts,
     mathSummaries,
     notePreviews,
+    perf: t.done(),
   }
 }

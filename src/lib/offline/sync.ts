@@ -15,6 +15,9 @@ import 'client-only'
 import { envelopeData } from '@/lib/api/envelope'
 import { firstThumbInfo, thumbUrl } from '@/lib/images/memoImages'
 import { saveOfflineSnapshot } from './snapshotDb'
+import { awaitResource, isPerfActive, perfNow, perfSend } from '@/lib/logging/perfClient'
+import { formatTransfer, serverTimingSummary } from '@/lib/logging/perf'
+import { perfMs } from '@/lib/logging/perfLine'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'
 
 // ノート本文を取り込んで IndexedDB へ置き換える。失敗したら投げる。
@@ -23,6 +26,7 @@ import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPa
 // キャッシュに持たれると別の端末で足したノートがいつまでも届かない。
 // Service Worker 側もこの口はキャッシュしない (sw.js の API 判定と対)。
 export async function syncOfflineItems(): Promise<OfflineSyncPayload> {
+  const t0 = perfNow()
   const res = await fetch(SYNC_ITEMS_PATH, { cache: 'no-store' })
   if (!res.ok) {
     // 401 はセッション切れ。proxy.ts が画面を 200 で案内へ差し替えるのと違い、
@@ -36,13 +40,42 @@ export async function syncOfflineItems(): Promise<OfflineSyncPayload> {
 
   // 封筒から data を取り出す。**サーバを無条件には信じない** (envelopeData が
   // オブジェクトでない本文を null にし、形は parseSyncPayload が確かめる)
-  const payload = parseSyncPayload(envelopeData(await res.json()))
+  const tHeaders = perfNow()
+  const body: unknown = await res.json()
+  const tBody = perfNow()
+  const payload = parseSyncPayload(envelopeData(body))
   if (payload === null) {
     throw new Error('同期の応答を読み取れませんでした')
   }
 
   await saveOfflineSnapshot(payload)
+  if (isPerfActive()) {
+    void reportSync(payload, { t0, tHeaders, tBody, tSaved: perfNow() })
+  }
   return payload
+}
+
+// 同期 1 回の行 (docs/119 §3-3)。resource entry (転送量・Server-Timing) は
+// 受信完了の後に非同期で届くので、待ってから送る。同期そのものは待たせない
+async function reportSync(
+  payload: OfflineSyncPayload,
+  at: { t0: number; tHeaders: number; tBody: number; tSaved: number },
+): Promise<void> {
+  const entry = await awaitResource(
+    (e) => e.name.endsWith(SYNC_ITEMS_PATH) && e.startTime >= at.t0 - 1,
+  )
+  perfSend('同期', [
+    ['結果', 200],
+    ['全体', perfMs(at.tSaved - at.t0)],
+    ['応答開始', perfMs(entry ? entry.responseStart - entry.startTime : at.tHeaders - at.t0)],
+    // 本文 = 受信の残り + JSON の解析 (res.json() は両方を含む)
+    ['本文', perfMs(at.tBody - at.tHeaders)],
+    ['保存', perfMs(at.tSaved - at.tBody)],
+    ['転送', formatTransfer(entry) ?? '未了'],
+    ['件数', payload.items.length],
+    ['回路', payload.circuits.length],
+    ['サーバ', serverTimingSummary(entry) ?? '未対応'],
+  ])
 }
 
 // 先読みの進み具合。done は「片付いた件数」で、キャッシュ済みで通信が

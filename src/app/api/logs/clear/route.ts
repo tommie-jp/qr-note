@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { clearLogBuffer } from '@/lib/logging/buffer'
+import { clearLogBuffer, clearPerfLines } from '@/lib/logging/buffer'
 import { guardRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 
@@ -16,7 +16,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     return guard.response
   }
 
-  clearLogBuffer()
+  // ?perf=1 は計測行だけを消す (docs/119 §1-3)。調査中の警告と計測の行は
+  // 片方を消すともう片方まで消える形にしない
+  if (new URL(request.url).searchParams.get('perf') === '1') {
+    clearPerfLines()
+  } else {
+    clearLogBuffer()
+  }
 
   return apiOk(null)
 }

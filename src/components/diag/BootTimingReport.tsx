@@ -10,7 +10,7 @@ import {
   readBootTiming,
   shouldReportBoot,
 } from "@/lib/logging/bootTiming";
-import { logDiagEvent } from "@/lib/logging/diagLog";
+import { logDiagEvent, logPerfEvent } from "@/lib/logging/diagLog";
 import { readMark, writeMark } from "@/lib/offline/schedule";
 
 // 起動にかかった時間の内訳を /logs へ送る。何も描かない。
@@ -32,9 +32,11 @@ interface BootTimingReportProps {
   // アプリの版 (package.json)。管理している Worker の版と食い違っていれば、
   // 「古い Worker がこの起動を捌いた」と読める
   version: string;
+  // 速度計測中 (docs/119 §3-4)。条件を問わず毎回、計測の控えへ送る
+  always?: boolean;
 }
 
-export function BootTimingReport({ version }: BootTimingReportProps) {
+export function BootTimingReport({ version, always = false }: BootTimingReportProps) {
   useEffect(() => {
     if (reported) {
       return;
@@ -59,15 +61,14 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
     // 送る (送ったら true)。forced は「条件を問わず送る」— 途中経過を送った
     // あとの仕上げに使う
     const send = (timing: BootTiming, forced: boolean): boolean => {
-      if (
-        !forced &&
-        !shouldReportBoot(timing, lastReportedVersion, version, { canRemember })
-      ) {
+      const diagnostic =
+        forced ||
+        shouldReportBoot(timing, lastReportedVersion, version, { canRemember });
+      if (!diagnostic && !always) {
         return false;
       }
 
-      logDiagEvent(
-        formatBootTiming(timing, {
+      const line = formatBootTiming(timing, {
           version,
           workerVersion: parseWorkerVersion(
             navigator.serviceWorker?.controller?.scriptURL ?? null,
@@ -78,9 +79,18 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
             window.matchMedia("(display-mode: standalone)").matches ||
             (navigator as Navigator & { standalone?: boolean }).standalone === true,
           online: navigator.onLine,
-        }),
-      );
-      return true;
+        });
+      // 普通の条件 (版が変わった初回・遅い起動) に当たる行は今までどおり /logs へ。
+      // 計測中はそれとは別に、毎回の行を計測の控えへ送る (docs/119 §3-4)。
+      // 計測の控えにだけ送ると、版が変わった初回の行が打鍵の行に押し流され、
+      // 控えの版は「報告済み」になっているので二度と出てこない
+      if (diagnostic) {
+        logDiagEvent(line);
+      }
+      if (always) {
+        logPerfEvent(line);
+      }
+      return diagnostic;
     };
 
     // load 後の本番。**loadEventEnd は load が終わるまで 0** なので 1 tick 遅らせて読む
@@ -122,7 +132,7 @@ export function BootTimingReport({ version }: BootTimingReportProps) {
       window.clearTimeout(loadTimer);
       window.clearTimeout(fallbackTimer);
     };
-  }, [version]);
+  }, [version, always]);
 
   return null;
 }

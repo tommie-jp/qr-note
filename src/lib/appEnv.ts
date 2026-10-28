@@ -122,6 +122,13 @@ export function pathEnv(): string | undefined {
   return process.env.PATH;
 }
 
+// 速度計測の既定 (docs/119 §1-4)。"1" なら起動直後から計測する。
+// 実際の切替は /logs?perf=1 から押す (logging/perfSwitch.ts)。これは再起動を
+// またいで計測し続けたいときのためだけの口
+export function perfLogEnv(): string | undefined {
+  return process.env.PERF_LOG;
+}
+
 // デモのログイン案内 (layout.tsx の DemoBanner。docs/39 §4)
 export function demoLoginHintEnv(): string | undefined {
   return process.env.DEMO_LOGIN_HINT;

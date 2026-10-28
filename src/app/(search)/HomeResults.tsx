@@ -7,6 +7,9 @@ import {
   trashItemsAction,
 } from "@/app/actions";
 import { AutoLoadMore } from "@/components/search/AutoLoadMore";
+import { PerfMarks } from "@/components/diag/PerfMarks";
+import { perfQuery } from "@/lib/logging/perfLine";
+import { reportServerPerf } from "@/lib/logging/perfServer";
 import { ItemDetail } from "@/components/item/ItemDetail";
 import { ItemList } from "@/components/item/ItemList";
 import { TrashIcon } from "@/components/icons";
@@ -30,12 +33,15 @@ export async function HomeResults({
   sort,
   view,
   paneMode,
+  fixedPhases,
 }: {
   query: string;
   page: string;
   sort: Sort;
   view: ViewMode;
   paneMode: PaneMode;
+  // 固定部 (page.tsx) で測った段階 (タグの一覧)。計測していなければ null
+  fixedPhases: Record<string, number> | null;
 }) {
   const {
     result,
@@ -48,7 +54,21 @@ export async function HomeResults({
     mathTexts,
     mathSummaries,
     notePreviews,
+    perf,
   } = await loadSearchResults({ query, page, sort, view });
+
+  // 速度計測 (docs/119 §2-1)。サーバの行を積み、ブラウザへ渡す印を作る。
+  // 固定部のタグ一覧の時間を先頭に足す (Home が先に待っている分)
+  const perfMarks = reportServerPerf(
+    "検索",
+    [
+      ["q", perfQuery(query)],
+      ["panes", paneMode],
+      ["view", view],
+      ["件数", `${result.items.length}/${result.total}`],
+    ],
+    perf && { totalMs: perf.totalMs, phases: { ...fixedPhases, ...perf.phases } },
+  );
 
   // ノートのペインを持つ構成 (3 / 2) では**必ずノートを出す**
   // (docs/86 §4-4)。まだ何も選んでいないときのために、検索結果の先頭を
@@ -208,6 +228,7 @@ export async function HomeResults({
           remaining={result.total - result.items.length}
         />
       )}
+      {perfMarks && <PerfMarks {...perfMarks} />}
       </div>
     </SearchResults>
     </>

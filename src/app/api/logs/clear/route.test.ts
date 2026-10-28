@@ -97,3 +97,18 @@ test('サーバ・ブラウザ両方のログを消す', async () => {
   expect(res.status).toBe(200)
   expect(recentLogs()).toHaveLength(0)
 })
+
+test('?perf=1 は計測行だけを消し、警告・エラーは残す', async () => {
+  await seedLogs()
+  const { pushBrowserLogs, recentLogs, recentPerfLines } = await import('@/lib/logging/buffer')
+  pushBrowserLogs([{ level: 'info', text: '[計測] 検索', kind: 'perf' }], 'iPhone')
+  const POST = await importPost()
+
+  const res = await POST(
+    new Request('http://localhost/api/logs/clear?perf=1', { method: 'POST' }),
+  )
+
+  expect(res.status).toBe(200)
+  expect(recentPerfLines()).toEqual([])
+  expect(recentLogs()).toHaveLength(1)
+})

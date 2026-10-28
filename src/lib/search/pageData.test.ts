@@ -205,3 +205,23 @@ test('本文プレビューは回路図サムネと表示モードを渡して�
   expect(data.notePreviews).toBe(PREVIEWS)
   expect(data.result).toEqual(searchResult(1))
 })
+
+// 速度計測 (docs/119 §2-1)。切っていれば null、計測中は段階を始めた順に返す
+test('計測していなければ perf は null、計測中は段階の時間を返す', async () => {
+  const { setPerfLogEnabled } = await import('@/lib/logging/perfSwitch')
+  expect((await load()).perf).toBeNull()
+
+  setPerfLogEnabled(true)
+  try {
+    const { perf } = await load()
+    expect(Object.keys(perf?.phases ?? {})).toEqual([
+      '検索',
+      'ゴミ箱',
+      '回路',
+      '数式',
+      'プレビュー',
+    ])
+  } finally {
+    setPerfLogEnabled(false)
+  }
+})

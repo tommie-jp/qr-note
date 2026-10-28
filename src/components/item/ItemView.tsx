@@ -47,12 +47,22 @@ import { pinAttachmentBytes } from "@/lib/offline/pinSize";
 import { formatBase } from "@/lib/editor/saveBase";
 import { allImageNames } from "@/lib/images/memoImages";
 import { SavedDraftCleanup } from "@/components/editor/SavedDraftCleanup";
+import { PerfMarks } from "@/components/diag/PerfMarks";
+import { startPhases } from "@/lib/logging/phase";
+import { perfKB } from "@/lib/logging/perfLine";
+import {
+  notePerfSince,
+  reportServerPerf,
+  type NoteLoadPerf,
+} from "@/lib/logging/perfServer";
 
 interface ItemViewProps {
   itemId: string;
   item: Item | null;
   // 更新直後だけ付く保存時刻。トーストを出す印 (docs/11 §2-3)
   saved?: string;
+  // 枠を組むまでの段階 (速度計測。docs/119 §2-2)。計測していなければ null
+  loadPerf?: NoteLoadPerf | null;
 }
 
 // 持ち主 (ログイン中) が見る /item の画面。
@@ -62,7 +72,7 @@ interface ItemViewProps {
 //
 // Ver1 と同じく未登録の itemId でも開けて、その場で memo を書いて新規作成できる
 // (QR シールを先に貼っておける)。
-export function ItemView({ itemId, item, saved }: ItemViewProps) {
+export function ItemView({ itemId, item, saved, loadPerf = null }: ItemViewProps) {
   const memo = item?.memo ?? "";
   // ```circuitikz は TeX (WASM) で描くため非同期。**ここでは待たない**
   // (docs/85-回路図表示待ち計画.md §3)。始めるだけ始めて約束を渡し、
@@ -255,7 +265,12 @@ export function ItemView({ itemId, item, saved }: ItemViewProps) {
             <Suspense
               fallback={<SkeletonBox className="h-72">本文を読み込み中…</SkeletonBox>}
             >
-              <OwnerNoteBody itemId={itemId} memo={memo} circuits={circuits} />
+              <OwnerNoteBody
+                itemId={itemId}
+                memo={memo}
+                circuits={circuits}
+                loadPerf={loadPerf}
+              />
             </Suspense>
           </ImageFitScope>
         }
@@ -326,16 +341,39 @@ async function OwnerNoteBody({
   itemId,
   memo,
   circuits,
+  loadPerf,
 }: {
   itemId: string;
   memo: string;
   circuits: ReturnType<typeof planCircuits>;
+  loadPerf: NoteLoadPerf | null;
 }) {
+  const t = startPhases(loadPerf !== null);
   const [matrices, health] = await Promise.all([
-    buildMatrices(memo),
-    buildHealthCharts(memo),
+    t.time("表", () => buildMatrices(memo)),
+    t.time("健康", () => buildHealthCharts(memo)),
   ]);
+  // 速度計測 (docs/119 §2-2)。本文が描ける所まで来た = ノートが開いた。
+  // 全体は枠を組み始めてからの壁時計 (Suspense の待ちも含む)
+  const own = t.done();
+  const perfMarks =
+    loadPerf &&
+    own &&
+    reportServerPerf(
+      "ノート",
+      [
+        ["id", itemId.slice(-8)],
+        ["器", loadPerf.shell],
+        ["本文", perfKB(Buffer.byteLength(memo))],
+        ["画像", allImageNames(memo).length],
+        ["回路", circuits.size],
+      ],
+      notePerfSince(loadPerf, own),
+      itemId,
+    );
   return (
+    <>
+    {perfMarks && <PerfMarks {...perfMarks} />}
     <NoteBody
       memo={memo}
       circuits={circuits}
@@ -346,5 +384,6 @@ async function OwnerNoteBody({
       onToggleTask={toggleMemoTaskAction.bind(null, itemId)}
       onRecordHealth={recordHealthAction.bind(null, itemId)}
     />
+    </>
   );
 }

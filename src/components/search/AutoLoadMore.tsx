@@ -7,6 +7,7 @@ import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { keepsNoteOpen } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
+import { perfStart } from "@/lib/logging/perfClient";
 import { LOAD_MORE_EVENT } from "./loadMore";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
@@ -60,6 +61,8 @@ export function AutoLoadMore({
     !keepsNoteOpen(mode) && itemIdFromPathname(pathname) !== null;
 
   const load = useCallback(() => {
+    // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
+    perfStart("追加", "/");
     startTransition(() => {
       router.replace(href, { scroll: false });
     });

@@ -63,11 +63,17 @@ function current(): CaptureState | undefined {
 }
 
 function record(level: LogLevel, text: string): void {
+  queueClientLog({ level, text })
+}
+
+// 計測行など、console を通さずに送りたい 1 件を待ち行列へ積む
+// (docs/119 §3)。拾い手が仕掛けられていなければ何もしない (未ログイン・デモ)
+export function queueClientLog(item: ClientLogItem): void {
   const s = current()
-  if (!s || text === '') {
+  if (!s || item.text === '') {
     return
   }
-  s.pending.push({ level, text: text.slice(0, LOG_TEXT_LIMIT) })
+  s.pending.push({ ...item, text: item.text.slice(0, LOG_TEXT_LIMIT) })
   if (s.pending.length > CLIENT_LOG_MAX_PENDING) {
     // 溢れたら古い方から捨てる。新しい失敗のほうが診断に効く
     s.pending.splice(0, s.pending.length - CLIENT_LOG_MAX_PENDING)

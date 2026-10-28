@@ -1,5 +1,6 @@
 import pkg from "../../../package.json";
 import { BootTimingReport } from "@/components/diag/BootTimingReport";
+import { PerfReport } from "@/components/diag/PerfReport";
 import { ClientLogCapture } from "@/components/diag/ClientLogCapture";
 import { DebugConsole } from "@/components/diag/DebugConsole";
 import { OfflineSync } from "@/components/offline/OfflineSync";
@@ -9,11 +10,13 @@ interface AppSideEffectsProps {
   // ログイン中のユーザー名。未ログインは null
   user: string | null;
   isDemo: boolean;
+  // 速度計測をしているか (docs/119。/logs?perf=1 から切り替える)
+  perf?: boolean;
 }
 
 // root layout の body 末尾に置く、何も描かないクライアント部品の一群。
 // 並びは元の layout のまま (effect は兄弟の順に走る)
-export function AppSideEffects({ user, isDemo }: AppSideEffectsProps) {
+export function AppSideEffects({ user, isDemo, perf = false }: AppSideEffectsProps) {
   // サーバの受け口へ運ぶ 3 つ (ログ転送・オフライン同期・起動時間) を
   // 仕掛ける条件。ログイン中かつデモ以外 (理由はそれぞれの注)
   const reportsToServer = Boolean(user) && !isDemo;
@@ -43,7 +46,13 @@ export function AppSideEffects({ user, isDemo }: AppSideEffectsProps) {
           何も描かない。「デプロイ直後の起動だけ数十秒白い」の切り分け用で、
           原因が判ったら消してよい。仕掛ける条件は ClientLogCapture と同じ
           (転送の受け口が同じなので、ログイン中・デモ以外) */}
-      {reportsToServer && <BootTimingReport version={pkg.version} />}
+      {reportsToServer && (
+        <BootTimingReport version={pkg.version} always={perf} />
+      )}
+      {/* 速度計測の観測 (docs/119 §3)。何も描かない。計測中だけ置く —
+          置かなければ測る場所 (検索窓・同期…) の呼び出しはどれも何もしない。
+          行は ClientLogCapture の待ち行列で運ぶので、条件も同じにする */}
+      {reportsToServer && perf && <PerfReport />}
       {/* ?debug=1 の eruda (docs/30 §2)。ログイン状態に依らず置く
           (理由は components/diag/DebugConsole.tsx) */}
       <DebugConsole />

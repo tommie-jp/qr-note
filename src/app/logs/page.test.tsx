@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
   clearLogBuffer,
+  clearPerfLines,
   installConsoleCapture,
   pushBrowserLogs,
   uninstallConsoleCapture,
@@ -44,6 +45,7 @@ beforeEach(() => {
 afterEach(() => {
   uninstallConsoleCapture();
   clearLogBuffer();
+  clearPerfLines();
   vi.restoreAllMocks();
 });
 
@@ -126,4 +128,23 @@ test("未ログインなら描かずに投げる", async () => {
   console.error("書影を保存できませんでした (isbn=9784873115658)");
 
   await expect(LogsPage()).rejects.toThrow("ログインが必要です");
+});
+
+// 速度計測の行 (docs/119 §1-3)。既定の一覧には出さず、?perf=1 でだけ出す
+test('計測行は ?perf=1 でだけ出る', async () => {
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  const { pushPerfLine } = await import("@/lib/logging/buffer");
+  pushPerfLine("[計測] 検索/サーバ 全体=3ms");
+  console.warn("普通の警告");
+
+  const plain = renderToStaticMarkup(await LogsPage());
+  expect(plain).toContain("普通の警告");
+  expect(plain).not.toContain("[計測]");
+
+  const perf = renderToStaticMarkup(
+    await LogsPage({ searchParams: Promise.resolve({ perf: "1" }) }),
+  );
+  expect(perf).toContain("[計測] 検索/サーバ 全体=3ms");
+  expect(perf).not.toContain("普通の警告");
+  expect(perf).toContain("計測を始める");
 });

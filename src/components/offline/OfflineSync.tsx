@@ -13,6 +13,8 @@ import {
   writeMark,
 } from "@/lib/offline/schedule";
 import { syncOfflineItems } from "@/lib/offline/sync";
+import { perfNow, perfSend } from "@/lib/logging/perfClient";
+import { perfMs } from "@/lib/logging/perfLine";
 
 // オフライン用の下ごしらえ (docs/65-オフライン対応計画.md)。何も描かない。
 //
@@ -101,7 +103,13 @@ export function OfflineSync({ version }: OfflineSyncProps) {
       // 返す側だけ (pinCache.ts)。
       if (payload !== null && payload.items.some((item) => item.pinned)) {
         try {
+          const pinStart = perfNow();
           const result = await syncPinnedAssets(payload.items);
+          // 速度計測 (docs/119 §3-3)。計測中でなければ何もしない
+          perfSend("同期/添付", [
+            ["全体", perfMs(perfNow() - pinStart)],
+            ["失敗", result.failed],
+          ]);
           if (result.failed > 0) {
             console.warn(
               `OfflineSync: 印付きノートの添付を ${result.failed} 件保存できませんでした`,
@@ -113,7 +121,13 @@ export function OfflineSync({ version }: OfflineSyncProps) {
       }
       if (cancelled || !hasWorker) return;
 
+      const warmStart = perfNow();
       const warmed = await warmOfflineShell();
+      // 暖機は版が変わった起動でだけ走る。配布直後の 1 回の重さがここで判る
+      perfSend("同期/暖機", [
+        ["結果", warmed.ok ? "成功" : "失敗"],
+        ["全体", perfMs(perfNow() - warmStart)],
+      ]);
       if (warmed.ok) {
         writeMark(LAST_WARM_VERSION_KEY, version);
       } else {

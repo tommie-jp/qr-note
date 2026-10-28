@@ -20,6 +20,9 @@ import {
 import { isPublicItem } from "@/lib/auth/publicItem";
 import { buildItemUrl, buildSearchUrl } from "@/lib/search/url";
 import { currentUser } from "@/lib/auth/session";
+import { startPhases } from "@/lib/logging/phase";
+import type { NoteLoadPerf } from "@/lib/logging/perfServer";
+import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 
 // 1 ノートの詳細 (本文 + 一覧の中の前後) を、置き場所ごとの器に入れて描く
 // (docs/93-リファクタリング計画.md §4-8)。器は 3 つあり、中身の組み合わせは
@@ -76,7 +79,7 @@ export const paneBgClass = () =>
 
 type LoadedDetail =
   | { user: null; item: Item | null }
-  | { user: string; item: Item | null; params: ListParams };
+  | { user: string; item: Item | null; params: ListParams; perf: NoteLoadPerf | null };
 
 // 一覧の文脈 (docs/60-学習進捗計画.md §4)。解決の規則 (配列の畳み方・
 // resolveSort・q が無ければ引かない) は prefs/itemListContext.ts の 1 か所で、
@@ -91,13 +94,19 @@ async function loadDetail(
   itemId: string,
   q: ItemDetailProps["q"],
   sort: ItemDetailProps["sort"],
+  shell: ItemDetailShell["kind"],
 ): Promise<LoadedDetail> {
+  // 速度計測 (docs/119 §2-2)。本文の行 (ItemView の OwnerNoteBody) まで運ぶ
+  const startedAt = Date.now();
+  const t = startPhases(isPerfLogEnabled());
   const [user, item, params] = await Promise.all([
-    currentUser(),
-    getItem(itemId),
+    t.time("ログイン", () => currentUser()),
+    t.time("読込", () => getItem(itemId)),
     resolveListParams(q, sort),
   ]);
-  return user === null ? { user, item } : { user, item, params };
+  const phases = t.done()?.phases;
+  const perf = phases ? { startedAt, phases, shell } : null;
+  return user === null ? { user, item } : { user, item, params, perf };
 }
 
 export async function ItemDetail({
@@ -107,14 +116,14 @@ export async function ItemDetail({
   saved,
   shell,
 }: ItemDetailProps) {
-  const loaded = await loadDetail(itemId, q, sort);
+  const loaded = await loadDetail(itemId, q, sort, shell.kind);
 
   if (loaded.user === null) {
     return renderLoggedOut(itemId, loaded.item, shell);
   }
 
-  const { item, params } = loaded;
-  const view = <ItemView itemId={itemId} item={item} saved={saved} />;
+  const { item, params, perf } = loaded;
+  const view = <ItemView itemId={itemId} item={item} saved={saved} loadPerf={perf} />;
   // page … 本文の下 (タイムスタンプの下)。問題を解いて読み終えたところに
   //        「次」があるのが自然な流れ
   // pane / auto … ペインの中の「前 / 次」も Link なのでまた横取りされ、

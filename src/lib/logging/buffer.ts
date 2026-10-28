@@ -24,13 +24,18 @@ export type { LogEntry, LogLevel, LogSource } from './entry'
 interface LogGlobal {
   server: LogEntry[]
   browser: LogEntry[]
+  // 速度計測の行 (docs/119 §1-2)。サーバ・ブラウザの両方をここへ積む。
+  // warn/error と混ぜると、打鍵ごとの 1 行が肝心の警告を押し流す
+  perf: LogEntry[]
   original: { warn: typeof console.warn; error: typeof console.error } | null
 }
 
 const globalForLog = globalThis as unknown as { qrNoteLog?: LogGlobal }
 
 function state(): LogGlobal {
-  globalForLog.qrNoteLog ??= { server: [], browser: [], original: null }
+  globalForLog.qrNoteLog ??= { server: [], browser: [], perf: [], original: null }
+  // ホットリロード前に作られた控え (perf を持たない形) にも足す
+  globalForLog.qrNoteLog.perf ??= []
   return globalForLog.qrNoteLog
 }
 
@@ -83,10 +88,35 @@ export function uninstallConsoleCapture(): void {
 // 時刻はここで打つ — クライアントの時計は信じない (docs/30 §1)
 export function pushBrowserLogs(items: ClientLogItem[], device: string): void {
   const at = Date.now()
-  const { browser } = state()
+  const { browser, perf } = state()
   for (const item of items) {
-    append(browser, { at, level: item.level, text: item.text, source: 'browser', device })
+    append(item.kind === 'perf' ? perf : browser, {
+      at,
+      level: item.level,
+      text: item.text,
+      source: 'browser',
+      device,
+    })
   }
+}
+
+// サーバで測った計測行を控える (docs/119 §1-2)。stdout にも同じ行を出す —
+// 200 件を超えた分も `docker compose logs app | grep '\[計測\]'` で集計できる。
+// console は通さず stdout へ直に書く: console.warn/error の包みを通すと server の
+// 控えにも積まれて二重になり、console.log はデバッグの消し忘れと見分けが付かない
+export function pushPerfLine(text: string): void {
+  append(state().perf, { at: Date.now(), level: 'info', text, source: 'server' })
+  process.stdout.write(`${text}\n`)
+}
+
+// 計測行だけを消す (計測ページの消去。警告・エラーの控えは残す)
+export function clearPerfLines(): void {
+  state().perf = []
+}
+
+// 計測行を新しい順で返す
+export function recentPerfLines(): LogEntry[] {
+  return [...state().perf].reverse()
 }
 
 // 新しい順で返す (画面は最新が知りたい)。サーバとブラウザを時刻順に混ぜる —
