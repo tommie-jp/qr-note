@@ -27,11 +27,13 @@ export interface BenchmarkResult {
   measuredAt: string
 }
 
-// 結果の置き場。ノートの git リポジトリの .git の中 — 永続 volume に既に乗っており
-// (compose の変更もデプロイ時の転送も要らない)、git は .git 直下の未知のファイルを
-// 無視するので履歴にも bundle にも混ざらない
+// 結果の置き場。ノートの git リポジトリの作業ツリー直下 — 永続 volume に既に乗っており
+// (compose の変更もデプロイ時の転送も要らない)、ノートの add / status は
+// `notes` 配下に限っているので履歴にも bundle にも混ざらない。
+// **.git の中には置かない**: openRepo は <dir>/.git の有無で「初期化済みか」を見るので、
+// 先にディレクトリを作ると git init が飛ばされてリポジトリが壊れる
 export function benchmarkFilePath(): string {
-  return join(notesRepoDir(), '.git', 'qr-benchmark.json')
+  return join(notesRepoDir(), 'qr-benchmark.json')
 }
 
 export function formatBenchmark(r: BenchmarkResult): string {
