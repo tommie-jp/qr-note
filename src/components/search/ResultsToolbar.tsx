@@ -11,6 +11,7 @@ import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
 import { ViewSlot } from "@/components/bottombar/ViewSlot";
 import { SEARCH_SORT_SPEC } from "@/lib/prefs/sortDirection";
 import { SORT_COOKIE } from "@/lib/prefs/sortMode";
+import { markViewSwitch } from "@/lib/prefs/pendingViewMode";
 import { VIEW_MODE_COOKIE } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
@@ -54,17 +55,24 @@ export function ResultsToolbar({
   // (下部バーと同じ作り)
   const [openMenu, setOpenMenu] = useState<"view" | "sort" | null>(null);
   const closeMenu = useCallback(() => setOpenMenu(null), []);
-  // 表示モードの切替は Server Action で、cookie を書いたあと一覧を描き直す。
-  // 「切替が遅い」を測るため、押した瞬間に計測を始める (docs/120 §2)。
-  // 計測中でなければ perfStart は何もしない
-  const measuredViewAction = useCallback(
-    (formData: FormData) => {
-      perfStart("表示", "/", undefined, [
-        ["切替", `${view}→${String(formData.get(VIEW_MODE_COOKIE) ?? "")}`],
-      ]);
-      return viewAction(formData);
+  // 表示モードの釦が送信された瞬間 (docs/118 §10 案 D・docs/120 §2-1)。
+  // 送った先を store に置いて一覧を「切替中」にし、計測を始める。
+  //
+  // **Action は包まず、submit を外側で拾う。** form の action は素の Server
+  // Action のままでないと、JS 無効のときネイティブの送信で切り替わらなくなる
+  // (CycleSlot の注)。v0.23.77 で計測のために包んで崩していたのを戻した。
+  // 送った値は submit を起こした釦 (循環の釦かメニューの行) の value にある
+  const onViewSubmit = useCallback(
+    (event: React.FormEvent<HTMLSpanElement>) => {
+      const submitter = (event.nativeEvent as SubmitEvent).submitter;
+      if (!(submitter instanceof HTMLButtonElement) || submitter.name !== VIEW_MODE_COOKIE) {
+        return;
+      }
+      const next = submitter.value;
+      perfStart("表示", "/", undefined, [["切替", `${view}→${next}`]]);
+      markViewSwitch(next);
     },
-    [view, viewAction],
+    [view],
   );
   const openView = useCallback(() => setOpenMenu("view"), []);
   const openSort = useCallback(() => setOpenMenu("sort"), []);
@@ -91,14 +99,17 @@ export function ResultsToolbar({
           <span className={SLOT_LABEL_CLASS}>スライドショー</span>
         </button>
       )}
+      {/* contents … 拾うための器で、並びには参加しない */}
+      <span className="contents" onSubmitCapture={onViewSubmit}>
       <ViewSlot
         view={view}
-        action={measuredViewAction}
+        action={viewAction}
         open={openMenu === "view"}
         onOpen={openView}
         onClose={closeMenu}
         variant="inline"
       />
+      </span>
       {/* 検索語は hidden で持ち回す (並び替えで検索語が消えては困る) */}
       <SortSlot
         spec={SEARCH_SORT_SPEC}

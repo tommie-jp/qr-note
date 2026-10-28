@@ -16,6 +16,7 @@ import { TrashIcon } from "@/components/icons";
 import { PropsTable } from "@/components/markdown/PropsTable";
 import { ResultsToolbar } from "@/components/search/ResultsToolbar";
 import { SearchResults } from "@/components/search/SearchNav";
+import { ViewSwitchVeil } from "@/components/search/ViewSwitchVeil";
 import { TaskProgress } from "@/components/markdown/TaskProgress";
 import { allViewerMedia } from "@/lib/images/memoImages";
 import { showsAutoNote, type PaneMode } from "@/lib/prefs/paneMode";
@@ -202,6 +203,8 @@ export async function HomeResults({
         mathSummaries={mathSummaries}
       />
 
+      {/* 表示モードの切替中は一覧を薄くする (docs/118 §10 案 D) */}
+      <ViewSwitchVeil view={view}>
       <ItemList
         items={result.items}
         query={query}
@@ -217,6 +220,7 @@ export async function HomeResults({
         mathTexts={mathTexts}
         notePreviews={notePreviews}
       />
+      </ViewSwitchVeil>
 
       {/* ページ送りは「前へ/次へ」からオンデマンド表示へ (docs/33)。
           searchItems が 1〜N ページの累積を返すので、末尾の「さらに表示」が
