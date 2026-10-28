@@ -25,6 +25,7 @@ import {
 import { ImageViewerOverlay } from "./ImageViewerOverlay";
 import { ImageViewerPane } from "./ImageViewerPane";
 import type { ViewerMediaHandlers } from "./ViewerMedia";
+import { playSharedVideoNow, unlockSharedVideo } from "./sharedVideo";
 import { useScreenWakeLock } from "./useScreenWakeLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
 import { hasMoreResults, requestLoadMore } from "../search/loadMore";
@@ -185,8 +186,11 @@ export function ImageViewerProvider({
 
   // 開く・閉じる・送るたびに待ちは解く。残すと、閉じて別の画像を開いた後に
   // 遅れて届いたページで勝手に送られる
+  // 開く・始めるのは利用者が押した処理の中なので、ここで動画の再生の
+  // 許可を取っておく (sharedVideo.ts。時計で送った先の動画も流せるように)
   const open = useCallback(
     (target: ViewerTarget) => {
+      unlockSharedVideo();
       setAwaitingMore(false);
       setPlaying(false);
       setOpened({
@@ -279,6 +283,9 @@ export function ImageViewerProvider({
       setPlaying(false);
       return;
     }
+    // 押した操作の中で、出ている動画をその場で再生する (「タップで再生」で
+    // 待っている動画も流れ始める。sharedVideo.ts)
+    playSharedVideoNow();
     showFullscreen();
     setPlaying(true);
   }, [playing, showFullscreen]);
@@ -301,6 +308,7 @@ export function ImageViewerProvider({
     if (openers.length === 0) {
       return false;
     }
+    unlockSharedVideo();
     openers[0].scrollIntoView({ block: "nearest" });
     // 押した釦 (一覧の見出し行) に焦点を残すと、Space が釦を押し直して
     // 先頭から始め直してしまう

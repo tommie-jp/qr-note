@@ -552,6 +552,82 @@ test.describe('検索結果のスライドショー (動画)', () => {
     expect(trashBox.x + trashBox.width).toBeLessThanOrEqual(thumbBox.x)
   })
 
+  // iOS Safari の自動再生の規則を模す: 利用者の操作 (クリック・キー入力) の処理の
+  // 中で play() / load() された要素だけが、以後は時計からでも再生できる (低電力
+  // モードでは消音でも同じ)。navigator.userActivation はテスト用の Chromium では
+  // 10 秒たっても切れず、模すのに使えなかった。
+  // 動画ごとに要素を作っていた頃は、時計で送った先の動画が拒まれて飛ばされた
+  // (2026-10-28 報告)。ビューアは 1 つの要素を使い回し、押した瞬間に許可を取る
+  test('Safari の規則でも、時計で送った先の動画が再生される', async ({ page }) => {
+    // Arrange
+    await page.addInitScript(() => {
+      // 「操作の中」= クリック・キー入力の処理の最中。処理が終わったら切る
+      let inGesture = false
+      for (const type of ['click', 'keydown', 'pointerup']) {
+        window.addEventListener(type, () => {
+          inGesture = true
+          setTimeout(() => {
+            inGesture = false
+          }, 0)
+        }, true)
+      }
+      const unlocked = new WeakSet<HTMLMediaElement>()
+      const play = HTMLMediaElement.prototype.play
+      const load = HTMLMediaElement.prototype.load
+      HTMLMediaElement.prototype.load = function (this: HTMLMediaElement) {
+        if (inGesture) unlocked.add(this)
+        return load.call(this)
+      }
+      HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+        if (inGesture) unlocked.add(this)
+        if (!unlocked.has(this)) {
+          return Promise.reject(new DOMException('blocked', 'NotAllowedError'))
+        }
+        return play.call(this)
+      }
+    })
+    await openVideoResults(page, '1')
+
+    // Act: 一覧の「スライドショー」(先頭の画像から。動画には 10 秒後に時計で送られる)
+    await searchResults(page).getByRole('button', { name: 'スライドショー', exact: true }).click()
+
+    // Assert: 時計で送った先の動画が流れる (拒まれて「タップで再生」にならない)
+    const video = viewerVideo(page)
+    await expect(video).toHaveAttribute('src', `${IMAGES_PATH}/${CLIP}`, {
+      timeout: 15_000,
+    })
+    await expect
+      .poll(() => video.evaluate((el) => (el as HTMLVideoElement).currentTime))
+      .toBeGreaterThan(0)
+    await expect(page.getByText('タップで再生')).toHaveCount(0)
+  })
+
+  test('自動再生をすべて拒まれても動画を飛ばさず、「タップで再生」で待つ', async ({ page }) => {
+    // Arrange: どの再生も拒む (許可の取れない端末)。間隔は最短の 3 秒
+    await page.addInitScript((key) => {
+      window.localStorage.setItem(key, '3')
+      HTMLMediaElement.prototype.play = () =>
+        Promise.reject(new DOMException('blocked', 'NotAllowedError'))
+    }, SLIDESHOW_INTERVAL_KEY)
+    const videoTile = await openVideoResults(page, '1')
+    await videoTile.click()
+    const video = viewerVideo(page)
+    await expect(video).toHaveAttribute('src', `${IMAGES_PATH}/${CLIP}`)
+
+    // Act: その動画からスライドショーを始める
+    await page
+      .locator('[data-image-viewer]')
+      .getByRole('button', { name: 'スライドショー', exact: true })
+      .click()
+
+    // Assert: 「タップで再生」と出し、間隔 (3 秒) も「始まらない」の見切り
+    // (15 秒) も過ぎても次へ送らない
+    await expect(page.getByText('タップで再生')).toBeVisible()
+    await page.waitForTimeout(16_000)
+    await expect(video).toHaveAttribute('src', `${IMAGES_PATH}/${CLIP}`)
+    await expect(page.getByText('タップで再生')).toBeVisible()
+  })
+
   test('スライドショーは動画を最後まで再生したら、間隔を待たずに次の画像へ送る', async ({
     page,
   }) => {
