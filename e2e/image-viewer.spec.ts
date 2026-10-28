@@ -517,24 +517,49 @@ test.describe('検索結果のスライドショー (動画)', () => {
       .toBeGreaterThan(0)
   })
 
-  test('画像表示の動画タイルは、ホバーで動くサムネに替わり ▶ が消える', async ({ page }) => {
-    // Arrange
+  test('画像表示の動画タイルは触らなくても動くサムネで、▶ は小さく出したまま', async ({
+    page,
+  }) => {
+    // Arrange / Act: 開くだけ (ホバーもスクロールもしない)
     const videoTile = await openVideoResults(page, '3')
+    await page.mouse.move(0, 0)
+
+    // Assert: <img> は動くサムネ (アニメ WebP) の URL
+    const poster = videoTile.locator('img')
+    await expect(poster).toHaveAttribute('src', /thumb=1&anim=1/)
+    // ▶ は動いていても出す。小さめ (32px) でタイルの 1/3 にしない
+    const badge = videoTile.locator('svg')
+    await expect(badge).toBeVisible()
+    const badgeBox = await badge.boundingBox()
+    expect(badgeBox?.width ?? 0).toBeLessThanOrEqual(33)
+  })
+
+  test('動くサムネが未生成 (404) の動画は、静止サムネに戻る', async ({ page }) => {
+    // Arrange: 動くサムネだけ 404 にする (既存の動画の多くはまだ作られていない)。
+    // route は後から登録したものが先に効くので、動画の配信の後に足す
+    await serveImages(page.context())
+    await serveVideo(page.context())
+    await page.context().route(
+      (url) => url.pathname === `${IMAGES_PATH}/${CLIP}` && url.searchParams.has('anim'),
+      (route) => route.fulfill({ status: 404, body: '' }),
+    )
+    await page.context().addCookies([
+      { name: 'view', value: 'image', url: BASE_URL },
+      { name: 'panes', value: '3', url: BASE_URL },
+    ])
+
+    // Act
+    await openSearch(page, VIDEO_NOTE.key)
+    const videoTile = searchResults(page).getByRole('button', { name: '動画を再生' })
+    await expect(videoTile).toBeVisible()
+
+    // Assert: 壊れた画像にならず、静止サムネを出す
     const poster = videoTile.locator('img')
     await expect(poster).toHaveAttribute('src', /thumb=1&v=/)
     await expect(poster).not.toHaveAttribute('src', /anim=1/)
-    const badge = videoTile.locator('svg')
-    await expect(badge).toBeVisible()
-    // ▶ は小さめ (32px)。タイルの 1/3 にしない
-    const badgeBox = await badge.boundingBox()
-    expect(badgeBox?.width ?? 0).toBeLessThanOrEqual(33)
-
-    // Act
-    await videoTile.hover()
-
-    // Assert: 同じ <img> が動くサムネ (アニメ WebP) の URL に替わる
-    await expect(poster).toHaveAttribute('src', /thumb=1&anim=1/)
-    await expect(badge).toHaveCount(0)
+    await expect
+      .poll(() => poster.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0)
   })
 
   // 行の表示 (中・大) の顔を動画にしたノートで開く

@@ -26,7 +26,7 @@ interface RowThumbProps {
 // これで一覧に壊れた画像アイコンが出ず、動画であることは必ず判る。
 //
 // 動画にはさらに「動くサムネ」がある (docs/72-動画アニメサムネ計画.md)。
-// 既定は静止 poster のままで、ホバー中 (PC) / 画面に入った時 (スマホ) だけ
+// 常に動かす (docs/117 §8-8)。サーバ描画は静止 poster、ブラウザで動き出したら
 // 同じ <img> の src をアニメ WebP へ差し替える (components/video/useAnimThumb.ts)。
 export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
   // 動画で poster が 404 だったら true。アイコン表示に切り替える
@@ -34,10 +34,7 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
   const showIcon = isVideo && posterFailed;
   // 分割代入で受ける — まとめた object のまま参照すると、eslint の
   // react-hooks/refs が「描画中に ref を読んでいる」と誤検知する
-  const { ref, playing, fail, onMouseEnter, onMouseLeave } = useAnimThumb(
-    name,
-    isVideo && !posterFailed,
-  );
+  const { playing, fail } = useAnimThumb(isVideo && !posterFailed);
 
   // 落ちたのが動くサムネ (未生成) なのか poster なのかを分ける。動くサムネなら
   // 静止へ戻すだけで、poster を巻き添えにしてアイコンにしてはいけない。
@@ -57,10 +54,6 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
   return (
     <span
       className={`relative ${sizeClass} shrink-0 self-center overflow-hidden rounded bg-gray-100`}
-      // ホバーは <img> ではなく容器で受ける。▶ バッジが上に重なっているため、
-      // <img> に付けると中央にポインタを置いたときだけ差し替わらない
-      onMouseEnter={isVideo ? onMouseEnter : undefined}
-      onMouseLeave={isVideo ? onMouseLeave : undefined}
     >
       {showIcon ? (
         <VideoFallback />
@@ -71,7 +64,6 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
               alt="" … 装飾。すぐ左のタイトルが中身を説明している */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            ref={ref}
             src={playing ? thumbAnimUrl(name) : thumbUrl(name)}
             alt=""
             width={sizePx}
@@ -81,8 +73,8 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
             onError={isVideo ? handleError : undefined}
             className={`${sizeClass} block object-cover`}
           />
-          {/* 動いている間はバッジを消す (動いていれば動画だと判る) */}
-          {isVideo && !playing && <PlayBadge />}
+          {/* 動いていても出す (動画だと一目で判る。2026-10-28 指示) */}
+          {isVideo && <PlayBadge />}
         </>
       )}
     </span>
