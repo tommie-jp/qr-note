@@ -182,6 +182,9 @@ export function ImageMasonry({
             )}
             <Link
               href={itemHref(item.itemId)}
+              // 先読みしない (docs/118 §5)。行 (ItemRowCompact・ItemRowCard) と同じ。
+              // 画像表示でも検索 1 回で 16〜20 本の /item の先読みが出ていた
+              prefetch={false}
               // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
               data-note-title={item.title.trim() || undefined}
               transitionTypes={["nav-forward"]}
@@ -209,6 +212,8 @@ export function ImageMasonry({
                   <Link
                     key={tag}
                     href={tagSearchHref(tag)}
+                    // 先読みしない (docs/118 §5)
+                    prefetch={false}
                     className="relative z-10 text-xs text-blue-700 hover:underline"
                   >
                     #{tag}
