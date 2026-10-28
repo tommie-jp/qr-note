@@ -134,8 +134,6 @@ export function ImageViewerProvider({
   const [opened, setOpened] = useState<Opened | null>(null);
   // スライドショーの再生中か (docs/117)。再生中は必ず覆いで出す
   const [playing, setPlaying] = useState(false);
-  // 自動送りが末尾で止まったことを知らせている間 true
-  const [endNotice, setEndNotice] = useState(false);
   // 原寸を読み終えた (読めなかった) 画像の名前。自動送りの間隔はここから数える
   const [settledName, setSettledName] = useState<string | null>(null);
   // 選んだノートが変わったら用済み。描画中に捨てる (React の
@@ -144,7 +142,6 @@ export function ImageViewerProvider({
   if (opened !== null && opened.openedFor !== detailItemId) {
     setOpened(null);
     setPlaying(false);
-    setEndNotice(false);
   }
   const visible = opened !== null && opened.openedFor === detailItemId ? opened : null;
   const current = visible?.target ?? null;
@@ -161,7 +158,6 @@ export function ImageViewerProvider({
     (target: ViewerTarget) => {
       setAwaitingMore(false);
       setPlaying(false);
-      setEndNotice(false);
       setOpened({ target, openedFor: detailItemId, fullscreen: false });
     },
     [detailItemId],
@@ -169,13 +165,7 @@ export function ImageViewerProvider({
   const close = useCallback(() => {
     setAwaitingMore(false);
     setPlaying(false);
-    setEndNotice(false);
     setOpened(null);
-  }, []);
-  // 自動送りが端に着いた。止めて、最後まで見たことを知らせる
-  const stopAtEnd = useCallback(() => {
-    setPlaying(false);
-    setEndNotice(true);
   }, []);
   const showFullscreen = useCallback(
     () => setOpened((prev) => (prev ? { ...prev, fullscreen: true } : prev)),
@@ -228,7 +218,6 @@ export function ImageViewerProvider({
   const step = useCallback(
     (dir: -1 | 1) => {
       setPlaying(false);
-      setEndNotice(false);
       advance(dir);
     },
     [advance],
@@ -236,12 +225,8 @@ export function ImageViewerProvider({
 
   // 再生 / 一時停止。始めるときは全画面にする (ペインのまま流すと、狭い
   // ペインで眺めることになる)。止めても全画面のまま — 止めた瞬間に
-  // ペインへ戻ると絵が跳ねる。
-  // 自動送りで最後まで見た後 (「最後の画像です」が出ている) にもう一度
-  // 押したら、一覧の先頭から流し直す。手で末尾へ送ってから押したときは
-  // そこから始める (見ていた 1 枚を飛ばさない)
+  // ペインへ戻ると絵が跳ねる。再生はいま出ている 1 枚から始める
   const togglePlay = useCallback(() => {
-    setEndNotice(false);
     // 止めるときは次のページの待ちも解く。残すと、届いた瞬間に止めたはずの
     // スライドショーが 1 枚進む
     setAwaitingMore(false);
@@ -249,16 +234,22 @@ export function ImageViewerProvider({
       setPlaying(false);
       return;
     }
-    if (endNotice) {
-      const openers = openersInPage();
-      const targets = openers.map(targetOf);
-      if (targets.length > 0) {
-        showTarget(targets[0], openers, targets);
-      }
-    }
     showFullscreen();
     setPlaying(true);
-  }, [endNotice, playing, showFullscreen, showTarget]);
+  }, [playing, showFullscreen]);
+
+  // 自動送りが末尾 (続きのページも尽きた所) に着いたら、一覧の先頭へ戻って
+  // 流し続ける (docs/117 §2)。手の ← → は今までどおり端で止まる
+  // (docs/116 §4) — 回り込むのは眺めている自動送りのときだけ
+  const loopToFirst = useCallback(() => {
+    const openers = openersInPage();
+    const targets = openers.map(targetOf);
+    if (targets.length === 0) {
+      setPlaying(false);
+      return;
+    }
+    showTarget(targets[0], openers, targets);
+  }, [showTarget]);
 
   const startSlideshow = useCallback(() => {
     const openers = openersInPage();
@@ -272,7 +263,6 @@ export function ImageViewerProvider({
       document.activeElement.blur();
     }
     setAwaitingMore(false);
-    setEndNotice(false);
     setOpened({
       target: targetOf(openers[0]),
       openedFor: detailItemId,
@@ -289,11 +279,11 @@ export function ImageViewerProvider({
     if (!awaitingMore || current === null) {
       return;
     }
-    // あきらめたとき、スライドショー中ならそこが末尾
+    // あきらめたとき、スライドショー中ならそこが末尾なので先頭へ戻る
     const giveUp = () => {
       setAwaitingMore(false);
       if (playing) {
-        stopAtEnd();
+        loopToFirst();
       }
     };
     const observer = new MutationObserver(() => {
@@ -313,7 +303,7 @@ export function ImageViewerProvider({
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [awaitingMore, current, playing, showTarget, stopAtEnd]);
+  }, [awaitingMore, current, playing, showTarget, loopToFirst]);
 
   // 自動送り (docs/117 §2)。原寸を読み終えてから間隔を数える — 時計だけで
   // 進めると、通信が遅いときサムネの引き伸ばしのまま次へ行ってしまう。
@@ -329,13 +319,13 @@ export function ImageViewerProvider({
     const timer = setTimeout(
       () => {
         if (advance(1) === "end") {
-          stopAtEnd();
+          loopToFirst();
         }
       },
       settled ? intervalSec * 1000 : SETTLE_WAIT_MS,
     );
     return () => clearTimeout(timer);
-  }, [playing, settled, awaitingMore, current, intervalSec, advance, stopAtEnd]);
+  }, [playing, settled, awaitingMore, current, intervalSec, advance, loopToFirst]);
 
   useScreenWakeLock(playing && current !== null);
 
@@ -426,7 +416,6 @@ export function ImageViewerProvider({
             onClose={close}
             onStep={step}
             playing={playing}
-            endNotice={endNotice}
             onTogglePlay={togglePlay}
             onSettled={setSettledName}
           />

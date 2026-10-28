@@ -227,7 +227,7 @@ test.describe('検索結果のスライドショー', () => {
     await closePage(page)
   })
 
-  test('一覧の「スライドショー」で先頭から全画面で流れ、末尾で止まって知らせる', async ({
+  test('一覧の「スライドショー」で先頭から全画面で流れ、末尾の次は先頭へ戻る', async ({
     page,
   }) => {
     // Arrange
@@ -243,17 +243,20 @@ test.describe('検索結果のスライドショー', () => {
     await expect(page.getByRole('region', { name: '画像の表示' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: '送る間隔 3 秒' })).toBeAttached()
 
-    // Assert: 触らずに待つと次へ送られ、続きの無い末尾で止まる
+    // Assert: 触らずに待つと次へ送られ、続きの無い末尾の次は先頭へ戻る
     await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`, {
       timeout: SLIDE_WAIT_MS,
     })
-    await expect(page.getByRole('status').filter({ hasText: '最後の画像です' })).toBeVisible({
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`, {
       timeout: SLIDE_WAIT_MS,
     })
+    // 戻った後も再生は続いている
     await expect(
-      page.locator('[data-image-viewer]').getByRole('button', { name: 'スライドショー', exact: true }),
-    ).toBeVisible()
-    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`)
+      page.locator('[data-image-viewer]').getByRole('button', { name: 'スライドショーを止める' }),
+    ).toBeAttached()
+    await expect(image).toHaveAttribute('src', `${IMAGES_PATH}/${WIDE}`, {
+      timeout: SLIDE_WAIT_MS,
+    })
   })
 
   test('ペインの ▶ で全画面になり、画像を押すと閉じずに一時停止、→ で手送り', async ({

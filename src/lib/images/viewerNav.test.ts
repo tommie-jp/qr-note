@@ -53,7 +53,7 @@ test("末尾で次へ送るとき、続きのページがあれば読み込み�
   expect(planStep(list, t("b", "3.jpg"), 1, true)).toEqual({ kind: "wait" });
 });
 
-test("末尾で続きも尽きていれば end (スライドショーはここで止まる)", () => {
+test("末尾で続きも尽きていれば end (スライドショーはここから先頭へ戻る)", () => {
   expect(planStep(list, t("b", "3.jpg"), 1, false)).toEqual({ kind: "end" });
 });
 

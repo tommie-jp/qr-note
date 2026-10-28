@@ -19,7 +19,6 @@ interface ImageViewerOverlayProps {
   onStep: (dir: -1 | 1) => void;
   // スライドショー (docs/117)
   playing: boolean;
-  endNotice: boolean;
   onTogglePlay: () => void;
   onSettled: (name: string) => void;
 }
@@ -39,7 +38,6 @@ export function ImageViewerOverlay({
   onClose,
   onStep,
   playing,
-  endNotice,
   onTogglePlay,
   onSettled,
 }: ImageViewerOverlayProps) {
@@ -55,14 +53,6 @@ export function ImageViewerOverlay({
         <div className="relative h-full w-full">
           <ViewerImage name={target.name} onSettled={onSettled} />
         </div>
-        {endNotice && (
-          <p
-            role="status"
-            className="absolute inset-x-0 top-4 mx-auto w-fit rounded bg-black/70 px-3 py-1 text-sm text-white"
-          >
-            最後の画像です
-          </p>
-        )}
         {/* 前後は画面の左右の中ほど。画像の上に重なるが、押すのは輪の中だけ */}
         <StepButton
           dir={-1}
