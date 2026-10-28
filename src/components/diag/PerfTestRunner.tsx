@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { flushClientLogs } from "@/lib/logging/clientCapture";
 import { isPerfIdle, perfSend } from "@/lib/logging/perfClient";
 import { runPerfTest, type PerfTestStatus } from "@/lib/logging/perfTest";
-import { takePerfTestPending } from "@/lib/logging/perfTestFlag";
+import {
+  clearPerfTestRunning,
+  markPerfTestRunning,
+  takePerfTestInterrupted,
+  takePerfTestPending,
+} from "@/lib/logging/perfTestFlag";
 import { syncOfflineItems } from "@/lib/offline/sync";
 
 // 計測テストを流す (docs/120-計測テスト自動化計画.md §2)。
@@ -19,7 +24,10 @@ const TYPE_DELAY_MS = 120;
 const DONE_NOTICE_MS = 8000;
 
 const SEARCH_INPUT = 'input[type="search"][name="q"]';
-const NOTE_LINKS = '[data-results-pane] a[href^="/item/"]';
+// 一覧の行の題名リンク。**`a[href^="/item/"]` で拾わない** — 3 ペインでは
+// 一覧の領域の中にノート側の操作 (アイコンの釦・「次 →」) も入っていて、
+// 本番ではそれを押して全体の読み込み直しになり、手順が途切れた
+const NOTE_LINKS = '[data-results-pane] a[data-note-title]';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -66,13 +74,39 @@ function describeDevice(): readonly (readonly [string, string])[] {
   ];
 }
 
+async function stopPerf(): Promise<void> {
+  const res = await fetch("/api/logs/perf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: false }),
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+}
+
+// 前の手順が途中で切れていたら、そのことを残して計測を止める。止めないと
+// 計測が立ったまま残り、普段の操作の行が控えを押し流す
+function recoverInterrupted(): void {
+  if (!takePerfTestInterrupted()) {
+    return;
+  }
+  perfSend("テスト", [["結果", "中断"]]);
+  flushClientLogs();
+  stopPerf().catch((error: unknown) => {
+    console.warn("途中で切れた計測テストの計測を止められませんでした", error);
+  });
+}
+
 export function PerfTestRunner() {
   const [status, setStatus] = useState<PerfTestStatus | null>(null);
 
   useEffect(() => {
     if (!takePerfTestPending()) {
+      recoverInterrupted();
       return;
     }
+    markPerfTestRunning();
     let cancelled = false;
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
     void runPerfTest({
@@ -86,17 +120,9 @@ export function PerfTestRunner() {
       },
       send: perfSend,
       flush: flushClientLogs,
-      stop: async () => {
-        const res = await fetch("/api/logs/perf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: false }),
-        });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-      },
+      stop: stopPerf,
       report: (next) => {
+        if (next.done) clearPerfTestRunning();
         if (cancelled) return;
         setStatus(next);
         if (next.done) {
@@ -106,6 +132,9 @@ export function PerfTestRunner() {
       describe: describeDevice,
     }).catch((error: unknown) => {
       console.warn("計測テストが途中で止まりました", error);
+      // 計測を立てたまま残さない (recoverInterrupted と同じ理由)
+      clearPerfTestRunning();
+      stopPerf().catch(() => {});
     });
     return () => {
       cancelled = true;

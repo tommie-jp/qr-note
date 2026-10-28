@@ -52,5 +52,14 @@ export function createFenceMemo(
   }
 }
 
-// プロセスで 1 つ。一覧と同期が同じ記憶を分け合う
-export const circuitFencesOf = createFenceMemo()
+// プロセスで 1 つ。一覧と同期が同じ記憶を分け合う。
+//
+// **globalThis に置くのが要点。** Next は route handler (同期の口) とページ
+// (検索) を別々に束ねるので、モジュールの変数のままだと記憶が 2 つになる。
+// 本番では同期が 490 件を解析した直後の検索でも、回路図サムネに 1.4 秒
+// かかっていた (docs/118 §0-5)。perfSwitch.ts・buffer.ts と同じ置き方
+const globalForFenceMemo = globalThis as unknown as {
+  qrNoteFenceMemo?: (memo: string) => readonly CircuitFence[]
+}
+
+export const circuitFencesOf = (globalForFenceMemo.qrNoteFenceMemo ??= createFenceMemo())

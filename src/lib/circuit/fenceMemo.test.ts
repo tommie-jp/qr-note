@@ -66,3 +66,11 @@ describe('circuitFencesOf', () => {
     expect(circuitFencesOf(md)).toEqual(extractCircuitFences(md))
   })
 })
+
+test('記憶はプロセスで 1 つ (別々に束ねられた読み込み先でも同じ関数)', async () => {
+  // モジュールを読み直す = Next が別々に束ねた読み込み先と同じ状況
+  vi.resetModules()
+  const again = await import('./fenceMemo')
+
+  expect(again.circuitFencesOf).toBe(circuitFencesOf)
+})

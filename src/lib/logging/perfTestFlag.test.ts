@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { clearPerfTestPending, markPerfTestPending, takePerfTestPending } from './perfTestFlag'
+import {
+  clearPerfTestPending,
+  clearPerfTestRunning,
+  markPerfTestPending,
+  markPerfTestRunning,
+  takePerfTestInterrupted,
+  takePerfTestPending,
+} from './perfTestFlag'
 
 function memoryStorage(): Storage {
   const map = new Map<string, string>()
@@ -48,4 +55,18 @@ test('保存を塞いだブラウザでも例外を投げない', () => {
   expect(() => markPerfTestPending()).not.toThrow()
   expect(takePerfTestPending()).toBe(false)
   expect(() => clearPerfTestPending()).not.toThrow()
+})
+
+test('流している最中の印が残っていれば、途中で切れたと 1 度だけ分かる', () => {
+  markPerfTestRunning()
+
+  expect(takePerfTestInterrupted()).toBe(true)
+  expect(takePerfTestInterrupted()).toBe(false)
+})
+
+test('最後まで流して消した印は、切れたことにならない', () => {
+  markPerfTestRunning()
+  clearPerfTestRunning()
+
+  expect(takePerfTestInterrupted()).toBe(false)
 })
