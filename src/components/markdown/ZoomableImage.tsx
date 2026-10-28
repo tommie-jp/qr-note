@@ -157,8 +157,13 @@ export function ZoomableImage({
       >
         {/* data-zoomable … 画像の表示モード (docs/106) で縮める対象の印。
             拡大表示の側 (覆いの中の img) には付けない — あちらは常に全体 */}
+        {/* loading / decoding … 画面の外の画像を後回しにし、デコードで描画を
+            止めない (docs/86 §4-18)。ノートを切り替えた直後に、見えていない
+            画像が本文と帯域を奪い合っていた。呼び手が指定すればそちらが勝つ */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
+          loading="lazy"
+          decoding="async"
           {...props}
           data-zoomable=""
           src={currentSrc}

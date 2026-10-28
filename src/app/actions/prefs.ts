@@ -2,8 +2,8 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { isNodeEnvProduction } from '@/lib/appEnv'
 import { parsePaneMode, PANE_MODE_COOKIE, PANE_MODE_COOKIE_MAX_AGE } from '@/lib/prefs/paneMode'
+import { preferenceCookie } from '@/lib/prefs/preferenceCookie'
 import { buildSearchUrl, buildTrashUrl } from '@/lib/search/url'
 import { SORT_COOKIE, SORT_COOKIE_MAX_AGE, TRASH_SORT_COOKIE } from '@/lib/prefs/sortMode'
 import { parseSort, parseTrashSort } from '@/lib/validation'
@@ -20,30 +20,17 @@ import { parseViewMode, VIEW_MODE_COOKIE, VIEW_MODE_COOKIE_MAX_AGE } from '@/lib
 // DB にも他人にも触れないため。
 // (未ログインでも開ける公開ノートの一覧はないが、あっても実害はない)
 
-// 好みの cookie の作法。4 本とも同じで、違うのは寿命だけ。
-// secure は呼ぶたびに読む (関数にしてあるのはそのため)
-function preferenceCookie(maxAge: number) {
-  return {
-    // サーバしか読まない (描画前に読めることがこの方式の要)。
-    // クライアント JS へ見せる理由がないので閉じておく
-    httpOnly: true,
-    // HTTPS でだけ送る。ローカル開発は http なので付けない
-    // (付けるとローカルで cookie が保存されず、切り替えが効かなくなる)
-    secure: isNodeEnvProduction(),
-    // 他サイトからの遷移で好みが飛ばない程度に緩く。strict にすると
-    // 外部リンクから戻ったときだけ既定に見え、消えたと誤解される
-    sameSite: 'lax' as const,
-    path: '/',
-    maxAge,
-  }
-}
-
 // 検索画面のペイン構成 (3 → 2 → 1) を切り替える (docs/86 §4-4)。
 //
 // 置き場と作法は表示モード (下の setViewModeAction) と同じ — cookie に持ち、
 // サーバが描画前に読む。フォルダーペインを出すかどうかがサーバの判断に
 // なるので、クライアントで隠す方式は採らない (出さない構成でもタグの集計を
 // 引いてしまう)。requireUser() を呼ばないのも同じ理由 (見た目の好みだけ)。
+//
+// **JS が動く画面ではここを通らない** (docs/86 §4-18)。釦は api/settings/pane-mode
+// へ PUT して router.refresh() する。アクションは応答にページ全体 (一覧 20 件と
+// ノート、最大 1.2MB) を載せたうえ、終わるまで次のノートへの遷移を待たせていた。
+// ここに残るのは JS 無効のときのフォーム送信の受け皿だけ
 export async function setPaneModeAction(formData: FormData): Promise<void> {
   const mode = parsePaneMode(formData.get(PANE_MODE_COOKIE))
 

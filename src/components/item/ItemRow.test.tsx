@@ -540,3 +540,18 @@ test("選択モードの行の動画のサムネは釦にも印にもしない (
   expect(html).not.toContain("data-viewer-image");
   expect(html).not.toContain("data-row-thumb");
 });
+
+// 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18)。読み上げ用の
+// 鉤括弧付きの呼び名ではなく、生の題を持たせる
+test.each<RowViewMode>(["compact", "card"])(
+  "ノートを開くリンクは生の題を data-note-title に持つ (%s)",
+  (view) => {
+    const html = renderRow(makeItem({ title: "  回路のメモ " }), undefined, view);
+    expect(html).toContain('data-note-title="回路のメモ"');
+  },
+);
+
+test("題の無いノートには印を付けない (器は骨組みだけ)", () => {
+  const html = renderRow(makeItem({ title: "" }));
+  expect(html).not.toContain("data-note-title");
+});

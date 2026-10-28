@@ -52,3 +52,15 @@ test("MarkdownView に allowRotate を渡しても img 属性へ漏れない", (
   );
   expect(html).not.toContain("allowrotate");
 });
+
+// 画面の外の画像が本文と帯域を奪い合わないように (docs/86 §4-18)
+test("本文の画像は遅延読み込み・非同期デコードにし、呼び手の指定が勝つ", () => {
+  const lazy = renderToStaticMarkup(<ZoomableImage src="/api/images/a.png" />);
+  expect(lazy).toContain('loading="lazy"');
+  expect(lazy).toContain('decoding="async"');
+
+  const eager = renderToStaticMarkup(
+    <ZoomableImage src="/api/images/a.png" loading="eager" />,
+  );
+  expect(eager).toContain('loading="eager"');
+});

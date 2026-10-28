@@ -1,7 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import pkg from "../../../package.json";
 import { AppHeader } from "./AppHeader";
+
+// ペイン構成の釦は保存の後の描き直しに useRouter を使う (docs/86 §4-18)。
+// renderToStaticMarkup には App Router のコンテキストが無いので差し替える
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {} }),
+}));
 
 // 全ページ共通のヘッダーの帯。サーバコンポーネントだが props だけで描くので
 // そのまま静的描画して中身を見る (メニューの項目は AppHeaderMenu.test.tsx)

@@ -2,6 +2,10 @@ import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { BusyNotice } from "@/components/chrome/BusyNotice";
 import { FolderPane } from "@/components/search/FolderPane";
+import {
+  FolderPaneGate,
+  ResultsPaneRoot,
+} from "@/components/panes/PaneModeProvider";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import PullToRefresh from "@/components/chrome/PullToRefresh";
 import { SearchForm } from "@/components/search/SearchForm";
@@ -69,9 +73,9 @@ export default async function Home({ searchParams }: HomeProps) {
               data-results-pane … 3 ペインの「ペイン 2」の中身
               (docs/86 §4-3)。器 (main) がペインの領域いっぱいに広がって
               自分でスクロールする。
-              data-panes … 選ばれている構成 (§4-9)。globals.css が
-              「3 / 2 なら幅に関係なくペインの積み方」を決めるのに使う */}
-          <div data-results-pane data-panes={paneMode} className="space-y-2">
+              data-panes … 選ばれている構成 (§4-9)。ResultsPaneRoot が
+              押した直後の構成で付ける (§4-18) */}
+          <ResultsPaneRoot>
             {/* スキャン・画像検索は窓の左 (docs/86 §4-15)。**下部バーを
                 畳んだ** — 表示・並び順・選択が見出し行へ抜けた後 (§4-11)、
                 帯に残るのはこの 2 つだけで、そのために画面の下端を 49px
@@ -105,7 +109,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 paneMode={paneMode}
               />
             </Suspense>
-          </div>
+          </ResultsPaneRoot>
 
           {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバーで、
               フォルダーはすべて既存の検索・並び順へのリンク。件数と登録
@@ -114,11 +118,13 @@ export default async function Home({ searchParams }: HomeProps) {
               変わる (globals.css の body:has) ので、後から現れると表示済みの
               カードが横へ跳ねる */}
           {showsFolderPane(paneMode) && (
-            <Suspense
-              fallback={<FolderPane tags={tags} query={query} sort={sort} />}
-            >
-              <SearchFolders tags={tags} query={query} sort={sort} />
-            </Suspense>
+            <FolderPaneGate>
+              <Suspense
+                fallback={<FolderPane tags={tags} query={query} sort={sort} />}
+              >
+                <SearchFolders tags={tags} query={query} sort={sort} />
+              </Suspense>
+            </FolderPaneGate>
           )}
         </PageTransition>
       </SelectModeProvider>

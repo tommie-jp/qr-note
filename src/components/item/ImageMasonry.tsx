@@ -182,6 +182,8 @@ export function ImageMasonry({
             )}
             <Link
               href={itemHref(item.itemId)}
+              // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
+              data-note-title={item.title.trim() || undefined}
               transitionTypes={["nav-forward"]}
               aria-current={selected ? "page" : undefined}
               className="block after:absolute after:inset-0"

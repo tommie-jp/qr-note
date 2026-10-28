@@ -20,17 +20,39 @@ export interface ItemListContext {
 // - 並び順は resolveSort (URL → cookie → 既定)。cookie だけを見ると
 //   `?sort=` 付きの共有リンクから入ったときに一覧と順序が食い違う
 // - 検索状態を持って来ていない (QR シールから直接開いた) ときは前後を引かない
+//
+// 検索語と並び順 (resolveListParams) と、前後の検索 (findItemNeighbors) を
+// 分けてある (docs/86 §4-18)。前者は cookie を読むだけで、「全画面で開く」の
+// 行き先や「閉じる」の戻り先に要る。後者は検索を 1 回流すので、ノートの枠を
+// 待たせないよう Suspense の中で後から引く (ItemListNavSection)
+export interface ListParams {
+  query: string
+  sort: Sort
+}
+
+export async function resolveListParams(
+  q: string | string[] | undefined,
+  sortParam: string | string[] | undefined,
+): Promise<ListParams> {
+  const query = (Array.isArray(q) ? (q[0] ?? '') : (q ?? '')).trim()
+  // resolveSort は unknown を受けて parseSort で畳むので、配列はそのまま
+  // 渡してよい (知らない値として既定へ倒れる)
+  const sort = resolveSort(sortParam, (await cookies()).get(SORT_COOKIE)?.value)
+  return { query, sort }
+}
+
+export async function findItemNeighbors(
+  itemId: string,
+  { query, sort }: ListParams,
+): Promise<ItemListContext['neighbors']> {
+  return query ? findListNeighbors(query, sort, itemId) : { prev: null, next: null }
+}
+
 export async function resolveItemListContext(
   itemId: string,
   q: string | string[] | undefined,
   sortParam: string | string[] | undefined,
 ): Promise<ItemListContext> {
-  const query = (Array.isArray(q) ? (q[0] ?? '') : (q ?? '')).trim()
-  // resolveSort は unknown を受けて parseSort で畳むので、配列はそのまま
-  // 渡してよい (知らない値として既定へ倒れる)
-  const sort = resolveSort(sortParam, (await cookies()).get(SORT_COOKIE)?.value)
-  const neighbors = query
-    ? await findListNeighbors(query, sort, itemId)
-    : { prev: null, next: null }
-  return { query, sort, neighbors }
+  const params = await resolveListParams(q, sortParam)
+  return { ...params, neighbors: await findItemNeighbors(itemId, params) }
 }

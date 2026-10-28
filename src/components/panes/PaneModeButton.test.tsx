@@ -1,6 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
+import {
+  IDLE_PANE_MODE,
+  pendingPaneModeStore,
+} from "@/lib/prefs/pendingPaneMode";
 import { PaneModeButton } from "./PaneModeButton";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => {} }),
+}));
+
+afterEach(() => {
+  pendingPaneModeStore.set(IDLE_PANE_MODE);
+});
 
 const noop = () => {};
 
@@ -30,4 +42,13 @@ test("どの幅でも出す (構成から抜ける手段を残す)", () => {
   // 3 ペインは幅に関係なく 3 ペイン (docs/86 §4-9)。狭い画面でボタンを
   // 隠すと、選んだ構成から抜けられなくなる
   expect(render("3")).not.toContain("hidden lg:block");
+});
+
+// 押した直後は cookie (mode) より送った先を見せる (docs/86 §4-18)。
+// サーバ描画では端末の状態を読まないので、ここは store の get で確かめる
+test("送った先の構成は store に置かれ、サーバ描画は cookie の値のまま", () => {
+  pendingPaneModeStore.set({ mode: "1", inflight: 1 });
+
+  expect(render("2")).toContain(">2<");
+  expect(pendingPaneModeStore.get().mode).toBe("1");
 });

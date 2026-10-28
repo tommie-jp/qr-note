@@ -47,6 +47,8 @@ test("provider の中では前後送りの目印つきの釦になる", () => {
 test("画像タイルの画像はノートへのリンクの外に置く (a の中に button を入れない)", () => {
   const item = {
     itemId: "n1",
+    // title は DB では NOT NULL (既定 "")。タイルのリンクが題の印に使う
+    title: "題",
     memo: `# 題\n\n![](/api/images/${IMAGE})`,
     tags: [],
   } as unknown as Item;

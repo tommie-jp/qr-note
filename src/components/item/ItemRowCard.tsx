@@ -44,6 +44,8 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
           <div className="flex items-baseline gap-2">
             <Link
               href={href}
+              // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
+              data-note-title={parts.hintTitle}
               transitionTypes={["nav-forward"]}
               aria-current={selected ? "page" : undefined}
               className={`truncate text-sm text-gray-600 ${parts.linkClass}`}

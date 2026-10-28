@@ -26,6 +26,10 @@ export interface RowParts {
   itemId: string;
   // 読み上げで名乗るノートの呼び名 (lib/items/noteName.ts)
   name: string;
+  // 押した瞬間に読み込み中の器へ出す題 (docs/86 §4-18。panes/noteHint.ts)。
+  // name は読み上げ用に鉤括弧で包んであるので使わない。題の無いノートは
+  // undefined (印を付けず、器は骨組みだけ)
+  hintTitle: string | undefined;
   // ノートを開くリンク先 (ItemRow の href)
   href: string;
   // プレビューペインでこのノートが開いているか
@@ -142,6 +146,7 @@ export function buildRowParts(input: RowPartsInput): RowParts {
   return {
     itemId: item.itemId,
     name: noteName(item),
+    hintTitle: item.title.trim() || undefined,
     href,
     selected,
     checkbox,

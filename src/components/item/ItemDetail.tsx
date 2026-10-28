@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { AutoNotePane } from "@/components/notepage/AutoNotePane";
 import { CloseNoteButton } from "@/components/item/CloseNoteButton";
-import { ItemListNav } from "@/components/item/ItemListNav";
+import { ItemListNavSection } from "@/components/item/ItemListNavSection";
 import { ItemView } from "@/components/item/ItemView";
 import { NoteChromeBar } from "@/components/notechrome/NoteChromeBar";
 import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
@@ -14,8 +14,8 @@ import { RecordAccess } from "@/components/item/RecordAccess";
 import { isProductionEnv } from "@/lib/appEnv";
 import { getItem } from "@/lib/items/read";
 import {
-  resolveItemListContext,
-  type ItemListContext,
+  resolveListParams,
+  type ListParams,
 } from "@/lib/prefs/itemListContext";
 import { isPublicItem } from "@/lib/auth/publicItem";
 import { buildItemUrl, buildSearchUrl } from "@/lib/search/url";
@@ -76,34 +76,28 @@ export const paneBgClass = () =>
 
 type LoadedDetail =
   | { user: null; item: Item | null }
-  | { user: string; item: Item | null; ctx: ItemListContext };
+  | { user: string; item: Item | null; params: ListParams };
 
-// 一覧の中の前後 (docs/60-学習進捗計画.md §4)。解決の規則 (配列の畳み方・
-// resolveSort・q が無ければ引かない) は resolveItemListContext の 1 か所で、
+// 一覧の文脈 (docs/60-学習進捗計画.md §4)。解決の規則 (配列の畳み方・
+// resolveSort・q が無ければ引かない) は prefs/itemListContext.ts の 1 か所で、
 // 3 つの器が共有する — 別々に持つと同じ URL で「次」がずれる。
 //
-// 引く時機は分割前の各ページのまま: 全画面はログイン中と分かってから引き、
-// ペインは本文と並べて引く
+// **ここで待つのは枠に要る物だけ** (docs/86 §4-18): ログイン・ノート本体・
+// 検索語と並び順 (cookie)。前後の検索 (ItemListNavSection) と本文の集計
+// (ItemView の中) は Suspense で後から流す。全部を待っていた頃は、押してから
+// 枠が出るまで本文の描画と前後の検索のぶん待たされた。
+// 未ログインのときは一覧の文脈を使わない (公開ノートには一覧が無い)
 async function loadDetail(
   itemId: string,
   q: ItemDetailProps["q"],
   sort: ItemDetailProps["sort"],
-  kind: ItemDetailShell["kind"],
 ): Promise<LoadedDetail> {
-  if (kind === "page") {
-    const [user, item] = await Promise.all([currentUser(), getItem(itemId)]);
-    if (user === null) {
-      return { user, item };
-    }
-    return { user, item, ctx: await resolveItemListContext(itemId, q, sort) };
-  }
-
-  const [user, item, ctx] = await Promise.all([
+  const [user, item, params] = await Promise.all([
     currentUser(),
     getItem(itemId),
-    resolveItemListContext(itemId, q, sort),
+    resolveListParams(q, sort),
   ]);
-  return user === null ? { user, item } : { user, item, ctx };
+  return user === null ? { user, item } : { user, item, params };
 }
 
 export async function ItemDetail({
@@ -113,27 +107,20 @@ export async function ItemDetail({
   saved,
   shell,
 }: ItemDetailProps) {
-  const loaded = await loadDetail(itemId, q, sort, shell.kind);
+  const loaded = await loadDetail(itemId, q, sort);
 
   if (loaded.user === null) {
     return renderLoggedOut(itemId, loaded.item, shell);
   }
 
-  const { item, ctx } = loaded;
+  const { item, params } = loaded;
   const view = <ItemView itemId={itemId} item={item} saved={saved} />;
   // page … 本文の下 (タイムスタンプの下)。問題を解いて読み終えたところに
   //        「次」があるのが自然な流れ
   // pane / auto … ペインの中の「前 / 次」も Link なのでまた横取りされ、
   //        ペインのまま一覧の並びを歩ける
-  const nav = (
-    <ItemListNav
-      prev={ctx.neighbors.prev}
-      next={ctx.neighbors.next}
-      query={ctx.query}
-      sort={ctx.sort}
-    />
-  );
-  const openHref = buildItemUrl(itemId, ctx.query, ctx.sort);
+  const nav = <ItemListNavSection itemId={itemId} params={params} />;
+  const openHref = buildItemUrl(itemId, params.query, params.sort);
 
   switch (shell.kind) {
     case "page":
@@ -158,7 +145,7 @@ export async function ItemDetail({
               rowClassName="pt-1"
               start={
                 <CloseNoteButton
-                  listHref={buildSearchUrl(ctx.query, 1, ctx.sort)}
+                  listHref={buildSearchUrl(params.query, 1, params.sort)}
                 />
               }
             />

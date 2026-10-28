@@ -1,9 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useTransition } from "react";
 import { PendingLink } from "@/components/chrome/PendingLink";
 import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
+import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import { keepsNoteOpen } from "@/lib/prefs/paneMode";
+import { itemIdFromPathname } from "@/lib/search/url";
 import { LOAD_MORE_EVENT } from "./loadMore";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
@@ -45,6 +48,16 @@ export function AutoLoadMore({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement>(null);
+  // 1 ペインで全画面のノートが一覧を覆っている間は読まない (docs/86 §4-18)。
+  // 次のページは router.replace で URL を一覧へ書き換えるので、裏で読むと
+  // 見ているノートが閉じる。覆われた一覧の番兵は画面に入ったままなので、
+  // 描き直し (ペイン構成の切り替え後の refresh など) で監視を作り直すたびに
+  // 発火していた。3 / 2 ペインはノートが一覧と並ぶ常設の面で、URL が一覧へ
+  // 移っても閉じない (PreviewPane) ので止めない
+  const pathname = usePathname();
+  const { mode } = usePaneMode();
+  const coveredByNote =
+    !keepsNoteOpen(mode) && itemIdFromPathname(pathname) !== null;
 
   const load = useCallback(() => {
     startTransition(() => {
@@ -54,7 +67,7 @@ export function AutoLoadMore({
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (el === null || isPending) return;
+    if (el === null || isPending || coveredByNote) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -69,7 +82,9 @@ export function AutoLoadMore({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [load, isPending]);
+    // mode … 構成を押した瞬間に一覧のスクロールする器 (window か内側の器) が
+    // 替わる (docs/86 §4-18)。root を測り直すため作り直す
+  }, [load, isPending, coveredByNote, mode]);
 
   // 画像ビューアの → からの依頼 (components/search/loadMore.ts)。目印が
   // 内側スクロールの器に隠れていても読み込めるようにする

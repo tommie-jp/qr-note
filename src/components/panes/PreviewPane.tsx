@@ -17,6 +17,7 @@ import {
   notePaneLayout,
 } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
+import { shownPaneItemId } from "@/components/panes/shownItemId";
 
 
 interface PreviewPaneProps {
@@ -79,15 +80,15 @@ export function PreviewPane({
   // 自動で選んだ側 (auto) は URL を見ない — /item に居ないときの代わりとして
   // 置かれる物なので、URL で判定したら永久に出ない。出す / 引っ込めるは
   // 呼び手 (AutoNotePane) が構成と横取りの有無で決めている
-  const onItemUrl = itemIdFromPathname(pathname) !== null;
+  const pathItemId = itemIdFromPathname(pathname);
+  const onItemUrl = pathItemId !== null;
   const keepOpen = source === "detail" && keepsNoteOpen(mode);
   const visible = source === "auto" || onItemUrl || keepOpen;
 
   // 一覧の行・画像タイルのハイライトはこの番号を見る (docs/86 §4-4)。
   // pathname から決めないのは、3 ペインでは URL が /item から離れても
-  // ノートが出たままになるため。**出していない間は null を流す** —
-  // 閉じたのに行だけ選ばれたまま、にしない
-  const shown = visible && itemId !== undefined ? itemId : null;
+  // ノートが出たままになるため。読み込み中の扱いは shownPaneItemId の注
+  const shown = shownPaneItemId({ visible, itemId, source, pathItemId });
   useEffect(() => {
     if (source === "detail") {
       setDetailItemId(shown);

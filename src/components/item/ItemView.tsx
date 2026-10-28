@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { SkeletonBox } from "@/components/chrome/Skeleton";
 import type { Item } from "@/generated/prisma/client";
 import {
   assignNoteNumberAction,
@@ -60,7 +62,7 @@ interface ItemViewProps {
 //
 // Ver1 と同じく未登録の itemId でも開けて、その場で memo を書いて新規作成できる
 // (QR シールを先に貼っておける)。
-export async function ItemView({ itemId, item, saved }: ItemViewProps) {
+export function ItemView({ itemId, item, saved }: ItemViewProps) {
   const memo = item?.memo ?? "";
   // ```circuitikz は TeX (WASM) で描くため非同期。**ここでは待たない**
   // (docs/85-回路図表示待ち計画.md §3)。始めるだけ始めて約束を渡し、
@@ -71,18 +73,11 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
   // 描画のピーク 400MB がそのままページの待ち時間になる
   const circuits = planCircuits(memo);
 
-  // 印を付けたときに落ちる量も一緒に数える。どれも memo だけから決まる
-  // 独立な問い合わせなので並べる (直列にすると待つ分だけ遅くなる)
-  const [attachmentBytes, matrices, health] = await Promise.all([
-    pinAttachmentBytes(memo),
-    // ```matrix の集計。**ここ (ログイン済みの画面) からしか渡さない** —
-    // 公開ビューは回路図のために planCircuits を呼んでいるので、
-    // 並べて置くと非公開ノートの一覧が匿名の閲覧者に漏れる (docs/77 §6)
-    buildMatrices(memo),
-    // ```health の集計も同じ (docs/83 §8)。こちらは体重・体温が並ぶので、
-    // 漏れたときの取り返しは学習状況よりつかない
-    buildHealthCharts(memo),
-  ]);
+  // 印を付けたときに落ちる量 (pinAttachmentBytes) と、```matrix・```health の
+  // 集計 (buildMatrices・buildHealthCharts) は**ここでは待たない**
+  // (docs/86 §4-18)。どれも DB を引くので、待つと見出しも操作も 1 つも出せない
+  // まま止まる。前者はオフラインの印の中、後者は本文の中で Suspense に入れ、
+  // 枠を先に返す
 
   // 区切りを書いていないノートにはページの切り替えを出さない (押しても
   // 見た目が変わらないボタンになる)。**ここで数えるのが素直** — 本文を
@@ -119,12 +114,24 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
               publicAt={item.publicAt}
               setPublicAction={setItemPublicAction}
             />
-            <OfflinePinToggle
-              itemId={itemId}
-              pinned={item.offlinePin}
-              attachmentBytes={attachmentBytes}
-              setPinAction={setItemOfflinePinAction}
-            />
+            {/* 添付の量は吹き出しの文言にしか使わないので、数え終わるまでは
+                量なし (0) の印を出しておく。押す・状態を見るはその間も効く */}
+            <Suspense
+              fallback={
+                <OfflinePinToggle
+                  itemId={itemId}
+                  pinned={item.offlinePin}
+                  attachmentBytes={0}
+                  setPinAction={setItemOfflinePinAction}
+                />
+              }
+            >
+              <SizedOfflinePinToggle
+                itemId={itemId}
+                pinned={item.offlinePin}
+                memo={memo}
+              />
+            </Suspense>
           </>
         )}
       </div>
@@ -245,16 +252,11 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
         defaultMode={memo ? "markdown" : "edit"}
         markdownView={
           <ImageFitScope>
-            <NoteBody
-              memo={memo}
-              circuits={circuits}
-              matrices={matrices}
-              health={health}
-              allowRotate
-              allowSecretEdit
-              onToggleTask={toggleMemoTaskAction.bind(null, itemId)}
-              onRecordHealth={recordHealthAction.bind(null, itemId)}
-            />
+            <Suspense
+              fallback={<SkeletonBox className="h-72">本文を読み込み中…</SkeletonBox>}
+            >
+              <OwnerNoteBody itemId={itemId} memo={memo} circuits={circuits} />
+            </Suspense>
           </ImageFitScope>
         }
         textView={
@@ -287,5 +289,62 @@ export async function ItemView({ itemId, item, saved }: ItemViewProps) {
         }
       />
     </div>
+  );
+}
+
+// 印を付けたときに端末へ落ちる量を数えてから印を描く (docs/65 §7)。
+// ItemView の枠を待たせないよう Suspense の中に置く (docs/86 §4-18)
+async function SizedOfflinePinToggle({
+  itemId,
+  pinned,
+  memo,
+}: {
+  itemId: string;
+  pinned: boolean;
+  memo: string;
+}) {
+  const attachmentBytes = await pinAttachmentBytes(memo);
+  return (
+    <OfflinePinToggle
+      itemId={itemId}
+      pinned={pinned}
+      attachmentBytes={attachmentBytes}
+      setPinAction={setItemOfflinePinAction}
+    />
+  );
+}
+
+// 持ち主が見る本文。```matrix・```health の集計を引いてから描く。
+// ItemView の枠を待たせないよう Suspense の中に置く (docs/86 §4-18)。
+//
+// 集計は**ここ (ログイン済みの画面) からしか渡さない** — 公開ビューは
+// 回路図のために planCircuits を呼んでいるので、並べて置くと非公開ノートの
+// 一覧が匿名の閲覧者に漏れる (docs/77 §6)。health は体重・体温が並ぶので、
+// 漏れたときの取り返しは学習状況よりつかない (docs/83 §8)。
+// 2 つは memo だけから決まる独立な問い合わせなので並べる
+async function OwnerNoteBody({
+  itemId,
+  memo,
+  circuits,
+}: {
+  itemId: string;
+  memo: string;
+  circuits: ReturnType<typeof planCircuits>;
+}) {
+  const [matrices, health] = await Promise.all([
+    buildMatrices(memo),
+    buildHealthCharts(memo),
+  ]);
+  return (
+    <NoteBody
+      memo={memo}
+      circuits={circuits}
+      matrices={matrices}
+      health={health}
+      allowRotate
+      allowSecretEdit
+      onToggleTask={toggleMemoTaskAction.bind(null, itemId)}
+      onRecordHealth={recordHealthAction.bind(null, itemId)}
+    />
   );
 }

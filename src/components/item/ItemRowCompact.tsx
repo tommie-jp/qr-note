@@ -31,6 +31,8 @@ export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
         <div className="min-w-0 flex-1">
           <Link
             href={href}
+            // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
+            data-note-title={parts.hintTitle}
             transitionTypes={["nav-forward"]}
             aria-current={selected ? "page" : undefined}
             className={`block truncate text-sm text-gray-600 ${parts.linkClass}`}

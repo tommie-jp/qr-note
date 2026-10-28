@@ -28,22 +28,23 @@ vi.mock("@/lib/items/read", () => ({
     return mocks.item;
   },
 }));
+// 前後の検索 (findItemNeighbors) は枠では待たない (docs/86 §4-18)。
+// 呼ばれたら calls に残るので、枠の描画で走っていないことを確かめられる
 vi.mock("@/lib/prefs/itemListContext", () => ({
-  resolveItemListContext: async (
-    _itemId: string,
-    q: string | string[] | undefined,
-  ) => {
-    mocks.calls.push("ctx");
-    return {
-      query: typeof q === "string" ? q : "",
-      sort: "accessed",
-      neighbors: { prev: "4950", next: "4952" },
-    };
+  resolveListParams: async (q: string | string[] | undefined) => {
+    mocks.calls.push("params");
+    return { query: typeof q === "string" ? q : "", sort: "accessed" };
+  },
+  findItemNeighbors: async () => {
+    mocks.calls.push("neighbors");
+    return { prev: "4950", next: "4952" };
   },
 }));
 
 vi.mock("@/components/notepage/AutoNotePane", () => ({ AutoNotePane: mocks.stub("AutoNotePane") }));
-vi.mock("@/components/item/ItemListNav", () => ({ ItemListNav: mocks.stub("ItemListNav") }));
+vi.mock("@/components/item/ItemListNavSection", () => ({
+  ItemListNavSection: mocks.stub("ItemListNavSection"),
+}));
 vi.mock("@/components/item/ItemView", () => ({ ItemView: mocks.stub("ItemView") }));
 vi.mock("@/components/auth/LoginRequiredNotice", () => ({
   LoginRequiredNotice: mocks.stub("LoginRequiredNotice"),
@@ -68,7 +69,9 @@ vi.mock("@/components/notechrome/NoteChromeBar", () => ({
 
 const { ItemDetail } = await import("./ItemDetail");
 const { AutoNotePane } = await import("@/components/notepage/AutoNotePane");
-const { ItemListNav } = await import("@/components/item/ItemListNav");
+const { ItemListNavSection: ItemListNav } = await import(
+  "@/components/item/ItemListNavSection"
+);
 const { ItemView } = await import("@/components/item/ItemView");
 const { LoginRequiredNotice } = await import("@/components/auth/LoginRequiredNotice");
 const { PageTransition } = await import("@/components/chrome/PageTransition");
@@ -138,11 +141,11 @@ test("全画面はログイン中なら記録・閉じる行と本文・前後�
   expect(close.props).toEqual({ listHref: "/?q=npn&sort=accessed" });
   expect(view.props).toMatchObject({ itemId: "4951", saved: "1700000000" });
   expect(nav.props).toEqual({
-    prev: "4950",
-    next: "4952",
-    query: "npn",
-    sort: "accessed",
+    itemId: "4951",
+    params: { query: "npn", sort: "accessed" },
   });
+  // 前後の検索は Suspense の中で後から引く。枠はそれを待たない
+  expect(mocks.calls).not.toContain("neighbors");
 });
 
 test("全画面の未ログインは公開ノートなら読み取り専用、前後は引かない", async () => {
@@ -156,7 +159,7 @@ test("全画面の未ログインは公開ノートなら読み取り専用、�
   // Assert
   expect(element?.type).toBe(PageTransition);
   expect(childTypes(element!)).toEqual([PublicItemView]);
-  expect(mocks.calls).not.toContain("ctx");
+  expect(mocks.calls).not.toContain("neighbors");
 });
 
 test("未登録・非公開は同じログインの案内に潰す", async () => {
@@ -187,7 +190,8 @@ test("ペインはログイン中なら番号を key に器を作り、全画面
     openHref: "/item/4951?q=npn&sort=accessed",
   });
   expect(childTypes(element!)).toEqual([ItemView, ItemListNav]);
-  expect(mocks.calls).toContain("ctx");
+  expect(mocks.calls).toContain("params");
+  expect(mocks.calls).not.toContain("neighbors");
 });
 
 test("ペインの未ログインは番号を知らせず、素の /item を行き先にする", async () => {

@@ -4,11 +4,18 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_PANE_MODE, type PaneMode } from "@/lib/prefs/paneMode";
+import {
+  DEFAULT_PANE_MODE,
+  showsFolderPane,
+  type PaneMode,
+} from "@/lib/prefs/paneMode";
+import { useShownPaneMode } from "@/lib/prefs/pendingPaneMode";
+import { noteHintFromClick, noteHintStore } from "@/components/panes/noteHint";
 
 interface PaneModeState {
   mode: PaneMode;
@@ -55,13 +62,31 @@ export function usePaneMode(): PaneModeState {
 // 合わなくなっても前の中身を残す」仕様で (docs/86 §2)、ノートのペインも
 // それに倣うため。一度ノートを開いたら、検索語を打ち替えても勝手に
 // 先頭へ戻らない。2 / 1 ペインではペインが閉じた時点で null に戻る。
+//
+// mode は cookie の値。**押した直後は送った先の構成を重ねて配る**
+// (docs/86 §4-18) — ヘッダーの釦が送った先を pendingPaneMode に置くので、
+// サーバの描き直しを待たずに器の積み方が変わる
 export function PaneModeProvider({
-  mode,
+  mode: serverMode,
   children,
 }: {
   mode: PaneMode;
   children: ReactNode;
 }) {
+  const mode = useShownPaneMode(serverMode);
+
+  // 押した行の題を拾い、読み込み中の器に先に出す (docs/86 §4-18。noteHint.ts)。
+  // 捕捉段で拾うのは、Link の onClick が遷移を始めるより前に置くため
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const hint = noteHintFromClick(event);
+      if (hint !== null) {
+        noteHintStore.set(hint);
+      }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
   const [detailItemId, setDetail] = useState<string | null>(null);
   const [autoItemId, setAuto] = useState<string | null>(null);
 
@@ -87,4 +112,25 @@ export function PaneModeProvider({
   return (
     <PaneModeContext.Provider value={value}>{children}</PaneModeContext.Provider>
   );
+}
+
+// 一覧側のペインの根。data-panes … 選ばれている構成 (docs/86 §4-9)。
+// globals.css が「3 / 2 なら幅に関係なくペインの積み方」を決めるのに使う。
+// **サーバの値ではなく見せている構成を付ける** (docs/86 §4-18) — 押した瞬間に
+// 器の積み方を変えるため
+export function ResultsPaneRoot({ children }: { children: ReactNode }) {
+  const { mode } = usePaneMode();
+  return (
+    <div data-results-pane data-panes={mode} className="space-y-2">
+      {children}
+    </div>
+  );
+}
+
+// フォルダーペイン (3 ペインだけ)。中身はサーバが描くので、3 へ切り替えた
+// ときは描き直しが届いてから出る。**3 から外したときはその場で引っ込める** —
+// 居残ると一覧の左がペインの幅だけ空いたままになる (globals.css の body:has)
+export function FolderPaneGate({ children }: { children: ReactNode }) {
+  const { mode } = usePaneMode();
+  return showsFolderPane(mode) ? children : null;
 }
