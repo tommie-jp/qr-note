@@ -8,9 +8,9 @@ import { takePerfTestPending } from "@/lib/logging/perfTestFlag";
 import { syncOfflineItems } from "@/lib/offline/sync";
 
 // 計測テストを流す (docs/120-計測テスト自動化計画.md §2)。
-// root layout が**計測中だけ** PerfReport の隣に置く。メニューの「計測テスト
-// 開始」が付けた印 (perfTestFlag.ts) があれば、読み込み直した直後に手順を
-// 流し、進み具合を画面の下に小さく出す。印が無ければ何も描かない。
+// root layout が**計測中だけ** PerfReport の隣に置く。メニューの「計測開始」が
+// 付けた印 (perfTestFlag.ts) があれば、読み込み直した直後に手順を流して
+// 最後に計測を止め、進み具合を画面の下に小さく出す。印が無ければ何も描かない。
 //
 // 手順の並びは lib/logging/perfTest.ts。ここは DOM の手足だけを組む
 
@@ -86,6 +86,16 @@ export function PerfTestRunner() {
       },
       send: perfSend,
       flush: flushClientLogs,
+      stop: async () => {
+        const res = await fetch("/api/logs/perf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false }),
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      },
       report: (next) => {
         if (cancelled) return;
         setStatus(next);
@@ -114,8 +124,8 @@ export function PerfTestRunner() {
       className="fixed inset-x-0 z-50 mx-auto w-fit rounded bg-orange-600 px-3 py-1 text-sm text-white shadow"
     >
       {status.done
-        ? "計測テスト完了。メニューの「計測テスト終了」で計測を止めます"
-        : `計測テスト ${status.step}/${status.total}: ${status.label}…`}
+        ? `計測${status.label}。Claude に「終わった」と伝えてください`
+        : `計測 ${status.step}/${status.total}: ${status.label}…`}
     </div>
   );
 }

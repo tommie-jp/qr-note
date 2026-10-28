@@ -16,9 +16,14 @@ vi.mock('@/lib/prefs/userSettingStore', () => ({
   },
 }))
 
-const { PERF_EXPORT_TOKEN_KEY, issuePerfExportToken, perfExportOwner } = await import(
-  './perfExportToken'
-)
+const {
+  DEPLOY_TOKEN_OWNER,
+  PERF_EXPORT_TOKEN_KEY,
+  issuePerfExportToken,
+  newPerfExportToken,
+  perfExportOwner,
+  registerPerfExportToken,
+} = await import('./perfExportToken')
 
 beforeEach(() => store.clear())
 
@@ -60,4 +65,28 @@ describe('perfExportOwner', () => {
 
 test('形は合っていても発行していない鍵は null', async () => {
   expect(await perfExportOwner('x'.repeat(43))).toBeNull()
+})
+
+describe('registerPerfExportToken (配布スクリプトが揃える鍵)', () => {
+  test('手元で作った鍵を登録すると、その鍵で通る', async () => {
+    const token = newPerfExportToken()
+
+    await registerPerfExportToken(DEPLOY_TOKEN_OWNER, token)
+
+    expect(await perfExportOwner(token)).toBe(DEPLOY_TOKEN_OWNER)
+  })
+
+  test('画面から発行し直しても、配布の鍵は使えるまま', async () => {
+    const deployToken = newPerfExportToken()
+    await registerPerfExportToken(DEPLOY_TOKEN_OWNER, deployToken)
+
+    await issuePerfExportToken('tommie')
+
+    expect(await perfExportOwner(deployToken)).toBe(DEPLOY_TOKEN_OWNER)
+  })
+
+  test('形の違う鍵は登録しない', async () => {
+    await expect(registerPerfExportToken(DEPLOY_TOKEN_OWNER, 'short')).rejects.toThrow()
+    expect(store.size).toBe(0)
+  })
 })

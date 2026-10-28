@@ -510,6 +510,17 @@ DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfill
 echo "--- 見出しの派生列を切り出し直す"
 DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfillTitles.ts
 
+# 計測ログの取得鍵を手元と揃える (docs/120 §3-2)。手元の
+# ~/.config/qr-note/perf-token が無ければ作り、その hash だけを本番の
+# user_settings に書く。これで scripts/fetchPerfLog.sh が鍵の受け渡し無しに
+# 本番の計測行を読める。デモは取得口ごと閉じているので流さない。
+# **落ちても配布は止めない** — 計測の都合で本番の更新を巻き添えにしない
+if [ "$DEMO" != "1" ]; then
+  echo "--- 計測ログの取得鍵を揃える"
+  DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/syncPerfToken.ts \
+    || echo "WARN: 取得鍵を揃えられなかった (配布は続ける)"
+fi
+
 # デモは live の qr を migrate しただけでは足りない。種 qr_seed が旧スキーマのまま
 # 残り、次の毎時リセット (`createdb -T qr_seed qr`) がスキーマを巻き戻して app が
 # 起動不能になる (docs/39-デモ公開計画.md §6-3)。ここで種にも同じ migration を当てる。

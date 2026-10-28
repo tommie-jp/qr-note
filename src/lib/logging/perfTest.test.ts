@@ -33,6 +33,9 @@ function fakeDeps(overrides: Partial<PerfTestDeps> = {}) {
     flush: () => {
       calls.push('flush')
     },
+    stop: async () => {
+      calls.push('stop')
+    },
     report: (status) => {
       statuses.push(status)
     },
@@ -48,14 +51,14 @@ describe('runPerfTest', () => {
 
     await runPerfTest(deps)
 
-    expect(calls.filter((c) => !c.startsWith('flush'))).toEqual([
+    expect(calls.filter((c) => c !== 'flush' && c !== 'stop')).toEqual([
       'send:テスト:結果=開始,panes=2',
       ...PERF_TEST_QUERIES.map((q) => `type:${q}`),
       'open',
       'sync',
       expect.stringMatching(/^send:テスト:結果=完了,全体=\d+ms$/),
     ])
-    expect(calls.at(-1)).toBe('flush')
+    expect(calls.slice(-2)).toEqual(['flush', 'stop'])
   })
 
   test('進み具合を段階ごとに知らせ、最後は完了', async () => {
@@ -115,4 +118,16 @@ describe('runPerfTest', () => {
     expect(calls).toContain('send:テスト:結果=同期失敗')
     expect(calls.some((c) => c.startsWith('send:テスト:結果=完了'))).toBe(true)
   })
+})
+
+test('計測を止められなくても完了まで進み、そのことを知らせる', async () => {
+  const { deps, statuses } = fakeDeps({
+    stop: async () => {
+      throw new Error('HTTP 500')
+    },
+  })
+
+  await runPerfTest(deps)
+
+  expect(statuses.at(-1)).toMatchObject({ done: true, label: '完了 (計測を止められませんでした)' })
 })

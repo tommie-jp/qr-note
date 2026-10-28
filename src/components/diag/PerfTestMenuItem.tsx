@@ -5,11 +5,12 @@ import { StopwatchIcon } from "@/components/icons";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { clearPerfTestPending, markPerfTestPending } from "@/lib/logging/perfTestFlag";
 
-// メニューの「計測テスト開始 / 終了」(docs/120-計測テスト自動化計画.md §1)。
+// メニューの「計測開始」(docs/120-計測テスト自動化計画.md §1)。
 //
 // 開始: 計測を立て (全端末に効く。docs/119 §1-4)、流す印を付けて検索画面を
-// 読み込み直す。読み込み直した先で PerfTestRunner が手順を流す。
-// 終了: 計測を止めて読み込み直す。
+// 読み込み直す。読み込み直した先で PerfTestRunner が手順を流し、終わったら
+// 計測を自分で止める。押すのはこれ 1 つだけでよい。
+// 停止: 途中でやめるとき用。計測中だけ出る。
 //
 // running はサーバの切替の値 (AppHeaderMenu が読む)。**計測中も「開始」を出す**
 // — PC で開始した後に iPhone でも同じ手順を流すとき、2 台目には計測が既に
@@ -69,7 +70,7 @@ export function PerfTestMenuItem({ running }: { running: boolean }) {
         className={HEADER_MENU_ITEM_CLASS}
       >
         <StopwatchIcon />
-        計測テスト開始
+        計測開始
       </button>
       {running && (
         <button
@@ -80,7 +81,7 @@ export function PerfTestMenuItem({ running }: { running: boolean }) {
           className={HEADER_MENU_ITEM_CLASS}
         >
           <StopwatchIcon />
-          計測テスト終了
+          計測停止
         </button>
       )}
     </>

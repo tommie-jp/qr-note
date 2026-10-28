@@ -1,8 +1,8 @@
 // 計測テストの手順 (docs/120-計測テスト自動化計画.md §2)。
 //
-// メニューの「計測テスト開始」で、docs/118 §0-1 の操作 (検索 3 語 → ノートを
-// 開く → 同期) をブラウザが自分で流す。PC でも iPhone でも同じ手順で、
-// 人が打つ速さの違いが数字に混ざらない。
+// メニューの「計測開始」で、docs/118 §0-1 の操作 (検索 3 語 → ノートを
+// 開く → 同期) をブラウザが自分で流し、終わったら計測を止める。PC でも
+// iPhone でも同じ手順で、人が打つ速さの違いが数字に混ざらない。
 //
 // ここは**手順の並びだけ**を持ち、DOM・時計・送信は手足 (PerfTestDeps) で
 // 受け取る。実際の手足は components/diag/PerfTestRunner.tsx が組む。
@@ -24,6 +24,8 @@ const IDLE_POLL_MS = 100
 const SETTLE_MS = 1500
 // 読み込み直した直後、ページ自身の残りと同期を待つ間
 const WARMUP_MS = 3000
+// 最後の行を送り出してから計測を止めるまでの間 (送信は非同期で届く)
+const BEFORE_STOP_MS = 2000
 
 export interface PerfTestStatus {
   step: number
@@ -44,6 +46,8 @@ export interface PerfTestDeps {
   sync: () => Promise<void>
   send: (kind: string, fields: readonly PerfField[]) => void
   flush: () => void
+  // 計測を止める (サーバの切替。docs/119 §1-4)
+  stop: () => Promise<void>
   report: (status: PerfTestStatus) => void
   // 開始の印に添える端末の様子 (ペイン構成・画面の幅など)
   describe: () => readonly PerfField[]
@@ -92,5 +96,13 @@ export async function runPerfTest(deps: PerfTestDeps): Promise<void> {
     ['全体', `${Math.round(deps.now() - startedAt)}ms`],
   ])
   deps.flush()
+  await deps.sleep(BEFORE_STOP_MS)
+  try {
+    await deps.stop()
+  } catch {
+    // 止められなくても行は取れている。止まっていないことは知らせに出す
+    report(TOTAL_STEPS, '完了 (計測を止められませんでした)', true)
+    return
+  }
   report(TOTAL_STEPS, '完了', true)
 }

@@ -23,16 +23,37 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 
 const hashOf = (token: string): string => createHash('sha256').update(token).digest('hex')
 
+// 配布スクリプトが揃える鍵の持ち主 (docs/120 §3-2)。実在の利用者名とは
+// 重ならない名前にする — 画面からの発行 (issuePerfExportToken) と行を分け、
+// どちらかを発行し直してももう片方が使えなくならないように
+export const DEPLOY_TOKEN_OWNER = '__deploy__'
+
+export function newPerfExportToken(): string {
+  return randomBytes(TOKEN_BYTES).toString('base64url')
+}
+
+export function isPerfExportToken(token: string): boolean {
+  return TOKEN_PATTERN.test(token)
+}
+
+// 手元で作った鍵の hash を登録する (配布スクリプトから。鍵そのものは送らない)
+export async function registerPerfExportToken(owner: string, token: string): Promise<void> {
+  if (!isPerfExportToken(token)) {
+    throw new Error('取得鍵の形が違います')
+  }
+  await writeUserSetting(owner, PERF_EXPORT_TOKEN_KEY, hashOf(token))
+}
+
 // 発行して、鍵そのものを返す (呼び手が 1 度だけ見せる)
 export async function issuePerfExportToken(userName: string): Promise<string> {
-  const token = randomBytes(TOKEN_BYTES).toString('base64url')
-  await writeUserSetting(userName, PERF_EXPORT_TOKEN_KEY, hashOf(token))
+  const token = newPerfExportToken()
+  await registerPerfExportToken(userName, token)
   return token
 }
 
 // 鍵の持ち主。形が違う・発行されていない鍵は null
 export async function perfExportOwner(token: string): Promise<string | null> {
-  if (!TOKEN_PATTERN.test(token)) {
+  if (!isPerfExportToken(token)) {
     return null
   }
   return findUserSettingOwner(PERF_EXPORT_TOKEN_KEY, hashOf(token))
