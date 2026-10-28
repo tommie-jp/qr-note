@@ -51,6 +51,11 @@ function FolderRow({
     <li>
       <Link
         href={href}
+        // 先読みしない (docs/118 §5)。フォルダー行は約 34 本あり、表示モードを
+        // 切り替えるたびに Router Cache が捨てられて先読みし直される (本番の PC
+        // 3 ペインで切替 1 回に 39 本)。どの行も検索へのリンクで、押したときに
+        // 取っても待ちは短い
+        prefetch={false}
         aria-current={active ? "page" : undefined}
         // 行の高さは本文の 1 行ぶん (py-0.5 + text-sm の行送り ≒ 24px)。
         // 44px のタップ目標は取らない — このペインは xl 以上、つまり
