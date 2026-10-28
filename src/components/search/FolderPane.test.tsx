@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Sort } from "@/lib/validation";
-import { FolderPane } from "./FolderPane";
+import { FolderPane, FolderPaneShell } from "./FolderPane";
 
 const render = (
   query = "",
@@ -99,4 +99,25 @@ test("件数がまだ無くても骨組み (特殊フォルダーとタグ) は�
   expect(html).toContain("すべて");
   expect(html).toContain("#npn");
   expect(html).not.toContain('href="/trash"');
+});
+
+test("絞って見せなかったタグがあれば、断りの行を出す", () => {
+  const html = renderToStaticMarkup(
+    <FolderPane tags={[{ tag: "npn", count: 3 }]} hiddenTags={1234} query="" sort="updated" />,
+  );
+  expect(html).toContain("ほか 1234 件のタグは検索窓の補完から");
+});
+
+test("絞っていなければ断りの行は出さない", () => {
+  const html = renderToStaticMarkup(
+    <FolderPane tags={[{ tag: "npn", count: 3 }]} hiddenTags={0} query="" sort="updated" />,
+  );
+  expect(html).not.toContain("検索窓の補完から");
+});
+
+test("殻は幅を確保する印だけを持ち、タグも釦も描かない", () => {
+  const html = renderToStaticMarkup(<FolderPaneShell />);
+  expect(html).toContain("data-folder-pane");
+  expect(html).not.toContain("<a ");
+  expect(html).not.toContain("<li");
 });

@@ -9,6 +9,9 @@ import type { Sort } from "@/lib/validation";
 
 interface FolderPaneProps {
   tags: TagCount[];
+  // folderTags() で絞って見せなかったタグの数。黙って減らすと「タグが消えた」
+  // ように見えるので、0 でなければ 1 行で断る (docs/118 §3)
+  hiddenTags?: number;
   // 件数と登録パターンは DB を引く後追いの情報 ((search)/SearchFolders.tsx)。
   // **未指定でも骨組みは描く** — Suspense の fallback にタグだけの
   // ペインを出し、ペインの現れが遅れて一覧が横へ跳ねないようにするため
@@ -80,6 +83,7 @@ function FolderRow({
 // 共有するので globals.css の変数で動かす。
 export function FolderPane({
   tags,
+  hiddenTags = 0,
   totals,
   trashCount = 0,
   saved = [],
@@ -176,7 +180,29 @@ export function FolderPane({
           />
         ))}
       </ul>
+      {hiddenTags > 0 && (
+        <p className="mt-1 px-2 text-xs text-gray-400">
+          ほか {hiddenTags} 件のタグは検索窓の補完から
+        </p>
+      )}
     </aside>
+    </>
+  );
+}
+
+// 本体 (DB を引く SearchFolders) が届くまでの殻 (docs/118 §3-3)。
+// 目的は「ペインの有無で一覧の幅が跳ねない」ことだけ (globals.css の
+// body:has([data-folder-pane]))。以前は fallback にもタグ全件を描いていて、
+// 同じ一覧が本体と合わせて 2 回描かれていた。幅と枠だけを同じにして中身は空
+export function FolderPaneShell() {
+  return (
+    <>
+      <PaneResizer kind="folder" />
+      <aside
+        data-folder-pane
+        aria-label="検索フォルダー"
+        className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto bg-white px-2 pt-2 pb-4"
+      />
     </>
   );
 }

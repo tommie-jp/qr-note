@@ -1,6 +1,7 @@
 import { FolderPane } from "@/components/search/FolderPane";
 import { countFolderTotals, type TagCount } from "@/lib/items/read";
 import { countTrashedItemsOnce } from "@/lib/search/pageData";
+import { folderTags } from "@/lib/search/folderTags";
 import { listQueries } from "@/lib/search/queryStore";
 import { currentUser } from "@/lib/auth/session";
 import { startPhases } from "@/lib/logging/phase";
@@ -34,10 +35,14 @@ export async function SearchFolders({
   ]);
   // フォルダーペイン (3 ペイン) の段階 (docs/119 §2-1)。タグの件数も残す —
   // docs/118 §1 で絞った効き目をこの数で見る
+  // 並べるのは 2 ノート以上に付いた数字以外のタグだけ (docs/118 §3)。
+  // 行の「タグ=」は絞る前の数 (効き目を見る基準)
   reportServerLine("検索/フォルダー", [["タグ", tags.length]], t.done());
+  const { shown, hidden } = folderTags(tags);
   return (
     <FolderPane
-      tags={tags}
+      tags={shown}
+      hiddenTags={hidden}
       totals={totals}
       trashCount={trashCount}
       saved={queryLists.saved}

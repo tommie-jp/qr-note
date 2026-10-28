@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { BusyNotice } from "@/components/chrome/BusyNotice";
-import { FolderPane } from "@/components/search/FolderPane";
+import { FolderPaneShell } from "@/components/search/FolderPane";
 import {
   FolderPaneGate,
   ResultsPaneRoot,
@@ -120,14 +120,13 @@ export default async function Home({ searchParams }: HomeProps) {
           {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバーで、
               フォルダーはすべて既存の検索・並び順へのリンク。件数と登録
               パターンは DB を引くので Suspense で後送りするが、**fallback は
-              null にせずタグだけのペインを出す** — ペインの有無で一覧の幅が
-              変わる (globals.css の body:has) ので、後から現れると表示済みの
-              カードが横へ跳ねる */}
+              null にせず空の殻 (FolderPaneShell) を出す** — ペインの有無で
+              一覧の幅が変わる (globals.css の body:has) ので、後から現れると
+              表示済みのカードが横へ跳ねる。以前はここにもタグ全件を描いて
+              いて、同じ一覧が 2 回描かれていた (docs/118 §3) */}
           {showsFolderPane(paneMode) && (
             <FolderPaneGate>
-              <Suspense
-                fallback={<FolderPane tags={tags} query={query} sort={sort} />}
-              >
+              <Suspense fallback={<FolderPaneShell />}>
                 <SearchFolders tags={tags} query={query} sort={sort} />
               </Suspense>
             </FolderPaneGate>

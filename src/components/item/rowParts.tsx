@@ -72,6 +72,8 @@ function RowTags({ tags }: { tags: readonly string[] }) {
         <Link
           key={tag}
           href={tagSearchHref(tag)}
+          // 先読みしない (docs/118 §5)。行ごとに複数あるので数が多い
+          prefetch={false}
           // relative … タイトルの当たり判定 (STRETCHED_LINK_CLASS) の上に出す。
           // 敷いた膜の下に居ると、タグを押してもノートが開いてしまう
           className="relative z-10 text-sm text-blue-700 hover:underline"

@@ -31,6 +31,11 @@ export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
         <div className="min-w-0 flex-1">
           <Link
             href={href}
+            // 先読みしない (docs/118 §5)。/item は動的経路で、先読みで届くのは
+            // 待ち画面までしかなく、本文は押したときに取る。それなのに一覧の
+            // 行が画面に入るたびに要求が出て (1 検索で 8〜75 本)、iPhone では
+            // 押した直後の要求がその後ろに並んで 287ms 待たされていた
+            prefetch={false}
             // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
             data-note-title={parts.hintTitle}
             transitionTypes={["nav-forward"]}
