@@ -517,6 +517,41 @@ test.describe('検索結果のスライドショー (動画)', () => {
       .toBeGreaterThan(0)
   })
 
+  test('行の表示でホバーしても、ゴミ箱の釦は動画のサムネに重ならない', async ({ page }) => {
+    // Arrange: 中表示の行 (顔は本文の最初の添付。動画を先頭にしたノートを作る)
+    await serveImages(page.context())
+    await serveVideo(page.context())
+    const setup = await newLoggedInPage(page.context().browser()!)
+    await setup.goto(`/edit/${VIDEO_NOTE.id}`)
+    const save = setup.getByRole('button', { name: '更新', exact: true })
+    await expect(save).toBeVisible()
+    await clearEditor(setup)
+    await memoEditor(setup).click()
+    await setup.keyboard.insertText(`${VIDEO_NOTE.heading}\n![録画](${IMAGES_PATH}/${CLIP})\n`)
+    await save.click()
+    await expect(setup).toHaveURL((url) => url.pathname === `/item/${VIDEO_NOTE.id}`)
+    await closePage(setup)
+    await page.context().addCookies([
+      { name: 'view', value: 'medium', url: BASE_URL },
+      { name: 'panes', value: '1', url: BASE_URL },
+    ])
+    await openSearch(page, VIDEO_NOTE.key)
+    // 印 (data-row-thumb) に頼らず poster で引く — 印が無いときも重なりで落ちるように
+    const thumb = searchResults(page).locator(`img[src^="${IMAGES_PATH}/${CLIP}?thumb=1"]`).first()
+    await expect(thumb).toBeVisible()
+
+    // Act
+    await thumb.hover()
+
+    // Assert: ゴミ箱の釦はサムネの左に出て、重ならない
+    const trash = searchResults(page).getByRole('button', { name: /ゴミ箱へ移動$/ })
+    await expect(trash).toBeVisible()
+    const thumbBox = await thumb.boundingBox()
+    const trashBox = await trash.boundingBox()
+    if (!thumbBox || !trashBox) throw new Error('サムネか釦が見つからない')
+    expect(trashBox.x + trashBox.width).toBeLessThanOrEqual(thumbBox.x)
+  })
+
   test('スライドショーは動画を最後まで再生したら、間隔を待たずに次の画像へ送る', async ({
     page,
   }) => {

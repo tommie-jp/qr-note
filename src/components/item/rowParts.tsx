@@ -98,15 +98,25 @@ function renderThumb(
           sizeClass={THUMB_SIZE_CLASS[view]}
         />
       );
-      // 画像のサムネは押すとビューアで大きく見せる (docs/116 §1)。
-      // 動画はノートを開いて再生するので今までどおり膜の下。選択モード中は
-      // 行のどこを押しても選択にしたいので包まない
-      if (face.isVideo || checkbox) {
+      // 選択モード中は行のどこを押しても選択にしたいので包まない
+      // (近道の釦も出ないので印も要らない)
+      if (checkbox) {
         return thumb;
       }
       // data-row-thumb … PC のホバーで出る近道の釦 (RowActionButtons) が、
-      // この印を見てサムネの左へ退く。押せないサムネ (動画・回路図・
-      // プレビュー) には付けない — 退くと題の末尾に釦がかぶる
+      // この印を見てサムネの左へ退く。
+      // 動画はノートを開いて再生するので今までどおり膜の下に置くが、印は
+      // 付ける — 付けないとゴミ箱の釦が poster と ▶ に重なる (2026-10-28 指摘)。
+      // contents の span なので並びには効かない。
+      // 回路図・プレビューの顔には付けない — 退くと題の末尾に釦がかぶるだけ
+      if (face.isVideo) {
+        return (
+          <span data-row-thumb={view} className="contents">
+            {thumb}
+          </span>
+        );
+      }
+      // 画像のサムネは押すとビューアで大きく見せる (docs/116 §1)
       return (
         <ViewerImageButton
           target={{ itemId: item.itemId, name: face.name, href }}

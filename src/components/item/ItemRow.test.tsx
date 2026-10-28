@@ -503,3 +503,22 @@ test("math props が無ければ今までどおりプレーンテキスト", () 
   expect(html).toContain("$E=100$ の回路");
   expect(html).not.toContain("katex");
 });
+
+// PC のホバーで出るゴミ箱の釦は、data-row-thumb の印を見てサムネの左へ退く
+// (row-actions/RowActions.tsx)。動画のサムネにも付けないと poster に重なる
+const VIDEO = "2232f915-45fe-4121-836f-0fa6bbd9c4dc.mp4";
+
+test("動画のサムネにも釦を退かせる印を付ける (押せばノートが開くまま)", () => {
+  const html = renderRow(makeItem({ memo: `録画\n![録画](/api/images/${VIDEO})` }), undefined, "medium");
+  expect(html).toContain('data-row-thumb="medium"');
+  // ビューアの釦にはしない (provider の外でも中でも、行の動画はノートを開く)
+  expect(html).not.toContain("data-viewer-image");
+});
+
+test("選択モードの行のサムネには印を付けない (近道の釦が出ない)", () => {
+  const html = renderRow(
+    makeItem({ memo: `録画\n![録画](/api/images/${VIDEO})` }),
+    <input type="checkbox" />,
+  );
+  expect(html).not.toContain("data-row-thumb");
+});
