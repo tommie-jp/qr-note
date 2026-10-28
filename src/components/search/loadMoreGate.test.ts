@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { buildSearchUrl } from '@/lib/search/url'
-import { SCROLL_ARM_DISTANCE_PX, createScrollArm, searchKeyOf } from './loadMoreGate'
+import {
+  SCROLL_ARM_DISTANCE_PX,
+  canScroll,
+  createScrollArm,
+  searchKeyOf,
+} from './loadMoreGate'
 
 describe('createScrollArm', () => {
   test('動いていなければ解禁しない', () => {
@@ -44,5 +49,19 @@ describe('searchKeyOf', () => {
 
     expect(searchKeyOf(buildSearchUrl('コンデンサ', 2, 'updated'))).not.toBe(base)
     expect(searchKeyOf(buildSearchUrl('抵抗', 2, 'titleDesc'))).not.toBe(base)
+  })
+})
+
+describe('canScroll', () => {
+  test('中身が器に収まっていればスクロールできない', () => {
+    expect(canScroll(871, 871)).toBe(false)
+  })
+
+  test('1px の端数は収まっているとみなす', () => {
+    expect(canScroll(872, 871)).toBe(false)
+  })
+
+  test('器より長ければスクロールできる', () => {
+    expect(canScroll(1700, 871)).toBe(true)
   })
 })

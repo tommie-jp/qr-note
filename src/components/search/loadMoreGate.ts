@@ -39,3 +39,13 @@ export function searchKeyOf(href: string): string {
   url.searchParams.delete('page')
   return `${url.pathname}?${url.searchParams.toString()}`
 }
+
+// 一覧がスクロールできる長さか。scrollHeight と clientHeight は端数で
+// 1px ずれることがあるので、1px までは「収まっている」とみなす。
+//
+// **収まっている (スクロールできない) 間は自動で追加してよい。** 画面の高い
+// PC では 20 件が器に収まり、スクロールの印を待つと永久に伸びない。
+// 埋まってスクロールできる長さになったら、そこからは印を待つ
+export function canScroll(scrollHeight: number, clientHeight: number): boolean {
+  return scrollHeight > clientHeight + 1
+}

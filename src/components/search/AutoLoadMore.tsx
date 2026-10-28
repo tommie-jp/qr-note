@@ -9,7 +9,7 @@ import { keepsNoteOpen } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
 import { perfStart } from "@/lib/logging/perfClient";
 import { LOAD_MORE_EVENT } from "./loadMore";
-import { createScrollArm, searchKeyOf } from "./loadMoreGate";
+import { canScroll, createScrollArm, searchKeyOf } from "./loadMoreGate";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
 // 画面に入ったら自動で次ページの URL へ replace し、サーバが 1〜N ページの
@@ -27,8 +27,9 @@ import { createScrollArm, searchKeyOf } from "./loadMoreGate";
 //
 // **検索の直後は、利用者が一覧を下へスクロールするまで観測しない**
 // (docs/118 §2、判定は loadMoreGate.ts)。20 件では先読みの距離が埋まらず、
-// 誰も読み進めていないのに追加が 1〜2 回続いていた。画面より短い一覧は
-// スクロールできないので、そのときは末尾の「さらに表示」を押して続ける。
+// 誰も読み進めていないのに追加が 1〜2 回続いていた。ただし一覧が器より
+// 短い (スクロールできない) 間は今までどおり自動で埋める — 画面の高い PC で
+// 永久に伸びなくなるため。埋まったら、そこからはスクロールを待つ。
 // 先読みの距離。root の高さに対する割合 (1 画面ぶん)
 const PREFETCH_MARGIN = "100% 0px";
 
@@ -43,6 +44,14 @@ function scrollRootOf(el: HTMLElement): HTMLElement | null {
   }
   const { overflowY } = getComputedStyle(scroller);
   return overflowY === "auto" || overflowY === "scroll" ? scroller : null;
+}
+
+// 一覧 (スクロールする器、無ければ文書) がスクロールできる長さか
+function isScrollable(el: HTMLElement): boolean {
+  const root = scrollRootOf(el);
+  return root === null
+    ? canScroll(document.documentElement.scrollHeight, window.innerHeight)
+    : canScroll(root.scrollHeight, root.clientHeight);
 }
 
 export function AutoLoadMore({
@@ -99,7 +108,10 @@ export function AutoLoadMore({
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (el === null || isPending || coveredByNote || !armed) return;
+    if (el === null || isPending || coveredByNote) return;
+    // 解禁前でも、一覧が器に収まっている間は埋めてよい (loadMoreGate.ts)。
+    // 追加が届くと href が変わって load が作り直され、ここで測り直す
+    if (!armed && isScrollable(el)) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
