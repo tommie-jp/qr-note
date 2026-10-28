@@ -3,24 +3,49 @@
 import os from 'node:os'
 import { isAdminUser } from '@/lib/auth/admin'
 import { requireUser } from '@/lib/auth/session'
-import { errorText } from '@/lib/errorMessage'
-import { formatBenchmark, runBenchmark } from '@/lib/diag/benchmark'
+import {
+  benchmarkProgress,
+  formatBenchmark,
+  readSavedBenchmark,
+  startBenchmark,
+} from '@/lib/diag/benchmark'
+import { safeErrorText } from '@/lib/diag/safeErrorText'
 import { requireUserOutsideDemo } from './_guards'
 
-export type BenchmarkActionResult =
-  | { ok: true; text: string }
-  | { ok: false; message: string }
+export type BenchmarkStatus = {
+  running: boolean
+  // 保存済みの結果 (整形済み)。未計測は null
+  saved: string | null
+  // 直近の計測の失敗理由。読み出しの失敗もここに入る
+  error: string | null
+}
 
-// サーバー情報画面の「計測」釦。CPU を数十秒使い切るので管理者だけ
-export async function runBenchmarkAction(): Promise<BenchmarkActionResult> {
+// CPU を 1 分前後使い切るので管理者だけ
+async function requireAdmin(): Promise<void> {
   await requireUserOutsideDemo('デモモードでは計測できません')
   if (!isAdminUser(await requireUser())) {
     throw new Error('管理者だけが計測できます')
   }
+}
+
+async function currentStatus(): Promise<BenchmarkStatus> {
+  const { running, error } = benchmarkProgress()
   try {
-    const r = await runBenchmark(os.cpus().length)
-    return { ok: true, text: formatBenchmark(r) }
-  } catch (error) {
-    return { ok: false, message: errorText(error) }
+    const saved = await readSavedBenchmark()
+    return { running, saved: saved && formatBenchmark(saved), error }
+  } catch (readError) {
+    return { running, saved: null, error: error ?? safeErrorText(readError) }
   }
+}
+
+// 計測を始めて直ちに返す。終わりは getBenchmarkStatusAction で待つ
+export async function startBenchmarkAction(): Promise<BenchmarkStatus> {
+  await requireAdmin()
+  startBenchmark(os.cpus().length)
+  return currentStatus()
+}
+
+export async function getBenchmarkStatusAction(): Promise<BenchmarkStatus> {
+  await requireAdmin()
+  return currentStatus()
 }

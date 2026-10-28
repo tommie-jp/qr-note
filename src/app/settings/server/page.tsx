@@ -11,7 +11,11 @@ import {
   LEVEL_LABEL,
   SECTION_FAILED_PREFIX,
 } from "@/lib/diag/formatServerInfo";
-import { formatBenchmark, readSavedBenchmark } from "@/lib/diag/benchmark";
+import {
+  benchmarkProgress,
+  formatBenchmark,
+  readSavedBenchmark,
+} from "@/lib/diag/benchmark";
 import { errorText } from "@/lib/errorMessage";
 import { collectServerInfo } from "@/lib/diag/serverInfo";
 import type { HealthLevel, InfoSection } from "@/lib/diag/types";
@@ -72,12 +76,12 @@ export default async function ServerInfoPage() {
   const info = await collectServerInfo();
   // 壊れた保存ファイルは未計測と区別して画面に出す
   let saved: string | null = null;
-  let savedError: string | null = null;
+  let readError: string | null = null;
   try {
     const r = await readSavedBenchmark();
     saved = r && formatBenchmark(r);
   } catch (error) {
-    savedError = errorText(error);
+    readError = errorText(error);
   }
 
   return (
@@ -97,7 +101,10 @@ export default async function ServerInfoPage() {
           <p className="text-gray-500">
             {formatJstDateTime(info.collectedAt)} 時点。再読み込みで更新します。
           </p>
-          <CopyTextButton text={`${formatServerInfo(info)}\n\n## CPU 性能 (7z b)\n${saved ?? "未計測"}`} subject="サーバー情報" />
+          <CopyTextButton
+            text={`${formatServerInfo(info)}\n\n## CPU 性能 (7z b)\n${saved ?? "未計測"}`}
+            subject="サーバー情報"
+          />
         </div>
 
         <section className="space-y-2">
@@ -109,11 +116,16 @@ export default async function ServerInfoPage() {
           </h2>
           <ul className="divide-y divide-gray-200 rounded border border-gray-200 bg-white text-sm">
             {info.checks.map((check) => (
-              <li key={check.name} className="flex items-start gap-3 px-3 py-1.5">
+              <li
+                key={check.name}
+                className="flex items-start gap-3 px-3 py-1.5"
+              >
                 <span className={`${BADGE_CLASS} ${LEVEL_BADGE[check.level]}`}>
                   {LEVEL_LABEL[check.level]}
                 </span>
-                <span className="w-36 shrink-0 text-gray-800">{check.name}</span>
+                <span className="w-36 shrink-0 text-gray-800">
+                  {check.name}
+                </span>
                 <span className="min-w-0 break-words text-gray-600">
                   {check.detail}
                 </span>
@@ -128,12 +140,13 @@ export default async function ServerInfoPage() {
 
         <section className="space-y-2">
           <h2 className="text-lg font-bold">CPU 性能 (7z b)</h2>
-          {savedError && (
-            <p role="alert" className="text-sm text-red-700">
-              保存した結果を読めませんでした: {savedError}
-            </p>
-          )}
-          <BenchmarkButton saved={saved} />
+          <BenchmarkButton
+            initial={{
+              saved,
+              ...benchmarkProgress(),
+              error: readError ?? benchmarkProgress().error,
+            }}
+          />
         </section>
       </div>
     </PageTransition>

@@ -10,6 +10,8 @@ import os from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { formatJstDateTime } from '../datetime'
+import { errorText } from '../errorMessage'
+import { safeErrorText } from './safeErrorText'
 import { notesRepoDir } from '../git/notesRepo'
 
 const execFileAsync = promisify(execFile)
@@ -84,8 +86,6 @@ async function run7z(args: string[]): Promise<number> {
   return parseTotalMips(stdout)
 }
 
-let running: Promise<BenchmarkResult> | null = null
-
 async function measure(threads: number): Promise<BenchmarkResult> {
   const singleMips = await run7z(['-mmt1'])
   const multiMips = await run7z([`-mmt${threads}`])
@@ -100,9 +100,32 @@ async function measure(threads: number): Promise<BenchmarkResult> {
   return result
 }
 
-export function runBenchmark(threads: number): Promise<BenchmarkResult> {
-  running ??= measure(threads).finally(() => {
-    running = null
-  })
-  return running
+let running: Promise<void> | null = null
+let lastError: string | null = null
+
+// 計測を裏で始める (走っていれば何もしない)。結果は待たない — 1 分前後かかり、
+// リクエストに乗せたままだと nginx の応答待ち (既定 60 秒) に切られて
+// 「An unexpected response was received」になる。画面は benchmarkProgress を
+// 引いて終わりを知り、結果は保存ファイルから読む
+export function startBenchmark(threads: number): void {
+  if (running) {
+    return
+  }
+  lastError = null
+  running = measure(threads)
+    .then(
+      () => undefined,
+      (error: unknown) => {
+        // 画面には理由を出し、/logs にも残す (黙って終わらせない)
+        console.warn('CPU 計測に失敗', error instanceof Error ? error : new Error(errorText(error)))
+        lastError = safeErrorText(error)
+      },
+    )
+    .finally(() => {
+      running = null
+    })
+}
+
+export function benchmarkProgress(): { running: boolean; error: string | null } {
+  return { running: running !== null, error: lastError }
 }
