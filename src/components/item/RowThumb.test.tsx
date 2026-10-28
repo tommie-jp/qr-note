@@ -22,12 +22,13 @@ test("画像は ?thumb=1 の縮小版を出し、再生バッジは付けない"
   expect(html).not.toContain(PLAY_BADGE_PATH);
 });
 
-test("動画は poster (?thumb=1) を出し、再生バッジを重ねる", () => {
+test("動画は poster (?thumb=1) を出し、▶ は重ねない", () => {
   const html = render(VIDEO, true);
   // 動画も同じ ?thumb=1 経路で poster (thumb カラム) を配る
   expect(html).toContain(`src="/api/images/${VIDEO}?thumb=1&amp;v=`);
-  // ▶ バッジで動画だと判る
-  expect(html).toContain(PLAY_BADGE_PATH);
+  // 動くサムネが動いていれば動画だと判るので ▶ は出さない。出すのは動くサムネが
+  // 未生成と判ったときだけ (ブラウザ側。e2e/image-viewer.spec.ts) (docs/117 §8-8)
+  expect(html).not.toContain(PLAY_BADGE_PATH);
 });
 
 test("大きさ (width/height + サイズクラス) を渡す", () => {
@@ -43,12 +44,4 @@ test("サーバ描画は静止サムネ (動くサムネへはブラウザで動
 
   expect(html).not.toContain("anim=1");
   expect(html).toContain(`src="/api/images/${VIDEO}?thumb=1&amp;v=`);
-});
-
-test("再生バッジはポインタを受けない (ホバーを塞がない)", () => {
-  // バッジはサムネの中央に重なる。ポインタを受けると、中央にカーソルを
-  // 置いたときだけ差し替わらない状態になる
-  const html = render(VIDEO, true);
-
-  expect(html).toContain("pointer-events-none");
 });

@@ -13,14 +13,14 @@ const TILE_BADGE_SIZE_CLASS = "size-8";
 // タイルと同じ正方形 + contain で見せ、中央に ▶ の印を重ねる。
 //
 // **常に動くサムネ (アニメ WebP) にする** (docs/72・docs/117 §8-8)。行のサムネ
-// (RowThumb) と同じ useAnimThumb。▶ は動いていても出す。
+// (RowThumb) と同じ useAnimThumb。▶ は動くサムネが未生成のときだけ出す。
 //
 // poster が無い動画 (生成前・失敗) は 404 になるので、ビデオの記号で代える。
 // 落ちたのが動くサムネ (未生成) なら静止へ戻すだけにする — 判定は落ちた URL で
 // 行う (RowThumb の handleError と同じ理由)
 export function VideoTilePoster({ name }: { name: string }) {
   const [posterFailed, setPosterFailed] = useState(false);
-  const { playing, fail } = useAnimThumb(!posterFailed);
+  const { playing, fail, failed: animFailed } = useAnimThumb(!posterFailed);
 
   const handleError = (event: React.SyntheticEvent<HTMLImageElement>) => {
     if (event.currentTarget.src.endsWith(thumbAnimUrl(name))) {
@@ -47,13 +47,16 @@ export function VideoTilePoster({ name }: { name: string }) {
           className="block h-full w-full object-contain"
         />
       )}
-      {/* 動いていても出す (動画だと一目で判る。小さめの 32px) */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 flex items-center justify-center"
-      >
-        <PlayBadgeIcon sizeClass={TILE_BADGE_SIZE_CLASS} />
-      </span>
+      {/* ▶ は動くサムネが未生成で止まった絵のときだけ出す (動いていれば
+          動画だと判る。2026-10-28 指示で消した。docs/117 §8-8) */}
+      {animFailed && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <PlayBadgeIcon sizeClass={TILE_BADGE_SIZE_CLASS} />
+        </span>
+      )}
     </span>
   );
 }

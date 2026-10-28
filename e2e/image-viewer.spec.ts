@@ -517,7 +517,7 @@ test.describe('検索結果のスライドショー (動画)', () => {
       .toBeGreaterThan(0)
   })
 
-  test('画像表示の動画タイルは触らなくても動くサムネで、▶ は小さく出したまま', async ({
+  test('画像表示の動画タイルは触らなくても動くサムネで、▶ は出さない', async ({
     page,
   }) => {
     // Arrange / Act: 開くだけ (ホバーもスクロールもしない)
@@ -527,11 +527,8 @@ test.describe('検索結果のスライドショー (動画)', () => {
     // Assert: <img> は動くサムネ (アニメ WebP) の URL
     const poster = videoTile.locator('img')
     await expect(poster).toHaveAttribute('src', /thumb=1&anim=1/)
-    // ▶ は動いていても出す。小さめ (32px) でタイルの 1/3 にしない
-    const badge = videoTile.locator('svg')
-    await expect(badge).toBeVisible()
-    const badgeBox = await badge.boundingBox()
-    expect(badgeBox?.width ?? 0).toBeLessThanOrEqual(33)
+    // 動いていれば動画だと判るので ▶ は出さない (2026-10-28 指示)
+    await expect(videoTile.locator('svg')).toHaveCount(0)
   })
 
   test('動くサムネが未生成 (404) の動画は、静止サムネに戻る', async ({ page }) => {
@@ -560,6 +557,11 @@ test.describe('検索結果のスライドショー (動画)', () => {
     await expect
       .poll(() => poster.evaluate((el) => (el as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0)
+    // 止まった絵では動画だと判らないので、このときだけ ▶ を出す。小さめの 32px
+    const badge = videoTile.locator('svg')
+    await expect(badge).toBeVisible()
+    const badgeBox = await badge.boundingBox()
+    expect(badgeBox?.width ?? 0).toBeLessThanOrEqual(33)
   })
 
   // 行の表示 (中・大) の顔を動画にしたノートで開く

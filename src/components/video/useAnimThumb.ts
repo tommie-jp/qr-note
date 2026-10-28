@@ -29,6 +29,9 @@ export interface AnimThumb {
   playing: boolean;
   // アニメが取れなかった (未生成 = 404) ときに呼ぶ。以後このサムネでは試さない
   fail: () => void;
+  // 動くサムネが未生成と判った (静止サムネに戻した)。▶ はこのときだけ出す —
+  // 動いていれば動画だと判るので印は要らない (docs/117 §8-8)
+  failed: boolean;
 }
 
 // enabled が false のときは静止のまま (画像のサムネ・poster が無い動画)
@@ -41,5 +44,5 @@ export function useAnimThumb(enabled: boolean): AnimThumb {
     () => false,
   );
   const fail = useCallback(() => setFailed(true), []);
-  return { playing: enabled && hydrated && !failed, fail };
+  return { playing: enabled && hydrated && !failed, fail, failed };
 }

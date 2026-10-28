@@ -34,7 +34,7 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
   const showIcon = isVideo && posterFailed;
   // 分割代入で受ける — まとめた object のまま参照すると、eslint の
   // react-hooks/refs が「描画中に ref を読んでいる」と誤検知する
-  const { playing, fail } = useAnimThumb(isVideo && !posterFailed);
+  const { playing, fail, failed: animFailed } = useAnimThumb(isVideo && !posterFailed);
 
   // 落ちたのが動くサムネ (未生成) なのか poster なのかを分ける。動くサムネなら
   // 静止へ戻すだけで、poster を巻き添えにしてアイコンにしてはいけない。
@@ -73,8 +73,9 @@ export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
             onError={isVideo ? handleError : undefined}
             className={`${sizeClass} block object-cover`}
           />
-          {/* 動いていても出す (動画だと一目で判る。2026-10-28 指示) */}
-          {isVideo && <PlayBadge />}
+          {/* ▶ は動くサムネが未生成で止まった絵のときだけ出す (動いていれば
+              動画だと判る。2026-10-28 指示で消した。docs/117 §8-8) */}
+          {isVideo && animFailed && <PlayBadge />}
         </>
       )}
     </span>
