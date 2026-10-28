@@ -188,13 +188,16 @@ COPY --from=builder /app/node_modules/onnxruntime-node/package.json ./node_modul
 COPY --from=builder /app/node_modules/onnxruntime-node/dist ./node_modules/onnxruntime-node/dist
 COPY --from=builder /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/onnxruntime_binding.node /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime*.so* ./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/
 
-# transformers が入れ子で持つ sharp (0.35 系。直下の sharp 0.34 とは別物) の
-# libvips も補う。sharp-linux-x64.node の DT_NEEDED である libvips-cpp.so.* は
-# トレースされず、transformers は読み込み時に sharp を import するので、欠けると
-# 「libvips-cpp.so.8.18.7: cannot open shared object file」でモジュールごと読めず
-# 埋め込み生成が全滅する (v0.23.49 の依存更新で入れ子になってから)。
-# 版が変わっても追従するようディレクトリごと運ぶ (18MB)
-COPY --from=builder /app/node_modules/@huggingface/transformers/node_modules/@img/sharp-libvips-linux-x64/lib/ ./node_modules/@huggingface/transformers/node_modules/@img/sharp-libvips-linux-x64/lib/
+# sharp の libvips を補う。sharp-linux-x64.node の DT_NEEDED である
+# libvips-cpp.so.* はトレースされず、transformers は読み込み時に sharp を
+# import するので、欠けると「libvips-cpp.so.8.18.7: cannot open shared object
+# file」でモジュールごと読めず埋め込み生成が全滅する。
+# v0.23.49 〜 v0.23.59 は transformers が sharp 0.35 を入れ子で持ち、その下の
+# libvips を運んでいた。直下の sharp も 0.35 に上げて (v0.23.60) 1 本にまとまり、
+# 入れ子は無くなったので直下のものを運ぶ。版が変わっても追従するよう
+# ディレクトリごと運ぶ (18MB)。また入れ子に戻ったら transformers の下の
+# libvips が欠けるので、npm ls sharp で 1 本 (deduped) かを確かめること
+COPY --from=builder /app/node_modules/@img/sharp-libvips-linux-x64/lib/ ./node_modules/@img/sharp-libvips-linux-x64/lib/
 
 USER qrapp
 EXPOSE 3000
