@@ -92,6 +92,14 @@ describe('apiOkPagedGzip (docs/123 §11-6)', () => {
   })
 })
 
+describe('brotli の品質 (docs/124 §8)', () => {
+  test('1MB 未満は品質 5、1MB 以上は品質 3', async () => {
+    const { brotliQualityFor, BROTLI_LARGE_BYTES } = await import('./compress')
+    expect(brotliQualityFor(BROTLI_LARGE_BYTES - 1)).toBe(5)
+    expect(brotliQualityFor(BROTLI_LARGE_BYTES)).toBe(3)
+  })
+})
+
 describe('brotli (docs/124 §3)', () => {
   const big = { items: 'x'.repeat(5000) }
 

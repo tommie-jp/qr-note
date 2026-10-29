@@ -27,8 +27,10 @@ const PROFILE_SOURCES = [
   '/node_modules/unified/',
 ]
 
-// ベンチマークの画面の入口 (page.js など)。ここが R.c("server/chunks/…") で読む束ねを拾う
-const ENTRY_DIR = 'app/settings/benchmark'
+// ベンチマークの入口 (page.js・route.js など)。ここが R.c("server/chunks/…") で読む束ねを
+// 拾う。計測そのものは C/S 化 (docs/123) で API (/api/diag/bench) に移ったので、
+// 画面だけを見ると解析の道の .map が運ばれない (docs/124 §8)
+const ENTRY_DIRS = ['app/settings/benchmark', 'app/api/diag/bench']
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -49,15 +51,18 @@ if (!from || !to) {
 
 // 入口が読む束ね (.next/server からの相対パス)
 const chunks = new Set()
-for (const entry of walk(join(from, ENTRY_DIR))) {
-  for (const [, chunk] of readFileSync(entry, 'utf8').matchAll(/"server\/(chunks\/[^"]+\.js)"/g)) {
-    chunks.add(chunk)
+for (const entryDir of ENTRY_DIRS) {
+  const before = chunks.size
+  for (const entry of walk(join(from, entryDir))) {
+    for (const [, chunk] of readFileSync(entry, 'utf8').matchAll(/"server\/(chunks\/[^"]+\.js)"/g)) {
+      chunks.add(chunk)
+    }
   }
-}
-if (chunks.size === 0) {
-  // 入口の形が変わった (Next の版上げなど)。黙って 0 個にせず、配布を止めて気づかせる
-  console.error(`${ENTRY_DIR} の入口から束ねを 1 つも拾えなかった`)
-  process.exit(1)
+  if (chunks.size === before) {
+    // 入口の形が変わった (Next の版上げなど)。黙って 0 個にせず、配布を止めて気づかせる
+    console.error(`${entryDir} の入口から新しい束ねを 1 つも拾えなかった`)
+    process.exit(1)
+  }
 }
 
 let copied = 0

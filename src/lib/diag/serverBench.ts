@@ -11,7 +11,7 @@
 import 'server-only'
 import os from 'node:os'
 import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'node:zlib'
-import { BROTLI_QUALITY, SYNC_GZIP_LEVEL } from '@/lib/route/compress'
+import { brotliQualityFor, SYNC_GZIP_LEVEL } from '@/lib/route/compress'
 import sharp from 'sharp'
 import pkg from '../../../package.json'
 import { prisma } from '@/lib/db'
@@ -202,11 +202,12 @@ const syncTask: BenchTask = {
     const json = JSON.stringify(db.value)
     const t1 = performance.now()
     // 同期の口と同じ強さ。口は非同期で圧縮するが、ここは CPU の重さを測るので同期で
+    const bytes = Buffer.byteLength(json)
     const br = brotliCompressSync(json, {
       params: {
-        [zlibConstants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY,
+        [zlibConstants.BROTLI_PARAM_QUALITY]: brotliQualityFor(bytes),
         [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
-        [zlibConstants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(json),
+        [zlibConstants.BROTLI_PARAM_SIZE_HINT]: bytes,
       },
     })
     const t2 = performance.now()
@@ -216,7 +217,7 @@ const syncTask: BenchTask = {
     return {
       totalMs: db.ms + (t2 - t0),
       phases: { db: db.ms, json: t1 - t0, brotli: t2 - t1, gzip: t3 - t2 },
-      scale: `${db.value.items.length} 件・${mb(Buffer.byteLength(json))}MB → br ${mb(br.byteLength)}MB (gzip ${mb(gz.byteLength)}MB)`,
+      scale: `${db.value.items.length} 件・${mb(bytes)}MB → br ${mb(br.byteLength)}MB (gzip ${mb(gz.byteLength)}MB)`,
     }
   },
 }

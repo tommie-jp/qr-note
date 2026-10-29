@@ -36,6 +36,19 @@ export const SYNC_GZIP_LEVEL = 4
 // 応答のたびに圧縮する用途には使えない
 export const BROTLI_QUALITY = 5
 
+// 大きな本文 (オフライン同期の全件、11MB) は品質を下げる (docs/124 §8)。
+// 本番で品質 5 は 486ms かかり、gzip 4 (211ms) の倍を超えた。手元の 11MB で
+//   gzip 4: 2,435KB 77ms / br 3: 2,218KB 61ms / br 4: 2,032KB 97ms / br 5: 1,845KB 130ms
+// 3 は gzip 4 より速くて小さい。5 との差 370KB はキャリアの 8.8Mbps で約 340ms と
+// 縮む CPU 時間とほぼ同じだが、差分の同期が入って全件は稀になり、3 スレッドの
+// VPS で他の要求と CPU を取り合う時間を減らすほうを取る
+export const BROTLI_LARGE_QUALITY = 3
+export const BROTLI_LARGE_BYTES = 1024 * 1024
+
+export function brotliQualityFor(bytes: number): number {
+  return bytes >= BROTLI_LARGE_BYTES ? BROTLI_LARGE_QUALITY : BROTLI_QUALITY
+}
+
 const gzipAsync = promisify(gzip)
 const brotliAsync = promisify(brotliCompress)
 
@@ -59,11 +72,12 @@ export function acceptedEncoding(request: Request): Encoding | null {
 
 async function compress(body: string, encoding: Encoding): Promise<Buffer> {
   if (encoding === 'br') {
+    const bytes = Buffer.byteLength(body)
     return brotliAsync(body, {
       params: {
-        [zlibConstants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY,
+        [zlibConstants.BROTLI_PARAM_QUALITY]: brotliQualityFor(bytes),
         [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
-        [zlibConstants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(body),
+        [zlibConstants.BROTLI_PARAM_SIZE_HINT]: bytes,
       },
     })
   }
