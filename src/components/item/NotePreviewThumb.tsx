@@ -16,8 +16,9 @@
 // client component からは値を import しないこと (型だけなら可。
 // circuit/thumbs.ts / markdown/mathText.ts と同じ線引き)
 
-import type { ReactNode } from "react";
-import Markdown from "react-markdown";
+import { memo, type ReactNode } from "react";
+import type { Components } from "hast-util-to-jsx-runtime";
+import { markdownTree, renderMarkdownTree, type MarkdownRecipe } from "@/components/markdown/markdownTree";
 import type { PluggableList } from "unified";
 import { DiagramIcon } from "@/components/icons";
 import { remarkAnswerSpoiler } from "@/components/markdown/plugins/remarkAnswerSpoiler";
@@ -176,21 +177,26 @@ const PREVIEW_COMPONENTS = {
 
 // 縮小前のキャンバスに入れる中身。markdown は notePreviewSource で
 // 切り詰め済みの想定 (このコンポーネントは切らない — 描き方だけを持つ)
-export function NotePreviewThumb({ markdown }: { markdown: string }) {
+// 一覧のプレビューのプラグイン列 (docs/123 §11-7)。解析の前段を覚えておく
+// (markdownTree.ts)。端末で一覧を描くようになって、表示モードを切り替える
+// たびに 20 件ぶんの本文を解析し直していた (iPhone で切替の即時が延びた)
+const PREVIEW_RECIPE: MarkdownRecipe = {
+  key: "preview",
+  remarkPlugins: PREVIEW_REMARK_PLUGINS,
+  rehypePlugins: BASE_REHYPE_PLUGINS,
+  remarkRehypeOptions: REMARK_REHYPE_OPTIONS,
+  urlTransform,
+};
+
+// 同じ本文なら描き直さない (memo)。一覧を描き直すたびに 20 件ぶんの
+// プレビューを作り直していた (docs/123 §11-7)
+export const NotePreviewThumb = memo(function NotePreviewThumb({ markdown }: { markdown: string }) {
   return (
     <div className="prose prose-sm max-w-none break-words px-2 py-1 [&_li.task-list-item]:list-none">
-      <Markdown
-        remarkPlugins={PREVIEW_REMARK_PLUGINS}
-        urlTransform={urlTransform}
-        rehypePlugins={BASE_REHYPE_PLUGINS}
-        remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
-        components={PREVIEW_COMPONENTS}
-      >
-        {markdown}
-      </Markdown>
+      {renderMarkdownTree(markdownTree(PREVIEW_RECIPE, markdown), PREVIEW_COMPONENTS as Components)}
     </div>
   );
-}
+});
 
 // ページ内アイテムのプレビューをまとめて作る。DB は引かない同期処理
 // (buildMathTexts と同じ)。**loadCircuitThumbs の後に呼ぶこと** — 回路図
@@ -234,5 +240,24 @@ export function buildNotePreviews(
         markdown={notePreviewSource(firstPageSource(item.memo), maxChars)}
       />,
     ]),
+  );
+}
+
+// 表示モードを切り替える前に、各表示モードのプレビューを解析しておく
+// (docs/123 §11-7)。小・中とカードで元の文字数が違う (足切り) ので、それぞれの
+// 木を覚える。buildNotePreviews と同じ足切りと同じ対象の選び方を通す
+export function warmNotePreviews(
+  items: readonly { itemId: string; memo: string }[],
+  circuitThumbs: CircuitThumbMap,
+): (() => void)[] {
+  const targets = items
+    .filter((item) => wantsNotePreview(item) && !circuitThumbs[item.itemId]?.[0])
+    .slice(0, NOTE_PREVIEW_MAX_ITEMS);
+  return targets.flatMap((item) =>
+    [NOTE_PREVIEW_COMPACT_SOURCE_CHARS, NOTE_PREVIEW_MAX_SOURCE_CHARS].map(
+      (maxChars) => () => {
+        markdownTree(PREVIEW_RECIPE, notePreviewSource(firstPageSource(item.memo), maxChars));
+      },
+    ),
   );
 }

@@ -235,7 +235,7 @@ export function perfArrive(
   if (
     s.active === null ||
     perfNow() - s.active.t0 > ACTIVE_TIMEOUT_MS ||
-    !marksClose(s.active, kind, itemId)
+    !marksClose(s.active, kind, itemId, marks.fields)
   ) {
     return
   }

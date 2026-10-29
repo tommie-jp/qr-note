@@ -188,6 +188,14 @@ describe('formatNavLine', () => {
 })
 
 describe('marksClose', () => {
+  test('表示の切替は切り替えた先の表示モードの印でだけ閉じる (docs/123 §11-7)', () => {
+    const measure = { kind: '表示' as const, t0: 0, pathname: '/', extra: [['切替', 'compact→medium']] as const }
+    expect(marksClose(measure, '検索', undefined, [['view', 'compact']])).toBe(false)
+    expect(marksClose(measure, '検索', undefined, [['view', 'medium']])).toBe(true)
+    // 表示モードを載せない印 (古い版) は今までどおり閉じる
+    expect(marksClose(measure, '検索', undefined, [])).toBe(true)
+  })
+
   test('検索の印は検索と追加読み込みを閉じる', () => {
     expect(marksClose({ kind: '検索', t0: 0, pathname: '/' }, '検索', undefined)).toBe(true)
     expect(marksClose({ kind: '追加', t0: 0, pathname: '/' }, '検索', undefined)).toBe(true)

@@ -38,8 +38,14 @@ export interface ResourceCache<K, V> {
   remove(match: (key: K) => boolean): void
   subscribe(listener: () => void): () => void
   // 鍵の項目を購読する。値が無いか古ければ取りに行く。key が null なら何もしない
-  useEntry(key: K | null): Entry<V> | undefined
+  useEntry(key: K | null, options?: UseEntryOptions): Entry<V> | undefined
   keys(): K[]
+}
+
+export interface UseEntryOptions {
+  // 取りに行くのを次の描画が画面に出た後へ回す。前の結果をすぐ出せる画面
+  // (表示モードの切替) で、届いた応答の描き直しが最初の描画に混ざらないように
+  afterPaint?: boolean
 }
 
 export interface ResourceCacheOptions<K, V> {
@@ -186,7 +192,7 @@ export function createResourceCache<K, V>({
     }
   }
 
-  function useEntry(key: K | null): Entry<V> | undefined {
+  function useEntry(key: K | null, { afterPaint = false }: UseEntryOptions = {}): Entry<V> | undefined {
     const id = key === null ? null : keyOf(key)
     const entry = useSyncExternalStore(
       notifier.subscribe,
@@ -200,10 +206,29 @@ export function createResourceCache<K, V>({
       !entry?.loading &&
       (entry?.error ?? null) === null
     useEffect(() => {
-      if (needsLoad && key !== null) {
+      if (!needsLoad || key === null) {
+        return
+      }
+      const start = () => {
         load(key).catch(() => {
           // 失敗は項目の error に入る。画面はそれを見て知らせる
         })
+      }
+      if (!afterPaint || typeof requestAnimationFrame !== 'function') {
+        start()
+        return
+      }
+      // 次の描画の後 (rAF → setTimeout 0)。描画の前に始めると、手元のように
+      // 応答が速い所では届いた一覧の描き直しが最初の描画に混ざる
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const frame = requestAnimationFrame(() => {
+        timer = setTimeout(start, 0)
+      })
+      return () => {
+        cancelAnimationFrame(frame)
+        if (timer !== undefined) {
+          clearTimeout(timer)
+        }
       }
       // key は id と一対一。オブジェクトの鍵でも id で比べれば足りる
       // eslint-disable-next-line react-hooks/exhaustive-deps

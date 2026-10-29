@@ -231,11 +231,29 @@ export function marksClose(
   measure: NavMeasure,
   kind: '検索' | 'ノート',
   itemId: string | undefined,
+  // 印の項目。表示の切替は「切り替えた先の表示モード」の印でだけ閉じる
+  fields: readonly PerfField[] = [],
 ): boolean {
   if (kind === '検索') {
-    return measure.kind === '検索' || measure.kind === '追加' || measure.kind === '表示'
+    if (measure.kind === '表示') {
+      return viewOf(fields) === undefined || viewOf(fields) === switchTargetOf(measure)
+    }
+    return measure.kind === '検索' || measure.kind === '追加'
   }
   return measure.kind === 'ノート' && measure.itemId === itemId
+}
+
+// 一覧を端末で描くようになって (docs/123 §11-7)、切り替えた直後にも前の表示
+// モードの一覧の印が出ることがある (控えの取り直しが届いた・器の作り直し)。
+// それで閉じると「全体」が切り替える前の描き直しを測ってしまう
+function viewOf(fields: readonly PerfField[]): string | undefined {
+  const field = fields.find(([key]) => key === 'view')
+  return field === undefined ? undefined : String(field[1])
+}
+
+function switchTargetOf(measure: NavMeasure): string | undefined {
+  const change = measure.extra?.find(([key]) => key === '切替')?.[1]
+  return typeof change === 'string' ? change.split('→')[1] : undefined
 }
 
 // ノートへのリンクなら、そのパスと id。他は null。

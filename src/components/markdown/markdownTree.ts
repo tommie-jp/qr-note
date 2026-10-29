@@ -36,8 +36,9 @@ export interface MarkdownRecipe {
   readonly urlTransform: (url: string) => string
 }
 
-// 覚えておく木の数。一覧の 1 ページ (20) とノートのページ分けを見込む
-const MAX_TREES = 120
+// 覚えておく木の数。一覧のプレビュー (20 件 × 小中・カードの 2 通り) と
+// ノートの本文 (ページ分けを含む) を見込む
+const MAX_TREES = 200
 
 type AnyProcessor = Processor<never, never, never, never, never>
 

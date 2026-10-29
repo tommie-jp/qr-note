@@ -26,23 +26,35 @@ function whenIdle(run: () => void): Cancel {
   return () => window.clearTimeout(id)
 }
 
-export function warmNotes(memos: readonly string[]): Cancel {
-  const queue = memos.slice(0, WARM_NOTE_LIMIT).filter((memo) => !warmed.has(memo))
+// 手すきに 1 つずつ流す。戻り値を呼ぶと残りを捨てる
+export function runWhenIdle(tasks: readonly (() => void)[]): Cancel {
+  const queue = [...tasks]
   let cancel: Cancel = () => {}
   const step = () => {
-    const memo = queue.shift()
-    if (memo === undefined) {
+    const task = queue.shift()
+    if (task === undefined) {
       return
     }
     try {
-      warmNoteBody(memo)
-      warmed.add(memo)
+      task()
     } catch (error) {
-      // 先読みの失敗は開いたときにもう一度起きて、そこで画面に出る
-      console.warn('ノートの先読みに失敗しました', error)
+      // 先読みの失敗は描くときにもう一度起きて、そこで画面に出る
+      console.warn('先読みに失敗しました', error)
     }
     cancel = whenIdle(step)
   }
   cancel = whenIdle(step)
   return () => cancel()
+}
+
+// ノート本文 (上から WARM_NOTE_LIMIT 件) と、あれば追加の先読みを手すきに流す
+export function warmNotes(memos: readonly string[], extra: readonly (() => void)[] = []): Cancel {
+  const notes = memos
+    .slice(0, WARM_NOTE_LIMIT)
+    .filter((memo) => !warmed.has(memo))
+    .map((memo) => () => {
+      warmNoteBody(memo)
+      warmed.add(memo)
+    })
+  return runWhenIdle([...notes, ...extra])
 }
