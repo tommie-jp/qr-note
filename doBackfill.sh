@@ -105,7 +105,7 @@ for arg in "$@"; do
     -h|--help) help ;;
     --demo) DEMO=1 ;;
     --seed) SEED=1 ;;
-    titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check|embeddings)
+    titles|taskcounts|thumbs|circuits|circuit-fences|circuit-addresses|photometa|photometa-check|embeddings)
       [ -z "$TASK" ] || usage
       TASK="$arg"
       ;;
