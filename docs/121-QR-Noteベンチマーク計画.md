@@ -402,3 +402,44 @@ docker compose exec app node --cpu-prof ... (standalone には tsx が無い。�
 プロファイルの自己時間は micromark (18%)・micromark-util-subtokenize (10%)・
 mdast-util-from-markdown (6%)・micromark-extension-gfm-table (5%) の順で、
 特定の拡張が突出してはいない。本文全体の字句解析そのものが重い
+
+## 11. 本番の初回計測とプロファイルの解析 (2026-10-29)
+
+本番 vps1 (Broadwell 3 スレッド) で「サーバを計測」した。固定の行は、見本の
+解析 79.0ms (手元 15.8ms の 5.0 倍)・サムネ 30.7ms (3.3 倍)。7z b の差
+(2.2 倍) より JS の解析の差が大きい。数字の比較は 41-QR-search の docs/28 に置いた。
+
+### 11-1. 本番の cpuprofile
+
+`qr-benchmark-parse.cpuprofile` は実ノート 20 件の冷えた解析 1 回分。サンプルは
+202 点・41ms (間隔は指定の 100µs ではなく約 180µs) なので、数 % の差は誤差の内。
+束ねたファイルにモジュール名は残らないので、同じ版を手元で作り直したイメージから
+同じ名前の束ね (`.next/server/chunks/ssr/_1k-qg_jx6dx2u._.js`) を取り出し、
+列位置の前後のコード (トークン名の文字列) で元のライブラリを特定した。
+
+| 自己時間 | 割合 | 中身 | ライブラリ |
+| --- | --- | --- | --- |
+| 5.1ms + 0.6ms | 約 16% | 表の編集位置の記録 (`addImplementation`) と表の resolve | micromark-extension-gfm-table 2.1.1 |
+| 4.2 + 1.7 + 1.6 + 0.8 + 0.7ms | 約 22% | 字句解析の本体 (main・consume・enter・chunkFlow・write) | micromark 4.0.2 |
+| 2.9 + 2.6 + 0.7ms | 約 15% | 入れ子の中身の字句解析 (subtokenize・SpliceBuffer) | micromark-util-subtokenize |
+| 4.0ms | 10% | 木の組み立て (`n.parser`) | mdast-util-from-markdown |
+| 3.6ms | 9% | GC | (V8) |
+| 1.0ms | 2% | 拡張の結合 (解析のたびに組み直す) | micromark-util-combine-extensions |
+| 1.0ms | 2% | 木を辿る (抽出) | unist-util-visit-parents |
+
+- **表の拡張が 1 位。** `addImplementation` は編集位置の配列を毎回先頭から線形に
+  探すので、行の多い表では編集の数の 2 乗で効く。手元の 200 件 (§10 の後段) では
+  5% だったので、本番の先頭 20 件は表の大きいノート (教科書の章) に偏っている
+  と見られる
+- 残りは Markdown の字句解析そのもの (約 50%)。特定の箇所の手直しでは縮まない
+- sha1 (fenceMemo の鍵) は 1% 未満で、無視できる
+
+### 11-2. 改善の候補 (未着手)
+
+1. **解析を書き込み時に済ませる (docs/118 §1-B)。** 回路フェンスを派生列に
+   保存すれば、一覧・同期・配布直後のどれでも解析が消える。効き目が最も大きい
+2. **抽出だけは表の拡張を外した parser で読む。** 表の中にフェンスは書けず、
+   フェンスの開始は表を終わらせるので、抽出の結果は変わらない見込み。表の多い
+   ノートで約 16% 縮む。ただし描画の parser と分けることになるので、全ノートで
+   抽出の結果が一致することを確かめてから入れる
+3. 同期の gzip (本番 292ms、その間ほかの要求を待たせる) の圧縮の強さを下げる
