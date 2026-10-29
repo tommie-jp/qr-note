@@ -15,6 +15,7 @@ import {
   LockIcon,
   LogIcon,
   ServerIcon,
+  StopwatchIcon,
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 import { ServerClipboardMenuItems } from "@/components/clipboard/ServerClipboardMenuItems";
@@ -128,6 +129,17 @@ export function AppHeaderMenu({
                   <ServerIcon />
                   サーバー情報
                 </PendingMenuLink>
+              )}
+              {/* QR-Note ベンチマーク (docs/121)。サーバー情報と同じく管理者だけ。
+                  開くのは保存した結果を読むだけで速いので、素の Link でよい */}
+              {isAdminUser(user) && (
+                <Link
+                  href="/settings/benchmark"
+                  className={HEADER_MENU_ITEM_CLASS}
+                >
+                  <StopwatchIcon />
+                  ベンチマーク
+                </Link>
               )}
             </>
           )}

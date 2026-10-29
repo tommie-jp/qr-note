@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { flushClientLogs } from "@/lib/logging/clientCapture";
 import { isPerfIdle, perfSend, perfSetViewPhase } from "@/lib/logging/perfClient";
+import { measureNet, UPLOAD_BYTES, type NetProbeDeps } from "@/lib/logging/netProbe";
 import { runPerfTest, type PerfTestStatus, type PerfViewPhase } from "@/lib/logging/perfTest";
 import {
   clearPerfTestRunning,
@@ -25,6 +26,10 @@ const TYPE_DELAY_MS = 120;
 const VIEW_SWITCH_SETTLE_MS = 1500;
 // 完了の知らせを残しておく時間
 const DONE_NOTICE_MS = 8000;
+// 戻り先 (ベンチマークの画面) へ移る前の間。完了の知らせを読める程度
+const RETURN_DELAY_MS = 1500;
+// crypto.getRandomValues が 1 回に埋められる上限
+const RANDOM_CHUNK = 65536;
 
 const SEARCH_INPUT = 'input[type="search"][name="q"]';
 // 一覧の行の題名リンク。**`a[href^="/item/"]` で拾わない** — 3 ペインでは
@@ -138,6 +143,35 @@ function describeDevice(): readonly (readonly [string, string])[] {
   ];
 }
 
+// 上りの計測に送る本文。乱数にするのは、圧縮できる中身だと経路で縮んで嘘になるため
+function uploadBody(): Uint8Array<ArrayBuffer> {
+  const body = new Uint8Array(UPLOAD_BYTES);
+  for (let at = 0; at < body.length; at += RANDOM_CHUNK) {
+    crypto.getRandomValues(body.subarray(at, at + RANDOM_CHUNK));
+  }
+  return body;
+}
+
+// 下りの受信時間。同じ URL の最後の entry の responseStart → responseEnd
+// (Safari も Resource Timing を持つ。読めなければ null で netProbe が代える)
+function receiveMs(url: string): number | null {
+  const href = new URL(url, location.href).href;
+  const entry = performance.getEntriesByName(href).at(-1) as
+    | PerformanceResourceTiming
+    | undefined;
+  if (entry === undefined || entry.responseStart <= 0) {
+    return null;
+  }
+  const ms = entry.responseEnd - entry.responseStart;
+  return ms > 0 ? ms : null;
+}
+
+const NET_DEPS: NetProbeDeps = {
+  fetch: (input, init) => fetch(input, init),
+  now: () => performance.now(),
+  receiveMs,
+};
+
 async function stopPerf(): Promise<void> {
   const res = await fetch("/api/logs/perf", {
     method: "POST",
@@ -166,7 +200,8 @@ export function PerfTestRunner() {
   const [status, setStatus] = useState<PerfTestStatus | null>(null);
 
   useEffect(() => {
-    if (!takePerfTestPending()) {
+    const options = takePerfTestPending();
+    if (options === null) {
       recoverInterrupted();
       return;
     }
@@ -197,6 +232,17 @@ export function PerfTestRunner() {
         }
       },
       describe: describeDevice,
+      line: options.line,
+      measureNet:
+        options.line === undefined
+          ? undefined
+          : () => measureNet(NET_DEPS, uploadBody()),
+    }).then(() => {
+      // ベンチマークの画面から流したときは、結果の出る画面へ戻る (docs/121 §4-2)
+      const { returnTo } = options;
+      if (returnTo !== undefined && !cancelled) {
+        setTimeout(() => location.assign(returnTo), RETURN_DELAY_MS);
+      }
     }).catch((error: unknown) => {
       console.warn("計測テストが途中で止まりました", error);
       // 計測を立てたまま残さない (recoverInterrupted と同じ理由)

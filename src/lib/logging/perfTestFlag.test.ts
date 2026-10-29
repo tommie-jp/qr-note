@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import {
   clearPerfTestPending,
+  parsePerfTestOptions,
   clearPerfTestRunning,
   markPerfTestPending,
   markPerfTestRunning,
@@ -28,15 +29,15 @@ afterEach(() => vi.unstubAllGlobals())
 test('印を付けると 1 度だけ読める', () => {
   markPerfTestPending()
 
-  expect(takePerfTestPending()).toBe(true)
-  expect(takePerfTestPending()).toBe(false)
+  expect(takePerfTestPending()).toEqual({})
+  expect(takePerfTestPending()).toBeNull()
 })
 
 test('消した印は読めない', () => {
   markPerfTestPending()
   clearPerfTestPending()
 
-  expect(takePerfTestPending()).toBe(false)
+  expect(takePerfTestPending()).toBeNull()
 })
 
 test('保存を塞いだブラウザでも例外を投げない', () => {
@@ -53,7 +54,7 @@ test('保存を塞いだブラウザでも例外を投げない', () => {
   })
 
   expect(() => markPerfTestPending()).not.toThrow()
-  expect(takePerfTestPending()).toBe(false)
+  expect(takePerfTestPending()).toBeNull()
   expect(() => clearPerfTestPending()).not.toThrow()
 })
 
@@ -69,4 +70,23 @@ test('最後まで流して消した印は、切れたことにならない', ()
   clearPerfTestRunning()
 
   expect(takePerfTestInterrupted()).toBe(false)
+})
+
+test('流し方 (回線・戻り先) を添えた印は中身ごと読める', () => {
+  markPerfTestPending({ line: 'Wi-Fi', returnTo: '/settings/benchmark' })
+
+  expect(takePerfTestPending()).toEqual({ line: 'Wi-Fi', returnTo: '/settings/benchmark' })
+})
+
+test('旧形式の印 (1) は中身なしとして読む', () => {
+  sessionStorage.setItem('qr:perfTest', '1')
+
+  expect(takePerfTestPending()).toEqual({})
+})
+
+test('許していない戻り先は捨てる', () => {
+  expect(parsePerfTestOptions(JSON.stringify({ returnTo: 'https://evil.example/' }))).toEqual({})
+  expect(parsePerfTestOptions(JSON.stringify({ returnTo: '/settings/benchmark', line: '' }))).toEqual({
+    returnTo: '/settings/benchmark',
+  })
 })

@@ -86,3 +86,35 @@ export function formatServerTiming(phases: Readonly<Record<string, number>>): st
     .map(([name, ms]) => `${name};dur=${Math.round(ms)}`)
     .join(', ')
 }
+
+// 行を読み戻す (formatPerfLine の逆。docs/121 §4-3 の収穫が使う)。
+// 値の中の空白は括弧の内側だけにある (`サーバ=23ms(検索=3 特性=0)`) ので、
+// 括弧の外の空白で区切る。計測行でなければ null
+export function parsePerfLine(text: string): { kind: string; fields: Record<string, string> } | null {
+  const tokens: string[] = []
+  let depth = 0
+  let current = ''
+  for (const ch of text.trim()) {
+    if (ch === ' ' && depth === 0) {
+      if (current !== '') tokens.push(current)
+      current = ''
+      continue
+    }
+    if (ch === '(') depth += 1
+    if (ch === ')' && depth > 0) depth -= 1
+    current += ch
+  }
+  if (current !== '') tokens.push(current)
+
+  const [prefix, kind, ...rest] = tokens
+  if (prefix !== PERF_PREFIX || kind === undefined) {
+    return null
+  }
+  const fields = Object.fromEntries(
+    rest.flatMap((token) => {
+      const at = token.indexOf('=')
+      return at <= 0 ? [] : [[token.slice(0, at), token.slice(at + 1)]]
+    }),
+  )
+  return { kind, fields }
+}

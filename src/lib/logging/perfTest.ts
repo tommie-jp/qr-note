@@ -37,15 +37,19 @@ const WARMUP_MS = 3000
 const BEFORE_STOP_MS = 2000
 
 // 段階 (nextStep の呼び出し回数と一致させる。テストが数えて確かめる):
-// 検索 3 語 + 全件 + 表示の切替 (中・大・画像の 3 つ + 小へ戻す 1 つ) + 続き +
-// ノート + 同期
-const TOTAL_STEPS =
-  PERF_TEST_QUERIES.length +
-  1 +
-  (PERF_TEST_VIEW_ORDER.length + 1) +
-  1 +
-  PERF_TEST_NOTE_INDEXES.length +
-  1
+// [回線] + 検索 3 語 + 全件 + 表示の切替 (中・大・画像の 3 つ + 小へ戻す 1 つ) +
+// 続き + ノート + 同期。回線はベンチマークの画面から流したときだけ (docs/121 §4-2)
+export function totalSteps(withNet: boolean): number {
+  return (
+    (withNet ? 1 : 0) +
+    PERF_TEST_QUERIES.length +
+    1 +
+    (PERF_TEST_VIEW_ORDER.length + 1) +
+    1 +
+    PERF_TEST_NOTE_INDEXES.length +
+    1
+  )
+}
 
 // 表示モードの切替の区分。揃え (開始時が小以外のとき小へ)・測定 (小→…→小の
 // 1 周)・戻し (小から元の表示へ)。揃えと戻しは開始時の表示で回数が変わるので、
@@ -83,6 +87,10 @@ export interface PerfTestDeps {
   report: (status: PerfTestStatus) => void
   // 開始の印に添える端末の様子 (ペイン構成・画面の幅など)
   describe: () => readonly PerfField[]
+  // 回線の種別 (有線 / Wi-Fi / キャリア)。あれば 1 段目に回線を測る (docs/121 §4-1)
+  line?: string
+  // 回線を測って行の項目を返す (logging/netProbe.ts)。line があるときだけ呼ぶ
+  measureNet?: () => Promise<readonly PerfField[]>
 }
 
 async function waitIdle(deps: PerfTestDeps): Promise<void> {
@@ -139,15 +147,32 @@ async function runViewSwitches(
 }
 
 export async function runPerfTest(deps: PerfTestDeps): Promise<void> {
+  const withNet = deps.line !== undefined && deps.measureNet !== undefined
+  const total = totalSteps(withNet)
   let step = 0
   const nextStep = (label: string) => {
     step += 1
-    deps.report({ step, total: TOTAL_STEPS, label, done: false })
+    deps.report({ step, total, label, done: false })
   }
   const startedAt = deps.now()
 
   await deps.sleep(WARMUP_MS)
-  deps.send('テスト', [['結果', '開始'], ...deps.describe()])
+  deps.send('テスト', [
+    ['結果', '開始'],
+    ...deps.describe(),
+    ...(deps.line === undefined ? [] : ([['回線', deps.line]] as const)),
+  ])
+
+  if (withNet && deps.measureNet) {
+    nextStep('回線を測る')
+    try {
+      deps.send('回線', [['種別', deps.line], ...(await deps.measureNet())])
+    } catch (error) {
+      // 回線が測れなくても残りの手順は流す。記録は残す
+      console.warn('計測テスト: 回線を測れませんでした', error)
+      deps.send('回線', [['種別', deps.line], ['結果', '失敗']])
+    }
+  }
 
   for (const query of PERF_TEST_QUERIES) {
     nextStep(`「${query}」を検索`)
@@ -198,8 +223,8 @@ export async function runPerfTest(deps: PerfTestDeps): Promise<void> {
     await deps.stop()
   } catch {
     // 止められなくても行は取れている。止まっていないことは知らせに出す
-    deps.report({ step: TOTAL_STEPS, total: TOTAL_STEPS, label: '完了 (計測を止められませんでした)', done: true })
+    deps.report({ step: total, total, label: '完了 (計測を止められませんでした)', done: true })
     return
   }
-  deps.report({ step: TOTAL_STEPS, total: TOTAL_STEPS, label: '完了', done: true })
+  deps.report({ step: total, total, label: '完了', done: true })
 }

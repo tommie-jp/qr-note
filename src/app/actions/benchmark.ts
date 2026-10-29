@@ -3,24 +3,16 @@
 import os from 'node:os'
 import { isAdminUser } from '@/lib/auth/admin'
 import { requireUser } from '@/lib/auth/session'
-import {
-  benchmarkProgress,
-  formatBenchmark,
-  readSavedBenchmark,
-  startBenchmark,
-} from '@/lib/diag/benchmark'
-import { safeErrorText } from '@/lib/diag/safeErrorText'
+import { startBenchmark } from '@/lib/diag/benchmark'
+import { startJob } from '@/lib/diag/benchJob'
+import { type BenchStatus, loadBenchStatus } from '@/lib/diag/benchStatus'
+import { runServerBench } from '@/lib/diag/serverBench'
+import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 import { requireUserOutsideDemo } from './_guards'
 
-export type BenchmarkStatus = {
-  running: boolean
-  // 保存済みの結果 (整形済み)。未計測は null
-  saved: string | null
-  // 直近の計測の失敗理由。読み出しの失敗もここに入る
-  error: string | null
-}
-
-// CPU を 1 分前後使い切るので管理者だけ
+// QR-Note ベンチマーク (docs/121-QR-Noteベンチマーク計画.md)。
+// どれも CPU を使い切るので管理者だけ。始めたら直ちに返し、終わりは
+// getBenchStatusAction を引いて待つ (nginx の応答待ち 60 秒に当てない)
 async function requireAdmin(): Promise<void> {
   await requireUserOutsideDemo('デモモードでは計測できません')
   if (!isAdminUser(await requireUser())) {
@@ -28,24 +20,31 @@ async function requireAdmin(): Promise<void> {
   }
 }
 
-async function currentStatus(): Promise<BenchmarkStatus> {
-  const { running, error } = benchmarkProgress()
-  try {
-    const saved = await readSavedBenchmark()
-    return { running, saved: saved && formatBenchmark(saved), error }
-  } catch (readError) {
-    return { running, saved: null, error: error ?? safeErrorText(readError) }
+// 計測テスト (docs/120) が立っている間はサーバを測らない。端末の操作が
+// 同じ CPU を取り合い、どちらの数字も嘘になる
+function refuseWhilePerfTest(): void {
+  if (isPerfLogEnabled()) {
+    throw new Error('速度計測 (計測テスト) が動いています。終わってから押してください')
   }
 }
 
-// 計測を始めて直ちに返す。終わりは getBenchmarkStatusAction で待つ
-export async function startBenchmarkAction(): Promise<BenchmarkStatus> {
+export async function startCpuBenchAction(): Promise<BenchStatus> {
   await requireAdmin()
+  refuseWhilePerfTest()
   startBenchmark(os.cpus().length)
-  return currentStatus()
+  return loadBenchStatus()
 }
 
-export async function getBenchmarkStatusAction(): Promise<BenchmarkStatus> {
+export async function startServerBenchAction(): Promise<BenchStatus> {
   await requireAdmin()
-  return currentStatus()
+  refuseWhilePerfTest()
+  startJob('server', async () => {
+    await runServerBench()
+  })
+  return loadBenchStatus()
+}
+
+export async function getBenchStatusAction(): Promise<BenchStatus> {
+  await requireAdmin()
+  return loadBenchStatus()
 }

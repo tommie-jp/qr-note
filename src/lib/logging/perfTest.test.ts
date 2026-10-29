@@ -4,6 +4,7 @@ import {
   PERF_TEST_QUERIES,
   PERF_TEST_VIEW_ORDER,
   runPerfTest,
+  totalSteps,
   type PerfTestDeps,
   type PerfTestStatus,
 } from './perfTest'
@@ -237,4 +238,49 @@ test('計測を止められなくても完了まで進み、そのことを知�
   await runPerfTest(deps)
 
   expect(statuses.at(-1)).toMatchObject({ done: true, label: '完了 (計測を止められませんでした)' })
+})
+
+describe('runPerfTest の回線 (docs/121 §4-1)', () => {
+  test('回線を選んだときは開始の直後に回線を測り、分母も 1 つ増える', async () => {
+    const { deps, calls, statuses } = fakeDeps({
+      line: 'Wi-Fi',
+      measureNet: async () => [
+        ['RTT', '18ms'],
+        ['下り', '85Mbps'],
+      ],
+    })
+
+    await runPerfTest(deps)
+
+    expect(calls.slice(0, 2)).toEqual([
+      'send:テスト:結果=開始,panes=2,回線=Wi-Fi',
+      'send:回線:種別=Wi-Fi,RTT=18ms,下り=85Mbps',
+    ])
+    expect(statuses[0]?.total).toBe(totalSteps(true))
+    expect(totalSteps(true)).toBe(totalSteps(false) + 1)
+    expect(statuses.filter((x) => !x.done)).toHaveLength(totalSteps(true))
+  })
+
+  test('回線が測れなくても残りの手順は流し、失敗を残す', async () => {
+    const { deps, calls } = fakeDeps({
+      line: 'キャリア',
+      measureNet: async () => {
+        throw new Error('offline')
+      },
+    })
+
+    await runPerfTest(deps)
+
+    expect(calls).toContain('send:回線:種別=キャリア,結果=失敗')
+    expect(calls).toContain('sync')
+  })
+
+  test('回線を選ばなければ測らない (メニューの「計測開始」)', async () => {
+    const { deps, calls, statuses } = fakeDeps()
+
+    await runPerfTest(deps)
+
+    expect(calls.some((c) => c.startsWith('send:回線'))).toBe(false)
+    expect(statuses[0]?.total).toBe(totalSteps(false))
+  })
 })

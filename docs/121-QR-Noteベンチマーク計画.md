@@ -138,9 +138,10 @@ export interface ClientBenchRun {
 | `thumb:fixture` | `sharp.create` で 1200×900 のノイズ画像を作り、サムネと同じ縮小 (`thumbnail.ts` の寸法・品質) | 1200×900 | 生成 / 縮小 | **なし** |
 | `sync:payload` | `offline/syncItems.ts` の `loadOfflineSyncPayload()` → `JSON.stringify` → `gzipSync` | 件数・gzip 後 MB | db / json / gzip | あり |
 
-- 段階は `startPhases(true)` で取る。`parse:*` の段階は、ベンチ側で
-  `createHash('sha1')` → `createNoteParser().parse()` → `extractFences` →
-  `parseCircuitYaml` を順に呼んで測る。本番のコード (`fences.ts`) には
+- `parse:*` の段階は、ベンチ側 (`lib/diag/parseBench.ts`) で
+  `createHash('sha1')` → `createNoteParser().parse()` → 木を辿って回路
+  フェンスを拾い重複を畳む、の順に呼んで測る (sha1 / 解析 / 抽出)。YAML の
+  組み立ては描画の段で、抽出には入らないので測らない。本番のコード (`fences.ts`) には
   計時を足さない — 描画と同じ経路を通すことより、内訳を見ることを選ぶ。
   合計が `extractCircuitFences` 1 回と合うことをテストで確かめる (§7)
 - `parse:cold` の 20 件は `hasNoCircuitFence` で足切りした上で
@@ -148,10 +149,12 @@ export interface ClientBenchRun {
   回ごとに変わらない。回路ノートが 20 件未満なら、ある分だけで `規模` に
   件数を出す
 - **共有メモ (`circuitFencesOf`) は使わず、汚さない。** 冷えた値を取るため
-- 同梱 Markdown は、回路フェンス 3 つ (circuit・breadboard・perfboard) +
-  表 + 数式 + 折りたたみを含む 8KB 前後。実ノートから抜いた物を手で整える。
-  **ファイルは置かない** (standalone のトレースに乗らない)。TypeScript の
-  文字列定数にする。画像も同じ理由で `sharp.create` で作る
+- 同梱 Markdown は、手元の典型的な回路ノート (見出し・表・数式・タスク・
+  回路 4 つ・VNA・ブレッドボード) と同じ形に**合成した** 5KB (手元の回路
+  ノートの中央値 4.5KB に近い)。回路フェンスは circuit 4 + circuitikz 1。
+  利用者のノートは写さない (qr-note は公開リポジトリ)。**ファイルは置かない**
+  (standalone のトレースに乗らない)。TypeScript の文字列定数にする。画像も
+  同じ理由で、固定の種の乱数から raw を作って sharp で JPEG にする
 
 ### 3-2. 回し方
 
@@ -234,10 +237,10 @@ await writeAtomic(profilePath(), JSON.stringify(profile))
   globalThis に 1 度作って使い回す (テキストにすると nginx の gzip が縮めて
   数字が嘘になる)。`size` の上限は 2MB。POST は本文を読み切って捨て、
   `{ ok: true, bytes }` を返す。上限 1MB を超えたら 413
-- nginx (`deploy/nginx/qr.tommie.jp.conf`): `location = /api/diag/net` に
-  `limit_req zone=qr_login burst=10 nodelay` と `client_max_body_size 2m`。
-  計測 1 回で 7 要求なので `rate=30r/m` + `burst=10` に収まる。gzip の対象
-  type から octet-stream が外れていることを確かめる
+- nginx は**変えない** (実装で改めた)。口はログイン必須で、取得鍵の口
+  (`/api/logs/perf/export`) のように誰でも叩けるものではない。本文の上限は
+  server 既定の 35M の内側で、アプリが 1MB で 413 にする。nginx の gzip は
+  既定の text/html だけで octet-stream は縮めず、中身も乱数なので縮まない
 - ブラウザ側は `lib/logging/netProbe.ts` (純粋な手順。fetch と時計は引数で
   受ける) と、それを `PerfTestRunner` から呼ぶ 1 段。各項目 3 回の中央値。
   **ループで何十 MB も使う speedtest にはしない** (キャリアの通信量)
@@ -339,7 +342,6 @@ docker compose exec app node --cpu-prof ... (standalone には tsx が無い。�
 | `src/app/api/diag/net/route.ts` (新規) | §4-1 の口 |
 | `src/app/api/diag/profile/route.ts` (新規) | §3-4 のダウンロード |
 | `src/app/api/client-logs/route.ts` | 完了を見て収穫 |
-| `deploy/nginx/qr.tommie.jp.conf` | `/api/diag/net` の回数制限・本文上限 |
 | `scripts/profileParse.ts` (新規) | §5 |
 | `docs/109-*.md` | 7z b の節を移した旨 |
 | `docs/120-*.md` | 回線の段・印の形・戻り先 |
@@ -393,5 +395,10 @@ docker compose exec app node --cpu-prof ... (standalone には tsx が無い。�
 1. §2・§3・§1 (サーバ側 + 7z b の移設 + ページ) + §3-4 の cpuprofile。
    ここまでで VPS 移行の判定に使える
 2. 本番と手元で測り、docs/28 に目安を書く。§5 で解析の内訳を見る
-3. §4 (回線・釦・収穫) と nginx の追記。`compose.yaml` は変わらないが
-   nginx の conf は配布で転送されないので、別途 scp して reload
+3. §4 (回線・釦・収穫)。nginx も `compose.yaml` も変えない
+
+実装 (2026-10-29): 1〜3 を 1 度に入れた。§5 のスクリプトで手元の回路ノート
+200 件 (1.7MB) を測ると 1 件 3.3〜3.8ms で、うち解析 (remark) が 96%。
+プロファイルの自己時間は micromark (18%)・micromark-util-subtokenize (10%)・
+mdast-util-from-markdown (6%)・micromark-extension-gfm-table (5%) の順で、
+特定の拡張が突出してはいない。本文全体の字句解析そのものが重い

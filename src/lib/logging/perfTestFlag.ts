@@ -9,22 +9,51 @@
 // (offline/schedule.ts の readMark と同じ作法)
 const PERF_TEST_FLAG_KEY = 'qr:perfTest'
 
-export function markPerfTestPending(): void {
+// 印に添える流し方 (docs/121 §4-2)。メニューの「計測開始」は中身なしで付ける
+export interface PerfTestOptions {
+  // 回線の種別 (有線 / Wi-Fi / キャリア)。あれば 1 段目に回線を測る
+  line?: string
+  // 終わった後に戻る先。ベンチマークの画面だけを許す (PERF_TEST_RETURN_PATHS)
+  returnTo?: string
+}
+
+// 戻り先は印の値から URL を組むので、固定の行き先に絞る
+export const PERF_TEST_RETURN_PATHS = ['/settings/benchmark'] as const
+
+export function markPerfTestPending(options: PerfTestOptions = {}): void {
   try {
-    sessionStorage.setItem(PERF_TEST_FLAG_KEY, '1')
+    sessionStorage.setItem(PERF_TEST_FLAG_KEY, JSON.stringify(options))
   } catch {
     // 保存できなければ流れないだけ (メニューから押し直せる)
   }
 }
 
-// 印があれば消して true。読み込み直しのたびに流れ直さないよう、読んだら消す
-export function takePerfTestPending(): boolean {
+// 印の中身を検算する。旧形式の '1' や読めない値は「中身なし」
+export function parsePerfTestOptions(raw: string): PerfTestOptions {
+  let value: unknown
   try {
-    const pending = sessionStorage.getItem(PERF_TEST_FLAG_KEY) === '1'
-    sessionStorage.removeItem(PERF_TEST_FLAG_KEY)
-    return pending
+    value = JSON.parse(raw)
   } catch {
-    return false
+    return {}
+  }
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+  const { line, returnTo } = value as Record<string, unknown>
+  return {
+    ...(typeof line === 'string' && line !== '' ? { line } : {}),
+    ...(PERF_TEST_RETURN_PATHS.some((path) => path === returnTo) ? { returnTo: returnTo as string } : {}),
+  }
+}
+
+// 印があれば消して中身を返す (無ければ null)。読み込み直しのたびに流れ直さないよう、読んだら消す
+export function takePerfTestPending(): PerfTestOptions | null {
+  try {
+    const raw = sessionStorage.getItem(PERF_TEST_FLAG_KEY)
+    sessionStorage.removeItem(PERF_TEST_FLAG_KEY)
+    return raw === null ? null : parsePerfTestOptions(raw)
+  } catch {
+    return null
   }
 }
 

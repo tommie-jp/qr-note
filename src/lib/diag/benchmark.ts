@@ -2,7 +2,7 @@
 //
 // 1 回に 30 秒前後かかり CPU を使い切るので、画面を開くたびに集める
 // collectServerInfo には混ぜない (節の制限 5 秒に収まらず、負荷も掛かる)。
-// 同時に 2 本走らせると互いに遅くなり数字が嘘になるので、実行中は同じ結果を待たせる
+// 同時に 2 本走らせると互いに遅くなり数字が嘘になるので、benchJob.ts で 1 本に絞る
 import 'server-only'
 import { execFile } from 'node:child_process'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
@@ -10,8 +10,7 @@ import os from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { formatJstDateTime } from '../datetime'
-import { errorText } from '../errorMessage'
-import { safeErrorText } from './safeErrorText'
+import { startJob } from './benchJob'
 import { notesRepoDir } from '../git/notesRepo'
 
 const execFileAsync = promisify(execFile)
@@ -100,32 +99,13 @@ async function measure(threads: number): Promise<BenchmarkResult> {
   return result
 }
 
-let running: Promise<void> | null = null
-let lastError: string | null = null
-
-// 計測を裏で始める (走っていれば何もしない)。結果は待たない — 1 分前後かかり、
-// リクエストに乗せたままだと nginx の応答待ち (既定 60 秒) に切られて
-// 「An unexpected response was received」になる。画面は benchmarkProgress を
-// 引いて終わりを知り、結果は保存ファイルから読む
-export function startBenchmark(threads: number): void {
-  if (running) {
-    return
-  }
-  lastError = null
-  running = measure(threads)
-    .then(
-      () => undefined,
-      (error: unknown) => {
-        // 画面には理由を出し、/logs にも残す (黙って終わらせない)
-        console.warn('CPU 計測に失敗', error instanceof Error ? error : new Error(errorText(error)))
-        lastError = safeErrorText(error)
-      },
-    )
-    .finally(() => {
-      running = null
-    })
-}
-
-export function benchmarkProgress(): { running: boolean; error: string | null } {
-  return { running: running !== null, error: lastError }
+// 計測を裏で始める (何か走っていれば始めず false)。結果は待たない — 1 分前後
+// かかり、リクエストに乗せたままだと nginx の応答待ち (既定 60 秒) に切られて
+// 「An unexpected response was received」になる。画面は jobProgress を
+// 引いて終わりを知り、結果は保存ファイルから読む。
+// サーバ側ベンチ (serverBench.ts) と同時には走らせない (benchJob.ts)
+export function startBenchmark(threads: number): boolean {
+  return startJob('cpu', async () => {
+    await measure(threads)
+  })
 }

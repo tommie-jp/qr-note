@@ -3,6 +3,7 @@ import {
   formatPerfLine,
   formatPhaseSummary,
   formatServerTiming,
+  parsePerfLine,
   perfKB,
   perfMB,
   perfMs,
@@ -67,5 +68,25 @@ describe('formatPhaseSummary', () => {
 describe('formatServerTiming', () => {
   test('ASCII の名前だけを Server-Timing の形にする', () => {
     expect(formatServerTiming({ db: 40.2, json: 90, 検索: 3 })).toBe('db;dur=40, json;dur=90')
+  })
+})
+
+describe('parsePerfLine', () => {
+  test('formatPerfLine の行を読み戻す (括弧の中の空白で切らない)', () => {
+    const text = formatPerfLine('検索', [
+      ['q', perfQuery('抵抗 器')],
+      ['全体', perfMs(624)],
+      ['サーバ', '23ms(検索=3 特性=0)'],
+    ])
+
+    expect(parsePerfLine(text)).toEqual({
+      kind: '検索',
+      fields: { q: '"抵抗_器"', 全体: '624ms', サーバ: '23ms(検索=3 特性=0)' },
+    })
+  })
+
+  test('計測行でなければ null', () => {
+    expect(parsePerfLine('[起動] 全体=1ms')).toBeNull()
+    expect(parsePerfLine('')).toBeNull()
   })
 })

@@ -11,7 +11,6 @@ const mocks = vi.hoisted(() => ({
   collectServerInfo: vi.fn(),
 }));
 
-vi.mock("@/app/actions/benchmark", () => ({ runBenchmarkAction: vi.fn() }));
 vi.mock("@/lib/auth/pageGuard", () => ({
   requireAdminPage: mocks.requireAdminPage,
 }));

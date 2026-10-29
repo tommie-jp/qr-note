@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { CopyTextButton } from "@/components/CopyTextButton";
-import { BenchmarkButton } from "./BenchmarkButton";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { requireAdminPage } from "@/lib/auth/pageGuard";
 import { formatJstDateTime } from "@/lib/datetime";
@@ -11,12 +10,6 @@ import {
   LEVEL_LABEL,
   SECTION_FAILED_PREFIX,
 } from "@/lib/diag/formatServerInfo";
-import {
-  benchmarkProgress,
-  formatBenchmark,
-  readSavedBenchmark,
-} from "@/lib/diag/benchmark";
-import { errorText } from "@/lib/errorMessage";
 import { collectServerInfo } from "@/lib/diag/serverInfo";
 import type { HealthLevel, InfoSection } from "@/lib/diag/types";
 
@@ -74,15 +67,6 @@ function SectionBlock({ section }: { section: InfoSection }) {
 export default async function ServerInfoPage() {
   await requireAdminPage();
   const info = await collectServerInfo();
-  // 壊れた保存ファイルは未計測と区別して画面に出す
-  let saved: string | null = null;
-  let readError: string | null = null;
-  try {
-    const r = await readSavedBenchmark();
-    saved = r && formatBenchmark(r);
-  } catch (error) {
-    readError = errorText(error);
-  }
 
   return (
     <PageTransition>
@@ -102,7 +86,7 @@ export default async function ServerInfoPage() {
             {formatJstDateTime(info.collectedAt)} 時点。再読み込みで更新します。
           </p>
           <CopyTextButton
-            text={`${formatServerInfo(info)}\n\n## CPU 性能 (7z b)\n${saved ?? "未計測"}`}
+            text={formatServerInfo(info)}
             subject="サーバー情報"
           />
         </div>
@@ -138,16 +122,13 @@ export default async function ServerInfoPage() {
           <SectionBlock key={section.id} section={section} />
         ))}
 
-        <section className="space-y-2">
-          <h2 className="text-lg font-bold">CPU 性能 (7z b)</h2>
-          <BenchmarkButton
-            initial={{
-              saved,
-              ...benchmarkProgress(),
-              error: readError ?? benchmarkProgress().error,
-            }}
-          />
-        </section>
+        {/* CPU 性能 (7z b) は QR-Note ベンチマークへ移した (docs/121 §1)。
+            計測は押したときだけ走らせる物で、開くたびに集めるこの画面とは性質が違う */}
+        <p className="text-sm">
+          <Link href="/settings/benchmark" className={ACTION_LINK_CLASS}>
+            ベンチマーク →
+          </Link>
+        </p>
       </div>
     </PageTransition>
   );
