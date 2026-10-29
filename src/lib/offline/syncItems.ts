@@ -14,7 +14,6 @@ import {
   CIRCUITIKZ_LANG,
   type CircuitFence,
   circuitKey,
-  hasNoCircuitFence,
 } from '@/lib/circuit/fences'
 import { circuitYamlHash } from '@/lib/circuit/yaml'
 import { circuitHash } from '@/lib/circuit/hash'
@@ -25,14 +24,7 @@ import {
   type OfflineItem,
   type OfflineSyncPayload,
 } from './item'
-import { circuitFencesOf } from '@/lib/circuit/fenceMemo'
-
-// 同期の解析ループで何件ごとに順番を譲るか。1 件 3〜5ms なので約 200ms ごと
-const PARSE_YIELD_EVERY = 50
-
-// 溜まっている I/O (ほかの要求) を先に進ませる
-const yieldToEventLoop = (): Promise<void> =>
-  new Promise((resolve) => setImmediate(resolve))
+import { circuitFencesOfMany } from '@/lib/circuit/fenceStore'
 
 // ゴミ箱のノートは運ばない。オフラインではゴミ箱も復元も出さないので、
 // 端末に置いても検索を濁らせるだけになる。
@@ -99,24 +91,13 @@ async function loadOfflineCircuits(
   // 同じ優先度の中では引いた順 = 更新の新しい順が残る
   const ordered = [...items].sort((a, b) => Number(b.pinned) - Number(a.pinned))
 
+  // 取り出しは DB の控えから (docs/122 §1)。控えに無い本文だけを解析する。
+  // 回路の言語名を含まないノートは引きにも行かない (circuitFencesOfMany の足切り)
+  const fencesByItem = await circuitFencesOfMany(ordered.map((item) => item.memo))
   const fences: CircuitFence[] = []
   const seen = new Set<string>()
-  let parsed = 0
-  for (const item of ordered) {
-    // remark の解析は全ノートに掛けると安くない。フェンス言語の文字列を
-    // 含まないノートは**必ず**回路図を持たないので、そこで先に落とす
-    // (``` でも ~~~ でも言語名は本文に現れる)
-    if (hasNoCircuitFence(item.memo)) {
-      continue
-    }
-    // 解析は覚えておく (docs/118 §1)。それでも起動直後の 1 回は全件を
-    // 解析する (手元で 2 秒)。CPU だけの処理なので、譲らないとその間
-    // ほかの要求が一切進まない — 同期と重なった検索が 1.6 秒待った
-    parsed += 1
-    if (parsed % PARSE_YIELD_EVERY === 0) {
-      await yieldToEventLoop()
-    }
-    for (const fence of circuitFencesOf(item.memo)) {
+  for (const itemFences of fencesByItem) {
+    for (const fence of itemFences) {
       const key = circuitKey(fence.lang, fence.source)
       if (!seen.has(key)) {
         seen.add(key)

@@ -13,8 +13,8 @@ import 'server-only'
 import { prisma } from '../db'
 import { assertSafeCircuitSvg, circuitHash } from './hash'
 import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './types'
-import { CIRCUITIKZ_LANG, type CircuitFence, hasNoCircuitFence } from './fences'
-import { circuitFencesOf } from './fenceMemo'
+import { CIRCUITIKZ_LANG, type CircuitFence } from './fences'
+import { circuitFencesOfMany } from './fenceStore'
 import { circuitYamlHash } from './yaml'
 import { firstThumbInfo } from '../images/memoImages'
 
@@ -54,22 +54,19 @@ export async function loadCircuitThumbs(
   items: readonly ThumbSource[],
   mode: CircuitThumbMode,
 ): Promise<CircuitThumbMap> {
-  // 足切り: remark のパース (extractCircuitSources) は安くないので、
-  // フェンスの気配が無いノートは文字列検索だけで外す (syncItems と同じ)。
-  // first では画像サムネを持つノートも外す — 一覧の顔は画像が優先で、
-  // 引いても使われない (優先順位の正本は lib/items/itemRowDecor.ts の rowFace)
-  const wants = items.flatMap((item) => {
-    if (hasNoCircuitFence(item.memo)) {
-      return []
-    }
-    if (mode === 'first' && firstThumbInfo(item.memo) !== null) {
-      return []
-    }
+  // 足切り: first では画像サムネを持つノートも外す — 一覧の顔は画像が優先で、
+  // 引いても使われない (優先順位の正本は lib/items/itemRowDecor.ts の rowFace)。
+  // 回路の言語名を含まないノートは circuitFencesOfMany が引きにも行かずに外す
+  const candidates = items.filter(
+    (item) => !(mode === 'first' && firstThumbInfo(item.memo) !== null),
+  )
+  // 取り出しは DB の控えから (docs/122 §1)。控えに無い本文だけを解析する。
+  // 追加読み込みは 1〜N ページを描き直すので、控えが無いと同じノートを毎回解析し直す
+  const fencesByItem = await circuitFencesOfMany(candidates.map((item) => item.memo))
+  const wants = candidates.flatMap((item, index) => {
     // 9 個目以降は描画側 (planCircuits) が描かないので引きにも行かない。
     // **上限は 2 言語の合算**なので、切るのも 1 本に並べた後 (docs/91 §4)
-    // 解析は覚えておく (docs/118 §1)。追加読み込みは 1〜N ページを描き直すので、
-    // 覚えないと同じノートを毎回解析し直す
-    const fences = circuitFencesOf(item.memo).slice(0, MAX_CIRCUITS_PER_MEMO)
+    const fences = fencesByItem[index].slice(0, MAX_CIRCUITS_PER_MEMO)
     if (fences.length === 0) {
       return []
     }

@@ -25,6 +25,10 @@
 #   circuits    circuit_svgs を既存ノート全件ぶん描画して埋める (一覧の回路図サムネ導入時に
 #               1 回。docs/68-一覧回路図サムネ計画.md §6)。以後の新しい図はノートの表示時に
 #               描かれて自然に揃うため、定期実行は要らない。
+#   circuit-fences
+#               回路フェンスの控え (memo_circuit_fences、docs/122 §1) をまとめて埋め、
+#               どの本文にも当たらない古い行を掃く。流さなくても一覧・同期が引いたときに
+#               埋まる。配布の直後に 1 回流すと、最初の同期の解析の山が消える。冪等。
 #   circuit-addresses
 #               ```circuit フェンスの旧い番地 (a1 a1f5) を x,y に書き直す (docs/102)。
 #               circuit-fence 0.35.0 を載せたデプロイの直後に 1 回。**本文 (正本) を書き換える**
@@ -82,7 +86,7 @@ cd "$(dirname "$0")"
 . scripts/lib/remote.sh
 
 usage() {
-  echo "usage: $0 <titles|taskcounts|thumbs|circuits|circuit-addresses|photometa|photometa-check|embeddings> [--demo | --seed]" >&2
+  echo "usage: $0 <titles|taskcounts|thumbs|circuits|circuit-fences|circuit-addresses|photometa|photometa-check|embeddings> [--demo | --seed]" >&2
   echo "       $0 -h    (詳しい説明)" >&2
   exit 1
 }
@@ -116,6 +120,7 @@ case "$TASK" in
   taskcounts) TASK_LABEL="タスク数を数え直す"; TASK_ARGS=(scripts/backfillTaskCounts.ts) ;;
   thumbs) TASK_LABEL="サムネ再生成 (--force)"; TASK_ARGS=(scripts/backfillThumbs.ts --force) ;;
   circuits) TASK_LABEL="回路図の一括描画 (描画済みは飛ばす)"; TASK_ARGS=(scripts/backfillCircuits.ts) ;;
+  circuit-fences) TASK_LABEL="回路フェンスの控えを埋めて古い行を掃く"; TASK_ARGS=(scripts/backfillCircuitFences.ts) ;;
   circuit-addresses) TASK_LABEL="circuit の旧い番地を x,y に書き直す (DRY_RUN=1 なら書かない)"; TASK_ARGS=(scripts/backfillCircuitAddresses.ts) ;;
   photometa) TASK_LABEL="写真と動画の撮影情報を抜く (原本を書き換える)"; TASK_ARGS=(scripts/backfillPhotoMeta.ts) ;;
   photometa-check) TASK_LABEL="写真と動画の撮影情報を数える (書き換えない)"; TASK_ARGS=(scripts/backfillPhotoMeta.ts --dry-run) ;;

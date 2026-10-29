@@ -237,6 +237,24 @@ model CircuitSvg {
   @@map("circuit_svgs")
 }
 
+// 本文から取り出した回路フェンスの控え (docs/122 §1)。鍵は本文の sha1
+// (circuit/fenceMemo.ts の memoHash)、中身は extractCircuitFences の戻り値
+// ([{ lang, source }]、本文に出てくる順・重複なし)。
+//
+// 一覧のサムネと同期は、ここを引いて remark の解析を飛ばす。プロセスの記憶
+// (fenceMemo) と違い、再起動・配布でも消えない。**items に列を足さないのが要点** —
+// 一覧の ItemList は client で Item を丸ごと受け取るので、列にすると回路の中身が
+// 一覧の RSC にもう一度乗る。鍵が本文の中身なので、本文を書く経路に手を入れずに
+// 古い結果を返さない。本文が変わった後の古い行は doBackfill.sh circuit-fences が掃く。
+// 消えても解析し直せる派生キャッシュ (circuit_svgs と同じ扱い)
+model MemoCircuitFences {
+  memoHash  String   @id @map("memo_hash")
+  fences    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("memo_circuit_fences")
+}
+
 // 検索窓が覚えているクエリ (docs/59-検索候補計画.md §7)。
 //
 //   kind = 'recent' … 直近に検索した語。使うほど勝手に入れ替わる

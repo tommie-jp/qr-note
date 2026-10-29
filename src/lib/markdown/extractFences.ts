@@ -13,10 +13,11 @@
 
 import type { Code, Root } from 'mdast'
 import { visit } from 'unist-util-visit'
-import { createNoteParser } from './parser'
+import { createFenceParser } from './parser'
 
-// 描画側と同じ列で凍結したパーサ (parse だけ使う。変換は要らない)
-const NOTE_PARSER = createNoteParser()
+// 描画の列から remark-gfm だけを外したパーサ (parse だけ使う。docs/122 §2)。
+// フェンスの見つけ方は描画と変わらない (parser.ts の createFenceParser の注)
+const NOTE_PARSER = createFenceParser()
 
 // 取り出した 1 つのフェンス。source は trim 済み
 export interface Fence<L extends string = string> {

@@ -11,6 +11,7 @@
 import 'server-only'
 import os from 'node:os'
 import { gzipSync } from 'node:zlib'
+import { SYNC_GZIP_LEVEL } from '@/lib/route/compress'
 import sharp from 'sharp'
 import pkg from '../../../package.json'
 import { prisma } from '@/lib/db'
@@ -19,7 +20,8 @@ import { searchItems } from '@/lib/items/search'
 import { loadOfflineSyncPayload } from '@/lib/offline/syncItems'
 import { safeErrorText } from './safeErrorText'
 import { BENCH_FIXTURE_MD } from './benchFixture'
-import { profileCpu } from './benchProfile'
+import { profileCpu, readBundleSourceMap } from './benchProfile'
+import { type CpuProfile, type ModuleTime, remapProfile, summarizeByModule } from './profileRemap'
 import { profilePath, saveServerBench, writeAtomic } from './benchStore'
 import type { BenchEnv, ServerBenchItem, ServerBenchResult } from './benchTypes'
 import { parseBatch } from './parseBench'
@@ -158,7 +160,7 @@ function parseTasks(coldMemos: readonly string[]): BenchTask[] {
   return [
     {
       id: 'parse:cold',
-      label: `回路の解析 (実ノート ${COLD_PARSE_ITEMS} 件・記憶なし)`,
+      label: `回路の解析 (実ノート ${COLD_PARSE_ITEMS} 件・控えなし)`,
       fixed: false,
       run: () => parseSample(coldMemos, (fences) => `${coldMemos.length} 件・${fences} 図`),
     },
@@ -197,7 +199,8 @@ const syncTask: BenchTask = {
     const t0 = performance.now()
     const json = JSON.stringify(db.value)
     const t1 = performance.now()
-    const gz = gzipSync(json)
+    // 同期の口と同じ強さ。口は非同期で圧縮するが、ここは CPU の重さを測るので同期で
+    const gz = gzipSync(json, { level: SYNC_GZIP_LEVEL })
     const t2 = performance.now()
     const mb = (bytes: number) => (bytes / MB).toFixed(1)
     return {
@@ -206,6 +209,54 @@ const syncTask: BenchTask = {
       scale: `${db.value.items.length} 件・${mb(Buffer.byteLength(json))}MB → ${mb(gz.byteLength)}MB`,
     }
   },
+}
+
+// 検索ページ全体の組み立て (docs/122 §5)。自分自身へ RSC の要求を撃ち、ヘッダが
+// 届くまで (応答開始) と本文を読み切るまでを測る。DB の検索 (search:*) は数 ms
+// なのに、本番の端末では応答開始が数百 ms ある — その差がページの組み立て。
+//
+// cookie は押した管理者の要求から写す (同じプロセスへのループバックで、外へは
+// 出ない)。ペイン構成と表示モードは環境どうしで比べられるよう固定で上書きする
+export const PAGE_BENCH_QUERY = '抵抗'
+const PAGE_BENCH_PREFS: readonly (readonly [string, string])[] = [
+  ['panes', '3'],
+  ['view', 'compact'],
+]
+
+export function pageBenchCookie(cookies: readonly { name: string; value: string }[]): string {
+  const fixed = new Set(PAGE_BENCH_PREFS.map(([name]) => name))
+  return [...cookies.filter((c) => !fixed.has(c.name)).map((c) => [c.name, c.value] as const), ...PAGE_BENCH_PREFS]
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ')
+}
+
+function pageTask(cookie: string, origin: string): BenchTask {
+  return {
+    id: 'page:search',
+    label: `検索ページの組み立て「${PAGE_BENCH_QUERY}」(3 ペイン・小)`,
+    fixed: false,
+    run: async () => {
+      const started = performance.now()
+      // `_rsc` は最初から付ける。無いと Next が付けた URL へ 307 で転送し、その往復が
+      // 応答開始に混ざる (Next 16 は RSC の要求にこの引数を求める。値は空でよい)
+      const res = await fetch(`${origin}/?q=${encodeURIComponent(PAGE_BENCH_QUERY)}&_rsc`, {
+        headers: { RSC: '1', Cookie: cookie },
+        redirect: 'manual',
+        cache: 'no-store',
+      })
+      const headersAt = performance.now()
+      const body = await res.arrayBuffer()
+      const ended = performance.now()
+      if (res.status !== 200) {
+        throw new Error(`自分への要求が HTTP ${res.status} (ログインや待ち受けのポートを確かめる)`)
+      }
+      return {
+        totalMs: ended - started,
+        phases: { 応答開始: headersAt - started, 本文: ended - headersAt },
+        scale: `${Math.round(body.byteLength / 1024)}KB`,
+      }
+    },
+  }
 }
 
 async function runTasks(tasks: readonly BenchTask[]): Promise<Pick<ServerBenchResult, 'items' | 'failed'>> {
@@ -224,14 +275,32 @@ async function runTasks(tasks: readonly BenchTask[]): Promise<Pick<ServerBenchRe
 }
 
 // 冷えた解析をもう 1 回、プロファイルを取りながら回す。計測の回には混ぜない
-// (プロファイラの負担で遅くなる)
-async function saveParseProfile(coldMemos: readonly string[]): Promise<void> {
+// (プロファイラの負担で遅くなる)。保存の前に束ねの位置を元のモジュールへ引き直し
+// (docs/122 §4)、モジュールごとの自己時間を画面用に畳んで返す
+async function saveParseProfile(coldMemos: readonly string[]): Promise<ModuleTime[]> {
   const memos = coldMemos.length > 0 ? coldMemos : [BENCH_FIXTURE_MD]
   const { profile } = await profileCpu(() => parseBatch(memos))
-  await writeAtomic(profilePath(), JSON.stringify(profile))
+  const remapped = remapProfile(profile as CpuProfile, readBundleSourceMap)
+  await writeAtomic(profilePath(), JSON.stringify(remapped))
+  return summarizeByModule(remapped)
 }
 
-export async function runServerBench(): Promise<ServerBenchResult> {
+export interface ServerBenchOptions {
+  // 検索ページの組み立て (page:search) に使う cookie。無ければその項目を飛ばす
+  pageCookie?: string
+  // 自分自身の待ち受け (standalone の server.js は 0.0.0.0:PORT)
+  origin?: string
+}
+
+// standalone の server.js は環境変数 HOSTNAME のアドレスで待ち受ける。docker は
+// HOSTNAME にコンテナ名を入れるので、127.0.0.1 では届かない (ECONNREFUSED)。
+// 0.0.0.0 (すべて) や未設定なら 127.0.0.1 で届く
+export function selfOrigin(env: Readonly<Record<string, string | undefined>> = process.env): string {
+  const host = env.HOSTNAME && env.HOSTNAME !== '0.0.0.0' ? env.HOSTNAME : '127.0.0.1'
+  return `http://${host}:${env.PORT || '3000'}`
+}
+
+export async function runServerBench(options: ServerBenchOptions = {}): Promise<ServerBenchResult> {
   const env = await collectBenchEnv()
   const coldMemos = await loadColdMemos()
   const jpeg = await makeNoiseJpeg()
@@ -241,16 +310,23 @@ export async function runServerBench(): Promise<ServerBenchResult> {
     ...parseTasks(coldMemos).filter((task) => coldMemos.length > 0 || task.fixed),
     thumbTask(jpeg),
     syncTask,
+    ...(options.pageCookie === undefined ? [] : [pageTask(options.pageCookie, options.origin ?? selfOrigin())]),
   ]
   const { items, failed } = await runTasks(tasks)
-  const profileFailed = await saveParseProfile(coldMemos).then(
-    () => [],
+  const profile = await saveParseProfile(coldMemos).then(
+    (modules) => ({ modules, failed: [] }),
     (error: unknown) => {
       console.warn('サーバ側ベンチ: プロファイルの保存に失敗', error)
-      return [{ id: 'profile', message: safeErrorText(error) }]
+      return { modules: [], failed: [{ id: 'profile', message: safeErrorText(error) }] }
     },
   )
-  const result: ServerBenchResult = { version: 1, env, items, failed: [...failed, ...profileFailed] }
+  const result: ServerBenchResult = {
+    version: 1,
+    env,
+    items,
+    failed: [...failed, ...profile.failed],
+    profileModules: profile.modules,
+  }
   await saveServerBench(result)
   return result
 }

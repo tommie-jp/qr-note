@@ -58,6 +58,7 @@ export function formatBenchCopy(input: {
       ? [
           ...input.server.items.map(serverItemLine),
           ...input.server.failed.map((f) => `サーバ.${f.id}=失敗 (${f.message})`),
+          ...(input.server.profileModules ?? []).map((m) => `解析.${m.module}=${formatMs(m.ms)} ${m.pct}%`),
         ]
       : ['サーバ=未計測']),
     ...(input.clients.length > 0 ? input.clients.flatMap(clientLines) : ['端末=未計測']),

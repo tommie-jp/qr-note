@@ -1,5 +1,8 @@
+import type { Code, Root } from 'mdast'
+import { visit } from 'unist-util-visit'
 import { describe, expect, test } from 'vitest'
 import { extractFenceSources, extractFences, uniqueBy } from './extractFences'
+import { createNoteParser } from './parser'
 
 describe('extractFences', () => {
   const isAorB = (lang: string | null | undefined): lang is 'a' | 'b' =>
@@ -133,5 +136,36 @@ describe('描画と同じ解釈で拾う', () => {
     expect(extractFences(markdown, isCircuit)).toEqual([
       { lang: 'circuit', source: 'parts:\n  R4: r a b' },
     ])
+  })
+})
+
+// 抽出用の parser (remark-gfm なし) が、描画の parser と同じ所でフェンスを
+// 見つけること (docs/122 §2)。全ノートでの一致は scripts/checkFenceParsers.ts
+describe('抽出用の parser と描画の parser の一致', () => {
+  const F = '```'
+  const noteFences = (markdown: string): string[] => {
+    const out: string[] = []
+    visit(createNoteParser().parse(markdown) as Root, 'code', (node: Code) => {
+      out.push(`${node.lang}:${node.value.trim()}`)
+    })
+    return out
+  }
+  const any = (lang: string | null | undefined): lang is string => typeof lang === 'string'
+  const fenceFences = (markdown: string) =>
+    extractFences(markdown, any).map((f) => `${f.lang}:${f.source}`)
+
+  test.each([
+    ['表のセルの中のフェンス記号 (インラインのコード)', ['| a | b |', '| --- | --- |', `| ${F}circuit x${F} | 2 |`].join('\n')],
+    ['表の直後のフェンス (空行なし)', ['| a |', '| --- |', '| 1 |', `${F}circuit`, 'x', F].join('\n')],
+    ['脚注の定義の中のフェンス', ['本文[^1]', '', '[^1]: 注', '', `    ${F}circuit`, '    x', `    ${F}`].join('\n')],
+    [':::details の中のフェンス', [':::details 開く', `${F}circuit`, 'x', F, ':::'].join('\n')],
+    ['$$ の中のフェンス記号 (数式の中身)', ['$$', F, 'x', F, '$$'].join('\n')],
+    ['リストの中のフェンス', ['- 項目', '', `  ${F}circuit`, '  x', `  ${F}`].join('\n')],
+  ])('%s', (_label, markdown) => {
+    expect(fenceFences(markdown)).toEqual(noteFences(markdown))
+  })
+
+  test('$$ の中の記号はフェンスにしない (math を外さない理由)', () => {
+    expect(fenceFences(['$$', `${F}circuit`, 'x', F, '$$'].join('\n'))).toEqual([])
   })
 })

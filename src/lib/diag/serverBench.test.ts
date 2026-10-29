@@ -56,3 +56,23 @@ test('ノイズ画像は毎回同じ中身になる (環境どうしで同じ材
   // JPEG の先頭
   expect([...a.slice(0, 2)]).toEqual([0xff, 0xd8])
 })
+
+test('検索ページの cookie はペイン構成と表示モードを固定で上書きする', async () => {
+  const { pageBenchCookie } = await import('./serverBench')
+
+  const cookie = pageBenchCookie([
+    { name: 'qr_session', value: 's1' },
+    { name: 'panes', value: '1' },
+    { name: 'view', value: 'image' },
+  ])
+
+  expect(cookie).toBe('qr_session=s1; panes=3; view=compact')
+})
+
+test('自分自身の宛先は standalone の待ち受け (HOSTNAME) に合わせる', async () => {
+  const { selfOrigin } = await import('./serverBench')
+
+  expect(selfOrigin({ HOSTNAME: '387119a2fecf' })).toBe('http://387119a2fecf:3000')
+  expect(selfOrigin({ HOSTNAME: '0.0.0.0', PORT: '3301' })).toBe('http://127.0.0.1:3301')
+  expect(selfOrigin({})).toBe('http://127.0.0.1:3000')
+})

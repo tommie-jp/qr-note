@@ -37,6 +37,9 @@ export interface ServerBenchResult {
   items: ServerBenchItem[]
   // 失敗した項目 (除いて保存する。黙って欠けさせない)
   failed: { id: string; message: string }[]
+  // 回路の解析のプロファイルを、元のモジュールごとの自己時間に畳んだ物 (多い順。
+  // docs/122 §4)。古い保存 (v0.23.83) には無い
+  profileModules?: { module: string; ms: number; pct: number }[]
 }
 
 export interface ClientBenchRow {

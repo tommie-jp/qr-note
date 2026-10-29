@@ -8,12 +8,25 @@
 // respond.ts (封筒の組み立て) に混ぜないのは、あちらが next/server だけを読む
 // 葉で、proxy.ts からも使われるため。zlib はここに閉じる。
 //
-// 同期で圧縮する (gzipSync)。本文は JSON.stringify で既に 1 本の文字列になって
-// いるので、ストリームにしても山は変わらない。11MB → 約 2.3MB、手元で 80ms
-import { gzipSync } from 'node:zlib'
+// 圧縮は**非同期** (docs/122 §3)。zlib は libuv のスレッドプールで走るので、
+// 圧縮の間も Node のイベントループが空き、同期と重なった検索が待たない
+// (gzipSync のときは本番で 292ms、ほかの要求が止まっていた)。本文は
+// JSON.stringify で既に 1 本の文字列になっているので、ストリームにしても山は
+// 変わらない。
+import { promisify } from 'node:util'
+import { gzip } from 'node:zlib'
 import { NextResponse } from 'next/server'
 
 const NO_STORE = 'no-store'
+
+// 圧縮の強さ (docs/122 §3)。本番のダンプの同期 (JSON 8.8MB) を手元で測った:
+//   level 1: 2.76MB 65ms / 4: 2.36MB 78ms / 6 (既定): 2.24MB 121ms
+// 4 は既定より 35% 速く、増えるのは 0.12MB (キャリアの 51Mbps で約 19ms)。
+// 1 は 0.5MB 増えて、縮んだ時間を回線で取り戻されるので取らない。
+// ベンチ (diag/serverBench.ts の同期の組み立て) も同じ値で測る
+export const SYNC_GZIP_LEVEL = 4
+
+const gzipAsync = promisify(gzip)
 
 function acceptsGzip(request: Request): boolean {
   const accept = request.headers.get('accept-encoding') ?? ''
@@ -22,11 +35,11 @@ function acceptsGzip(request: Request): boolean {
 
 // apiOk と同じ封筒 ({ success, data, error }) と no-store。相手が gzip を
 // 受けるときだけ Content-Encoding を付けて圧縮して返す
-export function apiOkGzip<T>(
+export async function apiOkGzip<T>(
   data: T,
   request: Request,
   extraHeaders: Readonly<Record<string, string>> = {},
-): NextResponse {
+): Promise<NextResponse> {
   const body = JSON.stringify({ success: true, data, error: null })
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -37,7 +50,7 @@ export function apiOkGzip<T>(
   if (!acceptsGzip(request)) {
     return new NextResponse(body, { status: 200, headers })
   }
-  const compressed = gzipSync(body)
+  const compressed = await gzipAsync(body, { level: SYNC_GZIP_LEVEL })
   return new NextResponse(new Uint8Array(compressed), {
     status: 200,
     headers: { ...headers, 'Content-Encoding': 'gzip' },

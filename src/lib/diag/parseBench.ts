@@ -1,7 +1,7 @@
 // 回路フェンスの抽出を段階に分けて測る (docs/121 §3-1)。
 //
 // 本番の経路 (circuit/fences.ts の extractCircuitFences) と同じ部品を、
-// sha1 (fenceMemo の鍵) → 解析 (remark で本文全体) → 抽出 (木を辿って回路
+// sha1 (fenceMemo の鍵) → 解析 (remark で本文全体。抽出用の parser) → 抽出 (木を辿って回路
 // フェンスを拾い、重複を畳む) の順に呼ぶ。本番のコードには計時を足さない —
 // 経路を通すことより内訳を見ることを選ぶ。結果が extractCircuitFences と
 // 一致することはテストで確かめる。
@@ -15,9 +15,9 @@ import type { Code, Root } from 'mdast'
 import { visit } from 'unist-util-visit'
 import { type CircuitFence, circuitKey, isCircuitLang } from '../circuit/fences'
 import { uniqueBy } from '../markdown/extractFences'
-import { createNoteParser } from '../markdown/parser'
+import { createFenceParser } from '../markdown/parser'
 
-const PARSER = createNoteParser()
+const PARSER = createFenceParser()
 
 export interface ParseStages {
   sha1: number

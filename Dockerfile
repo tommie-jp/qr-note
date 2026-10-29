@@ -110,6 +110,12 @@ ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 #      毎ビルド変わる .next/server と同じ層にいて毎回送られていた。同じ手で分ける。
 #      最終的な置き場は同じ /app/node_modules なので server.js の解決は変わらない。
 #
+#   4. ベンチマークの CPU プロファイル用の source map を standalone へ写す
+#      (docs/122 §4)。standalone のトレースは .map を運ばない。全部だと 56MB に
+#      なるので、ベンチマークの画面の入口が読む束ねのうち、回路フェンスの解析の
+#      道を含む物だけ (約 10 個・2MB)。プロファイルを保存するときに元のモジュール
+#      名へ引き直すのに使う (lib/diag/benchProfile.ts)
+#
 # Server Action の暗号鍵は BuildKit の secret で受け取る (doDeploy.sh が渡す)。
 # Next.js は Action の ID をこの鍵を塩にしたハッシュで作るので、**鍵が毎回
 # 違うと配布のたびに全 Action の ID が変わり**、配布前に開いた画面の「更新」が
@@ -130,7 +136,8 @@ RUN --mount=type=secret,id=next_action_key \
       mkdir -p /static-media/media; \
     fi \
  && mkdir -p /standalone-nm \
- && mv .next/standalone/node_modules /standalone-nm/node_modules
+ && mv .next/standalone/node_modules /standalone-nm/node_modules \
+ && node scripts/copyProfileMaps.mjs .next/server .next/standalone/.next/server
 
 # 実行ステージ: standalone 出力のみの最小イメージ (builder と同じ libc に揃える)
 FROM node:26-slim AS runner

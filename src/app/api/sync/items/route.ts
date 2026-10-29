@@ -49,7 +49,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const payload = await t.time('db', () => loadOfflineSyncPayload())
   // 端末は写しに etag を残し、次の同期で If-None-Match に載せる (offline/sync.ts)。
   // json … JSON.stringify と gzip を合わせた時間
-  const res = t.timeSync('json', () => apiOkGzip({ ...payload, etag }, request, { ETag: etag }))
+  const res = await t.time('json', () => apiOkGzip({ ...payload, etag }, request, { ETag: etag }))
   return finish(res, t.done(), payload)
 }
 

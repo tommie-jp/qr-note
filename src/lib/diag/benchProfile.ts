@@ -7,7 +7,11 @@
 // 出した cpuprofile は Chrome DevTools の Performance (Load profile) か
 // speedscope で開く
 import 'server-only'
+import { readFileSync } from 'node:fs'
 import { Session } from 'node:inspector/promises'
+import { SourceMap } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import type { ReadSourceMap } from './profileRemap'
 
 // サンプリングの間隔 (µs)。既定 1000µs では 1 件数 ms の解析が数点にしか
 // ならないので細かくする
@@ -25,5 +29,15 @@ export async function profileCpu<T>(fn: () => Promise<T>): Promise<{ result: T; 
     return { result, profile }
   } finally {
     session.disconnect()
+  }
+}
+
+// 束ねの url (file:///app/.next/server/chunks/…js) の隣の .map を読む。無ければ null
+export const readBundleSourceMap: ReadSourceMap = (bundleUrl) => {
+  try {
+    const path = bundleUrl.startsWith('file:') ? fileURLToPath(bundleUrl) : bundleUrl
+    return new SourceMap(JSON.parse(readFileSync(`${path}.map`, 'utf8')))
+  } catch {
+    return null
   }
 }

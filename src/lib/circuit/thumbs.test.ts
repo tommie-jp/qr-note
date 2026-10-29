@@ -7,7 +7,11 @@ import { circuitHash } from './hash'
 const findMany = vi.fn()
 
 vi.mock('../db', () => ({
-  prisma: { circuitSvg: { findMany: (...a: unknown[]) => findMany(...a) } },
+  prisma: {
+    circuitSvg: { findMany: (...a: unknown[]) => findMany(...a) },
+    // 回路フェンスの控え (docs/122 §1) は空のまま。毎回解析に落ちる
+    memoCircuitFences: { findMany: async () => [], createMany: async () => ({ count: 0 }) },
+  },
 }))
 
 const { CIRCUIT_THUMB_BUDGET, MAX_CIRCUIT_THUMB_BYTES, loadCircuitThumbs } =

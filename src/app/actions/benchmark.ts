@@ -1,12 +1,13 @@
 'use server'
 
 import os from 'node:os'
+import { cookies } from 'next/headers'
 import { isAdminUser } from '@/lib/auth/admin'
 import { requireUser } from '@/lib/auth/session'
 import { startBenchmark } from '@/lib/diag/benchmark'
 import { startJob } from '@/lib/diag/benchJob'
 import { type BenchStatus, loadBenchStatus } from '@/lib/diag/benchStatus'
-import { runServerBench } from '@/lib/diag/serverBench'
+import { pageBenchCookie, runServerBench } from '@/lib/diag/serverBench'
 import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 import { requireUserOutsideDemo } from './_guards'
 
@@ -38,8 +39,10 @@ export async function startCpuBenchAction(): Promise<BenchStatus> {
 export async function startServerBenchAction(): Promise<BenchStatus> {
   await requireAdmin()
   refuseWhilePerfTest()
+  // 検索ページの組み立て (page:search) は押した管理者の cookie で自分自身を叩く
+  const pageCookie = pageBenchCookie((await cookies()).getAll())
   startJob('server', async () => {
-    await runServerBench()
+    await runServerBench({ pageCookie })
   })
   return loadBenchStatus()
 }

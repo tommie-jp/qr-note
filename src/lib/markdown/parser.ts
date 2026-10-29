@@ -33,6 +33,7 @@ import remarkParse from 'remark-parse'
 import { unified, type PluggableList } from 'unified'
 import { remarkAlerts } from './remarkAlerts'
 import { remarkDetails, remarkDetailsSyntax } from './remarkDetails'
+import { remarkFootnotes } from './remarkFootnotes'
 
 // **新しい記法のプラグインはここに足す** (docs/71 §4)。MarkdownView だけに
 // 足すと、一覧のプレビューがその記法を生の文字のまま描く (逆も) ずれ方をする。
@@ -57,4 +58,26 @@ export const NOTE_REMARK_PLUGINS: PluggableList = [
 // 持つもの (表・数式・折りたたみ) の読み方がずれる
 export function createNoteParser() {
   return unified().use(remarkParse).use(NOTE_REMARK_PLUGINS).freeze()
+}
+
+// フェンスを拾うだけのパーサ (docs/122 §2)。描画の列の remark-gfm を、脚注だけを
+// 読む remarkFootnotes に替える (表・打ち消し・自動リンク・タスクを外す)。
+//
+// 外した物はブロックの切れ目に関わらない。表は「空行か、別のブロック構文の始まり」
+// で終わるので、フェンスは表があっても無くても同じ所で見つかる (表のセルの中の
+// ``` はインラインのコード)。残りはインラインかリストの子。GFM の解析は本番の
+// プロファイルで解析時間の約 16% を占め、外すと全ノートの解析が約 4 割縮んだ
+// (docs/121 §11、docs/122 §2)。
+//
+// **脚注・math・details は外さない** — 脚注の定義の続き (字下げ 4 つ) のフェンスは
+// 脚注の拡張が無いと字下げのコードになる。`$$` の中の ``` は数式の中身で、外すと
+// フェンスに化ける。`:::` の中身は flow として解析されるので、外すと入れ子が読めない。
+// 描画の parser と抽出が全ノート (手元と本番) で一致することは
+// scripts/checkFenceParsers.ts で確かめた
+export const FENCE_REMARK_PLUGINS: PluggableList = NOTE_REMARK_PLUGINS.map(
+  (plugin) => (plugin === remarkGfm ? remarkFootnotes : plugin),
+)
+
+export function createFenceParser() {
+  return unified().use(remarkParse).use(FENCE_REMARK_PLUGINS).freeze()
 }

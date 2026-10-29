@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
   // layout ではなくページごとに置く理由は components/chrome/PageTransition.tsx の注。
   // 非対応ブラウザではアニメーションなしで普通に動く
   experimental: {
+    // サーバの束ねにも source map を出す (docs/122 §4)。ベンチマークの CPU
+    // プロファイル (lib/diag/benchProfile.ts) が、保存するときに束ねの位置を
+    // 元のモジュール (node_modules/<pkg>・src/…) へ引き直すのに使う。束ねた
+    // ファイルにはモジュール名が残らず (Turbopack は数字の id)、本番の
+    // プロファイルを読むのに手作業の突き合わせが要った (docs/121 §11)
+    serverSourceMaps: true,
     // proxy (src/proxy.ts) を通るルートは、Next.js が本文をメモリへ丸ごと
     // 複製する (proxy と route handler の両方で読めるようにするため)。
     // **超えたぶんは黙って捨てられる** — 応答はエラーにならず、警告が 1 行

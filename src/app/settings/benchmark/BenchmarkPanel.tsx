@@ -302,6 +302,32 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
 
       <section className="space-y-2">
         <h2 className="text-lg font-bold">回路の解析のプロファイル</h2>
+        {status.server?.profileModules && status.server.profileModules.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className={TABLE_CLASS}>
+              <thead className="text-gray-500">
+                <tr>
+                  <th className={CELL_CLASS}>モジュール (自己時間の多い順)</th>
+                  <th className={`${CELL_CLASS} text-right`}>時間</th>
+                  <th className={`${CELL_CLASS} text-right`}>割合</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 text-gray-800">
+                {status.server.profileModules.map((row) => (
+                  <tr key={row.module}>
+                    <td className={`${CELL_CLASS} break-all`}>{row.module}</td>
+                    <td className={`${CELL_CLASS} text-right tabular-nums`}>
+                      {formatMs(row.ms)}
+                    </td>
+                    <td className={`${CELL_CLASS} text-right tabular-nums`}>
+                      {row.pct}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {status.profileAt ? (
           <p className="text-sm">
             <a

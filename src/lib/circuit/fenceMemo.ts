@@ -23,6 +23,11 @@ export const FENCE_MEMO_LIMIT = 2000
 
 type ParseFences = (memo: string) => CircuitFence[]
 
+// 本文の鍵。DB の控え (fenceStore.ts の memo_circuit_fences) と同じ鍵を使う
+export function memoHash(memo: string): string {
+  return createHash('sha1').update(memo).digest('base64')
+}
+
 export function createFenceMemo(
   parse: ParseFences = extractCircuitFences,
   limit: number = FENCE_MEMO_LIMIT,
@@ -31,7 +36,7 @@ export function createFenceMemo(
   const remembered = new Map<string, readonly CircuitFence[]>()
 
   return (memo) => {
-    const key = createHash('sha1').update(memo).digest('base64')
+    const key = memoHash(memo)
     const hit = remembered.get(key)
     if (hit !== undefined) {
       // 使ったものを末尾へ回す (捨てる順を「使われていない順」にする)
