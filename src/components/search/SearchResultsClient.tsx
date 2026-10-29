@@ -34,6 +34,7 @@ import {
   type ListValue,
 } from "@/lib/client/listStore";
 import { useSearchState } from "@/lib/client/useSearchState";
+import { warmNotes } from "@/lib/client/warmNotes";
 import { allViewerMedia } from "@/lib/images/memoImages";
 import { buildMathSummaries, buildMathTexts } from "@/lib/markdown/mathText";
 import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
@@ -181,6 +182,9 @@ function LoadedResults({
     () => buildNotePreviews(items, circuitThumbs, view),
     [items, circuitThumbs, view],
   );
+
+  // 開く前に本文を解析しておく (docs/123 §11-4)。一覧が入れ替わったら前の分は止める
+  useEffect(() => warmNotes(items.map((item) => item.memo)), [items]);
 
   // ノートのペインを持つ構成では、何も選んでいないとき先頭を出す (docs/86 §4-4)
   const first = showsAutoNote(mode) ? items[0] : undefined;

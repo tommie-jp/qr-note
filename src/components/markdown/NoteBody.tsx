@@ -1,4 +1,5 @@
-import { MarkdownView, type MarkdownViewOptions } from "@/components/markdown/MarkdownView";
+import { MarkdownView, noteRecipe, type MarkdownViewOptions } from "@/components/markdown/MarkdownView";
+import { markdownTree } from "@/components/markdown/markdownTree";
 import { RevealAllAnswers } from "@/components/answer/RevealAllAnswers";
 import { NotePager } from "@/components/notepage/NotePager";
 import { noteDefinitions, splitPages } from "@/components/notepage/notePages";
@@ -67,4 +68,22 @@ export function NoteBody({ memo, ...options }: NoteBodyProps) {
   // 画像」だけを狙うための印。一覧のカードのプレビュー (NotePreviewThumb) や
   // 記法ヘルプ (docs/memo) はここを通らないので縮まない
   return <div data-note-body="">{pager}</div>;
+}
+
+// 開く前に本文を解析しておく (docs/123 §11-4)。一覧が届いた後の手すきの時間に
+// 呼ぶと、押したときは覚えた木から描くだけになる。**NoteBody と同じページ分けと
+// 同じプラグイン列を通す** — どちらかがずれると覚えた木に当たらない。
+// 既定の linkTags・headingAnchors は持ち主のノート画面 (NoteView) と同じ
+export function warmNoteBody(
+  memo: string,
+  { linkTags = true, headingAnchors = false }: { linkTags?: boolean; headingAnchors?: boolean } = {},
+): void {
+  const notePages = splitPages(memo);
+  const definitions = notePages.length > 1 ? noteDefinitions(memo) : "";
+  for (const page of notePages) {
+    markdownTree(
+      noteRecipe({ linkTags, headingAnchors, lineOffset: page.line - 1 }),
+      withDefinitions(page.body, definitions),
+    );
+  }
 }

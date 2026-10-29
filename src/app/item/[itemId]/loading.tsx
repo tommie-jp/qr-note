@@ -1,4 +1,6 @@
 import { SkeletonBox, SkeletonLine } from "@/components/chrome/Skeleton";
+import { CachedNotePreview } from "@/components/item/CachedNotePreview";
+import { isDemoMode } from "@/lib/appEnv";
 
 // /item/:itemId の遷移中に即座に出す骨組み (docs/11-アプリ的UIUX計画.md §1-3)。
 //
@@ -9,6 +11,13 @@ import { SkeletonBox, SkeletonLine } from "@/components/chrome/Skeleton";
 // 回路図の待ちはもうここには出ない (planCircuits で本文が先に出るため)。
 // ここが受け持つのは DB を引くまでの一瞬だけになった
 export default function Loading() {
+  // 控えにノートがあれば本文まで先に描く (docs/123 §4-1)。無ければ骨組み
+  return (
+    <CachedNotePreview isDemo={isDemoMode()} fallback={<Skeleton />} />
+  );
+}
+
+function Skeleton() {
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">

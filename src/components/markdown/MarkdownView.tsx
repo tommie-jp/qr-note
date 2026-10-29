@@ -1,6 +1,7 @@
 import type { Element } from "hast";
 import type { PluggableList } from "unified";
-import Markdown from "react-markdown";
+import type { Components } from "hast-util-to-jsx-runtime";
+import { markdownTree, renderMarkdownTree, type MarkdownRecipe } from "./markdownTree";
 import rehypeSlug from "rehype-slug";
 import { remarkAnswerSpoiler } from "./plugins/remarkAnswerSpoiler";
 import { remarkTagLinks } from "./plugins/remarkTagLinks";
@@ -365,29 +366,17 @@ function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
 const PROSE_TWEAKS =
   "[&_li.task-list-item]:list-none [&_li.task-list-item>p:first-child]:mt-0 [&_li.task-list-item>p:last-child]:mb-0 [&_.footnotes]:mt-6 [&_.footnotes]:border-t [&_.footnotes]:border-gray-300 [&_.footnotes]:pt-2";
 
-// 目次から飛んだ見出しを、ヘッダー (sticky top-0。chrome/AppHeader.tsx) の下へ
-// 潜らせないための余白。**id を振ったときだけ足す** — 飛び先になるのは
-// id を持つ見出しだけなので、付ける条件を id と揃えておく。
-// 値は NotePager が `#p3` の送り先に使っているものと同じ (帯の高さ)
-const HEADING_ANCHOR_TWEAKS =
-  "[&_:is(h1,h2,h3,h4,h5,h6)[id]]:scroll-mt-12";
-
-// memo を Markdown としてレンダリングする Server Component。
-// 生 HTML はデフォルトで無視されるが、保険として rehype-sanitize も通す
-export function MarkdownView({
-  markdown,
-  circuits = new Map(),
-  matrices = new Map(),
-  health = new Map(),
-  linkTags = true,
-  allowRotate = false,
-  allowSecretEdit = false,
-  blobKinds = new Map(),
-  onToggleTask,
-  onRecordHealth,
-  headingAnchors = false,
-  lineOffset = 0,
-}: MarkdownViewProps) {
+// ノート本文のプラグイン列 (docs/123 §11-4)。鍵は組み合わせを決める 3 つ。
+// 先読み (NoteBody の warmNoteBody) も同じ関数を通すので、覚えた木がそのまま当たる
+export function noteRecipe({
+  linkTags,
+  headingAnchors,
+  lineOffset,
+}: {
+  linkTags: boolean;
+  headingAnchors: boolean;
+  lineOffset: number;
+}): MarkdownRecipe {
   // プラグイン列の土台は components/markdown/markdownPipeline.tsx (一覧のプレビューと共有)。
   // タグをリンクにしないときはプラグインごと外す。#タグ は text ノードのまま
   // 残るので、本文の見た目は「リンクでない #タグ」になる
@@ -412,15 +401,49 @@ export function MarkdownView({
   // `clobberPrefix: ""` のおかげで id はそのまま通るが、それは
   // 「本文から id は来ない」前提で外した設定に頼ることになる —
   // 後段なら、その前提を借りずに済む
-  // 計器の画面の `data:` が引く添付 (元の名前 → 配信 URL)。本文の画像記法の alt から作る
-  const attachments = attachmentIndexOf(markdown);
-
   const rehypePlugins: PluggableList = [
     ...BASE_REHYPE_PLUGINS,
     [rehypeTaskLines, lineOffset],
     rehypeAnswerTts,
     ...(headingAnchors ? [rehypeSlug] : []),
   ];
+
+  return {
+    key: `note|tags=${linkTags}|anchors=${headingAnchors}|offset=${lineOffset}`,
+    remarkPlugins,
+    rehypePlugins,
+    remarkRehypeOptions: REMARK_REHYPE_OPTIONS,
+    urlTransform,
+  };
+}
+
+// 目次から飛んだ見出しを、ヘッダー (sticky top-0。chrome/AppHeader.tsx) の下へ
+// 潜らせないための余白。**id を振ったときだけ足す** — 飛び先になるのは
+// id を持つ見出しだけなので、付ける条件を id と揃えておく。
+// 値は NotePager が `#p3` の送り先に使っているものと同じ (帯の高さ)
+const HEADING_ANCHOR_TWEAKS =
+  "[&_:is(h1,h2,h3,h4,h5,h6)[id]]:scroll-mt-12";
+
+// memo を Markdown としてレンダリングする Server Component。
+// 生 HTML はデフォルトで無視されるが、保険として rehype-sanitize も通す
+export function MarkdownView({
+  markdown,
+  circuits = new Map(),
+  matrices = new Map(),
+  health = new Map(),
+  linkTags = true,
+  allowRotate = false,
+  allowSecretEdit = false,
+  blobKinds = new Map(),
+  onToggleTask,
+  onRecordHealth,
+  headingAnchors = false,
+  lineOffset = 0,
+}: MarkdownViewProps) {
+  // プラグイン列 (noteRecipe) と、解析の前段を覚えておく作り (markdownTree.ts)
+  const recipe = noteRecipe({ linkTags, headingAnchors, lineOffset });
+  // 計器の画面の `data:` が引く添付 (元の名前 → 配信 URL)。本文の画像記法の alt から作る
+  const attachments = attachmentIndexOf(markdown);
 
   return (
     // 文字サイズの倍率は root (html) に掛かっているので、ここは何も持たない
@@ -431,12 +454,7 @@ export function MarkdownView({
         headingAnchors ? HEADING_ANCHOR_TWEAKS : ""
       } ${BOX_CLASS}`}
     >
-      <Markdown
-        remarkPlugins={remarkPlugins}
-        urlTransform={urlTransform}
-        rehypePlugins={rehypePlugins}
-        remarkRehypeOptions={REMARK_REHYPE_OPTIONS}
-        components={{
+      {renderMarkdownTree(markdownTree(recipe, markdown), {
           pre: preOrDiagram(
             circuits,
             matrices,
@@ -449,10 +467,7 @@ export function MarkdownView({
           input: taskCheckboxRenderer(onToggleTask),
           blockquote: blockquoteWithAlert,
           span: spanWithAnswer,
-        }}
-      >
-        {markdown}
-      </Markdown>
+        } as Components)}
     </div>
   );
 }
