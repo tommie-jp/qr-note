@@ -96,7 +96,8 @@ export function hasRowText(text: RowText): boolean {
 // RowThumb がアイコンへ切り替える (41-QR-search/docs/14 §Phase4)
 export type RowFace =
   | { kind: 'image'; name: string; isVideo: boolean }
-  | { kind: 'circuit'; svg: string }
+  // 回路図の SVG の hash (docs/124 §1)
+  | { kind: 'circuit'; hash: string }
   | { kind: 'preview' }
   | null
 
@@ -109,7 +110,7 @@ export function rowFace(
     return { kind: 'image', name: thumbInfo.name, isVideo: thumbInfo.isVideo }
   }
   if (circuitThumb) {
-    return { kind: 'circuit', svg: circuitThumb }
+    return { kind: 'circuit', hash: circuitThumb }
   }
   return hasNotePreview ? { kind: 'preview' } : null
 }

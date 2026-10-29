@@ -4,9 +4,11 @@
 // (共有したい型と定数は item.ts が持つ。images/thumbnail.ts が定数のつもりの import で
 // sharp をクライアントへ漏らした件と同じ落とし穴)。
 //
-// 差分同期はしない。全ノートで数百 KB しかなく (docs/65 §3-2)、差分にすると
-// 「消えたノートを端末からも消す」処理が別に要る — 毎回まるごと置き換えれば、
-// 端末側は常にサーバの写しになり、消えたノートも自然に消える。
+// 差分の同期もする (docs/124 §4)。始めた頃は全ノートで数百 KB だった
+// (docs/65 §3-2) が、1514 件で 11MB (圧縮後 2.4MB) になった。差分は
+// loadOfflineSyncDelta で、「消えたノートを端末からも消す」は版の一覧
+// (versions) に無いことで伝える。端末は写しを全件と同じ形に組み直す
+// (syncDelta.ts の mergeSyncDelta)。
 
 import 'server-only'
 import { prisma } from '@/lib/db'
@@ -24,6 +26,7 @@ import {
   type OfflineItem,
   type OfflineSyncPayload,
 } from './item'
+import { SYNC_DELTA_MARGIN_MS, type OfflineSyncDelta } from './syncDelta'
 import { circuitFencesOfMany } from '@/lib/circuit/fenceStore'
 
 // ゴミ箱のノートは運ばない。オフラインではゴミ箱も復元も出さないので、
@@ -31,9 +34,8 @@ import { circuitFencesOfMany } from '@/lib/circuit/fenceStore'
 //
 // 上限に届いたときのために更新の新しい順で引く。打ち切るなら、最近書いた
 // ものが残るほうが現場で役に立つ (docs/65 の想定は「棚の前で引く」)。
-export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
-  // 上限より 1 件だけ多く取り、溢れているかを 1 クエリで判定する
-  // (件数用に count を撃つより安い。searchItemProps と同じ手)
+// 生きているノートを更新の新しい順に引く。全件と差分で同じ並び・同じ上限
+async function loadOfflineItems(): Promise<{ items: OfflineItem[]; truncated: boolean }> {
   const rows = await prisma.item.findMany({
     where: { deletedAt: null },
     select: {
@@ -50,42 +52,67 @@ export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
     orderBy: [{ updatedAt: 'desc' }, { itemId: 'asc' }],
     take: OFFLINE_SYNC_LIMIT + 1,
   })
-
   const truncated = rows.length > OFFLINE_SYNC_LIMIT
   const items: OfflineItem[] = rows.slice(0, OFFLINE_SYNC_LIMIT).map(({ offlinePin, ...row }) => ({
     ...row,
-    // Date は JSON を跨ぐと文字列に化けるので、型のうえでも先に文字列にする。
-    // toISOString の形 (桁数・UTC 固定) は order.ts が辞書順の比較で使う
     updatedAt: row.updatedAt.toISOString(),
     accessedAt: row.accessedAt.toISOString(),
     pinned: offlinePin,
   }))
+  return { items, truncated }
+}
 
+export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
+  // 起点は**読み始める前**に取る (item.ts の cursor の理由)
+  const cursor = new Date().toISOString()
+  const { items, truncated } = await loadOfflineItems()
   const { circuits, circuitsOmitted } = await loadOfflineCircuits(items)
-
   return {
-    // サーバの時刻を正にする (端末の時計を信じない。item.ts の syncedAt 参照)
     syncedAt: new Date().toISOString(),
+    cursor,
     items,
     truncated,
-    circuits,
+    circuits: circuits.map(({ createdAt: _createdAt, ...circuit }) => circuit),
     circuitsOmitted,
   }
 }
 
-// 持ち出すノートの ```circuitikz を、描画済みのものだけ集める
-// (docs/65-オフライン対応計画.md §8)。
-//
-// **ここでは描かない。** 1 枚あたり最大 10 秒かかる TeX の描画 (circuit/circuitikz.ts の
-// CIRCUIT_TIMEOUT_MS) を同期の口に載せると、回路図を書き足した直後の同期だけが
-// 数十秒かかる — しかも待っているのは本文の同期でもある。描くのは
-//   - ノートを開いたとき (ItemView の renderCircuits)
-//   - 印を付けたとき (app/actions/offline.ts の setItemOfflinePinAction)
-// の 2 か所で、ここは出来上がっている物を配るだけにする。まだ描かれていない
-// フェンスは圏外でコードブロックとして出る (オンラインで一度開けば揃う)。
+// 差分の同期 (docs/124 §4)。since は端末が送り返した前回の cursor。
+// 本文と回路図の SVG は「since より後に変わった物」だけを載せる
+export async function loadOfflineSyncDelta(since: Date): Promise<OfflineSyncDelta> {
+  const cursor = new Date().toISOString()
+  const cut = since.getTime() - SYNC_DELTA_MARGIN_MS
+  const { items, truncated } = await loadOfflineItems()
+  const changed = items.filter((item) => Date.parse(item.updatedAt) > cut)
+  const { circuits, circuitsOmitted } = await loadOfflineCircuits(items)
+  // 書き換わったノートの図は、描き済みでも端末が持っていないことがある (図を
+  // 書き足した編集)。新しく描けた図 (created_at) は、ノートが変わっていなくても送る
+  const changedFences = await circuitFencesOfMany(changed.map((item) => item.memo))
+  const changedKeys = new Set(
+    changedFences.flat().map((fence) => circuitKey(fence.lang, fence.source)),
+  )
+  const sent = circuits.filter(
+    (circuit) =>
+      circuit.createdAt.getTime() > cut || changedKeys.has(circuitKey(circuit.lang, circuit.source)),
+  )
+  return {
+    mode: 'delta',
+    syncedAt: new Date().toISOString(),
+    cursor,
+    versions: items.map((item) => [item.itemId, item.updatedAt, item.accessedAt, item.pinned ? 1 : 0]),
+    items: changed,
+    circuits: sent.map(({ createdAt: _createdAt, ...circuit }) => circuit),
+    circuitHashes: circuits.flatMap((circuit) => (circuit.hash === undefined ? [] : [circuit.hash])),
+    truncated,
+    circuitsOmitted,
+  }
+}
+
+type StoredCircuit = OfflineCircuit & { createdAt: Date }
+
 async function loadOfflineCircuits(
   items: readonly OfflineItem[],
-): Promise<{ circuits: OfflineCircuit[]; circuitsOmitted: number }> {
+): Promise<{ circuits: StoredCircuit[]; circuitsOmitted: number }> {
   // **印付きを先に並べる。** 予算を超えたときに落ちるのは後ろからなので、
   // 「オフラインで常に使う」と言われたノートの図が最初に犠牲になってはいけない。
   // 同じ優先度の中では引いた順 = 更新の新しい順が残る
@@ -124,30 +151,35 @@ async function loadOfflineCircuits(
   )
   // 落ちても本文の同期は続ける。図が出ないだけで、ノートは読める
   const cached = await prisma.circuitSvg
-    .findMany({ where: { hash: { in: [...hashOf.values()] } }, select: { hash: true, svg: true } })
+    .findMany({
+      where: { hash: { in: [...hashOf.values()] } },
+      select: { hash: true, svg: true, createdAt: true },
+    })
     .catch((error: unknown) => {
       console.warn('オフライン用の回路図を引けませんでした', error)
       return []
     })
-  const svgByHash = new Map(cached.map((row) => [row.hash, row.svg]))
+  const rowByHash = new Map(cached.map((row) => [row.hash, row]))
 
-  const circuits: OfflineCircuit[] = []
+  const circuits: StoredCircuit[] = []
   let budget = OFFLINE_CIRCUIT_BUDGET
   let omitted = 0
   for (const fence of fences) {
-    const svg = svgByHash.get(hashOf.get(circuitKey(fence.lang, fence.source)) ?? '')
-    if (svg === undefined) {
+    const hash = hashOf.get(circuitKey(fence.lang, fence.source)) ?? ''
+    const row = rowByHash.get(hash)
+    if (row === undefined) {
       // まだ描かれていない。断らない — オンラインで開けば揃う類のもので、
       // 予算不足 (利用者にできることが無い) とは性質が違う
       continue
     }
+    const { svg } = row
     if (svg.length > budget) {
       omitted++
       continue
     }
     budget -= svg.length
     // 取り出す側 (item.ts) が鍵を組み立て直せるよう、言語も一緒に控える
-    circuits.push({ source: fence.source, lang: fence.lang, svg })
+    circuits.push({ source: fence.source, lang: fence.lang, svg, hash, createdAt: row.createdAt })
   }
 
   return { circuits, circuitsOmitted: omitted }

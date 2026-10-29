@@ -18,7 +18,7 @@
 // JSON.stringify で既に 1 本の文字列になっているので、ストリームにしても山は
 // 変わらない。
 import { promisify } from 'node:util'
-import { gzip } from 'node:zlib'
+import { brotliCompress, constants as zlibConstants, gzip } from 'node:zlib'
 import { NextResponse } from 'next/server'
 import type { PageMeta } from './respond'
 
@@ -31,11 +31,43 @@ const NO_STORE = 'no-store'
 // ベンチ (diag/serverBench.ts の同期の組み立て) も同じ値で測る
 export const SYNC_GZIP_LEVEL = 4
 
-const gzipAsync = promisify(gzip)
+// brotli の品質 (docs/124 §3)。本文が文字列 (Markdown・SVG) の応答で、gzip の
+// level 4 と同じくらいの時間で 2〜3 割小さくなる所を取る。11 は数百倍遅く、
+// 応答のたびに圧縮する用途には使えない
+export const BROTLI_QUALITY = 5
 
-function acceptsGzip(request: Request): boolean {
-  const accept = request.headers.get('accept-encoding') ?? ''
-  return accept.split(',').some((token) => token.trim().split(';')[0] === 'gzip')
+const gzipAsync = promisify(gzip)
+const brotliAsync = promisify(brotliCompress)
+
+type Encoding = 'br' | 'gzip'
+
+// 相手が受ける符号化。brotli を先に見る。ブラウザが br を送るのは HTTPS のとき
+// だけ (手元の http では gzip のまま)。q=0 は「受けない」の意味なので外す
+export function acceptedEncoding(request: Request): Encoding | null {
+  const accepted = new Set(
+    (request.headers.get('accept-encoding') ?? '')
+      .split(',')
+      .map((token) => token.trim().split(';'))
+      .filter(([, q]) => q === undefined || !/^q=0(?:\.0*)?$/.test(q.trim()))
+      .map(([name]) => name.trim().toLowerCase()),
+  )
+  if (accepted.has('br')) {
+    return 'br'
+  }
+  return accepted.has('gzip') ? 'gzip' : null
+}
+
+async function compress(body: string, encoding: Encoding): Promise<Buffer> {
+  if (encoding === 'br') {
+    return brotliAsync(body, {
+      params: {
+        [zlibConstants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY,
+        [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
+        [zlibConstants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(body),
+      },
+    })
+  }
+  return gzipAsync(body, { level: SYNC_GZIP_LEVEL })
 }
 
 // これより小さい本文は圧縮しない。gzip の頭と手間の方が縮む分より大きい
@@ -72,12 +104,32 @@ async function gzipEnvelope(
     Vary: 'Accept-Encoding',
     ...extraHeaders,
   }
-  if (!acceptsGzip(request) || body.length < GZIP_MIN_BYTES) {
+  const encoding = acceptedEncoding(request)
+  if (encoding === null || body.length < GZIP_MIN_BYTES) {
     return new NextResponse(body, { status: 200, headers })
   }
-  const compressed = await gzipAsync(body, { level: SYNC_GZIP_LEVEL })
+  const compressed = await compress(body, encoding)
   return new NextResponse(new Uint8Array(compressed), {
     status: 200,
-    headers: { ...headers, 'Content-Encoding': 'gzip' },
+    headers: { ...headers, 'Content-Encoding': encoding },
+  })
+}
+
+// 封筒に入れない文字列 (回路図の SVG など) を、同じ作法で圧縮して返す
+// (docs/124 §1)。Content-Type と Cache-Control は呼ぶ側が決める
+export async function compressedTextResponse(
+  body: string,
+  request: Request,
+  headers: Readonly<Record<string, string>>,
+): Promise<NextResponse> {
+  const encoding = acceptedEncoding(request)
+  const base = { Vary: 'Accept-Encoding', ...headers }
+  if (encoding === null || body.length < GZIP_MIN_BYTES) {
+    return new NextResponse(body, { status: 200, headers: base })
+  }
+  const compressed = await compress(body, encoding)
+  return new NextResponse(new Uint8Array(compressed), {
+    status: 200,
+    headers: { ...base, 'Content-Encoding': encoding },
   })
 }

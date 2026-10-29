@@ -140,3 +140,84 @@ describe('syncOfflineItems', () => {
     await expect(syncOfflineItems()).rejects.toThrow('同期の応答を読み取れませんでした')
   })
 })
+
+// 差分の同期 (docs/124 §4)
+describe('差分', () => {
+  const H1 = 'a'.repeat(64)
+  const item = (itemId: string, updatedAt: string, memo = `# ${itemId}`) => ({
+    itemId, memo, title: itemId, tags: [], taskTodo: 0, taskDone: 0, updatedAt, accessedAt: updatedAt, pinned: false,
+  })
+  const cursor = new Date(Date.now() - 60_000).toISOString()
+  const STORED = {
+    syncedAt: cursor,
+    cursor,
+    items: [item('a', '2026-10-28T00:00:00.000Z')],
+    truncated: false,
+    circuits: [{ source: 'R', lang: 'circuitikz', svg: '<svg/>', hash: H1 }],
+    circuitsOmitted: 0,
+    etag: '"v-1"',
+  }
+  const DELTA = {
+    mode: 'delta',
+    syncedAt: '2026-10-30T12:00:00.000Z',
+    cursor: '2026-10-30T12:00:00.000Z',
+    versions: [['a', '2026-10-28T00:00:00.000Z', '2026-10-30T11:00:00.000Z', 0]],
+    items: [],
+    circuits: [],
+    circuitHashes: [H1],
+    truncated: false,
+    circuitsOmitted: 0,
+    etag: '"v-2"',
+  }
+
+  test('写しの起点を since で送り、届いた差分を写しに重ねて保存する', async () => {
+    // Arrange
+    mocks.stored = STORED
+    respond(200, JSON.stringify({ success: true, data: DELTA, error: null }))
+
+    // Act
+    const { payload } = await syncOfflineItems()
+
+    // Assert
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe(`/api/sync/items?since=${encodeURIComponent(cursor)}`)
+    expect(payload.items).toEqual([{ ...STORED.items[0], accessedAt: '2026-10-30T11:00:00.000Z' }])
+    expect(payload.circuits).toEqual(STORED.circuits)
+    expect(payload).toMatchObject({ cursor: DELTA.cursor, etag: '"v-2"' })
+    expect(mocks.saved).toEqual([payload])
+  })
+
+  test('写しに重ねられない差分なら、起点も版も付けずに全件を取り直す', async () => {
+    // Arrange: 写しに無いノート z が版の一覧にある (ゴミ箱から戻した)
+    mocks.stored = STORED
+    const broken = { ...DELTA, versions: [['z', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', 0]] }
+    const full = { ...PAYLOAD, items: [item('z', '2026-01-01T00:00:00.000Z')], cursor: 'c2' }
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: broken, error: null })))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: full, error: null }))),
+    )
+
+    // Act
+    const { payload } = await syncOfflineItems()
+
+    // Assert
+    const calls = vi.mocked(globalThis.fetch).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[1]).toEqual(['/api/sync/items', { cache: 'no-store', headers: {} }])
+    expect(payload.items.map((i) => i.itemId)).toEqual(['z'])
+  })
+
+  test('起点の無い写し (古い版) は全件を取る', async () => {
+    // Arrange
+    mocks.stored = { ...STORED, cursor: undefined }
+    respond(200, JSON.stringify({ success: true, data: PAYLOAD, error: null }))
+
+    // Act
+    await syncOfflineItems()
+
+    // Assert
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe('/api/sync/items')
+  })
+})

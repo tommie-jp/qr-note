@@ -73,5 +73,15 @@ export function assertSafeSvg(svg: string): string {
     }
   }
 
+  // url() を使わない @import ("…" の書き方) も外を読みに行ける。@import は
+  // 字体の CSS を url() で読むものだけを許す (docs/124 §1。口から直に開くと
+  // CSP が止めるが、画像表示のタイルはページに埋め込むのでこちらで断る)
+  for (const [statement] of svg.matchAll(/@import[^;]*/gi)) {
+    const target = /^@import\s+url\(\s*['"]?([^'")]*)['"]?\s*\)\s*$/i.exec(statement.trim())?.[1]
+    if (target?.trim() !== ALLOWED_URL) {
+      throw new CircuitRenderError(`想定外の SVG の読み込み ${statement.trim()} が含まれていました`)
+    }
+  }
+
   return svg
 }

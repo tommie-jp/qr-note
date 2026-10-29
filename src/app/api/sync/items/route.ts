@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { loadOfflineSyncPayload } from '@/lib/offline/syncItems'
+import { loadOfflineSyncDelta, loadOfflineSyncPayload } from '@/lib/offline/syncItems'
+import { parseSyncSince, type OfflineSyncDelta } from '@/lib/offline/syncDelta'
 import { loadSyncEtag } from '@/lib/offline/syncVersion'
 import { guardRequest } from '@/lib/route/guard'
 import { apiOkGzip } from '@/lib/route/compress'
@@ -46,9 +47,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     })
     return finish(res, t.done(), null)
   }
-  const payload = await t.time('db', () => loadOfflineSyncPayload())
+  // 端末が前回の cursor を送ってきたら差分 (docs/124 §4)。読めない起点は全件に倒す
+  const since = parseSyncSince(new URL(request.url).searchParams.get('since'), Date.now())
+  const payload: OfflineSyncPayload | OfflineSyncDelta = await t.time('db', () =>
+    since === null ? loadOfflineSyncPayload() : loadOfflineSyncDelta(since),
+  )
   // 端末は写しに etag を残し、次の同期で If-None-Match に載せる (offline/sync.ts)。
-  // json … JSON.stringify と gzip を合わせた時間
+  // json … JSON.stringify と圧縮 (brotli / gzip) を合わせた時間
   const res = await t.time('json', () => apiOkGzip({ ...payload, etag }, request, { ETag: etag }))
   return finish(res, t.done(), payload)
 }
@@ -59,7 +64,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 function finish(
   res: NextResponse,
   perf: PerfPhases | null,
-  payload: OfflineSyncPayload | null,
+  payload: OfflineSyncPayload | OfflineSyncDelta | null,
 ): NextResponse {
   if (perf === null) {
     return res
@@ -70,6 +75,7 @@ function finish(
     '同期/サーバ',
     [
       ['結果', res.status],
+      ['種類', payload === null ? '-' : 'mode' in payload ? '差分' : '全件'],
       ['件数', payload?.items.length ?? 0],
       ['回路', payload?.circuits.length ?? 0],
       ['rss', perfMB(memory.rss)],

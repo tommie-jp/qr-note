@@ -9,7 +9,7 @@ const request = (acceptEncoding?: string) =>
 
 describe('apiOkGzip', () => {
   test('gzip を受ける相手には圧縮して返し、展開すると素の封筒と同じ', async () => {
-    const res = await apiOkGzip({ items: ['a'.repeat(1000)] }, request('gzip, deflate, br'))
+    const res = await apiOkGzip({ items: ['a'.repeat(1000)] }, request('gzip, deflate'))
 
     expect(res.status).toBe(200)
     expect(res.headers.get('Content-Encoding')).toBe('gzip')
@@ -66,7 +66,7 @@ describe('apiOkPagedGzip (docs/123 §11-6)', () => {
   test('gzip を受ける相手には meta 付きの封筒を圧縮して返す', async () => {
     // Arrange
     const { apiOkPagedGzip } = await import('./compress')
-    const request = new Request('http://localhost/api/items', { headers: { 'accept-encoding': 'gzip, br' } })
+    const request = new Request('http://localhost/api/items', { headers: { 'accept-encoding': 'gzip, deflate' } })
 
     // Act
     const res = await apiOkPagedGzip(big, meta, request)
@@ -89,5 +89,36 @@ describe('apiOkPagedGzip (docs/123 §11-6)', () => {
     // Assert
     expect(res.headers.get('content-encoding')).toBeNull()
     expect(await res.json()).toEqual({ success: true, data: { items: [] }, error: null, meta })
+  })
+})
+
+describe('brotli (docs/124 §3)', () => {
+  const big = { items: 'x'.repeat(5000) }
+
+  test('br を受ける相手には brotli で返し、展開すると素の封筒と同じ', async () => {
+    // Arrange
+    const { brotliDecompressSync } = await import('node:zlib')
+
+    // Act
+    const res = await apiOkGzip(big, request('gzip, deflate, br'))
+
+    // Assert
+    expect(res.headers.get('Content-Encoding')).toBe('br')
+    expect(res.headers.get('Vary')).toBe('Accept-Encoding')
+    const body = JSON.parse(brotliDecompressSync(Buffer.from(await res.arrayBuffer())).toString())
+    expect(body).toEqual({ success: true, data: big, error: null })
+  })
+
+  test.each([
+    ['br;q=0 は受けないので gzip', 'br;q=0, gzip', 'gzip'],
+    ['大文字でも読む', 'GZIP', 'gzip'],
+    ['どちらも受けなければ符号化しない', 'identity', null],
+    ['gzip;q=0.5 は受ける', 'gzip;q=0.5', 'gzip'],
+  ])('%s', async (_label, accept, expected) => {
+    // Act
+    const res = await apiOkGzip(big, request(accept))
+
+    // Assert
+    expect(res.headers.get('Content-Encoding')).toBe(expected)
   })
 })

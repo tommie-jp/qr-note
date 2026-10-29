@@ -105,6 +105,14 @@ describe('assertSafeCircuitSvg', () => {
       assertSafeCircuitSvg('<svg><style>@import url(https://evil.example/x.css);</style></svg>'),
     ).toThrow(CircuitRenderError)
   })
+  // url() を使わない書き方でも外を読みに行ける (docs/124 §1 のレビュー)
+  test.each([
+    ['引用符だけの @import', '<svg><style>@import "https://evil.example/x.css";</style></svg>'],
+    ['字体の CSS 以外を url() で', '<svg><style>@import url(/other.css);</style></svg>'],
+  ])('%s は断る', (_label, svg) => {
+    expect(() => assertSafeCircuitSvg(svg)).toThrow()
+  })
+
 
   test('allows internal references (glyph の再利用)', () => {
     const svg = '<svg><defs><path id="g1" d="M0 0"/></defs><use href="#g1"/></svg>'

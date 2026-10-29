@@ -52,6 +52,10 @@ export interface OfflineCircuit {
   lang: CircuitLang
   // 描画済みの SVG。サーバ側で assertSafeCircuitSvg を通ったものだけを運ぶ
   svg: string
+  // circuit_svgs の主キー (docs/124 §4)。差分の同期で「端末が持っている図」を
+  // 突き合わせる。古い版のアプリが書いた写しには無い (その写しからは差分に
+  // 乗れないので、次の同期で全件を取り直す)
+  hash?: string
 }
 
 // 1 回の同期で持ち出すノート数の上限。
@@ -91,6 +95,10 @@ export interface OfflineSyncPayload {
   // 次の同期で If-None-Match に載せ、変化が無ければ 304 で本文を受けずに済む。
   // 古い版のアプリが書いた写しには無い (その 1 回は全件を取り直す)
   etag?: string
+  // 差分の同期の起点 (docs/124 §4)。サーバが**本文を読み始める前に**取った時刻で、
+  // 次の同期でそのまま送り返す。読み終えた後の時刻にすると、読む間に書かれた
+  // ノートが差分から漏れる。古い版の写しには無い (全件を取る)
+  cursor?: string
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -102,7 +110,7 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 // ノート 1 件の検算。1 つでも欠けたら null (呼び出し側がその 1 件を落とす)。
-function parseOfflineItem(value: unknown): OfflineItem | null {
+export function parseOfflineItem(value: unknown): OfflineItem | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
@@ -142,7 +150,9 @@ function parseOfflineItem(value: unknown): OfflineItem | null {
 // サーバ側の assertSafeCircuitSvg で、写すと二重管理になる。ここを通った
 // 文字列は dangerouslySetInnerHTML へ渡るが、経路はオンライン時と同じ
 // (同じ口が返した同じ文字列) なので、増える危険はない。
-function parseOfflineCircuit(value: unknown): OfflineCircuit | null {
+const CIRCUIT_HASH = /^[0-9a-f]{64}$/
+
+export function parseOfflineCircuit(value: unknown): OfflineCircuit | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
@@ -156,6 +166,7 @@ function parseOfflineCircuit(value: unknown): OfflineCircuit | null {
     // 言語を読み損ねただけで持ち出しを捨てる理由がない
     lang: isCircuitLang(row.lang) ? row.lang : CIRCUITIKZ_LANG,
     svg: row.svg,
+    ...(typeof row.hash === 'string' && CIRCUIT_HASH.test(row.hash) ? { hash: row.hash } : {}),
   }
 }
 
@@ -202,6 +213,9 @@ export function parseSyncPayload(data: unknown): OfflineSyncPayload | null {
         : 0,
     ...(isNonEmptyString((data as { etag?: unknown }).etag)
       ? { etag: (data as { etag: string }).etag }
+      : {}),
+    ...(isNonEmptyString((data as { cursor?: unknown }).cursor)
+      ? { cursor: (data as { cursor: string }).cursor }
       : {}),
   }
 }

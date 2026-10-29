@@ -30,5 +30,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   // maxAge を 0 にして即時失効させる。属性 (path など) は発行時と
   // 揃えること — 違うと別の Cookie とみなされ、元の Cookie が消えない
   response.cookies.set(SESSION_COOKIE_NAME, '', { ...sessionCookieOptions(), maxAge: 0 })
+  // ブラウザの HTTP キャッシュも捨てさせる (docs/124 §1)。回路図の SVG は
+  // private・immutable で 1 年覚えさせるので、共有の端末でログアウトした後も
+  // URL を知っていれば (履歴やキャッシュの一覧から) 開けてしまう。
+  // 対応していないブラウザ (Safari の一部) では何も起きない
+  response.headers.set('Clear-Site-Data', '"cache"')
   return response
 }

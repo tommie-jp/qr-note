@@ -134,7 +134,7 @@ function renderThumb(
       return (
         <CircuitThumb
           variant="row"
-          svg={face.svg}
+          hash={face.hash}
           sizeClass={THUMB_SIZE_CLASS[view]}
         />
       );

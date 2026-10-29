@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   validToken: 'valid-session-token',
   loads: 0,
   payload: { syncedAt: '2026-09-13T00:00:00.000Z', items: [], circuits: [] },
+  deltaSince: [] as string[],
 }))
 
 vi.mock('next/headers', async () => {
@@ -41,6 +42,11 @@ vi.mock('@/lib/offline/syncItems', () => ({
     mocks.loads += 1
     return mocks.payload
   },
+  // 差分 (docs/124 §4)。受け取った起点を控えておく
+  loadOfflineSyncDelta: async (since: Date) => {
+    mocks.deltaSince.push(since.toISOString())
+    return { mode: 'delta', syncedAt: '2026-10-30T00:00:00.000Z', cursor: 'c', versions: [], items: [], circuits: [], circuitHashes: [], truncated: false, circuitsOmitted: 0 }
+  },
 }))
 
 // 版 (ETag) は本文を組む前の安い問い合わせ 1 本で決まる (docs/118 §4-2)
@@ -57,6 +63,7 @@ function syncRequest(headers: Record<string, string> = {}): Request {
 beforeEach(() => {
   mocks.sessionToken = mocks.validToken
   mocks.loads = 0
+  mocks.deltaSince = []
 })
 
 afterEach(() => {
@@ -171,12 +178,48 @@ describe('速度計測中', () => {
     )
     const [line] = recentPerfLines()
     expect(line.text).toMatch(
-      /^\[計測\] 同期\/サーバ 結果=200 件数=0 回路=0 rss=\d+MB heap=\d+MB サーバ=\d+ms\(etag=\d+ db=\d+ json=\d+\)$/,
+      /^\[計測\] 同期\/サーバ 結果=200 種類=全件 件数=0 回路=0 rss=\d+MB heap=\d+MB サーバ=\d+ms\(etag=\d+ db=\d+ json=\d+\)$/,
     )
   })
 
   test('計測していなければ Server-Timing を付けない', async () => {
     const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin' }))
     expect(res.headers.get('Server-Timing')).toBeNull()
+  })
+})
+
+// 差分の同期 (docs/124 §4)
+describe('差分', () => {
+  const withSince = (since: string) =>
+    new Request(`http://localhost/api/sync/items?since=${encodeURIComponent(since)}`, {
+      headers: { 'sec-fetch-site': 'same-origin' },
+    })
+
+  test('読める起点が来たら差分を返し、全件は組まない', async () => {
+    // Arrange
+    const since = new Date(Date.now() - 60_000).toISOString()
+
+    // Act
+    const res = await GET(withSince(since))
+
+    // Assert
+    expect(res.status).toBe(200)
+    expect((await res.json()).data.mode).toBe('delta')
+    expect(mocks.deltaSince).toEqual([since])
+    expect(mocks.loads).toBe(0)
+  })
+
+  test.each([
+    ['読めない', 'きのう'],
+    ['未来', new Date(Date.now() + 10 * 60_000).toISOString()],
+    ['8 日前', new Date(Date.now() - 8 * 24 * 60 * 60_000).toISOString()],
+  ])('起点が%sなら全件に倒す (断らない)', async (_label, since) => {
+    // Act
+    const res = await GET(withSince(since))
+
+    // Assert
+    expect(res.status).toBe(200)
+    expect(mocks.deltaSince).toEqual([])
+    expect(mocks.loads).toBe(1)
   })
 })

@@ -10,8 +10,8 @@
 // (1 つの失敗で全部を捨てない。黙って欠けさせもしない)
 import 'server-only'
 import os from 'node:os'
-import { gzipSync } from 'node:zlib'
-import { SYNC_GZIP_LEVEL } from '@/lib/route/compress'
+import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'node:zlib'
+import { BROTLI_QUALITY, SYNC_GZIP_LEVEL } from '@/lib/route/compress'
 import sharp from 'sharp'
 import pkg from '../../../package.json'
 import { prisma } from '@/lib/db'
@@ -189,10 +189,12 @@ function thumbTask(jpeg: Uint8Array): BenchTask {
 }
 
 // 同期の組み立て (/api/sync/items の中身)。回路の解析は記憶 (circuitFencesOf) を
-// 通るので、ならしの後は db・json・gzip の重さになる (普段の同期と同じ形)
+// 通るので、ならしの後は db・json・圧縮の重さになる (普段の同期と同じ形)。
+// 圧縮は本番の端末 (HTTPS) が受ける brotli で合計を出し、前と比べるために
+// gzip の時間も測って段階に残す (docs/124 §3)
 const syncTask: BenchTask = {
   id: 'sync:payload',
-  label: '同期の組み立て (db → json → gzip)',
+  label: '同期の組み立て (db → json → brotli)',
   fixed: false,
   run: async () => {
     const db = await elapsed(() => loadOfflineSyncPayload())
@@ -200,13 +202,21 @@ const syncTask: BenchTask = {
     const json = JSON.stringify(db.value)
     const t1 = performance.now()
     // 同期の口と同じ強さ。口は非同期で圧縮するが、ここは CPU の重さを測るので同期で
-    const gz = gzipSync(json, { level: SYNC_GZIP_LEVEL })
+    const br = brotliCompressSync(json, {
+      params: {
+        [zlibConstants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY,
+        [zlibConstants.BROTLI_PARAM_MODE]: zlibConstants.BROTLI_MODE_TEXT,
+        [zlibConstants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(json),
+      },
+    })
     const t2 = performance.now()
+    const gz = gzipSync(json, { level: SYNC_GZIP_LEVEL })
+    const t3 = performance.now()
     const mb = (bytes: number) => (bytes / MB).toFixed(1)
     return {
       totalMs: db.ms + (t2 - t0),
-      phases: { db: db.ms, json: t1 - t0, gzip: t2 - t1 },
-      scale: `${db.value.items.length} 件・${mb(Buffer.byteLength(json))}MB → ${mb(gz.byteLength)}MB`,
+      phases: { db: db.ms, json: t1 - t0, brotli: t2 - t1, gzip: t3 - t2 },
+      scale: `${db.value.items.length} 件・${mb(Buffer.byteLength(json))}MB → br ${mb(br.byteLength)}MB (gzip ${mb(gz.byteLength)}MB)`,
     }
   },
 }

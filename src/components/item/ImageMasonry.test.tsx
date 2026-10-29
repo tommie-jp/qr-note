@@ -116,15 +116,17 @@ test("ページ内に画像が 1 枚も無ければ案内だけを出す", () =>
 
 // 回路図タイル (docs/68-一覧回路図サムネ計画.md §4)
 
-const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
-const CIRCUIT_SVG_2 = '<svg viewBox="0 0 20 20"><path d="M0 0h20"/></svg>';
+// 回路図の SVG の hash (docs/124 §1)。タイルは届くまで同じ大きさの枠だけを出す
+const CIRCUIT_SVG = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const CIRCUIT_SVG_2 = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
 test("回路図をタイルとして並べ、ノート詳細へ繋ぐ", () => {
   const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000090", memo: "RC 回路" })], {
     "00000000-0000-7000-8000-000000000090": [CIRCUIT_SVG],
   });
   expect(html).toContain("circuit-thumb");
-  expect(html).toContain('<path d="M0 0h10"/>');
+  // SVG の中身は端末が口から引いて入れる。描いた直後は同じ大きさの枠だけ
+  expect(html).toContain('<span aria-hidden="true" class="circuit-thumb block aspect-square w-full bg-gray-100"></span>');
   expect(html).toContain('href="/item/00000000-0000-7000-8000-000000000090"');
   // キャプション (compact 準拠の 2 行) も画像タイルと同じに出す
   expect(html).toContain("RC 回路");

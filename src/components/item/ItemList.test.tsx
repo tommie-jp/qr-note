@@ -205,7 +205,8 @@ test("画像表示は画像だけを Grid で敷き詰め、画像なしノー�
 // 表示の中身は components/item/ItemRow.test.tsx / components/item/ImageMasonry.test.tsx が見る。ここは
 // prop が正しい部品まで届くことだけを確かめる
 
-const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
+// 回路図の SVG の hash (docs/124 §1)
+const CIRCUIT_SVG = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 test("小/大表示は回路図サムネの先頭 1 枚を行へ降ろす", () => {
   const html = render(
@@ -217,7 +218,7 @@ test("小/大表示は回路図サムネの先頭 1 枚を行へ降ろす", () =
     { "10": [CIRCUIT_SVG] },
   );
   expect(html).toContain("circuit-thumb");
-  expect(html).toContain("data:image/svg+xml;charset=utf-8,%3Csvg");
+  expect(html).toContain('src="/api/circuits/svg/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"');
 });
 
 test("画像表示は回路図サムネを masonry へ丸ごと降ろす", () => {

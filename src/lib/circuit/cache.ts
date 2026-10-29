@@ -1,4 +1,5 @@
 import 'server-only'
+import { optimizeCircuitSvg } from './optimizeSvg'
 import { prisma } from '../db'
 import { errorText } from '../errorMessage'
 import { assertSafeCircuitSvg, circuitHash } from './hash'
@@ -65,9 +66,11 @@ async function renderAndStore(source: string, hash: string): Promise<string> {
 
   // 保存できなくても描けた図は返す (次回また描き直すだけ)。
   // 同じ図を同時に描いたときの主キー衝突もここで無害に流れる
-  await prisma.circuitSvg.create({ data: { hash, svg } }).catch(() => undefined)
+  // 控える前に軽くする (docs/124 §2)。返すのも軽くした方 (画面と控えを揃える)
+  const optimized = optimizeCircuitSvg(svg)
+  await prisma.circuitSvg.create({ data: { hash, svg: optimized } }).catch(() => undefined)
 
-  return svg
+  return optimized
 }
 
 // 本文中のすべての ```circuitikz フェンスの描画を**始めるだけ**始めて、

@@ -56,8 +56,9 @@ interface ImageMasonryProps {
 // 直接埋め込む) のどちらか。キャプションとリンクの組み方は共通。
 // 動画も並べるのはスライドショーで流すため (docs/117 §8)。押せばビューアで再生する
 type TileMedia =
-  | { image: string; isVideo: boolean; svg?: never }
-  | { image?: never; isVideo?: never; svg: string };
+  | { image: string; isVideo: boolean; hash?: never }
+  // 回路図の SVG の hash (docs/124 §1)
+  | { image?: never; isVideo?: never; hash: string };
 
 export function ImageMasonry({
   items,
@@ -87,10 +88,10 @@ export function ImageMasonry({
         }),
       ),
       ...(circuitThumbs?.[item.itemId] ?? []).map(
-        (svg, i): { item: Item; key: string; media: TileMedia } => ({
+        (hash, i): { item: Item; key: string; media: TileMedia } => ({
           item,
           key: `${item.itemId}:circuit:${i}`,
-          media: { svg },
+          media: { hash },
         }),
       ),
     ];
@@ -178,7 +179,7 @@ export function ImageMasonry({
             ) : (
               /* 回路図は SVG をそのまま埋め込む (docs/68 §4)。枠の作法は
                  画像タイルと同じ正方形 + contain (CircuitThumb 側が持つ) */
-              <CircuitThumb variant="tile" svg={media.svg} />
+              <CircuitThumb variant="tile" hash={media.hash} />
             )}
             <Link
               href={itemHref(item.itemId)}

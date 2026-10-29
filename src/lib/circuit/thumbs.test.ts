@@ -1,238 +1,137 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { circuitHash } from './hash'
 
-// DB は差し替えて、足切り・突き合わせ・予算の分岐だけを見る。
-// 描画 (renderCircuit) はこのモジュールから決して呼ばれない — 一覧は
-// 「引くだけ」の約束 (docs/68-一覧回路図サムネ計画.md §2)
-const findMany = vi.fn()
+// DB は差し替えて、足切り・突き合わせの分岐だけを見る。返すのは SVG の hash
+// (docs/124 §1)。描画 (renderCircuit) はこのモジュールから決して呼ばれない —
+// 一覧は「引くだけ」の約束 (docs/68-一覧回路図サムネ計画.md §2)
+const queryRaw = vi.fn()
 
 vi.mock('../db', () => ({
   prisma: {
-    circuitSvg: { findMany: (...a: unknown[]) => findMany(...a) },
+    // タグ付きテンプレートで呼ばれる。値の 1 つ目が引く hash の並び
+    $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => queryRaw(values),
     // 回路フェンスの控え (docs/122 §1) は空のまま。毎回解析に落ちる
     memoCircuitFences: { findMany: async () => [], createMany: async () => ({ count: 0 }) },
   },
 }))
 
-const { CIRCUIT_THUMB_BUDGET, MAX_CIRCUIT_THUMB_BYTES, loadCircuitThumbs } =
-  await import('./thumbs')
+const { MAX_CIRCUIT_THUMB_BYTES, loadCircuitThumbs } = await import('./thumbs')
 
-const SVG_A = '<svg><path d="M0 0"/></svg>'
-const SVG_B = '<svg><path d="M1 1"/></svg>'
+const A = circuitHash('A')
+const B = circuitHash('B')
 const IMAGE = '0421547b-ee29-4613-a6d4-da0f41f94054.jpg'
 
 const fence = (source: string) => `\`\`\`circuitikz\n${source}\n\`\`\``
-
-function makeItem(itemId: string, memo: string) {
-  return { itemId, memo }
-}
-
-// 検査 (assertSafeCircuitSvg) を通り、かつ好きな大きさに膨らませられる SVG。
-// タグ以外の文字は検査対象にならないので、中身のテキストで嵩を稼ぐ
-const paddedSvg = (bytes: number) => {
-  const shell = '<svg></svg>'
-  return `<svg>${'a'.repeat(Math.max(0, bytes - shell.length))}</svg>`
-}
+const makeItem = (itemId: string, memo: string) => ({ itemId, memo })
+const stored = (...hashes: string[]) => hashes.map((hash) => ({ hash, bytes: 3000 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
-  findMany.mockResolvedValue([])
+  queryRaw.mockResolvedValue([])
 })
 
 describe('足切り (DB を引くまでもない物)', () => {
   test('回路図フェンスの無いノートだけならクエリ 0 回で空を返す', async () => {
-    const map = await loadCircuitThumbs(
-      [makeItem('1', '文章だけのノート')],
-      'first',
-    )
+    // Act
+    const map = await loadCircuitThumbs([makeItem('1', '文章だけのノート')], 'first')
 
+    // Assert
     expect(map).toEqual({})
-    expect(findMany).not.toHaveBeenCalled()
+    expect(queryRaw).not.toHaveBeenCalled()
   })
 
   test('first では画像サムネを持つノートを引かない (画像が優先)', async () => {
-    const withImage = makeItem(
-      '1',
-      `写真\n![](/api/images/${IMAGE})\n${fence('A')}`,
-    )
+    // Arrange
+    const withImage = makeItem('1', `写真\n![](/api/images/${IMAGE})\n${fence('A')}`)
 
+    // Act
     const map = await loadCircuitThumbs([withImage], 'first')
 
+    // Assert
     expect(map).toEqual({})
-    expect(findMany).not.toHaveBeenCalled()
+    expect(queryRaw).not.toHaveBeenCalled()
   })
 
   test('all では画像サムネを持つノートの回路図も引く (タイルは併記)', async () => {
-    findMany.mockResolvedValue([{ hash: circuitHash('A'), svg: SVG_A }])
-    const withImage = makeItem(
-      '1',
-      `写真\n![](/api/images/${IMAGE})\n${fence('A')}`,
-    )
+    // Arrange
+    queryRaw.mockResolvedValue(stored(A))
+    const withImage = makeItem('1', `写真\n![](/api/images/${IMAGE})\n${fence('A')}`)
 
-    const map = await loadCircuitThumbs([withImage], 'all')
-
-    expect(map).toEqual({ '1': [SVG_A] })
+    // Act / Assert
+    expect(await loadCircuitThumbs([withImage], 'all')).toEqual({ '1': [A] })
   })
 })
 
 describe('キャッシュとの突き合わせ', () => {
-  test('描画済みの SVG を出現順に返す', async () => {
-    findMany.mockResolvedValue([
-      // DB の返却順はキャッシュ任せ。並びは本文の出現順に揃え直すこと
-      { hash: circuitHash('B'), svg: SVG_B },
-      { hash: circuitHash('A'), svg: SVG_A },
-    ])
+  test('描画済みの図の hash を本文の出現順に返す (DB の返却順に依らない)', async () => {
+    // Arrange
+    queryRaw.mockResolvedValue(stored(B, A))
 
-    const map = await loadCircuitThumbs(
-      [makeItem('1', `${fence('A')}\n\n${fence('B')}`)],
-      'all',
-    )
+    // Act
+    const map = await loadCircuitThumbs([makeItem('1', `${fence('A')}\n\n${fence('B')}`)], 'all')
 
-    expect(map).toEqual({ '1': [SVG_A, SVG_B] })
+    // Assert
+    expect(map).toEqual({ '1': [A, B] })
   })
 
-  test('未描画の図は黙って飛ばす (エラーにしない)', async () => {
-    findMany.mockResolvedValue([{ hash: circuitHash('B'), svg: SVG_B }])
+  test('未描画の図は黙って飛ばし、first は最初に描画済みの 1 枚にする', async () => {
+    // Arrange
+    queryRaw.mockResolvedValue(stored(B))
+    const memo = `${fence('A')}\n\n${fence('B')}`
 
-    const map = await loadCircuitThumbs(
-      [makeItem('1', `${fence('A')}\n\n${fence('B')}`)],
-      'all',
-    )
-
-    expect(map).toEqual({ '1': [SVG_B] })
-  })
-
-  test('first は最初に描画済みの 1 枚だけを返す', async () => {
-    // 1 枚目 (A) が未描画でも、2 枚目 (B) が描けていればそれを顔にする
-    findMany.mockResolvedValue([{ hash: circuitHash('B'), svg: SVG_B }])
-
-    const map = await loadCircuitThumbs(
-      [makeItem('1', `${fence('A')}\n\n${fence('B')}`)],
-      'first',
-    )
-
-    expect(map).toEqual({ '1': [SVG_B] })
+    // Act / Assert
+    expect(await loadCircuitThumbs([makeItem('1', memo)], 'all')).toEqual({ '1': [B] })
+    expect(await loadCircuitThumbs([makeItem('1', memo)], 'first')).toEqual({ '1': [B] })
   })
 
   test('全部未描画のノートはキーごと出ない', async () => {
-    const map = await loadCircuitThumbs([makeItem('1', fence('A'))], 'all')
-
-    expect(map).toEqual({})
+    // Act / Assert
+    expect(await loadCircuitThumbs([makeItem('1', fence('A'))], 'all')).toEqual({})
   })
 
-  test('同じ図を持つ複数ノートに同じ SVG が付く (hash は重複なしで引く)', async () => {
-    findMany.mockResolvedValue([{ hash: circuitHash('A'), svg: SVG_A }])
+  test('同じ図を持つ複数ノートに同じ hash が付き、hash は重複なしで引く', async () => {
+    // Arrange
+    queryRaw.mockResolvedValue(stored(A))
 
-    const map = await loadCircuitThumbs(
-      [makeItem('1', fence('A')), makeItem('2', fence('A'))],
-      'all',
-    )
+    // Act
+    const map = await loadCircuitThumbs([makeItem('1', fence('A')), makeItem('2', fence('A'))], 'all')
 
-    expect(map).toEqual({ '1': [SVG_A], '2': [SVG_A] })
-    const arg = findMany.mock.calls[0][0] as {
-      where: { hash: { in: string[] } }
-    }
-    expect(arg.where.hash.in).toEqual([circuitHash('A')])
+    // Assert
+    expect(map).toEqual({ '1': [A], '2': [A] })
+    expect(queryRaw.mock.calls[0][0][0]).toEqual([A])
   })
 
   test('9 個目以降のフェンスは引きにも行かない (描画側の上限と同じ 8 個)', async () => {
-    const memo = Array.from({ length: 10 }, (_, i) => fence(`C${i}`)).join('\n\n')
+    // Arrange
+    const sources = Array.from({ length: 9 }, (_, i) => `S${i}`)
+    queryRaw.mockResolvedValue(stored(...sources.map((s) => circuitHash(s))))
 
-    await loadCircuitThumbs([makeItem('1', memo)], 'all')
+    // Act
+    await loadCircuitThumbs([makeItem('1', sources.map(fence).join('\n\n'))], 'all')
 
-    const arg = findMany.mock.calls[0][0] as {
-      where: { hash: { in: string[] } }
-    }
-    expect(arg.where.hash.in).toHaveLength(8)
-    expect(arg.where.hash.in).not.toContain(circuitHash('C8'))
+    // Assert
+    expect(queryRaw.mock.calls[0][0][0]).toHaveLength(8)
   })
-})
 
-describe('静かなフォールバック (一覧を壊さない)', () => {
   test('DB が落ちていても空を返す (一覧自体は出る)', async () => {
-    findMany.mockRejectedValue(new Error('db down'))
+    // Arrange
+    queryRaw.mockRejectedValue(new Error('down'))
 
-    const map = await loadCircuitThumbs([makeItem('1', fence('A'))], 'all')
-
-    expect(map).toEqual({})
+    // Act / Assert
+    expect(await loadCircuitThumbs([makeItem('1', fence('A'))], 'all')).toEqual({})
   })
 
-  test('検査に通らない SVG は飛ばし、他の図は出す', async () => {
-    findMany.mockResolvedValue([
-      { hash: circuitHash('A'), svg: '<svg><script>alert(1)</script></svg>' },
-      { hash: circuitHash('B'), svg: SVG_B },
-    ])
-
-    const map = await loadCircuitThumbs(
-      [makeItem('1', `${fence('A')}\n\n${fence('B')}`)],
-      'all',
-    )
-
-    expect(map).toEqual({ '1': [SVG_B] })
-  })
-})
-
-describe('ペイロード予算', () => {
   test('1 枚の上限を超える SVG は飛ばす', async () => {
-    findMany.mockResolvedValue([
-      { hash: circuitHash('A'), svg: paddedSvg(MAX_CIRCUIT_THUMB_BYTES + 1) },
-      { hash: circuitHash('B'), svg: SVG_B },
+    // Arrange
+    queryRaw.mockResolvedValue([
+      { hash: A, bytes: MAX_CIRCUIT_THUMB_BYTES + 1 },
+      { hash: B, bytes: MAX_CIRCUIT_THUMB_BYTES },
     ])
 
-    const map = await loadCircuitThumbs(
-      [makeItem('1', `${fence('A')}\n\n${fence('B')}`)],
-      'all',
-    )
+    // Act
+    const map = await loadCircuitThumbs([makeItem('1', `${fence('A')}\n\n${fence('B')}`)], 'all')
 
-    expect(map).toEqual({ '1': [SVG_B] })
-  })
-
-  test('合計予算を超えたら残りを黙って落とす (一覧の先頭から詰める)', async () => {
-    // 上限いっぱいの SVG を、合計予算を必ず超える件数だけ並べる
-    const big = paddedSvg(MAX_CIRCUIT_THUMB_BYTES)
-    const fit = Math.floor(CIRCUIT_THUMB_BUDGET / MAX_CIRCUIT_THUMB_BYTES)
-    const count = fit + 3
-    const items = Array.from({ length: count }, (_, i) =>
-      makeItem(`${i + 1}`, fence(`C${i}`)),
-    )
-    findMany.mockResolvedValue(
-      Array.from({ length: count }, (_, i) => ({
-        hash: circuitHash(`C${i}`),
-        svg: big,
-      })),
-    )
-
-    const map = await loadCircuitThumbs(items, 'all')
-
-    expect(map[`${fit}`]).toEqual([big])
-    expect(map[`${fit + 1}`]).toBeUndefined()
-    expect(map[`${count}`]).toBeUndefined()
-  })
-
-  test('予算切れの項目でも、入りきった分の図は捨てずに出す', async () => {
-    // 上限いっぱいの図で予算の残りを 1 枚ぶんまで減らし、最後に
-    // 2 図持ち (小 + 上限) の項目を置く。小は入るが上限の方は入らない
-    const big = paddedSvg(MAX_CIRCUIT_THUMB_BYTES)
-    const small = paddedSvg(1024)
-    const fillers = Math.floor(CIRCUIT_THUMB_BUDGET / MAX_CIRCUIT_THUMB_BYTES) - 1
-    const items = [
-      ...Array.from({ length: fillers }, (_, i) =>
-        makeItem(`${i + 1}`, fence(`C${i}`)),
-      ),
-      makeItem('last', `${fence('B')}\n\n${fence('C')}`),
-    ]
-    findMany.mockResolvedValue([
-      ...Array.from({ length: fillers }, (_, i) => ({
-        hash: circuitHash(`C${i}`),
-        svg: big,
-      })),
-      { hash: circuitHash('B'), svg: small },
-      { hash: circuitHash('C'), svg: big },
-    ])
-
-    const map = await loadCircuitThumbs(items, 'all')
-
-    // C (上限いっぱい) は残り予算に入らないが、既に入った B まで消してはいけない
-    expect(map['last']).toEqual([small])
+    // Assert
+    expect(map).toEqual({ '1': [B] })
   })
 })

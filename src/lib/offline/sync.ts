@@ -21,6 +21,7 @@ import { awaitResource, isPerfActive, perfNow, perfSend } from '@/lib/logging/pe
 import { formatTransfer, serverTimingSummary } from '@/lib/logging/perf'
 import { perfMs } from '@/lib/logging/perfLine'
 import { parseSyncPayload, SYNC_ITEMS_PATH, type OfflineItem, type OfflineSyncPayload } from './item'
+import { canSyncByDelta, mergeSyncDelta, parseSyncDelta } from './syncDelta'
 
 // 同期の結果。changed が false なら、サーバに変化が無く (304) 端末の写しを
 // そのまま使っている (docs/118 §4-2)
@@ -41,10 +42,10 @@ export interface SyncResult {
 export async function syncOfflineItems(): Promise<SyncResult> {
   const t0 = perfNow()
   const stored = await loadOfflineSnapshot()
-  const headers: Record<string, string> =
-    stored?.etag === undefined ? {} : { 'If-None-Match': stored.etag }
-  const res = await fetch(SYNC_ITEMS_PATH, { cache: 'no-store', headers })
-  if (res.status === 304 && stored !== null) {
+  // 前回の写しから差分に乗れるなら起点を付ける (docs/124 §4)
+  const since = stored !== null && canSyncByDelta(stored, Date.now()) ? stored.cursor : undefined
+  const first = await requestSync(stored, since)
+  if (first.kind === 'unchanged' && stored !== null) {
     if (isPerfActive()) {
       perfSend('同期', [['結果', 304], ['全体', perfMs(perfNow() - t0)]])
     }
@@ -53,6 +54,43 @@ export async function syncOfflineItems(): Promise<SyncResult> {
       indexSnapshot(stored)
     }
     return { payload: stored, changed: false }
+  }
+
+  let response = first
+  let payload = toPayload(stored, response)
+  // 差分を写しに重ねられなかった (写しに無いノートが版の一覧にある等)。全件を取り直す
+  if (payload === null && response.kind === 'delta') {
+    response = await requestSync(null, undefined)
+    payload = toPayload(null, response)
+  }
+  if (payload === null) {
+    throw new Error('同期の応答を読み取れませんでした')
+  }
+
+  await saveOfflineSnapshot(payload)
+  indexSnapshot(payload)
+  snapshotChanged(new Map(payload.items.map((item) => [item.itemId, item.updatedAt])))
+  if (isPerfActive() && response.kind !== 'unchanged') {
+    void reportSync(payload, response.kind, { t0, ...response.at, tSaved: perfNow() })
+  }
+  return { payload, changed: true }
+}
+
+type SyncResponse =
+  | { kind: 'unchanged' }
+  | { kind: 'full' | 'delta'; data: unknown; at: { tHeaders: number; tBody: number } }
+
+// 同期の口を 1 回叩く。stored が無ければ If-None-Match も付けない (全件を取る)
+async function requestSync(
+  stored: OfflineSyncPayload | null,
+  since: string | undefined,
+): Promise<SyncResponse> {
+  const headers: Record<string, string> =
+    stored?.etag === undefined ? {} : { 'If-None-Match': stored.etag }
+  const url = since === undefined ? SYNC_ITEMS_PATH : `${SYNC_ITEMS_PATH}?since=${encodeURIComponent(since)}`
+  const res = await fetch(url, { cache: 'no-store', headers })
+  if (res.status === 304 && stored !== null) {
+    return { kind: 'unchanged' }
   }
   if (!res.ok) {
     // 401 はセッション切れ。proxy.ts が画面を 200 で案内へ差し替えるのと違い、
@@ -63,37 +101,42 @@ export async function syncOfflineItems(): Promise<SyncResult> {
         : `同期に失敗しました (HTTP ${res.status})`,
     )
   }
-
   // 封筒から data を取り出す。**サーバを無条件には信じない** (envelopeData が
-  // オブジェクトでない本文を null にし、形は parseSyncPayload が確かめる)
+  // オブジェクトでない本文を null にし、形は parseSyncPayload / parseSyncDelta が確かめる)
   const tHeaders = perfNow()
   const body: unknown = await res.json()
   const tBody = perfNow()
-  const payload = parseSyncPayload(envelopeData(body))
-  if (payload === null) {
-    throw new Error('同期の応答を読み取れませんでした')
-  }
+  const data = envelopeData(body)
+  const isDelta = typeof data === 'object' && data !== null && (data as { mode?: unknown }).mode === 'delta'
+  return { kind: isDelta ? 'delta' : 'full', data, at: { tHeaders, tBody } }
+}
 
-  await saveOfflineSnapshot(payload)
-  indexSnapshot(payload)
-  snapshotChanged(new Map(payload.items.map((item) => [item.itemId, item.updatedAt])))
-  if (isPerfActive()) {
-    void reportSync(payload, { t0, tHeaders, tBody, tSaved: perfNow() })
+// 応答を写しの形にする。差分は前回の写しに重ねる。読めなければ null
+function toPayload(stored: OfflineSyncPayload | null, response: SyncResponse): OfflineSyncPayload | null {
+  if (response.kind === 'unchanged') {
+    return stored
   }
-  return { payload, changed: true }
+  if (response.kind === 'full') {
+    return parseSyncPayload(response.data)
+  }
+  const delta = parseSyncDelta(response.data)
+  return delta === null || stored === null ? null : mergeSyncDelta(stored, delta)
 }
 
 // 同期 1 回の行 (docs/119 §3-3)。resource entry (転送量・Server-Timing) は
 // 受信完了の後に非同期で届くので、待ってから送る。同期そのものは待たせない
 async function reportSync(
   payload: OfflineSyncPayload,
+  kind: 'full' | 'delta',
   at: { t0: number; tHeaders: number; tBody: number; tSaved: number },
 ): Promise<void> {
+  // 差分は ?since= が付くので、パスを含むかで拾う
   const entry = await awaitResource(
-    (e) => e.name.endsWith(SYNC_ITEMS_PATH) && e.startTime >= at.t0 - 1,
+    (e) => e.name.includes(SYNC_ITEMS_PATH) && e.startTime >= at.t0 - 1,
   )
   perfSend('同期', [
     ['結果', 200],
+    ['種類', kind === 'delta' ? '差分' : '全件'],
     ['全体', perfMs(at.tSaved - at.t0)],
     ['応答開始', perfMs(entry ? entry.responseStart - entry.startTime : at.tHeaders - at.t0)],
     // 本文 = 受信の残り + JSON の解析 (res.json() は両方を含む)

@@ -203,7 +203,8 @@ test("画像のないノートは img を出さない", () => {
 
 // 回路図サムネ (docs/68-一覧回路図サムネ計画.md §3)
 
-const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>'
+// 回路図の SVG の hash (docs/124 §1)
+const CIRCUIT_SVG = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
 const renderCircuitRow = (item: Item, view: RowViewMode = "compact") =>
   renderToStaticMarkup(
@@ -217,13 +218,13 @@ const renderCircuitRow = (item: Item, view: RowViewMode = "compact") =>
     </ul>,
   );
 
-test("画像が無ければ回路図の SVG をサムネに出す", () => {
+test("画像が無ければ回路図をサムネに出す (SVG は口から引く)", () => {
   const html = renderCircuitRow(makeItem({ memo: "RC 回路" }));
   expect(html).toContain("circuit-thumb");
-  // SVG は DOM に展開せず、data URL の <img> で出す (docs/122 §10-2)。
+  // SVG は DOM に展開せず、口の URL の <img> で出す (docs/122 §10-2・docs/124 §1)。
   // 行の大きさでは図の文字が読めないので、SVG の文字の配置を払う意味が無い
   expect(html).toContain('<img');
-  expect(html).toContain('src="data:image/svg+xml;charset=utf-8,%3Csvg viewBox=%220 0 10 10%22%3E');
+  expect(html).toContain('src="/api/circuits/svg/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"');
   expect(html).not.toContain('<path d="M0 0h10"/>');
   // 小表示は画像サムネと同じ 1 行分の枠
   expect(html).toContain("size-6");

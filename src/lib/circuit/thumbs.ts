@@ -1,6 +1,11 @@
 // 検索一覧 (小/大/画像) に出す回路図サムネの取得
 // (docs/68-一覧回路図サムネ計画.md)。
 //
+// **返すのは SVG の hash だけ** (docs/124 §1)。SVG の中身は
+// /api/circuits/svg/<hash> が配り、端末は immutable で覚える。一覧の応答に
+// 埋め込んでいた頃は、回路図の多い検索 (オペアンプ) の 500KB のほとんどが SVG で、
+// 同じ図を検索のたびに運び直していた。
+//
 // **描画はしない。** circuit_svgs にキャッシュ済みの SVG を引くだけで、
 // 未描画の図は黙って飛ばす (ノートを開けば描かれて次から出る)。描画は 1 枚
 // 最大 10 秒かかるため、一覧の表示に混ぜられない — オフライン同期の口が
@@ -11,7 +16,7 @@
 // circuit/types.ts に置いてあり、表示側はそちらを import する
 import 'server-only'
 import { prisma } from '../db'
-import { assertSafeCircuitSvg, circuitHash } from './hash'
+import { circuitHash } from './hash'
 import { type CircuitThumbMap, MAX_CIRCUITS_PER_MEMO } from './types'
 import { CIRCUITIKZ_LANG, type CircuitFence } from './fences'
 import { circuitFencesOfMany } from './fenceStore'
@@ -23,18 +28,8 @@ import { firstThumbInfo } from '../images/memoImages'
 export type CircuitThumbMode = 'first' | 'all'
 
 // SVG 1 枚の上限。実測は数 KB (平均 2.9KB) で、これを大きく超える図は
-// サムネにするには複雑すぎる。インライン埋め込みなのでページ重量に直結する
+// サムネにするには複雑すぎる (行の 24〜96px では線が潰れる)
 export const MAX_CIRCUIT_THUMB_BYTES = 32 * 1024
-
-// 1 レスポンスに埋め込む SVG の合計予算。searchItems は「さらに表示」で
-// 1〜N ページの累積を返すため、件数はページを送るほど増える。一覧の先頭から
-// 詰めて、超過した分は黙って落とす (前例: オフラインの OFFLINE_CIRCUIT_BUDGET)。
-//
-// **線上は約 2 倍になる前提の値。** ItemList は client component なので、
-// SVG は SSR した HTML と hydration 用の Flight payload の両方に載る。
-// 重複部分が 32KB より離れると gzip の窓にも収まらない。実測の SVG は
-// 平均 2.9KB なので、この予算でも普段は数十 KB で収まる
-export const CIRCUIT_THUMB_BUDGET = 256 * 1024
 
 // 一覧に必要な列だけに絞る (Item を丸ごと要求しない)。テストも軽くなる
 type ThumbSource = { itemId: string; memo: string }
@@ -79,61 +74,25 @@ export async function loadCircuitThumbs(
   // ページぶんを 1 クエリで引く (hash は主キー)。同じ図が複数ノートに
   // あっても 1 回で済むよう重複を除く
   const uniqueHashes = [...new Set(wants.flatMap((w) => w.hashes))]
-  const rows = await prisma.circuitSvg
-    .findMany({
-      where: { hash: { in: uniqueHashes } },
-      select: { hash: true, svg: true },
-    })
-    .catch((error) => {
-      // 一覧は出す (サムネなしに劣化) が、恒久的なクエリ失敗が
-      // 「回路図が静かに全部消えた」にならないよう痕跡は残す
-      // (syncItems.ts の loadOfflineCircuits と同じ作法)
-      console.warn('一覧用の回路図サムネを引けませんでした', error)
-      return []
-    })
-
-  const svgByHash = new Map<string, string>()
-  for (const row of rows) {
-    // キャッシュ済みでも毎回検査してから埋め込む (getOrRenderCircuit と
-    // 同じ作法)。通らない図と 1 枚上限を超える図は無かったことにする
-    try {
-      const svg = assertSafeCircuitSvg(row.svg)
-      if (Buffer.byteLength(svg) <= MAX_CIRCUIT_THUMB_BYTES) {
-        svgByHash.set(row.hash, svg)
-      }
-    } catch {
-      // 検査 NG。ノートを開けば同じ検査がエラー表示として面倒を見る
-    }
-  }
+  // 中身は引かない。描画済みかと大きさだけを見る (安全検査は配る口で掛ける)
+  const rows = await prisma.$queryRaw<{ hash: string; bytes: number }[]>`
+    SELECT hash, octet_length(svg)::int AS bytes
+    FROM circuit_svgs
+    WHERE hash = ANY(${uniqueHashes})
+  `.catch((error: unknown) => {
+    console.warn('一覧用の回路図サムネを引けませんでした', error)
+    return []
+  })
+  const usable = new Set(
+    rows.filter((row) => row.bytes <= MAX_CIRCUIT_THUMB_BYTES).map((row) => row.hash),
+  )
 
   const map: CircuitThumbMap = {}
-  let budget = CIRCUIT_THUMB_BUDGET
   for (const want of wants) {
-    const svgs: string[] = []
-    let exhausted = false
-    for (const hash of want.hashes) {
-      const svg = svgByHash.get(hash)
-      if (svg === undefined) {
-        continue
-      }
-      // 予算切れは打ち止め (一覧の後ろのページほど図が出なくなるだけ)。
-      // 入りきった分は捨てずに出す — ここで即 return すると、この項目の
-      // 収集済みの図まで消えて「先頭から詰める」の約束が崩れる
-      if (Buffer.byteLength(svg) > budget) {
-        exhausted = true
-        break
-      }
-      budget -= Buffer.byteLength(svg)
-      svgs.push(svg)
-      if (mode === 'first') {
-        break
-      }
-    }
-    if (svgs.length > 0) {
-      map[want.itemId] = svgs
-    }
-    if (exhausted) {
-      break
+    const hashes = want.hashes.filter((hash) => usable.has(hash))
+    const picked = mode === 'first' ? hashes.slice(0, 1) : hashes
+    if (picked.length > 0) {
+      map[want.itemId] = picked
     }
   }
   return map

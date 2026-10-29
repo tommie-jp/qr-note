@@ -1,4 +1,5 @@
 import 'server-only'
+import { optimizeCircuitSvg } from './optimizeSvg'
 import { VERSION, compileCircuit, finishSvg } from 'circuit-fence/core'
 import {
   RENDERER_VERSION,
@@ -136,7 +137,9 @@ async function renderAndStore(compiled: Compiled, hash: string): Promise<string>
   // 生のまま控えて読むたびに掛け直しても同じ絵になるが、
   // 引くたびに同じ計算を繰り返す理由がない。
   // 保存できなくても描けた図は返す (次回また描き直すだけ)
-  await prisma.circuitSvg.create({ data: { hash, svg } }).catch(() => undefined)
+  // 控える前に軽くする (docs/124 §2)。返すのも軽くした方
+  const optimized = optimizeCircuitSvg(svg)
+  await prisma.circuitSvg.create({ data: { hash, svg: optimized } }).catch(() => undefined)
 
-  return svg
+  return optimized
 }

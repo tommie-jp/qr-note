@@ -12,7 +12,8 @@ import {
 
 const IMAGE = '0421547b-ee29-4613-a6d4-da0f41f94054.jpg'
 const VIDEO = '0421547b-ee29-4613-a6d4-da0f41f94054.mp4'
-const SVG = '<svg viewBox="0 0 10 10"></svg>'
+// 回路図の SVG の hash (docs/124 §1)
+const SVG = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
 const memoNote = (memo: string) => ({ memo })
 
@@ -91,7 +92,7 @@ describe('rowFace', () => {
     const none = rowFace(memoNote('文字だけ'), { hasNotePreview: false })
 
     // Assert
-    expect(circuit).toEqual({ kind: 'circuit', svg: SVG })
+    expect(circuit).toEqual({ kind: 'circuit', hash: SVG })
     expect(preview).toEqual({ kind: 'preview' })
     expect(none).toBeNull()
   })

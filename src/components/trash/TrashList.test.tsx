@@ -167,14 +167,15 @@ test("画像表示で全部がタイルになれば案内は出さない", () =>
 // 回路図サムネの中継 (docs/68-一覧回路図サムネ計画.md §5)。
 // ゴミ箱でも「消してよいか」の判断材料は検索一覧と同じだけ要る
 
-const CIRCUIT_SVG = '<svg viewBox="0 0 10 10"><path d="M0 0h10"/></svg>';
+// 回路図の SVG の hash (docs/124 §1)
+const CIRCUIT_SVG = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 test("小表示は回路図サムネを行へ降ろす", () => {
   const html = render([makeItem({ itemId: "00000000-0000-7000-8000-000000000010", memo: "RC 回路" })], "compact", {
     "00000000-0000-7000-8000-000000000010": [CIRCUIT_SVG],
   });
   expect(html).toContain("circuit-thumb");
-  expect(html).toContain("data:image/svg+xml;charset=utf-8,%3Csvg");
+  expect(html).toContain('src="/api/circuits/svg/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"');
 });
 
 test("画像表示は回路図サムネを masonry へ降ろす", () => {

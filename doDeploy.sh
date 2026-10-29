@@ -510,6 +510,11 @@ DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfill
 echo "--- 見出しの派生列を切り出し直す"
 DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/backfillTitles.ts
 
+# 控えてある回路図の SVG を軽くする (docs/124 §2)。冪等で、まだ軽くしていない
+# 行だけを選ぶ (2 回目からはほぼ何もしない) ので毎回流す
+echo "--- 回路図の SVG を軽くする"
+DATABASE_URL="$REMOTE_DB_URL" npx tsx --conditions=react-server scripts/optimizeCircuitSvgs.ts
+
 # 計測ログの取得鍵を手元と揃える (docs/120 §3-2)。手元の
 # ~/.config/qr-note/perf-token が無ければ作り、その hash だけを本番の
 # user_settings に書く。これで scripts/fetchPerfLog.sh が鍵の受け渡し無しに

@@ -69,6 +69,8 @@ describe('ログアウト', () => {
     expect(res.headers.get('set-cookie')).toBe(
       '__Host-qr_session=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=lax',
     )
+    // 回路図の SVG は 1 年覚えさせるので、ブラウザのキャッシュも捨てさせる (docs/124 §1)
+    expect(res.headers.get('clear-site-data')).toBe('"cache"')
   })
 
   // 既に切れているセッションで押されても「ログアウトできない」にしない

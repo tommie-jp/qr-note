@@ -7,6 +7,8 @@ const findUnique = vi.fn()
 const create = vi.fn()
 const renderCircuit = vi.fn()
 
+// 軽くする処理 (optimizeSvg.ts) は専用のテストが見る。ここは控え方だけを見るので素通しにする
+vi.mock('./optimizeSvg', () => ({ optimizeCircuitSvg: (svg: string) => svg }))
 vi.mock('../db', () => ({
   prisma: { circuitSvg: { findUnique: (...a: unknown[]) => findUnique(...a), create: (...a: unknown[]) => create(...a) } },
 }))
