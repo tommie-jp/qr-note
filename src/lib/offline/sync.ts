@@ -12,6 +12,8 @@
 // 圏外で開いて初めて古いデータだったと気づくことになる。
 
 import 'client-only'
+import { snapshotChanged } from '@/lib/client/invalidate'
+import { indexSnapshot, snapshotIndexStore } from './snapshotIndex'
 import { envelopeData } from '@/lib/api/envelope'
 import { firstThumbInfo, thumbUrl } from '@/lib/images/memoImages'
 import { loadOfflineSnapshot, saveOfflineSnapshot } from './snapshotDb'
@@ -46,6 +48,10 @@ export async function syncOfflineItems(): Promise<SyncResult> {
     if (isPerfActive()) {
       perfSend('同期', [['結果', 304], ['全体', perfMs(perfNow() - t0)]])
     }
+    // 変わっていなければ、索引が既にあれば作り直さない (約 11MB を舐め直さない)
+    if (snapshotIndexStore.get() === null) {
+      indexSnapshot(stored)
+    }
     return { payload: stored, changed: false }
   }
   if (!res.ok) {
@@ -69,6 +75,8 @@ export async function syncOfflineItems(): Promise<SyncResult> {
   }
 
   await saveOfflineSnapshot(payload)
+  indexSnapshot(payload)
+  snapshotChanged(new Map(payload.items.map((item) => [item.itemId, item.updatedAt])))
   if (isPerfActive()) {
     void reportSync(payload, { t0, tHeaders, tBody, tSaved: perfNow() })
   }

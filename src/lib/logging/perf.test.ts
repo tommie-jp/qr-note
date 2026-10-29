@@ -48,6 +48,15 @@ describe('pickRsc', () => {
     expect(picked.prefetch).toBe(0)
   })
 
+  test('一覧・ノートの JSON API は行き先のパスに依らず本体の候補になり、prefetch には数えない', () => {
+    // docs/123 §6 — 端末で描く画面の中身は /api/items… で届く
+    const api: ResourceLike = { ...rsc('/', 110, 40_000), name: 'http://localhost/api/items?q=a&page=1' }
+    const entries = [rsc('/?q=a', 100, 2_000), api, rsc('/item/1', 130, 5_000)]
+    const picked = pickRsc(entries, { t0: 90, until: 1000, pathname: '/' })
+    expect(picked.main).toBe(api)
+    expect(picked.prefetch).toBe(2)
+  })
+
   test('行き先の要求が無ければ main は null', () => {
     expect(pickRsc([rsc('/item/1', 100, 1)], { t0: 0, until: 1000, pathname: '/' })).toEqual({
       main: null,

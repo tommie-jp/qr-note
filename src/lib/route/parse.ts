@@ -7,7 +7,14 @@
 // そのまま返す。
 
 import type { NextResponse } from 'next/server'
+import { readBodyBounded } from './boundedBody'
 import { apiFail, type ApiResponseOptions } from './respond'
+
+// JSON の本文の上限。いちばん大きいのはノート本文 (32000 字) の保存で、全角と
+// JSON の逃がしを見込んでも 200KB に届かない。**読み切る前に打ち切る** —
+// request.json() は全部をメモリに読んでから解析するので、上限を後で見ても
+// 大きな本文でメモリを食われる (proxyClientMaxBodySize は動画のために大きい)
+export const MAX_JSON_BODY_BYTES = 512 * 1024
 
 export type Parsed<T> =
   | { readonly ok: true; readonly value: T }
@@ -22,7 +29,11 @@ export const BAD_REQUEST_MESSAGE = 'リクエストの形式が正しくあり�
 // JSON.parse は 'null' や '42' も通してしまう
 export async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
   try {
-    const body: unknown = await request.json()
+    const bytes = await readBodyBounded(request, MAX_JSON_BODY_BYTES)
+    if (bytes === null) {
+      return null
+    }
+    const body: unknown = JSON.parse(new TextDecoder().decode(bytes))
     if (typeof body !== 'object' || body === null || Array.isArray(body)) {
       return null
     }

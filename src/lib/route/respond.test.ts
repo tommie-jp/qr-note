@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { apiDemoDisabled, apiFail, apiOk } from './respond'
+import { apiDemoDisabled, apiFail, apiFailWith, apiOk, apiOkPaged } from './respond'
 
 // 封筒の書き手 (docs/93-リファクタリング計画.md §3-3)。
 // 本文はキーの順まで含めて文字列で比べる — 読み手 (api/envelope.ts や
@@ -52,6 +52,38 @@ describe('apiDemoDisabled', () => {
     expect(res.headers.get('cache-control')).toBe('no-store')
     expect(await res.text()).toBe(
       '{"success":false,"data":null,"error":"デモ版では JAN 情報を取得できません","demoDisabled":true}',
+    )
+  })
+})
+
+describe('apiOkPaged', () => {
+  test('封筒の 3 つの後ろに meta を足して no-store で返す', async () => {
+    // Act
+    const res = apiOkPaged({ items: [] }, { total: 41, page: 2, pageCount: 3 })
+
+    // Assert
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(await res.text()).toBe(
+      '{"success":true,"data":{"items":[]},"error":null,"meta":{"total":41,"page":2,"pageCount":3}}',
+    )
+  })
+
+  test('Cache-Control を別の値にできる', () => {
+    const res = apiOkPaged([], { total: 0, page: 1, pageCount: 0 }, { cacheControl: 'private' })
+
+    expect(res.headers.get('cache-control')).toBe('private')
+  })
+})
+
+describe('apiFailWith', () => {
+  test('失敗の封筒に中身を添えて返す (編集の競合 409)', async () => {
+    const res = apiFailWith('ほかの画面で書き換えられています', 409, { state: { kind: 'conflict' } })
+
+    expect(res.status).toBe(409)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(await res.text()).toBe(
+      '{"success":false,"data":{"state":{"kind":"conflict"}},"error":"ほかの画面で書き換えられています"}',
     )
   })
 })

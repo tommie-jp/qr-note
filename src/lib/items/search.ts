@@ -70,6 +70,38 @@ export async function searchItems(
   return { items, total, page: safePage, pageCount }
 }
 
+// N ページ目の 20 件だけを返す (docs/123 §4-2)。端末が足していく API 用。
+//
+// searchItems (累積) と違い OFFSET で引くので、読む間に行が増減すると
+// 重複・欠落がありうる。端末は itemId で重複を落とし、検索をやり直すときは
+// 1 ページ目から引き直す (書き込みで検索の控えを捨てる。docs/123 §3-3)
+export async function searchItemsPage(
+  query: string,
+  page: number,
+  sort: Sort = 'updated',
+): Promise<ItemSearchResult> {
+  const where = buildWhere(query)
+
+  const total = await countItemsWhere(where)
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const intPage = Math.floor(page)
+  const safePage = Math.min(
+    Math.max(1, Number.isFinite(intPage) ? intPage : 1),
+    pageCount,
+  )
+
+  const items = await prisma.$queryRaw<Item[]>`
+    SELECT ${ITEM_COLUMNS}
+    FROM items
+    ${where}
+    ${buildOrderBy(sort)}
+    LIMIT ${PAGE_SIZE}
+    OFFSET ${(safePage - 1) * PAGE_SIZE}
+  `
+
+  return { items, total, page: safePage, pageCount }
+}
+
 // 表・グラフの元データを引く共通形 (特性表・進捗の表・健康グラフの三つ子)。
 // 3 つの違いは絞り (where)・取る列・並び・上限だけで、溢れの作法は同じ。
 //

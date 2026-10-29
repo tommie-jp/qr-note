@@ -6,7 +6,7 @@ import { AppSideEffects } from "@/components/chrome/AppSideEffects";
 import { PreHydrationScripts } from "@/components/chrome/PreHydrationScripts";
 import { DemoBanner } from "@/components/chrome/DemoBanner";
 import { PageBottomBar } from "@/components/bottombar/PageBottomBar";
-import { setPaneModeAction } from "@/app/actions";
+import { RouterBridge } from "@/components/client/RouterBridge";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 import { rowTintVars } from "@/lib/prefs/rowTint";
 import { loadRowTintId } from "@/lib/prefs/rowTintStore";
@@ -98,12 +98,13 @@ export default async function RootLayout({
         {/* 下部バー (PageBottomBar) と、その中へ編集ボタンを portal する側
             (MemoEditorInner) をつなぐ context。両方を内側に含めるため body 直下で包む */}
         <BottomBarProvider>
+          {/* 端末側の action が画面を動かすための窓口 (lib/client/navigation.ts) */}
+          <RouterBridge />
           <AppHeader
             user={user}
             isProd={isProd}
             isDemo={isDemo}
             paneMode={paneMode}
-            paneModeAction={setPaneModeAction}
             rowTintId={rowTintId}
             photoMetaMode={photoMetaMode}
             siteUrl={siteUrl}

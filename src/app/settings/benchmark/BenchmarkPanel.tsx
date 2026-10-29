@@ -5,7 +5,7 @@ import {
   getBenchStatusAction,
   startCpuBenchAction,
   startServerBenchAction,
-} from "@/app/actions/benchmark";
+} from "@/lib/client/actions";
 import { CopyTextButton } from "@/components/CopyTextButton";
 import { COMPACT_SECONDARY_BUTTON_CLASS } from "@/components/ui";
 import type { BenchStatus } from "@/lib/diag/benchStatus";

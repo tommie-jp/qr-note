@@ -106,3 +106,27 @@ describe('parseFormBody', () => {
     expect(consoleError).toHaveBeenCalledWith('解析に失敗しました:', expect.any(Error))
   })
 })
+
+describe('readJsonObject の上限 (docs/123 §7)', () => {
+  test('上限を超える本文は読み切る前に断る', async () => {
+    // Arrange
+    const { readJsonObject, MAX_JSON_BODY_BYTES } = await import('./parse')
+    const huge = JSON.stringify({ memo: 'a'.repeat(MAX_JSON_BODY_BYTES) })
+    const request = new Request('http://localhost/api/x', { method: 'PUT', body: huge })
+
+    // Act / Assert
+    expect(await readJsonObject(request)).toBeNull()
+  })
+
+  test('上限内の日本語の本文は読める', async () => {
+    // Arrange
+    const { readJsonObject } = await import('./parse')
+    const request = new Request('http://localhost/api/x', {
+      method: 'PUT',
+      body: JSON.stringify({ memo: 'あ'.repeat(32000) }),
+    })
+
+    // Act / Assert
+    expect((await readJsonObject(request))?.memo).toHaveLength(32000)
+  })
+})

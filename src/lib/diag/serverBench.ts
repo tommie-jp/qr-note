@@ -259,6 +259,36 @@ function pageTask(cookie: string, origin: string): BenchTask {
   }
 }
 
+// 検索 API の組み立て (docs/123 §6)。C/S 化の後は一覧の材料がこちらに載る。
+// page:search (殻だけになった) と並べて、サーバの持ち分を測る
+function apiTask(cookie: string, origin: string): BenchTask {
+  return {
+    id: 'api:search',
+    label: `検索 API「${PAGE_BENCH_QUERY}」(小・1 ページ目)`,
+    fixed: false,
+    run: async () => {
+      const started = performance.now()
+      const params = new URLSearchParams({ q: PAGE_BENCH_QUERY, view: 'compact', page: '1' })
+      const res = await fetch(`${origin}/api/items?${params}`, {
+        headers: { Cookie: cookie },
+        redirect: 'manual',
+        cache: 'no-store',
+      })
+      const headersAt = performance.now()
+      const body = await res.arrayBuffer()
+      const ended = performance.now()
+      if (res.status !== 200) {
+        throw new Error(`自分への要求が HTTP ${res.status} (ログインや待ち受けのポートを確かめる)`)
+      }
+      return {
+        totalMs: ended - started,
+        phases: { 応答開始: headersAt - started, 本文: ended - headersAt },
+        scale: `${Math.round(body.byteLength / 1024)}KB`,
+      }
+    },
+  }
+}
+
 async function runTasks(tasks: readonly BenchTask[]): Promise<Pick<ServerBenchResult, 'items' | 'failed'>> {
   const items: ServerBenchItem[] = []
   const failed: ServerBenchResult['failed'] = []
@@ -310,7 +340,12 @@ export async function runServerBench(options: ServerBenchOptions = {}): Promise<
     ...parseTasks(coldMemos).filter((task) => coldMemos.length > 0 || task.fixed),
     thumbTask(jpeg),
     syncTask,
-    ...(options.pageCookie === undefined ? [] : [pageTask(options.pageCookie, options.origin ?? selfOrigin())]),
+    ...(options.pageCookie === undefined
+      ? []
+      : [
+          pageTask(options.pageCookie, options.origin ?? selfOrigin()),
+          apiTask(options.pageCookie, options.origin ?? selfOrigin()),
+        ]),
   ]
   const { items, failed } = await runTasks(tasks)
   const profile = await saveParseProfile(coldMemos).then(

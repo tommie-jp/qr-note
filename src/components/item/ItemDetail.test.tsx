@@ -42,10 +42,8 @@ vi.mock("@/lib/prefs/itemListContext", () => ({
 }));
 
 vi.mock("@/components/notepage/AutoNotePane", () => ({ AutoNotePane: mocks.stub("AutoNotePane") }));
-vi.mock("@/components/item/ItemListNavSection", () => ({
-  ItemListNavSection: mocks.stub("ItemListNavSection"),
-}));
-vi.mock("@/components/item/ItemView", () => ({ ItemView: mocks.stub("ItemView") }));
+vi.mock("@/components/item/NoteNav", () => ({ NoteNav: mocks.stub("NoteNav") }));
+vi.mock("@/components/item/NoteView", () => ({ NoteView: mocks.stub("NoteView") }));
 vi.mock("@/components/auth/LoginRequiredNotice", () => ({
   LoginRequiredNotice: mocks.stub("LoginRequiredNotice"),
 }));
@@ -69,10 +67,8 @@ vi.mock("@/components/notechrome/NoteChromeBar", () => ({
 
 const { ItemDetail } = await import("./ItemDetail");
 const { AutoNotePane } = await import("@/components/notepage/AutoNotePane");
-const { ItemListNavSection: ItemListNav } = await import(
-  "@/components/item/ItemListNavSection"
-);
-const { ItemView } = await import("@/components/item/ItemView");
+const { NoteNav: ItemListNav } = await import("@/components/item/NoteNav");
+const { NoteView: ItemView } = await import("@/components/item/NoteView");
 const { LoginRequiredNotice } = await import("@/components/auth/LoginRequiredNotice");
 const { PageTransition } = await import("@/components/chrome/PageTransition");
 const { PreviewPane } = await import("@/components/panes/PreviewPane");
@@ -81,8 +77,6 @@ const { RecordAccess } = await import("@/components/item/RecordAccess");
 const { CloseNoteButton } = await import("@/components/item/CloseNoteButton");
 const { NoteChromeProvider } = await import("@/components/notechrome/NoteChromeProvider");
 const { NoteChromeBar } = await import("@/components/notechrome/NoteChromeBar");
-
-const recordAccessAction = async () => {};
 
 type Props = Parameters<typeof ItemDetail>[0];
 type Element = ReactElement<{ children?: ReactNode } & Record<string, unknown>>;
@@ -118,11 +112,11 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-test("全画面はログイン中なら記録・閉じる行と本文・前後ナビを PageTransition に入れる", async () => {
+test("全画面はログイン中なら記録・閉じる行と端末描画の本文・前後ナビを PageTransition に入れる", async () => {
   // Act
   const element = await render({
     saved: "1700000000",
-    shell: { kind: "page", recordAccessAction },
+    shell: { kind: "page" },
   });
 
   // Assert
@@ -131,7 +125,7 @@ test("全画面はログイン中なら記録・閉じる行と本文・前後�
   const [record, chrome, nav] = ([] as Element[]).concat(
     element!.props.children as Element[],
   );
-  expect(record.props).toEqual({ itemId: "4951", action: recordAccessAction });
+  expect(record.props).toEqual({ itemId: "4951" });
   // 上端の行と本文は同じ器に入れる。行の直下に本文の操作を重ねるため (docs/108 §3)
   expect(childTypes(chrome)).toEqual([NoteChromeBar, ItemView]);
   const [bar, view] = ([] as Element[]).concat(chrome.props.children as Element[]);
@@ -139,11 +133,10 @@ test("全画面はログイン中なら記録・閉じる行と本文・前後�
   const close = bar.props.start as Element;
   expect(close.type).toBe(CloseNoteButton);
   expect(close.props).toEqual({ listHref: "/?q=npn&sort=accessed" });
-  expect(view.props).toMatchObject({ itemId: "4951", saved: "1700000000" });
-  expect(nav.props).toEqual({
-    itemId: "4951",
-    params: { query: "npn", sort: "accessed" },
-  });
+  expect(view.props).toMatchObject({ itemId: "4951", saved: "1700000000", shell: "page" });
+  expect(nav.props).toEqual({ itemId: "4951", query: "npn", sort: "accessed" });
+  // ログイン中はノートを DB から引かない。本文は端末が API から取る (docs/123 §4-1)
+  expect(mocks.calls).not.toContain("item");
   // 前後の検索は Suspense の中で後から引く。枠はそれを待たない
   expect(mocks.calls).not.toContain("neighbors");
 });
@@ -154,7 +147,7 @@ test("全画面の未ログインは公開ノートなら読み取り専用、�
   mocks.item = publicItem;
 
   // Act
-  const element = await render({ shell: { kind: "page", recordAccessAction } });
+  const element = await render({ shell: { kind: "page" } });
 
   // Assert
   expect(element?.type).toBe(PageTransition);
@@ -168,9 +161,9 @@ test("未登録・非公開は同じログインの案内に潰す", async () =>
 
   // Act
   mocks.item = privateItem;
-  const hidden = await render({ shell: { kind: "page", recordAccessAction } });
+  const hidden = await render({ shell: { kind: "page" } });
   mocks.item = null;
-  const missing = await render({ shell: { kind: "page", recordAccessAction } });
+  const missing = await render({ shell: { kind: "page" } });
 
   // Assert
   expect(childTypes(hidden!)).toEqual([LoginRequiredNotice]);

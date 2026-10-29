@@ -32,9 +32,9 @@ test("未ログインなら一覧 (Home) を描かずに空を返す", async () 
   expect(element).toBeNull();
 });
 
-test("ログイン済みなら素の検索 (空の searchParams) で Home を描く", async () => {
+test("ログイン済みなら検索の殻 (Home) を描く。検索語は端末が URL から読む", async () => {
   const element = await Default();
 
   expect(element?.type).toBe(Home);
-  await expect(element?.props.searchParams).resolves.toEqual({});
+  expect(element?.props).toEqual({});
 });

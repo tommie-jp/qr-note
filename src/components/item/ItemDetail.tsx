@@ -1,9 +1,9 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Item } from "@/generated/prisma/client";
 import { AutoNotePane } from "@/components/notepage/AutoNotePane";
 import { CloseNoteButton } from "@/components/item/CloseNoteButton";
-import { ItemListNavSection } from "@/components/item/ItemListNavSection";
-import { ItemView } from "@/components/item/ItemView";
+import { NoteNav } from "@/components/item/NoteNav";
+import { NoteView } from "@/components/item/NoteView";
 import { NoteChromeBar } from "@/components/notechrome/NoteChromeBar";
 import { NoteChromeProvider } from "@/components/notechrome/NoteChromeProvider";
 import { LoginRequiredNotice } from "@/components/auth/LoginRequiredNotice";
@@ -11,7 +11,7 @@ import { PageTransition } from "@/components/chrome/PageTransition";
 import { PreviewPane } from "@/components/panes/PreviewPane";
 import { PublicItemView } from "@/components/item/PublicItemView";
 import { RecordAccess } from "@/components/item/RecordAccess";
-import { isProductionEnv } from "@/lib/appEnv";
+import { isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import { getItem } from "@/lib/items/read";
 import {
   resolveListParams,
@@ -20,9 +20,6 @@ import {
 import { isPublicItem } from "@/lib/auth/publicItem";
 import { buildItemUrl, buildSearchUrl } from "@/lib/search/url";
 import { currentUser } from "@/lib/auth/session";
-import { startPhases } from "@/lib/logging/phase";
-import type { NoteLoadPerf } from "@/lib/logging/perfServer";
-import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 
 // 1 ノートの詳細 (本文 + 一覧の中の前後) を、置き場所ごとの器に入れて描く
 // (docs/93-リファクタリング計画.md §4-8)。器は 3 つあり、中身の組み合わせは
@@ -51,14 +48,7 @@ import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 // 分けると /item/1, /item/2, … を順に叩くだけでノートの存在が数えられる。
 // isPublicItem() が 3 つとも false に畳んでくれるので、ここは 1 本の if で済む。
 
-export type ItemDetailShell =
-  | {
-      kind: "page";
-      // recordAccessAction。'@/app/actions' をここで読まず、ページから受ける
-      recordAccessAction: ComponentProps<typeof RecordAccess>["action"];
-    }
-  | { kind: "pane" }
-  | { kind: "auto" };
+export type ItemDetailShell = { kind: "page" } | { kind: "pane" } | { kind: "auto" };
 
 interface ItemDetailProps {
   itemId: string;
@@ -79,34 +69,22 @@ export const paneBgClass = () =>
 
 type LoadedDetail =
   | { user: null; item: Item | null }
-  | { user: string; item: Item | null; params: ListParams; perf: NoteLoadPerf | null };
+  | { user: string; params: ListParams };
 
-// 一覧の文脈 (docs/60-学習進捗計画.md §4)。解決の規則 (配列の畳み方・
-// resolveSort・q が無ければ引かない) は prefs/itemListContext.ts の 1 か所で、
-// 3 つの器が共有する — 別々に持つと同じ URL で「次」がずれる。
-//
-// **ここで待つのは枠に要る物だけ** (docs/86 §4-18): ログイン・ノート本体・
-// 検索語と並び順 (cookie)。前後の検索 (ItemListNavSection) と本文の集計
-// (ItemView の中) は Suspense で後から流す。全部を待っていた頃は、押してから
-// 枠が出るまで本文の描画と前後の検索のぶん待たされた。
-// 未ログインのときは一覧の文脈を使わない (公開ノートには一覧が無い)
+// 器を組む前に待つのはログインと一覧の文脈 (cookie の並び順) だけ
+// (docs/123 §4-1)。**ログイン中はノートを DB から引かない** — 本文は端末が
+// API から取る (一覧から開いたときは一覧の応答で既に持っている)。
+// 未ログインのときだけ、公開ノートかどうかを見るためにここで引く
 async function loadDetail(
   itemId: string,
   q: ItemDetailProps["q"],
   sort: ItemDetailProps["sort"],
-  shell: ItemDetailShell["kind"],
 ): Promise<LoadedDetail> {
-  // 速度計測 (docs/119 §2-2)。本文の行 (ItemView の OwnerNoteBody) まで運ぶ
-  const startedAt = Date.now();
-  const t = startPhases(isPerfLogEnabled());
-  const [user, item, params] = await Promise.all([
-    t.time("ログイン", () => currentUser()),
-    t.time("読込", () => getItem(itemId)),
-    resolveListParams(q, sort),
-  ]);
-  const phases = t.done()?.phases;
-  const perf = phases ? { startedAt, phases, shell } : null;
-  return user === null ? { user, item } : { user, item, params, perf };
+  const user = await currentUser();
+  if (user === null) {
+    return { user, item: await getItem(itemId) };
+  }
+  return { user, params: await resolveListParams(q, sort) };
 }
 
 export async function ItemDetail({
@@ -116,19 +94,19 @@ export async function ItemDetail({
   saved,
   shell,
 }: ItemDetailProps) {
-  const loaded = await loadDetail(itemId, q, sort, shell.kind);
+  const loaded = await loadDetail(itemId, q, sort);
 
   if (loaded.user === null) {
     return renderLoggedOut(itemId, loaded.item, shell);
   }
 
-  const { item, params, perf } = loaded;
-  const view = <ItemView itemId={itemId} item={item} saved={saved} loadPerf={perf} />;
+  const { params } = loaded;
+  const view = <NoteView itemId={itemId} saved={saved} isDemo={isDemoMode()} shell={shell.kind} />;
   // page … 本文の下 (タイムスタンプの下)。問題を解いて読み終えたところに
   //        「次」があるのが自然な流れ
   // pane / auto … ペインの中の「前 / 次」も Link なのでまた横取りされ、
   //        ペインのまま一覧の並びを歩ける
-  const nav = <ItemListNavSection itemId={itemId} params={params} />;
+  const nav = <NoteNav itemId={itemId} query={params.query} sort={params.sort} />;
   const openHref = buildItemUrl(itemId, params.query, params.sort);
 
   switch (shell.kind) {
@@ -140,7 +118,7 @@ export async function ItemDetail({
               置くと、他人やクローラが開くたびに自分の並びが書き換わる。
               描画では記録せずマウント後に呼ぶ理由は components/item/RecordAccess.tsx に書いた。
               ペイン (pane / auto) には置かない (docs/86 §3) */}
-          <RecordAccess itemId={itemId} action={shell.recordAccessAction} />
+          <RecordAccess itemId={itemId} />
           {/* ペインの操作行 (PreviewPane) と同じ位置に「閉じる」を置く
               (docs/86 §4-17)。「全画面で開く」で来た後も同じ所で閉じられる。
               **ログイン中の枝だけ** — 未ログインの公開ノートには一覧が無い */}

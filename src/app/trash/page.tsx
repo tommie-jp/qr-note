@@ -1,22 +1,10 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import {
-  emptyTrashAction,
-  purgeItemsAction,
-  restoreItemsAction,
-  setTrashSortAction,
-  setViewModeAction,
-} from "@/app/actions";
 import { PageTransition } from "@/components/chrome/PageTransition";
-import { TrashActionBar } from "@/components/bottombar/TrashActionBar";
-import { TrashList } from "@/components/trash/TrashList";
+import { TrashScreen } from "@/components/trash/TrashScreen";
 import { ImageViewerProvider } from "@/components/imageviewer/ImageViewerProvider";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { isProductionEnv } from "@/lib/appEnv";
-import { loadCircuitThumbs } from "@/lib/circuit/thumbs";
-import { listTrashedItems } from "@/lib/items/trash";
-import { buildMathTexts } from "@/lib/markdown/mathText";
-import { buildNotePreviews } from "@/components/item/NotePreviewThumb";
 import { readTrashPrefs } from "@/lib/prefs/searchPrefs";
 import { requireUser } from "@/lib/auth/session";
 
@@ -40,20 +28,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   await requireUser();
   const { sort: sortParam } = await searchParams;
   const { sort, view } = readTrashPrefs(await cookies(), sortParam);
-  const items = await listTrashedItems(sort);
-  // 一覧に出す回路図サムネ (docs/68-一覧回路図サムネ計画.md §5)。
-  // 検索一覧と同じ: キャッシュ済みの SVG を引くだけで描画はしない
-  const circuitThumbs = await loadCircuitThumbs(
-    items,
-    view === "image" ? "all" : "first",
-  );
-  // タイトル・プレビューの数式も検索一覧と同じに (docs/69-一覧数式計画.md)。
-  // プレビューが描かれるのはカード表示だけ
-  const mathTexts = buildMathTexts(items, view === "card" ? "both" : "title");
-  // 画像も回路図も無いノートの顔になる、本文の縮小プレビュー
-  // (docs/71-一覧ノートプレビュー計画.md)。検索一覧と同じ配線
-  const notePreviews = buildNotePreviews(items, circuitThumbs, view);
-
+  // 一覧は端末が GET /api/trash から引く (docs/123 §4-3)。ここは cookie と門番だけ
   return (
     <PageTransition>
       <div className="space-y-4">
@@ -77,26 +52,10 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
             画像を押すと覆いで大きく見せる (docs/116 §2。ノートのペインが
             無い画面なので常に覆い) */}
         <ImageViewerProvider overlayOnly>
-          <TrashList
-            items={items}
-            view={view}
-            restoreAction={restoreItemsAction}
-            purgeAction={purgeItemsAction}
-            emptyTrashAction={emptyTrashAction}
-            circuitThumbs={circuitThumbs}
-            mathTexts={mathTexts}
-            notePreviews={notePreviews}
-          />
+          <TrashScreen sort={sort} serverView={view} isProd={isProductionEnv()} />
         </ImageViewerProvider>
       </div>
 
-      <TrashActionBar
-        view={view}
-        sort={sort}
-        viewAction={setViewModeAction}
-        sortAction={setTrashSortAction}
-        isProd={isProductionEnv()}
-      />
     </PageTransition>
   );
 }

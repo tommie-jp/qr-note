@@ -1,22 +1,7 @@
-import Link from "next/link";
-import {
-  recordAccessAction,
-  restoreItemsAction,
-  updateItemAction,
-} from "@/app/actions";
 import { AttributionFooter } from "@/components/chrome/AttributionFooter";
-import { ItemTimestamps } from "@/components/item/ItemTimestamps";
-import { MemoEditor } from "@/components/editor/MemoEditor";
-import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
+import { EditScreen } from "@/components/editor/EditScreen";
 import { PageTransition } from "@/components/chrome/PageTransition";
-import { RecordAccess } from "@/components/item/RecordAccess";
-import { TrashedBanner } from "@/components/trash/TrashedBanner";
-import { UnsavedGuard } from "@/components/editor/UnsavedGuard";
-import { ACTION_LINK_CLASS } from "@/components/ui";
-import { getItem } from "@/lib/items/read";
 import { guardItemPage } from "@/lib/auth/pageGuard";
-import { formatBase } from "@/lib/editor/saveBase";
-import { isIsbn, isJan, isTaggableCode, scanRegisterMemo } from "@/lib/external/scanRegister";
 import { requireUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -34,85 +19,19 @@ interface EditPageProps {
 export default async function EditPage({ params, searchParams }: EditPageProps) {
   const itemId = await guardItemPage((await params).itemId, (id) => `/edit/${id}`);
   await requireUser();
-  const [item, { code }] = await Promise.all([getItem(itemId), searchParams]);
+  const { code } = await searchParams;
 
-  // スキャンした未登録コードからの新規登録 (docs/10-スキャン新規登録計画.md §5)。
-  // 既存ノートには効かせない。同じ /edit/<id> を別タブで先に保存していた場合、
-  // 既存の本文を黙って上書きする初期値を出すと、そのまま更新して壊しかねない。
-  // タグにできない code は無視する (通常の導線では来ない。URL を手で触った場合)
-  const newCode = !item && code && isTaggableCode(code) ? code : null;
-  const defaultMemo = newCode ? scanRegisterMemo(newCode) : (item?.memo ?? "");
-  // ISBN なら書誌 (docs/13-書誌自動取得計画.md)、JAN なら商品情報
-  // (docs/14-JAN商品情報取得計画.md) の自動取得を任せる。取得はクライアントが
-  // 後から引くので、ここでは待たない
-  const prefill = !newCode
-    ? undefined
-    : isIsbn(newCode)
-      ? ({ kind: "book", code: newCode } as const)
-      : isJan(newCode)
-        ? ({ kind: "product", code: newCode } as const)
-        : undefined;
-
+  // 本文は端末が API から引く (docs/123 §4-4)。ここでは DB を引かない
   return (
     <PageTransition>
-      {/* 編集画面を開いたのも「触った」に数える (docs/37-アクセス順計画.md)。
-          この画面は proxy.ts が未ログインを止め、上の requireUser() も
-          重ねている口なので、公開ノートの読み手が並びを動かす心配はない */}
-      <RecordAccess itemId={itemId} action={recordAccessAction} />
       <div className="space-y-4">
         <h1 className="text-xl font-bold">
           edit
         </h1>
-
-        {/* 保存しても deletedAt は触らない (復元は明示的な操作だけ) ので、
-            ここで知らせないと「編集して更新したのに検索に出ない」になる
-            (docs/12-ゴミ箱計画.md §5) */}
-        {item?.deletedAt && (
-          <TrashedBanner itemId={itemId} restoreAction={restoreItemsAction} />
-        )}
-
-        {/* 保存は「開いたときの版のままなら書く」(docs/87-編集競合対策計画.md)。
-            競合したら画面を作り直さずにバナーだけ出すので、フォームは
-            useActionState で戻り値を受ける包み (NoteSaveForm) にする */}
-        <NoteSaveForm
-          action={updateItemAction}
-          itemId={itemId}
-          className="space-y-3"
-        >
-          <UnsavedGuard />
-          <MemoEditor
-            defaultValue={defaultMemo}
-            // 本文と対で凍結する版 (未登録なら "new" = これから作る)
-            base={formatBase(item?.updatedAt ?? null)}
-            autoFocus
-            prefill={prefill}
-            draftKey={itemId}
-          />
-          {/* 「更新」は画面下部の操作バーへ移した (MemoEditorInner が portal で
-              差し込む)。この form の子孫のまま送信される */}
-        </NoteSaveForm>
-
-        <ItemTimestamps item={item} />
-
-        <div className="flex gap-1">
-          <Link
-            href={`/item/${itemId}`}
-            className={ACTION_LINK_CLASS}
-            transitionTypes={["nav-back"]}
-          >
-            表示へ
-          </Link>
-          <Link href="/" className={ACTION_LINK_CLASS} transitionTypes={["nav-back"]}>
-            一覧へ
-          </Link>
-        </div>
-
+        <EditScreen itemId={itemId} code={typeof code === "string" ? code : null} />
         {/* 使っている Web サービスの帰属フッター (docs/94・docs/95)。
-            JAN 商品情報 (Yahoo!ショッピング API) の結果が実際に現れるのは
-            この編集画面の事前入力だけなので、「API を使う画面の下部」を
-            ここで満たす。Yahoo の規定クレジット (義務) に加え、出典として
-            楽天・openBD・国会への導線も並べる。form の外に置くので sticky の
-            「更新」とは重ならない。JAN 由来かで出し分けず無条件 (デモでも) */}
+            JAN 商品情報の結果が実際に現れるのはこの編集画面の事前入力だけなので、
+            「API を使う画面の下部」をここで満たす。form の外に置く */}
         <AttributionFooter />
       </div>
     </PageTransition>

@@ -12,7 +12,6 @@ vi.mock("next/navigation", async (importOriginal) => ({
 
 // 全ページ共通のヘッダーの帯。サーバコンポーネントだが props だけで描くので
 // そのまま静的描画して中身を見る (メニューの項目は AppHeaderMenu.test.tsx)
-const noop = () => {};
 
 const render = (
   overrides: Partial<Parameters<typeof AppHeader>[0]> = {},
@@ -23,7 +22,6 @@ const render = (
       isProd={true}
       isDemo={false}
       paneMode="2"
-      paneModeAction={noop}
       rowTintId="blue"
       photoMetaMode="strip"
       siteUrl="https://qr.example.jp"

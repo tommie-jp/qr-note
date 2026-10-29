@@ -1,13 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
   useContext,
-  useTransition,
   type ReactNode,
 } from "react";
+import { useSearchState } from "@/lib/client/useSearchState";
 import { perfStart } from "@/lib/logging/perfClient";
 import { recordQueryUse } from "@/lib/search/queryClient";
 import { buildSearchUrl } from "@/lib/search/url";
@@ -37,28 +36,29 @@ export function useSearchNav(): SearchNav {
 // 共有・再読込・戻るは今までどおり動く。scroll: false … 打つたびに先頭へ
 // 飛ばされないように。
 export function SearchNavProvider({
-  sort,
+  sort: cookieSort,
   children,
 }: {
+  // サーバが cookie から読んだ並び順 (URL に ?sort= が無いときに使う)
   sort: Sort;
   children: ReactNode;
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { sort } = useSearchState(cookieSort);
 
+  // URL を書き換えるだけ。結果は一覧 (SearchResultsClient) が API から引く
+  // (docs/123 §4-2)。router.replace は RSC を取りに行くので使わない —
+  // 1 文字ごとの往復がサーバ描画の頃の待ちの正体だった
   const navigate = useCallback(
     (query: string) => {
       // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
       perfStart("検索", "/");
-      startTransition(() => {
-        router.replace(buildSearchUrl(query.trim(), 1, sort), { scroll: false });
-      });
+      window.history.replaceState(null, "", buildSearchUrl(query.trim(), 1, sort));
     },
-    [router, sort],
+    [sort],
   );
 
   return (
-    <SearchNavContext.Provider value={{ navigate, isPending }}>
+    <SearchNavContext.Provider value={{ navigate, isPending: false }}>
       {children}
     </SearchNavContext.Provider>
   );
@@ -74,11 +74,16 @@ export function SearchNavProvider({
 export function SearchResults({
   children,
   query = "",
+  pending = false,
 }: {
   children: ReactNode;
   query?: string;
+  // 今出ている結果が古い (取り直し中) か。一覧 (SearchResultsClient) が控えの
+  // 状態から決めて渡す
+  pending?: boolean;
 }) {
-  const { isPending } = useSearchNav();
+  const { isPending: navPending } = useSearchNav();
+  const isPending = pending || navPending;
 
   // 結果一覧 (小・大・画像モード) をまとめて包んでいる唯一の client component が
   // ここなので、モードごとに記録を配って回らずに済む。

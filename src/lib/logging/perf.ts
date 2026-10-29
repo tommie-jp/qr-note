@@ -45,23 +45,37 @@ export interface RscPick {
 // **本体は「行き先と同じパスで、いちばん大きい物」**。行のタグのリンク
 // (`/?q=%23…`) も検索と同じ `/` を prefetch するが、prefetch で届くのは
 // loading 境界までで小さい。行き先のパスで絞ってから大きさで選べば取り違えない
+//
+// **一覧とノートの JSON API も本体の候補にする** (docs/123 §6)。端末で描く
+// ようになってから、画面の中身は RSC ではなく /api/items… で届く。RSC
+// (殻) と API のうち大きい方が本体になる
+const DATA_API_PREFIX = '/api/items'
+
+function isDataApi(url: string): boolean {
+  return pathnameOf(url)?.startsWith(DATA_API_PREFIX) ?? false
+}
+
 export function pickRsc(
   entries: readonly ResourceLike[],
   { t0, until, pathname }: { t0: number; until: number; pathname: string },
 ): RscPick {
   const inWindow = entries.filter(
-    (e) => e.name.includes(RSC_MARK) && e.startTime >= t0 && e.startTime <= until,
+    (e) =>
+      (e.name.includes(RSC_MARK) || isDataApi(e.name)) && e.startTime >= t0 && e.startTime <= until,
   )
   let main: ResourceLike | null = null
   for (const entry of inWindow) {
-    if (pathnameOf(entry.name) !== pathname) {
+    if (pathnameOf(entry.name) !== pathname && !isDataApi(entry.name)) {
       continue
     }
     if (main === null || (entry.decodedBodySize ?? 0) > (main.decodedBodySize ?? 0)) {
       main = entry
     }
   }
-  return { main, prefetch: inWindow.length - (main === null ? 0 : 1) }
+  // prefetch は RSC だけを数える (API の要求は prefetch ではない)
+  const rscCount = inWindow.filter((e) => e.name.includes(RSC_MARK)).length
+  const mainIsRsc = main !== null && main.name.includes(RSC_MARK)
+  return { main, prefetch: rscCount - (mainIsRsc ? 1 : 0) }
 }
 
 // Server Action の応答を本体とみなして選ぶ (表示モードの切替用。docs/120 §2)。

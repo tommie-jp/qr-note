@@ -11,6 +11,7 @@
 // 一覧だけが内側でスクロールする。docs/86 §4-16)。
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { everythingChanged } from "@/lib/client/invalidate";
 import { useRouter } from "next/navigation";
 import {
   PULL_MAX,
@@ -142,6 +143,9 @@ export default function PullToRefresh() {
       setDistance(0);
       if (resolveRefresh(finished)) {
         refreshingRef.current = true; // isPending が立つまでの隙間を埋める
+        // 一覧・ノートは端末の控えから描いている (docs/123 §3)。控えを古くして
+        // 取り直させ、殻 (サーバ描画の部分) も描き直させる
+        everythingChanged();
         startTransition(() => {
           router.refresh();
         });

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { backfillHistoryAction } from "@/app/actions";
+import { ClientActionForm } from "@/components/client/ClientActionForm";
 import { PRIMARY_BUTTON_CLASS } from "@/components/ui";
 import { requireSettingsPage } from "@/lib/auth/pageGuard";
 
@@ -53,11 +53,11 @@ export default async function HistorySettingsPage({
         </p>
       )}
 
-      <form action={backfillHistoryAction}>
+      <ClientActionForm action="backfillHistory">
         <button type="submit" className={PRIMARY_BUTTON_CLASS}>
           取り込みを実行
         </button>
-      </form>
+      </ClientActionForm>
     </div>
   );
 }

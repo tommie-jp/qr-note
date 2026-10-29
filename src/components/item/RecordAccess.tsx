@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import type { recordAccessAction } from "@/app/actions";
+import { recordAccessAction } from "@/lib/client/actions";
 
-// アクションは prop で受ける。ここから '@/app/actions' を import すると
+// アクションは prop で受けられる (テスト用)。既定は端末側の action。
 // items/ → db.ts を巻き込み、クライアント束に DATABASE_URL を要求する
 // モジュールが混ざる (ItemList / ViewModeToggle と同じ理由)
 type RecordAccessActionType = typeof recordAccessAction;
 
 interface RecordAccessProps {
   itemId: string;
-  action: RecordAccessActionType;
+  // 既定は端末側の action (POST /api/items/:id/access)。テストで差し替える
+  action?: RecordAccessActionType;
 }
 
 // ノートを開いたことを記録する (docs/37-アクセス順計画.md)。何も描画しない。
@@ -28,7 +29,7 @@ interface RecordAccessProps {
 //
 // 連打・StrictMode の二重発火は DB 側の 1 分ガード (items/flags.ts の
 // recordItemAccess) が吸収するので、ここでは重複呼び出しを気にしない。
-export function RecordAccess({ itemId, action }: RecordAccessProps) {
+export function RecordAccess({ itemId, action = recordAccessAction }: RecordAccessProps) {
   useEffect(() => {
     void action(itemId).catch((error: unknown) => {
       // 画面には出さない。ブラウザ側のログは DebugConsole から見える。

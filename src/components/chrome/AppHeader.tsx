@@ -1,4 +1,3 @@
-import type { ComponentProps } from "react";
 import Link from "next/link";
 import pkg from "../../../package.json";
 import { AppHeaderMenu } from "@/components/chrome/AppHeaderMenu";
@@ -15,9 +14,6 @@ interface AppHeaderProps {
   isProd: boolean;
   isDemo: boolean;
   paneMode: PaneMode;
-  // setPaneModeAction。サーバアクションは layout から受ける
-  // ('@/app/actions' をここで読むと DB の層まで巻き込む。RecordAccess と同じ)
-  paneModeAction: ComponentProps<typeof PaneModeButton>["action"];
   rowTintId: RowTintId;
   // 写真の撮影情報を消すか (docs/113)。メニューの行へそのまま渡す
   photoMetaMode: PhotoMetaMode;
@@ -38,7 +34,6 @@ export function AppHeader({
   isProd,
   isDemo,
   paneMode,
-  paneModeAction,
   rowTintId,
   photoMetaMode,
   siteUrl,
@@ -157,7 +152,7 @@ export function AppHeader({
             {/* 検索画面のペイン構成 (docs/86 §4-4)。ヘッダーに置くのは、
                 どのペインにも属さない「画面全体の畳み方」だから。
                 どの幅でも出す (PaneModeButton の注) */}
-            <PaneModeButton mode={paneMode} action={paneModeAction} />
+            <PaneModeButton mode={paneMode} />
             {/* ユーザー名だけはメニューの外に残す — 「誰で入っているか」は
                 一目で確かめたい情報で、押す物でもないため */}
             <span

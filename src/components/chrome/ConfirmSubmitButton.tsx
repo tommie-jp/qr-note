@@ -6,7 +6,8 @@ interface ConfirmSubmitButtonProps {
   children: ReactNode;
   // 押したときに出す確認文。番号と「元に戻せない」ことを含める
   confirmMessage: string;
-  formAction: (formData: FormData) => void | Promise<void>;
+  // 省くと親の form の action へ送る
+  formAction?: (formData: FormData) => void | Promise<void>;
   className?: string;
   // 中身がアイコンだけのときの名前 (公開トグル。docs/82 §6)。
   // 文字を持つ呼び方では要らないので任意

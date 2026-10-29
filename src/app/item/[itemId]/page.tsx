@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ItemDetail } from "@/components/item/ItemDetail";
-import { recordAccessAction } from "@/app/actions";
 import { guardItemPage } from "@/lib/auth/pageGuard";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +42,7 @@ export default async function ItemPage({ params, searchParams }: ItemPageProps) 
       q={q}
       sort={sort}
       saved={saved}
-      shell={{ kind: "page", recordAccessAction }}
+      shell={{ kind: "page" }}
     />
   );
 }

@@ -16,5 +16,5 @@ export default async function Default() {
   if (!(await currentUser())) {
     return null;
   }
-  return <Home searchParams={Promise.resolve({})} />;
+  return <Home />;
 }

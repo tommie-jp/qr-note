@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   loadBenchStatus: vi.fn(),
 }));
 
-vi.mock("@/app/actions/benchmark", () => ({
+vi.mock("@/lib/client/actions", () => ({
   getBenchStatusAction: vi.fn(),
   startCpuBenchAction: vi.fn(),
   startServerBenchAction: vi.fn(),

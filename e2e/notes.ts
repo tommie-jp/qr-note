@@ -102,6 +102,9 @@ export async function purgeFromTrash(
   assertE2eItemId(note.id)
   await page.goto('/trash')
   await expect(page.getByRole('heading', { name: 'ゴミ箱', exact: true })).toBeVisible()
+  // 一覧は端末が GET /api/trash から後で描く (docs/123 §4-3)。読み込み中に
+  // 行を数えると 0 件に見え、消したつもりのノートが次のテストに残る
+  await expect(page.getByText('ゴミ箱を読み込み中…')).toHaveCount(0)
 
   const row = rowOf(page, page, note.id)
   if ((await row.count()) === 0) {

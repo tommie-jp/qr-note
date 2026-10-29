@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { setPaneModeAction } from "@/lib/client/actions";
 import { startTransition, type FormEvent } from "react";
 import { PaneModeIcon } from "@/components/icons";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
@@ -24,10 +25,11 @@ import { useShownPaneMode } from "@/lib/prefs/pendingPaneMode";
 // (React は defaultPrevented の submit で action を走らせない)
 export function PaneModeButton({
   mode,
-  action,
+  action = setPaneModeAction,
 }: {
   mode: PaneMode;
-  action: (formData: FormData) => void | Promise<void>;
+  // 既定は端末側の受け皿。切り替えそのものは switchPaneMode が API で行う
+  action?: (formData: FormData) => void | Promise<void>;
 }) {
   const router = useRouter();
   const shown = useShownPaneMode(mode);

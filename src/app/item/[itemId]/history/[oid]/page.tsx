@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { restoreNoteVersionAction } from "@/app/actions";
+import { ClientActionForm } from "@/components/client/ClientActionForm";
 import { ConfirmSubmitButton } from "@/components/chrome/ConfirmSubmitButton";
 import { NoteDiffView } from "@/components/editor/NoteDiffView";
 import { PageTransition } from "@/components/chrome/PageTransition";
@@ -83,7 +83,7 @@ export default async function VersionPage({ params }: VersionPageProps) {
         <NoteDiffView oldText={parentContent ?? ""} newText={content ?? ""} />
 
         {content !== null && (
-          <form>
+          <ClientActionForm action="restoreNoteVersion">
             <input type="hidden" name="itemId" value={itemId} />
             <input type="hidden" name="oid" value={oid} />
             {/* 復元は本文の上書き (未コミットの変更は消える) なので確認を挟む。
@@ -91,12 +91,11 @@ export default async function VersionPage({ params }: VersionPageProps) {
                 (restoreNoteVersionAction のコメント参照) */}
             <ConfirmSubmitButton
               confirmMessage={`このノートの本文をこの版の内容で置き換えます。いまの本文のうち未コミットの変更は失われます。よろしいですか?`}
-              formAction={restoreNoteVersionAction}
               className={SECONDARY_BUTTON_CLASS}
             >
               この版に復元
             </ConfirmSubmitButton>
-          </form>
+          </ClientActionForm>
         )}
       </div>
     </PageTransition>

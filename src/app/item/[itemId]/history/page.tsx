@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { commitNoteAction } from "@/app/actions";
+import { ClientActionForm } from "@/components/client/ClientActionForm";
 import { NoteDiffView } from "@/components/editor/NoteDiffView";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import {
@@ -103,7 +103,7 @@ export default async function HistoryPage({
           <section className="space-y-2">
             <h2 className="font-medium">未コミットの変更</h2>
             <NoteDiffView oldText={headMemo ?? ""} newText={memo ?? ""} />
-            <form action={commitNoteAction} className="flex gap-2">
+            <ClientActionForm action="commitNote" className="flex gap-2">
               <input type="hidden" name="itemId" value={itemId} />
               {/* 本文は送らない。コミットされるのは DB のいまの本文
                   (commitNoteAction のコメント参照) */}
@@ -117,7 +117,7 @@ export default async function HistoryPage({
               <button type="submit" className={PRIMARY_BUTTON_CLASS}>
                 コミット
               </button>
-            </form>
+            </ClientActionForm>
           </section>
         )}
         {!hasUncommitted && item !== null && (

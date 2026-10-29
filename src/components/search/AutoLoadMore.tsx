@@ -1,8 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { PendingLink } from "@/components/chrome/PendingLink";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { keepsNoteOpen } from "@/lib/prefs/paneMode";
@@ -10,7 +9,7 @@ import { itemIdFromPathname } from "@/lib/search/url";
 import { perfStart } from "@/lib/logging/perfClient";
 import { afterNextPaint } from "@/lib/afterNextPaint";
 import { LOAD_MORE_EVENT } from "./loadMore";
-import { canScroll, createScrollArm, searchKeyOf } from "./loadMoreGate";
+import { canScroll, createScrollArm } from "./loadMoreGate";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
 // 画面に入ったら自動で次ページの URL へ replace し、サーバが 1〜N ページの
@@ -56,14 +55,25 @@ function isScrollable(el: HTMLElement): boolean {
 }
 
 export function AutoLoadMore({
-  href,
+  searchKey,
   remaining,
+  onLoad,
+  isPending,
+  failed = false,
+  onRetry,
 }: {
-  href: string;
+  // 検索ごとに 1 つ。ページを跨いでも変わらない (スクロールの構えを検索ごとに取る)
+  searchKey: string;
   remaining: number;
+  // 次の 20 件を足す (docs/123 §4-2)。サーバ描画の頃は ?page=N+1 への
+  // router.replace で 1〜N+1 ページを描き直していた
+  onLoad: () => void;
+  isPending: boolean;
+  // 続きを読めなかった。番兵が見え続けて撃ち直しが止まらなくなるので、
+  // 監視を止めて、押されたら onRetry で読み直す
+  failed?: boolean;
+  onRetry?: () => void;
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement>(null);
   // 1 ペインで全画面のノートが一覧を覆っている間は読まない (docs/86 §4-18)。
   // 次のページは router.replace で URL を一覧へ書き換えるので、裏で読むと
@@ -78,17 +88,14 @@ export function AutoLoadMore({
 
   // 解禁は検索 (ページ番号を除いた href) ごと。ページが進んでも同じ検索の
   // 間は解禁のまま、検索語か並び順が変わったら止め直す
-  const searchKey = searchKeyOf(href);
   const [armedFor, setArmedFor] = useState<string | null>(null);
   const armed = armedFor === searchKey;
 
   const load = useCallback(() => {
     // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
     perfStart("追加", "/");
-    startTransition(() => {
-      router.replace(href, { scroll: false });
-    });
-  }, [router, href]);
+    onLoad();
+  }, [onLoad]);
 
   // 解禁を待つ。一覧が実際にスクロールする器 (無ければ文書) の位置を見て、
   // 下へ動いたら解禁する。先頭へ戻されるスクロールでは解禁しない。
@@ -120,7 +127,7 @@ export function AutoLoadMore({
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (el === null || isPending || coveredByNote) return;
+    if (el === null || isPending || coveredByNote || failed) return;
     let observer: IntersectionObserver | undefined;
     const cancel = afterNextPaint(() => {
       // 解禁前でも、一覧が器に収まっている間は埋めてよい (loadMoreGate.ts)。
@@ -145,7 +152,7 @@ export function AutoLoadMore({
     };
     // mode … 構成を押した瞬間に一覧のスクロールする器 (window か内側の器) が
     // 替わる (docs/86 §4-18)。root を測り直すため作り直す
-  }, [load, isPending, coveredByNote, mode, armed]);
+  }, [load, isPending, coveredByNote, mode, armed, failed]);
 
   // 画像ビューアの → からの依頼 (components/search/loadMore.ts)。目印が
   // 内側スクロールの器に隠れていても読み込めるようにする
@@ -170,14 +177,18 @@ export function AutoLoadMore({
       aria-live="polite"
       className="flex justify-center py-2 [overflow-anchor:none]"
     >
-      <PendingLink
-        href={href}
-        replace
-        scroll={false}
+      <button
+        type="button"
+        onClick={failed && onRetry ? onRetry : load}
+        disabled={isPending}
         className={COMPACT_ACTION_LINK_CLASS}
       >
-        {isPending ? "読み込み中…" : `さらに表示 (残り ${remaining} 件)`}
-      </PendingLink>
+        {isPending
+          ? "読み込み中…"
+          : failed
+            ? "続きを読み込めませんでした。押してもう一度"
+            : `さらに表示 (残り ${remaining} 件)`}
+      </button>
     </div>
   );
 }
