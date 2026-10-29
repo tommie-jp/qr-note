@@ -133,6 +133,9 @@ describe('変化が無ければ 304', () => {
 // 本文は gzip で返す (docs/118 §4-1)。展開すれば素の封筒と同じ
 test('gzip を受ける相手には圧縮して返す', async () => {
   const { gunzipSync } = await import('node:zlib')
+  // 1KB 未満は圧縮しない (route/compress.ts の GZIP_MIN_BYTES)。実物の同期は数 MB
+  const original = mocks.payload
+  mocks.payload = { ...original, items: [{ memo: 'x'.repeat(2000) }] } as never
   const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin', 'accept-encoding': 'gzip' }))
 
   expect(res.status).toBe(200)
@@ -140,6 +143,7 @@ test('gzip を受ける相手には圧縮して返す', async () => {
   expect(res.headers.get('Cache-Control')).toBe('no-store')
   const body = gunzipSync(Buffer.from(await res.arrayBuffer())).toString('utf8')
   expect(JSON.parse(body)).toEqual(okEnvelope({ ...mocks.payload, etag: '"v-1"' }))
+  mocks.payload = original
 })
 
 // 速度計測中 (docs/119 §2-3)。中身は同じで、Server-Timing と計測行が増えるだけ

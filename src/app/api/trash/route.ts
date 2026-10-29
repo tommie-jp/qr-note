@@ -9,6 +9,7 @@ import { toItemDto } from '@/lib/api/itemDto'
 import { loadCircuitThumbs } from '@/lib/circuit/thumbs'
 import { listTrashedItems } from '@/lib/items/trash'
 import { parseViewMode } from '@/lib/prefs/viewMode'
+import { apiOkGzip } from '@/lib/route/compress'
 import { apiOk } from '@/lib/route/respond'
 import { parseTrashSort } from '@/lib/validation'
 
@@ -24,7 +25,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   const view = parseViewMode(url.searchParams.get('view'))
   const items = await listTrashedItems(sort)
   const circuitThumbs = await loadCircuitThumbs(items, view === 'image' ? 'all' : 'first')
-  return apiOk({ items: items.map(toItemDto), circuitThumbs })
+  // ゴミ箱は全件を 1 回で返すので圧縮する (検索の口と同じ)
+  return apiOkGzip({ items: items.map(toItemDto), circuitThumbs }, request)
 }
 
 const TRASH_OPS: readonly TrashOp[] = ['trash', 'restore', 'purge', 'empty']

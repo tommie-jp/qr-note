@@ -8,6 +8,10 @@
 // respond.ts (封筒の組み立て) に混ぜないのは、あちらが next/server だけを読む
 // 葉で、proxy.ts からも使われるため。zlib はここに閉じる。
 //
+// 検索の口 (/api/items・/api/trash) も使う (docs/123 §11-6)。端末で描くように
+// なって一覧の材料が JSON で流れ、回路図サムネの多い検索は 500KB になった
+// (旧版の RSC は gzip で 185KB)。
+//
 // 圧縮は**非同期** (docs/122 §3)。zlib は libuv のスレッドプールで走るので、
 // 圧縮の間も Node のイベントループが空き、同期と重なった検索が待たない
 // (gzipSync のときは本番で 292ms、ほかの要求が止まっていた)。本文は
@@ -16,6 +20,7 @@
 import { promisify } from 'node:util'
 import { gzip } from 'node:zlib'
 import { NextResponse } from 'next/server'
+import type { PageMeta } from './respond'
 
 const NO_STORE = 'no-store'
 
@@ -33,6 +38,9 @@ function acceptsGzip(request: Request): boolean {
   return accept.split(',').some((token) => token.trim().split(';')[0] === 'gzip')
 }
 
+// これより小さい本文は圧縮しない。gzip の頭と手間の方が縮む分より大きい
+export const GZIP_MIN_BYTES = 1024
+
 // apiOk と同じ封筒 ({ success, data, error }) と no-store。相手が gzip を
 // 受けるときだけ Content-Encoding を付けて圧縮して返す
 export async function apiOkGzip<T>(
@@ -40,14 +48,31 @@ export async function apiOkGzip<T>(
   request: Request,
   extraHeaders: Readonly<Record<string, string>> = {},
 ): Promise<NextResponse> {
-  const body = JSON.stringify({ success: true, data, error: null })
+  return gzipEnvelope({ success: true, data, error: null }, request, extraHeaders)
+}
+
+// apiOkPaged (respond.ts) と同じ封筒に meta を載せて、同じ作法で圧縮する
+export async function apiOkPagedGzip<T>(
+  data: T,
+  meta: PageMeta,
+  request: Request,
+): Promise<NextResponse> {
+  return gzipEnvelope({ success: true, data, error: null, meta }, request, {})
+}
+
+async function gzipEnvelope(
+  envelope: Readonly<Record<string, unknown>>,
+  request: Request,
+  extraHeaders: Readonly<Record<string, string>>,
+): Promise<NextResponse> {
+  const body = JSON.stringify(envelope)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Cache-Control': NO_STORE,
     Vary: 'Accept-Encoding',
     ...extraHeaders,
   }
-  if (!acceptsGzip(request)) {
+  if (!acceptsGzip(request) || body.length < GZIP_MIN_BYTES) {
     return new NextResponse(body, { status: 200, headers })
   }
   const compressed = await gzipAsync(body, { level: SYNC_GZIP_LEVEL })

@@ -116,13 +116,24 @@ export function withViewPhase(
 
 // 進行中の計測に項目を 1 つ足す (種別が合うときだけ)。表示モードの切替で、
 // 押してから見た目が変わるまで (即時) を、描き直しが届くまでの行に載せる
-// (docs/118 §10 案 B)。計測中でなければ・閉じた後なら何もしない
+// (docs/118 §10 案 B)。計測中でなければ・閉じた後なら何もしない。
+//
+// **閉じかけ (印は届いたが行をまだ送っていない) の計測にも足す。** 一覧を
+// 端末の控えから即座に描けた切替では、印が「即時」を測る 2 フレームより先に
+// 届く (docs/123 §11-6)。閉じかけを見ないと、その回だけ「即時」が抜ける
 export function perfAddField(kind: NavKind, field: PerfField): void {
   const s = current()
-  if (!s || s.active === null || s.active.kind !== kind) {
+  if (!s) {
     return
   }
-  s.active = { ...s.active, extra: [...(s.active.extra ?? []), field] }
+  if (s.active !== null && s.active.kind === kind) {
+    s.active = { ...s.active, extra: [...(s.active.extra ?? []), field] }
+    return
+  }
+  const closing = s.closing
+  if (closing !== null && closing.measure.kind === kind) {
+    closing.measure = { ...closing.measure, extra: [...(closing.measure.extra ?? []), field] }
+  }
 }
 
 // 進行中・閉じかけの計測が無いか (計測テストが次の操作へ進む合図。

@@ -9,7 +9,8 @@ import { formatServerTiming } from '@/lib/logging/perfLine'
 import { reportServerLine } from '@/lib/logging/perfServer'
 import { guardRequest } from '@/lib/route/guard'
 import { BAD_REQUEST_MESSAGE } from '@/lib/route/parse'
-import { apiFail, apiOkPaged } from '@/lib/route/respond'
+import { apiOkPagedGzip } from '@/lib/route/compress'
+import { apiFail } from '@/lib/route/respond'
 
 export async function GET(request: Request): Promise<NextResponse> {
   const guard = await guardRequest(request, { demo: 'allow' })
@@ -21,7 +22,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     return apiFail(BAD_REQUEST_MESSAGE, 400)
   }
   const { payload, meta, perf } = await loadSearchPayload(input)
-  const res = apiOkPaged(payload, meta)
+  // 回路図サムネの多い検索は数百 KB になるので圧縮して返す (docs/123 §11-6)
+  const res = await apiOkPagedGzip(payload, meta, request)
   if (perf !== null) {
     res.headers.set('Server-Timing', formatServerTiming(perf.phases))
     reportServerLine(

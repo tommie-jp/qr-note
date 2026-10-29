@@ -36,6 +36,7 @@ import {
 import { useSearchState } from "@/lib/client/useSearchState";
 import { warmNotes } from "@/lib/client/warmNotes";
 import { allViewerMedia } from "@/lib/images/memoImages";
+import { perfQuery } from "@/lib/logging/perfLine";
 import { buildMathSummaries, buildMathTexts } from "@/lib/markdown/mathText";
 import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
 import { showsAutoNote } from "@/lib/prefs/paneMode";
@@ -133,17 +134,30 @@ export function SearchResultsClient({
   );
 }
 
-// 値 (控えの 1 項目) ごとに 1 回だけ印を出すための時刻
-const arrivedAt = new WeakMap<ListValue, number>();
+// 速度計測の印 (docs/119 §2-1)。検索・続き・表示モードの切替の計測を閉じる。
+//
+// **印は「出している検索」と「届いた値」の組ごとに作り直す** (親が key で
+// 作り直す)。計測は同じ印を二度使わない (perfArrive が時刻で見分ける) ので、
+// 値ごとに 1 つだけだと、控えに新しいまま残っている検索や表示モードへ
+// 切り替えたとき (取り直さずに即座に描ける) に印が出ず、計測が「未着」で
+// 待ちきりになっていた。時刻は作られたときに 1 度だけ決める
+function SearchPerf({ fields }: { fields: readonly (readonly [string, string])[] }) {
+  const [at] = useState(() => Date.now());
+  return <PerfMarks kind="検索" at={at} fields={fields} server="端末" />;
+}
 
-function arrivalOf(value: ListValue): number {
-  const known = arrivedAt.get(value);
+// 値 (控えの 1 項目) ごとの通し番号。印を作り直す key に使う
+const valueIds = new WeakMap<ListValue, number>();
+let nextValueId = 0;
+
+function valueIdOf(value: ListValue): number {
+  const known = valueIds.get(value);
   if (known !== undefined) {
     return known;
   }
-  const at = Date.now();
-  arrivedAt.set(value, at);
-  return at;
+  nextValueId += 1;
+  valueIds.set(value, nextValueId);
+  return nextValueId;
 }
 
 function LoadedResults({
@@ -201,15 +215,19 @@ function LoadedResults({
     void retryLoadMore(listKey).catch((error: unknown) => console.warn("続きを読めませんでした", error));
   }, [listKey]);
 
-  const at = arrivalOf(value);
+  // 欄の並びはサーバ描画の頃と同じ (q・panes・view・件数)。ベンチマークの
+  // 要約 (diag/clientBenchHarvest.ts) は q の欄で検索の行を拾う
   const perfFields = useMemo(
     () =>
       [
-        ["件数", `${items.length}/${total}`],
+        ["q", perfQuery(query)],
+        ["panes", mode],
         ["view", view],
+        ["件数", `${items.length}/${total}`],
       ] as const,
-    [items.length, total, view],
+    [query, mode, view, items.length, total],
   );
+  const perfKey = `${listKeyOf(listKey)}\u0000${valueIdOf(value)}`;
 
   return (
     <>
@@ -296,7 +314,7 @@ function LoadedResults({
               onRetry={onRetryMore}
             />
           )}
-          {!pending && <PerfMarks kind="検索" at={at} fields={perfFields} server="端末" />}
+          {!pending && <SearchPerf key={perfKey} fields={perfFields} />}
         </div>
       </SearchResults>
     </>
