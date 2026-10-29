@@ -30,6 +30,18 @@ export const THUMB_SIZE_CLASS: Record<RowViewMode, string> = {
   card: 'size-24',
 }
 
+// 画面外の行はスタイル・レイアウト・描画を飛ばす (docs/122 §10-2)。値は
+// 一度も描いていない行の見積もりの高さで、実測は小 37px・中 55px・大 122px。
+// rem で持ち、文字サイズの倍率 (root の rem) に追随させる。auto … 一度描いた
+// 行は実際の高さを覚えるので、スクロールバーと AutoLoadMore の「スクロール
+// できるか」が見積もりでずれ続けない。スワイプ行 (SwipeToTrashRow) の li にだけ
+// 付ける — 切り取り (overflow-hidden) を元から持つのがそこだけなので
+export const ROW_SKIP_OFFSCREEN_CLASS: Record<RowViewMode, string> = {
+  compact: '[content-visibility:auto] [contain-intrinsic-size:auto_2.25rem]',
+  medium: '[content-visibility:auto] [contain-intrinsic-size:auto_3.5rem]',
+  card: '[content-visibility:auto] [contain-intrinsic-size:auto_7.5rem]',
+}
+
 // 1 枚ずつが独立したカードの枠。小表示では ul が枠を持ち区切り線で仕切るが、
 // グリッドに並べるときは ul は器でしかないので、枠と地色は各カードが持つ。
 // スワイプ有効時は SwipeToTrashRow の li に足すクラスとして渡す

@@ -8,6 +8,7 @@ import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { keepsNoteOpen } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
 import { perfStart } from "@/lib/logging/perfClient";
+import { afterNextPaint } from "@/lib/afterNextPaint";
 import { LOAD_MORE_EVENT } from "./loadMore";
 import { canScroll, createScrollArm, searchKeyOf } from "./loadMoreGate";
 
@@ -90,42 +91,58 @@ export function AutoLoadMore({
   }, [router, href]);
 
   // 解禁を待つ。一覧が実際にスクロールする器 (無ければ文書) の位置を見て、
-  // 下へ動いたら解禁する。先頭へ戻されるスクロールでは解禁しない
+  // 下へ動いたら解禁する。先頭へ戻されるスクロールでは解禁しない。
+  //
+  // 器を測るのは描画の後 (下の観測も同じ)。scrollRootOf の getComputedStyle と
+  // isScrollable の scrollHeight は、描画の直後に読むとスタイル・レイアウトを
+  // 前倒しで強制し、検索結果の最初の 1 枚を遅らせていた (docs/122 §10-2)
   useEffect(() => {
     const el = sentinelRef.current;
     if (el === null || armed || coveredByNote) return;
-    const root = scrollRootOf(el);
-    const topOf = () => (root === null ? window.scrollY : root.scrollTop);
-    const arm = createScrollArm(topOf());
-    const onScroll = () => {
-      if (arm(topOf())) setArmedFor(searchKey);
+    let detach: (() => void) | undefined;
+    const cancel = afterNextPaint(() => {
+      const root = scrollRootOf(el);
+      const topOf = () => (root === null ? window.scrollY : root.scrollTop);
+      const arm = createScrollArm(topOf());
+      const onScroll = () => {
+        if (arm(topOf())) setArmedFor(searchKey);
+      };
+      const target: HTMLElement | Window = root ?? window;
+      target.addEventListener("scroll", onScroll, { passive: true });
+      detach = () => target.removeEventListener("scroll", onScroll);
+    });
+    return () => {
+      cancel();
+      detach?.();
     };
-    const target: HTMLElement | Window = root ?? window;
-    target.addEventListener("scroll", onScroll, { passive: true });
-    return () => target.removeEventListener("scroll", onScroll);
     // mode … 構成を押すとスクロールする器が替わる (下の観測と同じ理由)
   }, [armed, coveredByNote, mode, searchKey]);
 
   useEffect(() => {
     const el = sentinelRef.current;
     if (el === null || isPending || coveredByNote) return;
-    // 解禁前でも、一覧が器に収まっている間は埋めてよい (loadMoreGate.ts)。
-    // 追加が届くと href が変わって load が作り直され、ここで測り直す
-    if (!armed && isScrollable(el)) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) load();
-      },
-      // 末尾に届く 1 画面ぶん手前で先読みして、スクロールが底で止まる
-      // 間を作らない。root は一覧が実際にスクロールする器 —
-      // rootMargin は root の縁にしか付かないので、2 / 3 ペインの内側
-      // スクロールで root を画面 (null) のままにすると、器の切り取りで
-      // 余白が効かず、目印が見えてから読み込んでいた
-      { root: scrollRootOf(el), rootMargin: PREFETCH_MARGIN },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    let observer: IntersectionObserver | undefined;
+    const cancel = afterNextPaint(() => {
+      // 解禁前でも、一覧が器に収まっている間は埋めてよい (loadMoreGate.ts)。
+      // 追加が届くと href が変わって load が作り直され、ここで測り直す
+      if (!armed && isScrollable(el)) return;
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) load();
+        },
+        // 末尾に届く 1 画面ぶん手前で先読みして、スクロールが底で止まる
+        // 間を作らない。root は一覧が実際にスクロールする器 —
+        // rootMargin は root の縁にしか付かないので、2 / 3 ペインの内側
+        // スクロールで root を画面 (null) のままにすると、器の切り取りで
+        // 余白が効かず、目印が見えてから読み込んでいた
+        { root: scrollRootOf(el), rootMargin: PREFETCH_MARGIN },
+      );
+      observer.observe(el);
+    });
+    return () => {
+      cancel();
+      observer?.disconnect();
+    };
     // mode … 構成を押した瞬間に一覧のスクロールする器 (window か内側の器) が
     // 替わる (docs/86 §4-18)。root を測り直すため作り直す
   }, [load, isPending, coveredByNote, mode, armed]);

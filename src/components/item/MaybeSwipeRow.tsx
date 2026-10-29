@@ -10,6 +10,10 @@ interface MaybeSwipeRowProps {
   view: "compact" | "card";
   // カードの枠 (CARD_FRAME_CLASS)。小・中表示では ul が枠を持つので渡さない
   frameClassName?: string;
+  // 画面外で描画を飛ばすクラス。スワイプ行の li にだけ付ける (素の li は
+  // overflow-hidden を持たず、付けると切り取りが新たに生まれてフォーカスの
+  // 輪が切れる)
+  skipOffscreenClass?: string;
   children: ReactNode;
 }
 
@@ -25,6 +29,7 @@ export function MaybeSwipeRow({
   swipe,
   view,
   frameClassName,
+  skipOffscreenClass,
   children,
 }: MaybeSwipeRowProps) {
   if (swipe) {
@@ -34,7 +39,7 @@ export function MaybeSwipeRow({
         name={name}
         swipe={swipe}
         view={view}
-        liClassName={frameClassName}
+        liClassName={`${skipOffscreenClass ?? ""} ${frameClassName ?? ""}`}
       >
         {children}
       </SwipeToTrashRow>

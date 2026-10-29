@@ -217,7 +217,7 @@ test("小/大表示は回路図サムネの先頭 1 枚を行へ降ろす", () =
     { "10": [CIRCUIT_SVG] },
   );
   expect(html).toContain("circuit-thumb");
-  expect(html).toContain('<path d="M0 0h10"/>');
+  expect(html).toContain("data:image/svg+xml;charset=utf-8,%3Csvg");
 });
 
 test("画像表示は回路図サムネを masonry へ丸ごと降ろす", () => {

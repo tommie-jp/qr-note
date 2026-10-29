@@ -220,8 +220,11 @@ const renderCircuitRow = (item: Item, view: RowViewMode = "compact") =>
 test("画像が無ければ回路図の SVG をサムネに出す", () => {
   const html = renderCircuitRow(makeItem({ memo: "RC 回路" }));
   expect(html).toContain("circuit-thumb");
-  // SVG は文字列のまま埋め込まれる (dangerouslySetInnerHTML)
-  expect(html).toContain('<path d="M0 0h10"/>');
+  // SVG は DOM に展開せず、data URL の <img> で出す (docs/122 §10-2)。
+  // 行の大きさでは図の文字が読めないので、SVG の文字の配置を払う意味が無い
+  expect(html).toContain('<img');
+  expect(html).toContain('src="data:image/svg+xml;charset=utf-8,%3Csvg viewBox=%220 0 10 10%22%3E');
+  expect(html).not.toContain('<path d="M0 0h10"/>');
   // 小表示は画像サムネと同じ 1 行分の枠
   expect(html).toContain("size-6");
 });
@@ -242,7 +245,7 @@ test("画像があれば画像を優先し、回路図サムネは出さない",
 
 test("回路図サムネは装飾扱い (タイトルが説明する)", () => {
   const html = renderCircuitRow(makeItem({ memo: "RC 回路" }));
-  expect(html).toContain('aria-hidden="true"');
+  expect(html).toMatch(/<img[^>]*alt=""[^>]*class="circuit-thumb/);
 });
 
 test("SVG を渡さなければ回路図サムネの枠ごと出ない", () => {
@@ -427,6 +430,34 @@ test("カードのスワイプ行は枠 (rounded border) を残す", () => {
   const html = renderSwipeRow(makeItem({ itemId: "00000000-0000-7000-8000-000000000042" }), "card");
   expect(html).toContain("rounded");
   expect(html).toContain("border-gray-200");
+});
+
+// 画面外の行のスタイル・レイアウト・描画を飛ばす (docs/122 §10-2)。
+// 見積もりの高さは rem で持ち、文字サイズの倍率 (root の rem) に追随させる
+test("スワイプ行は画面外で描画を飛ばし、見積もりの高さを持つ", () => {
+  const item = makeItem({ itemId: "00000000-0000-7000-8000-000000000042" });
+  const compact = renderSwipeRow(item);
+  expect(compact).toContain("[content-visibility:auto]");
+  expect(compact).toContain("[contain-intrinsic-size:auto_2.25rem]");
+  // 中は小と同じ部品で描くが、タグの行のぶん高い
+  expect(renderSwipeRow(item, "medium")).toContain("[contain-intrinsic-size:auto_3.5rem]");
+  expect(renderSwipeRow(item, "card")).toContain("[contain-intrinsic-size:auto_7.5rem]");
+});
+
+// 素の li は overflow-hidden を持たない (小表示)。付けると描画の切り取りが
+// 新たに生まれ、行の外へはみ出すフォーカスの輪が切れる
+test("選択モードの素の行には描画の省略を付けない", () => {
+  const html = renderToStaticMarkup(
+    <ul>
+      <ItemRow
+        item={makeItem({ itemId: "00000000-0000-7000-8000-000000000042" })}
+        href="/item/00000000-0000-7000-8000-000000000042"
+        checkbox={<input type="checkbox" name="itemId" value="00000000-0000-7000-8000-000000000042" />}
+        swipe={SWIPE}
+      />
+    </ul>,
+  );
+  expect(html).not.toContain("content-visibility");
 });
 
 test("カードでも選択モードならスワイプを有効にしない", () => {

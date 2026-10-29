@@ -8,6 +8,7 @@ import { NotePreviewFrame } from "@/components/item/NotePreviewFrame";
 import { RowThumb } from "@/components/item/RowThumb";
 import { ViewerImageButton } from "@/components/imageviewer/ViewerImageButton";
 import {
+  ROW_SKIP_OFFSCREEN_CLASS,
   rowFace,
   rowTintClass,
   rowTitle,
@@ -47,6 +48,9 @@ export interface RowParts {
   linkClass: string;
   // 行の地色 (プレビュー中の選択色 / hover)
   tintClass: string;
+  // 画面外で描画を飛ばすクラス (ROW_SKIP_OFFSCREEN_CLASS)。中は小と同じ部品で
+  // 描くので、表示モードを知るここで決めて渡す
+  skipOffscreenClass: string;
 }
 
 interface RowPartsInput {
@@ -161,5 +165,6 @@ export function buildRowParts(input: RowPartsInput): RowParts {
     thumb: renderThumb(input),
     linkClass: stretchedLinkClass(Boolean(checkbox)),
     tintClass: rowTintClass(selected),
+    skipOffscreenClass: ROW_SKIP_OFFSCREEN_CLASS[view],
   };
 }

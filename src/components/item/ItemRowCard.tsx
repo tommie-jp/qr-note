@@ -26,6 +26,7 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
       swipe={swipe}
       view="card"
       frameClassName={CARD_FRAME_CLASS}
+      skipOffscreenClass={parts.skipOffscreenClass}
     >
       {/* relative … タイトルの当たり判定を広げる ::after の基準にする。
           h-full … グリッドで伸ばされた分を中身にも渡し、隣とサムネの高さを揃える */}

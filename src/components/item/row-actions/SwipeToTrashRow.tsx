@@ -128,7 +128,9 @@ export function SwipeToTrashRow({
   return (
     <li
       // overflow-hidden … はみ出した削除ボタンと、畳むときの高さを切る。
-      // liClassName … カードの枠 (h-full rounded border bg-white)。小では空。
+      // liClassName … カードの枠 (h-full rounded border bg-white。小では無い) と、
+      // 画面外で描画を飛ばすクラス (ROW_SKIP_OFFSCREEN_CLASS)。切り取りは
+      // この overflow-hidden で元からあるので、飛ばしても見た目は変わらない
       className={`relative overflow-hidden transition-all duration-200 ${liClassName} ${
         removing ? removingClass : restingClass
       }`}

@@ -18,7 +18,13 @@ interface ItemRowCompactProps {
 export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
   const { itemId, name, href, selected, checkbox, title, tags, footer, thumb } = parts;
   return (
-    <MaybeSwipeRow itemId={itemId} name={name} swipe={swipe} view="compact">
+    <MaybeSwipeRow
+      itemId={itemId}
+      name={name}
+      swipe={swipe}
+      view="compact"
+      skipOffscreenClass={parts.skipOffscreenClass}
+    >
       {/* relative … タイトルの当たり判定を広げる ::after の基準にする。
           pr-10 … 操作がある行 (swipe あり) は右端に ⋮ が常に居るので、
           サムネと題をその幅 (w-10) だけ左へ寄せる (docs/107 §2) */}
