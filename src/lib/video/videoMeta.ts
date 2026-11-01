@@ -40,6 +40,9 @@ const XMP_UUID = [
 // 入れ子の深さの上限。実物は moov > trak > mdia > minf の 4 段。上限が無いと
 // trak を数千段重ねた細工ファイルでスタックが溢れる
 const MAX_DEPTH = 16
+// 1 階層に並ぶ箱の上限 (video/mp4Faststart.ts と同じ理由。2026-11 の監査 M-9)。
+// strict なら例外 (= 除去できないので断る)、そうでなければ読めたところまで
+const MAX_BOXES_PER_LEVEL = 100_000
 const FREE = new TextEncoder().encode('free')
 const LATIN1 = new TextDecoder('latin1')
 
@@ -60,6 +63,12 @@ function readBoxes(bytes: Uint8Array, from: number, to: number, strict: boolean)
       size = to - at
     }
     if (size < bodyAt - at || at + size > to) {
+      break
+    }
+    if (boxes.length >= MAX_BOXES_PER_LEVEL) {
+      if (strict) {
+        throw new PhotoMetaFormatError(`箱が多すぎます (${MAX_BOXES_PER_LEVEL} 超)`)
+      }
       break
     }
     boxes.push({ type: LATIN1.decode(bytes.subarray(at + 4, at + 8)), start: at, bodyAt, end: at + size })

@@ -28,6 +28,11 @@ interface Box {
 // 決まった道だけ降りる (udta/meta の中まで覗かない — 位置表は無いため)
 const CONTAINER_TYPES = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl'])
 
+// 1 階層に並ぶ箱の上限。8 バイトの `free` を敷き詰めた 30MB で 390 万個の
+// Box を積み +395MB になった (2026-11 の監査 M-9)。実物は数十個。超えたら
+// 「扱わない」(null) に倒し、呼び手は元のバイト列をそのまま使う
+export const MAX_BOXES_PER_LEVEL = 100_000
+
 // 並びを読む。壊れていれば null (throw しない)
 function readBoxes(bytes: Uint8Array, from: number, to: number): Box[] | null {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
@@ -50,6 +55,9 @@ function readBoxes(bytes: Uint8Array, from: number, to: number): Box[] | null {
     }
     if (size < headerSize || at + size > to) {
       return null // 進めない / はみ出す長さは扱わない
+    }
+    if (boxes.length >= MAX_BOXES_PER_LEVEL) {
+      return null
     }
     boxes.push({ type, start: at, headerSize, size })
     at += size

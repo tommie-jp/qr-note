@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { box, concatBytes, ftypBox, hdlrBox } from './__fixtures__/media'
-import { findTopLevelBox, handlerTypesIn, readIsoBmffBrands } from './isoBmff'
+import { findTopLevelBox, handlerTypesIn, MAX_BRANDS, readIsoBmffBrands } from './isoBmff'
 
 const text = (bytes: Uint8Array | null) =>
   bytes === null ? null : new TextDecoder('latin1').decode(bytes)
@@ -84,6 +84,29 @@ test('handlerTypesIn は入れ子の hdlr から handler を出現順に集め�
     box('trak', box('mdia', hdlrBox('soun'))),
   ])
 
-  expect(handlerTypesIn(moov)).toEqual(['vide', 'soun'])
-  expect(handlerTypesIn(new Uint8Array(0))).toEqual([])
+  expect([...handlerTypesIn(moov)]).toEqual(['vide', 'soun'])
+  expect(handlerTypesIn(new Uint8Array(0)).size).toBe(0)
+})
+
+// 資源枯渇の回帰 (2026-11 の監査 M-9)。要素数が入力の大きさに比例しないこと
+describe('細工した入力でも溜め込まない', () => {
+  test('ftyp 長が壊れていても brand は上限の個数で打ち切る', () => {
+    // ftyp 長 0 (= 全長で代用されていた) の後ろに 4MB の "avif" を敷く
+    const bytes = new Uint8Array(4 * 1024 * 1024)
+    bytes.set([0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d], 0)
+    for (let at = 16; at + 4 <= bytes.byteLength; at += 4) {
+      bytes.set([0x61, 0x76, 0x69, 0x66], at)
+    }
+    const brands = readIsoBmffBrands(bytes)
+    expect(brands).not.toBeNull()
+    expect(brands!.length).toBeLessThanOrEqual(MAX_BRANDS + 1)
+    expect(brands![0]).toBe('isom')
+  })
+
+  test('hdlr を敷き詰めた moov でも handler は種類の数しか持たない', () => {
+    const moov = concatBytes(Array.from({ length: 50_000 }, () => hdlrBox('vide')))
+    const handlers = handlerTypesIn(moov)
+    expect(handlers.size).toBe(1)
+    expect(handlers.has('vide')).toBe(true)
+  })
 })

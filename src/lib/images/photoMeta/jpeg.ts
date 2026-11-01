@@ -9,6 +9,7 @@
 // 落とすもの: APP1 (Exif・XMP)・APP13 (IPTC)・その他の APPn・COM・EOI より後ろ。
 // 向きは Exif から値だけ読み、向きだけを持つ最小 EXIF を書き戻す。
 
+import { pushSlice } from './parts'
 import {
   minimalExifTiff,
   needsOrientation,
@@ -174,12 +175,12 @@ export function stripJpeg(input: Uint8Array<ArrayBuffer>): StripOutcome {
     }
     const marker = input[markerAt + 1]
     if (marker === EOI) {
-      parts.push(input.subarray(markerAt, markerAt + 2))
+      pushSlice(parts, input, markerAt, markerAt + 2)
       at = markerAt + 2
       break
     }
     if (isStandalone(marker)) {
-      parts.push(input.subarray(markerAt, markerAt + 2))
+      pushSlice(parts, input, markerAt, markerAt + 2)
       at = markerAt + 2
       continue
     }
@@ -194,7 +195,11 @@ export function stripJpeg(input: Uint8Array<ArrayBuffer>): StripOutcome {
 
     const kept = keepSegment(marker, input.subarray(markerAt + 4, end), collected)
     if (kept !== null) {
-      parts.push(kept === 'keep' ? input.subarray(markerAt, end) : kept)
+      if (kept === 'keep') {
+        pushSlice(parts, input, markerAt, end)
+      } else {
+        parts.push(kept)
+      }
       if (marker === APP0 && parts.length === 2) {
         exifAt = 2
       }
@@ -204,7 +209,7 @@ export function stripJpeg(input: Uint8Array<ArrayBuffer>): StripOutcome {
     if (marker === SOS) {
       seenScan = true
       const next = nextMarkerAfterScan(input, at)
-      parts.push(input.subarray(at, next))
+      pushSlice(parts, input, at, next)
       at = next
     }
   }

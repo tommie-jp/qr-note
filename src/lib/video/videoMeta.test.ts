@@ -201,3 +201,21 @@ describe('stripVideoMeta', () => {
     )
   })
 })
+
+// 資源枯渇の回帰 (2026-11 の監査 M-9)。箱を敷き詰めた並びは件数の上限で止める。
+// トップレベルは strict (除去できないので断る = 例外)。4MB の free は 52 万個
+describe('箱の件数の上限', () => {
+  test('free を敷き詰めた並びは PhotoMetaFormatError で断る', () => {
+    const free = box('free')
+    const count = (4 * 1024 * 1024) / free.byteLength
+    const flood = new Uint8Array(free.byteLength * count)
+    for (let i = 0; i < count; i++) {
+      flood.set(free, i * free.byteLength)
+    }
+    const bytes = concat([box('ftyp', ascii('qt  '), u32(0), ascii('qt  ')), flood, MDAT])
+
+    const before = process.memoryUsage().heapUsed
+    expect(() => stripVideoMeta(bytes)).toThrow(PhotoMetaFormatError)
+    expect(process.memoryUsage().heapUsed - before).toBeLessThan(40 * 1024 * 1024)
+  })
+})

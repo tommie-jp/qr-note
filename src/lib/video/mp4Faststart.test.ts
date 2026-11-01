@@ -172,3 +172,20 @@ test('長さが食い違う壊れた並びは扱わない', () => {
   broken.set(enc.encode('mdat'), 4)
   expect(moveMoovToFront(broken)).toBeNull()
 })
+
+// 資源枯渇の回帰 (2026-11 の監査 M-9)。8 バイトの free を敷き詰めた入力で、箱の
+// 並びを配列に積むと要素数が入力に比例し 30MB で +395MB になった。件数の上限で
+// 「扱わない」(null) に倒す。4MB = 52 万個 > 上限 10 万個
+test('箱を敷き詰めた入力は上限で諦める (null)', () => {
+  const free = box('free', new Uint8Array(0))
+  const count = (4 * 1024 * 1024) / free.byteLength
+  const flood = new Uint8Array(free.byteLength * count)
+  for (let i = 0; i < count; i++) {
+    flood.set(free, i * free.byteLength)
+  }
+  const bytes = concat([box('ftyp', enc.encode('isom')), flood, moovBox(stcoBox([8]))])
+
+  const before = process.memoryUsage().heapUsed
+  expect(moveMoovToFront(bytes)).toBeNull()
+  expect(process.memoryUsage().heapUsed - before).toBeLessThan(40 * 1024 * 1024)
+})

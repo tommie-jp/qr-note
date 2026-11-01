@@ -52,7 +52,7 @@ function hasVideoTrack(bytes: Uint8Array): boolean {
   if (!moov) {
     return false
   }
-  return handlerTypesIn(moov).includes('vide')
+  return handlerTypesIn(moov).has('vide')
 }
 
 function sniffIsoBmffVideo(bytes: Uint8Array): VideoFormat | null {

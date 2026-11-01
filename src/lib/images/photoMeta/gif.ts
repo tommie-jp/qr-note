@@ -9,6 +9,7 @@
 // 残すもの: 画像・描画制御 (0xF9)・プレーンテキスト (0x01)・ループ指定
 // (NETSCAPE2.0 / ANIMEXTS1.0)・色の指定 (ICCRGBG1012)。
 
+import { pushSlice } from './parts'
 import { hasAsciiPrefix, type MetaKind, outcome, PhotoMetaFormatError, type StripOutcome } from './types'
 
 const EXTENSION = 0x21
@@ -78,7 +79,7 @@ export function stripGif(input: Uint8Array<ArrayBuffer>): StripOutcome {
   while (at < input.byteLength) {
     const introducer = input[at]
     if (introducer === TRAILER) {
-      parts.push(input.subarray(at, at + 1))
+      pushSlice(parts, input, at, at + 1)
       at += 1
       ended = true
       break
@@ -87,7 +88,7 @@ export function stripGif(input: Uint8Array<ArrayBuffer>): StripOutcome {
       const end = skipSubBlocks(input, at + 2)
       const kind = extensionKind(input, at)
       if (kind === null) {
-        parts.push(input.subarray(at, end))
+        pushSlice(parts, input, at, end)
       } else {
         removed.add(kind)
       }
@@ -101,7 +102,7 @@ export function stripGif(input: Uint8Array<ArrayBuffer>): StripOutcome {
       // 画像の記述(10) + 局所の色表 + LZW の最小符号長(1) の後に小区画
       const dataAt = at + 10 + colorTableSize(input[at + 9]) + 1
       const end = skipSubBlocks(input, dataAt)
-      parts.push(input.subarray(at, end))
+      pushSlice(parts, input, at, end)
       at = end
       continue
     }

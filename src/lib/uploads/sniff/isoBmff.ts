@@ -17,11 +17,15 @@ export function readIsoBmffBrands(bytes: Uint8Array): string[] | null {
   if (!startsWith(bytes.subarray(4), [0x66, 0x74, 0x79, 0x70])) {
     return null
   }
-  // ボックス長で compatible brands の走査範囲を縛る (壊れた長さは全長で代用)
+  // ボックス長で compatible brands の走査範囲を縛る。**壊れた長さ (0・16 未満・
+  // 全長超) を全長で代用してはいけない** — 30MB の入力なら 4 バイトごとに
+  // 786 万個の文字列を積み、+386MB になる (2026-11 の監査 M-9)。実物の brand は
+  // 数個 (多くて 10 程度) なので、上限の個数で打ち切る
   const declared = new DataView(
     bytes.buffer, bytes.byteOffset, bytes.byteLength,
   ).getUint32(0)
-  const end = declared >= 16 && declared <= bytes.byteLength ? declared : bytes.byteLength
+  const declaredEnd = declared >= 16 && declared <= bytes.byteLength ? declared : bytes.byteLength
+  const end = Math.min(declaredEnd, 16 + 4 * MAX_BRANDS)
   const decoder = new TextDecoder('latin1')
   // major brand(8..12) と compatible brands(16..) を集める (12..16 は minor version)
   const brands: string[] = [decoder.decode(bytes.subarray(8, 12))]
@@ -30,6 +34,9 @@ export function readIsoBmffBrands(bytes: Uint8Array): string[] | null {
   }
   return brands
 }
+
+// compatible brands を読む上限の個数 (readIsoBmffBrands)
+export const MAX_BRANDS = 32
 
 // ISO-BMFF のトップレベルから指定のボックスを探して中身を返す (無ければ null)。
 // ボックスは [長さ(4)][型(4)][中身] の並び。長さ 1 は 64bit 拡張長 (型の直後に
@@ -74,14 +81,17 @@ export function findTopLevelBox(bytes: Uint8Array, type: string): Uint8Array | n
 const HDLR_TYPE = encodeAscii('hdlr')
 const HDLR_HANDLER_OFFSET = 12 // "hdlr" の先頭から handler までの距離
 
-export function handlerTypesIn(moov: Uint8Array): string[] {
+//
+// 返すのは **Set** (重複を溜めない)。配列だと "hdlr" を 4 バイトおきに敷いた
+// 30MB の moov で +327MB になる (2026-11 の監査 M-9)。実物の handler は数種類
+export function handlerTypesIn(moov: Uint8Array): Set<string> {
   const decoder = new TextDecoder('latin1')
-  const handlers: string[] = []
+  const handlers = new Set<string>()
   const limit = moov.byteLength
   for (let at = 0; at + HDLR_HANDLER_OFFSET + 4 <= limit; at++) {
     if (matchesAt(moov, at, HDLR_TYPE, limit)) {
       const from = at + HDLR_HANDLER_OFFSET
-      handlers.push(decoder.decode(moov.subarray(from, from + 4)))
+      handlers.add(decoder.decode(moov.subarray(from, from + 4)))
     }
   }
   return handlers

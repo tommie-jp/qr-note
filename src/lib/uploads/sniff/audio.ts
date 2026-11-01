@@ -70,7 +70,7 @@ function hasAudioOnlyTracks(bytes: Uint8Array): boolean {
     return false
   }
   const handlers = handlerTypesIn(moov)
-  return handlers.includes('soun') && !handlers.includes('vide')
+  return handlers.has('soun') && !handlers.has('vide')
 }
 
 function sniffIsoBmffAudio(bytes: Uint8Array): AudioFormat | null {

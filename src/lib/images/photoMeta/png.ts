@@ -14,6 +14,7 @@
 // 崩す。書き戻す eXIf は IHDR の直後 (iDOT より前) に置き、iDOT と IDAT の間の
 // 区画を落としたときは iDOT も落とす (無くても順に復号されるだけ)。
 
+import { pushSlice } from './parts'
 import { crc32 } from 'node:zlib'
 import { minimalExifTiff, needsOrientation, readExifFacts, withoutExifHeader } from './tiff'
 import {
@@ -88,7 +89,7 @@ export function stripPng(input: Uint8Array<ArrayBuffer>): StripOutcome {
     }
     const type = LATIN1.decode(input.subarray(at + 4, at + 8))
     const data = input.subarray(at + 8, at + 8 + length)
-    const partsBefore = parts.length
+    let keptThis = false
     if (afterIhdr === -1 && type !== 'IHDR') {
       throw new PhotoMetaFormatError('先頭の区画が IHDR ではありません')
     }
@@ -105,16 +106,23 @@ export function stripPng(input: Uint8Array<ArrayBuffer>): StripOutcome {
     } else if (OTHER_CHUNKS.has(type)) {
       removed.add('other')
     } else {
-      if (type === 'iDOT' && idot === -1) {
-        idot = parts.length
-      }
+      keptThis = true
       seenIdat ||= type === 'IDAT'
-      parts.push(input.subarray(at, end))
+      // 残す区画は連続する切れ端として伸ばす (parts.ts。2026-11 の監査 M-9)。
+      // ただし **IHDR と iDOT は添字で覚える**ので、それ自体を 1 要素として置き、
+      // 直後に長さ 0 の切れ端を挟んで、次の区画がそこへ伸びるようにする
+      // (eXIf の書き戻しは afterIhdr の位置へ、iDOT の除去は idot の要素だけ)
       if (type === 'IHDR') {
-        afterIhdr = parts.length
+        parts.push(input.subarray(at, end), input.subarray(end, end))
+        afterIhdr = parts.length - 1
+      } else if (type === 'iDOT' && idot === -1) {
+        idot = parts.length
+        parts.push(input.subarray(at, end), input.subarray(end, end))
+      } else {
+        pushSlice(parts, input, at, end)
       }
     }
-    if (parts.length === partsBefore && idot !== -1 && !seenIdat) {
+    if (!keptThis && idot !== -1 && !seenIdat) {
       droppedAfterIdot = true
     }
     at = end

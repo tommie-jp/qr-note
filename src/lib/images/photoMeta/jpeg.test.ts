@@ -191,3 +191,28 @@ describe('stripJpeg', () => {
     }
   })
 })
+
+// 資源枯渇の回帰 (2026-11 の監査 M-9)。長さの無い区画 (TEM = FF 01) を敷き詰めた
+// 入力で、残す区画を 1 つずつ積むと要素数が入力に比例し、2MB で +120MB になった。
+// 連続する切れ端は伸ばして持つ (parts.ts) ので、ヒープの増分は入力の数倍に収まる
+test('TEM を敷き詰めた 2MB でもメモリを溜め込まない', async () => {
+  const base = await makePhoto('jpeg', { width: 64, height: 48 })
+  const floodLength = 2 * 1024 * 1024
+  const flood = new Uint8Array(floodLength)
+  for (let at = 0; at + 1 < floodLength; at += 2) {
+    flood[at] = 0xff
+    flood[at + 1] = 0x01
+  }
+  const input = new Uint8Array(2 + floodLength + base.byteLength - 2)
+  input.set(base.subarray(0, 2), 0)
+  input.set(flood, 2)
+  input.set(base.subarray(2), 2 + floodLength)
+
+  const before = process.memoryUsage().heapUsed
+  const { bytes } = stripJpeg(input)
+  const grown = process.memoryUsage().heapUsed - before
+
+  expect(bytes.byteLength).toBeGreaterThan(floodLength)
+  // 以前は +120MB。元の入力 (2MB) の数倍に収まっていればよい
+  expect(grown).toBeLessThan(40 * 1024 * 1024)
+})
