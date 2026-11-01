@@ -1,10 +1,16 @@
 import type { NextResponse } from 'next/server'
 import { IMAGE_UNREADABLE_MESSAGE } from '@/lib/attachments/result'
+
+// 撮影情報を消せなかった (箱の並びや区画が読めない等)。残したまま置くくらいなら断る
+const PHOTO_META_FAILED_MESSAGE =
+  '撮影情報を消せなかったため置きませんでした。設定を「残す」にするか、別の形式でお試しください'
 import { kindOfMime, sanitizeFileName, withExtension } from '@/lib/clipboard/slot'
 import { classifySlotFile } from '@/lib/clipboard/slotFile'
 import { prepareSlotFile } from '@/lib/clipboard/slotPrepare'
 import { makeSlotPreview } from '@/lib/clipboard/slotPreview'
+import { applySlotPhotoMeta } from '@/lib/clipboard/slotPhotoMeta'
 import { readSlotMedia, writeSlotMedia } from '@/lib/clipboard/slotStore'
+import { loadPhotoMetaMode } from '@/lib/prefs/photoMetaStore'
 import { readBodyBounded } from '@/lib/route/boundedBody'
 import { byteHeaders, bytesResponse } from '@/lib/route/bytes'
 import { guardRequest } from '@/lib/route/guard'
@@ -109,17 +115,29 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return apiFail(IMAGE_UNREADABLE_MESSAGE, 400)
   }
 
+  // 撮影情報 (EXIF・動画の位置) は添付の保存と同じ設定で消す (docs/114 §11、
+  // docs/113。2026-11 の監査 M-12)。枠のファイルは相手の端末で保存・共有されるので、
+  // 「消す」にしている人の位置を本人の意図なく渡さない。抜けなければ置かない
+  const mode = await loadPhotoMetaMode(guard.user)
+  let stripped
+  try {
+    stripped = await applySlotPhotoMeta(prepared, mode)
+  } catch (error) {
+    console.error(`クリップボードのファイルの撮影情報を消せませんでした (${prepared.mime}, ${bytes.byteLength} bytes):`, error)
+    return apiFail(PHOTO_META_FAILED_MESSAGE, 400)
+  }
+
   // 見本 (docs/115)。画像の絵・テキストと Office の抜粋はここで作る。動画と PDF の絵は
   // クライアントが作って後から貼る (api/clipboard/thumb)。変換した後のバイト列から作る
   // (HEIC は JPEG になってからでないと sharp が読めない)。作れなくても置くのは止めない
-  const preview = await makeSlotPreview(prepared)
+  const preview = await makeSlotPreview(stripped)
 
   return apiOk({
     slot: await writeSlotMedia(
       guard.user,
-      prepared.mime,
-      prepared.data,
-      nameAfterConvert(file, prepared, fileName),
+      stripped.mime,
+      stripped.data,
+      nameAfterConvert(file, stripped, fileName),
       preview,
     ),
   })

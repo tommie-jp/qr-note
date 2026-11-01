@@ -12,8 +12,9 @@
 // octet-stream として置く。配信は attachment + nosniff + CSP sandbox で、ブラウザが
 // 開いて実行する経路が無い。Office は名前と署名の両方が合ったときだけ既知の mime にする。
 //
-// 画像は**変換しない** (HEIC を WebP にしない、EXIF も触らない)。枠は端末から端末へ
-// 原本を運ぶ道具で、10 分で消える。保存して配る添付とは役目が違う。
+// 画像は**ここでは変換しない** (HEIC を WebP にしない)。枠は端末から端末へ原本を
+// 運ぶ道具で、10 分で消える。ただし撮影情報 (EXIF・動画の位置) だけは、添付の保存と
+// 同じ設定で route が消す (slotPhotoMeta.ts。docs/114 §11)。
 
 import { normalizeTextBytes, hasUtf16Bom } from '../text/normalizeText'
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from '../uploads/limits'
