@@ -175,6 +175,7 @@ function finalize(s: PerfState, closing: Closing): void {
         t0: measure.t0,
         until: perfNow(),
         pathname: measure.pathname,
+        committedAt: closing.committedAt,
       }),
       domNodes: closing.domNodes,
       longTasks: s.longTasks ? sumLongTasks(s.longTasks, measure.t0, paintedAt) : null,

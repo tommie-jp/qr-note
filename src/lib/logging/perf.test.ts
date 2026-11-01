@@ -61,8 +61,41 @@ describe('pickRsc', () => {
   test('行き先の要求が無ければ main は null', () => {
     expect(pickRsc([rsc('/item/1', 100, 1)], { t0: 0, until: 1000, pathname: '/' })).toEqual({
       main: null,
+      background: null,
       prefetch: 1,
     })
+  })
+})
+
+describe('pickRsc の本体と裏 (docs/123 §12-8)', () => {
+  test('画面に出る前に返事を始めた要求が本体、後から返事を始めた大きい取り直しは裏', () => {
+    // Arrange: 続きの読み込み。次のページ (小) は待ってから描き、一覧の取り直し (大) は後から届いた
+    const nextPage = { ...rsc('/', 100, 10_000), name: 'http://localhost/api/items?page=2' }
+    const refetch = { ...rsc('/', 120, 60_000), name: 'http://localhost/api/items?through=2' }
+    refetch.responseStart = 500
+    refetch.responseEnd = 520
+
+    // Act: 画面に出たのは 300 (次のページの返事 150〜250 の後、取り直しの返事 500 の前)
+    const picked = pickRsc([nextPage, refetch], { t0: 90, until: 1000, pathname: '/', committedAt: 300 })
+
+    // Assert
+    expect(picked.main).toBe(nextPage)
+    expect(picked.background).toBe(refetch)
+  })
+
+  test('返事を始めた後に描き始めた (ストリームの途中) 要求は本体に残る', () => {
+    const streaming = rsc('/', 100, 50_000)
+
+    const picked = pickRsc([streaming], { t0: 90, until: 1000, pathname: '/', committedAt: 200 })
+
+    expect(picked.main).toBe(streaming)
+    expect(picked.background).toBeNull()
+  })
+
+  test('committedAt を渡さなければ今までどおり大きい物が本体', () => {
+    const late = rsc('/', 100, 50_000)
+
+    expect(pickRsc([late], { t0: 90, until: 1000, pathname: '/' }).main).toBe(late)
   })
 })
 
@@ -205,7 +238,7 @@ describe('formatNavLine', () => {
     const line = formatNavLine(
       { kind: 'ノート', t0: 0, pathname: '/item/x', itemId: 'x' },
       { fields: [], server: '5ms' },
-      { committedAt: 40, paintedAt: 45, rsc: { main: background, prefetch: 0 }, domNodes: 1, longTasks: null },
+      { committedAt: 40, paintedAt: 45, rsc: { main: null, background, prefetch: 0 }, domNodes: 1, longTasks: null },
     )
 
     // Assert: 負の描画は出ず、待った往復の欄は「控え」、取り直しは「裏」に残る

@@ -44,6 +44,9 @@ export function mainLabel(url: string): string {
 export interface RscPick {
   // 画面を差し替えた本体の要求。見つからなければ null
   main: ResourceLike | null
+  // 画面に出た後で返事を始めた要求のうち、いちばん大きい物 (待っていない
+  // 裏の取り直し。docs/123 §12-8)。committedAt を渡さなければ常に null
+  background?: ResourceLike | null
   // 同じ窓の残りの RSC 要求の数 (= 裏で走った prefetch)
   prefetch: number
 }
@@ -63,27 +66,49 @@ function isDataApi(url: string): boolean {
   return pathnameOf(url)?.startsWith(DATA_API_PREFIX) ?? false
 }
 
+// committedAt (画面に出た時刻) を渡すと、本体の候補を「それまでに返事を
+// 始めた要求」に絞り、後から返事を始めた要求は background に分ける
+// (docs/123 §12-8)。控えから先に描いた回は、裏の取り直しが窓の中で
+// いちばん大きく、それを本体に選ぶと「待った往復」に見えていた。
+// 返事を始めた後に描き始めた (ストリームの途中で差し替えた) 要求は本体に残る
 export function pickRsc(
   entries: readonly ResourceLike[],
-  { t0, until, pathname }: { t0: number; until: number; pathname: string },
+  {
+    t0,
+    until,
+    pathname,
+    committedAt,
+  }: { t0: number; until: number; pathname: string; committedAt?: number },
 ): RscPick {
   const inWindow = entries.filter(
     (e) =>
       (e.name.includes(RSC_MARK) || isDataApi(e.name)) && e.startTime >= t0 && e.startTime <= until,
   )
   let main: ResourceLike | null = null
+  let background: ResourceLike | null = null
+  const larger = (a: ResourceLike, b: ResourceLike | null) =>
+    b === null || (a.decodedBodySize ?? 0) > (b.decodedBodySize ?? 0)
   for (const entry of inWindow) {
     if (pathnameOf(entry.name) !== pathname && !isDataApi(entry.name)) {
       continue
     }
-    if (main === null || (entry.decodedBodySize ?? 0) > (main.decodedBodySize ?? 0)) {
+    if (committedAt !== undefined && entry.responseStart > committedAt) {
+      if (larger(entry, background)) background = entry
+      continue
+    }
+    if (larger(entry, main)) {
       main = entry
     }
   }
   // prefetch は RSC だけを数える (API の要求は prefetch ではない)
   const rscCount = inWindow.filter((e) => e.name.includes(RSC_MARK)).length
   const mainIsRsc = main !== null && main.name.includes(RSC_MARK)
-  return { main, prefetch: rscCount - (mainIsRsc ? 1 : 0) }
+  const backgroundIsRsc = background !== null && background.name.includes(RSC_MARK)
+  return {
+    main,
+    background,
+    prefetch: rscCount - (mainIsRsc ? 1 : 0) - (backgroundIsRsc ? 1 : 0),
+  }
 }
 
 // Server Action の応答を本体とみなして選ぶ (表示モードの切替用。docs/120 §2)。
@@ -120,10 +145,14 @@ export function pickActionResponse(
 // POST の応答が運ぶので、RSC が見つからなければそちらを探す
 export function pickViewSwitch(
   entries: readonly ResourceLike[],
-  window: { t0: number; until: number; pathname: string },
+  window: { t0: number; until: number; pathname: string; committedAt?: number },
 ): RscPick {
   const rscPick = pickRsc(entries, window)
-  return rscPick.main !== null ? rscPick : pickActionResponse(entries, window)
+  if (rscPick.main !== null) {
+    return rscPick
+  }
+  const action = pickActionResponse(entries, window)
+  return action.main !== null ? action : rscPick
 }
 
 // 窓 [t0, t1] に始まった長いタスクの本数と合計 (Chromium だけが持つ)
@@ -197,15 +226,6 @@ function diff(to: number | undefined, from: number | undefined): number | null {
   return to === undefined || from === undefined || to <= 0 ? null : to - from
 }
 
-// 本体に選んだ要求が、画面に出たときにまだ返事を始めていなかったか
-// (docs/123 §12-8)。一覧・ノートを端末の控えから先に描いた回は、裏で走る
-// 取り直し (/api/items… の stale-while-revalidate) が窓の中でいちばん大きく、
-// 本体に選ばれる。その値を「待った往復」として書くと、描画が負になり、
-// 応答開始は待っていない往復の時間になっていた
-export function isBackgroundMain(main: ResourceLike | null, committedAt: number): boolean {
-  return main !== null && main.responseStart > committedAt
-}
-
 // 待った往復の欄 (要求 → 応答開始 → 受信 → 描画 → 量 → 本体)
 function fetchedFields(main: ResourceLike | null, obs: NavObservation, t0: number): PerfField[] {
   return [
@@ -251,7 +271,9 @@ export function formatNavLine(
   marks: ServerMarks,
   obs: NavObservation,
 ): string {
-  const { main } = obs.rsc
+  // 本体が無く、画面に出た後で返事を始めた要求だけがあれば、控えから描いた回
+  // (docs/123 §12-8。本体と裏の分け方は pickRsc)
+  const { main, background } = obs.rsc
   const shownAt = Math.max(obs.paintedAt, measure.immediateAt ?? obs.paintedAt)
   const immediate: PerfField[] =
     measure.immediateAt === undefined ? [] : [['即時', perfMs(measure.immediateAt - measure.t0)]]
@@ -260,8 +282,8 @@ export function formatNavLine(
     ...marks.fields,
     ...immediate,
     ['全体', perfMs(shownAt - measure.t0)],
-    ...(main !== null && isBackgroundMain(main, obs.committedAt)
-      ? cachedFields(main, obs, measure.t0)
+    ...(main === null && background
+      ? cachedFields(background, obs, measure.t0)
       : fetchedFields(main, obs, measure.t0)),
     ['prefetch', obs.rsc.prefetch],
     ['DOM', obs.domNodes],
