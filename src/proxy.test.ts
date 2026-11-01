@@ -400,6 +400,16 @@ describe('Content-Security-Policy', () => {
     expect(notice.headers.get('Content-Security-Policy')).toContain("default-src 'self'")
   })
 
+  test('API の応答には頁の CSP を付けない (配る口の sandbox と重ねない)', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({
+      userName: 'tommie',
+      expiresAt: freshExpiry(),
+      createdAt: new Date(),
+    })
+    const res = await proxy(loggedIn('/api/items'))
+    expect(res.headers.get('Content-Security-Policy')).toBeNull()
+  })
+
   test('nonce は要求ごとに変わる', async () => {
     const a = (await proxy(pageRequest('/docs/memo'))).headers.get('Content-Security-Policy')
     const b = (await proxy(pageRequest('/docs/memo'))).headers.get('Content-Security-Policy')

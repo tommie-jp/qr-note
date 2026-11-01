@@ -135,6 +135,12 @@ async function respond(request: NextRequest, decision: ProxyDecision): Promise<N
 //   - 応答側 … ブラウザが強制する本体
 // rewrite (ログイン案内) も同じ。401 の JSON と redirect には要らない (HTML でない)
 function passWithCsp(request: NextRequest, rewriteTo?: URL): NextResponse {
+  // API の応答 (JSON・バイト列) には頁の CSP を付けない。バイト列を配る口は自前で
+  // `sandbox` の CSP を付けており、重ねると CSP ヘッダが 2 本になる (どちらも効くが、
+  // 配信の契約 (E2E) が崩れる)。HTML を返すのは /api/ の外だけ
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return rewriteTo === undefined ? NextResponse.next() : NextResponse.rewrite(rewriteTo)
+  }
   const nonce = createNonce()
   const policy = contentSecurityPolicy({ nonce, isDev: isNodeEnvDevelopment() })
   const requestHeaders = new Headers(request.headers)

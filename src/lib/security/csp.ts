@@ -52,7 +52,9 @@ export function contentSecurityPolicy({ nonce, isDev }: CspOptions): string {
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "font-src 'self' data:",
-    `connect-src 'self' ${MODEL_HOSTS.join(' ')}`,
+    // blob: と data: は、pdfjs (PDF の見本・ビューア) や画像処理が手元の Blob を
+    // fetch で読み直すのに要る (E2E で実測)。外へは出ない
+    `connect-src 'self' blob: data: ${MODEL_HOSTS.join(' ')}`,
     "worker-src 'self' blob:",
     "frame-src 'self'",
     "manifest-src 'self'",

@@ -26,6 +26,7 @@ describe('contentSecurityPolicy', () => {
     expect(policy).toContain("worker-src 'self' blob:")
     expect(policy).toContain("img-src 'self' data: blob: https:")
     expect(policy).toContain('https://huggingface.co')
+    expect(policy).toContain("connect-src 'self' blob: data:")
     expect(policy).toContain("frame-src 'self'")
   })
 
