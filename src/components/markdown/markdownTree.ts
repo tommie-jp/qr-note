@@ -91,7 +91,14 @@ export function markdownTree(recipe: MarkdownRecipe, markdown: string): Root {
     return known
   }
   const processor = processorOf(recipe)
-  const tree = finish(processor.runSync(processor.parse(markdown)) as unknown as Root, recipe.urlTransform)
+  // **runSync にも本文を渡す。** remark の plugin (lib/markdown/remarkDetails.ts) は
+  // 元の本文を file.value から読む。木だけ渡すと file.value が undefined になり、
+  // 知らないディレクティブ (:::tip など) の囲いの行が文字どおり「undefined」で
+  // 描かれていた (2026-11 の監査の補足)。unified は文字列を VFile に包む
+  const tree = finish(
+    processor.runSync(processor.parse(markdown), markdown) as unknown as Root,
+    recipe.urlTransform,
+  )
   trees.set(id, tree)
   while (trees.size > MAX_TREES) {
     const oldest = trees.keys().next().value

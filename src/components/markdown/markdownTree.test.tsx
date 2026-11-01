@@ -67,3 +67,16 @@ describe('markdownTree', () => {
     expect(html).toBe('<section>本文</section>')
   })
 })
+
+// 知らないディレクティブ (:::tip など) の囲いの行。remarkDetails は元の本文を file.value
+// から読むので、runSync に本文を渡さないと「undefined」が描かれた (2026-11 の監査の補足)
+test('知らないディレクティブは囲いの行を文字どおり見せる (undefined にしない)', async () => {
+  const { remarkDetails, remarkDetailsSyntax } = await import('@/lib/markdown/remarkDetails')
+  const recipe: MarkdownRecipe = { ...RECIPE, key: 'directive', remarkPlugins: [remarkDetailsSyntax, remarkDetails] }
+
+  const html = renderToStaticMarkup(renderMarkdownTree(markdownTree(recipe, ':::tip\nヒント\n:::'), {}))
+
+  expect(html).not.toContain('undefined')
+  expect(html).toContain(':::tip')
+  expect(html).toContain('ヒント')
+})
