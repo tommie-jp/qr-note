@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { MAX_VIDEO_BYTES, MULTIPART_OVERHEAD_BYTES } from "./src/lib/uploads/limits";
+import { SECURITY_HEADERS } from "./src/lib/security/headers";
 
 const nextConfig: NextConfig = {
   // Docker 用の自己完結ビルド (.next/standalone)
@@ -131,6 +132,12 @@ const nextConfig: NextConfig = {
     // ルートを改名したらここも直す (docs/107 で [itemNo] → [itemId] にしたとき
     // 旧名のまま残っていた)。src/nextConfig.test.ts が実在を見張る
     "/item/\\[itemId\\]": ["./scripts/renderCircuit.cjs"],
+  },
+  // 全応答に付けるセキュリティヘッダ (src/lib/security/headers.ts。2026-11 の
+  // 監査 M-1)。CSP だけは要求ごとの nonce が要るので proxy.ts が付ける。
+  // HSTS は nginx のホスト共通設定が付ける (headers.ts の注)
+  async headers() {
+    return [{ source: "/:path*", headers: [...SECURITY_HEADERS] }];
   },
   // Ver1 の旧 URL 互換。/item/:itemNo は同一パスで実装済みのため不要
   async redirects() {

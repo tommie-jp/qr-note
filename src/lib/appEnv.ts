@@ -41,6 +41,12 @@ export function isNodeEnvProduction(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
+// `next dev` か。CSP に 'unsafe-eval' を足すのは開発サーバだけ (React が開発時に
+// eval でスタックを組み立てる。lib/security/csp.ts)。test でも production でも false
+export function isNodeEnvDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
 // --- サーバの設定値 (docs/93-リファクタリング計画.md §3-1) ---
 //
 // process.env の読み口をここに集める。どれも**呼ばれた時点で**読み、生の値を

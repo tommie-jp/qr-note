@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import QRCode from "qrcode";
 import { BottomBarProvider } from "@/components/bottombar/BottomBarContext";
 import { AppHeader } from "@/components/chrome/AppHeader";
@@ -16,6 +16,7 @@ import { currentUser } from "@/lib/auth/session";
 import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 import { qrBaseUrl } from "@/lib/site";
 import { CONTENT_WIDTH_CLASS } from "@/components/ui";
+import { NONCE_HEADER } from "@/lib/security/csp";
 import "./globals.css";
 
 // metadata / viewport の組み立てと、関数で出す理由は metadata.ts
@@ -73,6 +74,11 @@ export default async function RootLayout({
   // 設定系リンクの出し分けに使う。デモは本番相当で立てるので isProd とは独立
   const isDemo = isDemoMode();
 
+  // CSP の nonce (proxy.ts が要求ごとに作って x-nonce で渡す。lib/security/csp.ts)。
+  // <head> の inline script はこれが無いと CSP に止められる。proxy を通らない
+  // 経路 (単体テストの描画) では無いので省略可にしてある
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
+
   return (
     // suppressHydrationWarning … <head> のインラインスクリプト (PreHydrationScripts)
     // が hydration より前にこの html へ style (--note-font-scale) を書き足すため。
@@ -90,7 +96,7 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <PreHydrationScripts />
+        <PreHydrationScripts nonce={nonce} />
       </head>
       <body
         className={`min-h-full text-gray-900 ${isProd ? "bg-gray-50" : "bg-pink-50"}`}

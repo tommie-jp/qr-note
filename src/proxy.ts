@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { isProductionEnv } from '@/lib/appEnv'
+import { isNodeEnvDevelopment, isProductionEnv } from '@/lib/appEnv'
 import { LOGIN_REQUIRED_PATH } from '@/lib/auth/loginRedirect'
 import {
   decideWithoutSession,
@@ -15,6 +15,14 @@ import { parseLegacyItemPath } from '@/lib/items/legacyPath'
 import { resolveItemKey } from '@/lib/items/resolve'
 import { renewSession } from '@/lib/auth/sessionStore'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
+import {
+  contentSecurityPolicy,
+  createNonce,
+  CSP_HEADER,
+  NONCE_HEADER,
+  REPORTING_ENDPOINTS_HEADER,
+  reportingEndpointsHeader,
+} from '@/lib/security/csp'
 
 // ログインの門番 (docs/18-ログイン計画.md)。
 //
@@ -104,18 +112,40 @@ async function respond(request: NextRequest, decision: ProxyDecision): Promise<N
       // あとで挙動を変えたくなったときに古い転送が残る
       return NextResponse.redirect(decision.location, 307)
     case 'pass':
-      return NextResponse.next()
+      return passWithCsp(request)
     case 'pass-noindex':
-      return denyIndexing(NextResponse.next())
+      return denyIndexing(passWithCsp(request))
     case 'pass-with-renewal':
-      return withRenewedSession(decision.token)
+      return withRenewedSession(request, decision.token)
     case 'rewrite-login-required': {
-      const notice = NextResponse.rewrite(new URL(LOGIN_REQUIRED_PATH, request.nextUrl))
+      const notice = passWithCsp(request, new URL(LOGIN_REQUIRED_PATH, request.nextUrl))
       return decision.noindex ? denyIndexing(notice) : notice
     }
     case 'unauthorized':
       return apiFail('ログインが必要です', 401)
   }
+}
+
+// 通す応答に Content-Security-Policy を付ける (lib/security/csp.ts。2026-11 の監査 M-1)。
+//
+// nonce は要求ごとに作り、**要求ヘッダと応答ヘッダの両方**に載せる:
+//   - 要求側 (x-nonce と CSP) … Next.js が自分の inline script (RSC の payload) に
+//     nonce を付けるのに読む。layout.tsx も headers() から x-nonce を取って
+//     自前の inline script (PreHydrationScripts) に付ける
+//   - 応答側 … ブラウザが強制する本体
+// rewrite (ログイン案内) も同じ。401 の JSON と redirect には要らない (HTML でない)
+function passWithCsp(request: NextRequest, rewriteTo?: URL): NextResponse {
+  const nonce = createNonce()
+  const policy = contentSecurityPolicy({ nonce, isDev: isNodeEnvDevelopment() })
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(NONCE_HEADER, nonce)
+  requestHeaders.set(CSP_HEADER, policy)
+  const init = { request: { headers: requestHeaders } }
+  const response =
+    rewriteTo === undefined ? NextResponse.next(init) : NextResponse.rewrite(rewriteTo, init)
+  response.headers.set(CSP_HEADER, policy)
+  response.headers.set(REPORTING_ENDPOINTS_HEADER, reportingEndpointsHeader())
+  return response
 }
 
 // 検索エンジンに載せない印 (どこに付けるかの理由は auth/proxyDecision.ts)
@@ -132,8 +162,8 @@ function denyIndexing(response: NextResponse): NextResponse {
 //
 // 失敗しても素通しする。延長は「90 日が 90 日に戻らなかった」だけの話で、
 // そのためにログイン済みの人を締め出す理由はない
-async function withRenewedSession(token: string): Promise<NextResponse> {
-  const response = NextResponse.next()
+async function withRenewedSession(request: NextRequest, token: string): Promise<NextResponse> {
+  const response = passWithCsp(request)
 
   try {
     await renewSession(token)

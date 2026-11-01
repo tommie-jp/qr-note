@@ -67,6 +67,11 @@ describe('isPublicPath', () => {
   )
 
   // 脆弱性の連絡先 (RFC 9116)。報告する人はログインしていない
+  // CSP 違反の報告 (lib/security/csp.ts) は未ログインの頁からもブラウザが POST する
+  test('/api/csp-report is public (browsers post violations without a session)', () => {
+    expect(isPublicPath('/api/csp-report')).toBe(true)
+  })
+
   test('/.well-known/security.txt is public (vulnerability contact)', () => {
     expect(isPublicPath('/.well-known/security.txt')).toBe(true)
   })

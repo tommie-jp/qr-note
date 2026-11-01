@@ -16,6 +16,7 @@ import { isValidAttachmentName } from '../uploads/names'
 import { isLegacyItemNo, isValidItemId } from '../validation'
 import { SHORT_ITEM_PREFIX } from '../items/noteNumber'
 import { ABOUT_PATH, SECURITY_TXT_PATH, THIRD_PARTY_LICENSES_PATH } from '../projectLinks'
+import { CSP_REPORT_PATH } from '../security/csp'
 
 // PWA: ブラウザは manifest とアイコンを Authorization ヘッダなしで取りに行く。
 // 閉じると 401 になり「インストール可能」と判定されない。
@@ -92,6 +93,10 @@ const FENCE_PATHS = new Set([FENCE_MAP_SCRIPT])
 // あちらに「登録側を入れてはいけない」理由を書いた
 const LOGIN_PATHS = new Set([LOGIN_PATH, LOGIN_REQUIRED_PATH, ...PUBLIC_AUTH_PATHS])
 
+// CSP 違反の報告先 (lib/security/csp.ts)。ブラウザが未ログインの頁からも POST する。
+// 中身は読み捨てるだけで、本文の上限と件数の絞りは route 側 (api/csp-report)
+const REPORT_PATHS = new Set([CSP_REPORT_PATH])
+
 // manifest() は APP_ENV を読む (色を変えるため) が、パスの一覧は環境で
 // 変わらない。毎リクエスト組み直す必要はないので一度だけ作る
 let pwaPathsCache: Set<string> | null = null
@@ -104,7 +109,8 @@ export function isPublicPath(pathname: string): boolean {
     DOCS_PATHS.has(pathname) ||
     CREDIT_PATHS.has(pathname) ||
     CRAWLER_PATHS.has(pathname) ||
-    FENCE_PATHS.has(pathname)
+    FENCE_PATHS.has(pathname) ||
+    REPORT_PATHS.has(pathname)
   )
 }
 
