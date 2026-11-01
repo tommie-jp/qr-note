@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server'
 import { concatBytes } from '@/lib/bytes'
 import { importEnex } from '@/lib/enex/importEnex'
 import { enexTooLargeMessage, MAX_ENEX_BYTES } from '@/lib/enex/limits'
+import { Prisma } from '@/generated/prisma/client'
 import { errorText } from '@/lib/errorMessage'
 import type { PhotoMetaMode } from '@/lib/prefs/photoMeta'
 import { loadPhotoMetaMode } from '@/lib/prefs/photoMetaStore'
@@ -112,6 +113,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 項目が多すぎる、XML として読めない)。利用者に直せる話なので 400 で
     // 理由を返す。個々のノートの失敗はここへ来ずレポートの skipped に載る
     console.error('取り込みに失敗しました:', error)
+    // DB 側の失敗 (接続・制約・SQL) の文言はテーブル名や制約名を含むので外へ出さない
+    // (2026-11 の監査 LOW)。利用者に直せる失敗 (ZIP の破損・XML の形) だけ理由を返す
+    if (isDatabaseError(error)) {
+      return apiFail('取り込み中にサーバ側で失敗しました。しばらくしてからやり直してください', 500)
+    }
     return apiFail(
       errorText(error, 'ファイルを読み込めませんでした'),
       400,
@@ -285,4 +291,16 @@ async function readText(
   // ならない)。別の符号化で書かれたファイルは、化けたまま取り込まれるより
   // 断りたいので、宣言との食い違いを parseEnex 側で見て投げている
   return new TextDecoder().decode(concatBytes(chunks, total))
+}
+
+// Prisma が投げる例外か。名前で見るのは、生成クライアントのクラスが 5 種類あり
+// 個別に instanceof を並べると増えたときに漏れるため
+function isDatabaseError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError ||
+    error instanceof Prisma.PrismaClientUnknownRequestError ||
+    error instanceof Prisma.PrismaClientValidationError ||
+    error instanceof Prisma.PrismaClientInitializationError ||
+    error instanceof Prisma.PrismaClientRustPanicError
+  )
 }

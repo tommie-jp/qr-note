@@ -48,6 +48,11 @@ export function livePreviewExtension(): Extension {
       // 参照元として外へ漏れないよう、閲覧側 (markdownPipeline の
       // linkWithTarget) と同じく noopener/noreferrer を明示する
       onLinkClick: (url) => {
+        // 上流 (@atomic-editor) は URL を検査しない。javascript: などは開かない
+        // (閲覧側の urlTransform と同じ線。2026-11 の監査 LOW)
+        if (!isOpenableLink(url)) {
+          return;
+        }
         window.open(url, "_blank", "noopener,noreferrer");
       },
     }),
@@ -65,4 +70,11 @@ export function livePreviewExtension(): Extension {
 // OFF は空配列 = 装飾なし (従来のプレーンな編集表示そのもの)
 export function livePreviewContent(enabled: boolean): Extension {
   return enabled ? livePreviewExtension() : [];
+}
+
+// 別タブで開いてよいリンク。http(s)・mailto・サイト内の絶対パスだけ
+const OPENABLE_LINK = /^(?:https?:|mailto:|\/(?!\/))/i;
+
+export function isOpenableLink(url: string): boolean {
+  return OPENABLE_LINK.test(url.trim());
 }

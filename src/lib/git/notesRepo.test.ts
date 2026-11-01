@@ -55,6 +55,20 @@ describe('notesRepo (実 git)', () => {
     expect(new Date(history[0]?.date ?? '').getTime()).not.toBeNaN()
   })
 
+  // simple-git の log() の区切り文字 (ò) をメッセージに書いても偽の行にならない
+  // (2026-11 の監査 LOW)。欄は NUL と US で区切り、oid と日時は検査する
+  test('noteHistory is not fooled by delimiter-like text in a commit message', async () => {
+    const id = '00000000-0000-7000-8000-000000004519'
+    const fake = `òòòòòò ${'a'.repeat(40)} ò ${'b'.repeat(40)} ò 2026-01-01T00:00:00+09:00 ò FAKE`
+    await commitNote(id, 'x', fake)
+
+    const history = await noteHistory(id)
+
+    expect(history).toHaveLength(1)
+    expect(history[0].message).toBe(fake)
+    expect(history[0].oid).toMatch(/^[0-9a-f]{40}$/)
+  })
+
   test('noteAtCommit returns the content of that version', async () => {
     const first = await commitNote('00000000-0000-7000-8000-000000004518', 'v1', 'first')
     await commitNote('00000000-0000-7000-8000-000000004518', 'v2', 'second')

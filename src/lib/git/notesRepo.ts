@@ -262,21 +262,42 @@ export async function noteHistory(itemId: string): Promise<NoteCommit[]> {
   const rel = noteFilePath(itemId)
   return serialized(async () => {
     const { git } = await openRepo()
-    // --follow で改名 (notes/<旧番号>.md → notes/<id>.md。docs/107) の前まで辿る
-    const log = await git.log({
-      file: rel,
-      '--follow': null,
-      format: { oid: '%H', parents: '%P', date: '%aI', message: '%s' },
-    })
-    return log.all.map((entry) => ({
-      oid: entry.oid,
-      // %P は空白区切り。マージはまだ作らないが、作っても差分の比較先は
-      // 第一親でよい (git log の既定と同じ見え方)
-      parentOid: entry.parents === '' ? null : entry.parents.split(' ')[0],
-      date: entry.date,
-      message: entry.message,
-    }))
+    // --follow で改名 (notes/<旧番号>.md → notes/<id>.md。docs/107) の前まで辿る。
+    //
+    // simple-git の log() は使わない。あちらは区切りに `ò` を使い、コミット
+    // メッセージに同じ文字列を書くと偽の行を一覧に作れる (2026-11 の監査 LOW)。
+    // コミット間は NUL (-z)、欄は US (0x1f) で区切り、欄を自前で検査する
+    const out = await git.raw([
+      'log', '--follow', '-z', `--format=%H${FIELD}%P${FIELD}%aI${FIELD}%s`, '--', rel,
+    ])
+    return out
+      .split('\0')
+      .filter((record) => record !== '')
+      .map(parseLogRecord)
   })
+}
+
+// 欄の区切り (unit separator)。改行・NUL と同じく historyCommands.ts が
+// コミットメッセージから落とす制御文字の範囲に入る
+const FIELD = '%x1f'
+const FIELD_CHAR = '\u001f'
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2}|Z)$/
+
+function parseLogRecord(record: string): NoteCommit {
+  const [oid, parents, date, ...rest] = record.replace(/^\n/, '').split(FIELD_CHAR)
+  if (oid === undefined || !isValidCommitOid(oid)) {
+    throw new Error(`git log の oid が読めません: ${oid}`)
+  }
+  // %P は空白区切り。マージはまだ作らないが、作っても差分の比較先は
+  // 第一親でよい (git log の既定と同じ見え方)
+  const parentOid = (parents ?? '').split(' ')[0] || null
+  if (parentOid !== null && !isValidCommitOid(parentOid)) {
+    throw new Error(`git log の親の oid が読めません: ${parentOid}`)
+  }
+  if (date === undefined || !ISO_DATE.test(date)) {
+    throw new Error(`git log の日時が読めません: ${date}`)
+  }
+  return { oid, parentOid, date, message: rest.join(FIELD_CHAR) }
 }
 
 // その版の本文。その版にこのノートが存在しなければ null (削除後・登場前)。

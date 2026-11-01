@@ -7,6 +7,7 @@ vi.mock('@/lib/prefs/userSettingStore', () => ({
   writeUserSetting: async (user: string, key: string, value: string) => {
     store.set(`${user}\n${key}`, value)
   },
+  readUserSetting: async (user: string, key: string) => store.get(`${user}\n${key}`) ?? null,
   findUserSettingOwner: async (key: string, value: string) => {
     for (const [k, v] of store) {
       const [user, storedKey] = k.split('\n')
@@ -18,7 +19,9 @@ vi.mock('@/lib/prefs/userSettingStore', () => ({
 
 const {
   DEPLOY_TOKEN_OWNER,
+  PERF_EXPORT_TOKEN_ISSUED_KEY,
   PERF_EXPORT_TOKEN_KEY,
+  PERF_EXPORT_TOKEN_TTL_MS,
   issuePerfExportToken,
   newPerfExportToken,
   perfExportOwner,
@@ -88,5 +91,25 @@ describe('registerPerfExportToken (配布スクリプトが揃える鍵)', () =>
   test('形の違う鍵は登録しない', async () => {
     await expect(registerPerfExportToken(DEPLOY_TOKEN_OWNER, 'short')).rejects.toThrow()
     expect(store.size).toBe(0)
+  })
+})
+
+// 寿命 (2026-11 の監査 LOW)
+describe('寿命', () => {
+  test('発行から 30 日を過ぎた鍵は使えない', async () => {
+    const token = await issuePerfExportToken('tommie')
+    const issued = new Date('2026-11-01T00:00:00.000Z')
+    store.set(`tommie\n${PERF_EXPORT_TOKEN_ISSUED_KEY}`, issued.toISOString())
+
+    const within = new Date(issued.getTime() + PERF_EXPORT_TOKEN_TTL_MS)
+    const after = new Date(issued.getTime() + PERF_EXPORT_TOKEN_TTL_MS + 1)
+    expect(await perfExportOwner(token, within)).toBe('tommie')
+    expect(await perfExportOwner(token, after)).toBeNull()
+  })
+
+  test('発行時刻を持たない鍵 (古い発行) は切れた扱い', async () => {
+    const token = await issuePerfExportToken('tommie')
+    store.delete(`tommie\n${PERF_EXPORT_TOKEN_ISSUED_KEY}`)
+    expect(await perfExportOwner(token)).toBeNull()
   })
 })

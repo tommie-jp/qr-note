@@ -13,9 +13,16 @@
 // ので、照合は hash の一致を DB に訊くだけにする。
 import 'server-only'
 import { createHash, randomBytes } from 'node:crypto'
-import { findUserSettingOwner, writeUserSetting } from '@/lib/prefs/userSettingStore'
+import { findUserSettingOwner, readUserSetting, writeUserSetting } from '@/lib/prefs/userSettingStore'
 
 export const PERF_EXPORT_TOKEN_KEY = 'perf_export_token'
+// 発行時刻 (ISO 8601)。鍵と同じ持ち主の行に並べて持つ
+export const PERF_EXPORT_TOKEN_ISSUED_KEY = 'perf_export_token_issued_at'
+
+// 鍵の寿命 (2026-11 の監査 LOW)。以前は発行し直すまで永久に有効だった。
+// 配布 (doDeploy.sh の syncPerfToken) が毎回登録し直すので、配布の鍵は切れない。
+// 画面から発行した鍵は 30 日で作り直す
+export const PERF_EXPORT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 const TOKEN_BYTES = 32
 // base64url の 32 バイト (パディング無し)
@@ -37,11 +44,16 @@ export function isPerfExportToken(token: string): boolean {
 }
 
 // 手元で作った鍵の hash を登録する (配布スクリプトから。鍵そのものは送らない)
-export async function registerPerfExportToken(owner: string, token: string): Promise<void> {
+export async function registerPerfExportToken(
+  owner: string,
+  token: string,
+  now: Date = new Date(),
+): Promise<void> {
   if (!isPerfExportToken(token)) {
     throw new Error('取得鍵の形が違います')
   }
   await writeUserSetting(owner, PERF_EXPORT_TOKEN_KEY, hashOf(token))
+  await writeUserSetting(owner, PERF_EXPORT_TOKEN_ISSUED_KEY, now.toISOString())
 }
 
 // 発行して、鍵そのものを返す (呼び手が 1 度だけ見せる)
@@ -51,10 +63,23 @@ export async function issuePerfExportToken(userName: string): Promise<string> {
   return token
 }
 
-// 鍵の持ち主。形が違う・発行されていない鍵は null
-export async function perfExportOwner(token: string): Promise<string | null> {
+// 鍵の持ち主。形が違う・発行されていない・寿命を過ぎた鍵は null。
+// 発行時刻を持たない鍵 (寿命を入れる前に発行したもの) も切れた扱い — 欠落が
+// 「永久に有効」側に倒れないように
+export async function perfExportOwner(
+  token: string,
+  now: Date = new Date(),
+): Promise<string | null> {
   if (!isPerfExportToken(token)) {
     return null
   }
-  return findUserSettingOwner(PERF_EXPORT_TOKEN_KEY, hashOf(token))
+  const owner = await findUserSettingOwner(PERF_EXPORT_TOKEN_KEY, hashOf(token))
+  if (owner === null) {
+    return null
+  }
+  const issuedAt = Date.parse((await readUserSetting(owner, PERF_EXPORT_TOKEN_ISSUED_KEY)) ?? '')
+  if (Number.isNaN(issuedAt) || now.getTime() - issuedAt > PERF_EXPORT_TOKEN_TTL_MS) {
+    return null
+  }
+  return owner
 }

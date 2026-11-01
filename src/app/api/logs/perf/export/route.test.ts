@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 // 計測ログの取得口 (docs/120 §3)。鍵の照合と控えを差し替える
-const mocks = vi.hoisted(() => ({ owner: null as string | null }))
+const mocks = vi.hoisted(() => ({ owner: null as string | null, perfEnabled: true }))
 
 vi.mock('@/lib/logging/perfExportToken', () => ({
   perfExportOwner: async (token: string) => (token === 'good-token' ? mocks.owner : null),
+}))
+
+// 計測の旗 (切っている間は 404)
+vi.mock('@/lib/logging/perfSwitch', () => ({
+  isPerfLogEnabled: () => mocks.perfEnabled,
 }))
 
 // 門番 (route/guard.ts) がセッションの DB を引き込むが、この口はログインを見ない
@@ -30,6 +35,7 @@ function getRequest(headers: Record<string, string> = {}): Request {
 
 beforeEach(() => {
   mocks.owner = 'tommie'
+  mocks.perfEnabled = true
 })
 
 afterEach(() => vi.unstubAllEnvs())
@@ -70,4 +76,10 @@ test('正しい鍵なら計測行を素のテキストで返す', async () => {
   expect(res.headers.get('Content-Type')).toContain('text/plain')
   expect(res.headers.get('Cache-Control')).toBe('no-store')
   expect(await res.text()).toContain('サーバ [計測] 検索/サーバ q="抵抗"')
+})
+
+test('計測を切っている間は正しい鍵でも 404 (残りの行を配らない)', async () => {
+  mocks.perfEnabled = false
+  const res = await GET(getRequest({ Authorization: 'Bearer good-token' }))
+  expect(res.status).toBe(404)
 })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { formatPerfLinesForCopy } from '@/app/logs/formatLogsForCopy'
 import { recentPerfLines } from '@/lib/logging/buffer'
 import { perfExportOwner } from '@/lib/logging/perfExportToken'
+import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 import { denyIfDemoMode } from '@/lib/route/guard'
 import { apiFail } from '@/lib/route/respond'
 
@@ -29,6 +30,12 @@ export async function GET(request: Request): Promise<NextResponse> {
   const demoDenied = denyIfDemoMode()
   if (demoDenied) {
     return demoDenied
+  }
+
+  // 計測を切っている間は配らない (2026-11 の監査 LOW)。切った後もバッファに
+  // 残っている行 (検索語の先頭・ノート id の頭) を、鍵があるだけで読めていた
+  if (!isPerfLogEnabled()) {
+    return apiFail('計測していません', 404)
   }
 
   return new NextResponse(`${formatPerfLinesForCopy(recentPerfLines())}\n`, {
