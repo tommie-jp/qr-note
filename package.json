@@ -91,7 +91,7 @@
     "scope-fence": "file:vendor/scope-fence-0.7.0.tgz",
     "server-only": "^0.0.1",
     "sharp": "^0.35.5",
-    "simple-git": "^3.36.0",
+    "simple-git": "^4.0.2",
     "spectrum-fence": "file:vendor/spectrum-fence-0.4.0.tgz",
     "svgo": "^3.3.5",
     "turndown": "^7.2.4",
