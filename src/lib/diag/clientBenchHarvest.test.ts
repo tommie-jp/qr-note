@@ -17,7 +17,7 @@ vi.mock('../logging/buffer', () => ({
   recentPerfLines: () => [...mocks.lines].reverse().map((l) => ({ at: 0, level: 'info', ...l })),
 }))
 
-const { hasPerfTestDone, harvestClientBench, sliceLatestRun, summarizeRun } = await import('./clientBenchHarvest')
+const { hasPerfTestEnd, harvestClientBench, sliceLatestRun, summarizeRun } = await import('./clientBenchHarvest')
 
 const parsed = (texts: string[]) => texts.map((t) => parsePerfLine(t)!)
 
@@ -34,6 +34,9 @@ const RUN = [
   '[計測] ノート 全体=900ms 応答開始=300ms',
   '[計測] ノート 全体=700ms 応答開始=280ms',
   '[計測] テスト 結果=続きなし',
+  '[計測] 遷移 操作=戻る 判定=OK 時間=40ms RSC=0',
+  '[計測] ノート 全体=30ms 応答開始=10ms',
+  '[計測] 遷移 操作=一覧へ戻る 判定=NG 更新=0 理由=遅らせた更新が流れない',
   '[計測] 同期 結果=200 全体=1900ms 応答開始=350ms 転送=2300KB/10800KB',
   '[計測] テスト 結果=完了 全体=41000ms',
 ]
@@ -51,6 +54,8 @@ describe('summarizeRun', () => {
       { label: '続き', value: '続きなし' },
       { label: 'ノート 1', value: '全体=900ms 応答開始=300ms' },
       { label: 'ノート 2', value: '全体=700ms 応答開始=280ms' },
+      { label: '遷移 戻る', value: '判定=OK 時間=40ms RSC=0' },
+      { label: '遷移 一覧へ戻る', value: '判定=NG 更新=0 理由=遅らせた更新が流れない' },
       { label: '同期', value: '結果=200 全体=1900ms 応答開始=350ms 転送=2300KB/10800KB' },
       { label: '全体', value: '41000ms' },
     ])
@@ -64,9 +69,15 @@ describe('sliceLatestRun', () => {
     expect(sliceLatestRun(lines)?.[0].fields.panes).toBe('2')
   })
 
-  test('完了していない・途中で切れた回は null', () => {
+  test('完了も中断もしていない回は null', () => {
     expect(sliceLatestRun(parsed(RUN.slice(0, -1)))).toBeNull()
-    expect(sliceLatestRun(parsed([...RUN.slice(0, 3), '[計測] テスト 結果=中断', ...RUN.slice(-1)]))).toBeNull()
+  })
+
+  test('途中で切れた回は、切れた段を「中断」の行にして残す (docs/123 §12-6)', () => {
+    const run = sliceLatestRun(parsed([...RUN.slice(0, 3), '[計測] テスト 結果=中断 段=遷移:開いたまま表示切替']))
+
+    expect(run).not.toBeNull()
+    expect(summarizeRun(run!).at(-1)).toEqual({ label: '中断', value: '遷移:開いたまま表示切替' })
   })
 })
 
@@ -124,7 +135,8 @@ describe('harvestClientBench', () => {
   })
 })
 
-test('hasPerfTestDone は完了の行だけに反応する', () => {
-  expect(hasPerfTestDone(['[計測] テスト 結果=完了 全体=1ms'])).toBe(true)
-  expect(hasPerfTestDone(['[計測] テスト 結果=開始', '[計測] 検索 q="完了"'])).toBe(false)
+test('hasPerfTestEnd は完了と中断の行だけに反応する', () => {
+  expect(hasPerfTestEnd(['[計測] テスト 結果=完了 全体=1ms'])).toBe(true)
+  expect(hasPerfTestEnd(['[計測] テスト 結果=中断 段=同期'])).toBe(true)
+  expect(hasPerfTestEnd(['[計測] テスト 結果=開始', '[計測] 検索 q="完了"', '[計測] 検索 結果=中断'])).toBe(false)
 })

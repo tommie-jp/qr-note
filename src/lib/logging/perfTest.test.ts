@@ -284,3 +284,27 @@ describe('runPerfTest の回線 (docs/121 §4-1)', () => {
     expect(statuses[0]?.total).toBe(totalSteps(false))
   })
 })
+
+describe('runPerfTest のノートの遷移の確かめ (docs/123 §12-6)', () => {
+  test('手足があればノートを開いた後・同期の前に流し、分母も増える', async () => {
+    // Arrange: ノートを開けない画面 (準備で 1 行だけ残して戻る)
+    const { deps, calls, statuses } = fakeDeps()
+    const nav = {
+      sleep: deps.sleep,
+      now: deps.now,
+      typeQuery: async () => {},
+      openNote: () => false,
+      snapshot: () => ({ path: '/', noteId: null, hasList: true, panes: '2', scrollY: 0 }),
+      send: deps.send,
+    } as unknown as NonNullable<PerfTestDeps['nav']>
+
+    // Act
+    await runPerfTest({ ...deps, nav })
+
+    // Assert
+    const navAt = calls.indexOf('send:遷移:操作=準備,判定=NG,理由=ノートを開けない')
+    expect(navAt).toBeGreaterThan(calls.lastIndexOf(`open:${PERF_TEST_NOTE_INDEXES.at(-1)}`))
+    expect(navAt).toBeLessThan(calls.indexOf('sync'))
+    expect(statuses[0]?.total).toBe(totalSteps(false, true))
+  })
+})

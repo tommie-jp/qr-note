@@ -7,6 +7,7 @@
 // ここは**手順の並びだけ**を持ち、DOM・時計・送信は手足 (PerfTestDeps) で
 // 受け取る。実際の手足は components/diag/PerfTestRunner.tsx が組む。
 import type { PerfField } from './perfLine'
+import { NAV_CHECK_STEPS, runNavChecks, type NavCheckDeps } from './perfNavCheck'
 
 // 打つ語。回路図の少ない語・中くらい・多い語 (docs/118 §0-2 と同じ)
 export const PERF_TEST_QUERIES = ['抵抗', 'コンデンサ', 'オペアンプ'] as const
@@ -38,10 +39,12 @@ const BEFORE_STOP_MS = 2000
 
 // 段階 (nextStep の呼び出し回数と一致させる。テストが数えて確かめる):
 // [回線] + 検索 3 語 + 全件 + 表示の切替 (中・大・画像の 3 つ + 小へ戻す 1 つ) +
-// 続き + ノート + 同期。回線はベンチマークの画面から流したときだけ (docs/121 §4-2)
-export function totalSteps(withNet: boolean): number {
+// 続き + ノート + [遷移] + 同期。回線はベンチマークの画面から流したときだけ
+// (docs/121 §4-2)。遷移はノートの遷移の確かめ (perfNavCheck.ts。docs/123 §12-6)
+export function totalSteps(withNet: boolean, withNav = false): number {
   return (
     (withNet ? 1 : 0) +
+    (withNav ? NAV_CHECK_STEPS : 0) +
     PERF_TEST_QUERIES.length +
     1 +
     (PERF_TEST_VIEW_ORDER.length + 1) +
@@ -91,6 +94,8 @@ export interface PerfTestDeps {
   line?: string
   // 回線を測って行の項目を返す (logging/netProbe.ts)。line があるときだけ呼ぶ
   measureNet?: () => Promise<readonly PerfField[]>
+  // ノートの遷移を確かめる手足 (perfNavCheck.ts)。あればノートを開いた後に流す
+  nav?: NavCheckDeps
 }
 
 async function waitIdle(deps: PerfTestDeps): Promise<void> {
@@ -148,7 +153,7 @@ async function runViewSwitches(
 
 export async function runPerfTest(deps: PerfTestDeps): Promise<void> {
   const withNet = deps.line !== undefined && deps.measureNet !== undefined
-  const total = totalSteps(withNet)
+  const total = totalSteps(withNet, deps.nav !== undefined)
   let step = 0
   const nextStep = (label: string) => {
     step += 1
@@ -202,6 +207,16 @@ export async function runPerfTest(deps: PerfTestDeps): Promise<void> {
       await waitIdle(deps)
     } else {
       deps.send('テスト', [['結果', 'ノートなし']])
+    }
+  }
+
+  if (deps.nav !== undefined) {
+    try {
+      await runNavChecks(deps.nav, nextStep)
+    } catch (error) {
+      // 遷移の確かめで例外が出ても同期と完了までは流す。記録は残す
+      console.warn('計測テスト: 遷移の確かめに失敗しました', error)
+      deps.send('遷移', [['操作', '例外'], ['判定', 'NG']])
     }
   }
 

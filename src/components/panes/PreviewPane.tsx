@@ -126,6 +126,10 @@ export function PreviewPane({
         <section
           data-preview-pane={isBottomPane ? "" : undefined}
           data-note-pane=""
+          // どのノートを・どこから出しているか。計測テストの遷移の確かめが
+          // 読む (components/diag/navCheckDom.ts。docs/123 §12-6)
+          data-item-id={itemId}
+          data-pane-source={source}
           aria-label="選択したノート"
           // 左端をフォルダーペインの右へ寄せるのは globals.css の仕事
           // (ペインが出ている構成のときだけ効かせたいので :has で見る)

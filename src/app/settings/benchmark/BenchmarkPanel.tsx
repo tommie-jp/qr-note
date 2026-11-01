@@ -70,13 +70,21 @@ async function startClientBench(line: NetLine): Promise<void> {
   location.assign("/");
 }
 
+// 遷移の確かめで NG になった行・途中で切れた回の行 (docs/123 §12-6)
+const isFailedRow = (row: { label: string; value: string }): boolean =>
+  row.label === "中断" || row.value.includes("判定=NG");
+
 function KeyValueTable({ rows }: { rows: { label: string; value: string }[] }) {
   return (
     <dl className="divide-y divide-gray-200 rounded border border-gray-200 bg-white text-sm">
       {rows.map((row) => (
         <div key={row.label} className="flex gap-3 px-3 py-1.5">
           <dt className="w-36 shrink-0 text-gray-500">{row.label}</dt>
-          <dd className="min-w-0 break-words text-gray-800">{row.value}</dd>
+          <dd
+            className={`min-w-0 break-words ${isFailedRow(row) ? "font-bold text-red-700" : "text-gray-800"}`}
+          >
+            {row.value}
+          </dd>
         </div>
       ))}
     </dl>
@@ -255,7 +263,10 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
         </div>
         <p className="text-xs text-gray-500">
           「この端末を計測」は検索画面で決まった操作 (回線 → 検索 3 語 → 表示の切替
-          → ノート → 同期) を自動で流し、40 秒ほどでここへ戻ります。終わるまで触らないでください。
+          → ノート → ノートの遷移の確かめ → 同期) を自動で流し、1
+          分ほどでここへ戻ります。終わるまで触らないでください。遷移の確かめ
+          (戻る・進む・次へ・開いたままの表示切替とペイン切替・引っ張って更新・一覧へ戻る・1
+          ペインで閉じる) は「遷移」の行に OK / NG で出ます。NG と途中で切れた回は赤で出ます。
         </p>
         {[...status.errors, ...(actionError ? [actionError] : [])].map(
           (message) => (

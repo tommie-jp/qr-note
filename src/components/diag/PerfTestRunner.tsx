@@ -12,6 +12,8 @@ import {
   takePerfTestPending,
 } from "@/lib/logging/perfTestFlag";
 import { syncOfflineItems } from "@/lib/offline/sync";
+import { noSpace } from "@/lib/logging/perfNavCheck";
+import { createNavCheckDeps } from "./navCheckDom";
 
 // 計測テストを流す (docs/120-計測テスト自動化計画.md §2)。
 // root layout が**計測中だけ** PerfReport の隣に置く。メニューの「計測開始」が
@@ -184,16 +186,32 @@ async function stopPerf(): Promise<void> {
 }
 
 // 前の手順が途中で切れていたら、そのことを残して計測を止める。止めないと
-// 計測が立ったまま残り、普段の操作の行が控えを押し流す
+// 計測が立ったまま残り、普段の操作の行が控えを押し流す。
+//
+// 切れた段を行に載せ、ベンチマークの画面から流した回はそこへ戻る
+// (docs/123 §12-6)。ノートの遷移の確かめで文書ごと読み込み直されたら、
+// それ自体が「検索画面が壊れた」不具合で、結果の表に残したい
 function recoverInterrupted(): void {
-  if (!takePerfTestInterrupted()) {
+  const interrupted = takePerfTestInterrupted();
+  if (interrupted === null) {
     return;
   }
-  perfSend("テスト", [["結果", "中断"]]);
+  perfSend("テスト", [
+    ["結果", "中断"],
+    // 行は空白で項目を区切るので、段の名前の空白は詰める
+    ...(interrupted.step === undefined ? [] : ([["段", noSpace(interrupted.step)]] as const)),
+  ]);
   flushClientLogs();
-  stopPerf().catch((error: unknown) => {
-    console.warn("途中で切れた計測テストの計測を止められませんでした", error);
-  });
+  stopPerf()
+    .catch((error: unknown) => {
+      console.warn("途中で切れた計測テストの計測を止められませんでした", error);
+    })
+    .finally(() => {
+      const { returnTo } = interrupted;
+      if (returnTo !== undefined) {
+        setTimeout(() => location.assign(returnTo), RETURN_DELAY_MS);
+      }
+    });
 }
 
 export function PerfTestRunner() {
@@ -205,9 +223,11 @@ export function PerfTestRunner() {
       recoverInterrupted();
       return;
     }
-    markPerfTestRunning();
+    markPerfTestRunning({ returnTo: options.returnTo });
     let cancelled = false;
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    // ノートの遷移の確かめ (docs/123 §12-6) の手足
+    const nav = createNavCheckDeps({ sleep, openNote, typeQuery, send: perfSend });
     void runPerfTest({
       sleep,
       now: () => performance.now(),
@@ -224,7 +244,9 @@ export function PerfTestRunner() {
       flush: flushClientLogs,
       stop: stopPerf,
       report: (next) => {
+        // 途中で文書ごと読み込み直されたとき、どの段で切れたかを残す
         if (next.done) clearPerfTestRunning();
+        else markPerfTestRunning({ step: next.label, returnTo: options.returnTo });
         if (cancelled) return;
         setStatus(next);
         if (next.done) {
@@ -233,11 +255,12 @@ export function PerfTestRunner() {
       },
       describe: describeDevice,
       line: options.line,
+      nav: nav.deps,
       measureNet:
         options.line === undefined
           ? undefined
           : () => measureNet(NET_DEPS, uploadBody()),
-    }).then(() => {
+    }).finally(() => nav.dispose()).then(() => {
       // ベンチマークの画面から流したときは、結果の出る画面へ戻る (docs/121 §4-2)
       const { returnTo } = options;
       if (returnTo !== undefined && !cancelled) {

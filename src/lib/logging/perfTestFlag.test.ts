@@ -61,15 +61,27 @@ test('保存を塞いだブラウザでも例外を投げない', () => {
 test('流している最中の印が残っていれば、途中で切れたと 1 度だけ分かる', () => {
   markPerfTestRunning()
 
-  expect(takePerfTestInterrupted()).toBe(true)
-  expect(takePerfTestInterrupted()).toBe(false)
+  expect(takePerfTestInterrupted()).toEqual({})
+  expect(takePerfTestInterrupted()).toBeNull()
+})
+
+test('切れた段と戻り先を印に残し、許していない戻り先は捨てる (docs/123 §12-6)', () => {
+  markPerfTestRunning({ step: '遷移: 戻る', returnTo: '/settings/benchmark' })
+  expect(takePerfTestInterrupted()).toEqual({ step: '遷移: 戻る', returnTo: '/settings/benchmark' })
+
+  markPerfTestRunning({ step: 'x'.repeat(100), returnTo: 'https://evil.example/' })
+  expect(takePerfTestInterrupted()).toEqual({ step: 'x'.repeat(64) })
+
+  // 旧形式の印 ('1') も「切れた」とは分かる
+  sessionStorage.setItem('qr:perfTestRunning', '1')
+  expect(takePerfTestInterrupted()).toEqual({})
 })
 
 test('最後まで流して消した印は、切れたことにならない', () => {
   markPerfTestRunning()
   clearPerfTestRunning()
 
-  expect(takePerfTestInterrupted()).toBe(false)
+  expect(takePerfTestInterrupted()).toBeNull()
 })
 
 test('流し方 (回線・戻り先) を添えた印は中身ごと読める', () => {

@@ -70,12 +70,38 @@ export function clearPerfTestPending(): void {
 // 計測を止める段まで届かない。始めるときに付け、終わったら消す。読み込み直した
 // 先で印が残っていれば「途中で切れた」と分かるので、記録して計測を止める
 const PERF_TEST_RUNNING_KEY = 'qr:perfTestRunning'
+// 段の名前を印に残すときの上限 (印は同じタブの sessionStorage で、行に載せて送る)
+const STEP_LIMIT = 64
 
-export function markPerfTestRunning(): void {
+// 流している最中の印の中身。切れたときに「どの段で」「どこへ戻るか」を残す
+// (docs/123 §12-6)。旧形式の '1' は中身なし
+export interface PerfTestRunningInfo {
+  step?: string
+  returnTo?: string
+}
+
+export function markPerfTestRunning(info: PerfTestRunningInfo = {}): void {
   try {
-    sessionStorage.setItem(PERF_TEST_RUNNING_KEY, '1')
+    sessionStorage.setItem(PERF_TEST_RUNNING_KEY, JSON.stringify(info))
   } catch {
     // 保存できなければ途切れたことに気づけないだけ
+  }
+}
+
+function parseRunningInfo(raw: string): PerfTestRunningInfo {
+  let value: unknown
+  try {
+    value = JSON.parse(raw)
+  } catch {
+    return {}
+  }
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+  const { step, returnTo } = value as Record<string, unknown>
+  return {
+    ...(typeof step === 'string' && step !== '' ? { step: step.slice(0, STEP_LIMIT) } : {}),
+    ...(PERF_TEST_RETURN_PATHS.some((path) => path === returnTo) ? { returnTo: returnTo as string } : {}),
   }
 }
 
@@ -87,13 +113,13 @@ export function clearPerfTestRunning(): void {
   }
 }
 
-// 流している最中の印が残っていれば消して true (途中で切れた)
-export function takePerfTestInterrupted(): boolean {
+// 流している最中の印が残っていれば消して中身を返す (途中で切れた)。無ければ null
+export function takePerfTestInterrupted(): PerfTestRunningInfo | null {
   try {
-    const interrupted = sessionStorage.getItem(PERF_TEST_RUNNING_KEY) === '1'
+    const raw = sessionStorage.getItem(PERF_TEST_RUNNING_KEY)
     sessionStorage.removeItem(PERF_TEST_RUNNING_KEY)
-    return interrupted
+    return raw === null ? null : parseRunningInfo(raw)
   } catch {
-    return false
+    return null
   }
 }

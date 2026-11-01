@@ -63,9 +63,19 @@ export function summarizeRun(lines: readonly Parsed[]): ClientBenchRow[] {
   const more = last((l) => l.kind === '追加' && isComplete(l))
   const noMore = lines.some((l) => l.kind === 'テスト' && l.fields['結果'] === '続きなし')
   const notes = lines
+    // 最初の 2 件 (手順の「ノートを開く」)。後ろの遷移の確かめ (docs/123 §12-6)
+    // もノートを開くので、最後の 2 件だとそちらを拾ってしまう
     .filter((l) => l.kind === 'ノート' && isComplete(l))
-    .slice(-2)
+    .slice(0, 2)
     .flatMap((l, i) => row(`ノート ${i + 1}`, pick(l.fields, ['全体', '応答開始', '受信', '描画', '本体'])))
+  // ノートの遷移の確かめ (perfNavCheck.ts。docs/123 §12-6)。操作ごとに 1 行
+  const navs = lines
+    .filter((l) => l.kind === '遷移' && l.fields['操作'] !== undefined)
+    .flatMap((l) =>
+      row(`遷移 ${clip(l.fields['操作'])}`, pick(l.fields, ['判定', '時間', 'RSC', '更新', '取り直し', '理由'])),
+    )
+  // 途中で文書ごと読み込み直された回 (どの段で切れたか)
+  const interrupted = last((l) => l.kind === 'テスト' && l.fields['結果'] === '中断')
   const sync = last((l) => l.kind === '同期')
   const done = last((l) => l.kind === 'テスト' && l.fields['結果'] === '完了')
 
@@ -75,21 +85,26 @@ export function summarizeRun(lines: readonly Parsed[]): ClientBenchRow[] {
     ...views,
     ...(more ? row('続き', pick(more.fields, ['全体', '応答開始', '描画'])) : noMore ? row('続き', '続きなし') : []),
     ...notes,
+    ...navs,
     ...(sync ? row('同期', pick(sync.fields, ['結果', '全体', '応答開始', '転送'])) : []),
     ...(done ? row('全体', done.fields['全体'] ?? '') : []),
+    ...(interrupted ? row('中断', clip(interrupted.fields['段'] ?? '段は不明')) : []),
   ]
 }
 
-// その端末の最新の「開始」から「完了」までを 1 回分にする。揃わなければ null
+const isEnd = (l: Parsed): boolean =>
+  l.kind === 'テスト' && (l.fields['結果'] === '完了' || l.fields['結果'] === '中断')
+
+// その端末の最新の「開始」から「完了」か「中断」までを 1 回分にする。揃わなければ null。
+// 中断した回も残す (docs/123 §12-6) — ノートの遷移で文書ごと読み込み直されたら、
+// それ自体が見つけたい不具合で、どの段で切れたかを結果の表に出す
 export function sliceLatestRun(lines: readonly Parsed[]): Parsed[] | null {
   const startAt = lines.findLastIndex((l) => l.kind === 'テスト' && l.fields['結果'] === '開始')
   if (startAt < 0) {
     return null
   }
   const run = lines.slice(startAt)
-  const finished = run.some((l) => l.kind === 'テスト' && l.fields['結果'] === '完了')
-  const interrupted = run.some((l) => l.kind === 'テスト' && l.fields['結果'] === '中断')
-  return finished && !interrupted ? run : null
+  return run.some(isEnd) ? run : null
 }
 
 // 届いた項目に完了の行があれば呼ぶ。保存したら true
@@ -120,10 +135,10 @@ export async function harvestClientBench(device: string, now: Date = new Date())
   return true
 }
 
-// 受け口 (api/client-logs) が「完了の行が届いたか」を見る
-export function hasPerfTestDone(texts: readonly string[]): boolean {
+// 受け口 (api/client-logs) が「完了か中断の行が届いたか」を見る
+export function hasPerfTestEnd(texts: readonly string[]): boolean {
   return texts.some((text) => {
     const parsed = parsePerfLine(text)
-    return parsed?.kind === 'テスト' && parsed.fields['結果'] === '完了'
+    return parsed !== null && isEnd(parsed)
   })
 }
