@@ -1,0 +1,37 @@
+# 依存の更新と脆弱性の通知 (2026-11 のセキュリティ監査 CI-1)。
+#
+# npm は週 1 回、dev 側はまとめて 1 本の PR にする (個別だと数が多すぎて見なくなる)。
+# 本番ランタイムに乗る依存は個別に出す (何が変わるかを 1 つずつ見るため)。
+# GitHub Actions は SHA 固定 (ci.yml) を維持したまま版を上げてくれる。
+# Docker はベースイメージ (node:26-slim / pgroonga) の更新を知らせる
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    # vendor/*.tgz (自前のフェンス) は npm に無い
+    ignore:
+      - dependency-name: "*-fence"
+      - dependency-name: fence-kit
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo

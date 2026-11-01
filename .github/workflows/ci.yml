@@ -4,6 +4,9 @@
 # 以前は検査が doDeploy.sh の中 (手順 3/8) にしか無く、「デプロイが CI」だった。
 # ここは配布をしない。イメージのビルドと vps2 への反映は今までどおり doDeploy.sh が持つ。
 name: CI
+# サードパーティ action は SHA で固定し、タグをコメントに残す (2026-11 の監査 CI-1)。
+# タグは付け替えられるが SHA は変わらない。版上げは Dependabot (github-actions)
+# が SHA ごと更新する
 
 on:
   push:
@@ -28,14 +31,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -48,6 +51,12 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # 本番ランタイムに乗る依存の既知の脆弱性 (high 以上) で落とす
+      # (2026-11 のセキュリティ監査 CI-1)。simple-git の critical を 3 か月見落として
+      # いた。dev 側 (eslint・vite…) は配らないので対象外。直し方は npm audit fix
+      # (--force は使わない。古い版への巻き戻しを提案してくる)
+      - name: 本番依存の脆弱性検査
+        run: npm audit --omit=dev --audit-level=high
       - name: 文書参照の検査
         run: node scripts/checkDocLinks.mjs
       - name: 環境変数と本体サイズ上限の検査
@@ -59,7 +68,7 @@ jobs:
       # 消すうえ、複製先の public/ はチェックアウトに無いので、スタンプが一致する
       # ことが無い (node_modules からの複製自体は 1 秒未満)
       - name: OCR モデルのキャッシュ
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: public/paddle-ocr
           key: paddle-ocr-${{ hashFiles('scripts/assets.mjs') }}
@@ -94,14 +103,14 @@ jobs:
     env:
       DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -146,14 +155,14 @@ jobs:
       E2E_DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr_e2e
       E2E_START_SERVER: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -166,7 +175,7 @@ jobs:
       # ブラウザ本体 (Chromium) は @playwright/test の版ごとに決まる
       - name: Playwright のブラウザのキャッシュ
         id: browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -181,7 +190,7 @@ jobs:
 
       # npm run dev の copy:assets がネットワークから取る OCR モデル (check と同じ)
       - name: OCR モデルのキャッシュ
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: public/paddle-ocr
           key: paddle-ocr-${{ hashFiles('scripts/assets.mjs') }}
@@ -193,7 +202,7 @@ jobs:
           E2E_COVERAGE: '1'
 
       - name: E2E のカバレッジを渡す
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-coverage
           path: coverage-e2e/coverage-final.json
@@ -201,7 +210,7 @@ jobs:
 
       - name: 失敗したときの記録
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
           path: |
@@ -220,14 +229,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -238,7 +247,7 @@ jobs:
 
       - run: npm run test:coverage
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: e2e-coverage
           path: coverage-e2e
@@ -246,7 +255,7 @@ jobs:
       - run: npm run coverage:merge
 
       - name: 合算したカバレッジの内訳
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: merged-coverage
           path: coverage-merged/
