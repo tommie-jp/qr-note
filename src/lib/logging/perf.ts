@@ -33,6 +33,14 @@ function pathnameOf(url: string): string | null {
   }
 }
 
+const UUID_IN_PATH = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g
+
+// 本体の要求のパス。RSC の殻は `_rsc` で見分けて「RSC:」を前に付ける
+export function mainLabel(url: string): string {
+  const path = (pathnameOf(url) ?? '?').replace(UUID_IN_PATH, ':id')
+  return url.includes(RSC_MARK) ? `RSC:${path}` : path
+}
+
 export interface RscPick {
   // 画面を差し替えた本体の要求。見つからなければ null
   main: ResourceLike | null
@@ -207,6 +215,10 @@ export function formatNavLine(
     ['受信', perfMs(diff(main?.responseEnd, main?.responseStart))],
     ['描画', main ? perfMs(obs.committedAt - main.responseEnd) : '未了'],
     ['RSC', formatTransfer(main) ?? '未了'],
+    // 応答開始・受信がどの要求の値か (docs/123 §12-1)。ノートは /item の殻 (RSC)
+    // と描画材料・前後の API が同じ窓に入り、大きい方が本体に選ばれる。
+    // 行だけでは区別できなかったので、パス (ノートの id は :id に畳む) を残す
+    ['本体', main ? mainLabel(main.name) : 'なし'],
     ['prefetch', obs.rsc.prefetch],
     ['DOM', obs.domNodes],
     ['長タスク', obs.longTasks ? `${obs.longTasks.count}/${perfMs(obs.longTasks.ms)}` : '未対応'],

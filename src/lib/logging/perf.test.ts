@@ -4,6 +4,7 @@ import {
   formatNavLine,
   formatTransfer,
   itemLinkTarget,
+  mainLabel,
   marksClose,
   pickActionResponse,
   pickViewSwitch,
@@ -141,6 +142,15 @@ describe('小さな整形', () => {
   })
 })
 
+describe('mainLabel', () => {
+  test('RSC の殻には RSC: を付け、ノートの id は :id に畳む (docs/123 §12-1)', () => {
+    expect(mainLabel('http://localhost/item/0199a8f2-1c3d-7e4f-8a5b-6c7d8e9f0a1b?_rsc=x')).toBe('RSC:/item/:id')
+    expect(mainLabel('http://localhost/api/items/0199a8f2-1c3d-7e4f-8a5b-6c7d8e9f0a1b/render')).toBe(
+      '/api/items/:id/render',
+    )
+  })
+})
+
 describe('formatNavLine', () => {
   test('サーバの項目 → 時間 → 量 → 裏の通信 → DOM → サーバの順に並ぶ', () => {
     const main = rsc('/?q=a', 110, 102_400)
@@ -157,7 +167,7 @@ describe('formatNavLine', () => {
     )
     expect(line).toBe(
       '[計測] 検索 q="a" 全体=220ms 要求=10ms 応答開始=50ms 受信=100ms 描画=40ms ' +
-        'RSC=25KB/100KB prefetch=4 DOM=812 長タスク=1/60ms サーバ=23ms(検索=3)',
+        'RSC=25KB/100KB 本体=RSC:/ prefetch=4 DOM=812 長タスク=1/60ms サーバ=23ms(検索=3)',
     )
   })
 
@@ -167,7 +177,7 @@ describe('formatNavLine', () => {
       { fields: [], server: '5ms' },
       { committedAt: 10, paintedAt: 20, rsc: { main: null, prefetch: 0 }, domNodes: 1, longTasks: null },
     )
-    expect(line).toContain('要求=未了 応答開始=未了 受信=未了 描画=未了 RSC=未了')
+    expect(line).toContain('要求=未了 応答開始=未了 受信=未了 描画=未了 RSC=未了 本体=なし')
     expect(line).toContain('長タスク=未対応')
   })
 

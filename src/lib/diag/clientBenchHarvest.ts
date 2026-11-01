@@ -65,7 +65,7 @@ export function summarizeRun(lines: readonly Parsed[]): ClientBenchRow[] {
   const notes = lines
     .filter((l) => l.kind === 'ノート' && isComplete(l))
     .slice(-2)
-    .flatMap((l, i) => row(`ノート ${i + 1}`, pick(l.fields, ['全体', '応答開始', '受信', '描画'])))
+    .flatMap((l, i) => row(`ノート ${i + 1}`, pick(l.fields, ['全体', '応答開始', '受信', '描画', '本体'])))
   const sync = last((l) => l.kind === '同期')
   const done = last((l) => l.kind === 'テスト' && l.fields['結果'] === '完了')
 
