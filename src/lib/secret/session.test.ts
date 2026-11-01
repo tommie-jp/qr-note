@@ -4,6 +4,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   isUnlocked,
   lockSecrets,
+  SECRET_HIDDEN_LOCK_MS,
+  SECRET_IDLE_LOCK_MS,
   subscribeSecretLock,
   unlockedKey,
   unlockedMasterKeyBytes,
@@ -124,5 +126,76 @@ describe('useSecretUnlocked', () => {
 
     // Assert
     expect(html).toBe('<span>locked</span>')
+  })
+})
+
+// 自動施錠 (2026-11 の監査 M-7)。鍵を使わない間は持たない
+describe('auto lock', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  test('最後に鍵を使ってから無操作が続くと施錠する', async () => {
+    vi.useFakeTimers()
+    await unlockWith(RAW)
+
+    vi.advanceTimersByTime(SECRET_IDLE_LOCK_MS - 1)
+    expect(isUnlocked()).toBe(true)
+    vi.advanceTimersByTime(1)
+    expect(isUnlocked()).toBe(false)
+  })
+
+  test('鍵を使えば数え直す', async () => {
+    vi.useFakeTimers()
+    await unlockWith(RAW)
+
+    vi.advanceTimersByTime(SECRET_IDLE_LOCK_MS - 1000)
+    expect(unlockedKey()).not.toBeNull()
+    vi.advanceTimersByTime(SECRET_IDLE_LOCK_MS - 1000)
+    expect(isUnlocked()).toBe(true)
+    vi.advanceTimersByTime(1000)
+    expect(isUnlocked()).toBe(false)
+  })
+
+  test('タブが隠れて一定時間経つと施錠し、戻れば取り消す', async () => {
+    vi.useFakeTimers()
+    const listeners = new Map<string, () => void>()
+    const fakeDocument = {
+      visibilityState: 'visible' as 'visible' | 'hidden',
+      addEventListener: (name: string, fn: () => void) => listeners.set(name, fn),
+    }
+    vi.stubGlobal('document', fakeDocument)
+    vi.stubGlobal('window', { addEventListener: (name: string, fn: () => void) => listeners.set(name, fn) })
+    await unlockWith(RAW)
+
+    fakeDocument.visibilityState = 'hidden'
+    listeners.get('visibilitychange')?.()
+    vi.advanceTimersByTime(SECRET_HIDDEN_LOCK_MS - 1)
+    expect(isUnlocked()).toBe(true)
+    fakeDocument.visibilityState = 'visible'
+    listeners.get('visibilitychange')?.()
+    vi.advanceTimersByTime(SECRET_HIDDEN_LOCK_MS)
+    expect(isUnlocked()).toBe(true)
+
+    fakeDocument.visibilityState = 'hidden'
+    listeners.get('visibilitychange')?.()
+    vi.advanceTimersByTime(SECRET_HIDDEN_LOCK_MS)
+    expect(isUnlocked()).toBe(false)
+
+    // 頁を離れるときも施錠
+    await unlockWith(RAW)
+    listeners.get('pagehide')?.()
+    expect(isUnlocked()).toBe(false)
+  })
+
+  test('施錠するとタイマーも止まる (後から解錠した鍵を巻き込まない)', async () => {
+    vi.useFakeTimers()
+    await unlockWith(RAW)
+    lockSecrets()
+    vi.advanceTimersByTime(1000)
+    await unlockWith(RAW)
+    vi.advanceTimersByTime(SECRET_IDLE_LOCK_MS - 1000)
+    expect(isUnlocked()).toBe(true)
   })
 })
