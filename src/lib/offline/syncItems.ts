@@ -62,11 +62,19 @@ async function loadOfflineItems(): Promise<{ items: OfflineItem[]; truncated: bo
   return { items, truncated }
 }
 
-export async function loadOfflineSyncPayload(): Promise<OfflineSyncPayload> {
+// 段ごとの時間を受け取る口 (サーバのベンチが使う。docs/123 §12-7)。
+// 段: ノート (本文の読み出し)・フェンス (回路フェンスの控え)・SVG (図の読み出し)・検査
+export type SyncPhaseSink = (phase: 'ノート' | 'フェンス' | 'SVG' | '検査', ms: number) => void
+
+const noPhase: SyncPhaseSink = () => {}
+
+export async function loadOfflineSyncPayload(onPhase: SyncPhaseSink = noPhase): Promise<OfflineSyncPayload> {
   // 起点は**読み始める前**に取る (item.ts の cursor の理由)
   const cursor = new Date().toISOString()
+  const t0 = performance.now()
   const { items, truncated } = await loadOfflineItems()
-  const { circuits, circuitsOmitted } = await loadOfflineCircuits(items)
+  onPhase('ノート', performance.now() - t0)
+  const { circuits, circuitsOmitted } = await loadOfflineCircuits(items, onPhase)
   return {
     syncedAt: new Date().toISOString(),
     cursor,
@@ -112,7 +120,9 @@ type StoredCircuit = OfflineCircuit & { createdAt: Date }
 
 async function loadOfflineCircuits(
   items: readonly OfflineItem[],
+  onPhase: SyncPhaseSink = noPhase,
 ): Promise<{ circuits: StoredCircuit[]; circuitsOmitted: number }> {
+  const fencesAt = performance.now()
   // **印付きを先に並べる。** 予算を超えたときに落ちるのは後ろからなので、
   // 「オフラインで常に使う」と言われたノートの図が最初に犠牲になってはいけない。
   // 同じ優先度の中では引いた順 = 更新の新しい順が残る
@@ -132,6 +142,7 @@ async function loadOfflineCircuits(
       }
     }
   }
+  onPhase('フェンス', performance.now() - fencesAt)
   if (fences.length === 0) {
     return { circuits: [], circuitsOmitted: 0 }
   }
@@ -150,6 +161,7 @@ async function loadOfflineCircuits(
     ]),
   )
   // 落ちても本文の同期は続ける。図が出ないだけで、ノートは読める
+  const svgAt = performance.now()
   const cached = await prisma.circuitSvg
     .findMany({
       where: { hash: { in: [...hashOf.values()] } },
@@ -160,10 +172,12 @@ async function loadOfflineCircuits(
       return []
     })
   const rowByHash = new Map(cached.map((row) => [row.hash, row]))
+  onPhase('SVG', performance.now() - svgAt)
 
   const circuits: StoredCircuit[] = []
   let budget = OFFLINE_CIRCUIT_BUDGET
   let omitted = 0
+  let checkMs = 0
   for (const fence of fences) {
     const hash = hashOf.get(circuitKey(fence.lang, fence.source)) ?? ''
     const row = rowByHash.get(hash)
@@ -174,12 +188,17 @@ async function loadOfflineCircuits(
     }
     // 配信 route と同じく、DB の svg も運ぶ前に毎回検査する (監査 M-3)。
     // 通らない 1 枚は落とすだけで、同期全体は続ける
+    // 検査済みは中身の SHA-256 で覚えてあり、同じ中身は 2 度検査しない
+    // (circuit/safeSvgMemo.ts。docs/123 §12-7)
     let svg: string
+    const checkAt = performance.now()
     try {
       svg = assertSafeCircuitSvg(row.svg)
     } catch (error) {
       console.warn(`オフライン用の回路図の検査に通りませんでした (hash=${hash})`, error)
       continue
+    } finally {
+      checkMs += performance.now() - checkAt
     }
     if (svg.length > budget) {
       omitted++
@@ -190,5 +209,6 @@ async function loadOfflineCircuits(
     circuits.push({ source: fence.source, lang: fence.lang, svg, hash, createdAt: row.createdAt })
   }
 
+  onPhase('検査', checkMs)
   return { circuits, circuitsOmitted: omitted }
 }

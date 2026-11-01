@@ -197,7 +197,13 @@ const syncTask: BenchTask = {
   label: '同期の組み立て (db → json → brotli)',
   fixed: false,
   run: async () => {
-    const db = await elapsed(() => loadOfflineSyncPayload())
+    // 組み立ての内訳 (docs/123 §12-7)。検査は 2 回目からは控え (safeSvgMemo) に当たる
+    const inner: Record<string, number> = {}
+    const db = await elapsed(() =>
+      loadOfflineSyncPayload((phase, ms) => {
+        inner[phase] = ms
+      }),
+    )
     const t0 = performance.now()
     const json = JSON.stringify(db.value)
     const t1 = performance.now()
@@ -216,7 +222,7 @@ const syncTask: BenchTask = {
     const mb = (bytes: number) => (bytes / MB).toFixed(1)
     return {
       totalMs: db.ms + (t2 - t0),
-      phases: { db: db.ms, json: t1 - t0, brotli: t2 - t1, gzip: t3 - t2 },
+      phases: { db: db.ms, ...inner, json: t1 - t0, brotli: t2 - t1, gzip: t3 - t2 },
       scale: `${db.value.items.length} 件・${mb(bytes)}MB → br ${mb(br.byteLength)}MB (gzip ${mb(gz.byteLength)}MB)`,
     }
   },

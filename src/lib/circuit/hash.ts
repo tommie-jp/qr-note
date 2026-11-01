@@ -8,6 +8,8 @@
 
 import 'server-only'
 import { createHash } from 'node:crypto'
+import { assertSafeSvg } from '../markdown/safeSvg'
+import { createSafeSvgMemo } from './safeSvgMemo'
 
 // キャッシュキーに混ぜるレンダラの版。
 // node-tikzjax の更新やプリアンブル (circuit/circuitikz.ts) の変更で出力が変わったら手で上げる
@@ -30,6 +32,14 @@ export function circuitHash(source: string, version = RENDERER_VERSION): string 
 
 // 出力 SVG の検査は markdown/safeSvg.ts に移した。実体配線図 (breadboard /
 // perfboard) はブラウザで描くので、`server-only` のこのファイルからは呼べない
-// (docs/97)。**綴りは変えずに再輸出する** — 呼び手 (circuit/cache.ts・yaml.ts・
-// circuitikz.ts・thumbs.ts) と試験はそのままで、検査の実体は 1 つに保つ。
-export { assertSafeSvg as assertSafeCircuitSvg } from '../markdown/safeSvg'
+// (docs/97)。**綴りは変えずに出す** — 呼び手 (circuit/cache.ts・yaml.ts・
+// circuitikz.ts・thumbs.ts・同期・配信 route) と試験はそのままで、検査の実体は 1 つに保つ。
+//
+// サーバでは検査済みを中身の SHA-256 で覚え、同じ中身は 2 度検査しない
+// (circuit/safeSvgMemo.ts。docs/123 §12-7)。ブラウザ側 (BoardDiagram) は
+// safeSvg.ts を直に呼ぶので控えを持たない
+const safeSvgMemo = createSafeSvgMemo(assertSafeSvg)
+
+export function assertSafeCircuitSvg(svg: string): string {
+  return safeSvgMemo.check(svg)
+}
