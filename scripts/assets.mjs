@@ -26,6 +26,7 @@
 // スタンプが無いので必ず複製する。取得 (fetch) のエントリはスタンプを使わず、
 // 従来どおり「下限サイズ以上のファイルが既に在るか」で判定する (--force でも取り直さない。
 // 取り直したいときは宛先を消す)。
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { copyFile, mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -44,6 +45,15 @@ const PADDLE_BASE_URL =
 // 公式パイプラインと同じ縦書き対応の組み合わせ (docs/24-画像OCR計画.md §2)。
 // ファイル名は ocrService.ts の MODEL_ASSETS と対で効く。
 const PADDLE_MODELS = ['PP-OCRv5_mobile_det', 'PP-OCRv5_mobile_rec']
+// 取得物の SHA-256 (2026-11 の監査 M-14)。npm の依存は lock の integrity で
+// 守られるが、ここだけネットから素で取っていた。取得物は全ユーザーのブラウザで
+// onnxruntime-web が実行するので、配信元の改ざん・中間者で黙って差し替わらない
+// ように固定する。値は 2026-11-01 に上流から取り直したものと手元の写しが一致する
+// ことを確かめて書いた。モデルを上げるときはここも更新する (不一致はビルドが落ちる)
+const PADDLE_MODEL_SHA256 = {
+  'PP-OCRv5_mobile_det': '781056046c9ed77a15c94681605db6a0f62317c2e9cce6931c71da2478d4bc30',
+  'PP-OCRv5_mobile_rec': 'f7e792bc836f36e7ef895ad47c426d75b0b75b1650caa6d63fe9418441ffba8c',
+}
 
 // onnxruntime-web のスレッド版 SIMD の wasm と、それを読むグルー。バリアントは素
 // (WASM 実行) のほか .jsep / .jspi / .asyncify があり、**どれが選ばれるかは実行時の
@@ -199,6 +209,7 @@ const ASSETS = [
     fetch: PADDLE_MODELS.map((model) => ({
       url: `${PADDLE_BASE_URL}/${model}_onnx_infer.tar`,
       to: `${model}.tar`,
+      sha256: PADDLE_MODEL_SHA256[model],
     })),
     minBytes: MB,
     summary: (files) =>
@@ -334,9 +345,16 @@ async function runCopy(asset, { force }) {
   return line
 }
 
-async function alreadyFetched(filePath, minBytes) {
+function sha256Of(bytes) {
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
+// 既にある取得物を使い回してよいか。**大きさだけでなくハッシュも見る** — 手元の
+// 写しが差し替わっていても、再取得せずに配ってしまわないように
+async function alreadyFetched(filePath, minBytes, sha256) {
   const size = await sizeOrNull(filePath)
-  return size !== null && size >= minBytes
+  if (size === null || size < minBytes) return false
+  return sha256Of(await readFile(filePath)) === sha256
 }
 
 async function runFetch(asset) {
@@ -344,9 +362,9 @@ async function runFetch(asset) {
   await mkdir(destDir, { recursive: true })
 
   const fetched = []
-  for (const { url, to } of asset.fetch) {
+  for (const { url, to, sha256 } of asset.fetch) {
     const destPath = path.join(destDir, to)
-    if (await alreadyFetched(destPath, asset.minBytes)) continue
+    if (await alreadyFetched(destPath, asset.minBytes, sha256)) continue
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -356,6 +374,11 @@ async function runFetch(asset) {
     // 黙って 0 バイトを配ると「OCR だけ動かない」を後から追う羽目になる
     if (bytes.byteLength < asset.minBytes) {
       throw new Error(`OCR モデルが小さすぎます: ${url} (${bytes.byteLength} bytes)`)
+    }
+    // 中身が固定したものと違えば配らない (改ざん・差し替え・上流の更新)
+    const actual = sha256Of(bytes)
+    if (actual !== sha256) {
+      throw new Error(`OCR モデルの SHA-256 が一致しません: ${url}\n  期待 ${sha256}\n  実際 ${actual}`)
     }
     await writeFile(destPath, bytes)
     fetched.push({ to, size: bytes.byteLength })

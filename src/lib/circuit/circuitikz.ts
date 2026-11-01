@@ -72,8 +72,35 @@ export const _traceNodeTikzjax = () => import('node-tikzjax')
 // ("Don't run multiple instances at the same time")。1 本の鎖に繋いで直列化する
 let queue: Promise<unknown> = Promise.resolve()
 
+// 待ち行列の深さ (実行中 + 待ち) の上限 (2026-11 の監査 M-13)。1 件が最大 10 秒
+// なので、8 本で 80 秒の待ち。それ以上は積まずに即座に断る — デモは公開の
+// 資格情報で誰でもこの口を叩けるので、際限なく積めると他の人の図が何分も出ない。
+// 1 回の閲覧は最大 8 枚 (MAX_CIRCUITS_PER_MEMO) なので、普通の閲覧は収まる
+export const MAX_QUEUED_RENDERS = 8
+let queued = 0
+
+// 待ち行列が満杯のとき。route は 429 に写し、閲覧側は「後でまた」の失敗として
+// 畳む。負キャッシュ (cache.ts) には**入れない** (TeX の失敗ではない)
+export class CircuitQueueFullError extends CircuitRenderError {
+  constructor() {
+    super('回路図の描画が混み合っています。少し待ってからやり直してください')
+    this.name = 'CircuitQueueFullError'
+  }
+}
+
+// 観測用 (テスト)
+export function queuedRenderCount(): number {
+  return queued
+}
+
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
-  const run = queue.then(task, task)
+  if (queued >= MAX_QUEUED_RENDERS) {
+    return Promise.reject(new CircuitQueueFullError())
+  }
+  queued += 1
+  const run = queue.then(task, task).finally(() => {
+    queued -= 1
+  })
   // 前の描画が失敗しても後続は流す
   queue = run.then(
     () => undefined,
@@ -81,6 +108,23 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
   )
   return run
 }
+
+// 子に渡す環境変数。**親の環境は引き継がない** (2026-11 の監査 LOW)。親には
+// DATABASE_URL (DB のパスワード入り)・BASIC_AUTH_HASH_B64・外部 API のキーが
+// あり、描画の依存 (node-tikzjax・jsdom・svgo…) が侵害された日にそのまま読める。
+// TeX は WASM の中で動き env に触らないので、Node の起動に要るものだけ渡す
+const CHILD_ENV_KEYS = ['PATH', 'NODE_ENV', 'TMPDIR', 'LANG', 'LC_ALL', 'HOME'] as const
+
+export function rendererEnv(parent: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  // @types/node は NODE_ENV を必須にしているが、spawn は欠けていても動く
+  return Object.fromEntries(
+    CHILD_ENV_KEYS.filter((key) => parent[key] !== undefined).map((key) => [key, parent[key]]),
+  ) as NodeJS.ProcessEnv
+}
+
+// 子のヒープ上限 (MB)。通常の描画は RSS 約 400MB で収まる。無限に膨らむ TeX を
+// 書かれても、親 (RAM 2GB の本番) を道連れにせず子だけが落ちる
+const CHILD_HEAP_MB = 512
 
 // TeX のログから原因だけを抜く。`!` で始まる行がエラー、`l.12 ...` が該当行
 function extractTexError(log: string): string {
@@ -114,11 +158,16 @@ export function renderCircuitDocument(tex: string): Promise<string> {
 // source は**完全な TeX 文書**。プリアンブルの有無は呼び出し側が決める
 function renderOnce(source: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    const child = spawn(process.execPath, [RENDERER_SCRIPT], {
-      // stdout は TeX のログ取得に使う。stdin は使わない。
-      // 'ipc' を含めることで child.send / process.on('message') が使える
-      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-    })
+    const child = spawn(
+      process.execPath,
+      [`--max-old-space-size=${CHILD_HEAP_MB}`, RENDERER_SCRIPT],
+      {
+        // stdout は TeX のログ取得に使う。stdin は使わない。
+        // 'ipc' を含めることで child.send / process.on('message') が使える
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        env: rendererEnv(),
+      },
+    )
 
     let log = ''
     let settled = false

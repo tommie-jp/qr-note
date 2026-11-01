@@ -18,7 +18,10 @@ vi.mock('./circuitikz', async (importOriginal) => {
   return { ...actual, renderCircuit: (...a: unknown[]) => renderCircuit(...a) }
 })
 
-const { getOrRenderCircuit, planCircuits, renderCircuits } = await import('./cache')
+const { __resetCircuitFailuresForTest, getOrRenderCircuit, planCircuits, renderCircuits } =
+  await import('./cache')
+const { CircuitQueueFullError } = await import('./circuitikz')
+const { CircuitRenderError } = await import('./renderError')
 
 const SOURCE = String.raw`\begin{circuitikz}\draw (0,0) to[R=$R_1$] (2,0);\end{circuitikz}`
 const SVG = '<svg><path/></svg>'
@@ -254,5 +257,50 @@ describe('2 言語の共存', () => {
     expect(map.has(tikz('A'))).toBe(true)
     expect(map.has(yaml('A'))).toBe(true)
     expect(map.size).toBe(2)
+  })
+})
+
+// 失敗の負キャッシュ (2026-11 の監査 M-13)。同じ毒入りの図で TeX を何度も回さない
+describe('recent failures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+    __resetCircuitFailuresForTest()
+    findUnique.mockResolvedValue(null)
+    create.mockResolvedValue(undefined)
+  })
+
+  test('TeX の失敗は 60 秒のあいだ描き直さずに同じ失敗を返す', async () => {
+    const failure = new CircuitRenderError('timeout', '! loop')
+    renderCircuit.mockRejectedValue(failure)
+    const poison = String.raw`\def\x{\x}\x`
+
+    await expect(getOrRenderCircuit(poison)).rejects.toBe(failure)
+    await expect(getOrRenderCircuit(poison)).rejects.toBe(failure)
+
+    expect(renderCircuit).toHaveBeenCalledTimes(1)
+  })
+
+  test('60 秒を過ぎたら描き直す', async () => {
+    vi.useFakeTimers()
+    renderCircuit.mockRejectedValue(new CircuitRenderError('bad'))
+    await expect(getOrRenderCircuit('a')).rejects.toBeInstanceOf(CircuitRenderError)
+    vi.advanceTimersByTime(61_000)
+    await expect(getOrRenderCircuit('a')).rejects.toBeInstanceOf(CircuitRenderError)
+    expect(renderCircuit).toHaveBeenCalledTimes(2)
+  })
+
+  test('待ち行列が満杯の断りは覚えない (混雑は図の罪ではない)', async () => {
+    renderCircuit.mockRejectedValueOnce(new CircuitQueueFullError()).mockResolvedValueOnce(SVG)
+
+    await expect(getOrRenderCircuit('b')).rejects.toBeInstanceOf(CircuitQueueFullError)
+    expect(await getOrRenderCircuit('b')).toBe(SVG)
+    expect(renderCircuit).toHaveBeenCalledTimes(2)
+  })
+
+  test('直した図 (別の hash) は失敗の控えに当たらない', async () => {
+    renderCircuit.mockRejectedValueOnce(new CircuitRenderError('bad')).mockResolvedValueOnce(SVG)
+    await expect(getOrRenderCircuit('broken')).rejects.toBeInstanceOf(CircuitRenderError)
+    expect(await getOrRenderCircuit('fixed')).toBe(SVG)
   })
 })

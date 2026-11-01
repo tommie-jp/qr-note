@@ -11,7 +11,7 @@ import {
   type PendingCircuit,
   type PendingCircuitMap,
 } from './types'
-import { renderCircuit } from './circuitikz'
+import { CircuitQueueFullError, renderCircuit } from './circuitikz'
 import {
   CIRCUITIKZ_LANG,
   type CircuitFence,
@@ -29,6 +29,41 @@ import { renderCircuitYaml } from './yaml'
 //   - 保存後の先読み (updateMemoAction の after) と、その直後に開かれた閲覧画面
 //   - 同じ新しいノートを 2 つのタブ・2 人が同時に開いたとき
 const inFlight = new Map<string, Promise<string>>()
+
+// 失敗の控え (hash → いつ・何で失敗したか)。**同じ毒入りの図で TeX を何度も
+// 回さない** (2026-11 の監査 M-13)。失敗は DB に入れないので、無限ループの
+// 1 枚を閲覧し直すたびに 10 秒を焼き、最大 8 枚なら閲覧のたびに 80 秒だった。
+// 60 秒だけ覚える — 書き間違いを直したらすぐ描き直せる (hash が変わるので
+// 直した図はそもそも別の鍵)。満杯の断り (CircuitQueueFullError) は覚えない
+const FAILURE_TTL_MS = 60_000
+const MAX_REMEMBERED_FAILURES = 200
+const recentFailures = new Map<string, { at: number; error: CircuitRenderError }>()
+
+function rememberFailure(hash: string, error: CircuitRenderError, now: number): void {
+  if (recentFailures.size >= MAX_REMEMBERED_FAILURES) {
+    const oldest = recentFailures.keys().next().value
+    if (oldest !== undefined) {
+      recentFailures.delete(oldest)
+    }
+  }
+  recentFailures.set(hash, { at: now, error })
+}
+
+function recentFailureOf(hash: string, now: number): CircuitRenderError | null {
+  const failed = recentFailures.get(hash)
+  if (failed === undefined) {
+    return null
+  }
+  if (now - failed.at >= FAILURE_TTL_MS) {
+    recentFailures.delete(hash)
+    return null
+  }
+  return failed.error
+}
+
+export function __resetCircuitFailuresForTest(): void {
+  recentFailures.clear()
+}
 
 // ```circuitikz フェンスを SVG にする。描画は 1 秒強かかるので DB にキャッシュし、
 // 2 回目以降は引くだけにする。
@@ -54,7 +89,18 @@ export async function getOrRenderCircuit(source: string): Promise<string> {
     return running
   }
 
-  const pending = renderAndStore(source, hash)
+  // ついさっき失敗した図は TeX を回さず同じ失敗を返す
+  const remembered = recentFailureOf(hash, Date.now())
+  if (remembered !== null) {
+    throw remembered
+  }
+
+  const pending = renderAndStore(source, hash).catch((error: unknown) => {
+    if (error instanceof CircuitRenderError && !(error instanceof CircuitQueueFullError)) {
+      rememberFailure(hash, error, Date.now())
+    }
+    throw error
+  })
   inFlight.set(hash, pending)
   // 印を消すのは成否によらず。失敗を覚えたままにすると、TeX を直して
   // 描き直せるようになった後も同じ失敗を返し続ける

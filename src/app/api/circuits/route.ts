@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server'
 import { getOrRenderCircuit } from '@/lib/circuit/cache'
 import { renderCircuitYaml } from '@/lib/circuit/yaml'
 import { CIRCUIT_LANG, isCircuitLang } from '@/lib/markdown/fenceLanguages'
+import { CircuitQueueFullError } from '@/lib/circuit/circuitikz'
 import { CircuitRenderError } from '@/lib/circuit/renderError'
 import { guardRequest } from '@/lib/route/guard'
 import { readJsonObject } from '@/lib/route/parse'
@@ -64,6 +65,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 書き間違いは**普通のこと**なので 200 で返し、理由 (TeX のログ) を渡す。
     // 編集中は毎打鍵のように失敗するため、そのたびに 5xx を出すと本物の
     // 不具合が埋もれる
+    // 待ち行列が満杯 (circuitikz.ts の MAX_QUEUED_RENDERS)。書き間違いではなく
+    // 混雑なので 429 で断り、少し待てば通ることを Retry-After で伝える
+    if (e instanceof CircuitQueueFullError) {
+      const busy = apiFail(e.message, 429)
+      busy.headers.set('Retry-After', '10')
+      return busy
+    }
     if (e instanceof CircuitRenderError) {
       return apiOk({ error: e.message, texLog: e.texLog })
     }
