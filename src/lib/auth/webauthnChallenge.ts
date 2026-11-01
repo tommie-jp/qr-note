@@ -1,74 +1,143 @@
-// 発行済みチャレンジの記憶 (docs/29-パスキー計画.md §5, §9)。
+// 発行済みチャレンジの検証 (docs/29-パスキー計画.md §5, §9)。
 //
 // チャレンジは「サーバが出した乱数に、認証器が署名して返す」ための使い捨ての値。
 // これがないと、一度盗んだ署名を何度でも使い回せる (リプレイ)。
 //
-// DB には置かない。プロセス内の Map で足りる:
+// **2026-11 の監査 (LOW) で、覚える方式から署名する方式に替えた。** 以前は発行した
+// チャレンジを Map に 64 個まで覚え、溢れたら古い順に捨てていた。未ログインで
+// login-options を 64 回叩くだけで、正規の人が Face ID を出している最中の
+// チャレンジを押し出せた (1 IP でも約 2 分。可用性だけの穴)。
 //
-//   * 寿命が 5 分しかない。再起動で消えても「もう一度ボタンを押す」で済む
-//   * 触るのは route handler だけなので、proxy が別バンドルになる問題を踏まない
-//     (auth/basicAuth.ts の検証キャッシュが proxy と共有されないのと同じ事情。
-//      あちらは両側で温まればよかったが、こちらは発行と検証が同じ側で完結する)
+// いまはチャレンジ自体に「いつまで有効か」と HMAC の署名を入れる:
 //
-// 利用者との紐づけは持たない。チャレンジ自体が 256bit の乱数で、
-// 当てずっぽうでは作れないため — 「我々が出したもののうち、まだ使われて
-// いない 1 つ」であることが確認できれば目的は足りる。誰のものかは、
-// 署名を検証する公開鍵のほうが決める。
+//   <乱数 16B の base64url>.<期限 epoch ms>.<HMAC-SHA256 の base64url>
+//
+// 検証は署名と期限を見るだけなので、何個発行されていても他人の分は押し出されない。
+// 覚えるのは**使い終わった**チャレンジだけ (リプレイを止めるため)。これも
+// 期限が来れば要らなくなるので、期限で掃き、上限 (CHALLENGE_USED_MAX) で縛る。
+// 上限に当たるのは 5 分の間に数千回ログインに成功したときで、nginx の枠
+// (30r/m) の下では起きない。
+//
+// 鍵はプロセスの起動時に作る乱数。再起動で変わるが、チャレンジの寿命は 5 分しか
+// ないので「もう一度ボタンを押す」で済む (以前の Map も再起動で消えていた)。
+// 単一プロセス前提 (複数台なら env から鍵を渡す形にする)。
+//
+// 利用者との紐づけは持たない。誰のものかは、署名を検証する公開鍵のほうが決める。
+
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 // 認証器の操作 (Face ID を出して指を置く) に要る時間から決めた。
 // 長くすると盗んだチャレンジを使える窓が広がり、短くすると
 // 「ダイアログを見て少し考えていたら失敗する」が起きる
 export const CHALLENGE_TTL_MS = 5 * 60 * 1000
 
-// 同時に持てる数の上限。無いと、ログイン画面を叩き続けるだけで
-// メモリを食い潰せる (auth/basicAuth.ts のキャッシュに上限を付けたのと同じ理由)
-export const CHALLENGE_MAX = 64
+// 使い終わったチャレンジを覚える上限 (リプレイ防止)。期限が来た分は掃く
+export const CHALLENGE_USED_MAX = 4096
 
-// challenge -> 期限 (epoch ms)。Map は挿入順を保つので、先頭 = 最も古い
-const pending = new Map<string, number>()
+const NONCE_BYTES = 16
+const SIGNATURE_BYTES = 32
+
+// プロセスごとの署名鍵。テストでは __resetChallengesForTest が作り直す
+let signingKey = randomBytes(32)
+
+// 使い終わったチャレンジ -> 期限 (epoch ms)。Map は挿入順を保つので、先頭 = 最も古い
+const used = new Map<string, number>()
 
 export function __resetChallengesForTest(): void {
-  pending.clear()
+  used.clear()
+  signingKey = randomBytes(32)
 }
 
-export function countPendingChallenges(): number {
-  return pending.size
+export function countUsedChallenges(): number {
+  return used.size
 }
 
-// 発行したチャレンジを覚える。
-export function rememberChallenge(challenge: string, now: Date = new Date()): void {
-  // 先に期限切れを掃く。掃かないと、5 分前の死んだチャレンジが上限枠を
-  // 占領し、いま出したばかりの生きたチャレンジを追い出してしまう
-  sweepExpired(now)
+function sign(nonce: string, expiresAt: number): string {
+  return createHmac('sha256', signingKey)
+    .update(`${nonce}.${expiresAt}`)
+    .digest('base64url')
+}
 
-  if (pending.size >= CHALLENGE_MAX) {
-    const oldest = pending.keys().next().value
-    if (oldest !== undefined) {
-      pending.delete(oldest)
-    }
+// チャレンジを発行する。SimpleWebAuthn の generate*Options({ challenge }) に
+// 文字列のまま渡す (あちらが UTF-8 のバイト列として扱い、クライアントには
+// base64url で届く)。検証側 (consumeChallenge) はその base64url を受ける
+export function issueChallenge(now: Date = new Date()): string {
+  const nonce = randomBytes(NONCE_BYTES).toString('base64url')
+  const expiresAt = now.getTime() + CHALLENGE_TTL_MS
+  return `${nonce}.${expiresAt}.${sign(nonce, expiresAt)}`
+}
+
+// 認証器が返した challenge (clientDataJSON の値 = 発行した文字列の base64url) を
+// 元の文字列に戻す。読めなければ null
+function decodeChallenge(encoded: string): string | null {
+  try {
+    const text = Buffer.from(encoded, 'base64url').toString('utf8')
+    // base64url で往復して同じになるものだけ (壊れた入力を通さない)
+    return Buffer.from(text, 'utf8').toString('base64url') === encoded ? text : null
+  } catch {
+    return null
   }
-
-  pending.set(challenge, now.getTime() + CHALLENGE_TTL_MS)
 }
 
-// 使ってよいチャレンジかを答え、**成否によらず消費する**。
+// 署名と期限が正しいか (使用済みかは見ない)
+function isGenuine(challenge: string, now: Date): boolean {
+  const parts = challenge.split('.')
+  if (parts.length !== 3) {
+    return false
+  }
+  const [nonce, expiresText, signature] = parts
+  const expiresAt = Number(expiresText)
+  if (!/^\d+$/.test(expiresText) || !Number.isSafeInteger(expiresAt)) {
+    return false
+  }
+  const expected = Buffer.from(sign(nonce, expiresAt), 'base64url')
+  const actual = Buffer.from(signature, 'base64url')
+  if (expected.byteLength !== SIGNATURE_BYTES || actual.byteLength !== SIGNATURE_BYTES) {
+    return false
+  }
+  if (!timingSafeEqual(expected, actual)) {
+    return false
+  }
+  return expiresAt > now.getTime()
+}
+
+// 使ってよいチャレンジかを答え、**成否によらず使用済みにする**。
 //
-// 失敗しても消すのが要点。残すと、署名を作り直しながら同じチャレンジへ
+// 失敗しても使用済みにするのが要点。残すと、署名を作り直しながら同じチャレンジへ
 // 何度でも挑戦できてしまう。
 //
 // SimpleWebAuthn の expectedChallenge にそのまま渡せる形にしてある:
 //   expectedChallenge: (challenge) => consumeChallenge(challenge)
-export function consumeChallenge(challenge: string, now: Date = new Date()): boolean {
-  const expiresAt = pending.get(challenge)
-  if (expiresAt === undefined) {
+export function consumeChallenge(encoded: string, now: Date = new Date()): boolean {
+  const challenge = decodeChallenge(encoded)
+  if (challenge === null) {
     return false
   }
-
-  pending.delete(challenge)
-  return expiresAt > now.getTime()
+  if (used.has(challenge)) {
+    return false
+  }
+  const genuine = isGenuine(challenge, now)
+  // 本物だけを覚える。偽物を覚えると、でたらめな値を送り続けるだけで
+  // 覚える枠を埋められる
+  if (genuine) {
+    rememberUsed(challenge, now)
+  }
+  return genuine
 }
 
-// 認証器の応答 (clientDataJSON) に入っているチャレンジを消費する。
+function rememberUsed(challenge: string, now: Date): void {
+  sweepExpired(now)
+  if (used.size >= CHALLENGE_USED_MAX) {
+    const oldest = used.keys().next().value
+    if (oldest !== undefined) {
+      used.delete(oldest)
+    }
+  }
+  const expiresAt = Number(challenge.split('.')[1])
+  used.set(challenge, expiresAt)
+}
+
+// 認証器の応答 (clientDataJSON) に入っているチャレンジを使用済みにする。
 //
 // **検証まで辿り着かずに断るときに要る。** login-verify は credential ID が
 // 未知なら verifyAuthenticationResponse() を呼ばずに帰るが、それだけだと
@@ -104,9 +173,9 @@ export function consumeChallengeFromClientData(
 
 function sweepExpired(now: Date): void {
   const nowMs = now.getTime()
-  for (const [challenge, expiresAt] of pending) {
+  for (const [challenge, expiresAt] of used) {
     if (expiresAt <= nowMs) {
-      pending.delete(challenge)
+      used.delete(challenge)
     }
   }
 }

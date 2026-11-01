@@ -4,7 +4,7 @@ import { apiPasskeyDisabled } from '@/lib/auth/api'
 import { denyCrossSite } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { listCredentialDescriptors } from '@/lib/auth/passkeys'
-import { rememberChallenge } from '@/lib/auth/webauthnChallenge'
+import { issueChallenge } from '@/lib/auth/webauthnChallenge'
 import { webauthnConfig } from '@/lib/auth/webauthnConfig'
 
 // ログインの 1 歩目 — チャレンジを配る (docs/29-パスキー計画.md §6)。
@@ -40,12 +40,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const options = await generateAuthenticationOptions({
     rpID: config.rpId,
+    // 署名入りのチャレンジ (auth/webauthnChallenge.ts)。検証はその署名と期限で行う
+    challenge: issueChallenge(),
     allowCredentials,
     // 端末を持っているだけでは通さない (docs/29 §9)
     userVerification: 'required',
   })
-
-  rememberChallenge(options.challenge)
 
   return apiOk(options)
 }

@@ -4,7 +4,7 @@ import { apiPasskeyDisabled } from '@/lib/auth/api'
 import { listCredentialDescriptors } from '@/lib/auth/passkeys'
 import { guardRecentLogin } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
-import { rememberChallenge } from '@/lib/auth/webauthnChallenge'
+import { issueChallenge } from '@/lib/auth/webauthnChallenge'
 import { stableUserHandle, webauthnConfig } from '@/lib/auth/webauthnConfig'
 
 // パスキー登録の 1 歩目 — チャレンジを配る (docs/29-パスキー計画.md §6)。
@@ -39,6 +39,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   const options = await generateRegistrationOptions({
     rpName: config.rpName,
     rpID: config.rpId,
+    // 署名入りのチャレンジ (auth/webauthnChallenge.ts)。検証はその署名と期限で行う
+    challenge: issueChallenge(),
     userName,
     // 利用者名から決まる固定値にする。登録のたびに乱数だと、認証器から見て
     // 「別々のアカウント」になり、iCloud キーチェーンに同じ名前の項目が
@@ -64,9 +66,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     // lib/secret/prf.ts と同じく形だけ名乗る
     extensions: { prf: {} } as AuthenticationExtensionsClientInputs & PrfRegistrationInput,
   })
-
-  // 出したチャレンジを覚える。検証はこの控えと突き合わせる (5 分・使い捨て)
-  rememberChallenge(options.challenge)
 
   return apiOk(options)
 }

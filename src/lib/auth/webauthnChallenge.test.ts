@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import {
   __resetChallengesForTest,
-  CHALLENGE_MAX,
   CHALLENGE_TTL_MS,
+  CHALLENGE_USED_MAX,
   consumeChallenge,
   consumeChallengeFromClientData,
-  countPendingChallenges,
-  rememberChallenge,
+  countUsedChallenges,
+  issueChallenge,
 } from './webauthnChallenge'
+
+// 署名入りチャレンジ (docs/29 §5, §9。2026-11 の監査で覚える方式から替えた)。
+// 認証器は発行した文字列を base64url にして返す (clientDataJSON の challenge)
 
 const NOW = new Date('2026-07-19T00:00:00.000Z')
 
@@ -15,81 +18,87 @@ function later(ms: number): Date {
   return new Date(NOW.getTime() + ms)
 }
 
+// SimpleWebAuthn が options.challenge に入れる形 = 文字列の UTF-8 を base64url
+const encoded = (challenge: string) => Buffer.from(challenge, 'utf8').toString('base64url')
+
 beforeEach(() => {
   __resetChallengesForTest()
 })
 
-describe('rememberChallenge / consumeChallenge', () => {
-  test('accepts a challenge that was handed out', () => {
-    rememberChallenge('abc', NOW)
-
-    expect(consumeChallenge('abc', NOW)).toBe(true)
+describe('issueChallenge / consumeChallenge', () => {
+  test('accepts a challenge that was issued', () => {
+    const challenge = issueChallenge(NOW)
+    expect(consumeChallenge(encoded(challenge), NOW)).toBe(true)
   })
 
-  test('rejects a challenge that was never handed out', () => {
-    expect(consumeChallenge('never-issued', NOW)).toBe(false)
+  test('rejects a challenge that was never issued (wrong signature)', () => {
+    const forged = `${'a'.repeat(22)}.${later(60_000).getTime()}.${'b'.repeat(43)}`
+    expect(consumeChallenge(encoded(forged), NOW)).toBe(false)
+  })
+
+  test('rejects a tampered expiry', () => {
+    const [nonce, , signature] = issueChallenge(NOW).split('.')
+    const stretched = `${nonce}.${later(10 * CHALLENGE_TTL_MS).getTime()}.${signature}`
+    expect(consumeChallenge(encoded(stretched), later(2 * CHALLENGE_TTL_MS))).toBe(false)
   })
 
   test('rejects a replay of an already used challenge', () => {
-    rememberChallenge('abc', NOW)
-    consumeChallenge('abc', NOW)
-
-    expect(consumeChallenge('abc', NOW)).toBe(false)
+    const challenge = issueChallenge(NOW)
+    expect(consumeChallenge(encoded(challenge), NOW)).toBe(true)
+    expect(consumeChallenge(encoded(challenge), NOW)).toBe(false)
   })
 
   test('rejects a challenge once its 5 minutes are up', () => {
-    rememberChallenge('abc', NOW)
-
-    expect(consumeChallenge('abc', later(CHALLENGE_TTL_MS + 1))).toBe(false)
+    const challenge = issueChallenge(NOW)
+    expect(consumeChallenge(encoded(challenge), later(CHALLENGE_TTL_MS))).toBe(false)
   })
 
   test('still accepts a challenge just before it expires', () => {
-    rememberChallenge('abc', NOW)
-
-    expect(consumeChallenge('abc', later(CHALLENGE_TTL_MS - 1))).toBe(true)
+    const challenge = issueChallenge(NOW)
+    expect(consumeChallenge(encoded(challenge), later(CHALLENGE_TTL_MS - 1))).toBe(true)
   })
 
-  test('consumes an expired challenge instead of leaving it behind', () => {
-    rememberChallenge('abc', NOW)
-    consumeChallenge('abc', later(CHALLENGE_TTL_MS + 1))
-
-    expect(countPendingChallenges()).toBe(0)
+  test('rejects garbage and values that are not base64url of the issued form', () => {
+    expect(consumeChallenge('', NOW)).toBe(false)
+    expect(consumeChallenge('!!!', NOW)).toBe(false)
+    expect(consumeChallenge(encoded('no.dots'), NOW)).toBe(false)
   })
 
-  test('keeps challenges independent of one another', () => {
-    rememberChallenge('a', NOW)
-    rememberChallenge('b', NOW)
+  // 覚える方式の弱点を塞いだことの固定: 何個発行されても、他の人の分は押し出されない
+  test('a flood of fresh challenges does not invalidate an earlier one', () => {
+    const mine = issueChallenge(NOW)
+    for (let i = 0; i < 1000; i++) {
+      issueChallenge(NOW)
+    }
+    expect(consumeChallenge(encoded(mine), NOW)).toBe(true)
+  })
 
-    expect(consumeChallenge('a', NOW)).toBe(true)
-    expect(consumeChallenge('b', NOW)).toBe(true)
+  test('a different process key (restart) rejects old challenges', () => {
+    const challenge = issueChallenge(NOW)
+    __resetChallengesForTest()
+    expect(consumeChallenge(encoded(challenge), NOW)).toBe(false)
   })
 })
 
-describe('bounding the store', () => {
-  test('never grows past the cap however many are requested', () => {
-    for (let i = 0; i < CHALLENGE_MAX * 5; i += 1) {
-      rememberChallenge(`challenge-${i}`, NOW)
+describe('bounding the used set', () => {
+  test('only genuine challenges are remembered (garbage cannot fill the set)', () => {
+    for (let i = 0; i < 100; i++) {
+      consumeChallenge(encoded(`x${i}.1.y`), NOW)
     }
-
-    expect(countPendingChallenges()).toBeLessThanOrEqual(CHALLENGE_MAX)
+    expect(countUsedChallenges()).toBe(0)
   })
 
-  test('drops the oldest challenge when the cap is reached', () => {
-    rememberChallenge('oldest', NOW)
-    for (let i = 0; i < CHALLENGE_MAX; i += 1) {
-      rememberChallenge(`challenge-${i}`, NOW)
+  test('never grows past the cap', () => {
+    for (let i = 0; i < CHALLENGE_USED_MAX + 50; i++) {
+      consumeChallenge(encoded(issueChallenge(NOW)), NOW)
     }
-
-    expect(consumeChallenge('oldest', NOW)).toBe(false)
+    expect(countUsedChallenges()).toBeLessThanOrEqual(CHALLENGE_USED_MAX)
   })
 
-  test('sweeps expired challenges rather than counting them against the cap', () => {
-    rememberChallenge('stale', NOW)
-
-    rememberChallenge('fresh', later(CHALLENGE_TTL_MS + 1))
-
-    expect(countPendingChallenges()).toBe(1)
-    expect(consumeChallenge('fresh', later(CHALLENGE_TTL_MS + 1))).toBe(true)
+  test('sweeps expired entries rather than keeping them', () => {
+    consumeChallenge(encoded(issueChallenge(NOW)), NOW)
+    consumeChallenge(encoded(issueChallenge(later(CHALLENGE_TTL_MS))), later(CHALLENGE_TTL_MS))
+    expect(countUsedChallenges()).toBe(1)
   })
 })
 
@@ -101,49 +110,29 @@ describe('consumeChallengeFromClientData', () => {
   }
 
   test('consumes the challenge the authenticator signed over', () => {
-    rememberChallenge('abc', NOW)
+    const challenge = encoded(issueChallenge(NOW))
 
-    consumeChallengeFromClientData(clientData('abc'), NOW)
+    consumeChallengeFromClientData(clientData(challenge), NOW)
 
     // 一度使われた以上、もう通ってはいけない
-    expect(consumeChallenge('abc', NOW)).toBe(false)
+    expect(consumeChallenge(challenge, NOW)).toBe(false)
   })
 
   test('leaves other challenges alone', () => {
-    rememberChallenge('mine', NOW)
-    rememberChallenge('yours', NOW)
-
-    consumeChallengeFromClientData(clientData('mine'), NOW)
-
-    expect(consumeChallenge('yours', NOW)).toBe(true)
+    const other = encoded(issueChallenge(NOW))
+    consumeChallengeFromClientData(clientData(encoded(issueChallenge(NOW))), NOW)
+    expect(consumeChallenge(other, NOW)).toBe(true)
   })
 
   test('does nothing when the client data is not valid base64 JSON', () => {
-    rememberChallenge('abc', NOW)
-
-    consumeChallengeFromClientData('not-base64-json', NOW)
-
-    expect(countPendingChallenges()).toBe(1)
-  })
-
-  test('does nothing when the value is missing or not a string', () => {
-    rememberChallenge('abc', NOW)
-
-    consumeChallengeFromClientData(undefined, NOW)
-    consumeChallengeFromClientData(null, NOW)
-    consumeChallengeFromClientData(42, NOW)
-
-    expect(countPendingChallenges()).toBe(1)
+    expect(() => consumeChallengeFromClientData('not-json', NOW)).not.toThrow()
+    expect(() => consumeChallengeFromClientData(undefined, NOW)).not.toThrow()
+    expect(() => consumeChallengeFromClientData(42, NOW)).not.toThrow()
   })
 
   test('does nothing when the JSON has no challenge field', () => {
-    rememberChallenge('abc', NOW)
-
-    const noChallenge = Buffer.from(JSON.stringify({ type: 'webauthn.get' }), 'utf8').toString(
-      'base64url',
-    )
-    consumeChallengeFromClientData(noChallenge, NOW)
-
-    expect(countPendingChallenges()).toBe(1)
+    const noChallenge = Buffer.from(JSON.stringify({ type: 'webauthn.get' })).toString('base64url')
+    expect(() => consumeChallengeFromClientData(noChallenge, NOW)).not.toThrow()
+    expect(countUsedChallenges()).toBe(0)
   })
 })
