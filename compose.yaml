@@ -10,6 +10,8 @@ services:
     # (PG16 からの移行は 41-QR-search/docs/27 §PG16 から PG18 への移行の検討)。
     image: groonga/pgroonga:4.1.0-alpine-18
     restart: unless-stopped
+    # cap_drop は付けない (entrypoint が gosu で postgres ユーザーに降りるのに要る)
+    security_opt: [no-new-privileges:true]
     environment:
       POSTGRES_USER: qr
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -42,7 +44,11 @@ services:
     image: qr-search-app:latest
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://qr:${POSTGRES_PASSWORD}@db:5432/qr
+      # 実行時は DML だけのロール qr_app で接続する (2026-11 の監査 C-2)。superuser の
+      # qr で繋ぐと、万一の SQL 注入が COPY … PROGRAM でコンテナ内のコード実行に広がる。
+      # ロールとパスワードは ./doDbRole.sh が作る (.env の APP_DB_PASSWORD)。
+      # マイグレーションと運用スクリプトは今までどおり qr (POSTGRES_PASSWORD)
+      DATABASE_URL: postgresql://qr_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD is required (run ./doDbRole.sh first)}@db:5432/qr
       QR_BASE_URL: ${QR_BASE_URL:-https://qr.tommie.jp}
       # 本番 (vps2) の .env だけが production を立てる。ローカルは未設定のままにし、
       # 画面をピンク + タイトル [LOCAL] にして本番との誤認を防ぐ。
@@ -95,6 +101,30 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # コンテナの硬化 (2026-11 の監査 C-3)。
+    #   read_only … /app は root 所有で元から書けない。書く先は git-notes volume と
+    #               /tmp (transformers のモデルキャッシュ・sharp) と HOME だけなので
+    #               tmpfs で足りる。所有者は Dockerfile の qrapp (10001)
+    #   cap_drop  … node は 3000 番で待つだけで capability は要らない
+    #   no-new-privileges … setuid 経由の昇格を断つ
+    #   pids_limit … TeX の子プロセス + libuv のスレッドで数十。暴走の上限
+    #   mem_limit … 上限なしだとホストの OOM killer が DB を道連れにしうる。
+    #               app だけが落ちて restart で戻るほうがよい (デモは override で 1g)
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=1777,size=768m
+      - /home/qrapp:uid=10001,gid=10001,mode=700,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 512
+    mem_limit: 1600m
+    # Next の standalone はコンテナのホスト名で待つので 127.0.0.1 ではなく hostname で叩く
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch(`http://$${require('os').hostname()}:3000/login-required`).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     ports:
       # ローカル: tailscale serve 用 / vps2: nginx のプロキシ先 (loopback のみ)
       - "127.0.0.1:${APP_PORT:-3000}:3000"
