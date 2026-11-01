@@ -14,7 +14,6 @@ import { INLINE_SLOT_CLASS, SLOT_LABEL_CLASS } from "@/components/ui";
 import { ViewSlot } from "@/components/bottombar/ViewSlot";
 import { SEARCH_SORT_SPEC } from "@/lib/prefs/sortDirection";
 import { SORT_COOKIE } from "@/lib/prefs/sortMode";
-import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
 import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
@@ -63,7 +62,12 @@ export function ResultsToolbar({
   // switchViewMode が後ろで進める。本番では Server Action の往復 (150〜270ms)
   // を待ってから一覧が変わっていた (§0-11)
   const router = useRouter();
-  const shownView = useShownViewMode(view);
+  // view は親 (SearchResultsClient) が送った先を重ねた後の値。**ここで
+  // useShownViewMode を重ねない** — 送った先を「サーバの値」として渡すことに
+  // なり、保存の返事が来た瞬間に「サーバが追いついた」と誤判定して送った先を
+  // 捨てていた。一覧が一瞬もとの表示に戻り (チラつき)、ノートを開いた 2 ペインでは
+  // refresh を遅らせているので戻ったままになった (docs/123 §12-10)
+  const shownView = view;
 
   // 釦 (循環の釦かメニューの行) の submit を外側で拾い、Server Action を止めて
   // 切り替える。**form の action は素の Server Action のまま残す** — JS が

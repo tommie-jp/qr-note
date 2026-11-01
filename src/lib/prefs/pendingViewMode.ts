@@ -52,7 +52,13 @@ export const pendingViewModeStore = createExternalStore<PendingViewSwitch>({
 })
 
 // サーバの表示モード (cookie) に送った先を重ねた、いま見せるモード。
-// 追いついたら送った先を片付ける
+// 追いついたら送った先を片付ける。
+//
+// **serverMode には必ずサーバの値 (cookie を読んだ props) を渡す。** このフックの
+// 戻り値 (送った先を重ねた後の値) を子でもう一度渡すと、保存の返事が来た
+// 瞬間に「追いついた」と誤判定して送った先を捨てる (docs/123 §12-10)。
+// 呼ぶのは画面の根 (SearchResultsClient・TrashScreen) だけにし、子へは
+// 戻り値を props で配る
 export function useShownViewMode(serverMode: ViewMode): ViewMode {
   const pending = pendingViewModeStore.useStore()
   useEffect(() => {
