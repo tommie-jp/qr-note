@@ -9,9 +9,30 @@
 // バックフィルの本筋を、モデルの不調で巻き添えにしない。
 
 import 'server-only'
+import sharp from 'sharp'
 import { prisma } from '../db'
+import { MAX_INPUT_PIXELS } from '../images/thumbConfig'
 import { serializeEmbedding } from './imageVector'
 import { embed } from './embedder'
+
+// 埋め込みに渡してよい大きさか (解凍爆弾よけ。2026-11 のセキュリティ監査)。
+//
+// transformers.js の RawImage.read は **limitInputPixels を渡せない sharp** で
+// 全画素を raw に展開し、さらに JS 側へ複製する (既定の上限は約 268MP)。
+// サムネ (images/thumbnail.ts) が 50MP で断った画像も、saveImage はサムネ無しで
+// 行を作ってからここへ来るので、数百 KB の PNG が 16000x16000 を名乗るだけで
+// 768MB 級を 2 回確保し、RAM 2GB の本番は Node ごと落ちる。
+//
+// metadata() はヘッダしか読まず画素を確保しない。先に寸法で弾いてから渡す。
+// アニメは先頭フレームしか読まれないので 1 ページ分で見る (metadata の height は
+// 既定で 1 ページ分)。寸法が読めないものも渡さない (埋め込みはどのみち作れない)
+export async function isWithinEmbeddingPixelLimit(bytes: Uint8Array): Promise<boolean> {
+  const { width, height } = await sharp(bytes, { failOn: 'none' }).metadata()
+  if (!width || !height) {
+    return false
+  }
+  return width * height <= MAX_INPUT_PIXELS
+}
 
 // 画像バイト列 → DB 保存用の埋め込みバイト列。作れなければ null。
 export async function computeEmbeddingBytes(
@@ -19,6 +40,12 @@ export async function computeEmbeddingBytes(
   mime: string,
 ): Promise<Uint8Array<ArrayBuffer> | null> {
   try {
+    if (!(await isWithinEmbeddingPixelLimit(bytes))) {
+      console.warn(
+        `埋め込みを作りません: 画素数が上限 (${MAX_INPUT_PIXELS}) を超えるか寸法を読めません`,
+      )
+      return null
+    }
     const vec = await embed(new Blob([bytes as BlobPart], { type: mime }))
     return serializeEmbedding(vec)
   } catch (err) {
