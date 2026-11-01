@@ -492,7 +492,6 @@ describe('no-store を付けている成功応答', () => {
 
 describe('/api/clipboard (no-store・デモは閉じる)', () => {
   const META = { kind: 'image', bytes: 4, updatedAt: '2026-10-25T12:00:00.000Z' }
-  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
   test('メタ・文字・消すは封筒で返す', async () => {
     const { GET, PUT, DELETE } = await import('./clipboard/route')
@@ -522,7 +521,9 @@ describe('/api/clipboard (no-store・デモは閉じる)', () => {
       jsonContract(404, failEnvelope('サーバのクリップボードにファイルがありません')),
     )
     expect(
-      await responseContract(await PUT(new Request(url, { method: 'PUT', body: await realPng() }))),
+      await responseContract(
+        await PUT(new Request(url, { method: 'PUT', body: (await realPng()) as BodyInit })),
+      ),
     ).toEqual(jsonContract(200, okEnvelope({ slot: META })))
   })
 
