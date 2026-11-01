@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('./snapshotDb', () => ({
+  clearOfflineData: vi.fn(async () => undefined),
   saveOfflineSnapshot: async (payload: unknown) => {
     mocks.saved.push(payload)
   },
@@ -112,19 +113,24 @@ describe('syncOfflineItems', () => {
   })
 
   // この口は必ず 401 を返すので「ログインし直し」と言い切れる
-  test('401 はログインし直しを促す', async () => {
+  test('401 はログインし直しを促し、端末の写しを消す', async () => {
+    const { clearOfflineData } = await import('./snapshotDb')
     respond(401, JSON.stringify({ success: false, data: null, error: 'ログインが必要です' }))
 
     await expect(syncOfflineItems()).rejects.toThrow(
       'ログインの期限が切れています。ログインし直してください',
     )
     expect(mocks.saved).toEqual([])
+    expect(clearOfflineData).toHaveBeenCalledTimes(1)
   })
 
-  test('それ以外の失敗は HTTP の状態を添える', async () => {
+  test('それ以外の失敗は HTTP の状態を添え、写しは消さない', async () => {
+    const { clearOfflineData } = await import('./snapshotDb')
+    vi.mocked(clearOfflineData).mockClear()
     respond(503, '<html>maintenance</html>')
 
     await expect(syncOfflineItems()).rejects.toThrow('同期に失敗しました (HTTP 503)')
+    expect(clearOfflineData).not.toHaveBeenCalled()
   })
 
   test('data の形が違えば保存せずに投げる', async () => {

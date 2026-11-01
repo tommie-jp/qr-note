@@ -16,7 +16,7 @@ import { snapshotChanged } from '@/lib/client/invalidate'
 import { indexSnapshot, snapshotIndexStore } from './snapshotIndex'
 import { envelopeData } from '@/lib/api/envelope'
 import { firstThumbInfo, thumbUrl } from '@/lib/images/memoImages'
-import { loadOfflineSnapshot, saveOfflineSnapshot } from './snapshotDb'
+import { clearOfflineData, loadOfflineSnapshot, saveOfflineSnapshot } from './snapshotDb'
 import { awaitResource, isPerfActive, perfNow, perfSend } from '@/lib/logging/perfClient'
 import { formatTransfer, serverTimingSummary } from '@/lib/logging/perf'
 import { perfMs } from '@/lib/logging/perfLine'
@@ -94,7 +94,13 @@ async function requestSync(
   }
   if (!res.ok) {
     // 401 はセッション切れ。proxy.ts が画面を 200 で案内へ差し替えるのと違い、
-    // この口は必ず 401 を返すので、ここで「ログインし直し」と言い切れる
+    // この口は必ず 401 を返すので、ここで「ログインし直し」と言い切れる。
+    // **サーバがセッションを無効と言った時点で、端末の写しも消す** (2026-11 の
+    // 監査 M-8)。別の端末からログアウト・失効させた後も、この端末の /offline で
+    // 全ノートが読めるままになっていた
+    if (res.status === 401) {
+      await clearOfflineData()
+    }
     throw new Error(
       res.status === 401
         ? 'ログインの期限が切れています。ログインし直してください'

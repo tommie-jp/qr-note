@@ -20,16 +20,42 @@ import { clearKeyringCache } from './keyring'
 
 // 1 レコードしか持たないので鍵は固定 (out-of-line key)
 const SNAPSHOT_KEY = 'items'
+// 最後に同期 (保存) した時刻。写しとは別のレコードに持つ (写しの形を変えない)
+const SAVED_AT_KEY = 'items-saved-at'
 
-export async function saveOfflineSnapshot(payload: OfflineSyncPayload): Promise<void> {
+// 同期せずにこれだけ経った写しは読ませずに消す (2026-11 の監査 M-8)。
+// セッションは 90 日で切れるが、端末の写しは明示的なログアウトでしか消えなかった。
+// 圏外では 401 も来ないので、時間でも区切る。普段使いの端末は毎日同期するので
+// 当たらない。貸した端末・眠っていた端末だけが当たる
+export const OFFLINE_SNAPSHOT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+
+export async function saveOfflineSnapshot(
+  payload: OfflineSyncPayload,
+  now: number = Date.now(),
+): Promise<void> {
   await putRecord('snapshot', SNAPSHOT_KEY, payload)
+  await putRecord('snapshot', SAVED_AT_KEY, now)
 }
 
 // 保存が無ければ null。壊れていた (形が違う) ときも null にして、呼び出し側は
-// 「まだ同期していない」と同じ扱いにする — 直す手立ては再同期しかないため
-export async function loadOfflineSnapshot(): Promise<OfflineSyncPayload | null> {
+// 「まだ同期していない」と同じ扱いにする — 直す手立ては再同期しかないため。
+// 最終同期から OFFLINE_SNAPSHOT_MAX_AGE_MS を過ぎていれば、消してから null
+export async function loadOfflineSnapshot(now: number = Date.now()): Promise<OfflineSyncPayload | null> {
   const stored = await getRecord('snapshot', SNAPSHOT_KEY)
-  return stored === undefined ? null : parseSyncPayload(stored)
+  if (stored === undefined) {
+    return null
+  }
+  const savedAt = await getRecord('snapshot', SAVED_AT_KEY)
+  if (typeof savedAt === 'number') {
+    if (now - savedAt > OFFLINE_SNAPSHOT_MAX_AGE_MS) {
+      await clearOfflineData()
+      return null
+    }
+  } else {
+    // 時刻を持たない頃の写し。いま印を付けて、次からは数える
+    await putRecord('snapshot', SAVED_AT_KEY, now)
+  }
+  return parseSyncPayload(stored)
 }
 
 // ログアウト時に消す。端末に残った本文は Cache Storage / IndexedDB のどちらも
@@ -41,6 +67,7 @@ export async function loadOfflineSnapshot(): Promise<OfflineSyncPayload | null> 
 // LogoutButton (clearOfflineData) が持つ。
 export async function clearOfflineSnapshot(): Promise<void> {
   await deleteRecord('snapshot', SNAPSHOT_KEY)
+  await deleteRecord('snapshot', SAVED_AT_KEY)
 }
 
 // Service Worker が持つ棚の名前の頭 (sw.js の SHELL_CACHE / MEDIA_CACHE と対)。

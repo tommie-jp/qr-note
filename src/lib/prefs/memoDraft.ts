@@ -34,8 +34,26 @@ export interface RestoredDraft {
 // まとめて包み、使えない環境では下書き保護なしの通常動作に落とす
 export type DraftStorage = PrefStorage & Pick<Storage, 'removeItem'>
 
+const DRAFT_KEY_PREFIX = 'qr-search:memo-draft:'
+
 export function draftStorageKey(draftKey: string): string {
-  return `qr-search:memo-draft:${draftKey}`
+  return `${DRAFT_KEY_PREFIX}${draftKey}`
+}
+
+// 下書きを全部消す (ログアウト。2026-11 の監査 M-8)。未保存の本文は localStorage に
+// 平文で残るので、持ち出したノート (offline/snapshotDb.ts) と一緒に消す。
+// 鍵の列挙に key(i) を使うのは、Storage に「前方一致で消す」口が無いため
+export function clearMemoDrafts(storage: Pick<Storage, 'length' | 'key' | 'removeItem'>): void {
+  const keys: string[] = []
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i)
+    if (key !== null && key.startsWith(DRAFT_KEY_PREFIX)) {
+      keys.push(key)
+    }
+  }
+  for (const key of keys) {
+    storage.removeItem(key)
+  }
 }
 
 // 壊れた JSON や形の違う値は null (localStorage は外部入力として扱う)

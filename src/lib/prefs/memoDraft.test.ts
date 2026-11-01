@@ -166,3 +166,26 @@ describe('clearDraft', () => {
     expect(() => clearDraft(storage, '1234')).not.toThrow()
   })
 })
+
+// ログアウトで下書きを全部消す (2026-11 の監査 M-8)
+test('clearMemoDrafts は下書きの鍵だけを消す', async () => {
+  const { clearMemoDrafts, draftStorageKey } = await import('./memoDraft')
+  const map = new Map<string, string>([
+    [draftStorageKey('a'), '{}'],
+    [draftStorageKey('b'), '{}'],
+    ['qr-search:note-font-scale', '1.2'],
+  ])
+  const storage = {
+    get length() {
+      return map.size
+    },
+    key: (i: number) => [...map.keys()][i] ?? null,
+    removeItem: (key: string) => {
+      map.delete(key)
+    },
+  }
+
+  clearMemoDrafts(storage)
+
+  expect([...map.keys()]).toEqual(['qr-search:note-font-scale'])
+})

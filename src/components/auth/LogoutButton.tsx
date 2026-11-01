@@ -5,6 +5,7 @@ import { LOGOUT_PATH } from "@/lib/auth/paths";
 import { LogoutIcon } from "@/components/icons";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { clearOfflineData } from "@/lib/offline/snapshotDb";
+import { clearMemoDrafts } from "@/lib/prefs/memoDraft";
 
 // ログアウト (docs/18-ログイン計画.md §11)。
 //
@@ -39,21 +40,28 @@ export function LogoutButton({
       if (!response.ok) {
         throw new Error(`ログアウトに失敗しました (${response.status})`);
       }
-      // 端末に持ち出したノートと添付も消す (docs/65-オフライン対応計画.md)。
-      //
-      // **セッションを切るだけでは足りない。** /offline はログイン不要で
-      // 開けるので、消さずに残すと「ログアウトしたのに端末を触れば全ノートを
-      // 読めて検索もできる」状態になる。
-      //
-      // サーバ側が終わってから消す。先に消してログアウトが失敗すると、
-      // 入ったままなのに手元のノートだけ消えることになる。
-      // この関数は投げない (失敗しても再読み込みまでは必ず進む)
-      await clearOfflineData();
       window.location.reload();
     } catch (error) {
       // 握りつぶさない。「押したのに入ったまま」の原因を追えるようにする
       console.error("ログアウトに失敗しました", error);
       setIsBusy(false);
+    } finally {
+      // 端末に持ち出したノート・添付・未保存の下書きを消す (docs/65-オフライン対応計画.md)。
+      //
+      // **セッションを切るだけでは足りない。** /offline はログイン不要で
+      // 開けるので、消さずに残すと「ログアウトしたのに端末を触れば全ノートを
+      // 読めて検索もできる」状態になる。
+      //
+      // サーバ側の成否に関わらず消す (2026-11 の監査 M-8)。ログアウトを押す動機は
+      // 「この端末から手を離す」で、圏外でサーバに届かなくても端末側は空にしたい。
+      // サーバのセッションが残る心配は、次にオンラインでログアウトし直すか
+      // 「他の端末からログアウト」で片付く。どちらの関数も投げない
+      await clearOfflineData();
+      try {
+        clearMemoDrafts(window.localStorage);
+      } catch (error) {
+        console.warn("下書きを消せませんでした", error);
+      }
     }
   }
 
