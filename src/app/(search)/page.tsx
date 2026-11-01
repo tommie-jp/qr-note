@@ -11,7 +11,6 @@ import { SelectModeProvider } from "@/components/search/SelectModeProvider";
 import { paneBgClass } from "@/components/item/ItemDetail";
 import { isDemoMode } from "@/lib/appEnv";
 import { requireUser } from "@/lib/auth/session";
-import { showsFolderPane } from "@/lib/prefs/paneMode";
 import { readSearchPrefs } from "@/lib/prefs/searchPrefs";
 import { SORT_COOKIE } from "@/lib/prefs/sortMode";
 import { qrStickerHost } from "@/lib/site";
@@ -36,7 +35,7 @@ export default async function Home() {
   const cookieStore = await cookies();
   // 並び順・表示モード・ペイン構成。規則と理由は lib/prefs/searchPrefs.ts。
   // 並び順は URL も見るが、URL は端末が読むので、ここは cookie の値だけを渡す
-  const { view, paneMode } = readSearchPrefs(cookieStore, undefined);
+  const { view } = readSearchPrefs(cookieStore, undefined);
   const cookieSort = parseSort(cookieStore.get(SORT_COOKIE)?.value);
 
   return (
@@ -59,12 +58,14 @@ export default async function Home() {
               isDemo={isDemoMode()}
             />
           </ResultsPaneRoot>
-          {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバー */}
-          {showsFolderPane(paneMode) && (
-            <FolderPaneGate>
-              <FolderPaneClient cookieSort={cookieSort} />
-            </FolderPaneGate>
-          )}
+          {/* 検索フォルダー (docs/86 §5)。xl 以上の固定サイドバー。
+              出すかは端末の門 (FolderPaneGate) が見せている構成で決める。
+              中身は端末が /api/folders から引くので、3 へ切り替えた瞬間に出せる
+              (ノートを端末で開いている間は refresh を遅らせるので、サーバの
+              cookie の値を待つと出なかった。docs/123 §12-3) */}
+          <FolderPaneGate>
+            <FolderPaneClient cookieSort={cookieSort} />
+          </FolderPaneGate>
         </PageTransition>
       </SelectModeProvider>
     </SearchNavProvider>

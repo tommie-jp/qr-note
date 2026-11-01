@@ -186,6 +186,8 @@ export function ImageMasonry({
               // 先読みしない (docs/118 §5)。行 (ItemRowCompact・ItemRowCard) と同じ。
               // 画像表示でも検索 1 回で 16〜20 本の /item の先読みが出ていた
               prefetch={false}
+              // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
+              data-client-note=""
               // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
               data-note-title={item.title.trim() || undefined}
               transitionTypes={["nav-forward"]}

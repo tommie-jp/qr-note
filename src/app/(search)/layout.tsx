@@ -1,7 +1,12 @@
 import { cookies } from "next/headers";
 import { ImageViewerProvider } from "@/components/imageviewer/ImageViewerProvider";
+import { paneBgClass } from "@/components/item/ItemDetail";
+import { ClientNotePane } from "@/components/panes/ClientNotePane";
 import { PaneModeProvider } from "@/components/panes/PaneModeProvider";
+import { isDemoMode } from "@/lib/appEnv";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
+import { SORT_COOKIE } from "@/lib/prefs/sortMode";
+import { parseSort } from "@/lib/validation";
 
 // 検索 3 ペインの layout (docs/86 §2)。検索ページ (children) と、/item への
 // ソフト遷移を横取りしたノート (@detail スロット) を並べるだけ。
@@ -20,7 +25,9 @@ export default async function SearchLayout({
   children: React.ReactNode;
   detail: React.ReactNode;
 }) {
-  const mode = parsePaneMode((await cookies()).get(PANE_MODE_COOKIE)?.value);
+  const cookieStore = await cookies();
+  const mode = parsePaneMode(cookieStore.get(PANE_MODE_COOKIE)?.value);
+  const cookieSort = parseSort(cookieStore.get(SORT_COOKIE)?.value);
 
   return (
     <PaneModeProvider mode={mode}>
@@ -29,6 +36,9 @@ export default async function SearchLayout({
       <ImageViewerProvider>
         {children}
         {detail}
+        {/* 一覧から開いたノートの器 (docs/123 §12)。URL から端末で描く。
+            横取りスロット (detail) は旧番号の解決だけを受け持つ */}
+        <ClientNotePane bgClass={paneBgClass()} isDemo={isDemoMode()} cookieSort={cookieSort} />
       </ImageViewerProvider>
     </PaneModeProvider>
   );

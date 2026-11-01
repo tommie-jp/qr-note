@@ -60,6 +60,8 @@ export function OpenNoteLink({
   return (
     <Link
       href={href}
+      // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
+      data-client-note=""
       transitionTypes={["nav-forward"]}
       onClick={(e) => {
         e.stopPropagation();

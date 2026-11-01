@@ -1,8 +1,10 @@
 import { ItemDetail, paneBgClass } from "@/components/item/ItemDetail";
+import { DetailSlotGate } from "@/components/panes/DetailSlotGate";
 import { PreviewPane } from "@/components/panes/PreviewPane";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth/session";
 import { resolveItemKey } from "@/lib/items/resolve";
+import { isValidItemId } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,12 @@ export default async function ItemPreviewPage({
   searchParams,
 }: ItemPreviewPageProps) {
   const { itemId: key } = await params;
+  // UUID の番号は ClientNotePane が URL から端末で描く (docs/123 §12)。
+  // ここへ来るのは Link のソフト遷移が横取りされたときだけ (本文の表の行・
+  // ペインの外からの router.push)。器を出すと端末側と二重になるので何も描かない
+  if (isValidItemId(key)) {
+    return null;
+  }
   // 旧番号 (/item/1003。シールのスキャンや教科書の本文リンク) もここで解く
   // (docs/107 §3-2)。全画面側 (pageGuard) と違って redirect しない — ペインの
   // 中で転送すると検索画面ごと遷移してしまう。1 件に決まればそのノートを出し、
@@ -42,35 +50,41 @@ export default async function ItemPreviewPage({
   // 壊れたリンクを押したときの受け皿
   if (resolution.kind === "invalid") {
     return (
-      <PreviewPane bgClass={paneBgClass()}>
-        <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
-          不正なノートの指定です。
-        </p>
-      </PreviewPane>
+      <DetailSlotGate pathKey={key}>
+        <PreviewPane bgClass={paneBgClass()}>
+          <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
+            不正なノートの指定です。
+          </p>
+        </PreviewPane>
+      </DetailSlotGate>
     );
   }
   if (resolution.kind === "search") {
     return (
-      <PreviewPane bgClass={paneBgClass()}>
-        <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
-          #{key} のノートを 1 件に決められませんでした。{" "}
-          <Link href={resolution.href} className="underline">
-            検索で探す
-          </Link>
-        </p>
-      </PreviewPane>
+      <DetailSlotGate pathKey={key}>
+        <PreviewPane bgClass={paneBgClass()}>
+          <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
+            #{key} のノートを 1 件に決められませんでした。{" "}
+            <Link href={resolution.href} className="underline">
+              検索で探す
+            </Link>
+          </p>
+        </PreviewPane>
+      </DetailSlotGate>
     );
   }
   const itemId = resolution.itemId;
 
   const { q, sort, saved } = await searchParams;
   return (
-    <ItemDetail
-      itemId={itemId}
-      q={q}
-      sort={sort}
-      saved={saved}
-      shell={{ kind: "pane" }}
-    />
+    <DetailSlotGate pathKey={key}>
+      <ItemDetail
+        itemId={itemId}
+        q={q}
+        sort={sort}
+        saved={saved}
+        shell={{ kind: "pane" }}
+      />
+    </DetailSlotGate>
   );
 }

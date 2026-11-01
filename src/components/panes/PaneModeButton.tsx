@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { refreshRouter } from "@/lib/client/navigation";
 import { setPaneModeAction } from "@/lib/client/actions";
 import { startTransition, type FormEvent } from "react";
 import { PaneModeIcon } from "@/components/icons";
@@ -38,7 +39,7 @@ export function PaneModeButton({
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void switchPaneMode(next, () => {
-      startTransition(() => router.refresh());
+      startTransition(() => refreshRouter(router));
     });
   };
 

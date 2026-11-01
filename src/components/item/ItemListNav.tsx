@@ -75,6 +75,9 @@ function NavSlot({
   return (
     <Link
       href={buildItemUrl(itemId, query, sort)}
+      // 検索画面のペインでは端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)。
+      // 全画面の /item ではふつうの Link のまま
+      data-client-note=""
       transitionTypes={[direction === "prev" ? "nav-back" : "nav-forward"]}
       className={SECONDARY_BUTTON_CLASS}
     >

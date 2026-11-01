@@ -42,6 +42,8 @@ export function ItemRowCompact({ parts, swipe }: ItemRowCompactProps) {
             // 行が画面に入るたびに要求が出て (1 検索で 8〜75 本)、iPhone では
             // 押した直後の要求がその後ろに並んで 287ms 待たされていた
             prefetch={false}
+            // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
+            data-client-note=""
             // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
             data-note-title={parts.hintTitle}
             transitionTypes={["nav-forward"]}

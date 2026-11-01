@@ -103,6 +103,8 @@ export function PropsTable({
                     一覧と学習状況の表 (MatrixTable) も同じコミットで外している */}
                 <Link
                   href={buildItemUrl(row.itemId, query, sort)}
+                  // 検索画面のペインでは端末で開く印 (docs/123 §12)
+                  data-client-note=""
                   className="flex max-w-56 items-baseline"
                   title={row.summary}
                 >

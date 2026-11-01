@@ -108,6 +108,44 @@ test.describe('ノートの一生', () => {
     expect(await page.evaluate(() => '__e2eSoftNav' in window)).toBe(true)
   })
 
+  test('一覧から開くときはサーバへ殻を取りに行かず、戻ると一覧の URL に戻る (docs/123 §12)', async ({
+    page,
+  }) => {
+    // Arrange
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/')
+    await searchFor(page, NOTE.key)
+    const results = searchResults(page)
+    const link = results.getByRole('link', { name: BODY, exact: true })
+    const listUrl = page.url()
+    // /item への RSC (`_rsc=`) を数える。端末で開けば 0 本
+    const itemRscRequests: string[] = []
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (url.pathname.startsWith('/item/') && url.searchParams.has('_rsc')) {
+        itemRscRequests.push(url.pathname)
+      }
+    })
+
+    // Act
+    await link.click()
+    const pane = page.getByRole('region', { name: '選択したノート' })
+    await expectSettledPane(pane)
+    await expect(pane.getByText(BODY).first()).toBeVisible()
+    // 開いた後に遅れて飛ぶ要求も拾う
+    await page.waitForLoadState('networkidle')
+
+    // Assert
+    expect(itemRscRequests.filter((path) => path === `/item/${ITEM_ID}`)).toEqual([])
+
+    // Act: 戻る
+    await page.goBack()
+
+    // Assert: 一覧の URL に戻り、一覧はそのまま残る
+    await expect(page).toHaveURL(listUrl)
+    await expect(results.getByRole('link', { name: BODY, exact: true })).toBeVisible()
+  })
+
   test('スマホ幅の 2 ペインでも、一覧とノートのペインが上下に並ぶ (docs/86 §4-16)', async ({
     page,
   }) => {

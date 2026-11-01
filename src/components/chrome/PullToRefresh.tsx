@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { everythingChanged } from "@/lib/client/invalidate";
 import { useRouter } from "next/navigation";
+import { refreshRouter } from "@/lib/client/navigation";
 import {
   PULL_MAX,
   PULL_THRESHOLD,
@@ -147,7 +148,7 @@ export default function PullToRefresh() {
         // 取り直させ、殻 (サーバ描画の部分) も描き直させる
         everythingChanged();
         startTransition(() => {
-          router.refresh();
+          refreshRouter(router);
         });
       }
     }

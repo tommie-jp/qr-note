@@ -210,6 +210,8 @@ export function MatrixTable({ result, code }: MatrixTableProps) {
                       行き止まりではない */}
                   <Link
                     href={buildItemUrl(row.itemId, query, sort)}
+                    // 検索画面のペインでは端末で開く印 (docs/123 §12)
+                    data-client-note=""
                     className="flex items-baseline gap-2"
                     title={row.summary}
                   >

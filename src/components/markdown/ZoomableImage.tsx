@@ -8,6 +8,7 @@ import {
   type ComponentProps,
 } from "react";
 import { useRouter } from "next/navigation";
+import { refreshRouter } from "@/lib/client/navigation";
 import { errorText } from "@/lib/errorMessage";
 import { pendingRotation } from "@/lib/images/rotationState";
 import { parseUploadResponse } from "@/lib/uploads/uploadResponse";
@@ -111,7 +112,7 @@ export function ZoomableImage({
         // これで新しい本文を初期値にマウントできる (MemoPanel は開くまで遅延)。
         // クライアント状態 (このコンポーネントの currentSrc、開いた overlay、
         // 編集中の CodeMirror) は refresh でも保持される
-        router.refresh();
+        refreshRouter(router);
       },
       (e) => {
         // 失敗は握り潰さず表示に出し、CSS 回転を元へ戻す

@@ -46,6 +46,12 @@ const HIDE_DEV_OVERLAY_SCRIPT = `(() => {
 const SEARCH_HISTORY_ROUTE = '**/api/search-queries**'
 const SEARCH_HISTORY_READ = `${BASE_URL}/api/search-queries`
 
+// テストの終わり (context・page を閉じた後) に届いた route の失敗か
+function isAfterTestEnd(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /Test ended|has been closed|Target closed/.test(message)
+}
+
 async function prepareContext(context: BrowserContext): Promise<void> {
   await context.addInitScript(HIDE_DEV_OVERLAY_SCRIPT)
   await context.route(SEARCH_HISTORY_ROUTE, async (route) => {
@@ -54,8 +60,20 @@ async function prepareContext(context: BrowserContext): Promise<void> {
       return
     }
     // context.request は画面と cookie を共有する (ログイン済みで読める)
-    const current = await context.request.get(SEARCH_HISTORY_READ)
-    await route.fulfill({ response: current })
+    //
+    // **テストが先に終わったら黙って抜ける。** 一覧からノートを開くと記録が
+    // 飛ぶが、ノートは端末で開く (docs/123 §12) のでサーバの往復を待たずに
+    // テストが終わることがある。そのとき読みが「Test ended」で投げ、
+    // 後始末の route の失敗としてテストが落ちていた。それ以外の失敗は投げ直す
+    try {
+      const current = await context.request.get(SEARCH_HISTORY_READ)
+      await route.fulfill({ response: current })
+    } catch (error) {
+      if (isAfterTestEnd(error)) {
+        return
+      }
+      throw error
+    }
   })
 }
 

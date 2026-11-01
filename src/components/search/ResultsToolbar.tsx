@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { refreshRouter } from "@/lib/client/navigation";
 import { startTransition, useCallback, useState } from "react";
 import { SelectIcon, SlideshowIcon } from "@/components/icons";
 import { perfAddField, perfNow, perfStart } from "@/lib/logging/perfClient";
@@ -81,7 +82,7 @@ export function ResultsToolbar({
       const pressedAt = perfNow();
       perfStart("表示", "/", undefined, [["切替", `${shownView}→${next}`]]);
       void switchViewMode(next, () => {
-        startTransition(() => router.refresh());
+        startTransition(() => refreshRouter(router));
       });
       // 押してから新しいモードが画面に出るまで (2 フレーム目 = 描き替えの後の描画)
       requestAnimationFrame(() =>
