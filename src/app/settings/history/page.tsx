@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ClientActionForm } from "@/components/client/ClientActionForm";
 import { PRIMARY_BUTTON_CLASS } from "@/components/ui";
-import { requireSettingsPage } from "@/lib/auth/pageGuard";
+import { requireAdminPage } from "@/lib/auth/pageGuard";
 
 // サイト名は付けない。root layout の title.template が付ける
 export const metadata: Metadata = {
@@ -22,8 +22,10 @@ interface HistorySettingsPageProps {
 export default async function HistorySettingsPage({
   searchParams,
 }: HistorySettingsPageProps) {
-  // デモでは履歴機能ごと閉じている (docs/57 §4)。URL 直打ちに備えて 404 に倒す
-  await requireSettingsPage();
+  // デモでは履歴機能ごと閉じている (docs/57 §4)。URL 直打ちに備えて 404 に倒す。
+  // 全ノートを git へ書き込む重い操作なので管理者だけ (2026-11 の監査 M-5。
+  // 口の側 api/history/backfill も guardAdminRequest)
+  await requireAdminPage();
   const { done } = await searchParams;
 
   return (

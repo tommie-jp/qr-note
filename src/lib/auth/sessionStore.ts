@@ -23,6 +23,9 @@ export interface IssuedSession {
 export interface ActiveSession {
   userName: string
   expiresAt: Date
+  // 発行時刻。延長 (renewSession) では動かない。「ログインし直したばかりか」の
+  // 判定 (auth/stepUp.ts) に使う
+  createdAt: Date
 }
 
 // ログイン成功時に呼ぶ。生のトークンを返し、DB にはハッシュだけを残す。
@@ -73,7 +76,7 @@ export async function findActiveSession(
     return null
   }
 
-  return { userName: row.userName, expiresAt: row.expiresAt }
+  return { userName: row.userName, expiresAt: row.expiresAt, createdAt: row.createdAt }
 }
 
 // 期限を延ばす。呼ぶ頃合いの判定は shouldRenewSession() (auth/sessionToken.ts)。
@@ -101,6 +104,28 @@ export async function destroySession(token: string | null): Promise<void> {
     .catch(() => {
       // 消えていればそれでよい
     })
+}
+
+// その利用者の**他の端末**のセッションを消す (2026-11 の監査 M-6)。いま使っている
+// トークン (keepToken) の行だけ残す。消した行数を返す。
+//
+// パスキーの削除と「他の端末からログアウト」が呼ぶ。鍵を消しても、その端末が
+// 持っているセッションは 90 日のスライディングで生き続ける — 紛失した端末の鍵を
+// 消せることを重く見た設計 (docs/29 §8) なのに、セッションは残るのでは片手落ちだった。
+// keepToken が無ければ (Cookie 無しで呼ばれた) 全部消す
+export async function destroyOtherSessions(
+  userName: string,
+  keepToken: string | null,
+): Promise<number> {
+  const keepHash =
+    keepToken === null || keepToken.length === 0 ? null : hashSessionToken(keepToken)
+  const { count } = await prisma.session.deleteMany({
+    where: {
+      userName,
+      ...(keepHash === null ? {} : { tokenHash: { not: keepHash } }),
+    },
+  })
+  return count
 }
 
 export async function deleteExpiredSessions(now: Date = new Date()): Promise<number> {

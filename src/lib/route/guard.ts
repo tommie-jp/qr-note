@@ -1,7 +1,9 @@
 import type { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/appEnv'
+import { isAdminUser } from '@/lib/auth/admin'
 import { isCrossSiteRequest } from '@/lib/auth/crossSite'
-import { currentUser } from '@/lib/auth/session'
+import { currentSession, currentUser } from '@/lib/auth/session'
+import { isRecentLogin, REAUTH_REQUIRED_MESSAGE } from '@/lib/auth/stepUp'
 import { apiFail } from './respond'
 
 // route handler 用の門番 (docs/18-ログイン計画.md)。
@@ -55,6 +57,48 @@ export async function guardRequest(
   }
 
   return { ok: true, user }
+}
+
+// 管理者だけの口 (docs/109-サーバー情報計画.md §2。2026-11 の監査 M-5 で共通化)。
+// guardRequest の 3 つを通した上で、isAdminUser (env ADMIN_USER との一致) で
+// なければ 403。対象は運用系 — ログの消去・計測の切替と取得鍵・履歴の
+// バックフィル・ベンチマーク・プロファイル。いまは利用者が 1 名なので実害は
+// 無いが、線引きを口ごとに書くと多人数化したときに片方だけ開いたまま残る。
+//
+// 404 ではなく 403 にするのは API だから (画面は requireAdminPage が 404 に倒す)。
+// 導線は管理者にしか出していないので、ここに来るのは URL を知っている人だけ
+export async function guardAdminRequest(
+  request: Request,
+  options: GuardOptions,
+): Promise<GuardResult> {
+  const guard = await guardRequest(request, options)
+  if (!guard.ok) {
+    return guard
+  }
+  if (!isAdminUser(guard.user)) {
+    console.warn(`管理者でないユーザーが管理者の口を叩いた (user=${guard.user})`)
+    return { ok: false, response: apiFail('管理者だけが使えます', 403) }
+  }
+  return guard
+}
+
+// 「ログインし直したばかり」を要求する口 (auth/stepUp.ts。2026-11 の監査 M-6)。
+// パスキーの登録・削除、鍵束の設定、他端末の失効が使う。guardRequest の 3 つを
+// 通した上で、セッションの発行時刻が RECENT_LOGIN_MAX_AGE_MS より古ければ 403。
+// 文言は画面が「ログインし直す」導線を出す手がかりにする
+export async function guardRecentLogin(
+  request: Request,
+  options: GuardOptions,
+): Promise<GuardResult> {
+  const guard = await guardRequest(request, options)
+  if (!guard.ok) {
+    return guard
+  }
+  const session = await currentSession()
+  if (session === null || !isRecentLogin(session.createdAt)) {
+    return { ok: false, response: apiFail(REAUTH_REQUIRED_MESSAGE, 403) }
+  }
+  return guard
 }
 
 // 第三者のページから動かされた呼び出しを断る (docs/18-ログイン計画.md §9)。

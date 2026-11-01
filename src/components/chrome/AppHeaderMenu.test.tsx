@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import { SECRET_SETTINGS_PATH } from "@/lib/secret/secrets";
 import { AppHeaderMenu } from "./AppHeaderMenu";
@@ -25,12 +25,28 @@ const renderItems = (
 };
 
 const SETTINGS_LINKS = [
-  'href="/logs"',
   `href="${PASSKEY_SETTINGS_PATH}"`,
   `href="${SECRET_SETTINGS_PATH}"`,
   'href="/settings/import"',
-  'href="/settings/history"',
 ];
+
+// 管理者 (env ADMIN_USER と一致) にだけ出す運用系 (2026-11 の監査 M-5)
+const ADMIN_LINKS = ['href="/logs"', 'href="/settings/history"', 'href="/settings/server"'];
+
+test("運用系 (ログ・履歴取り込み・サーバー情報) は管理者にだけ出す", () => {
+  // Arrange
+  vi.stubEnv("ADMIN_USER", "tommie");
+  const admin = renderItems();
+  vi.stubEnv("ADMIN_USER", "someone-else");
+  const member = renderItems();
+  vi.unstubAllEnvs();
+
+  // Assert
+  for (const link of ADMIN_LINKS) {
+    expect(admin).toContain(link);
+    expect(member).not.toContain(link);
+  }
+});
 
 test("誰にでも QR・GitHub・クレジット・テキストサイズを出す", () => {
   // Arrange / Act

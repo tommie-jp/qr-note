@@ -2,17 +2,20 @@ import { generateRegistrationOptions } from '@simplewebauthn/server'
 import type { NextResponse } from 'next/server'
 import { apiPasskeyDisabled } from '@/lib/auth/api'
 import { listCredentialDescriptors } from '@/lib/auth/passkeys'
-import { guardRequest } from '@/lib/route/guard'
+import { guardRecentLogin } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 import { rememberChallenge } from '@/lib/auth/webauthnChallenge'
 import { stableUserHandle, webauthnConfig } from '@/lib/auth/webauthnConfig'
 
 // パスキー登録の 1 歩目 — チャレンジを配る (docs/29-パスキー計画.md §6)。
 //
-// **門番は既存の requireUser 系そのまま**。ここが「登録には既にログインして
-// いることが要る」を担保する唯一の場所で、それが Basic 認証を残した理由の
-// 半分でもある (docs/29 §2)。初回はパスワードで入って登録し、2 台目からは
-// パスキーで入ったまま同じ口で追加登録できる。
+// **門番はログイン + 「ログインし直して 10 分以内」** (route/guard.ts の
+// guardRecentLogin。2026-11 の監査 M-6)。ここが「登録には既にログインしている
+// ことが要る」を担保する唯一の場所で、それが Basic 認証を残した理由の半分でも
+// ある (docs/29 §2)。初回はパスワードで入って登録し、2 台目からはパスキーで
+// 入ったまま同じ口で追加登録できる。セッションの有無だけで通すと、盗まれた
+// セッションで攻撃者の認証器を足され、持ち主が鍵を消しても入り直せる
+// バックドアになる。
 // PRF 拡張の登録時の入力 (lib/secret/prf.ts の PrfExtensionInput と対)
 interface PrfRegistrationInput {
   prf: Record<string, never>
@@ -21,7 +24,7 @@ interface PrfRegistrationInput {
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは登録を閉じる (docs/38 §4)。共有アカウントに他人がパスキーを
   // 足せてしまうため。ログインの有無より前に断つ
-  const guard = await guardRequest(request, { demo: 'deny' })
+  const guard = await guardRecentLogin(request, { demo: 'deny' })
   if (!guard.ok) {
     return guard.response
   }

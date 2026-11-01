@@ -1,6 +1,7 @@
 import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { mp4WithHandlers, webmFile } from '@/lib/uploads/sniff/__fixtures__/media'
+import { leakedMarkers, makePhoto } from '@/test/photoFixtures'
 import { failEnvelope, jsonContract, okEnvelope, responseContract } from '@/test/routeResponse'
 
 // サーバ経由のクリップボードの画像の口 (docs/114-サーバクリップボード計画.md §2)。
@@ -21,7 +22,16 @@ const mocks = vi.hoisted(() => ({
   validToken: 'valid-session-token',
   image: null as { mime: string; data: Uint8Array; name: string | null } | null,
   written: [] as Array<{ user: string; mime: string; bytes: number; name?: string }>,
+  // 置いたバイト列そのもの (撮影情報が消えているかを見る)
+  writtenData: [] as Uint8Array[],
   previews: [] as Array<{ hasThumb: boolean; preview: string | null }>,
+  // 「写真の撮影情報」の設定 (docs/113)。既定は残す — 上の署名だけの fixture は
+  // 除去器が読めない。消す側は下の「撮影情報」の describe が本物の写真で見る
+  photoMeta: 'keep' as 'keep' | 'strip',
+}))
+
+vi.mock('@/lib/prefs/photoMetaStore', () => ({
+  loadPhotoMetaMode: async () => mocks.photoMeta,
 }))
 
 vi.mock('next/headers', async () => {
@@ -40,7 +50,7 @@ vi.mock('next/headers', async () => {
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
-      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
+      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
 }))
 
@@ -54,6 +64,7 @@ vi.mock('@/lib/clipboard/slotStore', () => ({
     preview?: { thumb?: Uint8Array | null; preview?: string | null },
   ) => {
     mocks.written.push({ user, mime, bytes: data.byteLength, ...(name ? { name } : {}) })
+    mocks.writtenData.push(data)
     mocks.previews.push({ hasThumb: Boolean(preview?.thumb), preview: preview?.preview ?? null })
     return { kind: 'image', bytes: data.byteLength, updatedAt: '2026-10-25T12:00:00.000Z' }
   },
@@ -76,7 +87,9 @@ beforeEach(() => {
   mocks.sessionToken = mocks.validToken
   mocks.image = null
   mocks.written = []
+  mocks.writtenData = []
   mocks.previews = []
+  mocks.photoMeta = 'keep'
 })
 
 afterEach(() => {
@@ -427,6 +440,39 @@ describe('PUT', () => {
     const res = await PUT(putRequest(big))
 
     expect(res.status).toBe(413)
+    expect(mocks.written).toEqual([])
+  })
+})
+
+// 撮影情報 (docs/114 §11。2026-11 の監査 M-12)。添付の保存と同じ設定で枠からも消す
+describe('PUT: 撮影情報', () => {
+  test('「消す」なら GPS 付き JPEG の撮影情報を抜いてから置く', async () => {
+    mocks.photoMeta = 'strip'
+    const photo = await makePhoto('jpeg', { exif: true })
+    expect(leakedMarkers(photo)).not.toEqual([])
+
+    const res = await PUT(putRequest(photo))
+
+    expect(res.status).toBe(200)
+    expect(mocks.written[0]?.mime).toBe('image/jpeg')
+    expect(leakedMarkers(mocks.writtenData[0])).toEqual([])
+  })
+
+  test('「残す」なら原本のまま置く', async () => {
+    mocks.photoMeta = 'keep'
+    const photo = await makePhoto('jpeg', { exif: true })
+
+    await PUT(putRequest(photo))
+
+    expect(Buffer.from(mocks.writtenData[0]).equals(Buffer.from(photo))).toBe(true)
+  })
+
+  test('消せない写真は置かずに 400 (残したまま渡さない)', async () => {
+    mocks.photoMeta = 'strip'
+    // 署名だけで中身の無い JPEG は除去器が読めない
+    const res = await PUT(putRequest(JPEG))
+
+    expect(res.status).toBe(400)
     expect(mocks.written).toEqual([])
   })
 })

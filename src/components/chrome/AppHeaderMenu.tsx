@@ -105,16 +105,19 @@ export function AppHeaderMenu({
                   未ログインでは保存する相手がおらず、デモは共有アカウント
                   なので 1 人が変えると同時に見ている全員の色が変わる */}
               <RowTintMenuItem value={rowTintId} />
-              {/* サーバログ (docs/21)。未ログインではリンク自体を出さない —
-                  見えても 401 だが、押せない物を見せない */}
-              <Link href="/logs" className={HEADER_MENU_ITEM_CLASS}>
-                <LogIcon />
-                ログ
-              </Link>
+              {/* サーバログ (docs/21)。**管理者だけ** (2026-11 の監査 M-5) — サーバの
+                  警告 (Prisma のエラーなど) が載るので、ページ側 (requireAdminPage) も
+                  同じ判定で 404 に倒す。押せない物は見せない */}
+              {isAdminUser(user) && (
+                <Link href="/logs" className={HEADER_MENU_ITEM_CLASS}>
+                  <LogIcon />
+                  ログ
+                </Link>
+              )}
               {/* 計測テスト (docs/120-計測テスト自動化計画.md)。ログの隣に置く —
-                  結果を読むのは /logs?perf=1 で、どちらも診断系。
-                  切替の口 (api/logs/perf) がデモを断るので、デモでは出さない */}
-              <PerfTestMenuItem running={isPerfLogEnabled()} />
+                  結果を読むのは /logs?perf=1 で、どちらも診断系。切替はプロセス
+                  全体に効くので管理者だけ (切替の口 api/logs/perf も同じ判定) */}
+              {isAdminUser(user) && <PerfTestMenuItem running={isPerfLogEnabled()} />}
               {/* サーバー情報 (docs/109-サーバー情報計画.md)。**管理者だけ** —
                   判定は isAdminUser (env ADMIN_USER との一致) の 1 か所で、
                   ページ側 (requireAdminPage) も同じ判定で 404 に倒す。
@@ -182,10 +185,12 @@ export function AppHeaderMenu({
               {/* 既存ノートの git 履歴への取り込み (docs/57-ノートgit
                   履歴計画.md §6)。ほぼ一度きりの操作だが、導線が
                   ここしか無いので出しておく (インポートと同じ判断) */}
-              <Link href="/settings/history" className={HEADER_MENU_ITEM_CLASS}>
-                <HistoryIcon />
-                履歴取り込み
-              </Link>
+              {isAdminUser(user) && (
+                <Link href="/settings/history" className={HEADER_MENU_ITEM_CLASS}>
+                  <HistoryIcon />
+                  履歴取り込み
+                </Link>
+              )}
             </>
           )}
           <LogoutButton variant="menu" />

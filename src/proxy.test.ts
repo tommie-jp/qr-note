@@ -202,7 +202,7 @@ describe('素通し (セッションを引かない)', () => {
 
 describe('ログイン済み', () => {
   test('有効なセッションなら通し、延長の頃合いでなければ Cookie に触らない', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
 
     const res = await proxy(loggedIn('/settings'))
 
@@ -212,7 +212,7 @@ describe('ログイン済み', () => {
   })
 
   test('API の POST も通す', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
 
     const res = await proxy(loggedIn('/api/items', { method: 'POST' }))
 
@@ -220,7 +220,7 @@ describe('ログイン済み', () => {
   })
 
   test('延長の頃合いなら DB を延ばし、Cookie の Max-Age も貼り直す', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: renewableExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: renewableExpiry(), createdAt: new Date() })
 
     const res = await proxy(loggedIn('/trash'))
 
@@ -237,7 +237,7 @@ describe('ログイン済み', () => {
 
   // 延長は「90 日が 90 日に戻らなかった」だけ。締め出す理由にしない
   test('延長に失敗しても Cookie を貼らずに通す', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: renewableExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: renewableExpiry(), createdAt: new Date() })
     vi.mocked(renewSession).mockRejectedValue(new Error('DB が落ちた'))
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -293,7 +293,7 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
   const ID = '01a14854-8d04-732d-8712-f52debf9e66a'
 
   test('1 件に決まれば 308 で id の URL へ。続きとクエリは保つ', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
     vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'legacy', itemId: ID })
 
     const res = await proxy(loggedIn('/item/1003/history?done=noop'))
@@ -304,7 +304,7 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
   })
 
   test('ログイン済みで決まらなければ 307 で検索へ', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
     vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'search', href: '/?q=%231003' })
 
     const res = await proxy(loggedIn('/item/1003'))
@@ -327,7 +327,7 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
   })
 
   test('印刷・編集の旧 URL も付け替える', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
     vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'legacy', itemId: ID })
 
     expect((await proxy(loggedIn('/print/1003'))).headers.get('location')).toBe(
@@ -339,7 +339,7 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
   })
 
   test('短縮 URL /s/<番号> は /item/<id> へ 308 (docs/111)', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
     vi.mocked(resolveItemKey).mockResolvedValue({ kind: 'legacy', itemId: ID })
 
     const res = await proxy(loggedIn('/s/1234'))
@@ -360,11 +360,49 @@ describe('旧番号の URL (docs/107 §3-2)', () => {
   })
 
   test('id の URL と、GET 以外では引かない', async () => {
-    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry() })
+    vi.mocked(findActiveSession).mockResolvedValue({ userName: 'tommie', expiresAt: freshExpiry(), createdAt: new Date() })
 
     expect(verdict(await proxy(loggedIn(`/item/${ID}`)))).toEqual(PASS)
     await proxy(loggedIn('/item/1003', { method: 'POST' }))
 
     expect(resolveItemKey).not.toHaveBeenCalled()
+  })
+})
+
+// Content-Security-Policy (lib/security/csp.ts。2026-11 の監査 M-1)。通す応答には
+// 要求ごとの nonce 入りの CSP を付け、同じ nonce を要求ヘッダ (x-nonce) で
+// layout と Next.js 本体に渡す
+describe('Content-Security-Policy', () => {
+  test('ログイン済みの頁には nonce 入りの CSP と報告先を付ける', async () => {
+    vi.mocked(findActiveSession).mockResolvedValue({
+      userName: 'tommie',
+      expiresAt: freshExpiry(),
+      createdAt: new Date(),
+    })
+
+    const res = await proxy(loggedIn('/settings'))
+
+    const csp = res.headers.get('Content-Security-Policy') ?? ''
+    expect(csp).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'wasm-unsafe-eval'/)
+    expect(csp).toContain("frame-ancestors 'none'")
+    expect(csp).toContain('report-uri /api/csp-report')
+    expect(res.headers.get('Reporting-Endpoints')).toBe('csp="/api/csp-report"')
+    // 要求側にも同じ nonce (Next の inline script と layout が読む)
+    const nonce = /'nonce-([^']+)'/.exec(csp)?.[1]
+    expect(res.headers.get('x-middleware-request-x-nonce')).toBe(nonce)
+  })
+
+  test('公開パスと未ログインの案内 (rewrite) にも付ける', async () => {
+    const pub = await proxy(pageRequest('/docs/memo'))
+    expect(pub.headers.get('Content-Security-Policy')).toContain("default-src 'self'")
+
+    const notice = await proxy(pageRequest('/settings'))
+    expect(notice.headers.get('Content-Security-Policy')).toContain("default-src 'self'")
+  })
+
+  test('nonce は要求ごとに変わる', async () => {
+    const a = (await proxy(pageRequest('/docs/memo'))).headers.get('Content-Security-Policy')
+    const b = (await proxy(pageRequest('/docs/memo'))).headers.get('Content-Security-Policy')
+    expect(a).not.toBe(b)
   })
 })

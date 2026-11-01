@@ -3,22 +3,19 @@
 import os from 'node:os'
 import { cookies } from 'next/headers'
 import type { NextResponse } from 'next/server'
-import { isAdminUser } from '@/lib/auth/admin'
 import { startBenchmark } from '@/lib/diag/benchmark'
 import { startJob } from '@/lib/diag/benchJob'
 import { loadBenchStatus } from '@/lib/diag/benchStatus'
 import { pageBenchCookie, runServerBench } from '@/lib/diag/serverBench'
 import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
-import { guardRequest } from '@/lib/route/guard'
+import { guardAdminRequest } from '@/lib/route/guard'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
 
+// 管理者の判定は route/guard.ts の guardAdminRequest に揃える (監査 M-5 で共通化)
 async function guardAdmin(request: Request): Promise<NextResponse | null> {
-  const guard = await guardRequest(request, { demo: 'deny' })
-  if (!guard.ok) {
-    return guard.response
-  }
-  return isAdminUser(guard.user) ? null : apiFail('管理者だけが計測できます', 403)
+  const guard = await guardAdminRequest(request, { demo: 'deny' })
+  return guard.ok ? null : guard.response
 }
 
 export async function GET(request: Request): Promise<NextResponse> {

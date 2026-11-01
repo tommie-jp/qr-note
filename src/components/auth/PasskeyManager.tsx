@@ -8,7 +8,9 @@ import {
   MEMO_INPUT_CLASS,
   PRIMARY_BUTTON_CLASS,
 } from "@/components/ui";
-import { PASSKEYS_PATH } from "@/lib/auth/paths";
+import Link from "next/link";
+import { PASSKEY_SETTINGS_PATH, PASSKEYS_PATH, SESSIONS_PATH } from "@/lib/auth/paths";
+import { LOGIN_PATH } from "@/lib/auth/loginRedirect";
 import { errorText } from "@/lib/errorMessage";
 import { PASSKEY_LABEL_MAX } from "@/lib/auth/passkeyLabel";
 import { PasskeyCancelledError, registerPasskey } from "@/lib/auth/passkeyClient";
@@ -33,8 +35,46 @@ interface PasskeyManagerProps {
 export function PasskeyManager({ passkeys, isEnabled }: PasskeyManagerProps) {
   const router = useRouter();
   const [label, setLabel] = useState("");
-  const [busy, setBusy] = useState<"register" | "delete" | null>(null);
+  const [busy, setBusy] = useState<"register" | "delete" | "revoke" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // 登録・削除・他端末の失効は「ログインし直して 10 分以内」だけ通る
+  // (lib/auth/stepUp.ts)。断られた文言にはログインし直す導線を添える。
+  // ログイン後はこの画面へ戻る (next)
+  const reloginHref = `${LOGIN_PATH}?next=${encodeURIComponent(PASSKEY_SETTINGS_PATH)}`;
+  const needsRelogin = error !== null && error.includes("ログインし直");
+
+  // 他の端末のセッションを全部消す (api/auth/sessions。2026-11 の監査 M-6)。
+  // 端末を失くしたときに、鍵の削除と別に押せる口
+  async function handleRevokeOthers() {
+    if (!window.confirm("この端末以外のログインをすべて無効にしますか?")) {
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setBusy("revoke");
+    try {
+      const response = await fetch(SESSIONS_PATH, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const body = (await response.json()) as {
+        success: boolean;
+        data: { revokedSessions: number } | null;
+        error: string | null;
+      };
+      if (!response.ok || !body.success || body.data === null) {
+        throw new Error(body.error ?? `失効できませんでした (${response.status})`);
+      }
+      setNotice(`他の端末のログイン ${body.data.revokedSessions} 件を無効にしました`);
+    } catch (cause) {
+      console.error("他端末のセッション失効に失敗しました", cause);
+      setError(errorText(cause, "失効できませんでした"));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function handleRegister() {
     setError(null);
@@ -68,7 +108,10 @@ export function PasskeyManager({ passkeys, isEnabled }: PasskeyManagerProps) {
         { method: "DELETE", credentials: "same-origin" },
       );
       if (!response.ok) {
-        throw new Error(`削除できませんでした (${response.status})`);
+        const body = (await response.json().catch(() => null)) as {
+          error?: string | null;
+        } | null;
+        throw new Error(body?.error ?? `削除できませんでした (${response.status})`);
       }
       router.refresh();
     } catch (cause) {
@@ -116,8 +159,17 @@ export function PasskeyManager({ passkeys, isEnabled }: PasskeyManagerProps) {
         {error && (
           <p role="alert" className="text-sm text-red-700">
             {error}
+            {needsRelogin && (
+              <>
+                {" "}
+                <Link href={reloginHref} className="underline">
+                  ログインし直す
+                </Link>
+              </>
+            )}
           </p>
         )}
+        {notice && <p className="text-sm text-gray-700">{notice}</p>}
       </section>
 
       <section className="space-y-3">
@@ -154,6 +206,22 @@ export function PasskeyManager({ passkeys, isEnabled }: PasskeyManagerProps) {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className={`${BOX_CLASS} space-y-3 py-4`}>
+        <h2 className="font-bold">他の端末からログアウト</h2>
+        <p className="text-sm text-gray-600">
+          端末を失くしたときなどに、この端末以外のログインをすべて無効にします。
+          パスキーを削除したときは自動で行われます。
+        </p>
+        <button
+          type="button"
+          onClick={handleRevokeOthers}
+          disabled={busy !== null}
+          className={DANGER_BUTTON_CLASS}
+        >
+          {busy === "revoke" ? "処理中…" : "他の端末からログアウト"}
+        </button>
       </section>
     </div>
   );

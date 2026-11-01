@@ -3,11 +3,11 @@ import { revalidatePath } from 'next/cache'
 import type { NextResponse } from 'next/server'
 import { runCommand } from '@/lib/api/runCommand'
 import { backfillHistory } from '@/lib/commands/historyCommands'
-import { guardRequest } from '@/lib/route/guard'
+import { guardAdminRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const guard = await guardRequest(request, { demo: 'deny' })
+  const guard = await guardAdminRequest(request, { demo: 'deny' })
   if (!guard.ok) {
     return guard.response
   }

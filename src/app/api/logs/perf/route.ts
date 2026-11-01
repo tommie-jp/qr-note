@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { setPerfLogEnabled } from '@/lib/logging/perfSwitch'
-import { guardRequest } from '@/lib/route/guard'
+import { guardAdminRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 
 const BAD_PAYLOAD = '計測の切替の形式が不正です'
@@ -11,7 +11,7 @@ const BAD_PAYLOAD = '計測の切替の形式が不正です'
 // 切り替えた値はプロセスの中に持つので、全端末に効く。ブラウザ側の観測は
 // root layout が描くかどうかで決まるため、各端末は**読み込み直して**から効く
 export async function POST(request: Request): Promise<NextResponse> {
-  const guard = await guardRequest(request, { demo: 'deny' })
+  const guard = await guardAdminRequest(request, { demo: 'deny' })
   if (!guard.ok) {
     return guard.response
   }

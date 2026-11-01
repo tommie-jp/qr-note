@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server'
 import { clearLogBuffer, clearPerfLines } from '@/lib/logging/buffer'
-import { guardRequest } from '@/lib/route/guard'
+import { guardAdminRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 
 // ログの控えを消す (docs/30-ブラウザログ計画.md §7)。/logs のクリアボタンが呼ぶ。
@@ -11,7 +11,7 @@ import { apiOk } from '@/lib/route/respond'
 // 調査中の証拠を消せてしまう。
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは /logs を閉じる (docs/38 §4。表示・転送・消去をまとめて塞ぐ)
-  const guard = await guardRequest(request, { demo: 'deny' })
+  const guard = await guardAdminRequest(request, { demo: 'deny' })
   if (!guard.ok) {
     return guard.response
   }

@@ -170,9 +170,20 @@ describe('readSecretBody', () => {
 
   test('本文を読めなければ 400 にして原因はログに残す', async () => {
     // Arrange
-    const request = putRequest({ [SECRET_MIME_HEADER]: 'text/markdown' })
+    // 本文は読みながら数える (route/boundedBody.ts) ので、途中で切れる stream を渡す
     const cause = new TypeError('terminated')
-    vi.spyOn(request, 'arrayBuffer').mockRejectedValueOnce(cause)
+    const broken = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(cause)
+      },
+    })
+    const request = new Request(URL_, {
+      method: 'PUT',
+      headers: { [SECRET_MIME_HEADER]: 'text/markdown' },
+      body: broken,
+      // @ts-expect-error Node の fetch は stream の本文に duplex を要求する (型には無い)
+      duplex: 'half',
+    })
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // Act

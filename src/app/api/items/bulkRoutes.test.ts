@@ -25,7 +25,7 @@ vi.mock('next/headers', async () => {
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
-      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
+      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
 }))
 vi.mock('@/lib/commands/bulkCommands', () => ({ applyBulkTags: vi.fn(), setOfflinePins: vi.fn() }))

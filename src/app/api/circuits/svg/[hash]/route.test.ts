@@ -22,7 +22,7 @@ vi.mock('next/headers', async () => {
 })
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
-    token === 'valid' ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') } : null,
+    token === 'valid' ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() } : null,
 }))
 vi.mock('@/lib/db', () => ({
   prisma: { circuitSvg: { findUnique: (...args: unknown[]) => mocks.findUnique(...args) } },

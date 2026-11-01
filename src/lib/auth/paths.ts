@@ -11,6 +11,8 @@ export const PASSKEY_LOGIN_OPTIONS_PATH = '/api/auth/passkey/login-options'
 export const PASSKEY_LOGIN_VERIFY_PATH = '/api/auth/passkey/login-verify'
 export const LOGOUT_PATH = '/api/auth/logout'
 export const PASSKEYS_PATH = '/api/auth/passkeys'
+// 他の端末のセッションを消す口 (DELETE。2026-11 の監査 M-6)。ログイン必須
+export const SESSIONS_PATH = '/api/auth/sessions'
 
 // パスキーの管理画面
 export const PASSKEY_SETTINGS_PATH = '/settings/passkeys'

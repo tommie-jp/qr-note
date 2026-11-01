@@ -15,15 +15,22 @@
 
 import { cookies } from 'next/headers'
 import { cache } from 'react'
-import { resolveUser } from './requestAuth'
+import { resolveSession, type RequestSession } from './requestAuth'
 import { SESSION_COOKIE_NAME } from './sessionToken'
 
 // React の cache() で 1 レンダリングパスにつき 1 回に畳む。ページと
-// そこに置いた各コンポーネントが別々に呼んでも、照合は 1 回で済む
-export const currentUser = cache(async (): Promise<string | null> => {
+// そこに置いた各コンポーネントが別々に呼んでも、照合は 1 回で済む。
+//
+// セッションそのもの (発行時刻を含む) を返す。「ログインし直したばかりか」
+// (auth/stepUp.ts) の判定に要る。名前だけでよい呼び出し側は currentUser
+export const currentSession = cache(async (): Promise<RequestSession | null> => {
   const cookieStore = await cookies()
-  return resolveUser(cookieStore.get(SESSION_COOKIE_NAME)?.value ?? null)
+  return resolveSession(cookieStore.get(SESSION_COOKIE_NAME)?.value ?? null)
 })
+
+export async function currentUser(): Promise<string | null> {
+  return (await currentSession())?.userName ?? null
+}
 
 // requireUser() が投げる印。通常の経路では proxy.ts が先に止めるため、
 // これが飛ぶのは「門番をすり抜けた」ときだけ。握りつぶさず 500 で落とす

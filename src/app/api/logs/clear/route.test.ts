@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   validToken: 'valid-session-token',
 }))
 
+// 運用系の口は管理者だけ (route/guard.ts の guardAdminRequest。2026-11 の監査 M-5)。
+// モックのセッションの利用者を管理者にする
+process.env.ADMIN_USER = 'tommie'
+
 vi.mock('next/headers', async () => {
   const { SESSION_COOKIE_NAME } = await import('@/lib/auth/sessionToken')
   return {
@@ -25,7 +29,7 @@ vi.mock('next/headers', async () => {
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
-      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
+      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
 }))
 

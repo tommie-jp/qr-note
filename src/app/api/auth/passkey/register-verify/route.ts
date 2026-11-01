@@ -4,7 +4,7 @@ import type { NextResponse } from 'next/server'
 import { apiPasskeyDisabled } from '@/lib/auth/api'
 import { normalizePasskeyLabel } from '@/lib/auth/passkeyLabel'
 import { savePasskey } from '@/lib/auth/passkeys'
-import { guardRequest } from '@/lib/route/guard'
+import { guardRecentLogin } from '@/lib/route/guard'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
 import { consumeChallenge } from '@/lib/auth/webauthnChallenge'
@@ -14,7 +14,7 @@ import { webauthnConfig } from '@/lib/auth/webauthnConfig'
 // (docs/29-パスキー計画.md §6)。
 export async function POST(request: Request): Promise<NextResponse> {
   // デモでは登録を閉じる (docs/38 §4。register-options と対で塞ぐ)
-  const guard = await guardRequest(request, { demo: 'deny' })
+  const guard = await guardRecentLogin(request, { demo: 'deny' })
   if (!guard.ok) {
     return guard.response
   }
@@ -75,6 +75,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error('パスキーの保存に失敗しました', error)
     return apiFail('このパスキーは既に登録されています', 409)
   }
+
+  // 登録はサーバログに残す (/logs)。盗まれたセッションでの登録は再認証の門で
+  // 止めるが、万一通ったときに「知らない鍵が増えた」に後から気づけるようにする
+  console.info(`パスキーを登録しました (user=${guard.user}, label=${label}, id=${credential.id})`)
 
   return apiOk({ id: credential.id, label }, 201)
 }

@@ -7,6 +7,7 @@ vi.mock('./sessionStore', () => ({ findActiveSession: vi.fn() }))
 const findActiveSessionMock = vi.mocked(findActiveSession)
 
 const EXPIRES_AT = new Date('2026-10-17T00:00:00.000Z')
+const CREATED_AT = new Date('2026-07-19T00:00:00.000Z')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -15,11 +16,12 @@ beforeEach(() => {
 
 describe('resolveSession', () => {
   test('returns the user behind a valid session cookie', async () => {
-    findActiveSessionMock.mockResolvedValue({ userName: 'tommie', expiresAt: EXPIRES_AT })
+    findActiveSessionMock.mockResolvedValue({ userName: 'tommie', expiresAt: EXPIRES_AT, createdAt: CREATED_AT })
 
     expect(await resolveSession('token')).toEqual({
       userName: 'tommie',
       expiresAt: EXPIRES_AT,
+      createdAt: CREATED_AT,
     })
   })
 
@@ -53,7 +55,7 @@ describe('resolveSession', () => {
 
 describe('resolveUser', () => {
   test('returns just the name for callers that need nothing else', async () => {
-    findActiveSessionMock.mockResolvedValue({ userName: 'tommie', expiresAt: EXPIRES_AT })
+    findActiveSessionMock.mockResolvedValue({ userName: 'tommie', expiresAt: EXPIRES_AT, createdAt: CREATED_AT })
 
     expect(await resolveUser('token')).toBe('tommie')
   })

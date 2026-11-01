@@ -24,6 +24,10 @@ const mocks = vi.hoisted(() => ({
   slotMeta: null as unknown,
 }))
 
+// 運用系の口は管理者だけ (route/guard.ts の guardAdminRequest。2026-11 の監査 M-5)。
+// モックのセッションの利用者を管理者にする
+process.env.ADMIN_USER = 'tommie'
+
 vi.mock('next/headers', async () => {
   const { SESSION_COOKIE_NAME } = await import('@/lib/auth/sessionToken')
   return {
@@ -40,7 +44,7 @@ vi.mock('next/headers', async () => {
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
-      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
+      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
 }))
 
@@ -101,6 +105,15 @@ process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:1/unused'
 const ISBN = '9784873115658'
 const JAN = '4901777018686'
 const PNG_NAME = '0421547b-ee29-4613-a6d4-da0f41f94054.png'
+
+// 枠 (api/clipboard/data) は撮影情報を設定どおりに消す (監査 M-12) ので、署名だけの
+// PNG では除去器が読めず 400 になる。本物の小さな PNG を使う
+async function realPng(): Promise<Uint8Array> {
+  const { default: sharp } = await import('sharp')
+  return new Uint8Array(
+    await sharp({ create: { width: 2, height: 2, channels: 3, background: '#000' } }).png().toBuffer(),
+  )
+}
 
 const CROSS_SITE = failEnvelope('クロスサイトからの呼び出しは許可されていません')
 const LOGIN_REQUIRED = failEnvelope('ログインが必要です')
@@ -509,7 +522,7 @@ describe('/api/clipboard (no-store・デモは閉じる)', () => {
       jsonContract(404, failEnvelope('サーバのクリップボードにファイルがありません')),
     )
     expect(
-      await responseContract(await PUT(new Request(url, { method: 'PUT', body: PNG }))),
+      await responseContract(await PUT(new Request(url, { method: 'PUT', body: await realPng() }))),
     ).toEqual(jsonContract(200, okEnvelope({ slot: META })))
   })
 

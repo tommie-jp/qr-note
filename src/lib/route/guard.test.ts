@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   user: 'tommie' as string | null,
   lookups: 0,
+  // セッションの発行時刻 (再認証の門 guardRecentLogin が見る)
+  createdAt: new Date() as Date,
 }))
 
 vi.mock('@/lib/auth/session', () => ({
@@ -14,9 +16,14 @@ vi.mock('@/lib/auth/session', () => ({
     mocks.lookups += 1
     return mocks.user
   },
+  currentSession: async () =>
+    mocks.user === null
+      ? null
+      : { userName: mocks.user, expiresAt: new Date('2099-01-01'), createdAt: mocks.createdAt },
 }))
 
-import { denyIfDemoMode, guardRequest } from './guard'
+import { RECENT_LOGIN_MAX_AGE_MS } from '@/lib/auth/stepUp'
+import { denyIfDemoMode, guardAdminRequest, guardRecentLogin, guardRequest } from './guard'
 
 const originalDemo = process.env.DEMO_MODE
 
@@ -35,8 +42,10 @@ async function rejection(result: Awaited<ReturnType<typeof guardRequest>>) {
 
 beforeEach(() => {
   delete process.env.DEMO_MODE
+  delete process.env.ADMIN_USER
   mocks.user = 'tommie'
   mocks.lookups = 0
+  mocks.createdAt = new Date()
 })
 
 afterEach(() => {
@@ -122,5 +131,65 @@ describe('guardRequest', () => {
   // curl など Sec-Fetch-Site を送らない相手は通す (auth/crossSite.ts)
   test('Sec-Fetch-Site の無い呼び出しは通す', async () => {
     expect(await guardRequest(request(), { demo: 'deny' })).toEqual({ ok: true, user: 'tommie' })
+  })
+})
+
+// 管理者だけの口 (2026-11 の監査 M-5)。guardRequest の 3 つの後に ADMIN_USER との一致を見る
+describe('guardAdminRequest', () => {
+  test('管理者なら通す', async () => {
+    process.env.ADMIN_USER = 'tommie'
+    const result = await guardAdminRequest(request('same-origin'), { demo: 'deny' })
+    expect(result).toEqual({ ok: true, user: 'tommie' })
+  })
+
+  test('ログイン済みでも管理者でなければ 403', async () => {
+    process.env.ADMIN_USER = 'someone-else'
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(await rejection(await guardAdminRequest(request('same-origin'), { demo: 'deny' }))).toEqual({
+      status: 403,
+      body: { success: false, data: null, error: '管理者だけが使えます' },
+    })
+    warn.mockRestore()
+  })
+
+  // 設定漏れは「誰も管理者ではない」側へ倒す (auth/admin.ts)
+  test('ADMIN_USER が無ければ誰も通さない', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const result = await guardAdminRequest(request('same-origin'), { demo: 'deny' })
+    expect(result.ok).toBe(false)
+    warn.mockRestore()
+  })
+
+  test('未ログインは管理者判定より前に 401', async () => {
+    mocks.user = null
+    expect((await rejection(await guardAdminRequest(request(), { demo: 'deny' }))).status).toBe(401)
+  })
+})
+
+// 「ログインし直して 10 分以内」の門 (auth/stepUp.ts。2026-11 の監査 M-6)
+describe('guardRecentLogin', () => {
+  test('発行したばかりのセッションは通す', async () => {
+    const result = await guardRecentLogin(request('same-origin'), { demo: 'deny' })
+    expect(result).toEqual({ ok: true, user: 'tommie' })
+  })
+
+  test('古いセッションは 403 で、ログインし直す文言を返す', async () => {
+    mocks.createdAt = new Date(Date.now() - RECENT_LOGIN_MAX_AGE_MS - 1000)
+    const { status, body } = await rejection(
+      await guardRecentLogin(request('same-origin'), { demo: 'deny' }),
+    )
+    expect(status).toBe(403)
+    expect(body.error).toContain('ログインし直')
+  })
+
+  test('未ログインは 401 のまま (再認証の文言にしない)', async () => {
+    mocks.user = null
+    expect((await rejection(await guardRecentLogin(request(), { demo: 'deny' }))).status).toBe(401)
+  })
+
+  test('デモは発行時刻を見る前に 403 で断る', async () => {
+    process.env.DEMO_MODE = '1'
+    const { body } = await rejection(await guardRecentLogin(request('same-origin'), { demo: 'deny' }))
+    expect(body.error).toContain('デモ')
   })
 })

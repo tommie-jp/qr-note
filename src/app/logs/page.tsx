@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
-import { isDemoMode } from "@/lib/appEnv";
 import { recentLogs, recentPerfLines } from "@/lib/logging/buffer";
 import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
 import { PerfExportTokenButton } from "./PerfExportTokenButton";
 import { PerfToggleButton } from "./PerfToggleButton";
-import { requireUser } from "@/lib/auth/session";
+import { requireAdminPage } from "@/lib/auth/pageGuard";
 import { ClearLogsButton } from "./ClearLogsButton";
 import { CopyTextButton } from "@/components/CopyTextButton";
 import {
@@ -28,7 +26,7 @@ export const metadata: Metadata = {
 // 失敗はブラウザの console にしか出ない。iPhone は Mac 無しでインスペクタを
 // 繋げないため、どちらもスマホから原因に届くようにする。ログインは二重に
 // 見る: proxy が楽観的な門番 (publicPaths に無いパスは既定で閉じる) で、
-// ページでも requireUser() を重ねる (docs/18 §4。ログには URL や失敗の
+// ページでも requireAdminPage() を重ねる (docs/18 §4。ログには URL や失敗の
 // 中身が載るので、proxy だけを砦にしない)。
 //
 // 読み直しはブラウザの再読み込みで足りる (ポーリングはしない。docs/21 §4)。
@@ -53,13 +51,11 @@ interface LogsPageProps {
 }
 
 export default async function LogsPage({ searchParams }: LogsPageProps = {}) {
-  // デモでは /logs を閉じる (docs/38-デモモード計画.md §4)。共有アカウントでは
-  // 他の訪問者の操作痕 (URL・失敗) が見えてしまうため。導線も隠すが、
-  // URL 直打ちに備えてページも 404 に倒す
-  if (isDemoMode()) {
-    notFound();
-  }
-  await requireUser();
+  // 管理者だけ (2026-11 の監査 M-5)。サーバの console.warn/error (Prisma のエラーや
+  // 他の人の操作痕) が載るので、ログイン済みなら誰でもではなく ADMIN_USER に絞る。
+  // デモ (共有アカウント) では 404、管理者でなくても 404 (requireAdminPage)。
+  // 導線 (ヘッダメニュー) も同じ判定で隠す
+  await requireAdminPage();
 
   if ((await searchParams)?.perf === "1") {
     return <PerfLogs />;

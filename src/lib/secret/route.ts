@@ -5,7 +5,8 @@
 // 33% 太らせないため)。復号後の種別だけをヘッダで申告させる。
 
 import type { NextResponse } from 'next/server'
-import { guardRequest, type GuardResult } from '../route/guard'
+import { readBodyBounded } from '../route/boundedBody'
+import { guardRecentLogin, guardRequest, type GuardResult } from '../route/guard'
 import { apiFail } from '../route/respond'
 import {
   checkSecretPayload,
@@ -21,6 +22,14 @@ import { checkUploadRequest } from '../uploads/request'
 // 鍵を分け合えないので、機能ごと閉じる。docs/51 §10)。
 export function guardSecretRequest(request: Request): Promise<GuardResult> {
   return guardRequest(request, { demo: 'deny' })
+}
+
+// 鍵束を書き換える口 (初回設定・包みの追加) の門番。セッションを持っているだけ
+// では通さず、ログインし直して 10 分以内を要求する (auth/stepUp.ts。2026-11 の
+// 監査 M-6)。盗んだセッションで鍵束を先取り・上書きされると、持ち主が解錠
+// できなくなり作り直しの入口も無い
+export function guardSecretWriteRequest(request: Request): Promise<GuardResult> {
+  return guardRecentLogin(request, { demo: 'deny' })
 }
 
 // 書き込みの口 (POST / PUT) の本文を読む。断られた場合は NextResponse を返す。
@@ -47,13 +56,19 @@ export async function readSecretBody(
 
   const mime = request.headers.get(SECRET_MIME_HEADER) ?? ''
 
-  let bytes: Uint8Array<ArrayBuffer>
+  // 読みながら数える。Content-Length を申告しない送信 (chunked) は上の事前検査を
+  // 素通りし、全部読んでから測ると 1 人でメモリを食い尽くせる
+  // (route/boundedBody.ts。api/clipboard/data と同じ作り)
+  let bytes: Uint8Array<ArrayBuffer> | null
   try {
-    bytes = new Uint8Array(await request.arrayBuffer())
+    bytes = await readBodyBounded(request, MAX_SECRET_VIDEO_BYTES)
   } catch (error) {
     // 途中で切れた通信など。400 を返すが原因はログに残す (api/images と同じ)
     console.error('シークレットの本文の読み取りに失敗しました:', error)
     return apiFail('本文を読み取れませんでした', 400)
+  }
+  if (bytes === null) {
+    return apiFail('本文が大きすぎます', 413)
   }
 
   // 申告 (Content-Length) が無くても実測で必ず確かめる

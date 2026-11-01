@@ -34,7 +34,7 @@ vi.mock('next/headers', async () => {
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
-      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
+      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
 }))
 
@@ -164,6 +164,20 @@ describe('描画', () => {
     expect(await responseContract(res)).toEqual(
       jsonContract(200, okEnvelope({ error: '描けません', texLog: '! Undefined' })),
     )
+  })
+
+  // 待ち行列が満杯 (circuitikz.ts の MAX_QUEUED_RENDERS。2026-11 の監査 M-13)
+  test('描画の待ち行列が満杯なら 429 と Retry-After', async () => {
+    const { CircuitQueueFullError } = await import('@/lib/circuit/circuitikz')
+    mocks.renderTikz.mockRejectedValue(new CircuitQueueFullError())
+
+    const res = await POST(
+      circuitRequest({ source: '\\draw (0,0) -- (1,0);' }, { 'sec-fetch-site': 'same-origin' }),
+    )
+
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('10')
+    expect((await res.json()).error).toContain('混み合って')
   })
 
   test('想定外の失敗は 500', async () => {

@@ -2,7 +2,7 @@ import type { NextResponse } from 'next/server'
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytesBase64'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
-import { guardSecretRequest } from '@/lib/secret/route'
+import { guardSecretRequest, guardSecretWriteRequest } from '@/lib/secret/route'
 import {
   deleteKeyring,
   findKeyringVerifier,
@@ -50,7 +50,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 // 初回設定。**既に設定済みなら断る** — 検証値を上書きすると、既存の断片を
 // 開けるマスターキーが分からなくなる (二重に設定できてはいけない)。
 export async function POST(request: Request): Promise<NextResponse> {
-  const guard = await guardSecretRequest(request)
+  // 書き込みは「ログインし直して 10 分以内」を要求する (lib/secret/route.ts)
+  const guard = await guardSecretWriteRequest(request)
   if (!guard.ok) {
     return guard.response
   }
@@ -90,7 +91,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 // 2 台目以降 (または作り直し) の包みを足す。
 export async function PUT(request: Request): Promise<NextResponse> {
-  const guard = await guardSecretRequest(request)
+  const guard = await guardSecretWriteRequest(request)
   if (!guard.ok) {
     return guard.response
   }

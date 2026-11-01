@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   validToken: 'valid-session-token',
   deleted: [] as string[],
   exists: true,
+  revoked: [] as Array<{ userName: string; keepToken: string | null }>,
 }))
 
 vi.mock('next/headers', async () => {
@@ -32,8 +33,13 @@ vi.mock('next/headers', async () => {
 vi.mock('@/lib/auth/sessionStore', () => ({
   findActiveSession: async (token: string) =>
     token === mocks.validToken
-      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z') }
+      ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
+  // 鍵を消したら他端末のセッションも消す (route.ts の注)。呼ばれ方を控える
+  destroyOtherSessions: async (userName: string, keepToken: string | null) => {
+    mocks.revoked.push({ userName, keepToken })
+    return 2
+  },
 }))
 
 vi.mock('@/lib/auth/passkeys', () => ({
@@ -56,6 +62,7 @@ function deleteRequest(
 }
 
 beforeEach(() => {
+  mocks.revoked = []
   mocks.sessionToken = mocks.validToken
   mocks.deleted = []
   mocks.exists = true
@@ -113,7 +120,17 @@ describe('削除', () => {
   test('消した ID を返す', async () => {
     const res = await DELETE(...deleteRequest('cred-1', { 'sec-fetch-site': 'same-origin' }))
 
-    expect(await responseContract(res)).toEqual(jsonContract(200, okEnvelope({ id: 'cred-1' })))
+    expect(await responseContract(res)).toEqual(
+      jsonContract(200, okEnvelope({ id: 'cred-1', revokedSessions: 2 })),
+    )
     expect(mocks.deleted).toEqual(['cred-1'])
+    // 鍵を消した動機は端末の紛失。その端末のセッションも道連れにし、いまの端末だけ残す
+    expect(mocks.revoked).toEqual([{ userName: 'tommie', keepToken: mocks.validToken }])
+  })
+
+  test('無ければセッションには触らない', async () => {
+    mocks.exists = false
+    await DELETE(...deleteRequest('ghost', { 'sec-fetch-site': 'same-origin' }))
+    expect(mocks.revoked).toEqual([])
   })
 })
