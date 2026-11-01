@@ -78,7 +78,8 @@ remote_db_url() {
   local pw encoded
   pw="$(remote_env_var POSTGRES_PASSWORD)" || return
   [ -n "$pw" ] || die "$REMOTE の $REMOTE_DIR/.env から POSTGRES_PASSWORD を取得できない"
-  encoded="$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$pw")" || return
+  # 引数 (argv) に載せると ps に一瞬見える。環境変数で渡す (2026-11 の監査 LOW)
+  encoded="$(QR_DB_PW="$pw" node -e 'console.log(encodeURIComponent(process.env.QR_DB_PW))')" || return
   echo "postgresql://qr:${encoded}@127.0.0.1:$1/$2"
 }
 

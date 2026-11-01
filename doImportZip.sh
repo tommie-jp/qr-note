@@ -37,6 +37,9 @@
 #   DEPLOY_REMOTE_DIR  リモートの compose ディレクトリ ($HOME 相対)
 #   IMPORT_TUNNEL_PORT トンネルのローカルポート (default: 15433。doDeploy.sh の 15432 とずらす)
 set -euo pipefail
+# 書き出すダンプ・一時ファイルは本番の全ノートを含む。自分だけが読める権限で作る
+# (2026-11 のセキュリティ監査 LOW)
+umask 077
 cd "$(dirname "$0")"
 
 . scripts/lib/log.sh

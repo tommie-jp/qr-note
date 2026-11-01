@@ -24,6 +24,9 @@
 # 接続先は scripts/lib/target.sh の prod (DEPLOY_REMOTE / DEPLOY_REMOTE_DIR で上書き可)。
 # 旧名 DUMP_REMOTE / DUMP_REMOTE_DIR も引き続き受け付ける。
 set -euo pipefail
+# 書き出すダンプ・一時ファイルは本番の全ノートを含む。自分だけが読める権限で作る
+# (2026-11 のセキュリティ監査 LOW)
+umask 077
 cd "$(dirname "$0")"
 
 . scripts/lib/log.sh

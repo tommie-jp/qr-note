@@ -30,7 +30,7 @@ db_url() {
   pw="$(read_env POSTGRES_PASSWORD)"
   [ -n "$pw" ] || die ".env に POSTGRES_PASSWORD がない"
   port="$(read_env DB_PORT)"
-  encoded="$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$pw")"
+  encoded="$(QR_DB_PW="$pw" node -e 'console.log(encodeURIComponent(process.env.QR_DB_PW))')"
   echo "postgresql://qr:${encoded}@localhost:${port:-5432}/${E2E_DB_NAME}"
 }
 
