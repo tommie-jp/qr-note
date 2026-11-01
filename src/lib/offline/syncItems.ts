@@ -18,7 +18,7 @@ import {
   circuitKey,
 } from '@/lib/circuit/fences'
 import { circuitYamlHash } from '@/lib/circuit/yaml'
-import { circuitHash } from '@/lib/circuit/hash'
+import { assertSafeCircuitSvg, circuitHash } from '@/lib/circuit/hash'
 import {
   OFFLINE_CIRCUIT_BUDGET,
   OFFLINE_SYNC_LIMIT,
@@ -172,7 +172,15 @@ async function loadOfflineCircuits(
       // 予算不足 (利用者にできることが無い) とは性質が違う
       continue
     }
-    const { svg } = row
+    // 配信 route と同じく、DB の svg も運ぶ前に毎回検査する (監査 M-3)。
+    // 通らない 1 枚は落とすだけで、同期全体は続ける
+    let svg: string
+    try {
+      svg = assertSafeCircuitSvg(row.svg)
+    } catch (error) {
+      console.warn(`オフライン用の回路図の検査に通りませんでした (hash=${hash})`, error)
+      continue
+    }
     if (svg.length > budget) {
       omitted++
       continue
