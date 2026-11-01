@@ -4,8 +4,7 @@ import { useRouter } from "next/navigation";
 import { refreshRouter } from "@/lib/client/navigation";
 import { startTransition, useCallback, useState } from "react";
 import { SelectIcon, SlideshowIcon } from "@/components/icons";
-import { perfAddField, perfNow, perfStart } from "@/lib/logging/perfClient";
-import { perfMs } from "@/lib/logging/perfLine";
+import { perfMarkImmediate, perfNow, perfStart } from "@/lib/logging/perfClient";
 import { switchViewMode } from "@/components/search/switchViewMode";
 import { useImageViewer } from "@/components/imageviewer/ImageViewerProvider";
 import { useSelectMode } from "@/components/search/SelectModeProvider";
@@ -79,16 +78,13 @@ export function ResultsToolbar({
       }
       event.preventDefault();
       const next = parseViewMode(submitter.value);
-      const pressedAt = perfNow();
       perfStart("表示", "/", undefined, [["切替", `${shownView}→${next}`]]);
       void switchViewMode(next, () => {
         startTransition(() => refreshRouter(router));
       });
       // 押してから新しいモードが画面に出るまで (2 フレーム目 = 描き替えの後の描画)
       requestAnimationFrame(() =>
-        requestAnimationFrame(() =>
-          perfAddField("表示", ["即時", perfMs(perfNow() - pressedAt)]),
-        ),
+        requestAnimationFrame(() => perfMarkImmediate("表示", perfNow())),
       );
     },
     [shownView, router],

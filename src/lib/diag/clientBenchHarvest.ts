@@ -55,7 +55,7 @@ export function summarizeRun(lines: readonly Parsed[]): ClientBenchRow[] {
   const net = last((l) => l.kind === '回線')
   const searches = QUERY_LABELS.flatMap(([q, label]) => {
     const line = last((l) => l.kind === '検索' && l.fields.q === q && isComplete(l))
-    return line ? row(label, pick(line.fields, ['全体', '応答開始', '受信', '描画', 'RSC'])) : []
+    return line ? row(label, pick(line.fields, ['全体', '応答開始', '受信', '描画', 'RSC', '裏'])) : []
   })
   const views = lines
     .filter((l) => l.kind === '表示' && l.fields['区分'] === '測定' && isComplete(l))
@@ -67,7 +67,7 @@ export function summarizeRun(lines: readonly Parsed[]): ClientBenchRow[] {
     // もノートを開くので、最後の 2 件だとそちらを拾ってしまう
     .filter((l) => l.kind === 'ノート' && isComplete(l))
     .slice(0, 2)
-    .flatMap((l, i) => row(`ノート ${i + 1}`, pick(l.fields, ['全体', '応答開始', '受信', '描画', '本体'])))
+    .flatMap((l, i) => row(`ノート ${i + 1}`, pick(l.fields, ['全体', '応答開始', '受信', '描画', '本体', '裏'])))
   // ノートの遷移の確かめ (perfNavCheck.ts。docs/123 §12-6)。操作ごとに 1 行
   const navs = lines
     .filter((l) => l.kind === '遷移' && l.fields['操作'] !== undefined)
@@ -83,7 +83,7 @@ export function summarizeRun(lines: readonly Parsed[]): ClientBenchRow[] {
     ...(net ? row('回線', pick(net.fields, ['RTT', '下り', '上り'])) : []),
     ...searches,
     ...views,
-    ...(more ? row('続き', pick(more.fields, ['全体', '応答開始', '描画'])) : noMore ? row('続き', '続きなし') : []),
+    ...(more ? row('続き', pick(more.fields, ['全体', '応答開始', '描画', '裏'])) : noMore ? row('続き', '続きなし') : []),
     ...notes,
     ...navs,
     ...(sync ? row('同期', pick(sync.fields, ['結果', '全体', '応答開始', '転送'])) : []),

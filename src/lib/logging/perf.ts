@@ -170,6 +170,8 @@ export interface NavMeasure {
   itemId?: string
   // 押した側が知っている項目 (表示の切替の「何から何へ」)。行の先頭に並べる
   extra?: readonly PerfField[]
+  // 押してから見た目が変わった時刻 (表示の切替の「即時」。perfMarkImmediate)
+  immediateAt?: number
 }
 
 // 届いた印 (PerfMarks) が運んでくるサーバ側の値
@@ -195,22 +197,19 @@ function diff(to: number | undefined, from: number | undefined): number | null {
   return to === undefined || from === undefined || to <= 0 ? null : to - from
 }
 
-// 行の並び: サーバの項目 → 全体 → 要求 → 応答開始 → 受信 → 描画 → 量 → 裏の通信 → DOM → サーバ。
-// 左から右へ時間の流れ順 (§1-1)。
-//
-// 描画 (印が届いた時刻 − 本体の受信完了) が負になるのは、本体の受信が終わる
-// 前に React が描き始めた (ストリームの途中で差し替えた) とき。丸めずに出す
-export function formatNavLine(
-  measure: NavMeasure,
-  marks: ServerMarks,
-  obs: NavObservation,
-): string {
-  const { main } = obs.rsc
-  return formatPerfLine(measure.kind, [
-    ...(measure.extra ?? []),
-    ...marks.fields,
-    ['全体', perfMs(obs.paintedAt - measure.t0)],
-    ['要求', main ? perfMs(main.startTime - measure.t0) : '未了'],
+// 本体に選んだ要求が、画面に出たときにまだ返事を始めていなかったか
+// (docs/123 §12-8)。一覧・ノートを端末の控えから先に描いた回は、裏で走る
+// 取り直し (/api/items… の stale-while-revalidate) が窓の中でいちばん大きく、
+// 本体に選ばれる。その値を「待った往復」として書くと、描画が負になり、
+// 応答開始は待っていない往復の時間になっていた
+export function isBackgroundMain(main: ResourceLike | null, committedAt: number): boolean {
+  return main !== null && main.responseStart > committedAt
+}
+
+// 待った往復の欄 (要求 → 応答開始 → 受信 → 描画 → 量 → 本体)
+function fetchedFields(main: ResourceLike | null, obs: NavObservation, t0: number): PerfField[] {
+  return [
+    ['要求', main ? perfMs(main.startTime - t0) : '未了'],
     ['応答開始', perfMs(diff(main?.responseStart, main?.startTime))],
     ['受信', perfMs(diff(main?.responseEnd, main?.responseStart))],
     ['描画', main ? perfMs(obs.committedAt - main.responseEnd) : '未了'],
@@ -219,6 +218,51 @@ export function formatNavLine(
     // と描画材料・前後の API が同じ窓に入り、大きい方が本体に選ばれる。
     // 行だけでは区別できなかったので、パス (ノートの id は :id に畳む) を残す
     ['本体', main ? mainLabel(main.name) : 'なし'],
+  ]
+}
+
+// 控えから描いた回の欄。往復を待っていないので、描画は押してから描き終える
+// まで。裏で走った取り直しは「裏」に、パスと応答開始を残す
+function cachedFields(main: ResourceLike, obs: NavObservation, t0: number): PerfField[] {
+  const responseStart = perfMs(diff(main.responseStart, main.startTime))
+  return [
+    ['要求', '控え'],
+    ['応答開始', '控え'],
+    ['受信', '控え'],
+    ['描画', perfMs(obs.committedAt - t0)],
+    ['RSC', '控え'],
+    ['本体', '控え'],
+    ['裏', `${mainLabel(main.name)}(${responseStart ?? '未了'})`],
+  ]
+}
+
+// 行の並び: サーバの項目 → [即時] → 全体 → 要求 → 応答開始 → 受信 → 描画 → 量 →
+// 裏の通信 → DOM → サーバ。左から右へ時間の流れ順 (§1-1)。
+//
+// 描画 (印が届いた時刻 − 本体の受信完了) が負になるのは、本体の受信が終わる
+// 前に React が描き始めた (ストリームの途中で差し替えた) とき。丸めずに出す。
+// 本体が返事を始める前に画面に出ていた回は控えから描いた回として書く (§12-8)。
+//
+// 全体は「画面に出た時刻」と「即時」の遅い方まで。即時は押した後の 2 フレーム目、
+// 全体は印が届いた後の 1 フレーム目で測るので、控えから即座に描けた回は
+// 同じ描画を測っていても全体が即時より短く出ていた (§12-8)
+export function formatNavLine(
+  measure: NavMeasure,
+  marks: ServerMarks,
+  obs: NavObservation,
+): string {
+  const { main } = obs.rsc
+  const shownAt = Math.max(obs.paintedAt, measure.immediateAt ?? obs.paintedAt)
+  const immediate: PerfField[] =
+    measure.immediateAt === undefined ? [] : [['即時', perfMs(measure.immediateAt - measure.t0)]]
+  return formatPerfLine(measure.kind, [
+    ...(measure.extra ?? []),
+    ...marks.fields,
+    ...immediate,
+    ['全体', perfMs(shownAt - measure.t0)],
+    ...(main !== null && isBackgroundMain(main, obs.committedAt)
+      ? cachedFields(main, obs, measure.t0)
+      : fetchedFields(main, obs, measure.t0)),
     ['prefetch', obs.rsc.prefetch],
     ['DOM', obs.domNodes],
     ['長タスク', obs.longTasks ? `${obs.longTasks.count}/${perfMs(obs.longTasks.ms)}` : '未対応'],

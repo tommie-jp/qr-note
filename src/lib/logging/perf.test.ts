@@ -190,6 +190,50 @@ describe('formatNavLine', () => {
     expect(line).toMatch(/^\[計測\] 表示 切替=compact→card q="a" 全体=100ms /)
   })
 
+  test('画面に出た後で返事を始めた本体は、控えから描いた回として「裏」に回す (docs/123 §12-8)', () => {
+    // Arrange: 押して 40ms で描き終え、裏の取り直しは 300ms 後に返事を始めた
+    const background: ResourceLike = {
+      name: 'http://localhost/api/items/0199a8f2-1c3d-7e4f-8a5b-6c7d8e9f0a1b',
+      startTime: 10,
+      responseStart: 310,
+      responseEnd: 311,
+      transferSize: 1024,
+      decodedBodySize: 4096,
+    }
+
+    // Act
+    const line = formatNavLine(
+      { kind: 'ノート', t0: 0, pathname: '/item/x', itemId: 'x' },
+      { fields: [], server: '5ms' },
+      { committedAt: 40, paintedAt: 45, rsc: { main: background, prefetch: 0 }, domNodes: 1, longTasks: null },
+    )
+
+    // Assert: 負の描画は出ず、待った往復の欄は「控え」、取り直しは「裏」に残る
+    expect(line).toContain(
+      '全体=45ms 要求=控え 応答開始=控え 受信=控え 描画=40ms RSC=控え 本体=控え 裏=/api/items/:id(300ms)',
+    )
+  })
+
+  test('全体は即時より短くしない (控えから即座に描けた表示の切替。docs/123 §12-8)', () => {
+    const line = formatNavLine(
+      { kind: '表示', t0: 0, pathname: '/', extra: [['切替', 'compact→medium']], immediateAt: 62 },
+      { fields: [], server: '1ms' },
+      { committedAt: 15, paintedAt: 21, rsc: { main: null, prefetch: 0 }, domNodes: 1, longTasks: null },
+    )
+
+    expect(line).toMatch(/^\[計測\] 表示 切替=compact→medium 即時=62ms 全体=62ms /)
+  })
+
+  test('取り直しが届いてから描いた切替は、全体が即時より長いまま', () => {
+    const line = formatNavLine(
+      { kind: '表示', t0: 0, pathname: '/', immediateAt: 50 },
+      { fields: [], server: '1ms' },
+      { committedAt: 300, paintedAt: 310, rsc: { main: null, prefetch: 0 }, domNodes: 1, longTasks: null },
+    )
+
+    expect(line).toContain('即時=50ms 全体=310ms')
+  })
+
   test('閉じる前に次が始まったら中断として残す', () => {
     expect(formatAbortedLine({ kind: '検索', t0: 100, pathname: '/' }, 450)).toBe(
       '[計測] 検索 結果=中断 全体=350ms',

@@ -114,25 +114,26 @@ export function withViewPhase(
   return phase === null ? extra : [...(extra ?? []), ['区分', phase]]
 }
 
-// 進行中の計測に項目を 1 つ足す (種別が合うときだけ)。表示モードの切替で、
-// 押してから見た目が変わるまで (即時) を、描き直しが届くまでの行に載せる
-// (docs/118 §10 案 B)。計測中でなければ・閉じた後なら何もしない。
+// 進行中の計測に「見た目が変わった時刻」(即時) を控える (種別が合うときだけ)。
+// 表示モードの切替で、押してから見た目が変わるまでを、描き直しが届くまでの行に
+// 載せる (docs/118 §10 案 B)。計測中でなければ・閉じた後なら何もしない。
+// 時刻で控えるのは、行を組むときに「全体」を即時より短くしないため (§12-8)。
 //
-// **閉じかけ (印は届いたが行をまだ送っていない) の計測にも足す。** 一覧を
+// **閉じかけ (印は届いたが行をまだ送っていない) の計測にも控える。** 一覧を
 // 端末の控えから即座に描けた切替では、印が「即時」を測る 2 フレームより先に
 // 届く (docs/123 §11-6)。閉じかけを見ないと、その回だけ「即時」が抜ける
-export function perfAddField(kind: NavKind, field: PerfField): void {
+export function perfMarkImmediate(kind: NavKind, at: number): void {
   const s = current()
   if (!s) {
     return
   }
   if (s.active !== null && s.active.kind === kind) {
-    s.active = { ...s.active, extra: [...(s.active.extra ?? []), field] }
+    s.active = { ...s.active, immediateAt: at }
     return
   }
   const closing = s.closing
   if (closing !== null && closing.measure.kind === kind) {
-    closing.measure = { ...closing.measure, extra: [...(closing.measure.extra ?? []), field] }
+    closing.measure = { ...closing.measure, immediateAt: at }
   }
 }
 
