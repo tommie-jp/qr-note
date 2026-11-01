@@ -12,6 +12,7 @@
 //   旧番号の形      → タグ #<旧番号> のノートが 1 件ならそれ、
 //                     0 件・複数ならタグ検索 (/?q=%23<旧番号>) に任せる
 //   それ以外        → 404
+import { isDemoMode } from '@/lib/appEnv'
 import 'server-only'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/db'
@@ -40,6 +41,11 @@ export async function findItemIdsByLegacyNo(
   itemNo: string,
   options: { includeTrashed?: boolean; publicOnly?: boolean } = {},
 ): Promise<string[]> {
+  // デモでは公開ノートが無い扱い (isPublicItem と同じ。2026-11 の監査 M-4)。
+  // 未ログインの旧番号 URL が、種に紛れた public_at の行の id を 308 で教えない
+  if (options.publicOnly && isDemoMode()) {
+    return []
+  }
   const trashed = options.includeTrashed ? Prisma.empty : Prisma.sql`AND deleted_at IS NULL`
   const visible = options.publicOnly ? Prisma.sql`AND public_at IS NOT NULL` : Prisma.empty
   const rows = await prisma.$queryRaw<{ id: string }[]>`

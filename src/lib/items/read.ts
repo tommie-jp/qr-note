@@ -1,6 +1,7 @@
 // ノートを読む側の DB 操作 (1 件・採番・タグ集計・フォルダーの件数・前後ナビ)。
 // 検索一覧は search.ts、ゴミ箱は trash.ts が持つ (docs/93-リファクタリング計画.md §4-1)。
 import 'server-only'
+import { isDemoMode } from '@/lib/appEnv'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@/generated/prisma/client'
 import type { Item } from '@/generated/prisma/client'
@@ -28,6 +29,12 @@ export async function getItem(itemId: string): Promise<Item | null> {
 // ゴミ箱の行を外すのは isPublicItem() と同じ理由。判定の条件が 2 か所に
 // 分かれてしまうが、こちらは「どの行か」が判らないので SQL で書くしかない。
 export async function isPublicImageName(name: string): Promise<boolean> {
+  // デモでは公開機能ごと閉じる (docs/38 §3)。isPublicItem() と同じ判定をここにも
+  // 置く — 種の DB に public_at の行が紛れていても、未ログインに添付を配らない
+  // (2026-11 の監査 M-4。この 1 行が無く、文書の主張と食い違っていた)
+  if (isDemoMode()) {
+    return false
+  }
   const rows = await prisma.$queryRaw<{ one: number }[]>`
     SELECT 1 AS one FROM items
     WHERE public_at IS NOT NULL
