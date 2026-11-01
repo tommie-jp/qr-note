@@ -1,7 +1,14 @@
-import type { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { isPublicImageName } from '@/lib/items/read'
-import { byteHeaders, bytesResponse, rangedBytesResponse } from '@/lib/route/bytes'
+import {
+  byteHeaders,
+  bytesResponse,
+  partialBytesResponse,
+  unsatisfiableRangeResponse,
+  withAcceptRanges,
+} from '@/lib/route/bytes'
+import { resolveByteRange } from '@/lib/route/httpRange'
 import { apiFail } from '@/lib/route/respond'
 import { currentUser } from '@/lib/auth/session'
 import { THUMB_MIME } from '@/lib/images/thumbConfig'
@@ -99,6 +106,16 @@ export async function GET(
     // 絵は出る。行そのものが無い場合もここを抜け、下の 404 に合流する
   }
 
+  const cacheControl = wantThumb ? FALLBACK_CACHE : IMMUTABLE_CACHE
+
+  // 原寸は Range に応える (音声・動画のシーク)。**全体を読まずに DB で切り出す**
+  // (2026-11 の監査 M-11)。動画の再生は Range を何度も飛ばし、公開ノートの 30MB
+  // なら未ログインでも 1 要求ごとに全行 + 複製の 60MB を使わせられた
+  const ranged = await servePartial(request.headers.get('range'), name, cacheControl)
+  if (ranged !== null) {
+    return ranged
+  }
+
   const image = await prisma.image.findUnique({
     where: { name },
     select: { mime: true, data: true },
@@ -108,16 +125,81 @@ export async function GET(
     return apiFail('画像が見つかりません', 404)
   }
 
-  // 原寸は Range に応える (音声のシーク。rangedBytesResponse)
-  return rangedBytesResponse(
-    request,
-    image.data,
-    attachmentHeaders(
-      // 保存時に検証済みだが、DB の値をそのまま信用せず既知の MIME のときだけ採用する
-      isAllowedContentMime(image.mime) ? image.mime : 'application/octet-stream',
-      wantThumb ? FALLBACK_CACHE : IMMUTABLE_CACHE,
-    ),
-  )
+  return new NextResponse(new Uint8Array(image.data), {
+    headers: withAcceptRanges(attachmentHeaders(contentTypeOf(image.mime), cacheControl)),
+  })
+}
+
+// HEAD: 長さとヘッダだけ。Next は HEAD を GET に倒して本文を捨てるが、それだと
+// 数十 MB の行を読んでから捨てることになる (監査 M-11)
+export async function HEAD(request: Request, { params }: RouteContext): Promise<NextResponse> {
+  const { name } = await params
+  if (!isValidAttachmentName(name)) {
+    return apiFail('不正なファイル名です', 400)
+  }
+  if (!(await canView(name))) {
+    return apiFail('ログインが必要です', 401)
+  }
+  const located = await locate(name)
+  if (located === null) {
+    return apiFail('画像が見つかりません', 404)
+  }
+  return new NextResponse(null, {
+    headers: {
+      ...withAcceptRanges(attachmentHeaders(contentTypeOf(located.mime), IMMUTABLE_CACHE)),
+      'Content-Length': String(located.size),
+    },
+  })
+}
+
+// 保存時に検証済みだが、DB の値をそのまま信用せず既知の MIME のときだけ採用する
+function contentTypeOf(mime: string): string {
+  return isAllowedContentMime(mime) ? mime : 'application/octet-stream'
+}
+
+interface Located {
+  readonly mime: string
+  readonly size: number
+}
+
+// 行の mime と長さだけ (data は読まない)。無ければ null
+async function locate(name: string): Promise<Located | null> {
+  const rows = await prisma.$queryRaw<{ mime: string; size: number }[]>`
+    SELECT mime, octet_length(data)::int AS size FROM images WHERE name = ${name}
+  `
+  return rows[0] ?? null
+}
+
+// Range 要求に、必要な範囲だけ DB から切り出して応える。
+//   null … Range が無い / 読めない形 → 呼び手が全体を 200 で返す
+async function servePartial(
+  rangeHeader: string | null,
+  name: string,
+  cacheControl: string,
+): Promise<NextResponse | null> {
+  if (rangeHeader === null) {
+    return null
+  }
+  const located = await locate(name)
+  if (located === null) {
+    return apiFail('画像が見つかりません', 404)
+  }
+  const headers = attachmentHeaders(contentTypeOf(located.mime), cacheControl)
+  const range = resolveByteRange(rangeHeader, located.size)
+  if (range === null) {
+    return null
+  }
+  if (range === 'unsatisfiable') {
+    return unsatisfiableRangeResponse(located.size, headers)
+  }
+  // substring は 1 始まり。int に寄せるのは、パラメータが数値のままだと
+  // double precision と解釈されて substring(bytea, double) が無いと言われるため
+  const length = range.end - range.start + 1
+  const rows = await prisma.$queryRaw<{ chunk: Uint8Array }[]>`
+    SELECT substring(data from ${range.start + 1}::int for ${length}::int) AS chunk
+    FROM images WHERE name = ${name}
+  `
+  return partialBytesResponse(rows[0]?.chunk ?? new Uint8Array(0), range, located.size, headers)
 }
 
 // 画像・音声・PDF をクローラーのインデックスから外す
@@ -139,10 +221,19 @@ function attachmentHeaders(contentType: string, cacheControl: string): Record<st
 // 貼られているものだけ。
 //
 // ログイン検査を先に置く (uploads/request.ts と同じ流儀)。持ち主の閲覧で毎回
-// items を走査しないため
+// items を走査しないため。
+//
+// 未ログインは**行の有無を主キーで先に見る** (2026-11 の監査 M-10)。書式さえ合えば
+// 存在しない名前でも isPublicImageName が items 全件の position() を流していたので、
+// ランダムな UUID の連打で DB を未ログインに削られた。無い名前の応答は非公開と
+// 同じ 401 にして、存在の有無を教えない
 async function canView(name: string): Promise<boolean> {
   if ((await currentUser()) !== null) {
     return true
+  }
+  const exists = await prisma.image.findUnique({ where: { name }, select: { name: true } })
+  if (exists === null) {
+    return false
   }
   return isPublicImageName(name)
 }

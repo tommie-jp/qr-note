@@ -5,7 +5,7 @@
 // JSON ではないので、ヘッダの揃え方だけをここに置く。
 
 import { NextResponse } from 'next/server'
-import { resolveByteRange } from '@/lib/route/httpRange'
+import { type ByteRange, resolveByteRange } from '@/lib/route/httpRange'
 
 export interface ByteHeaderOptions {
   readonly contentType: string
@@ -40,38 +40,59 @@ export function bytesResponse(
   return new NextResponse(new Uint8Array(data), { headers })
 }
 
+// Range を解さないクライアントにも「部分取得できる」と知らせる
+export function withAcceptRanges(
+  headers: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return { ...headers, 'Accept-Ranges': 'bytes' }
+}
+
+// 416: 形は読めたが範囲外 (RFC 7233 §4.4)
+export function unsatisfiableRangeResponse(
+  size: number,
+  headers: Readonly<Record<string, string>>,
+): NextResponse {
+  return new NextResponse(null, {
+    status: 416,
+    headers: { ...withAcceptRanges(headers), 'Content-Range': `bytes */${size}` },
+  })
+}
+
+// 206: 部分。slice は range の分だけ (呼び手が切り出して渡す)
+export function partialBytesResponse(
+  slice: Uint8Array,
+  range: ByteRange,
+  size: number,
+  headers: Readonly<Record<string, string>>,
+): NextResponse {
+  return new NextResponse(new Uint8Array(slice), {
+    status: 206,
+    headers: {
+      ...withAcceptRanges(headers),
+      'Content-Range': `bytes ${range.start}-${range.end}/${size}`,
+    },
+  })
+}
+
 // Range に応える配信。音声 (<audio>) のシークに要る
 // (41-QR-search/docs/12-添付ファイル種類拡張メモ.md)。Range ヘッダが無ければ
 // 全体を 200 で返すので、画像が同じ経路を通っても挙動は変わらない。
+//
+// **全体を手元に持っている**ときの形。添付の原寸 (api/images/[name]) は全体を
+// 読まずに DB で切り出す (route 側。2026-11 の監査 M-11) ので、こちらは
+// シークレットの暗号文など、全体を読む前提の口が使う
 export function rangedBytesResponse(
   request: Request,
   data: Uint8Array,
   headers: Readonly<Record<string, string>>,
 ): NextResponse {
   const size = data.byteLength
-  const base = {
-    ...headers,
-    // Range を解さないクライアントにも「部分取得できる」と知らせる
-    'Accept-Ranges': 'bytes',
-  }
-
   const range = resolveByteRange(request.headers.get('range'), size)
   if (range === 'unsatisfiable') {
-    return new NextResponse(null, {
-      status: 416,
-      headers: { ...base, 'Content-Range': `bytes */${size}` },
-    })
+    return unsatisfiableRangeResponse(size, headers)
   }
   if (range) {
-    const slice = data.subarray(range.start, range.end + 1)
-    return new NextResponse(new Uint8Array(slice), {
-      status: 206,
-      headers: {
-        ...base,
-        'Content-Range': `bytes ${range.start}-${range.end}/${size}`,
-      },
-    })
+    return partialBytesResponse(data.subarray(range.start, range.end + 1), range, size, headers)
   }
-
-  return new NextResponse(new Uint8Array(data), { headers: base })
+  return new NextResponse(new Uint8Array(data), { headers: withAcceptRanges(headers) })
 }
