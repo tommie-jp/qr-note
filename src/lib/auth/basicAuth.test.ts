@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { parseBasicAuthUser, verifyBasicAuthUser } from './basicAuth'
+import {
+  LoginBusyError,
+  MAX_CONCURRENT_VERIFICATIONS,
+  MAX_WAITING_VERIFICATIONS,
+} from './loginGate'
 
 // base64 は Buffer で組み立てる (テスト側で手書きしないことで意図を明確にする)
 function basicHeader(credentials: string): string {
@@ -143,5 +148,34 @@ describe('verifyBasicAuthUser', () => {
 
     vi.stubEnv('BASIC_AUTH_HASH_B64', b64(bcrypt.hashSync('rotated', 4)))
     expect(await verifyBasicAuthUser(header)).toBe(null)
+  })
+
+  // 照合の門 (auth/loginGate.ts)。同時 1 本 + 待ち 3 本を超えた分は bcrypt を
+  // 回さずに LoginBusyError で断る。null に畳んではいけない (route が 401 で
+  // ダイアログを出し直し、本人には「パスワードが違う」に見える)
+  test('throws LoginBusyError instead of null once the verification gate is full', async () => {
+    const header = basicHeader(`tommie:${PASSWORD}`)
+    const burst = MAX_CONCURRENT_VERIFICATIONS + MAX_WAITING_VERIFICATIONS + 1
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: burst }, () => verifyBasicAuthUser(header)),
+    )
+
+    const rejected = outcomes.filter((o) => o.status === 'rejected')
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0].reason).toBeInstanceOf(LoginBusyError)
+    // 枠と待ち席に入った分は、いつもどおり照合される
+    const fulfilled = outcomes.filter((o) => o.status === 'fulfilled')
+    expect(fulfilled.map((o) => o.value)).toEqual(Array(burst - 1).fill('tommie'))
+  })
+
+  test('does not reach bcrypt when the gate turns a request away', async () => {
+    const header = basicHeader(`tommie:${PASSWORD}`)
+    const compare = vi.spyOn(bcrypt, 'compare')
+    const burst = MAX_CONCURRENT_VERIFICATIONS + MAX_WAITING_VERIFICATIONS + 2
+
+    await Promise.allSettled(Array.from({ length: burst }, () => verifyBasicAuthUser(header)))
+
+    // 断った 2 本は bcrypt を 1 回も踏んでいない (= CPU を消費させられない)
+    expect(compare).toHaveBeenCalledTimes(burst - 2)
   })
 })

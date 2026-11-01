@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyBasicAuthUser } from '@/lib/auth/basicAuth'
+import { LOGIN_RETRY_AFTER_SECONDS, LoginBusyError } from '@/lib/auth/loginGate'
 import { safeNextPath } from '@/lib/auth/loginRedirect'
 import { issueSession } from '@/lib/auth/sessionStore'
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from '@/lib/auth/sessionToken'
@@ -23,11 +24,19 @@ import { loginCancelledPage } from './cancelledPage'
 // 受け付けている限り、サーバが何を消しても次のリクエストで復活してしまう。
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const user = await verifyBasicAuthUser(request.headers.get('authorization'))
-
   // next は外から来る値。素通しすると他所へ運ぶ踏み台になるので必ず検算する。
   // 401 のボディにも載せるので、認証の成否より先に出しておく
   const next = safeNextPath(request.nextUrl.searchParams.get('next'))
+
+  let user: string | null
+  try {
+    user = await verifyBasicAuthUser(request.headers.get('authorization'))
+  } catch (error) {
+    if (!(error instanceof LoginBusyError)) {
+      throw error
+    }
+    return loginBusyResponse()
+  }
 
   if (user === null) {
     // ボディが人の目に触れるのはダイアログをキャンセルしたときだけ。
@@ -69,4 +78,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   })
   response.cookies.set(SESSION_COOKIE_NAME, session.token, sessionCookieOptions())
   return response
+}
+
+// 照合の門 (auth/loginGate.ts) が満杯のときの応答。bcrypt を回さずに断る。
+//
+// 401 ではなく 429 にするのが要点。401 を返すとブラウザが資格情報を捨てて
+// ダイアログを出し直し、本人には「パスワードを間違えた」ように見える。
+// WWW-Authenticate を付けないので、ブラウザは覚えた資格情報を保ったまま
+// この本文を表示する。Retry-After は門が捌ける目安
+function loginBusyResponse(): NextResponse {
+  return new NextResponse(
+    'ログインが混み合っています。少し待ってから、もう一度お試しください。',
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(LOGIN_RETRY_AFTER_SECONDS),
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    },
+  )
 }

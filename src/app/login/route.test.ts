@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { GET } from './route'
+import {
+  LOGIN_RETRY_AFTER_SECONDS,
+  MAX_CONCURRENT_VERIFICATIONS,
+  MAX_WAITING_VERIFICATIONS,
+} from '@/lib/auth/loginGate'
 import { issueSession } from '@/lib/auth/sessionStore'
 import { SESSION_COOKIE_NAME } from '@/lib/auth/sessionToken'
 
@@ -141,5 +146,27 @@ describe('GET /login with valid credentials', () => {
     const response = await GET(request(basicHeader(`tommie:${PASSWORD}`)))
 
     expect(response.headers.get('Cache-Control')).toBe('no-store')
+  })
+})
+
+// 照合の門 (auth/loginGate.ts) が満杯のとき。bcrypt を回さずに 429 で断る
+describe('GET /login while the verification gate is full', () => {
+  test('answers 429 with Retry-After instead of asking for credentials again', async () => {
+    const burst = MAX_CONCURRENT_VERIFICATIONS + MAX_WAITING_VERIFICATIONS + 1
+    const responses = await Promise.all(
+      Array.from({ length: burst }, () => GET(request(basicHeader(`tommie:${PASSWORD}`)))),
+    )
+
+    const busy = responses.filter((r) => r.status === 429)
+    expect(busy).toHaveLength(1)
+    expect(busy[0].headers.get('Retry-After')).toBe(String(LOGIN_RETRY_AFTER_SECONDS))
+    expect(busy[0].headers.get('Cache-Control')).toBe('no-store')
+    // 401 + WWW-Authenticate を返すとブラウザが資格情報を捨ててダイアログを出し直す
+    expect(busy[0].headers.get('WWW-Authenticate')).toBeNull()
+    expect(busy[0].cookies.get(SESSION_COOKIE_NAME)).toBeUndefined()
+
+    // 門に入った分はいつもどおりログインできる
+    expect(responses.filter((r) => r.status === 303)).toHaveLength(burst - 1)
+    expect(issueSessionMock).toHaveBeenCalledTimes(burst - 1)
   })
 })

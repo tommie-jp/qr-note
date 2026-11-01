@@ -17,6 +17,7 @@
 
 import bcrypt from 'bcryptjs'
 import { basicAuthEnv } from '../appEnv'
+import { LoginBusyError, loginGate } from './loginGate'
 
 const BASIC_PREFIX = 'basic '
 
@@ -110,6 +111,10 @@ function readBasicAuthConfig(): BasicAuthConfig | null {
 // キャッシュを持っていたが、いまは 1 回のログインにつき 1 回しか通らないので
 // 消した。bcrypt が遅い (vps2 でコスト 12 = 約 1.75 秒) のは変わらないが、
 // それを踏むのはログインの瞬間だけになる。
+//
+// 照合そのものは auth/loginGate.ts の門を通す (同時 1 本 + 待ち数本)。門が
+// 満杯なら LoginBusyError を**握らずに投げる** — null にすると「パスワードが
+// 違う」と区別がつかず、route が 401 でダイアログを出し直してしまう
 export async function verifyBasicAuthUser(header: string | null): Promise<string | null> {
   const config = readBasicAuthConfig()
   if (config === null || header === null) {
@@ -141,8 +146,11 @@ export async function verifyBasicAuthUser(header: string | null): Promise<string
   // 落ち、500 でスタックトレースを晒さない
   let matches: boolean
   try {
-    matches = await bcrypt.compare(password, config.hash)
-  } catch {
+    matches = await loginGate.run(() => bcrypt.compare(password, config.hash))
+  } catch (error) {
+    if (error instanceof LoginBusyError) {
+      throw error
+    }
     console.error(
       'BASIC_AUTH_HASH_B64 が bcrypt ハッシュ (の base64) として読めません。' +
         '生成方法は docs/18-ログイン計画.md を参照',
