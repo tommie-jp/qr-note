@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { Element } from "hast";
 import type { PluggableList } from "unified";
 import type { Components } from "hast-util-to-jsx-runtime";
@@ -150,21 +151,41 @@ export type MarkdownViewOptions = Pick<
   | "onRecordHealth"
 >;
 
+// 描画のたびに変わりうる材料 (docs/123 §12-9)。
+//
+// **部品 (pre / img / input) は MarkdownView 1 つにつき 1 度だけ作り、材料は
+// この入れ物から読む。** 以前は材料を閉じ込めた関数を描画のたびに作っていた。
+// React は関数の同一性で部品の種類を見るので、控えの取り直しや描画材料が届く
+// たびに本文の画像・図・チェックボックスが丸ごと外されて付け直され、iPhone の
+// キャリア回線では応答が届くたびにノートが「再表示」して見えた
+interface RenderData {
+  circuits: PendingCircuitMap;
+  matrices: MatrixMap;
+  health: HealthMap;
+  onRecordHealth: RecordHealthHandler | undefined;
+  attachments: ReadonlyMap<string, string>;
+  allowRotate: boolean;
+  allowSecretEdit: boolean;
+  blobKinds: ReadonlyMap<string, "image" | "audio" | "video">;
+  onToggleTask: ToggleTaskHandler | undefined;
+}
+
+// 入れ物。親 (MarkdownView) が描画のたびに current を差し替え、部品は描く
+// ときに読む。部品は親と同じ描画の中で描かれるので、読む値は常に今の材料
+interface RenderDataHolder {
+  current: RenderData;
+}
+
 // フェンスコードの中身 (pre > code) が mermaid / circuitikz なら図に、
 // quiz なら問題カードに差し替え、それ以外はコピーボタン付きのコードブロックに
 // する (docs/54 §1、docs/58-CBT問題集計画.md §1)
-function preOrDiagram(
-  circuits: PendingCircuitMap,
-  matrices: MatrixMap,
-  health: HealthMap,
-  onRecordHealth: RecordHealthHandler | undefined,
-  attachments: ReadonlyMap<string, string>,
-) {
+function preOrDiagram(holder: RenderDataHolder) {
   return function PreOrDiagram({
     node: _node,
     children,
     ...props
   }: MarkdownComponentProps<"pre">) {
+    const { circuits, matrices, health, onRecordHealth, attachments } = holder.current;
     const fence = readFence(children);
     if (fence === null) {
       return <pre {...props}>{children}</pre>;
@@ -245,16 +266,13 @@ function preOrDiagram(
 // (`![仕様書|80].pdf` のような紛らわしいファイル名を勝手に削らない。
 // docs/73-動画幅指定計画.md §3)。
 // allowRotate なら拡大表示に 90° 回転ボタンを出す (docs/49-画像回転計画.md)
-function imgRenderer(
-  allowRotate: boolean,
-  allowSecretEdit: boolean,
-  blobKinds: ReadonlyMap<string, "image" | "audio" | "video">,
-) {
+function imgRenderer(holder: RenderDataHolder) {
   return function ImgWithWidth({
     node: _node,
     alt,
     ...props
   }: MarkdownComponentProps<"img">) {
+    const { allowRotate, allowSecretEdit, blobKinds } = holder.current;
     const src = typeof props.src === "string" ? props.src : "";
     const cls = classifyImgSrc(src);
     // シークレット断片 (docs/51-部分暗号化計画.md §3) は**いちばん先** —
@@ -332,11 +350,12 @@ function taskLineOf(node: unknown): number | null {
 // disabled な input をそのまま描く。呼ぶ側で components ごと出し入れすると、
 // 出し分けの条件が 2 か所に増えて片方だけ直す事故が起きる (imgRenderer が
 // allowRotate を内側で見ているのと同じ作法)
-function taskCheckboxRenderer(onToggleTask: ToggleTaskHandler | undefined) {
+function taskCheckboxRenderer(holder: RenderDataHolder) {
   return function TaskCheckboxInput({
     node,
     ...props
   }: MarkdownComponentProps<"input">) {
+    const { onToggleTask } = holder.current;
     const line = taskLineOf(node);
     if (onToggleTask === undefined || props.type !== "checkbox" || line === null) {
       return <input {...props} />;
@@ -424,17 +443,38 @@ export function noteRecipe({
 const HEADING_ANCHOR_TWEAKS =
   "[&_:is(h1,h2,h3,h4,h5,h6)[id]]:scroll-mt-12";
 
-// memo を Markdown としてレンダリングする Server Component。
+// 省略時の空の表。描画のたびに new Map() すると材料が毎回「変わった」ことになる
+const EMPTY_CIRCUITS: PendingCircuitMap = new Map();
+const EMPTY_MATRICES: MatrixMap = new Map();
+const EMPTY_HEALTH: HealthMap = new Map();
+const EMPTY_BLOB_KINDS: ReadonlyMap<string, "image" | "audio" | "video"> = new Map();
+
+// 部品の表を 1 度だけ組む (入れ物ごと)。a / blockquote / span は材料を読まない
+// ので module の関数をそのまま置く
+function createComponents(holder: RenderDataHolder): Components {
+  return {
+    pre: preOrDiagram(holder),
+    img: imgRenderer(holder),
+    a: linkWithTarget,
+    input: taskCheckboxRenderer(holder),
+    blockquote: blockquoteWithAlert,
+    span: spanWithAnswer,
+  } as Components;
+}
+
+// memo を Markdown としてレンダリングする。サーバ (公開ビュー) でも端末
+// (NoteView) でも使うので "use client" は付けない。useMemo はどちらでも使える
+// (react-server 版の React も useMemo を持つ。useRef・createContext は持たない)。
 // 生 HTML はデフォルトで無視されるが、保険として rehype-sanitize も通す
 export function MarkdownView({
   markdown,
-  circuits = new Map(),
-  matrices = new Map(),
-  health = new Map(),
+  circuits = EMPTY_CIRCUITS,
+  matrices = EMPTY_MATRICES,
+  health = EMPTY_HEALTH,
   linkTags = true,
   allowRotate = false,
   allowSecretEdit = false,
-  blobKinds = new Map(),
+  blobKinds = EMPTY_BLOB_KINDS,
   onToggleTask,
   onRecordHealth,
   headingAnchors = false,
@@ -443,7 +483,30 @@ export function MarkdownView({
   // プラグイン列 (noteRecipe) と、解析の前段を覚えておく作り (markdownTree.ts)
   const recipe = noteRecipe({ linkTags, headingAnchors, lineOffset });
   // 計器の画面の `data:` が引く添付 (元の名前 → 配信 URL)。本文の画像記法の alt から作る
-  const attachments = attachmentIndexOf(markdown);
+  const attachments = useMemo(() => attachmentIndexOf(markdown), [markdown]);
+
+  // 材料の入れ物と、それを読む部品の表。部品はこの MarkdownView が生きている間
+  // 同じ物を使い続ける (RenderData の注)。入れ物の中身だけを描画のたびに差し替える
+  const data: RenderData = {
+    circuits,
+    matrices,
+    health,
+    onRecordHealth,
+    attachments,
+    allowRotate,
+    allowSecretEdit,
+    blobKinds,
+    onToggleTask,
+  };
+  // 入れ物は 1 度だけ作る (初期値だけ data を使うので deps は空でよい)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const holder = useMemo<RenderDataHolder>(() => ({ current: data }), []);
+  // 描画の中で書き換えるのは意図したもの。部品はこの描画の中で (親の後に)
+  // 描かれ、そのとき最新の材料を読む。描画が捨てられて撒き直されても、
+  // 親が先に描かれて書き直すので古い材料を読むことはない
+  // eslint-disable-next-line react-hooks/immutability
+  holder.current = data;
+  const components = useMemo(() => createComponents(holder), [holder]);
 
   return (
     // 文字サイズの倍率は root (html) に掛かっているので、ここは何も持たない
@@ -454,20 +517,7 @@ export function MarkdownView({
         headingAnchors ? HEADING_ANCHOR_TWEAKS : ""
       } ${BOX_CLASS}`}
     >
-      {renderMarkdownTree(markdownTree(recipe, markdown), {
-          pre: preOrDiagram(
-            circuits,
-            matrices,
-            health,
-            onRecordHealth,
-            attachments,
-          ),
-          img: imgRenderer(allowRotate, allowSecretEdit, blobKinds),
-          a: linkWithTarget,
-          input: taskCheckboxRenderer(onToggleTask),
-          blockquote: blockquoteWithAlert,
-          span: spanWithAnswer,
-        } as Components)}
+      {renderMarkdownTree(markdownTree(recipe, markdown), components)}
     </div>
   );
 }

@@ -195,6 +195,10 @@ function LoadedNote({
 }) {
   const memo = item?.memo ?? "";
   const circuits = useCircuits(itemId, memo);
+  // 本文へ渡す操作は id ごとに 1 度だけ作る。描画のたびに bind し直すと、
+  // チェックボックスが押すたびに新しい関数を受け取る (描き直しの種になる)
+  const onToggleTask = useMemo(() => toggleMemoTaskAction.bind(null, itemId), [itemId]);
+  const onRecordHealth = useMemo(() => recordHealthAction.bind(null, itemId), [itemId]);
   // 表・健康のフェンスを持つノートだけ集計を引く。持たないノートは
   // オフラインの印の吹き出しに出す添付量だけ (印を出すときだけ)
   const needsFullRender = NEEDS_RENDER.test(memo);
@@ -325,8 +329,8 @@ function LoadedNote({
                 health={render?.health}
                 allowRotate
                 allowSecretEdit
-                onToggleTask={toggleMemoTaskAction.bind(null, itemId)}
-                onRecordHealth={recordHealthAction.bind(null, itemId)}
+                onToggleTask={onToggleTask}
+                onRecordHealth={onRecordHealth}
               />
             )}
           </ImageFitScope>
