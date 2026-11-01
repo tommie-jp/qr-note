@@ -15,7 +15,12 @@
 	# 添付アップロード (動画 30MB) + multipart オーバーヘッドを許容しつつ、
 	# 巨大ボディによるメモリ枯渇をエッジで遮断する。
 	# 本番の nginx (client_max_body_size 35M) と揃える
+	# 既定は 1MB (本番の nginx と同じ。2026-11 の監査 M-15)。大きな本文が要る口だけ開ける
 	request_body {
+		max_size 1MB
+	}
+	@upload path /api/images /api/clipboard/* /api/secrets/*
+	request_body @upload {
 		max_size 35MB
 	}
 
