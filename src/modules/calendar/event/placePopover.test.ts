@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { placePopover } from './placePopover'
+import { placeAround, placePopover } from './placePopover'
 
 const cell = (left: number, top: number, w = 150, h = 110) => ({ left, top, right: left + w, bottom: top + h })
 const size = { width: 260, height: 300 }
@@ -31,5 +31,32 @@ describe('placePopover', () => {
     expect(p.side).toBe('over')
     expect(p.left).toBeGreaterThanOrEqual(8)
     expect(p.left + 260).toBeLessThanOrEqual(390 - 8)
+  })
+})
+
+describe('placeAround', () => {
+  const row = (top: number) => ({ left: 0, top, right: 1100, bottom: top + 24 })
+  const form = { width: 320, height: 300 }
+
+  test('下に入れば行の下に出し、左は画面の端から離す', () => {
+    expect(placeAround(row(100), form, wide)).toEqual({ left: 8, top: 128, maxHeight: 764, side: 'over' })
+  })
+
+  test('下に入らなければ行の上に出す (下のペインの行)', () => {
+    const p = placeAround(row(700), form, wide)
+    expect(p.top).toBe(700 - 4 - 300)
+    expect(p.top + form.height).toBe(696)
+  })
+
+  test('上下どちらにも入らなければ広いほうへ寄せて縮める', () => {
+    const p = placeAround(row(250), { width: 320, height: 800 }, { width: 400, height: 600 })
+    expect(p).toEqual({ left: 8, top: 278, maxHeight: 314, side: 'over' })
+    const q = placeAround(row(400), { width: 320, height: 800 }, { width: 400, height: 600 })
+    expect(q).toEqual({ left: 8, top: 8, maxHeight: 388, side: 'over' })
+  })
+
+  test('右にはみ出すなら行の左端から左へ寄せる', () => {
+    const p = placeAround({ left: 300, top: 100, right: 390, bottom: 124 }, form, { width: 400, height: 900 })
+    expect(p.left).toBe(400 - 8 - 320)
   })
 })

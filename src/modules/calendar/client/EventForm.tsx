@@ -23,6 +23,8 @@ export interface EventFormProps {
   query: string;
   // 全画面 (1 ペイン) で開いているか。新しい予定を保存したら月へ戻る
   fullscreen: boolean;
+  // 保存・ゴミ箱へ移した後に呼ぶ (日の予定から浮かせて開いたフォームを閉じる)
+  onDone?: () => void;
 }
 
 interface Draft {
@@ -112,7 +114,7 @@ const FIELD = "min-h-10 rounded border border-gray-300 px-2";
 // 「予定」タブの中身 (docs/126 §1-4・§1-5)。本文をテキストで直させず、
 // 題名と日時だけをフォームで直す。保存は本文の決まった所だけを書き換える
 // (applyEvent)。新しい予定 (未登録のノート) もここで作る
-export default function EventForm({ itemId, item, initialDate, query, fullscreen }: EventFormProps) {
+export default function EventForm({ itemId, item, initialDate, query, fullscreen, onDone }: EventFormProps) {
   const [draft, setDraft] = useState<Draft>(() => initialDraft(item, initialDate));
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const id = useId();
@@ -146,6 +148,10 @@ export default function EventForm({ itemId, item, initialDate, query, fullscreen
       window.history.back();
       return;
     }
+    if (onDone !== undefined) {
+      onDone();
+      return;
+    }
     setStatus({ kind: "saved" });
   };
 
@@ -159,6 +165,7 @@ export default function EventForm({ itemId, item, initialDate, query, fullscreen
     form.append("itemId", itemId);
     await trashItemsAction(form);
     invalidateCalendar();
+    onDone?.();
   };
 
   return (

@@ -45,3 +45,28 @@ export function placePopover(
   const top = Math.max(VIEWPORT_MARGIN, Math.min(anchor.top, viewport.height - VIEWPORT_MARGIN - height))
   return { left, top, maxHeight, side }
 }
+
+// 予定のフォームを、押した行の上か下に出す位置 (docs/126 §1-6)。
+// 行はペインの幅いっぱいなので横には並べない。左は行に揃えて画面に収め、
+// 縦は下に入れば下、入らなければ上、どちらも入らなければ広いほうに寄せて縮める
+export function placeAround(
+  anchor: Rect,
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+): Placement {
+  const maxRight = viewport.width - VIEWPORT_MARGIN
+  const left = Math.max(VIEWPORT_MARGIN, Math.min(anchor.left, maxRight - size.width))
+  const below = viewport.height - VIEWPORT_MARGIN - (anchor.bottom + POPOVER_GAP)
+  const above = anchor.top - POPOVER_GAP - VIEWPORT_MARGIN
+  if (size.height <= below) {
+    return { left, top: anchor.bottom + POPOVER_GAP, maxHeight: below, side: 'over' }
+  }
+  if (size.height <= above) {
+    return { left, top: anchor.top - POPOVER_GAP - size.height, maxHeight: above, side: 'over' }
+  }
+  if (below >= above) {
+    return { left, top: anchor.bottom + POPOVER_GAP, maxHeight: Math.max(0, below), side: 'over' }
+  }
+  const maxHeight = Math.max(0, above)
+  return { left, top: VIEWPORT_MARGIN, maxHeight, side: 'over' }
+}

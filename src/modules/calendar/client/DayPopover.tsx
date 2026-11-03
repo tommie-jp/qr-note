@@ -5,18 +5,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import { newItemId } from "@/lib/items/itemId";
 import { navigate } from "@/lib/client/navigation";
-import { eventTimeLabel, type DayEvent } from "../event/monthLayout";
+import type { DayEvent } from "../event/monthLayout";
 import { placePopover, type Placement } from "../event/placePopover";
 import { eventNoteHref } from "./calendarUrl";
+import { DAY_ROW_CLASS, DayEventList, DayRowContent, dayLabel } from "./DayEventList";
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
-
-export function dayLabel(day: string): string {
-  const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
-  return `${Number(day.slice(5, 7))}月${Number(day.slice(8))}日 (${WEEKDAYS[weekday]})`;
-}
-
-// 選んだ日の予定と「+」を、マスの横に浮かせて出す (docs/126 §1-6)。
+// 1 ペインで、選んだ日の予定と「+」をマスの横に浮かせて出す (docs/126 §1-6)。
+// 2・3 ペインは下のペインに出す (DayPane)。
 // 右に出し、はみ出すなら左、縦は画面に収まるようずらす (placePopover)。
 //
 // **body へ portal する。** 検索結果の器は transform を持つことがあり、その中の
@@ -108,8 +103,6 @@ export function DayPopover({
     };
   }, [anchor, onClose]);
 
-  // 行は 24px (min-h-6、文字 1 行ぶん) に詰める。1 日に何件あっても一覧として見渡せるように。
-  // 押す的としては小さめだが、押し間違えても開いたペインを閉じれば戻れる
   // 番号は押したときに振る (描くたびに振ると、開いた後で番号が変わる)
   const addEvent = () => {
     onClose();
@@ -127,40 +120,25 @@ export function DayPopover({
           ? { left: 0, top: 0, visibility: "hidden" }
           : { left: placement.left, top: placement.top, maxHeight: placement.maxHeight }
       }
-      className="fixed z-40 w-64 max-w-[calc(100vw-1rem)] space-y-0.5 overflow-y-auto rounded border border-gray-300 bg-white p-2 shadow-lg"
+      className="fixed z-40 w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded border border-gray-300 bg-white p-2 shadow-lg"
     >
-      <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-sm font-medium">{dayLabel(day)}</h3>
-        <button
-          type="button"
-          onClick={addEvent}
-          aria-label="予定を追加"
-          title="予定を追加"
-          className="flex size-7 items-center justify-center rounded bg-blue-600 text-base leading-none font-medium text-white active:bg-blue-700"
-        >
-          ＋
-        </button>
-      </div>
-      {events.length === 0 ? (
-        <p className="py-0.5 text-sm text-gray-500">{loading ? "読み込み中…" : "予定はありません"}</p>
-      ) : (
-        <ul className="divide-y divide-gray-100">
-          {events.map((event) => (
-            <li key={event.itemId}>
-              <Link
-                href={eventNoteHref(event.itemId, query, month)}
-                // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
-                data-client-note=""
-                onClick={onClose}
-                className="flex min-h-6 items-center gap-2 px-1 text-sm leading-6 hover:bg-gray-50"
-              >
-                <span className="w-10 shrink-0 text-xs text-gray-500">{eventTimeLabel(event) ?? "終日"}</span>
-                <span className="min-w-0 flex-1 truncate">{event.title || "(無題)"}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <DayEventList
+        day={day}
+        events={events}
+        loading={loading}
+        onAdd={addEvent}
+        renderRow={(event) => (
+          <Link
+            href={eventNoteHref(event.itemId, query, month)}
+            // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
+            data-client-note=""
+            onClick={onClose}
+            className={DAY_ROW_CLASS}
+          >
+            <DayRowContent event={event} />
+          </Link>
+        )}
+      />
     </div>,
     document.body,
   );

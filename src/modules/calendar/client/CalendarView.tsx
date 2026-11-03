@@ -2,9 +2,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import { notePaneLayout } from "@/lib/prefs/paneMode";
 import { addMonths, eventsByDay, isMonth, jstToday, monthCells } from "../event/monthLayout";
 import { calendarCache } from "./calendarStore";
 import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
+import { DayPane } from "./DayPane";
 import { DayPopover } from "./DayPopover";
 import { MonthGrid } from "./MonthGrid";
 
@@ -24,17 +27,28 @@ const NAV_BUTTON = "min-h-9 min-w-9 rounded px-2 text-sm text-gray-700 hover:bg-
 // 検索窓・ペインの器は一覧と共有し、ここが持つのは結果の中身だけ
 export default function CalendarView({ query }: { query: string }) {
   const params = useSearchParams();
+  // 2・3 ペインは選んだ日を下のペインに出す。1 ペインはペインが無いのでマスの横に浮かせる
+  const { mode, detailItemId } = usePaneMode();
+  const inPane = notePaneLayout(mode) === "pane";
   const [today] = useState(() => jstToday());
   const raw = params.get(CAL_PARAM) ?? "";
   const month = isMonth(raw) ? raw : today.slice(0, 7);
-  // 開いている日 (予定をマスの横に浮かせて出す)。押したマスの要素で位置を測る
-  const [opened, setOpened] = useState<{ day: string; cell: HTMLElement } | null>(null);
+  // 開いている日。浮かせるときは押したマスの要素で位置を測る
+  // openedFor … 開いたときにペインに出ていたノート。別のノートが開いたら
+  // (戻る・一覧から開く) 日のペインはそれを覆わずに退く (画像ビューアと同じ)
+  const [opened, setOpened] = useState<{ day: string; cell: HTMLElement; openedFor: string | null } | null>(null);
   const days = useMemo(() => monthCells(month), [month]);
   // 月送りの釦は閉じてから送る。URL の書き換え (戻る・検索語) で月が替わったときも
   // 開いていた日がマス目に無ければ出さない
-  const shown = opened !== null && days.includes(opened.day) ? opened : null;
+  if (opened !== null && opened.openedFor !== detailItemId) {
+    setOpened(null);
+  }
+  const shown = opened !== null && days.includes(opened.day) && opened.openedFor === detailItemId ? opened : null;
   const close = useCallback(() => setOpened(null), []);
-  const select = useCallback((day: string, cell: HTMLElement) => setOpened({ day, cell }), []);
+  const select = useCallback(
+    (day: string, cell: HTMLElement) => setOpened({ day, cell, openedFor: detailItemId }),
+    [detailItemId],
+  );
 
   const key = useMemo(() => ({ query, month }), [query, month]);
   const entry = calendarCache.useEntry(key);
@@ -102,7 +116,17 @@ export default function CalendarView({ query }: { query: string }) {
           onSelect={select}
         />
       </div>
-      {shown !== null && (
+      {shown !== null && inPane && (
+        <DayPane
+          key={shown.day}
+          day={shown.day}
+          events={byDay.get(shown.day) ?? []}
+          loading={payload === undefined}
+          query={query}
+          onClose={close}
+        />
+      )}
+      {shown !== null && !inPane && (
         <DayPopover
           key={shown.day}
           day={shown.day}
