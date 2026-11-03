@@ -145,6 +145,27 @@ test.describe('予定カレンダー', () => {
     await expect(text).toContainText(`date=${DAY} start=13:00 end=14:30`)
   })
 
+  test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
+    // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    await expect(pane).toBeVisible()
+    const before = await pane.boundingBox()
+
+    // Act: 境界を上へ 120px
+    const separator = page.locator('[role="separator"][aria-orientation="horizontal"]').last()
+    const handle = await separator.boundingBox()
+    if (!handle || !before) throw new Error('境界かペインが見つからない')
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 120, { steps: 5 })
+    await page.mouse.up()
+
+    // Assert
+    await expect.poll(async () => (await pane.boundingBox())?.height ?? 0).toBeGreaterThan(before.height + 60)
+  })
+
   test('1 ペインでは日の一覧をマスの横に浮かせる', async ({ page }) => {
     await openCalendar(page, '1')
     await dayCell(page, DAY).click()
