@@ -21,6 +21,9 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     deletedAt: new Date("2026-07-15T03:04:05Z"),
     publicAt: null,
     offlinePin: false,
+    eventStart: null,
+    eventEnd: null,
+    eventRepeat: null,
     ...overrides,
   };
 }

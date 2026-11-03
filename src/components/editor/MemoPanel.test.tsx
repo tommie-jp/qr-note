@@ -100,3 +100,28 @@ test("畳める器の外 (公開ビュー) では読むタブでも積む", () =
   expect(html).toContain('role="tablist"');
   expect(html).toContain("FOOTER");
 });
+
+// モジュールが足すタブ (docs/126 §1-4)。編集タブの右に並び、既定にもできる
+const renderExtra = (defaultMode: string, extraTabs = [{ key: "event", label: "予定", content: <div>EVENT_FORM</div> }]) =>
+  renderToStaticMarkup(
+    <MemoPanel
+      defaultMode={defaultMode}
+      markdownView={<div>MD_VIEW</div>}
+      textView={<div>TEXT_VIEW</div>}
+      editForm={<div>EDIT_FORM</div>}
+      extraTabs={extraTabs}
+    />,
+  );
+
+test("足したタブは編集の右に並び、既定にすればその中身だけを描く", () => {
+  const html = renderExtra("event");
+  expect(html.indexOf("編集")).toBeLessThan(html.indexOf("予定"));
+  expect(html).toContain("EVENT_FORM");
+  expect(html).not.toContain("MD_VIEW");
+});
+
+test("既定のタブが無ければ markdown を出す (足したタブが消えたとき)", () => {
+  const html = renderExtra("event", []);
+  expect(html).toContain("MD_VIEW");
+  expect(html).not.toContain("予定");
+});

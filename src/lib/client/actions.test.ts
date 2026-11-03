@@ -43,6 +43,9 @@ const DTO = {
   deletedAt: null,
   publicAt: null,
   offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 }
 
 type Call = { url: string; method: string; body: unknown }

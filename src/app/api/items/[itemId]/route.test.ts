@@ -55,6 +55,9 @@ const ITEM: Item = {
   deletedAt: null,
   publicAt: null,
   offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 }
 
 function context(itemId = ID) {

@@ -55,6 +55,10 @@ import { hasNoteNumber } from "@/lib/items/noteNumber";
 import { perfKB } from "@/lib/logging/perfLine";
 import { CIRCUIT_LANGS, HEALTH_LANG, MATRIX_LANG } from "@/lib/markdown/fenceLanguages";
 import { ensureSnapshotIndex, snapshotIndexStore } from "@/lib/offline/snapshotIndex";
+import { notePaneLayout } from "@/lib/prefs/paneMode";
+import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import { useSearchParams } from "next/navigation";
+import { noteTabsFor } from "@/modules/registry";
 
 interface NoteViewProps {
   itemId: string;
@@ -195,6 +199,25 @@ function LoadedNote({
 }) {
   const memo = item?.memo ?? "";
   const circuits = useCircuits(itemId, memo);
+  // モジュールが足すタブ (予定など。docs/126 §1-4)。URL の ?tab= と ?date= は
+  // 開いたときの値を控える — 3 ペインでは URL が /item を離れてもノートが残るので、
+  // 後から読むと「予定」タブが消えてしまう
+  const searchParams = useSearchParams();
+  const [opened] = useState(() => ({ tab: searchParams.get("tab"), date: searchParams.get("date") }));
+  const { mode: paneMode } = usePaneMode();
+  const query = searchParams.get("q") ?? "";
+  const extraTabs = useMemo(
+    () =>
+      noteTabsFor({
+        itemId,
+        item,
+        tab: opened.tab,
+        date: opened.date,
+        query,
+        fullscreen: notePaneLayout(paneMode) === "fullscreen",
+      }),
+    [itemId, item, opened, query, paneMode],
+  );
   // 本文へ渡す操作は id ごとに 1 度だけ作る。描画のたびに bind し直すと、
   // チェックボックスが押すたびに新しい関数を受け取る (描き直しの種になる)
   const onToggleTask = useMemo(() => toggleMemoTaskAction.bind(null, itemId), [itemId]);
@@ -316,7 +339,10 @@ function LoadedNote({
           footer: <ItemTimestamps item={item} />,
           badge,
         }}
-        defaultMode={memo ? "markdown" : "edit"}
+        extraTabs={extraTabs}
+        defaultMode={
+          extraTabs.some(({ key }) => key === opened.tab) ? opened.tab ?? "markdown" : memo ? "markdown" : "edit"
+        }
         markdownView={
           <ImageFitScope>
             {waitsForRender ? (

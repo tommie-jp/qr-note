@@ -17,6 +17,7 @@ import { SORT_COOKIE } from "@/lib/prefs/sortMode";
 import { parseViewMode, VIEW_MODE_COOKIE } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
 import type { ViewMode } from "@/lib/prefs/viewMode";
+import { RESULT_VIEWS } from "@/modules/registry";
 
 // cookie を書くサーバーアクション。db.ts を巻き込まないよう prop で受ける
 // (BottomActionBar と同じ理由)
@@ -118,6 +119,22 @@ export function ResultsToolbar({
           <span className={SLOT_LABEL_CLASS}>スライドショー</span>
         </button>
       )}
+      {/* モジュールの表示 (カレンダーなど。docs/126 §1-3)。一覧から移るだけで、
+          戻るのは表示の側の「一覧」。履歴に積むので「戻る」でも一覧へ戻れる */}
+      {!selectMode &&
+        RESULT_VIEWS.map((resultView) => (
+          <button
+            key={resultView.id}
+            type="button"
+            onClick={() => window.history.pushState(null, "", resultView.enterHref(query))}
+            aria-label={resultView.label}
+            title={resultView.label}
+            className={`${INLINE_SLOT_CLASS} text-gray-700`}
+          >
+            <SlotIcon color="text-rose-600">{resultView.icon}</SlotIcon>
+            <span className={SLOT_LABEL_CLASS}>{resultView.label}</span>
+          </button>
+        ))}
       {/* contents … 拾うための器で、並びには参加しない */}
       <span className="contents" onSubmitCapture={onViewSubmit}>
       <ViewSlot

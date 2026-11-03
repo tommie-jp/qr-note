@@ -14,6 +14,7 @@
 #               見えない。見出しの切り出し (src/lib/markdown/memoSummary.ts) は Markdown の解析
 #               なので SQL では代用できない。
 #   taskcounts  items.task_todo / task_done を本文から数え直す (docs/56-チェック検索計画.md §4)。
+#   events      items.event_start / event_end / event_repeat を本文の date= 行から作り直す (docs/126 §1-2)。
 #               **列を足したデプロイの直後に 1 回流すこと。** マイグレーションは既存行を
 #               0 のまま置くので、流さないと `is:todo` が常に 0 件になる (検索が壊れて
 #               見える)。数え方 (src/lib/markdown/taskCheckbox.ts の countTasks) は remark を通す JS。
@@ -105,7 +106,7 @@ for arg in "$@"; do
     -h|--help) help ;;
     --demo) DEMO=1 ;;
     --seed) SEED=1 ;;
-    titles|taskcounts|thumbs|circuits|circuit-fences|circuit-addresses|photometa|photometa-check|embeddings)
+    titles|taskcounts|events|thumbs|circuits|circuit-fences|circuit-addresses|photometa|photometa-check|embeddings)
       [ -z "$TASK" ] || usage
       TASK="$arg"
       ;;
@@ -118,6 +119,7 @@ done
 case "$TASK" in
   titles) TASK_LABEL="見出しを切り出し直す"; TASK_ARGS=(scripts/backfillTitles.ts) ;;
   taskcounts) TASK_LABEL="タスク数を数え直す"; TASK_ARGS=(scripts/backfillTaskCounts.ts) ;;
+  events) TASK_LABEL="予定の日時を作り直す (docs/126)"; TASK_ARGS=(scripts/backfillEventColumns.ts) ;;
   thumbs) TASK_LABEL="サムネ再生成 (--force)"; TASK_ARGS=(scripts/backfillThumbs.ts --force) ;;
   circuits) TASK_LABEL="回路図の一括描画 (描画済みは飛ばす)"; TASK_ARGS=(scripts/backfillCircuits.ts) ;;
   circuit-fences) TASK_LABEL="回路フェンスの控えを埋めて古い行を掃く"; TASK_ARGS=(scripts/backfillCircuitFences.ts) ;;

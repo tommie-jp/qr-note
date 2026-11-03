@@ -80,8 +80,24 @@ model Item {
   // 索引は張らない。同期は全件を 1 クエリで引くので絞り込みに使わない
   // (task_todo / title と同じ判断)。
   offlinePin Boolean @default(false) @map("offline_pin")
+  // 予定 (docs/126 §1-2)。本文のプロパティ行 `date=… start=… end=…` から
+  // 作る派生キャッシュで、正本は memo。保存のたびに derivedFromMemo が
+  // modules/calendar/event/eventColumns.ts を通して作り直す。
+  //
+  // 列を足したのは**月の範囲検索のため** — props の JSON には範囲の索引が
+  // 効かず、無ければ月を開くたびに全ノートを読むことになる。
+  // eventEnd は半開区間の終わり (終日なら最終日の翌 0 時 JST)。
+  // eventRepeat は繰り返し (Phase 3) の値で、今は常に null。
+  //
+  // 索引は eventStart に通常の索引を 1 本。部分索引にしないのは、移行 SQL に
+  // 手で書いた索引を次の migrate が drift とみなして落とすため
+  // (PGroonga の索引が消えたのと同じ罠)。ここに書けば Prisma が持ち続ける
+  eventStart  DateTime? @map("event_start")
+  eventEnd    DateTime? @map("event_end")
+  eventRepeat String?   @map("event_repeat")
 
   @@index([tags], type: Gin)
+  @@index([eventStart])
   @@map("items")
 }
 

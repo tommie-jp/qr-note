@@ -30,6 +30,9 @@ const row = (itemId: string, updatedAt: string, memo: string) => ({
   updatedAt: new Date(updatedAt),
   accessedAt: new Date(updatedAt),
   offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 })
 
 const SINCE = new Date('2026-10-30T12:00:00.000Z')

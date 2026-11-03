@@ -75,6 +75,9 @@ const ITEM = {
   deletedAt: null,
   publicAt: null,
   offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 } satisfies Item
 const ITEM_ENVELOPE = { success: true, data: { item: toItemDto(ITEM) }, error: null }
 

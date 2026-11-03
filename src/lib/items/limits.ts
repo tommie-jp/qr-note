@@ -19,3 +19,7 @@ export const MATRIX_ROW_LIMIT = 200
 // (「チェックを持つ」に当たる派生列が無い)、絞りは検索式だけが担う。
 // タグを書かずに置かれたフェンスが全ノートを舐めないための止め弁でもある。
 export const HEALTH_ROW_LIMIT = 200
+
+// 予定カレンダー (docs/126 §1-3) が 1 か月 (表示する 4〜6 週) に載せる予定の上限。
+// SQL 側で月に絞るので、個人利用で超えることは無い前提の止め弁
+export const CALENDAR_ROW_LIMIT = 200

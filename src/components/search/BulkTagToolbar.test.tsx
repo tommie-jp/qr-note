@@ -18,6 +18,9 @@ function makeItem(overrides: Partial<Item> = {}): Item {
     deletedAt: null,
     publicAt: null,
     offlinePin: false,
+    eventStart: null,
+    eventEnd: null,
+    eventRepeat: null,
     ...overrides,
   };
 }

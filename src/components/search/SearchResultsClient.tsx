@@ -42,6 +42,8 @@ import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
 import { showsAutoNote } from "@/lib/prefs/paneMode";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import { buildItemUrl } from "@/lib/search/url";
+import { useSearchParams } from "next/navigation";
+import { activeResultView, type ResultView } from "@/modules/registry";
 import type { Sort } from "@/lib/validation";
 
 interface SearchResultsClientProps {
@@ -61,7 +63,31 @@ interface SearchResultsClientProps {
 //
 // **取り直しの間は前の結果を出したまま薄くする** — 打鍵ごとに白くならない
 // (App Router がサーバ描画の頃にしていたことを、控えで同じようにする)
-export function SearchResultsClient({
+export function SearchResultsClient(props: SearchResultsClientProps) {
+  // URL がモジュールの表示 (カレンダーなど。docs/126 §1-3) を選んでいれば、
+  // 一覧の代わりにそちらを出す。一覧の控えは引かない
+  const resultView = activeResultView(useSearchParams());
+  if (resultView !== null) {
+    return <ModuleResults view={resultView} cookieSort={props.cookieSort} />;
+  }
+  return <ListResults {...props} />;
+}
+
+// モジュールの表示。検索窓・件数の器 (SearchResults) は一覧と共有し、
+// 中身だけを差し替える
+function ModuleResults({ view, cookieSort }: { view: ResultView; cookieSort: Sort }) {
+  const { query } = useSearchState(cookieSort);
+  const Component = view.Component;
+  return (
+    <SearchResults query={query}>
+      <div data-results-scroll className="space-y-2">
+        <Component query={query} />
+      </div>
+    </SearchResults>
+  );
+}
+
+function ListResults({
   cookieSort,
   serverView,
   paneBgClass,

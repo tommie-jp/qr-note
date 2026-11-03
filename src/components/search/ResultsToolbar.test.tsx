@@ -197,8 +197,8 @@ test("スロットは折り返さず縮まない", () => {
 test("ラベルは削れるよう span で包み、幅の上限を段で持つ", () => {
   const html = render();
   // 裸のテキストのままでは max-width を当てる相手がいない。
-  // 3 つ (表示・並び順・選択) すべてに要る
-  expect(html.match(/max-w-\[1em\]/g)).toHaveLength(3);
+  // 4 つ (カレンダー・表示・並び順・選択) すべてに要る
+  expect(html.match(/max-w-\[1em\]/g)).toHaveLength(4);
   // 段は container query。画面幅 (sm: など) で切ると、フォルダーペインを
   // 広げて一覧を細くしたときに効かない
   expect(html).toContain("@xs:max-w-[2em]");
@@ -211,4 +211,10 @@ test("ラベルを削っても読み上げは完全なまま", () => {
   // 「並び順: 更新順・新しい順 (押すと…)」のような完全な説明
   expect(html).toContain('aria-label="並び順:');
   expect(html).toContain('aria-label="表示:');
+});
+
+// モジュールの表示 (docs/126 §1-3)。登録口 (src/modules/registry.tsx) の一覧から出す
+test("カレンダーへ移る釦を出す", () => {
+  const html = render();
+  expect(html).toContain('aria-label="カレンダー"');
 });

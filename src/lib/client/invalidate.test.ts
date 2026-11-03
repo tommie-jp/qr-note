@@ -24,6 +24,9 @@ const DTO: ItemDto = {
   deletedAt: null,
   publicAt: null,
   offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 }
 
 function seed(): void {

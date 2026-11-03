@@ -19,6 +19,9 @@ const ITEM: Item = {
   deletedAt: null,
   publicAt: new Date('2026-10-04T00:00:00.000Z'),
   offlinePin: true,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 }
 
 describe('itemDto', () => {

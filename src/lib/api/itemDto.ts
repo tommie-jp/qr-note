@@ -24,6 +24,11 @@ export interface ItemDto {
   deletedAt: string | null
   publicAt: string | null
   offlinePin: boolean
+  // 予定の派生列 (docs/126 §1-2)。省略可にしているのは、この列を知らない
+  // 版のサーバ・控えの応答も受けるため (読めなければ null に倒す)
+  eventStart?: string | null
+  eventEnd?: string | null
+  eventRepeat?: string | null
 }
 
 export function toItemDto(item: Item): ItemDto {
@@ -41,6 +46,9 @@ export function toItemDto(item: Item): ItemDto {
     deletedAt: item.deletedAt?.toISOString() ?? null,
     publicAt: item.publicAt?.toISOString() ?? null,
     offlinePin: item.offlinePin,
+    eventStart: item.eventStart?.toISOString() ?? null,
+    eventEnd: item.eventEnd?.toISOString() ?? null,
+    eventRepeat: item.eventRepeat,
   }
 }
 
@@ -53,6 +61,9 @@ export function reviveItem(dto: ItemDto): Item {
     accessedAt: new Date(dto.accessedAt),
     deletedAt: dto.deletedAt === null ? null : new Date(dto.deletedAt),
     publicAt: dto.publicAt === null ? null : new Date(dto.publicAt),
+    eventStart: dto.eventStart ? new Date(dto.eventStart) : null,
+    eventEnd: dto.eventEnd ? new Date(dto.eventEnd) : null,
+    eventRepeat: dto.eventRepeat ?? null,
   }
 }
 
@@ -92,6 +103,9 @@ export function isItemDto(value: unknown): value is ItemDto {
     isIsoDate(v.accessedAt) &&
     isNullableIsoDate(v.deletedAt) &&
     isNullableIsoDate(v.publicAt) &&
-    typeof v.offlinePin === 'boolean'
+    typeof v.offlinePin === 'boolean' &&
+    (v.eventStart === undefined || isNullableIsoDate(v.eventStart)) &&
+    (v.eventEnd === undefined || isNullableIsoDate(v.eventEnd)) &&
+    (v.eventRepeat === undefined || v.eventRepeat === null || isString(v.eventRepeat))
   )
 }

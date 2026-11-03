@@ -10,6 +10,7 @@ import { useSearchState } from "@/lib/client/useSearchState";
 import { perfStart } from "@/lib/logging/perfClient";
 import { recordQueryUse } from "@/lib/search/queryClient";
 import { buildSearchUrl } from "@/lib/search/url";
+import { carryResultViewParams } from "@/modules/registry";
 import type { Sort } from "@/lib/validation";
 
 interface SearchNav {
@@ -52,7 +53,12 @@ export function SearchNavProvider({
     (query: string) => {
       // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
       perfStart("検索", "/");
-      window.history.replaceState(null, "", buildSearchUrl(query.trim(), 1, sort));
+      // カレンダーなどの表示を出しているなら、その引数 (月) を持ち越す (docs/126 §1-3)
+      const href = carryResultViewParams(
+        buildSearchUrl(query.trim(), 1, sort),
+        new URLSearchParams(location.search),
+      );
+      window.history.replaceState(null, "", href);
     },
     [sort],
   );

@@ -92,6 +92,9 @@ describe('conflictState', () => {
     deletedAt: new Date(4_000),
     publicAt: null,
     offlinePin: false,
+    eventStart: null,
+    eventEnd: null,
+    eventRepeat: null,
   }
 
   test('いまの版を画面に要る分だけに畳み、時刻の印を付ける', () => {

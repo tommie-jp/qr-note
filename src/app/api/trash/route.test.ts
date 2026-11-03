@@ -55,6 +55,9 @@ const TRASHED = {
   deletedAt: new Date(3_000),
   publicAt: null,
   offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
 } satisfies Item
 
 function request(method: string, body?: unknown, query = '', headers: Record<string, string> = {}) {

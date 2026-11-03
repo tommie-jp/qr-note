@@ -10,7 +10,16 @@ import {
 import { useNoteChrome } from "@/components/notechrome/NoteChromeProvider";
 import { noteChromeLayout, useNoteChromePinned } from "@/lib/prefs/noteChrome";
 
-type MemoMode = "markdown" | "text" | "edit";
+// 既定の 3 つに、モジュールが足すタブ (extraTabs の key) が加わる
+type MemoMode = "markdown" | "text" | "edit" | (string & {});
+
+// モジュールが足すタブ (docs/126 §1-4。登録は src/modules/registry.tsx)。
+// 中身は編集タブと同じく「書く場所」として扱う (見出し行を畳まない)
+export interface ExtraTab {
+  key: string;
+  label: string;
+  content: ReactNode;
+}
 
 interface MemoPanelProps {
   defaultMode: MemoMode;
@@ -24,6 +33,8 @@ interface MemoPanelProps {
   // 省略 = タブだけ (これまでの形)。渡すと、畳める器 (NoteChromeProvider)
   // の中では読むタブの間だけ畳み、呼ばれたときに上端の行の下へ重ねる
   chrome?: NoteChrome;
+  // 4 つ目以降のタブ (予定など)。編集タブの右に並ぶ
+  extraTabs?: readonly ExtraTab[];
 }
 
 export interface NoteChrome {
@@ -55,6 +66,7 @@ export function MemoPanel({
   textView,
   editForm,
   chrome,
+  extraTabs = [],
 }: MemoPanelProps) {
   const [mode, setMode] = useState<MemoMode>(defaultMode);
   const [visited, setVisited] = useState<ReadonlySet<MemoMode>>(
@@ -72,19 +84,23 @@ export function MemoPanel({
     ...(editForm === undefined
       ? []
       : [{ key: "edit" as const, content: editForm }]),
+    ...extraTabs.map(({ key, content }) => ({ key, content })),
   ];
 
   // 読み取り専用なら編集タブは出さない (editForm 省略時)
-  const modes = MODES.filter(
-    ({ key }) => key !== "edit" || editForm !== undefined,
-  );
+  const modes = [
+    ...MODES.filter(({ key }) => key !== "edit" || editForm !== undefined),
+    ...extraTabs.map(({ key, label }) => ({ key, label })),
+  ];
+  // 足したタブが消えた (本文から date= を消した等) ら markdown へ戻す
+  const shownMode = modes.some(({ key }) => key === mode) ? mode : "markdown";
 
   const host = useNoteChrome();
   const pinned = useNoteChromePinned();
   const layout = noteChromeLayout({
     collapsible: chrome !== undefined && host !== null,
     pinned,
-    editing: mode === "edit",
+    editing: shownMode === "edit" || extraTabs.some(({ key }) => key === shownMode),
   });
   const dismiss = host?.dismiss;
   const setInline = host?.setInline;
@@ -123,15 +139,17 @@ export function MemoPanel({
 
   const tabPanels = panels.map(
     ({ key, content }) =>
-      visited.has(key) && (
+      // 表に出ているタブは必ず描く (足したタブが消えて markdown へ戻ったとき、
+      // markdown をまだ一度も開いていないことがある)
+      (visited.has(key) || key === shownMode) && (
         // data-os-menu … スマホの長押しで OS のメニュー (コピー・共有) を
         // 出すのはこの中だけ (globals.css。docs/98)。読む・書く場所なので
         // 文字の選択も画像の共有も要る。上のタブの見出しは押す物なので外す
-        <div key={key} hidden={mode !== key} data-os-menu="">
+        <div key={key} hidden={shownMode !== key} data-os-menu="">
           {/* いま表向きのタブかを中身へ伝える。編集タブの操作ボタンは下部バーへ
               portal され hidden の枠を抜けるので、非表示タブでは portal を
               止める必要がある (MemoEditorInner が参照する) */}
-          <PanelActiveContext.Provider value={mode === key}>
+          <PanelActiveContext.Provider value={shownMode === key}>
             {content}
           </PanelActiveContext.Provider>
         </div>
@@ -141,7 +159,7 @@ export function MemoPanel({
   if (chrome === undefined) {
     return (
       <div className="space-y-2">
-        <MemoTabs modes={modes} mode={mode} onSelect={selectMode} />
+        <MemoTabs modes={modes} mode={shownMode} onSelect={selectMode} />
         {tabPanels}
       </div>
     );
@@ -160,7 +178,7 @@ export function MemoPanel({
       {inline ? chrome.tags : null}
       <div className={inline ? "space-y-2" : undefined}>
         {inline ? (
-          <MemoTabs modes={modes} mode={mode} onSelect={selectMode} />
+          <MemoTabs modes={modes} mode={shownMode} onSelect={selectMode} />
         ) : null}
         {tabPanels}
       </div>
@@ -183,7 +201,7 @@ export function MemoPanel({
               <div className="pt-2">
                 <MemoTabs
                   modes={modes}
-                  mode={mode}
+                  mode={shownMode}
                   onSelect={selectFromOverlay}
                 />
               </div>

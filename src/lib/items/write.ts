@@ -12,6 +12,7 @@ import { extractProps } from '@/lib/markdown/props'
 import { nextVersion, type SaveBase } from '@/lib/editor/saveBase'
 import { extractTags } from '@/lib/markdown/tags/tags'
 import { countTasks } from '@/lib/markdown/taskCheckbox'
+import { moduleDerivedColumns } from '@/modules/derivedColumns'
 import { getItem } from './read'
 
 // Ver1 の /item/:itemNo と同じく、未登録なら新規作成する (upsert)。
@@ -284,5 +285,7 @@ export function derivedFromMemo(memo: string) {
     props: extractProps(memo),
     taskTodo: tasks.todo,
     taskDone: tasks.done,
+    // モジュールの派生列 (予定の日時。docs/126 §1-2)
+    ...moduleDerivedColumns(memo),
   }
 }

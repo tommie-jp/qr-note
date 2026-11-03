@@ -6,6 +6,17 @@ import nextTs from "eslint-config-next/typescript";
 const SERVER_ONLY_IMPORT_MESSAGE =
   "部品から prisma / sharp を値で import しない (クライアントの束に混ざって画面ごと落ちる)。型だけなら `import type` にする。docs/93-リファクタリング計画.md §2-2";
 
+// モジュール (src/modules、docs/126 §1-7) の境界。core (lib・components・app) が
+// モジュールの中身を直に import すると、機能を足すたびに core が太る。
+// core が読んでよいのは登録口の 3 つだけ
+const MODULE_BOUNDARY_PATTERN = {
+  // registry・derivedColumns・<モジュール>/api/route (app/api の薄いファイルが委譲する先)
+  // だけを通す。gitignore 形式の否定 (!) は親が除外済みだと効かないので正規表現で書く
+  regex: "^@/modules/(?!(?:registry|derivedColumns|[^/]+/api/route)$)",
+  message:
+    "core からモジュールの中身を直に import しない。@/modules/registry (画面)・@/modules/derivedColumns (派生列)・@/modules/*/api/route (API) を通す。docs/126 §1-7",
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -48,9 +59,18 @@ const eslintConfig = defineConfig([
               message: SERVER_ONLY_IMPORT_MESSAGE,
               allowTypeImports: true,
             },
+            // 同じ規則を別の塊で書くと後勝ちで上の検査が消えるので、ここに合流させる
+            MODULE_BOUNDARY_PATTERN,
           ],
         },
       ],
+    },
+  },
+  {
+    // モジュールの境界 (部品は上の塊に合流済み)
+    files: ["src/lib/**/*.{ts,tsx}", "src/app/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": ["error", { patterns: [MODULE_BOUNDARY_PATTERN] }],
     },
   },
   {

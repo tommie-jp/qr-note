@@ -54,6 +54,9 @@ function item(itemId: string, memo: string): Item {
     deletedAt: null,
     publicAt: null,
     offlinePin: false,
+    eventStart: null,
+    eventEnd: null,
+    eventRepeat: null,
   }
 }
 
