@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { addMonths, eventsByDay, isMonth, jstToday, monthCells } from "../event/monthLayout";
 import { calendarCache } from "./calendarStore";
 import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
-import { DayStrip } from "./DayStrip";
+import { DayPopover } from "./DayPopover";
 import { MonthGrid } from "./MonthGrid";
 
 // URL の cal を書き換える。履歴を増やさない (月送りは「戻る」で辿る物ではない)。
@@ -27,11 +27,14 @@ export default function CalendarView({ query }: { query: string }) {
   const [today] = useState(() => jstToday());
   const raw = params.get(CAL_PARAM) ?? "";
   const month = isMonth(raw) ? raw : today.slice(0, 7);
-  const [picked, setPicked] = useState<string | null>(null);
-  // 選んだ日がこの月のマス目に無ければ、今日 (今月なら) か 1 日を選ぶ
+  // 開いている日 (予定をマスの横に浮かせて出す)。押したマスの要素で位置を測る
+  const [opened, setOpened] = useState<{ day: string; cell: HTMLElement } | null>(null);
   const days = useMemo(() => monthCells(month), [month]);
-  const selected =
-    picked !== null && days.includes(picked) ? picked : today.startsWith(month) ? today : `${month}-01`;
+  // 月送りの釦は閉じてから送る。URL の書き換え (戻る・検索語) で月が替わったときも
+  // 開いていた日がマス目に無ければ出さない
+  const shown = opened !== null && days.includes(opened.day) ? opened : null;
+  const close = useCallback(() => setOpened(null), []);
+  const select = useCallback((day: string, cell: HTMLElement) => setOpened({ day, cell }), []);
 
   const key = useMemo(() => ({ query, month }), [query, month]);
   const entry = calendarCache.useEntry(key);
@@ -42,27 +45,34 @@ export default function CalendarView({ query }: { query: string }) {
   return (
     <div className="space-y-2" data-calendar="">
       <div className="flex flex-wrap items-center gap-1">
-        <button type="button" className={NAV_BUTTON} aria-label="前の月" onClick={() => replaceMonth(addMonths(month, -1))}>
+        <button type="button" className={NAV_BUTTON} aria-label="前の月" onClick={() => {
+            setOpened(null);
+            replaceMonth(addMonths(month, -1));
+          }}>
           ◀
         </button>
         <h2 className="min-w-28 text-center font-medium" aria-live="polite">
           {year}年{monthNumber}月
         </h2>
-        <button type="button" className={NAV_BUTTON} aria-label="次の月" onClick={() => replaceMonth(addMonths(month, 1))}>
+        <button type="button" className={NAV_BUTTON} aria-label="次の月" onClick={() => {
+            setOpened(null);
+            replaceMonth(addMonths(month, 1));
+          }}>
           ▶
         </button>
         <button
           type="button"
           className={NAV_BUTTON}
           onClick={() => {
-            setPicked(today);
+            setOpened(null);
             replaceMonth(today.slice(0, 7));
           }}
         >
           今日
         </button>
         <span className="flex-1" />
-        {entry?.loading && <span className="text-xs text-gray-500">読み込み中…</span>}
+        {/* 読み込み中の文字はここに出さない。見出し行が折り返してマス目がずれ、
+            浮かせた一覧 (マスの位置で置いた) と食い違う。待ちはマス目を薄くして見せる */}
         <button type="button" className={`${NAV_BUTTON} border border-gray-300`} onClick={pushList}>
           一覧
         </button>
@@ -83,9 +93,27 @@ export default function CalendarView({ query }: { query: string }) {
       ) : null}
 
       <div className={payload === undefined ? "opacity-50" : undefined} aria-busy={payload === undefined}>
-        <MonthGrid month={month} days={days} byDay={byDay} today={today} selected={selected} onSelect={setPicked} />
+        <MonthGrid
+          month={month}
+          days={days}
+          byDay={byDay}
+          today={today}
+          selected={shown?.day ?? null}
+          onSelect={select}
+        />
       </div>
-      <DayStrip day={selected} events={byDay.get(selected) ?? []} query={query} month={month} />
+      {shown !== null && (
+        <DayPopover
+          key={shown.day}
+          day={shown.day}
+          anchor={shown.cell}
+          events={byDay.get(shown.day) ?? []}
+          loading={payload === undefined}
+          query={query}
+          month={month}
+          onClose={close}
+        />
+      )}
     </div>
   );
 }

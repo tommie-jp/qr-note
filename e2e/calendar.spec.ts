@@ -26,6 +26,20 @@ function dayCell(page: Page, day: string): Locator {
   return calendar(page).locator(`[data-day="${day}"]`)
 }
 
+// 浮かせた一覧はマスの右か左に接し、画面の中に収まる
+async function expectBesideCell(page: Page, popover: Locator): Promise<void> {
+  const cell = await dayCell(page, DAY).boundingBox()
+  const box = await popover.boundingBox()
+  const viewport = page.viewportSize()
+  if (cell === null || box === null || viewport === null) {
+    throw new Error('位置を測れない')
+  }
+  const touchesRight = Math.abs(box.x - (cell.x + cell.width)) <= 6
+  const touchesLeft = Math.abs(box.x + box.width - cell.x) <= 6
+  expect(touchesRight || touchesLeft).toBe(true)
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height)
+}
+
 async function openCalendar(page: Page): Promise<void> {
   // 2 ペイン (検索結果 + ノート)。予定は右のペインで開く
   await page.context().addCookies([{ name: 'panes', value: '2', url: BASE_URL }])
@@ -51,11 +65,14 @@ test.describe('予定カレンダー', () => {
     await openCalendar(page)
 
     await dayCell(page, DAY).click()
-    const strip = calendar(page).getByRole('region', { name: '11月5日 (木) の予定' })
-    await expect(strip.getByText('予定はありません')).toBeVisible()
+    // マスの横に浮かせて出す (body へ portal するので page から引く)
+    const popover = page.getByRole('dialog', { name: '11月5日 (木) の予定' })
+    await expect(popover.getByText('予定はありません')).toBeVisible()
+    await expectBesideCell(page, popover)
 
     // 「+」は新しい番号で予定タブを開く (保存はしない)
-    await strip.getByRole('button', { name: '+ 予定を追加' }).click()
+    await popover.getByRole('button', { name: '予定を追加' }).click()
+    await expect(popover).toHaveCount(0)
     await expect(page).toHaveURL(/\/item\/[0-9a-f-]{36}\?.*cal=2026-11.*tab=event.*date=2026-11-05/)
     await expect(page.getByRole('form', { name: '予定' }).getByRole('button', { name: '追加' })).toBeVisible()
 
@@ -72,16 +89,19 @@ test.describe('予定カレンダー', () => {
     await form.getByRole('button', { name: '追加' }).click()
     await expect(form.getByText('保存しました')).toBeVisible()
 
-    // 左の月に出る (控えを古くして取り直す)
+    // 月に出る (控えを古くして取り直す)
     await expect(dayCell(page, DAY)).toContainText(NOTE.heading)
-    await expect(strip.getByRole('link', { name: new RegExp(NOTE.key) })).toContainText('10:00')
+    await dayCell(page, DAY).click()
+    await expect(popover.getByRole('link', { name: new RegExp(NOTE.key) })).toContainText('10:00')
   })
 
   test('予定を押すと予定タブで開き、時刻を直すと本文の行だけ変わる', async ({ page }) => {
     await openCalendar(page)
     await dayCell(page, DAY).click()
-    const strip = calendar(page).getByRole('region', { name: '11月5日 (木) の予定' })
-    await strip.getByRole('link', { name: new RegExp(NOTE.key) }).click()
+    const popover = page.getByRole('dialog', { name: '11月5日 (木) の予定' })
+    await popover.getByRole('link', { name: new RegExp(NOTE.key) }).click()
+    // 予定を押したら閉じる
+    await expect(popover).toHaveCount(0)
 
     const form = page.getByRole('form', { name: '予定' })
     await expect(form.getByLabel('題名')).toHaveValue(NOTE.heading)
@@ -90,7 +110,10 @@ test.describe('予定カレンダー', () => {
     await form.getByLabel('終了 (省略で 1 時間)').fill('14:30')
     await form.getByRole('button', { name: '保存' }).click()
     await expect(form.getByText('保存しました')).toBeVisible()
-    await expect(strip.getByRole('link', { name: new RegExp(NOTE.key) })).toContainText('13:00')
+    await dayCell(page, DAY).click()
+    await expect(popover.getByRole('link', { name: new RegExp(NOTE.key) })).toContainText('13:00')
+    await page.keyboard.press('Escape')
+    await expect(popover).toHaveCount(0)
 
     // 本文は決まった所だけ変わる (タグの行は残る)
     await selectNoteTab(page, 'テキスト')

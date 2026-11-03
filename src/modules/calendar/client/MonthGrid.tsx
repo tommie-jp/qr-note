@@ -6,7 +6,7 @@ import { eventTimeLabel, type DayEvent } from "../event/monthLayout";
 //
 // マスの中の予定は**押せる物にしない**。iPhone 幅ではマスが 50px ほどで、
 // 中の文字をリンクにすると日を選ぶつもりの指が予定を開いてしまう。
-// 日を押すと下の帯 (DayStrip) にその日の予定が並び、そこから開く
+// 日を押すとマスの横にその日の予定が浮かんで並び (DayPopover)、そこから開く
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 // 1 マスに出す予定の数。超えた分は「+N」
 const CHIPS_PER_DAY = 3;
@@ -28,7 +28,8 @@ export function MonthGrid({
   byDay: ReadonlyMap<string, readonly DayEvent[]>;
   today: string;
   selected: string | null;
-  onSelect: (day: string) => void;
+  // 押したマスの要素も渡す (浮かせる一覧の位置を測る)
+  onSelect: (day: string, cell: HTMLElement) => void;
 }) {
   return (
     <div className="select-none" data-calendar-grid="">
@@ -52,9 +53,11 @@ export function MonthGrid({
               type="button"
               role="gridcell"
               aria-selected={isSelected}
+              aria-haspopup="dialog"
+              aria-expanded={isSelected}
               aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日 ${events.length} 件`}
               data-day={day}
-              onClick={() => onSelect(day)}
+              onClick={(event) => onSelect(day, event.currentTarget)}
               className={`flex min-h-16 min-w-0 flex-col items-stretch gap-0.5 border-r border-b border-gray-200 p-0.5 text-left align-top transition-colors sm:min-h-24 ${
                 inMonth ? "bg-white" : "bg-gray-50 text-gray-400"
               } ${isSelected ? "outline-2 -outline-offset-2 outline-blue-500" : ""} hover:bg-blue-50`}
