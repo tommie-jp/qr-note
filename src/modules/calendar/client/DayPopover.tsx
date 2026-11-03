@@ -108,7 +108,7 @@ export function DayPopover({
     };
   }, [anchor, onClose]);
 
-  // 行は 28px (min-h-7) に詰める。1 日に何件あっても一覧として見渡せるように。
+  // 行は 24px (min-h-6、文字 1 行ぶん) に詰める。1 日に何件あっても一覧として見渡せるように。
   // 押す的としては小さめだが、押し間違えても開いたペインを閉じれば戻れる
   // 番号は押したときに振る (描くたびに振ると、開いた後で番号が変わる)
   const addEvent = () => {
@@ -152,7 +152,7 @@ export function DayPopover({
                 // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
                 data-client-note=""
                 onClick={onClose}
-                className="flex min-h-7 items-center gap-2 px-1 py-0.5 text-sm leading-5 hover:bg-gray-50"
+                className="flex min-h-6 items-center gap-2 px-1 text-sm leading-6 hover:bg-gray-50"
               >
                 <span className="w-10 shrink-0 text-xs text-gray-500">{eventTimeLabel(event) ?? "終日"}</span>
                 <span className="min-w-0 flex-1 truncate">{event.title || "(無題)"}</span>
