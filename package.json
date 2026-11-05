@@ -74,7 +74,7 @@
     "next": "^16.4.3",
     "node-tikzjax": "^1.0.5",
     "onnxruntime-node": "1.30.0",
-    "onnxruntime-web": "^1.30.0",
+    "onnxruntime-web": "^1.31.1",
     "pdfjs-dist": "^6.4.299",
     "perfboard-fence": "file:vendor/perfboard-fence-0.41.0.tgz",
     "qrcode": "^1.5.4",
