@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { CopyTextButton } from "@/components/CopyTextButton";
@@ -10,6 +11,7 @@ import {
   LEVEL_LABEL,
   SECTION_FAILED_PREFIX,
 } from "@/lib/diag/formatServerInfo";
+import { connectionSection } from "@/lib/diag/connectionRoute";
 import { collectServerInfo } from "@/lib/diag/serverInfo";
 import type { HealthLevel, InfoSection } from "@/lib/diag/types";
 
@@ -66,7 +68,14 @@ function SectionBlock({ section }: { section: InfoSection }) {
 // 読み直しはブラウザの再読み込みで足りる (ポーリングはしない。/logs と同じ)
 export default async function ServerInfoPage() {
   await requireAdminPage();
-  const info = await collectServerInfo();
+  const [collected, requestHeaders] = await Promise.all([
+    collectServerInfo(),
+    headers(),
+  ]);
+  // この接続 (Tailscale 経由か) は要求ごとの値なので、収集 (サーバの状態) とは
+  // 別に組んで先頭に足す。コピーの文面にも同じ並びで入る
+  const connection = connectionSection(requestHeaders);
+  const info = { ...collected, sections: [connection, ...collected.sections] };
 
   return (
     <PageTransition>
@@ -90,6 +99,8 @@ export default async function ServerInfoPage() {
             subject="サーバー情報"
           />
         </div>
+
+        <SectionBlock section={connection} />
 
         <section className="space-y-2">
           <h2 className="flex items-center gap-2 text-lg font-bold">
@@ -118,7 +129,7 @@ export default async function ServerInfoPage() {
           </ul>
         </section>
 
-        {info.sections.map((section) => (
+        {collected.sections.map((section) => (
           <SectionBlock key={section.id} section={section} />
         ))}
 
