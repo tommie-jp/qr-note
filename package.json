@@ -98,7 +98,7 @@
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0",
+    "unist-util-visit": "^5.2.0",
     "vna-fence": "file:vendor/vna-fence-0.8.0.tgz",
     "zxing-wasm": "3.1.1"
   },
