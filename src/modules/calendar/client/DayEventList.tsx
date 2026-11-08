@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { holidayName } from "../event/holidays";
-import { compareDayEvents, eventTimeLabel, type DayEvent } from "../event/monthLayout";
+import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import { saveEventDone } from "./eventDone";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
@@ -12,15 +12,36 @@ export function dayLabel(day: string): string {
   return `${Number(day.slice(5, 7))}月${Number(day.slice(8))}日 (${WEEKDAYS[weekday]})`;
 }
 
-// 行は 24px (min-h-6、文字 1 行ぶん) に詰める。1 日に何件あっても一覧として見渡せるように
-export const DAY_ROW_CLASS = "flex min-h-6 min-w-0 flex-1 items-center gap-2 px-1 text-left text-sm leading-6 hover:bg-gray-50";
+// 見出しに見せる形 (SaiSuke2 と同じ「10/31 土曜日」)。読み上げの名前は dayLabel
+export function dayTitle(day: string): string {
+  const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
+  return `${Number(day.slice(5, 7))}/${Number(day.slice(8))} ${WEEKDAYS[weekday]}曜日`;
+}
 
-// 済みの予定は題名に取り消し線を引いて薄くする (マス目と同じ)
+// 時刻は先頭の 0 を落とす (09:30 → 9:30)
+const shortTime = (time: string) => time.replace(/^0/, "");
+
+// 予定の行は SaiSuke2 と同じく色の帯 (未済は赤、済みは灰)。高さは 2 行ぶん (56px) で、
+// 左に時刻 (開始と終了の 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
+export const DAY_ROW_CLASS = "flex min-h-14 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
+
+// 済みの予定は題名に取り消し線を引く (マス目と同じ)
 export function DayRowContent({ event }: { event: DayEvent }) {
+  const start = eventTimeLabel(event);
+  const end = eventEndLabel(event);
   return (
     <>
-      <span className="w-10 shrink-0 text-xs text-gray-500">{eventTimeLabel(event) ?? "終日"}</span>
-      <span className={`min-w-0 flex-1 truncate ${event.done ? "text-gray-400 line-through" : ""}`}>
+      <span className="flex w-14 shrink-0 flex-col items-center text-base leading-6 opacity-90">
+        {start === null ? (
+          "終日"
+        ) : (
+          <>
+            <span>{shortTime(start)}</span>
+            {end !== null && <span>{shortTime(end)}</span>}
+          </>
+        )}
+      </span>
+      <span className={`min-w-0 flex-1 truncate ${event.done ? "line-through" : ""}`}>
         {event.title || "(無題)"}
       </span>
     </>
@@ -37,12 +58,12 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
       aria-label={`${event.title || "(無題)"} を${done ? "未済に戻す" : "済みにする"}`}
       title={done ? "未済に戻す" : "済みにする"}
       onClick={onToggle}
-      className="flex size-6 shrink-0 items-center justify-center"
+      className="flex w-9 shrink-0 items-center justify-center self-stretch"
     >
       <span
         aria-hidden="true"
-        className={`flex size-4 items-center justify-center rounded-full border text-[10px] leading-none font-bold ${
-          done ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-400 text-transparent hover:border-emerald-600"
+        className={`flex size-6 items-center justify-center rounded-full border-2 text-sm leading-none font-bold ${
+          done ? "border-emerald-600 bg-emerald-600 text-white" : "border-white/90 text-transparent"
         }`}
       >
         ✓
@@ -113,31 +134,35 @@ export function DayEventList({
 }) {
   const { shown, toggle, error } = useDoneOverrides(events);
   return (
-    <div className="space-y-0.5">
-      <div className="flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">
-          {dayLabel(day)}
-          {holidayName(day) !== null && (
-            <span className="ml-2 text-xs font-normal text-pink-700">{holidayName(day)}</span>
-          )}
+    <div>
+      {/* 見出しの帯 (SaiSuke2 と同じ緑) */}
+      <div className="flex items-center gap-2 bg-[#82bd8a] px-2 py-0.5 text-white">
+        <h3 className="min-w-0 flex-1 truncate text-lg leading-8">
+          {dayTitle(day)}
+          {holidayName(day) !== null && <span className="ml-2 text-base">{holidayName(day)}</span>}
         </h3>
         <button
           type="button"
           onClick={(e) => onAdd(e.currentTarget)}
           aria-label="予定を追加"
           title="予定を追加"
-          className="flex size-7 items-center justify-center rounded bg-blue-600 text-base leading-none font-medium text-white active:bg-blue-700"
+          className="flex size-7 items-center justify-center rounded bg-white text-lg leading-none font-medium text-emerald-700 active:bg-gray-100"
         >
           ＋
         </button>
         {trailing}
       </div>
       {events.length === 0 ? (
-        <p className="py-0.5 text-sm text-gray-500">{loading ? "読み込み中…" : "予定はありません"}</p>
+        <p className="px-2 py-2 text-base text-gray-500">{loading ? "読み込み中…" : "予定はありません"}</p>
       ) : (
-        <ul className="divide-y divide-gray-100">
+        <ul className="space-y-0.5 pt-0.5">
           {shown.map((event) => (
-            <li key={event.itemId} className="flex items-center">
+            <li
+              key={event.itemId}
+              className={`flex items-stretch rounded-sm ${
+                event.done ? "bg-gray-200 text-gray-500" : "bg-rose-500 text-white"
+              }`}
+            >
               <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
               {renderRow(event)}
             </li>
@@ -145,7 +170,7 @@ export function DayEventList({
         </ul>
       )}
       {error !== null && (
-        <p role="alert" className="rounded bg-yellow-50 px-2 py-1 text-sm text-yellow-800">
+        <p role="alert" className="mt-1 rounded bg-yellow-50 px-2 py-1 text-sm text-yellow-800">
           {error}
         </p>
       )}

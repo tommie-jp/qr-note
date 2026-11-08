@@ -3,7 +3,7 @@ import { BASE_URL } from './env'
 import { closePage, expect, expectHydrated, newLoggedInPage, selectNoteTab, test } from './helpers'
 import { e2eNote, removeE2eNote, searchResults } from './notes'
 
-// 予定カレンダー (docs/126): 月を開く → 日を選ぶ (2 ペインは下のペインに一覧) →
+// 予定カレンダー (docs/126、月曜始まり): 月を開く → 日を選ぶ (2 ペインは下のペインに一覧) →
 // 「+」・予定を押すと行のそばにフォーム → 時刻を直すと本文の行だけ変わる。
 //
 // 「+」は押すたびに新しい番号を振るので、作った予定を E2E の門番 (id の頭) で

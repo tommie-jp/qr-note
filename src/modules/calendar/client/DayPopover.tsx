@@ -120,7 +120,7 @@ export function DayPopover({
           ? { left: 0, top: 0, visibility: "hidden" }
           : { left: placement.left, top: placement.top, maxHeight: placement.maxHeight }
       }
-      className="fixed z-40 w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded border border-gray-300 bg-white p-2 shadow-lg"
+      className="fixed z-40 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded border border-gray-300 bg-white shadow-lg"
     >
       <DayEventList
         day={day}

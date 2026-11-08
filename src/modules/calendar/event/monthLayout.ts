@@ -1,4 +1,4 @@
-// 月のマス目の並び (docs/126 §1-3)。日曜始まりの 7 列で、その月を含む週だけ
+// 月のマス目の並び (docs/126 §1-3)。月曜始まりの 7 列で (SaiSuke2 と同じ)、その月を含む週だけ
 // (4〜6 週) 並べる。DB にも React にも触らない純関数で、サーバ (取る範囲) と
 // 端末 (描く並び) が同じ計算を使う
 import { addDays, jstDate, jstParts } from './eventTime'
@@ -27,20 +27,23 @@ export function jstToday(now: Date = new Date()): string {
 }
 
 export interface MonthGridRange {
-  // マス目の最初の日 (日曜) と、最後の日の翌日 (半開区間)
+  // マス目の最初の日 (月曜) と、最後の日 (日曜) の翌日 (半開区間)
   first: string
   end: string
   weeks: number
 }
 
+// 週の中の位置 (月曜 0 〜 日曜 6)
+export function mondayIndex(date: string): number {
+  return (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7
+}
+
 export function monthGridRange(month: string): MonthGridRange {
   const firstOfMonth = `${month}-01`
   const nextMonth = `${addMonths(month, 1)}-01`
-  const weekday = new Date(`${firstOfMonth}T00:00:00Z`).getUTCDay()
-  const first = addDays(firstOfMonth, -weekday)
+  const first = addDays(firstOfMonth, -mondayIndex(firstOfMonth))
   const lastOfMonth = addDays(nextMonth, -1)
-  const lastWeekday = new Date(`${lastOfMonth}T00:00:00Z`).getUTCDay()
-  const end = addDays(lastOfMonth, 7 - lastWeekday)
+  const end = addDays(lastOfMonth, 7 - mondayIndex(lastOfMonth))
   const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${first}T00:00:00Z`)) / 86_400_000)
   return { first, end, weeks: days / 7 }
 }
@@ -99,4 +102,12 @@ export function eventTimeLabel(event: DayEvent): string | null {
     return null
   }
   return jstParts(new Date(event.start)).time
+}
+
+// 予定の終わりの時刻 (JST)。終日なら null
+export function eventEndLabel(event: DayEvent): string | null {
+  if (event.allDay) {
+    return null
+  }
+  return jstParts(new Date(event.end)).time
 }

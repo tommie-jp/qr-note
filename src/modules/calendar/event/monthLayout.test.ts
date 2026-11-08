@@ -1,26 +1,26 @@
 import { describe, expect, test } from 'vitest'
-import { addMonths, eventsByDay, eventTimeLabel, isMonth, jstToday, monthCells, monthGridRange } from './monthLayout'
+import { addMonths, eventEndLabel, eventsByDay, eventTimeLabel, isMonth, jstToday, monthCells, monthGridRange } from './monthLayout'
 
 const ev = (title: string, start: string, end: string, allDay = false) => ({ itemId: title, title, start, end, allDay })
 
 describe('monthGridRange', () => {
-  test('2026-11 は日曜始まりで 5 週 (11/1 が日曜)', () => {
-    expect(monthGridRange('2026-11')).toEqual({ first: '2026-11-01', end: '2026-12-06', weeks: 5 })
+  test('2026-11 は月曜始まりで 6 週 (11/1 が日曜なので 10/26 の月曜から)', () => {
+    expect(monthGridRange('2026-11')).toEqual({ first: '2026-10-26', end: '2026-12-07', weeks: 6 })
   })
 
-  test('2026-02 は 4 週ちょうど (2/1 が日曜・2/28 が土曜)', () => {
-    expect(monthGridRange('2026-02')).toEqual({ first: '2026-02-01', end: '2026-03-01', weeks: 4 })
+  test('2027-02 は 4 週ちょうど (2/1 が月曜・2/28 が日曜)', () => {
+    expect(monthGridRange('2027-02')).toEqual({ first: '2027-02-01', end: '2027-03-01', weeks: 4 })
   })
 
-  test('2026-08 は 6 週 (8/1 が土曜・8/31 が月曜)', () => {
-    expect(monthGridRange('2026-08')).toEqual({ first: '2026-07-26', end: '2026-09-06', weeks: 6 })
+  test('2026-02 は 5 週 (2/1 が日曜・2/28 が土曜)', () => {
+    expect(monthGridRange('2026-02')).toEqual({ first: '2026-01-26', end: '2026-03-02', weeks: 5 })
   })
 
-  test('monthCells は週 × 7 日', () => {
+  test('monthCells は週 × 7 日で、月曜に始まり日曜に終わる', () => {
     const cells = monthCells('2026-10')
     expect(cells.length % 7).toBe(0)
-    expect(cells[0]).toBe('2026-09-27')
-    expect(cells.at(-1)).toBe('2026-10-31')
+    expect(cells[0]).toBe('2026-09-28')
+    expect(cells.at(-1)).toBe('2026-11-01')
   })
 })
 
@@ -79,5 +79,10 @@ describe('eventsByDay', () => {
   test('eventTimeLabel は JST の時刻', () => {
     expect(eventTimeLabel(ev('a', '2026-11-05T01:00:00Z', '2026-11-05T02:00:00Z'))).toBe('10:00')
     expect(eventTimeLabel(ev('a', '2026-11-04T15:00:00Z', '2026-11-05T15:00:00Z', true))).toBeNull()
+  })
+
+  test('eventEndLabel は終わりの JST の時刻。終日は null', () => {
+    expect(eventEndLabel(ev('a', '2026-11-05T01:00:00Z', '2026-11-05T02:30:00Z'))).toBe('11:30')
+    expect(eventEndLabel(ev('a', '2026-11-04T15:00:00Z', '2026-11-05T15:00:00Z', true))).toBeNull()
   })
 })

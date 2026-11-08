@@ -69,7 +69,7 @@ export default function CalendarView({ query }: { query: string }) {
           }}>
           ◀
         </button>
-        <h2 className="min-w-28 text-center font-medium" aria-live="polite">
+        <h2 className="min-w-36 text-center text-xl" aria-live="polite">
           {year}年{monthNumber}月
         </h2>
         <button type="button" className={NAV_BUTTON} aria-label="次の月" onClick={() => {

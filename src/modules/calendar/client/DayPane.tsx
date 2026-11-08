@@ -81,9 +81,9 @@ export function DayPane({
         data-preview-pane=""
         data-note-pane=""
         aria-label={`${dayLabel(day)} の予定`}
-        className={`fixed inset-x-0 m-0 overflow-y-auto border-t border-gray-300 bg-white px-safe pt-2 pb-safe ${PANE_BOX_CLASS.pane}`}
+        className={`fixed inset-x-0 m-0 overflow-y-auto bg-white px-safe pb-safe ${PANE_BOX_CLASS.pane}`}
       >
-        <div className="px-3 pb-3">
+        <div className="pb-3">
           <DayEventList
             day={day}
             events={events}
@@ -101,7 +101,7 @@ export function DayPane({
                     anchor: e.currentTarget,
                   })
                 }
-                className={`${DAY_ROW_CLASS} ${editing?.itemId === event.itemId ? "bg-blue-50" : ""}`}
+                className={`${DAY_ROW_CLASS} ${editing?.itemId === event.itemId ? "outline-2 -outline-offset-2 outline-yellow-300" : ""}`}
               >
                 <DayRowContent event={event} />
               </button>
@@ -112,7 +112,7 @@ export function DayPane({
                 aria-label="閉じる"
                 title="閉じる"
                 onClick={onClose}
-                className="flex size-7 items-center justify-center rounded text-gray-500 hover:bg-gray-100 [&>svg]:size-5"
+                className="flex size-7 items-center justify-center rounded text-white hover:bg-white/20 [&>svg]:size-5"
               >
                 <ClearIcon />
               </button>
