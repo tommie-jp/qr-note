@@ -10,7 +10,7 @@ import { formatBase } from "@/lib/editor/saveBase";
 import { parseStoredProps } from "@/lib/markdown/props";
 import { applyEvent, eventTitleOf, newEventMemo, type EventInput } from "../event/eventMemo";
 import { jstToday } from "../event/monthLayout";
-import { normalizeDate, normalizeTime, parseEvent } from "../event/parseEvent";
+import { eventPriority, normalizeDate, normalizeTime, parseEvent, type EventPriority } from "../event/parseEvent";
 import { invalidateCalendar } from "./calendarStore";
 import { putMemo, type SaveResult } from "./saveMemo";
 
@@ -34,10 +34,18 @@ interface Draft {
   allDay: boolean;
   start: string;
   end: string;
+  priority: EventPriority;
 }
 
+const PRIORITY_OPTIONS: readonly { value: EventPriority; label: string }[] = [
+  { value: "high", label: "高い" },
+  { value: "normal", label: "標準" },
+  { value: "low", label: "低い" },
+];
+
 function initialDraft(item: Item | null, initialDate: string | null): Draft {
-  const fields = item === null ? null : parseEvent(parseStoredProps(item.props));
+  const props = item === null ? null : parseStoredProps(item.props);
+  const fields = props === null ? null : parseEvent(props);
   const date = fields?.date ?? (initialDate !== null ? normalizeDate(initialDate) : null) ?? jstToday();
   return {
     title: item === null ? "" : eventTitleOf(item.memo),
@@ -45,6 +53,7 @@ function initialDraft(item: Item | null, initialDate: string | null): Draft {
     allDay: fields === null ? true : fields.start === null,
     start: fields?.start ?? "10:00",
     end: fields?.end ?? "",
+    priority: props === null ? "normal" : eventPriority(props),
   };
 }
 
@@ -58,7 +67,7 @@ function toInput(draft: Draft): EventInput | string {
     return "日付を入れてください";
   }
   if (draft.allDay) {
-    return { title, date: draft.date, start: null, end: null };
+    return { title, date: draft.date, start: null, end: null, priority: draft.priority };
   }
   const start = normalizeTime(draft.start);
   if (start === null) {
@@ -68,7 +77,7 @@ function toInput(draft: Draft): EventInput | string {
   if (draft.end !== "" && (end === null || end <= start)) {
     return "終了は開始より後の時刻にしてください";
   }
-  return { title, date: draft.date, start, end };
+  return { title, date: draft.date, start, end, priority: draft.priority };
 }
 
 type Status = SaveResult | { kind: "idle" } | { kind: "saving" };
@@ -160,6 +169,23 @@ export default function EventForm({ itemId, item, initialDate, query, fullscreen
             onChange={(e) => update({ date: e.target.value })}
             className={FIELD}
           />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor={`${id}-priority`} className="block text-sm text-gray-600">
+            優先度
+          </label>
+          <select
+            id={`${id}-priority`}
+            value={draft.priority}
+            onChange={(e) => update({ priority: e.target.value as EventPriority })}
+            className={`${FIELD} bg-white`}
+          >
+            {PRIORITY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         <label className="flex min-h-10 items-center gap-2 text-sm">
           <input type="checkbox" checked={draft.allDay} onChange={(e) => update({ allDay: e.target.checked })} className="size-5" />

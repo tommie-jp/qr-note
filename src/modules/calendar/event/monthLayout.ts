@@ -2,6 +2,7 @@
 // (4〜6 週) 並べる。DB にも React にも触らない純関数で、サーバ (取る範囲) と
 // 端末 (描く並び) が同じ計算を使う
 import { addDays, jstDate, jstParts } from './eventTime'
+import type { EventPriority } from './parseEvent'
 
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/
 
@@ -63,6 +64,8 @@ export interface DayEvent {
   allDay: boolean
   // 済み (本文の done=)。古い応答には無い
   done?: boolean
+  // 優先度 (本文の priority=)。古い応答には無い (標準と見る)
+  priority?: EventPriority
 }
 
 // 日の中の並び。済みは最後 (済ませた物より残っている物を先に見せる)。

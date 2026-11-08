@@ -87,3 +87,11 @@ export function parseEvent(props: readonly PropEntry[]): EventFields | null {
 export function isEventDone(props: readonly PropEntry[]): boolean {
   return (valueOf(props, 'done') ?? '') !== ''
 }
+
+// 予定の優先度 (`priority=high` / `priority=low`)。書かない・読めない値は標準
+export type EventPriority = 'high' | 'normal' | 'low'
+
+export function eventPriority(props: readonly PropEntry[]): EventPriority {
+  const value = valueOf(props, 'priority')
+  return value === 'high' || value === 'low' ? value : 'normal'
+}

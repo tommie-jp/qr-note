@@ -118,3 +118,28 @@ describe('setEventDone', () => {
     )
   })
 })
+
+describe('優先度 (priority=)', () => {
+  test('高い・低いは予定の行に priority= を書く', () => {
+    expect(applyEvent('# 歯医者\ndate=2026-11-05\n', { ...allDay, priority: 'high' })).toBe(
+      '# 歯医者\ndate=2026-11-05 priority=high\n',
+    )
+    expect(newEventMemo({ ...timed, priority: 'low' }, '')).toBe(
+      '# 歯医者\n\n#予定\ndate=2026-11-05 start=10:00 end=11:00 priority=low\n',
+    )
+  })
+
+  test('標準にすると priority= を抜く (書かないのが標準)', () => {
+    expect(applyEvent('# 歯医者\ndate=2026-11-05 priority=high done=2026-11-08\n', { ...allDay, priority: 'normal' })).toBe(
+      '# 歯医者\ndate=2026-11-05 done=2026-11-08\n',
+    )
+    expect(newEventMemo({ ...allDay, priority: 'normal' }, '')).toBe('# 歯医者\n\n#予定\ndate=2026-11-05\n')
+  })
+
+  test('既にあれば位置ごと差し替える。優先度を渡さなければ触らない', () => {
+    expect(applyEvent('# 歯医者\ndate=2026-11-05 priority=low place=駅前\n', { ...allDay, priority: 'high' })).toBe(
+      '# 歯医者\ndate=2026-11-05 priority=high place=駅前\n',
+    )
+    expect(applyEvent('# 歯医者\ndate=2026-11-05 priority=low\n', allDay)).toBe('# 歯医者\ndate=2026-11-05 priority=low\n')
+  })
+})

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { holidayName } from "../event/holidays";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import { saveEventDone } from "./eventDone";
+import { eventColorClass } from "./priorityColor";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
@@ -21,7 +22,7 @@ export function dayTitle(day: string): string {
 // 時刻は先頭の 0 を落とす (09:30 → 9:30)
 const shortTime = (time: string) => time.replace(/^0/, "");
 
-// 予定の行は SaiSuke2 と同じく色の帯 (未済は赤、済みは灰)。高さは 2 行ぶん (56px) で、
+// 予定の行は SaiSuke2 と同じく色の帯 (優先度の色、済みは灰。priorityColor.ts)。高さは 2 行ぶん (56px) で、
 // 左に時刻 (開始と終了の 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
 export const DAY_ROW_CLASS = "flex min-h-14 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
 
@@ -63,7 +64,7 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
       <span
         aria-hidden="true"
         className={`flex size-6 items-center justify-center rounded-full border-2 text-sm leading-none font-bold ${
-          done ? "border-emerald-600 bg-emerald-600 text-white" : "border-white/90 text-transparent"
+          done ? "border-emerald-600 bg-emerald-600 text-white" : "border-current/60 bg-white/60 text-transparent"
         }`}
       >
         ✓
@@ -159,9 +160,8 @@ export function DayEventList({
           {shown.map((event) => (
             <li
               key={event.itemId}
-              className={`flex items-stretch rounded-sm ${
-                event.done ? "bg-gray-200 text-gray-500" : "bg-rose-500 text-white"
-              }`}
+              data-priority={event.priority ?? "normal"}
+              className={`flex items-stretch rounded-sm ${eventColorClass(event)}`}
             >
               <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
               {renderRow(event)}

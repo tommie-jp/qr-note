@@ -2,6 +2,7 @@
 
 import { holidayName } from "../event/holidays";
 import type { DayEvent } from "../event/monthLayout";
+import { eventColorClass } from "./priorityColor";
 
 // 月のマス目 (docs/126 §1-3・§1-10)。月曜始まりの 7 列。見た目は iPhone の
 // SaiSuke2 に寄せる (大きな日付、色の帯の予定、土日・祝日は薄いピンク、
@@ -83,9 +84,11 @@ export function MonthGrid({
               {events.slice(0, eventLines).map((event) => (
                 <span
                   key={event.itemId}
-                  // 済みは灰色の帯に取り消し線 (日の中では最後に並ぶ。eventsByDay)
-                  className={`shrink-0 truncate rounded-sm px-0.5 text-sm leading-5 ${
-                    event.done ? "bg-gray-300 text-gray-500 line-through" : "bg-rose-500 text-white"
+                  // 色は優先度 (高い 赤・標準 橙・低い 緑)。済みは灰に取り消し線
+                  // (日の中では最後に並ぶ。eventsByDay)
+                  data-priority={event.priority ?? "normal"}
+                  className={`shrink-0 truncate rounded-sm px-0.5 text-sm leading-5 ${eventColorClass(event)} ${
+                    event.done ? "line-through" : ""
                   }`}
                 >
                   {event.title || "(無題)"}

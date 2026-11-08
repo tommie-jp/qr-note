@@ -209,6 +209,35 @@ test.describe('予定カレンダー', () => {
     )
   })
 
+  test('優先度を「高い」にすると赤系の帯になり、本文に priority= が入る。標準に戻すと消える', async ({ page }) => {
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const memo = async () =>
+      ((await (await page.request.get(`/api/items/${NOTE.id}`)).json()) as { data: { item: { memo: string } } }).data.item
+        .memo
+
+    // 書いていなければ標準 (橙)
+    await expect(pane.locator('li', { hasText: NOTE.key })).toHaveAttribute('data-priority', 'normal')
+
+    await eventRow(pane).click()
+    let dialog = page.getByRole('dialog', { name: '予定を直す' })
+    await dialog.getByLabel('優先度').selectOption({ label: '高い' })
+    await dialog.getByRole('button', { name: '保存' }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(pane.locator('li', { hasText: NOTE.key })).toHaveAttribute('data-priority', 'high')
+    await expect(dayCell(page, DAY).locator('[data-priority="high"]')).toContainText(NOTE.key)
+    expect(await memo()).toContain('start=13:00 end=14:30 priority=high')
+
+    await eventRow(pane).click()
+    dialog = page.getByRole('dialog', { name: '予定を直す' })
+    await expect(dialog.getByLabel('優先度')).toHaveValue('high')
+    await dialog.getByLabel('優先度').selectOption({ label: '標準' })
+    await dialog.getByRole('button', { name: '保存' }).click()
+    await expect(pane.locator('li', { hasText: NOTE.key })).toHaveAttribute('data-priority', 'normal')
+    expect(await memo()).not.toContain('priority=')
+  })
+
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
     // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
     await openCalendar(page)

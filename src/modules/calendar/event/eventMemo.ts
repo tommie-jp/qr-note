@@ -6,9 +6,11 @@
 //   - 日時 … `date=` を持つプロパティ行の date / start / end のトークン。
 //            同じ行の他のキー (until・done を含む)、タグ、本文、添付は触らない
 //   - 済み … 同じ行の done= のトークン (setEventDone)
+//   - 優先度 … 同じ行の priority= のトークン (入力が優先度を持つときだけ)
 // 行を組み直さないことが、本文を正本と言い続ける条件
 import { parsePropToken } from '@/lib/markdown/props'
 import { parseSearchExpr } from '@/lib/search/parse'
+import type { EventPriority } from './parseEvent'
 import type { SearchExpr } from '@/lib/search/types'
 
 export interface EventInput {
@@ -17,10 +19,18 @@ export interface EventInput {
   // null なら終日
   start: string | null
   end: string | null
+  // 優先度。標準は priority= を書かない。undefined なら本文の値に触らない
+  priority?: EventPriority
 }
 
 // until (複数日) はフォームに無いので触らない。手で書いた値が残る
 const EVENT_KEYS = ['date', 'start', 'end'] as const
+const PRIORITY_KEY = 'priority'
+
+// 入力が書き換えるキー (優先度は入力が持つときだけ)
+function managedKeys(input: EventInput): readonly string[] {
+  return input.priority === undefined ? EVENT_KEYS : [...EVENT_KEYS, PRIORITY_KEY]
+}
 const HEADING = /^#(?:\s+(.*))?$/
 const FENCE = /^\s*(`{3,}|~{3,})/
 const DEFAULT_TAG = '予定'
@@ -37,6 +47,9 @@ function eventTokens(input: EventInput): string[] {
     if (input.end !== null) {
       tokens.push(`end=${input.end}`)
     }
+  }
+  if (input.priority !== undefined && input.priority !== 'normal') {
+    tokens.push(`${PRIORITY_KEY}=${input.priority}`)
   }
   return tokens
 }
@@ -59,10 +72,11 @@ function replaceEventTokens(tokens: readonly string[], input: EventInput): strin
   const wanted = new Map(
     eventTokens(input).map((token) => [token.slice(0, token.indexOf('=')), token]),
   )
+  const managed = managedKeys(input)
   const out: string[] = []
   for (const token of tokens) {
     const key = parsePropToken(token)?.key
-    if (key !== undefined && (EVENT_KEYS as readonly string[]).includes(key)) {
+    if (key !== undefined && managed.includes(key)) {
       const next = wanted.get(key)
       if (next !== undefined) {
         out.push(next)
@@ -73,9 +87,7 @@ function replaceEventTokens(tokens: readonly string[], input: EventInput): strin
     out.push(token)
   }
   // 無かったキーは最後の予定キーの後ろへ (date start end の順に並ぶ)
-  const lastAt = out.findLastIndex((t) =>
-    (EVENT_KEYS as readonly string[]).includes(parsePropToken(t)?.key ?? ''),
-  )
+  const lastAt = out.findLastIndex((t) => managed.includes(parsePropToken(t)?.key ?? ''))
   out.splice(lastAt + 1, 0, ...wanted.values())
   return out
 }
