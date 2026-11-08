@@ -89,6 +89,7 @@ export function DayPane({
             events={events}
             loading={loading}
             onAdd={add}
+            inlineTitle
             renderRow={(event) => (
               <button
                 type="button"

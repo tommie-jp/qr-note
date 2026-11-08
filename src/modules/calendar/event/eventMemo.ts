@@ -122,13 +122,25 @@ export function applyEvent(memo: string, input: EventInput): string {
     lines.push(eventTokens(input).join(' '), '')
   }
 
-  // 題名: 最初の空でない行が見出しなら差し替え、でなければ先頭に挿す
+  replaceTitleLine(lines, title)
+  return lines.join(newline)
+}
+
+// 題名: 最初の空でない行が見出しなら差し替え、でなければ先頭に挿す (lines を書き換える)
+function replaceTitleLine(lines: string[], title: string): void {
   const first = lines.findIndex((line) => line.trim() !== '')
   if (first >= 0 && HEADING.test(lines[first])) {
     lines[first] = `# ${title}`
   } else {
     lines.unshift(`# ${title}`, '')
   }
+}
+
+// 題名だけを差し替える (日の一覧のインライン編集。docs/126 §1-13)
+export function setEventTitle(memo: string, title: string): string {
+  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
+  const lines = memo.split(/\r?\n/)
+  replaceTitleLine(lines, cleanTitle(title))
   return lines.join(newline)
 }
 

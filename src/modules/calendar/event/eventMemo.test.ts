@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone } from './eventMemo'
+import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone, setEventTitle } from './eventMemo'
 
 const timed = { title: '歯医者', date: '2026-11-05', start: '10:00', end: '11:00' }
 const allDay = { title: '歯医者', date: '2026-11-05', start: null, end: null }
@@ -141,5 +141,15 @@ describe('優先度 (priority=)', () => {
       '# 歯医者\ndate=2026-11-05 priority=high place=駅前\n',
     )
     expect(applyEvent('# 歯医者\ndate=2026-11-05 priority=low\n', allDay)).toBe('# 歯医者\ndate=2026-11-05 priority=low\n')
+  })
+})
+
+describe('setEventTitle', () => {
+  test('先頭の見出しだけを差し替える。他の行は触らない', () => {
+    expect(setEventTitle('# 歯医者\n\n#予定\ndate=2026-11-05\n', '眼科')).toBe('# 眼科\n\n#予定\ndate=2026-11-05\n')
+  })
+
+  test('見出しが無ければ先頭に挿す。改行は空白に畳む。CRLF を保つ', () => {
+    expect(setEventTitle('date=2026-11-05\r\n', ' 眼\n科 ')).toBe('# 眼 科\r\n\r\ndate=2026-11-05\r\n')
   })
 })

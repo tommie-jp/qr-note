@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { holidayName } from "../event/holidays";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
-import { saveEventDone } from "./eventDone";
+import { saveEventDone, saveEventTitle } from "./eventDone";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
 
@@ -28,26 +28,89 @@ const shortTime = (time: string) => time.replace(/^0/, "");
 // 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
 export const DAY_ROW_CLASS = "flex min-h-9 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
 
-// 済みの予定は題名に取り消し線を引く (マス目と同じ)
-export function DayRowContent({ event }: { event: DayEvent }) {
+function TimeLabel({ event }: { event: DayEvent }) {
   const start = eventTimeLabel(event);
   const end = eventEndLabel(event);
   return (
+    <span className="flex w-12 shrink-0 flex-col items-center text-xs leading-4 opacity-90">
+      {start === null ? (
+        "終日"
+      ) : (
+        <>
+          <span>{shortTime(start)}</span>
+          {end !== null && <span>{shortTime(end)}</span>}
+        </>
+      )}
+    </span>
+  );
+}
+
+// 済みの予定は題名に取り消し線を引く (マス目と同じ)。
+// 題名の文字 (data-event-title) を押すとインライン編集 (DayEventList)。文字の幅だけを
+// 的にし、行の残り (時刻・余白) は器の動き (フォーム・ノートを開く) に残す
+export function DayRowContent({ event }: { event: DayEvent }) {
+  return (
     <>
-      <span className="flex w-12 shrink-0 flex-col items-center text-xs leading-4 opacity-90">
-        {start === null ? (
-          "終日"
-        ) : (
-          <>
-            <span>{shortTime(start)}</span>
-            {end !== null && <span>{shortTime(end)}</span>}
-          </>
-        )}
-      </span>
-      <span className={`min-w-0 flex-1 truncate ${event.done ? "line-through" : ""}`}>
-        {event.title || "(無題)"}
+      <TimeLabel event={event} />
+      <span className="min-w-0 flex-1 truncate">
+        <span data-event-title="" className={`cursor-text ${event.done ? "line-through" : ""}`}>
+          {event.title || "(無題)"}
+        </span>
       </span>
     </>
+  );
+}
+
+// 題名のインライン編集の欄。Enter・外を押すで確定、Esc で取り消し。
+// 空にしたら元のまま (題名の無い予定はマス目で見分けが付かない)
+function TitleEditor({
+  event,
+  onCommit,
+  onCancel,
+}: {
+  event: DayEvent;
+  onCommit: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(event.title);
+  // Enter で確定した後、欄が消えるときの blur で 2 度確定しない
+  const finished = useRef(false);
+  const finish = (commit: boolean) => {
+    if (finished.current) {
+      return;
+    }
+    finished.current = true;
+    const title = value.trim();
+    if (commit && title !== "" && title !== event.title) {
+      onCommit(title);
+    } else {
+      onCancel();
+    }
+  };
+  return (
+    <div className="flex min-h-9 min-w-0 flex-1 items-center gap-3 px-1">
+      <TimeLabel event={event} />
+      <input
+        aria-label="題名"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            finish(true);
+          } else if (e.key === "Escape") {
+            // ペインの Esc (閉じる) まで届かせない
+            e.stopPropagation();
+            finish(false);
+          }
+        }}
+        onBlur={() => finish(true)}
+        autoFocus
+        enterKeyHint="done"
+        className="min-w-0 flex-1 rounded border border-gray-400 bg-white px-1 text-base leading-6 text-gray-900"
+      />
+    </div>
   );
 }
 
@@ -76,48 +139,65 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
   );
 }
 
-// 押した「済み」を、サーバの応答 (月の予定の取り直し) が追いつくまで上書きして見せる
-function useDoneOverrides(events: readonly DayEvent[]) {
-  const [overrides, setOverrides] = useState<ReadonlyMap<string, boolean>>(new Map());
+type Override = Partial<Pick<DayEvent, "done" | "title">>;
+
+const caughtUp = (event: DayEvent | undefined, override: Override) =>
+  event !== undefined &&
+  (override.done === undefined || event.done === override.done) &&
+  (override.title === undefined || event.title === override.title);
+
+// 押した「済み」・直した題名を、サーバの応答 (月の予定の取り直し) が追いつくまで
+// 上書きして見せる
+function useEventOverrides(events: readonly DayEvent[]) {
+  const [overrides, setOverrides] = useState<ReadonlyMap<string, Override>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
-  // 取り直した予定が押した値に追いついたら上書きを外す (前の描画の値を
+  // 取り直した予定が上書きに追いついたら外す (前の描画の値を
   // state に控えて描画中に直す React の作法)
   const [seen, setSeen] = useState(events);
   if (seen !== events) {
     setSeen(events);
-    const next = new Map([...overrides].filter(([id, done]) => events.find((e) => e.itemId === id)?.done !== done));
+    const next = new Map(
+      [...overrides].filter(([id, override]) => !caughtUp(events.find((e) => e.itemId === id), override)),
+    );
     if (next.size !== overrides.size) {
       setOverrides(next);
     }
   }
 
-  const toggle = (event: DayEvent, done: boolean) => {
+  const apply = (itemId: string, override: Override, save: Promise<string | null>) => {
     setError(null);
-    setOverrides((prev) => new Map(prev).set(event.itemId, done));
-    void saveEventDone(event.itemId, done).then((message) => {
+    setOverrides((prev) => new Map(prev).set(itemId, { ...prev.get(itemId), ...override }));
+    void save.then((message) => {
       if (message === null) {
         return;
       }
       setError(message);
       setOverrides((prev) => {
         const next = new Map(prev);
-        next.delete(event.itemId);
+        next.delete(itemId);
         return next;
       });
     });
   };
 
-  // 押した値で並べ直す (済みは最後。マス目の並びと同じ)
+  const toggle = (event: DayEvent, done: boolean) => apply(event.itemId, { done }, saveEventDone(event.itemId, done));
+  const rename = (event: DayEvent, title: string) => apply(event.itemId, { title }, saveEventTitle(event.itemId, title));
+
+  // 上書きした値で並べ直す (済みは最後。マス目の並びと同じ)
   const shown = events
-    .map((event) => (overrides.has(event.itemId) ? { ...event, done: overrides.get(event.itemId) } : event))
+    .map((event) => {
+      const override = overrides.get(event.itemId);
+      return override === undefined ? event : { ...event, ...override };
+    })
     .sort(compareDayEvents);
-  return { shown, toggle, error };
+  return { shown, toggle, rename, error };
 }
 
 // 選んだ日の見出し・「+」・予定の行 (docs/126 §1-6)。浮かせた一覧 (1 ペイン) と
 // 下のペイン (2・3 ペイン) が共有する。行を押したときの動きは器が決める (renderRow)。
-// 行の左端は「済み」の釦 (docs/126 §1-8)
+// 行の左端は「済み」の釦 (docs/126 §1-8)。inlineTitle なら題名の文字を押すと
+// その場で直せる (§1-13。F2 でも)
 export function DayEventList({
   day,
   events,
@@ -125,6 +205,7 @@ export function DayEventList({
   onAdd,
   renderRow,
   trailing,
+  inlineTitle = false,
 }: {
   day: string;
   events: readonly DayEvent[];
@@ -135,8 +216,13 @@ export function DayEventList({
   renderRow: (event: DayEvent) => ReactNode;
   // 見出し行の右端に足す物 (ペインの「閉じる」)
   trailing?: ReactNode;
+  // 題名のインライン編集を許すか。1 ペインの浮かせる一覧はリンクで、押した瞬間に
+  // ノートへ移る (clientNoteNav が先に受ける) ので付けない
+  inlineTitle?: boolean;
 }) {
-  const { shown, toggle, error } = useDoneOverrides(events);
+  const { shown, toggle, rename, error } = useEventOverrides(events);
+  // 題名を直している予定
+  const [renaming, setRenaming] = useState<string | null>(null);
   const { prefs } = useCalendarPrefs();
   return (
     <div>
@@ -170,9 +256,34 @@ export function DayEventList({
                 style={color.style}
                 // 薄い縁 … 地を白にした行どうしも見分けが付くように
                 className={`flex items-stretch rounded-sm ring-1 ring-black/10 ring-inset ${color.className}`}
+                // 題名の文字を押したら、行の動き (フォームを開く) より先に受けて編集にする
+                onClickCapture={(e) => {
+                  if (inlineTitle && e.target instanceof Element && e.target.closest("[data-event-title]")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setRenaming(event.itemId);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (inlineTitle && e.key === "F2" && renaming === null) {
+                    e.preventDefault();
+                    setRenaming(event.itemId);
+                  }
+                }}
               >
                 <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
-                {renderRow(event)}
+                {renaming === event.itemId ? (
+                  <TitleEditor
+                    event={event}
+                    onCommit={(title) => {
+                      setRenaming(null);
+                      rename(event, title);
+                    }}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : (
+                  renderRow(event)
+                )}
               </li>
             );
           })}

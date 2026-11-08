@@ -290,6 +290,47 @@ test.describe('予定カレンダー', () => {
     await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
   })
 
+  test('題名の文字を押すとその場で直せる (Enter で保存、Esc で取り消し)', async ({ page }) => {
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const memo = async () =>
+      ((await (await page.request.get(`/api/items/${NOTE.id}`)).json()) as { data: { item: { memo: string } } }).data.item
+        .memo
+    const renamed = `${NOTE.heading} 改`
+
+    await eventRow(pane).locator('[data-event-title]').click()
+    const input = pane.getByRole('textbox', { name: '題名' })
+    await expect(input).toHaveValue(NOTE.heading)
+    // フォームは開かない
+    await expect(page.getByRole('dialog', { name: '予定を直す' })).toHaveCount(0)
+    await input.fill(renamed)
+    await input.press('Enter')
+    await expect(input).toHaveCount(0)
+    await expect(eventRow(pane)).toContainText(renamed)
+    await expect.poll(memo).toMatch(new RegExp(`^# ${renamed}\n`))
+    // マス目も新しい題名 (月の予定を取り直した後)
+    await expect(dayCell(page, DAY)).toContainText(renamed)
+
+    // Esc は取り消し (ペインは閉じない)
+    await eventRow(pane).locator('[data-event-title]').click()
+    await pane.getByRole('textbox', { name: '題名' }).fill('取り消す題名')
+    await pane.getByRole('textbox', { name: '題名' }).press('Escape')
+    await expect(pane).toBeVisible()
+    await expect(eventRow(pane)).toContainText(renamed)
+
+    // 題名以外 (時刻) を押すと今までどおりフォーム
+    await eventRow(pane).click({ position: { x: 20, y: 18 } })
+    await expect(page.getByRole('dialog', { name: '予定を直す' })).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // 元の題名へ戻す (後のテストが題名で探す)
+    await eventRow(pane).locator('[data-event-title]').click()
+    await pane.getByRole('textbox', { name: '題名' }).fill(NOTE.heading)
+    await pane.getByRole('textbox', { name: '題名' }).press('Enter')
+    await expect.poll(memo).toMatch(new RegExp(`^# ${NOTE.heading}\n`))
+  })
+
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
     // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
     await openCalendar(page)
