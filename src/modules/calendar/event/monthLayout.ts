@@ -66,18 +66,30 @@ export interface DayEvent {
   done?: boolean
   // 優先度 (本文の priority=)。古い応答には無い (標準と見る)
   priority?: EventPriority
+  // 日の中の並べ替えの番号 (本文の order=)。無い・古い応答は null / undefined
+  order?: number | null
 }
 
 // 日の中の並び。済みは最後 (済ませた物より残っている物を先に見せる)。
-// その中で終日を先に、その後は開始時刻順。同じなら番号順 (UUID v7 なので作った順)。
+// 次に並べ替えた予定 (order=) を番号順に先へ。持たない予定はその後に、終日を先に、
+// その後は開始時刻順。同じなら番号順 (UUID v7 なので作った順)。
 // **題名では並べない** — 日の一覧で題名を直すたびに行が動いてしまう (§1-13)
 export function compareDayEvents(a: DayEvent, b: DayEvent): number {
   return (
     Number(a.done === true) - Number(b.done === true) ||
+    compareOrder(a.order ?? null, b.order ?? null) ||
     Number(b.allDay) - Number(a.allDay) ||
     Date.parse(a.start) - Date.parse(b.start) ||
     (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0)
   )
+}
+
+// 並べ替えの番号どうし。番号を持つほうが先、どちらも持てば小さいほうが先
+function compareOrder(a: number | null, b: number | null): number {
+  if (a === null || b === null) {
+    return a === b ? 0 : a === null ? 1 : -1
+  }
+  return a - b
 }
 
 // 日ごとの予定。複数日の予定は掛かる日すべてに置く。並びは compareDayEvents

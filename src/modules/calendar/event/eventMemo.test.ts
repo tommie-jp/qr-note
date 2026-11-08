@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone, setEventTime, setEventTitle } from './eventMemo'
+import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone, setEventOrder, setEventTime, setEventTitle } from './eventMemo'
 
 const timed = { title: '歯医者', date: '2026-11-05', start: '10:00', end: '11:00' }
 const allDay = { title: '歯医者', date: '2026-11-05', start: null, end: null }
@@ -170,5 +170,16 @@ describe('setEventTime', () => {
 
   test('予定の行が無ければそのまま', () => {
     expect(setEventTime('# a\n', '10:00', null)).toBe('# a\n')
+  })
+})
+
+describe('setEventOrder', () => {
+  test('予定の行の末尾に order= を足す。既にあれば位置ごと差し替える', () => {
+    expect(setEventOrder('# a\ndate=2026-11-05 start=10:00\n', 2)).toBe('# a\ndate=2026-11-05 start=10:00 order=2\n')
+    expect(setEventOrder('# a\ndate=2026-11-05 order=5 start=10:00\n', 1)).toBe('# a\ndate=2026-11-05 order=1 start=10:00\n')
+  })
+
+  test('予定の行が無ければそのまま', () => {
+    expect(setEventOrder('# a\n', 1)).toBe('# a\n')
   })
 })

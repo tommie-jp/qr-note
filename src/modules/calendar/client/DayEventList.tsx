@@ -5,7 +5,7 @@ import { holidayName } from "../event/holidays";
 import { eventSpan, jstParts } from "../event/eventTime";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import type { TimeRange } from "../event/timeOptions";
-import { saveEventDone, saveEventTime, saveEventTitle } from "./eventDone";
+import { saveEventDone, saveEventOrder, saveEventTime, saveEventTitle } from "./eventDone";
 import { TimePopover } from "./TimePopover";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
@@ -124,6 +124,64 @@ function TitleEditor({
   );
 }
 
+// 並べ替えのつまみ (︙)。上下にドラッグする (ポインタ。指でも)。焦点があれば ↑ ↓ でも動く。
+// touch-none … 指でなぞったときに一覧ごとスクロールさせない
+function DragHandle({
+  event,
+  onPointerDown,
+  onPointerMove,
+  onPointerEnd,
+  onStep,
+}: {
+  event: DayEvent;
+  onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerEnd: (commit: boolean) => void;
+  onStep: (delta: -1 | 1) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`${event.title || "(無題)"} を並べ替える`}
+      title="ドラッグで並べ替える (↑ ↓ でも)"
+      data-drag-handle=""
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={() => onPointerEnd(true)}
+      onPointerCancel={() => onPointerEnd(false)}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          onStep(e.key === "ArrowUp" ? -1 : 1);
+        }
+      }}
+      className="flex w-6 shrink-0 cursor-grab touch-none items-center justify-center self-stretch text-lg leading-none opacity-60 select-none active:cursor-grabbing"
+    >
+      ︙
+    </button>
+  );
+}
+
+// ドラッグ中の並び。ids はいま見せている順、startIds は掴んだときの順、mids は掴んだ
+// ときの各行の縦の中心 (この位置との比べで落とし先を決める。行が入れ替わっても動かない)
+interface DragState {
+  id: string;
+  ids: readonly string[];
+  startIds: readonly string[];
+  mids: readonly number[];
+}
+
+// 落とし先: 掴んだ行を除いた各行の中心のうち、指より上にある数
+function dropIndex(drag: DragState, y: number): number {
+  const from = drag.startIds.indexOf(drag.id);
+  return drag.mids.filter((mid, index) => index !== from && mid < y).length;
+}
+
+function moveId(ids: readonly string[], id: string, to: number): string[] {
+  const rest = ids.filter((x) => x !== id);
+  return [...rest.slice(0, to), id, ...rest.slice(to)];
+}
+
 // 済みの釦。丸の中に ✓。押した側の値はすぐ見せ、保存は裏で行う (DayEventList)。
 // 未済の丸は灰の縁に白の中身 — 地の色 (設定で白にもできる) に溶けないように
 function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void }) {
@@ -149,7 +207,7 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
   );
 }
 
-type Override = Partial<Pick<DayEvent, "done" | "title" | "start" | "end" | "allDay">>;
+type Override = Partial<Pick<DayEvent, "done" | "title" | "start" | "end" | "allDay" | "order">>;
 
 const caughtUp = (event: DayEvent | undefined, override: Override) =>
   event !== undefined &&
@@ -192,6 +250,16 @@ function useEventOverrides(events: readonly DayEvent[]) {
 
   const toggle = (event: DayEvent, done: boolean) => apply(event.itemId, { done }, saveEventDone(event.itemId, done));
   const rename = (event: DayEvent, title: string) => apply(event.itemId, { title }, saveEventTitle(event.itemId, title));
+  // 並べ替えた順 (番号の並び) に order=1, 2, … を振る。変わった予定だけ保存する
+  const reorder = (ids: readonly string[]) => {
+    ids.forEach((id, index) => {
+      const order = index + 1;
+      const current = overrides.get(id)?.order ?? events.find((e) => e.itemId === id)?.order;
+      if (current !== order) {
+        apply(id, { order }, saveEventOrder(id, order));
+      }
+    });
+  };
   const retime = (event: DayEvent, range: TimeRange | null) =>
     apply(event.itemId, withRange(event, range), saveEventTime(event.itemId, range?.start ?? null, range?.end ?? null));
 
@@ -202,12 +270,12 @@ function useEventOverrides(events: readonly DayEvent[]) {
       return override === undefined ? event : { ...event, ...override };
     })
     .sort(compareDayEvents);
-  return { shown, toggle, rename, retime, error };
+  return { shown, toggle, rename, retime, reorder, error };
 }
 
 // 選んだ日の見出し・「+」・予定の行 (docs/126 §1-6)。浮かせた一覧 (1 ペイン) と
 // 下のペイン (2・3 ペイン) が共有する。行を押したときの動きは器が決める (renderRow)。
-// 行の左端は「済み」の釦 (docs/126 §1-8)。inlineEdit なら題名の文字を押すと
+// 行の左端は並べ替えのつまみ (︙、§1-15) と「済み」の釦 (docs/126 §1-8)。inlineEdit なら題名の文字を押すと
 // その場で直せ (§1-13。F2 でも)、時刻を押すと 15 分刻みの時刻のパネルが出る (§1-14)
 export function DayEventList({
   day,
@@ -231,7 +299,50 @@ export function DayEventList({
   // ノートへ移る (clientNoteNav が先に受ける) ので付けない
   inlineEdit?: boolean;
 }) {
-  const { shown, toggle, rename, retime, error } = useEventOverrides(events);
+  const { shown, toggle, rename, retime, reorder, error } = useEventOverrides(events);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  // ドラッグ中は指の位置の並びで見せる
+  const rows =
+    drag === null
+      ? shown
+      : drag.ids.flatMap((id) => shown.filter((event) => event.itemId === id));
+  const startDrag = (event: DayEvent, e: React.PointerEvent<HTMLButtonElement>) => {
+    const items = listRef.current === null ? [] : [...listRef.current.children];
+    const ids = shown.map((x) => x.itemId);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({
+      id: event.itemId,
+      ids,
+      startIds: ids,
+      mids: items.map((li) => {
+        const rect = li.getBoundingClientRect();
+        return rect.top + rect.height / 2;
+      }),
+    });
+  };
+  const moveDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (drag === null) {
+      return;
+    }
+    const ids = moveId(drag.startIds, drag.id, dropIndex(drag, e.clientY));
+    if (ids.join() !== drag.ids.join()) {
+      setDrag({ ...drag, ids });
+    }
+  };
+  const endDrag = (commit: boolean) => {
+    if (drag !== null && commit && drag.ids.join() !== drag.startIds.join()) {
+      reorder(drag.ids);
+    }
+    setDrag(null);
+  };
+  const step = (event: DayEvent, delta: -1 | 1) => {
+    const ids = shown.map((x) => x.itemId);
+    const to = ids.indexOf(event.itemId) + delta;
+    if (to >= 0 && to < ids.length) {
+      reorder(moveId(ids, event.itemId, to));
+    }
+  };
   // 時刻のパネルを開いている予定と、押した時刻の要素
   const [timing, setTiming] = useState<{ itemId: string; anchor: HTMLElement } | null>(null);
   const timingEvent = timing === null ? undefined : shown.find((e) => e.itemId === timing.itemId);
@@ -260,8 +371,8 @@ export function DayEventList({
       {events.length === 0 ? (
         <p className="px-2 py-2 text-base text-gray-500">{loading ? "読み込み中…" : "予定はありません"}</p>
       ) : (
-        <ul className="space-y-0.5 pt-0.5">
-          {shown.map((event) => {
+        <ul ref={listRef} className="space-y-0.5 pt-0.5">
+          {rows.map((event) => {
             const color = eventColor(event, prefs);
             return (
               <li
@@ -269,7 +380,10 @@ export function DayEventList({
                 data-priority={event.priority ?? "normal"}
                 style={color.style}
                 // 薄い縁 … 地を白にした行どうしも見分けが付くように
-                className={`flex items-stretch rounded-sm ring-1 ring-black/10 ring-inset ${color.className}`}
+                data-dragging={drag?.id === event.itemId ? "" : undefined}
+                className={`flex items-stretch rounded-sm ring-1 ring-black/10 ring-inset ${color.className} ${
+                  drag?.id === event.itemId ? "relative z-10 shadow-lg ring-2 ring-blue-500" : ""
+                }`}
                 // 題名の文字を押したら、行の動き (フォームを開く) より先に受けて編集にする
                 onClickCapture={(e) => {
                   if (!inlineEdit || !(e.target instanceof Element)) {
@@ -295,6 +409,13 @@ export function DayEventList({
                   }
                 }}
               >
+                <DragHandle
+                  event={event}
+                  onPointerDown={(e) => startDrag(event, e)}
+                  onPointerMove={moveDrag}
+                  onPointerEnd={endDrag}
+                  onStep={(delta) => step(event, delta)}
+                />
                 <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
                 {renaming === event.itemId ? (
                   <TitleEditor

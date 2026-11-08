@@ -19,7 +19,8 @@ export function isEventDto(value: unknown): value is EventDto {
   }
   const v = value as Record<string, unknown>
   return isString(v.itemId) && v.itemId !== '' && isString(v.title) && isIso(v.start) && isIso(v.end) && typeof v.allDay === 'boolean' && (v.done === undefined || typeof v.done === 'boolean') &&
-    (v.priority === undefined || v.priority === 'high' || v.priority === 'normal' || v.priority === 'low')
+    (v.priority === undefined || v.priority === 'high' || v.priority === 'normal' || v.priority === 'low') &&
+    (v.order === undefined || v.order === null || typeof v.order === 'number')
 }
 
 export function isCalendarPayload(value: unknown): value is CalendarPayload {

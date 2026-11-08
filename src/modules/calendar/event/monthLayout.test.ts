@@ -83,6 +83,22 @@ describe('eventsByDay', () => {
     expect(map.get('2026-11-05')?.map((e) => e.itemId)).toEqual(['0001', '0002', '0003'])
   })
 
+  test('order= を持つ予定は番号順で先に、持たない予定はその後に今までの並び (済みは最後)', () => {
+    const at = (itemId: string, hour: number, extra: object = {}) => ({
+      itemId,
+      title: itemId,
+      start: `2026-11-05T0${hour}:00:00Z`,
+      end: `2026-11-05T0${hour + 1}:00:00Z`,
+      allDay: false,
+      ...extra,
+    })
+    const map = eventsByDay(
+      [at('a', 1), at('b', 2, { order: 2 }), at('c', 3, { order: 1 }), at('d', 0), at('e', 4, { order: 3, done: true })],
+      days,
+    )
+    expect(map.get('2026-11-05')?.map((e) => e.itemId)).toEqual(['c', 'b', 'd', 'a', 'e'])
+  })
+
   test('複数日の予定は掛かる日すべてに置く (終わりの日は含まない)', () => {
     const map = eventsByDay([ev('旅行', '2026-11-03T15:00:00Z', '2026-11-05T15:00:00Z', true)], days)
     expect([...map].filter(([, list]) => list.length > 0).map(([d]) => d)).toEqual(['2026-11-04', '2026-11-05'])

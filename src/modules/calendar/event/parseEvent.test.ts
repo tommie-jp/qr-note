@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { extractProps } from '@/lib/markdown/props'
-import { eventPriority, isEventDone, parseEvent } from './parseEvent'
+import { eventOrder, eventPriority, isEventDone, parseEvent } from './parseEvent'
 
 const parse = (line: string) => parseEvent(extractProps(`# t\n\n${line}\n`))
 
@@ -74,5 +74,17 @@ describe('eventPriority', () => {
     expect(eventPriority(props('date=2026-11-05 priority=low'))).toBe('low')
     expect(eventPriority(props('date=2026-11-05'))).toBe('normal')
     expect(eventPriority(props('date=2026-11-05 priority=urgent'))).toBe('normal')
+  })
+})
+
+describe('eventOrder', () => {
+  const props = (line: string) => extractProps(`# t\n\n${line}\n`)
+
+  test('1 以上の整数を読む。無い・読めない値は null', () => {
+    expect(eventOrder(props('date=2026-11-05 order=3'))).toBe(3)
+    expect(eventOrder(props('date=2026-11-05'))).toBeNull()
+    expect(eventOrder(props('date=2026-11-05 order=0'))).toBeNull()
+    expect(eventOrder(props('date=2026-11-05 order=1.5'))).toBeNull()
+    expect(eventOrder(props('date=2026-11-05 order=x'))).toBeNull()
   })
 })

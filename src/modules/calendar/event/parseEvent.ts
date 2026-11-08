@@ -95,3 +95,9 @@ export function eventPriority(props: readonly PropEntry[]): EventPriority {
   const value = valueOf(props, 'priority')
   return value === 'high' || value === 'low' ? value : 'normal'
 }
+
+// 日の中の並べ替えの番号 (`order=3`。docs/126 §1-15)。1 以上の整数だけ読み、他は null
+export function eventOrder(props: readonly PropEntry[]): number | null {
+  const value = valueOf(props, 'order')
+  return value !== undefined && /^[1-9]\d{0,5}$/.test(value) ? Number(value) : null
+}

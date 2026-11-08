@@ -10,6 +10,8 @@ import { e2eNote, removeE2eNote, searchResults } from './notes'
 // 消せない。そこで「+」はフォームが出ること (日付) を確かめるだけにし、保存は
 // E2E の固定 id のノートの「予定」タブで行う (ClientNotePane が受ける)
 const NOTE = e2eNote(41, `歯医者 ${Date.now() % 100000}`)
+// 並べ替えのテストの 2 件目 (同じ日の 10:00)
+const NOTE2 = e2eNote(46, `眼科 ${Date.now() % 100000}`)
 // 他の予定と混ざらないよう、このテストだけのタグで絞ったカレンダーを開く
 const TAG = 'zze2ecal'
 const QUERY = `#${TAG}`
@@ -66,12 +68,14 @@ test.describe('予定カレンダー', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, NOTE)
+    await removeE2eNote(page, NOTE2)
     await closePage(page)
   })
 
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, NOTE)
+    await removeE2eNote(page, NOTE2)
     // 設定のテストが途中で落ちても既定へ戻す
     await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
     await closePage(page)
@@ -382,6 +386,42 @@ test.describe('予定カレンダー', () => {
 
     // Assert
     await expect.poll(async () => (await pane.boundingBox())?.height ?? 0).toBeGreaterThan(before.height + 60)
+  })
+
+  test('︙ をドラッグすると日の中の順を変えられ、本文に order= が入る (↑ ↓ でも)', async ({ page }) => {
+    // 同じ日の 10:00 に 2 件目 (時刻順では NOTE (13:00) より上)
+    const created = await page.request.put(`/api/items/${NOTE2.id}`, {
+      data: { memo: `# ${NOTE2.heading}\n\n#${TAG}\ndate=${DAY} start=10:00\n`, base: 'new', checkpoint: false },
+    })
+    expect(created.ok()).toBe(true)
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const titles = () => pane.locator('li [data-event-title]').allTextContents()
+    const memoOf = async (id: string) =>
+      ((await (await page.request.get(`/api/items/${id}`)).json()) as { data: { item: { memo: string } } }).data.item.memo
+    await expect.poll(titles).toEqual([NOTE2.heading, NOTE.heading])
+
+    // NOTE の ︙ を 1 行ぶん上へドラッグ
+    const handle = pane.getByRole('button', { name: `${NOTE.heading} を並べ替える` })
+    const from = (await handle.boundingBox())!
+    const top = (await pane.locator('li').first().boundingBox())!
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(from.x + from.width / 2, top.y + 4, { steps: 6 })
+    await page.mouse.up()
+    await expect.poll(titles).toEqual([NOTE.heading, NOTE2.heading])
+    await expect.poll(() => memoOf(NOTE.id)).toContain('order=1')
+    await expect.poll(() => memoOf(NOTE2.id)).toContain('order=2')
+    // マス目も同じ順
+    await expect(dayCell(page, DAY).locator('[data-priority]').first()).toContainText(NOTE.key)
+
+    // ↓ で 1 つ下へ戻す
+    await handle.focus()
+    await page.keyboard.press('ArrowDown')
+    await expect.poll(titles).toEqual([NOTE2.heading, NOTE.heading])
+    await expect.poll(() => memoOf(NOTE.id)).toContain('order=2')
+    await expect.poll(() => memoOf(NOTE2.id)).toContain('order=1')
   })
 
   test('1 ペインでは日の一覧をマスの横に浮かせる', async ({ page }) => {

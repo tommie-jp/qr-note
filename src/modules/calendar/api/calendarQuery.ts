@@ -9,7 +9,7 @@ import { buildWhere } from '@/lib/items/where'
 import { parseStoredProps } from '@/lib/markdown/props'
 import { jstDate } from '../event/eventTime'
 import { monthGridRange } from '../event/monthLayout'
-import { eventPriority, isEventDone, parseEvent } from '../event/parseEvent'
+import { eventOrder, eventPriority, isEventDone, parseEvent } from '../event/parseEvent'
 import type { CalendarPayload, EventDto } from './calendarDto'
 
 interface EventRow {
@@ -58,6 +58,7 @@ export async function loadMonthEvents(query: string, month: string): Promise<Cal
       allDay: parseEvent(props)?.start === null,
       done: isEventDone(props),
       priority: eventPriority(props),
+      order: eventOrder(props),
     }
   })
   return { events, omitted }

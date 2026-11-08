@@ -157,6 +157,26 @@ export function setEventTime(memo: string, start: string | null, end: string | n
   return lines.join(newline)
 }
 
+// 日の中の並べ替えの番号 (order=) を書く (docs/126 §1-15)。既にあれば位置ごと
+// 差し替え、無ければ予定の行の末尾に足す
+export function setEventOrder(memo: string, order: number): string {
+  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
+  const lines = memo.split(/\r?\n/)
+  const eventLine = findEventLine(lines)
+  if (eventLine < 0) {
+    return memo
+  }
+  const tokens = eventLineTokens(lines[eventLine]) ?? []
+  const at = tokens.findIndex((t) => parsePropToken(t)?.key === 'order')
+  if (at >= 0) {
+    tokens[at] = `order=${order}`
+  } else {
+    tokens.push(`order=${order}`)
+  }
+  lines[eventLine] = tokens.join(' ')
+  return lines.join(newline)
+}
+
 // 題名だけを差し替える (日の一覧のインライン編集。docs/126 §1-13)
 export function setEventTitle(memo: string, title: string): string {
   const newline = memo.includes('\r\n') ? '\r\n' : '\n'
