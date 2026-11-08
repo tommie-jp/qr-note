@@ -201,6 +201,8 @@ export default function EventForm({ itemId, item, initialDate, query, fullscreen
             <input
               id={`${id}-start`}
               type="time"
+              // 15 分刻み (iPhone の時刻の輪は step を守らないが、PC の欄は守る)
+              step={900}
               value={draft.start}
               onChange={(e) => update({ start: e.target.value })}
               className={FIELD}
@@ -213,6 +215,8 @@ export default function EventForm({ itemId, item, initialDate, query, fullscreen
             <input
               id={`${id}-end`}
               type="time"
+              // 15 分刻み (iPhone の時刻の輪は step を守らないが、PC の欄は守る)
+              step={900}
               value={draft.end}
               onChange={(e) => update({ end: e.target.value })}
               className={FIELD}

@@ -319,8 +319,9 @@ test.describe('予定カレンダー', () => {
     await expect(pane).toBeVisible()
     await expect(eventRow(pane)).toContainText(renamed)
 
-    // 題名以外 (時刻) を押すと今までどおりフォーム
-    await eventRow(pane).click({ position: { x: 20, y: 18 } })
+    // 題名・時刻以外 (行の右の余白) を押すと今までどおりフォーム
+    const rowBox = (await eventRow(pane).boundingBox())!
+    await eventRow(pane).click({ position: { x: rowBox.width - 10, y: rowBox.height / 2 } })
     await expect(page.getByRole('dialog', { name: '予定を直す' })).toBeVisible()
     await page.keyboard.press('Escape')
 
@@ -329,6 +330,37 @@ test.describe('予定カレンダー', () => {
     await pane.getByRole('textbox', { name: '題名' }).fill(NOTE.heading)
     await pane.getByRole('textbox', { name: '題名' }).press('Enter')
     await expect.poll(memo).toMatch(new RegExp(`^# ${NOTE.heading}\n`))
+  })
+
+  test('時刻は 1 行で出し、押すと 15 分刻みで直せる (開始を動かすと終了も動く)', async ({ page }) => {
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const memo = async () =>
+      ((await (await page.request.get(`/api/items/${NOTE.id}`)).json()) as { data: { item: { memo: string } } }).data.item
+        .memo
+    const time = eventRow(pane).locator('[data-event-time]')
+    await expect(time).toHaveText('13:00 ~ 14:30')
+
+    await time.click()
+    const panel = page.getByRole('dialog', { name: '時刻' })
+    await expect(page.getByRole('dialog', { name: '予定を直す' })).toHaveCount(0)
+    await expect(panel.getByLabel('開始').locator('option')).toHaveCount(96)
+    await panel.getByLabel('開始').selectOption('09:15')
+    // 長さ (1 時間半) を保って終了も動く
+    await expect(time).toHaveText('9:15 ~ 10:45')
+    await expect.poll(memo).toContain('date=2026-11-05 start=09:15 end=10:45')
+    await panel.getByLabel('終了').selectOption('11:00')
+    await expect(time).toHaveText('9:15 ~ 11:00')
+    await expect.poll(memo).toContain('start=09:15 end=11:00')
+
+    // 元へ戻す (後のテストが 13:00 を見る)
+    await panel.getByLabel('開始').selectOption('13:00')
+    await panel.getByLabel('終了').selectOption('14:30')
+    await expect.poll(memo).toContain('start=13:00 end=14:30')
+    await page.keyboard.press('Escape')
+    await expect(panel).toHaveCount(0)
+    await expect(pane).toBeVisible()
   })
 
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {

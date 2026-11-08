@@ -2,8 +2,11 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { holidayName } from "../event/holidays";
+import { eventSpan, jstParts } from "../event/eventTime";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
-import { saveEventDone, saveEventTitle } from "./eventDone";
+import type { TimeRange } from "../event/timeOptions";
+import { saveEventDone, saveEventTime, saveEventTitle } from "./eventDone";
+import { TimePopover } from "./TimePopover";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
 
@@ -28,21 +31,28 @@ const shortTime = (time: string) => time.replace(/^0/, "");
 // 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
 export const DAY_ROW_CLASS = "flex min-h-9 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
 
+// 時刻は 1 行 (「10:00 ~ 11:00」)。終日は「終日」。押すと時刻のパネル (data-event-time)
 function TimeLabel({ event }: { event: DayEvent }) {
   const start = eventTimeLabel(event);
   const end = eventEndLabel(event);
   return (
-    <span className="flex w-12 shrink-0 flex-col items-center text-xs leading-4 opacity-90">
-      {start === null ? (
-        "終日"
-      ) : (
-        <>
-          <span>{shortTime(start)}</span>
-          {end !== null && <span>{shortTime(end)}</span>}
-        </>
-      )}
+    <span data-event-time="" className="w-26 shrink-0 cursor-pointer text-center text-sm leading-6 whitespace-nowrap tabular-nums opacity-90">
+      {start === null ? "終日" : `${shortTime(start)} ~ ${end === null ? "" : shortTime(end)}`}
     </span>
   );
+}
+
+// 予定のいまの時刻 (パネルの初期値)。終日は null
+function rangeOf(event: DayEvent): TimeRange | null {
+  const start = eventTimeLabel(event);
+  return start === null ? null : { start, end: eventEndLabel(event) };
+}
+
+// 時刻を変えた予定を、保存の前から一覧に見せるための値 (日付は予定の開始の日)
+function withRange(event: DayEvent, range: TimeRange | null): Pick<DayEvent, "start" | "end" | "allDay"> {
+  const date = jstParts(new Date(event.start)).date;
+  const span = eventSpan({ date, start: range?.start ?? null, end: range?.end ?? null, until: null });
+  return { start: span.start.toISOString(), end: span.end.toISOString(), allDay: span.allDay };
 }
 
 // 済みの予定は題名に取り消し線を引く (マス目と同じ)。
@@ -139,12 +149,11 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
   );
 }
 
-type Override = Partial<Pick<DayEvent, "done" | "title">>;
+type Override = Partial<Pick<DayEvent, "done" | "title" | "start" | "end" | "allDay">>;
 
 const caughtUp = (event: DayEvent | undefined, override: Override) =>
   event !== undefined &&
-  (override.done === undefined || event.done === override.done) &&
-  (override.title === undefined || event.title === override.title);
+  (Object.keys(override) as (keyof Override)[]).every((key) => event[key] === override[key]);
 
 // 押した「済み」・直した題名を、サーバの応答 (月の予定の取り直し) が追いつくまで
 // 上書きして見せる
@@ -183,6 +192,8 @@ function useEventOverrides(events: readonly DayEvent[]) {
 
   const toggle = (event: DayEvent, done: boolean) => apply(event.itemId, { done }, saveEventDone(event.itemId, done));
   const rename = (event: DayEvent, title: string) => apply(event.itemId, { title }, saveEventTitle(event.itemId, title));
+  const retime = (event: DayEvent, range: TimeRange | null) =>
+    apply(event.itemId, withRange(event, range), saveEventTime(event.itemId, range?.start ?? null, range?.end ?? null));
 
   // 上書きした値で並べ直す (済みは最後。マス目の並びと同じ)
   const shown = events
@@ -191,13 +202,13 @@ function useEventOverrides(events: readonly DayEvent[]) {
       return override === undefined ? event : { ...event, ...override };
     })
     .sort(compareDayEvents);
-  return { shown, toggle, rename, error };
+  return { shown, toggle, rename, retime, error };
 }
 
 // 選んだ日の見出し・「+」・予定の行 (docs/126 §1-6)。浮かせた一覧 (1 ペイン) と
 // 下のペイン (2・3 ペイン) が共有する。行を押したときの動きは器が決める (renderRow)。
-// 行の左端は「済み」の釦 (docs/126 §1-8)。inlineTitle なら題名の文字を押すと
-// その場で直せる (§1-13。F2 でも)
+// 行の左端は「済み」の釦 (docs/126 §1-8)。inlineEdit なら題名の文字を押すと
+// その場で直せ (§1-13。F2 でも)、時刻を押すと 15 分刻みの時刻のパネルが出る (§1-14)
 export function DayEventList({
   day,
   events,
@@ -205,7 +216,7 @@ export function DayEventList({
   onAdd,
   renderRow,
   trailing,
-  inlineTitle = false,
+  inlineEdit = false,
 }: {
   day: string;
   events: readonly DayEvent[];
@@ -216,11 +227,14 @@ export function DayEventList({
   renderRow: (event: DayEvent) => ReactNode;
   // 見出し行の右端に足す物 (ペインの「閉じる」)
   trailing?: ReactNode;
-  // 題名のインライン編集を許すか。1 ペインの浮かせる一覧はリンクで、押した瞬間に
+  // 題名・時刻をその場で直せるか。1 ペインの浮かせる一覧はリンクで、押した瞬間に
   // ノートへ移る (clientNoteNav が先に受ける) ので付けない
-  inlineTitle?: boolean;
+  inlineEdit?: boolean;
 }) {
-  const { shown, toggle, rename, error } = useEventOverrides(events);
+  const { shown, toggle, rename, retime, error } = useEventOverrides(events);
+  // 時刻のパネルを開いている予定と、押した時刻の要素
+  const [timing, setTiming] = useState<{ itemId: string; anchor: HTMLElement } | null>(null);
+  const timingEvent = timing === null ? undefined : shown.find((e) => e.itemId === timing.itemId);
   // 題名を直している予定
   const [renaming, setRenaming] = useState<string | null>(null);
   const { prefs } = useCalendarPrefs();
@@ -258,14 +272,24 @@ export function DayEventList({
                 className={`flex items-stretch rounded-sm ring-1 ring-black/10 ring-inset ${color.className}`}
                 // 題名の文字を押したら、行の動き (フォームを開く) より先に受けて編集にする
                 onClickCapture={(e) => {
-                  if (inlineTitle && e.target instanceof Element && e.target.closest("[data-event-title]")) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  if (!inlineEdit || !(e.target instanceof Element)) {
+                    return;
+                  }
+                  const time = e.target.closest<HTMLElement>("[data-event-time]");
+                  const title = e.target.closest("[data-event-title]");
+                  if (time === null && title === null) {
+                    return;
+                  }
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (time !== null) {
+                    setTiming({ itemId: event.itemId, anchor: time });
+                  } else {
                     setRenaming(event.itemId);
                   }
                 }}
                 onKeyDown={(e) => {
-                  if (inlineTitle && e.key === "F2" && renaming === null) {
+                  if (inlineEdit && e.key === "F2" && renaming === null) {
                     e.preventDefault();
                     setRenaming(event.itemId);
                   }
@@ -288,6 +312,16 @@ export function DayEventList({
             );
           })}
         </ul>
+      )}
+      {timing !== null && timingEvent !== undefined && (
+        <TimePopover
+          // 押し直した時刻・別の予定ごとに作り直す (置き場所を測り直す)
+          key={timing.itemId}
+          anchor={timing.anchor}
+          range={rangeOf(timingEvent)}
+          onChange={(range) => retime(timingEvent, range)}
+          onClose={() => setTiming(null)}
+        />
       )}
       {error !== null && (
         <p role="alert" className="mt-1 rounded bg-yellow-50 px-2 py-1 text-sm text-yellow-800">

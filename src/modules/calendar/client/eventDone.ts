@@ -1,6 +1,6 @@
 // 日の一覧から予定の本文を少しだけ書き換えて保存する (docs/126 §1-8・§1-13)。
 // 「済み」(予定の行の done=、setEventDone) と、題名のインライン編集
-// (先頭の見出し、setEventTitle)。
+// (先頭の見出し、setEventTitle)、時刻のパネル (予定の行の start= end=、setEventTime)。
 //
 // 本文は控え (noteCache) から読む。控えが古くて 409 になったら、1 度だけ
 // 取り直してやり直す — 押した人に「読み直す」をさせるほどの操作ではない
@@ -8,7 +8,7 @@ import { isItemDto } from "@/lib/api/itemDto";
 import { noteWritten } from "@/lib/client/invalidate";
 import { noteCache } from "@/lib/client/noteStore";
 import { formatBase } from "@/lib/editor/saveBase";
-import { setEventDone, setEventTitle } from "../event/eventMemo";
+import { setEventDone, setEventTime, setEventTitle } from "../event/eventMemo";
 import { jstToday } from "../event/monthLayout";
 import { invalidateCalendar } from "./calendarStore";
 import { putMemo } from "./saveMemo";
@@ -20,6 +20,11 @@ export function saveEventDone(itemId: string, done: boolean): Promise<string | n
 
 export function saveEventTitle(itemId: string, title: string): Promise<string | null> {
   return saveEventEdit(itemId, (memo) => setEventTitle(memo, title));
+}
+
+// start が null なら終日にする
+export function saveEventTime(itemId: string, start: string | null, end: string | null): Promise<string | null> {
+  return saveEventEdit(itemId, (memo) => setEventTime(memo, start, end));
 }
 
 // edit は本文を受けて書き換えた本文を返す。変わらなければ保存しない

@@ -136,6 +136,27 @@ function replaceTitleLine(lines: string[], title: string): void {
   }
 }
 
+// 時刻だけを差し替える (日の一覧の時刻のパネル。docs/126 §1-14)。start が null なら
+// 終日 (start= end= を抜く)。足すときは date= の直後に置く。他のトークンは残す
+export function setEventTime(memo: string, start: string | null, end: string | null): string {
+  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
+  const lines = memo.split(/\r?\n/)
+  const eventLine = findEventLine(lines)
+  if (eventLine < 0) {
+    return memo
+  }
+  const tokens = (eventLineTokens(lines[eventLine]) ?? []).filter((t) => {
+    const key = parsePropToken(t)?.key
+    return key !== 'start' && key !== 'end'
+  })
+  if (start !== null) {
+    const at = tokens.findIndex((t) => parsePropToken(t)?.key === 'date') + 1
+    tokens.splice(at, 0, `start=${start}`, ...(end === null ? [] : [`end=${end}`]))
+  }
+  lines[eventLine] = tokens.join(' ')
+  return lines.join(newline)
+}
+
 // 題名だけを差し替える (日の一覧のインライン編集。docs/126 §1-13)
 export function setEventTitle(memo: string, title: string): string {
   const newline = memo.includes('\r\n') ? '\r\n' : '\n'

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone, setEventTitle } from './eventMemo'
+import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone, setEventTime, setEventTitle } from './eventMemo'
 
 const timed = { title: '歯医者', date: '2026-11-05', start: '10:00', end: '11:00' }
 const allDay = { title: '歯医者', date: '2026-11-05', start: null, end: null }
@@ -151,5 +151,24 @@ describe('setEventTitle', () => {
 
   test('見出しが無ければ先頭に挿す。改行は空白に畳む。CRLF を保つ', () => {
     expect(setEventTitle('date=2026-11-05\r\n', ' 眼\n科 ')).toBe('# 眼 科\r\n\r\ndate=2026-11-05\r\n')
+  })
+})
+
+describe('setEventTime', () => {
+  test('時刻を足すときは date= の直後に start= end= を置く。他のトークンは残す', () => {
+    expect(setEventTime('# a\ndate=2026-11-05 priority=high\n', '10:00', '11:00')).toBe(
+      '# a\ndate=2026-11-05 start=10:00 end=11:00 priority=high\n',
+    )
+  })
+
+  test('差し替え・終わりを外す・終日にする', () => {
+    const memo = '# a\ndate=2026-11-05 start=10:00 end=11:00 done=2026-11-08\n'
+    expect(setEventTime(memo, '13:15', '14:00')).toBe('# a\ndate=2026-11-05 start=13:15 end=14:00 done=2026-11-08\n')
+    expect(setEventTime(memo, '13:15', null)).toBe('# a\ndate=2026-11-05 start=13:15 done=2026-11-08\n')
+    expect(setEventTime(memo, null, null)).toBe('# a\ndate=2026-11-05 done=2026-11-08\n')
+  })
+
+  test('予定の行が無ければそのまま', () => {
+    expect(setEventTime('# a\n', '10:00', null)).toBe('# a\n')
   })
 })
