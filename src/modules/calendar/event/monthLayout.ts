@@ -58,10 +58,22 @@ export interface DayEvent {
   start: string
   end: string
   allDay: boolean
+  // 済み (本文の done=)。古い応答には無い
+  done?: boolean
 }
 
-// 日ごとの予定。複数日の予定は掛かる日すべてに置く。日の中は終日を先に、
-// その後は開始時刻順 (同じなら題名順)
+// 日の中の並び。済みは最後 (済ませた物より残っている物を先に見せる)。
+// その中で終日を先に、その後は開始時刻順 (同じなら題名順)
+export function compareDayEvents(a: DayEvent, b: DayEvent): number {
+  return (
+    Number(a.done === true) - Number(b.done === true) ||
+    Number(b.allDay) - Number(a.allDay) ||
+    Date.parse(a.start) - Date.parse(b.start) ||
+    a.title.localeCompare(b.title, 'ja')
+  )
+}
+
+// 日ごとの予定。複数日の予定は掛かる日すべてに置く。並びは compareDayEvents
 export function eventsByDay<T extends DayEvent>(events: readonly T[], days: readonly string[]): Map<string, T[]> {
   const out = new Map<string, T[]>(days.map((d) => [d, []]))
   for (const event of events) {
@@ -76,12 +88,7 @@ export function eventsByDay<T extends DayEvent>(events: readonly T[], days: read
     }
   }
   for (const list of out.values()) {
-    list.sort(
-      (a, b) =>
-        Number(b.allDay) - Number(a.allDay) ||
-        Date.parse(a.start) - Date.parse(b.start) ||
-        a.title.localeCompare(b.title, 'ja'),
-    )
+    list.sort(compareDayEvents)
   }
   return out
 }

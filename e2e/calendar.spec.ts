@@ -44,6 +44,11 @@ function dayPane(page: Page): Locator {
   return page.getByRole('region', { name: '11月5日 (木) の予定' })
 }
 
+// 日のペインの予定の行 (押すとフォーム)。「済み」の釦も題名を名に持つので分ける
+function eventRow(pane: Locator): Locator {
+  return pane.locator('button[aria-haspopup="dialog"]', { hasText: NOTE.key })
+}
+
 function noteHref(extra = ''): string {
   return `/item/${NOTE.id}?q=${encodeURIComponent(QUERY)}&cal=${MONTH}${extra}`
 }
@@ -107,14 +112,14 @@ test.describe('予定カレンダー', () => {
     // 月に出る (控えを古くして取り直す)
     await expect(dayCell(page, DAY)).toContainText(NOTE.heading)
     await dayCell(page, DAY).click()
-    await expect(pane.getByRole('button', { name: new RegExp(NOTE.key) })).toContainText('10:00')
+    await expect(eventRow(pane)).toContainText('10:00')
   })
 
   test('予定を押すと行のそばにフォームが出て、時刻を直すと本文の行だけ変わる', async ({ page }) => {
     await openCalendar(page)
     await dayCell(page, DAY).click()
     const pane = dayPane(page)
-    const row = pane.getByRole('button', { name: new RegExp(NOTE.key) })
+    const row = eventRow(pane)
     await row.click()
 
     const dialog = page.getByRole('dialog', { name: '予定を直す' })
@@ -143,6 +148,32 @@ test.describe('予定カレンダー', () => {
     const text = page.locator('pre').filter({ hasText: NOTE.heading })
     await expect(text).toContainText(`#${TAG}`)
     await expect(text).toContainText(`date=${DAY} start=13:00 end=14:30`)
+  })
+
+  test('「済み」を押すと取り消し線が付き、本文に done= が入る。押し直すと戻る', async ({ page }) => {
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const done = pane.getByRole('button', { name: new RegExp(`${NOTE.key}.* を済みにする`) })
+
+    await done.click()
+    const undo = pane.getByRole('button', { name: new RegExp(`${NOTE.key}.* を未済に戻す`) })
+    await expect(undo).toHaveAttribute('aria-pressed', 'true')
+    await expect(eventRow(pane).locator('.line-through')).toBeVisible()
+    // マス目も取り消し線 (月の予定を取り直した後)
+    await expect(dayCell(page, DAY).locator('.line-through')).toContainText(NOTE.key)
+
+    // 本文の予定の行に done= が入る
+    const res = await page.request.get(`/api/items/${NOTE.id}`)
+    expect(((await res.json()) as { data: { item: { memo: string } } }).data.item.memo).toMatch(
+      /date=2026-11-05 start=13:00 end=14:30 done=\d{4}-\d{2}-\d{2}/,
+    )
+
+    await undo.click()
+    await expect(done).toHaveAttribute('aria-pressed', 'false')
+    await expect(dayCell(page, DAY).locator('.line-through')).toHaveCount(0)
+    const after = await page.request.get(`/api/items/${NOTE.id}`)
+    expect(((await after.json()) as { data: { item: { memo: string } } }).data.item.memo).not.toContain('done=')
   })
 
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {

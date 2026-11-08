@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
-import { addMonths, eventsByDay, isMonth, jstToday, monthCells } from "../event/monthLayout";
+import { addMonths, eventsByDay, isMonth, jstToday, monthCells, type DayEvent } from "../event/monthLayout";
 import { calendarCache } from "./calendarStore";
 import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
 import { DayPane } from "./DayPane";
@@ -20,6 +20,10 @@ function replaceMonth(month: string | null): void {
 function pushList(): void {
   window.history.pushState(null, "", withCalendarMonth(new URL(location.href), null));
 }
+
+// 予定の無い日に渡す空の並び。描くたびに [] を作ると、日の一覧が
+// 「予定が変わった」と見て控えを直し続ける
+const NO_EVENTS: readonly DayEvent[] = [];
 
 const NAV_BUTTON = "min-h-9 min-w-9 rounded px-2 text-sm text-gray-700 hover:bg-gray-100 active:bg-gray-200";
 
@@ -120,7 +124,7 @@ export default function CalendarView({ query }: { query: string }) {
         <DayPane
           key={shown.day}
           day={shown.day}
-          events={byDay.get(shown.day) ?? []}
+          events={byDay.get(shown.day) ?? NO_EVENTS}
           loading={payload === undefined}
           query={query}
           onClose={close}
@@ -131,7 +135,7 @@ export default function CalendarView({ query }: { query: string }) {
           key={shown.day}
           day={shown.day}
           anchor={shown.cell}
-          events={byDay.get(shown.day) ?? []}
+          events={byDay.get(shown.day) ?? NO_EVENTS}
           loading={payload === undefined}
           query={query}
           month={month}

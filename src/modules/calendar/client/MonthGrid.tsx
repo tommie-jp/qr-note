@@ -72,8 +72,13 @@ export function MonthGrid({
               {events.slice(0, CHIPS_PER_DAY).map((event) => (
                 <span
                   key={event.itemId}
+                  // 済みは取り消し線で薄く (日の中では最後に並ぶ。eventsByDay)
                   className={`truncate rounded px-0.5 text-[0.625rem] leading-4 sm:text-xs ${
-                    event.allDay ? "bg-emerald-100 text-emerald-900" : "text-gray-800"
+                    event.done
+                      ? "text-gray-400 line-through"
+                      : event.allDay
+                        ? "bg-emerald-100 text-emerald-900"
+                        : "text-gray-800"
                   }`}
                 >
                   {eventTimeLabel(event) !== null && (

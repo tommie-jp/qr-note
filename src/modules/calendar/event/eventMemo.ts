@@ -4,7 +4,8 @@
 // 書き換えは**決まった所だけ**触る (docs/83 §7 の recordMeasurement と同じ作法):
 //   - 題名 … 先頭の `# …` 行。無ければ先頭に挿す
 //   - 日時 … `date=` を持つプロパティ行の date / start / end のトークン。
-//            同じ行の他のキー (until を含む)、タグ、本文、添付は触らない
+//            同じ行の他のキー (until・done を含む)、タグ、本文、添付は触らない
+//   - 済み … 同じ行の done= のトークン (setEventDone)
 // 行を組み直さないことが、本文を正本と言い続ける条件
 import { parsePropToken } from '@/lib/markdown/props'
 import { parseSearchExpr } from '@/lib/search/parse'
@@ -23,6 +24,7 @@ const EVENT_KEYS = ['date', 'start', 'end'] as const
 const HEADING = /^#(?:\s+(.*))?$/
 const FENCE = /^\s*(`{3,}|~{3,})/
 const DEFAULT_TAG = '予定'
+const DONE_KEY = 'done'
 
 function cleanTitle(title: string): string {
   return title.replace(/[\r\n]+/g, ' ').trim()
@@ -78,24 +80,27 @@ function replaceEventTokens(tokens: readonly string[], input: EventInput): strin
   return out
 }
 
-export function applyEvent(memo: string, input: EventInput): string {
-  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
-  const lines = memo.split(/\r?\n/)
-  const title = cleanTitle(input.title)
-
-  // 日時: コードフェンスの外で最初の `date=` 行
+// コードフェンスの外で最初の `date=` 行。無ければ -1
+function findEventLine(lines: readonly string[]): number {
   let inFence = false
-  let eventLine = -1
   for (let i = 0; i < lines.length; i++) {
     if (FENCE.test(lines[i])) {
       inFence = !inFence
       continue
     }
     if (!inFence && eventLineTokens(lines[i]) !== null) {
-      eventLine = i
-      break
+      return i
     }
   }
+  return -1
+}
+
+export function applyEvent(memo: string, input: EventInput): string {
+  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
+  const lines = memo.split(/\r?\n/)
+  const title = cleanTitle(input.title)
+
+  const eventLine = findEventLine(lines)
   if (eventLine >= 0) {
     lines[eventLine] = replaceEventTokens(eventLineTokens(lines[eventLine]) ?? [], input).join(' ')
   } else {
@@ -112,6 +117,23 @@ export function applyEvent(memo: string, input: EventInput): string {
   } else {
     lines.unshift(`# ${title}`, '')
   }
+  return lines.join(newline)
+}
+
+// 予定を済みにする (done=済ませた日) / 戻す (doneDate が null)。予定の行の
+// done= だけを差し替える。予定の行が無ければ本文をそのまま返す
+export function setEventDone(memo: string, doneDate: string | null): string {
+  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
+  const lines = memo.split(/\r?\n/)
+  const eventLine = findEventLine(lines)
+  if (eventLine < 0) {
+    return memo
+  }
+  const tokens = (eventLineTokens(lines[eventLine]) ?? []).filter((t) => parsePropToken(t)?.key !== DONE_KEY)
+  if (doneDate !== null) {
+    tokens.push(`${DONE_KEY}=${doneDate}`)
+  }
+  lines[eventLine] = tokens.join(' ')
   return lines.join(newline)
 }
 

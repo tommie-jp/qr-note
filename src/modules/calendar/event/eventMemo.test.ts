@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyEvent, eventTitleOf, newEventMemo, requiredTags } from './eventMemo'
+import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone } from './eventMemo'
 
 const timed = { title: '歯医者', date: '2026-11-05', start: '10:00', end: '11:00' }
 const allDay = { title: '歯医者', date: '2026-11-05', start: null, end: null }
@@ -81,5 +81,40 @@ describe('eventTitleOf', () => {
     expect(eventTitleOf('\n# 歯医者 \n本文')).toBe('歯医者')
     expect(eventTitleOf('#予定\n')).toBe('')
     expect(eventTitleOf('')).toBe('')
+  })
+})
+
+describe('setEventDone', () => {
+  test('予定の行の末尾に done= を足す。他の行・トークンは触らない', () => {
+    const memo = '# 歯医者\n\n#予定\ndate=2026-11-05 start=10:00 place=駅前\n\n本文\n'
+    expect(setEventDone(memo, '2026-11-08')).toBe(
+      '# 歯医者\n\n#予定\ndate=2026-11-05 start=10:00 place=駅前 done=2026-11-08\n\n本文\n',
+    )
+  })
+
+  test('済みを外すと done= だけを抜く', () => {
+    const memo = '# 歯医者\ndate=2026-11-05 done=2026-11-08 start=10:00\n'
+    expect(setEventDone(memo, null)).toBe('# 歯医者\ndate=2026-11-05 start=10:00\n')
+  })
+
+  test('既に済みなら日付を差し替える (2 つにしない)', () => {
+    const memo = 'date=2026-11-05 done=2026-11-06\n'
+    expect(setEventDone(memo, '2026-11-08')).toBe('date=2026-11-05 done=2026-11-08\n')
+  })
+
+  test('フェンスの中の date= は予定の行と見なさない。CRLF を保つ', () => {
+    const memo = '```\r\ndate=2000-01-01\r\n```\r\ndate=2026-11-05\r\n'
+    expect(setEventDone(memo, '2026-11-08')).toBe('```\r\ndate=2000-01-01\r\n```\r\ndate=2026-11-05 done=2026-11-08\r\n')
+  })
+
+  test('予定の行が無ければ本文をそのまま返す', () => {
+    expect(setEventDone('# メモ\n', '2026-11-08')).toBe('# メモ\n')
+  })
+
+  test('applyEvent は done= を残す', () => {
+    const memo = '# 歯医者\ndate=2026-11-05 done=2026-11-08\n'
+    expect(applyEvent(memo, { title: '歯医者', date: '2026-11-06', start: null, end: null })).toBe(
+      '# 歯医者\ndate=2026-11-06 done=2026-11-08\n',
+    )
   })
 })

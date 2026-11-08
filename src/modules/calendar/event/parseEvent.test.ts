@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { extractProps } from '@/lib/markdown/props'
-import { parseEvent } from './parseEvent'
+import { isEventDone, parseEvent } from './parseEvent'
 
 const parse = (line: string) => parseEvent(extractProps(`# t\n\n${line}\n`))
 
@@ -51,5 +51,17 @@ describe('parseEvent', () => {
   test('date が無ければ予定ではない', () => {
     expect(parse('start=10:00')).toBeNull()
     expect(parseEvent([])).toBeNull()
+  })
+})
+
+describe('isEventDone', () => {
+  const props = (line: string) => extractProps(`# t\n\n${line}\n`)
+
+  test('done= に値があれば済み (値は済ませた日)', () => {
+    expect(isEventDone(props('date=2026-11-05 done=2026-11-08'))).toBe(true)
+  })
+
+  test('done= が無ければ未済', () => {
+    expect(isEventDone(props('date=2026-11-05 start=10:00'))).toBe(false)
   })
 })

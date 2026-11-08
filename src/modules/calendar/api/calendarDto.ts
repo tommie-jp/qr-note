@@ -18,7 +18,7 @@ export function isEventDto(value: unknown): value is EventDto {
     return false
   }
   const v = value as Record<string, unknown>
-  return isString(v.itemId) && v.itemId !== '' && isString(v.title) && isIso(v.start) && isIso(v.end) && typeof v.allDay === 'boolean'
+  return isString(v.itemId) && v.itemId !== '' && isString(v.title) && isIso(v.start) && isIso(v.end) && typeof v.allDay === 'boolean' && (v.done === undefined || typeof v.done === 'boolean')
 }
 
 export function isCalendarPayload(value: unknown): value is CalendarPayload {

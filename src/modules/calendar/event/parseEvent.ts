@@ -81,3 +81,9 @@ export function parseEvent(props: readonly PropEntry[]): EventFields | null {
   }
   return { date, start, end, until: until === date ? null : until }
 }
+
+// 済みの予定か (`done=2026-11-08`。値は済ませた日)。値の形は問わない —
+// 手で `done=yes` と書いても済みに見せる (予定として出なくなるより気づける)
+export function isEventDone(props: readonly PropEntry[]): boolean {
+  return (valueOf(props, 'done') ?? '') !== ''
+}

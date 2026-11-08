@@ -9,7 +9,7 @@ import { buildWhere } from '@/lib/items/where'
 import { parseStoredProps } from '@/lib/markdown/props'
 import { jstDate } from '../event/eventTime'
 import { monthGridRange } from '../event/monthLayout'
-import { parseEvent } from '../event/parseEvent'
+import { isEventDone, parseEvent } from '../event/parseEvent'
 import type { CalendarPayload, EventDto } from './calendarDto'
 
 interface EventRow {
@@ -47,13 +47,17 @@ export async function loadMonthEvents(query: string, month: string): Promise<Cal
     'registered',
     CALENDAR_ROW_LIMIT,
   )
-  const events: EventDto[] = rows.map((row) => ({
-    itemId: row.itemId,
-    title: row.title,
-    start: row.eventStart.toISOString(),
-    end: row.eventEnd.toISOString(),
-    // 終日かは本文 (props) から読む。列の時刻からは 0 時始まりの予定と区別できない
-    allDay: parseEvent(parseStoredProps(row.props))?.start === null,
-  }))
+  const events: EventDto[] = rows.map((row) => {
+    const props = parseStoredProps(row.props)
+    return {
+      itemId: row.itemId,
+      title: row.title,
+      start: row.eventStart.toISOString(),
+      end: row.eventEnd.toISOString(),
+      // 終日かは本文 (props) から読む。列の時刻からは 0 時始まりの予定と区別できない
+      allDay: parseEvent(props)?.start === null,
+      done: isEventDone(props),
+    }
+  })
   return { events, omitted }
 }
