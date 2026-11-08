@@ -16,7 +16,11 @@ const NOTE2 = e2eNote(46, `眼科 ${Date.now() % 100000}`)
 const TAG = 'zze2ecal'
 const QUERY = `#${TAG}`
 const MONTH = '2026-11'
-const DEFAULT_PREFS = { dateSize: 'md', colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' } }
+const DEFAULT_PREFS = {
+  dateSize: 'md',
+  colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
+  textColors: { high: 'auto', normal: 'auto', low: 'auto' },
+}
 const DAY = '2026-11-05'
 
 test.describe.configure({ mode: 'serial' })
@@ -262,8 +266,16 @@ test.describe('予定カレンダー', () => {
     await expect(chip).toHaveCSS('background-color', 'rgb(107, 114, 128)')
     await expect(chip).toHaveCSS('color', 'rgb(255, 255, 255)')
 
+    // 文字の色も選べる (自動をやめて濃い赤)
+    await panel.getByRole('button', { name: '標準の文字を #b91c1c にする' }).click()
+    await expect(chip).toHaveCSS('color', 'rgb(185, 28, 28)')
+
     // 少し待ってサーバへ保存される。読み込み直しても残る
-    await expect.poll(settings).toEqual({ dateSize: 'lg', colors: { ...DEFAULT_PREFS.colors, normal: '#6b7280' } })
+    await expect.poll(settings).toEqual({
+      dateSize: 'lg',
+      colors: { ...DEFAULT_PREFS.colors, normal: '#6b7280' },
+      textColors: { ...DEFAULT_PREFS.textColors, normal: '#b91c1c' },
+    })
     await page.evaluate(() => localStorage.removeItem('qr-calendar-prefs'))
     await page.reload()
     await expect(dayCell(page, DAY).locator('[data-priority="normal"]')).toHaveCSS(

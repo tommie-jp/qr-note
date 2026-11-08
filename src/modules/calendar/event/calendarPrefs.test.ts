@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { DEFAULT_CALENDAR_PREFS, parseCalendarPrefs, readableTextColor, validateCalendarPrefs } from './calendarPrefs'
+import {
+  DEFAULT_CALENDAR_PREFS,
+  eventTextColor,
+  parseCalendarPrefs,
+  readableTextColor,
+  validateCalendarPrefs,
+} from './calendarPrefs'
 
 describe('parseCalendarPrefs (保存値を畳む)', () => {
   test('壊れた・無い値は既定', () => {
@@ -12,13 +18,19 @@ describe('parseCalendarPrefs (保存値を畳む)', () => {
     expect(parseCalendarPrefs(raw)).toEqual({
       dateSize: 'lg',
       colors: { high: '#112233', normal: DEFAULT_CALENDAR_PREFS.colors.normal, low: '#abcdef' },
+      // 前の版の保存値 (文字色を持たない) は自動
+      textColors: { high: 'auto', normal: 'auto', low: 'auto' },
     })
   })
 })
 
 describe('validateCalendarPrefs (API の入口は畳まず断る)', () => {
   test('正しい形だけ通す', () => {
-    const ok = { dateSize: 'sm', colors: { high: '#ff0000', normal: '#00ff00', low: '#0000ff' } }
+    const ok = {
+      dateSize: 'sm',
+      colors: { high: '#ff0000', normal: '#00ff00', low: '#0000ff' },
+      textColors: { high: '#ffffff', normal: 'auto', low: '#1f2937' },
+    }
     expect(validateCalendarPrefs(ok)).toEqual(ok)
   })
 
@@ -26,6 +38,9 @@ describe('validateCalendarPrefs (API の入口は畳まず断る)', () => {
     expect(validateCalendarPrefs({ dateSize: 'xl', colors: DEFAULT_CALENDAR_PREFS.colors })).toBeNull()
     expect(validateCalendarPrefs({ dateSize: 'md', colors: { ...DEFAULT_CALENDAR_PREFS.colors, low: 'url(x)' } })).toBeNull()
     expect(validateCalendarPrefs({ dateSize: 'md' })).toBeNull()
+    expect(
+      validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, textColors: { ...DEFAULT_CALENDAR_PREFS.textColors, high: 'red' } }),
+    ).toBeNull()
   })
 })
 
@@ -36,5 +51,13 @@ describe('readableTextColor', () => {
     expect(readableTextColor('#b91c1c')).toBe('#ffffff')
     // 鮮やかな赤は濃い文字のほうが対比が大きい (WCAG の相対輝度)
     expect(readableTextColor('#f43f5e')).toBe('#1f2937')
+  })
+})
+
+describe('eventTextColor', () => {
+  test('自動なら地の明るさから、色を選んでいればその色', () => {
+    expect(eventTextColor(DEFAULT_CALENDAR_PREFS, 'high')).toBe('#1f2937')
+    const prefs = { ...DEFAULT_CALENDAR_PREFS, textColors: { ...DEFAULT_CALENDAR_PREFS.textColors, high: '#b91c1c' } }
+    expect(eventTextColor(prefs, 'high')).toBe('#b91c1c')
   })
 })

@@ -6,10 +6,15 @@ import type { EventPriority } from './parseEvent'
 
 export type DateSize = 'sm' | 'md' | 'lg'
 
+// 文字色の「自動」(地の明るさから白か濃い灰を選ぶ)
+export const AUTO_TEXT = 'auto'
+
 export interface CalendarPrefs {
   dateSize: DateSize
-  // #rrggbb (小文字)
+  // 地の色。#rrggbb (小文字)
   colors: Record<EventPriority, string>
+  // 文字の色。#rrggbb (小文字) か 'auto'
+  textColors: Record<EventPriority, string>
 }
 
 export const CALENDAR_PREFS_SETTING_KEY = 'calendar-prefs'
@@ -24,7 +29,19 @@ export const DATE_SIZES: readonly { value: DateSize; label: string }[] = [
 export const DEFAULT_CALENDAR_PREFS: CalendarPrefs = {
   dateSize: 'md',
   colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
+  textColors: { high: AUTO_TEXT, normal: AUTO_TEXT, low: AUTO_TEXT },
 }
+
+// 文字色のテンプレート (濃い灰・白・濃い赤・濃い橙・濃い緑・濃い青・灰)
+export const TEXT_TEMPLATE_COLORS: readonly string[] = [
+  '#1f2937',
+  '#ffffff',
+  '#b91c1c',
+  '#c2410c',
+  '#15803d',
+  '#1d4ed8',
+  '#6b7280',
+]
 
 // メニューに並べるテンプレート色 (白 + 薄い 9 色 + SaiSuke2 風の濃い 5 色)
 export const TEMPLATE_COLORS: readonly string[] = [
@@ -51,12 +68,20 @@ const PRIORITIES: readonly EventPriority[] = ['high', 'normal', 'low']
 const isDateSize = (value: unknown): value is DateSize => DATE_SIZES.some((size) => size.value === value)
 const isHex = (value: unknown): value is string => typeof value === 'string' && HEX.test(value)
 
-// API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)
+const isTextColor = (value: unknown): value is string => value === AUTO_TEXT || isHex(value)
+const lower = (record: Record<string, unknown>): Record<EventPriority, string> => ({
+  high: String(record.high).toLowerCase(),
+  normal: String(record.normal).toLowerCase(),
+  low: String(record.low).toLowerCase(),
+})
+
+// API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)。
+// 文字色 (textColors) は省略してよい (前の版の画面から来る PUT。自動と見る)
 export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
-  const { dateSize, colors } = value as { dateSize?: unknown; colors?: unknown }
+  const { dateSize, colors, textColors } = value as { dateSize?: unknown; colors?: unknown; textColors?: unknown }
   if (!isDateSize(dateSize) || typeof colors !== 'object' || colors === null) {
     return null
   }
@@ -64,10 +89,17 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (!PRIORITIES.every((p) => isHex(c[p]))) {
     return null
   }
-  return {
-    dateSize,
-    colors: { high: String(c.high).toLowerCase(), normal: String(c.normal).toLowerCase(), low: String(c.low).toLowerCase() },
+  if (textColors === undefined) {
+    return { dateSize, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
   }
+  if (typeof textColors !== 'object' || textColors === null) {
+    return null
+  }
+  const t = textColors as Record<string, unknown>
+  if (!PRIORITIES.every((p) => isTextColor(t[p]))) {
+    return null
+  }
+  return { dateSize, colors: lower(c), textColors: lower(t) }
 }
 
 // 保存値 (JSON 文字列) を畳む。読めない所は既定に寄せる (表示の設定なので
@@ -79,12 +111,23 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
   } catch {
     return DEFAULT_CALENDAR_PREFS
   }
-  const v = (typeof value === 'object' && value !== null ? value : {}) as { dateSize?: unknown; colors?: unknown }
-  const c = (typeof v.colors === 'object' && v.colors !== null ? v.colors : {}) as Record<string, unknown>
-  const color = (p: EventPriority) => (isHex(c[p]) ? String(c[p]).toLowerCase() : DEFAULT_CALENDAR_PREFS.colors[p])
+  const v = (typeof value === 'object' && value !== null ? value : {}) as {
+    dateSize?: unknown
+    colors?: unknown
+    textColors?: unknown
+  }
+  const record = (x: unknown) => (typeof x === 'object' && x !== null ? x : {}) as Record<string, unknown>
+  const c = record(v.colors)
+  const t = record(v.textColors)
+  const pick = (from: Record<string, unknown>, ok: (x: unknown) => x is string, fallback: Record<EventPriority, string>) =>
+    Object.fromEntries(PRIORITIES.map((p) => [p, ok(from[p]) ? String(from[p]).toLowerCase() : fallback[p]])) as Record<
+      EventPriority,
+      string
+    >
   return {
     dateSize: isDateSize(v.dateSize) ? v.dateSize : DEFAULT_CALENDAR_PREFS.dateSize,
-    colors: { high: color('high'), normal: color('normal'), low: color('low') },
+    colors: pick(c, isHex, DEFAULT_CALENDAR_PREFS.colors),
+    textColors: pick(t, isTextColor, DEFAULT_CALENDAR_PREFS.textColors),
   }
 }
 
@@ -97,4 +140,10 @@ export function readableTextColor(hex: string): string {
   const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
   // 白との対比と濃い灰 (#1f2937、輝度 ≒ 0.019) との対比の大きいほう
   return (1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.069 ? '#ffffff' : '#1f2937')
+}
+
+// 優先度の帯の文字の色。自動なら地の明るさから選ぶ
+export function eventTextColor(prefs: CalendarPrefs, priority: EventPriority): string {
+  const chosen = prefs.textColors[priority]
+  return chosen === AUTO_TEXT ? readableTextColor(prefs.colors[priority]) : chosen
 }

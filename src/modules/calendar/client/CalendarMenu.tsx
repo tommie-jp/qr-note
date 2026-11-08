@@ -3,9 +3,12 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  AUTO_TEXT,
   DATE_SIZES,
   DEFAULT_CALENDAR_PREFS,
+  eventTextColor,
   TEMPLATE_COLORS,
+  TEXT_TEMPLATE_COLORS,
   type CalendarPrefs,
 } from "../event/calendarPrefs";
 import type { EventPriority } from "../event/parseEvent";
@@ -65,6 +68,9 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
   const change = (patch: Partial<CalendarPrefs>) => updateCalendarPrefs({ ...prefs, ...patch });
   const setColor = (priority: EventPriority, color: string) =>
     change({ colors: { ...prefs.colors, [priority]: color.toLowerCase() } });
+  // 文字の色。AUTO_TEXT なら地の明るさから選ぶ
+  const setTextColor = (priority: EventPriority, color: string) =>
+    change({ textColors: { ...prefs.textColors, [priority]: color.toLowerCase() } });
 
   useLayoutEffect(() => {
     const box = ref.current;
@@ -139,15 +145,20 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
         <legend className="text-gray-600">優先度の色</legend>
         {PRIORITY_ROWS.map((row) => {
           const current = prefs.colors[row.value];
+          const text = prefs.textColors[row.value];
+          const shownText = eventTextColor(prefs, row.value);
           return (
             <div key={row.value} className="space-y-1" role="group" aria-label={`${row.label}の色`}>
               <div className="flex items-center gap-2">
                 <span className="w-10">{row.label}</span>
+                {/* 見本の帯。地と文字の組み合わせをそのまま見せる */}
                 <span
                   aria-hidden="true"
-                  className="h-6 flex-1 rounded-sm border border-gray-300"
-                  style={{ backgroundColor: current }}
-                />
+                  className="h-6 flex-1 rounded-sm border border-gray-300 px-1 text-sm leading-6"
+                  style={{ backgroundColor: current, color: shownText }}
+                >
+                  予定
+                </span>
                 <label htmlFor={`${id}-${row.value}`} className="sr-only">
                   {row.label}の色を選ぶ
                 </label>
@@ -175,6 +186,49 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
                     style={{ backgroundColor: color }}
                   />
                 ))}
+              </div>
+              {/* 文字の色。「自動」は地の明るさから白か濃い灰を選ぶ */}
+              <div className="flex flex-wrap items-center gap-1 pl-12">
+                <span className="mr-1 text-gray-600">文字</span>
+                <button
+                  type="button"
+                  aria-label={`${row.label}の文字を自動にする`}
+                  aria-pressed={text === AUTO_TEXT}
+                  onClick={() => setTextColor(row.value, AUTO_TEXT)}
+                  className={`h-6 rounded-sm border px-1 text-xs ${
+                    text === AUTO_TEXT ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
+                  }`}
+                >
+                  自動
+                </button>
+                {TEXT_TEMPLATE_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`${row.label}の文字を ${color} にする`}
+                    aria-pressed={text === color}
+                    title={color}
+                    onClick={() => setTextColor(row.value, color)}
+                    className={`flex size-6 items-center justify-center rounded-sm border text-sm font-bold ${
+                      text === color ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
+                    }`}
+                    // 地の上に字で見せる (白い字も見える)
+                    style={{ backgroundColor: current, color }}
+                  >
+                    あ
+                  </button>
+                ))}
+                <label htmlFor={`${id}-${row.value}-text`} className="sr-only">
+                  {row.label}の文字の色を選ぶ
+                </label>
+                <input
+                  id={`${id}-${row.value}-text`}
+                  type="color"
+                  value={shownText}
+                  onChange={(e) => setTextColor(row.value, e.target.value)}
+                  title="文字の色を選ぶ"
+                  className="h-7 w-9 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
+                />
               </div>
             </div>
           );
