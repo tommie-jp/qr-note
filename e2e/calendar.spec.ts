@@ -194,6 +194,21 @@ test.describe('予定カレンダー', () => {
     expect((await dayCell(page, DAY).boundingBox())!.height).toBe(withEvent!.height)
   })
 
+  test('祝日のマスは薄いピンクで、日の一覧の見出しに祝日名が出る', async ({ page }) => {
+    await openCalendar(page)
+    const holiday = dayCell(page, '2026-11-03')
+    const weekday = dayCell(page, '2026-11-04')
+    await expect(holiday).toHaveAttribute('data-holiday', '文化の日')
+    await expect(weekday).not.toHaveAttribute('data-holiday')
+    const bg = (cell: Locator) => cell.evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(await bg(holiday)).not.toBe(await bg(weekday))
+    // 勤労感謝の日 (11/23) も。日の一覧の見出しに名前
+    await dayCell(page, '2026-11-23').click()
+    await expect(page.getByRole('region', { name: '11月23日 (月) の予定' }).getByRole('heading')).toContainText(
+      '勤労感謝の日',
+    )
+  })
+
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
     // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
     await openCalendar(page)

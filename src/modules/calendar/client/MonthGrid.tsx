@@ -1,5 +1,6 @@
 "use client";
 
+import { holidayName } from "../event/holidays";
 import { eventTimeLabel, type DayEvent } from "../event/monthLayout";
 
 // 月のマス目 (docs/126 §1-3)。日曜始まりの 7 列。
@@ -52,6 +53,8 @@ export function MonthGrid({
           const isToday = day === today;
           const isSelected = day === selected;
           const dayNumber = Number(day.slice(8));
+          // 祝日・休日はマスを薄いピンクにし、日付を日曜と同じ赤にする (docs/126 §1-9)
+          const holiday = holidayName(day);
           return (
             <button
               key={day}
@@ -60,19 +63,35 @@ export function MonthGrid({
               aria-selected={isSelected}
               aria-haspopup="dialog"
               aria-expanded={isSelected}
-              aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日 ${events.length} 件`}
+              aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日${holiday === null ? "" : ` ${holiday}`} ${events.length} 件`}
               data-day={day}
+              data-holiday={holiday ?? undefined}
               onClick={(event) => onSelect(day, event.currentTarget)}
               className={`flex h-20 min-w-0 flex-col items-stretch gap-0.5 overflow-hidden border-r border-b border-gray-200 p-0.5 text-left align-top transition-colors sm:h-25 ${
-                inMonth ? "bg-white" : "bg-gray-50 text-gray-400"
+                !inMonth ? "bg-gray-50 text-gray-400" : holiday !== null ? "bg-pink-50" : "bg-white"
               } ${isSelected ? "outline-2 -outline-offset-2 outline-blue-500" : ""} hover:bg-blue-50`}
             >
-              <span
-                className={`self-start rounded-full px-1 text-xs leading-5 ${
-                  isToday ? "bg-blue-600 font-bold text-white" : inMonth ? weekdayColor(i % 7) : ""
-                }`}
-              >
-                {dayNumber}
+              {/* 祝日名は PC 幅だけ (スマホ幅のマスには入らない)。日付と同じ行に置き、
+                  マスの高さを変えない */}
+              <span className="flex min-w-0 shrink-0 items-center gap-1">
+                <span
+                  className={`shrink-0 rounded-full px-1 text-xs leading-5 ${
+                    isToday
+                      ? "bg-blue-600 font-bold text-white"
+                      : !inMonth
+                        ? ""
+                        : holiday !== null
+                          ? "text-red-600"
+                          : weekdayColor(i % 7)
+                  }`}
+                >
+                  {dayNumber}
+                </span>
+                {holiday !== null && inMonth && (
+                  <span className="hidden min-w-0 truncate text-[0.625rem] leading-5 text-pink-700 sm:inline">
+                    {holiday}
+                  </span>
+                )}
               </span>
               {events.slice(0, CHIPS_WIDE).map((event, index) => (
                 <span

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { holidayName } from "../event/holidays";
 import { compareDayEvents, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import { saveEventDone } from "./eventDone";
 
@@ -114,7 +115,12 @@ export function DayEventList({
   return (
     <div className="space-y-0.5">
       <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-sm font-medium">{dayLabel(day)}</h3>
+        <h3 className="min-w-0 flex-1 truncate text-sm font-medium">
+          {dayLabel(day)}
+          {holidayName(day) !== null && (
+            <span className="ml-2 text-xs font-normal text-pink-700">{holidayName(day)}</span>
+          )}
+        </h3>
         <button
           type="button"
           onClick={(e) => onAdd(e.currentTarget)}
