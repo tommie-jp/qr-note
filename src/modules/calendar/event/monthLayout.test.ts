@@ -71,6 +71,18 @@ describe('eventsByDay', () => {
     expect(map.get('2026-11-05')?.map((e) => e.title)).toEqual(['昼', '夕', '終日', '朝'])
   })
 
+  test('同じ時刻どうしは番号 (作った順) で並べ、題名では並べない (題名を直しても動かない)', () => {
+    const allDayEv = (itemId: string, title: string) => ({
+      itemId,
+      title,
+      start: '2026-11-04T15:00:00Z',
+      end: '2026-11-05T15:00:00Z',
+      allDay: true,
+    })
+    const map = eventsByDay([allDayEv('0002', 'あ'), allDayEv('0001', 'ん'), allDayEv('0003', 'か')], days)
+    expect(map.get('2026-11-05')?.map((e) => e.itemId)).toEqual(['0001', '0002', '0003'])
+  })
+
   test('複数日の予定は掛かる日すべてに置く (終わりの日は含まない)', () => {
     const map = eventsByDay([ev('旅行', '2026-11-03T15:00:00Z', '2026-11-05T15:00:00Z', true)], days)
     expect([...map].filter(([, list]) => list.length > 0).map(([d]) => d)).toEqual(['2026-11-04', '2026-11-05'])

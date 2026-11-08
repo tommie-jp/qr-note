@@ -69,13 +69,14 @@ export interface DayEvent {
 }
 
 // 日の中の並び。済みは最後 (済ませた物より残っている物を先に見せる)。
-// その中で終日を先に、その後は開始時刻順 (同じなら題名順)
+// その中で終日を先に、その後は開始時刻順。同じなら番号順 (UUID v7 なので作った順)。
+// **題名では並べない** — 日の一覧で題名を直すたびに行が動いてしまう (§1-13)
 export function compareDayEvents(a: DayEvent, b: DayEvent): number {
   return (
     Number(a.done === true) - Number(b.done === true) ||
     Number(b.allDay) - Number(a.allDay) ||
     Date.parse(a.start) - Date.parse(b.start) ||
-    a.title.localeCompare(b.title, 'ja')
+    (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0)
   )
 }
 
