@@ -8,8 +8,13 @@ import { eventTimeLabel, type DayEvent } from "../event/monthLayout";
 // 中の文字をリンクにすると日を選ぶつもりの指が予定を開いてしまう。
 // 日を押すとマスの横にその日の予定が浮かんで並び (DayPopover)、そこから開く
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
-// 1 マスに出す予定の数。超えた分は「+N」
-const CHIPS_PER_DAY = 3;
+// 1 マスに出す予定の数。超えた分は「+N」。**マスの高さは予定の数で変えない**
+// (週の行が伸び縮みすると月の見た目が揃わない)。高さ (h-20 / sm:h-25) は
+// 日付 1 行 + 予定 N 行 + 「+N」1 行がちょうど入る値で、件数とは対
+//   スマホ幅 … 80px に 2 件、PC 幅 (sm) … 100px に 3 件
+// (余白 4 + 日付 20 + 行 16 × 件数+1 + 間 2 × 件数+1 + 枠 1)
+const CHIPS_NARROW = 2;
+const CHIPS_WIDE = 3;
 
 function weekdayColor(index: number): string {
   return index === 0 ? "text-red-600" : index === 6 ? "text-blue-600" : "text-gray-600";
@@ -58,7 +63,7 @@ export function MonthGrid({
               aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日 ${events.length} 件`}
               data-day={day}
               onClick={(event) => onSelect(day, event.currentTarget)}
-              className={`flex min-h-16 min-w-0 flex-col items-stretch gap-0.5 border-r border-b border-gray-200 p-0.5 text-left align-top transition-colors sm:min-h-24 ${
+              className={`flex h-20 min-w-0 flex-col items-stretch gap-0.5 overflow-hidden border-r border-b border-gray-200 p-0.5 text-left align-top transition-colors sm:h-25 ${
                 inMonth ? "bg-white" : "bg-gray-50 text-gray-400"
               } ${isSelected ? "outline-2 -outline-offset-2 outline-blue-500" : ""} hover:bg-blue-50`}
             >
@@ -69,11 +74,13 @@ export function MonthGrid({
               >
                 {dayNumber}
               </span>
-              {events.slice(0, CHIPS_PER_DAY).map((event) => (
+              {events.slice(0, CHIPS_WIDE).map((event, index) => (
                 <span
                   key={event.itemId}
                   // 済みは取り消し線で薄く (日の中では最後に並ぶ。eventsByDay)
-                  className={`truncate rounded px-0.5 text-[0.625rem] leading-4 sm:text-xs ${
+                  className={`shrink-0 truncate rounded px-0.5 text-[0.625rem] leading-4 sm:text-xs ${
+                    index >= CHIPS_NARROW ? "hidden sm:block" : ""
+                  } ${
                     event.done
                       ? "text-gray-400 line-through"
                       : event.allDay
@@ -87,9 +94,14 @@ export function MonthGrid({
                   {event.title || "(無題)"}
                 </span>
               ))}
-              {events.length > CHIPS_PER_DAY && (
-                <span className="px-0.5 text-[0.625rem] leading-4 text-gray-500">
-                  +{events.length - CHIPS_PER_DAY}
+              {events.length > CHIPS_NARROW && (
+                <span className="shrink-0 px-0.5 text-[0.625rem] leading-4 text-gray-500 sm:hidden">
+                  +{events.length - CHIPS_NARROW}
+                </span>
+              )}
+              {events.length > CHIPS_WIDE && (
+                <span className="hidden shrink-0 px-0.5 text-xs leading-4 text-gray-500 sm:block">
+                  +{events.length - CHIPS_WIDE}
                 </span>
               )}
             </button>

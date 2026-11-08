@@ -176,6 +176,24 @@ test.describe('予定カレンダー', () => {
     expect(((await after.json()) as { data: { item: { memo: string } } }).data.item.memo).not.toContain('done=')
   })
 
+  test('月のマス目の高さは予定の数で変わらない', async ({ page }) => {
+    await openCalendar(page)
+    // 予定のある日 (DAY) と無い日は同じ高さ
+    const withEvent = await dayCell(page, DAY).boundingBox()
+    const empty = await dayCell(page, '2026-11-12').boundingBox()
+    expect(withEvent!.height).toBe(empty!.height)
+    // 予定を増やしても伸びない: マスの中身を 6 件ぶん水増しして測り直す
+    await dayCell(page, DAY).evaluate((cell) => {
+      for (let i = 0; i < 6; i++) {
+        const chip = document.createElement('span')
+        chip.className = 'truncate text-xs leading-4'
+        chip.textContent = `予定 ${i}`
+        cell.appendChild(chip)
+      }
+    })
+    expect((await dayCell(page, DAY).boundingBox())!.height).toBe(withEvent!.height)
+  })
+
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
     // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
     await openCalendar(page)
