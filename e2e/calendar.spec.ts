@@ -274,6 +274,22 @@ test.describe('予定カレンダー', () => {
     await expect.poll(settings).toEqual(DEFAULT_PREFS)
   })
 
+  test('日の予定の行は文字 1.5 行 (36px) で、地を白にしても済みの丸が見える', async ({ page }) => {
+    await page.request.put('/api/calendar/settings', {
+      data: { ...DEFAULT_PREFS, colors: { ...DEFAULT_PREFS.colors, normal: '#ffffff' } },
+    })
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const row = dayPane(page).locator('li', { hasText: NOTE.key })
+    await expect(row).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+    expect((await row.boundingBox())!.height).toBe(36)
+    // 丸の縁は白でない (地の白に溶けない。Tailwind v4 は灰を lab() で出すので値は比べない)
+    const circle = row.getByRole('button', { name: /を済みにする/ }).locator('span')
+    await expect(circle).not.toHaveCSS('border-top-color', 'rgb(255, 255, 255)')
+    await expect(circle).not.toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)')
+    await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
+  })
+
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
     // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
     await openCalendar(page)

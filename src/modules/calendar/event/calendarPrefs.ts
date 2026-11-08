@@ -26,8 +26,9 @@ export const DEFAULT_CALENDAR_PREFS: CalendarPrefs = {
   colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
 }
 
-// メニューに並べるテンプレート色 (薄い 9 色 + SaiSuke2 風の濃い 5 色)
+// メニューに並べるテンプレート色 (白 + 薄い 9 色 + SaiSuke2 風の濃い 5 色)
 export const TEMPLATE_COLORS: readonly string[] = [
+  '#ffffff',
   '#fecaca',
   '#fed7aa',
   '#fef08a',

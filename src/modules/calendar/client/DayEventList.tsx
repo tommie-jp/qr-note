@@ -23,9 +23,10 @@ export function dayTitle(day: string): string {
 // 時刻は先頭の 0 を落とす (09:30 → 9:30)
 const shortTime = (time: string) => time.replace(/^0/, "");
 
-// 予定の行は SaiSuke2 と同じく色の帯 (優先度の色は設定から、済みは灰。priorityColor.ts)。高さは 2 行ぶん (56px) で、
-// 左に時刻 (開始と終了の 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
-export const DAY_ROW_CLASS = "flex min-h-14 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
+// 予定の行は SaiSuke2 と同じく色の帯 (優先度の色は設定から、済みは灰。priorityColor.ts)。
+// 高さは題名の文字 1.5 行ぶん (24px × 1.5 = 36px)。左に時刻 (開始と終了を小さい文字の
+// 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
+export const DAY_ROW_CLASS = "flex min-h-9 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
 
 // 済みの予定は題名に取り消し線を引く (マス目と同じ)
 export function DayRowContent({ event }: { event: DayEvent }) {
@@ -33,7 +34,7 @@ export function DayRowContent({ event }: { event: DayEvent }) {
   const end = eventEndLabel(event);
   return (
     <>
-      <span className="flex w-14 shrink-0 flex-col items-center text-base leading-6 opacity-90">
+      <span className="flex w-12 shrink-0 flex-col items-center text-xs leading-4 opacity-90">
         {start === null ? (
           "終日"
         ) : (
@@ -50,7 +51,8 @@ export function DayRowContent({ event }: { event: DayEvent }) {
   );
 }
 
-// 済みの釦。丸の中に ✓。押した側の値はすぐ見せ、保存は裏で行う (DayEventList)
+// 済みの釦。丸の中に ✓。押した側の値はすぐ見せ、保存は裏で行う (DayEventList)。
+// 未済の丸は灰の縁に白の中身 — 地の色 (設定で白にもできる) に溶けないように
 function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void }) {
   const done = event.done === true;
   return (
@@ -64,8 +66,8 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
     >
       <span
         aria-hidden="true"
-        className={`flex size-6 items-center justify-center rounded-full border-2 text-sm leading-none font-bold ${
-          done ? "border-emerald-600 bg-emerald-600 text-white" : "border-current/60 bg-white/60 text-transparent"
+        className={`flex size-5 items-center justify-center rounded-full border-2 text-xs leading-none font-bold ${
+          done ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-400 bg-white text-transparent"
         }`}
       >
         ✓
@@ -166,7 +168,8 @@ export function DayEventList({
                 key={event.itemId}
                 data-priority={event.priority ?? "normal"}
                 style={color.style}
-                className={`flex items-stretch rounded-sm ${color.className}`}
+                // 薄い縁 … 地を白にした行どうしも見分けが付くように
+                className={`flex items-stretch rounded-sm ring-1 ring-black/10 ring-inset ${color.className}`}
               >
                 <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
                 {renderRow(event)}
