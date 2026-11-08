@@ -8,6 +8,7 @@ import { addMonths, eventsByDay, isMonth, jstToday, monthCells, type DayEvent } 
 import { calendarCache } from "./calendarStore";
 import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
 import { DayPane } from "./DayPane";
+import { CalendarMenu } from "./CalendarMenu";
 import { DayPopover } from "./DayPopover";
 import { MonthGrid } from "./MonthGrid";
 
@@ -63,6 +64,8 @@ export default function CalendarView({ query }: { query: string }) {
   return (
     <div className="space-y-2" data-calendar="">
       <div className="flex flex-wrap items-center gap-1">
+        {/* カレンダー専用の設定 (日付の大きさ・優先度の色。docs/126 §1-12) */}
+        <CalendarMenu />
         <button type="button" className={NAV_BUTTON} aria-label="前の月" onClick={() => {
             setOpened(null);
             replaceMonth(addMonths(month, -1));

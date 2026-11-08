@@ -10,9 +10,10 @@ const SERVER_ONLY_IMPORT_MESSAGE =
 // モジュールの中身を直に import すると、機能を足すたびに core が太る。
 // core が読んでよいのは登録口の 3 つだけ
 const MODULE_BOUNDARY_PATTERN = {
-  // registry・derivedColumns・<モジュール>/api/route (app/api の薄いファイルが委譲する先)
-  // だけを通す。gitignore 形式の否定 (!) は親が除外済みだと効かないので正規表現で書く
-  regex: "^@/modules/(?!(?:registry|derivedColumns|[^/]+/api/route)$)",
+  // registry・derivedColumns・<モジュール>/api/route と <モジュール>/api/<名>/route
+  // (app/api の薄いファイルが委譲する先) だけを通す。gitignore 形式の否定 (!) は
+  // 親が除外済みだと効かないので正規表現で書く
+  regex: "^@/modules/(?!(?:registry|derivedColumns|[^/]+/api/(?:[a-z-]+/)?route)$)",
   message:
     "core からモジュールの中身を直に import しない。@/modules/registry (画面)・@/modules/derivedColumns (派生列)・@/modules/*/api/route (API) を通す。docs/126 §1-7",
 };

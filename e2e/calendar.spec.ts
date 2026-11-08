@@ -14,6 +14,7 @@ const NOTE = e2eNote(41, `歯医者 ${Date.now() % 100000}`)
 const TAG = 'zze2ecal'
 const QUERY = `#${TAG}`
 const MONTH = '2026-11'
+const DEFAULT_PREFS = { dateSize: 'md', colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' } }
 const DAY = '2026-11-05'
 
 test.describe.configure({ mode: 'serial' })
@@ -71,6 +72,8 @@ test.describe('予定カレンダー', () => {
   test.afterAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, NOTE)
+    // 設定のテストが途中で落ちても既定へ戻す
+    await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
     await closePage(page)
   })
 
@@ -236,6 +239,39 @@ test.describe('予定カレンダー', () => {
     await dialog.getByRole('button', { name: '保存' }).click()
     await expect(pane.locator('li', { hasText: NOTE.key })).toHaveAttribute('data-priority', 'normal')
     expect(await memo()).not.toContain('priority=')
+  })
+
+  test('設定で日付の大きさと優先度の色を変えられ、読み込み直しても残る', async ({ page }) => {
+    await openCalendar(page)
+    const settings = async () =>
+      ((await (await page.request.get('/api/calendar/settings')).json()) as { data: unknown }).data
+
+    await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
+    const panel = page.getByRole('dialog', { name: 'カレンダーの設定' })
+    await panel.getByRole('button', { name: '大', exact: true }).click()
+    await panel.getByRole('button', { name: '標準を #6b7280 にする' }).click()
+
+    // すぐ効く: 日付は 24px、標準の帯は灰の地に白い文字 (暗い地は白)
+    const dayNumber = dayCell(page, DAY).locator('span').first()
+    await expect(dayNumber).toHaveCSS('font-size', '24px')
+    const chip = dayCell(page, DAY).locator('[data-priority="normal"]')
+    await expect(chip).toHaveCSS('background-color', 'rgb(107, 114, 128)')
+    await expect(chip).toHaveCSS('color', 'rgb(255, 255, 255)')
+
+    // 少し待ってサーバへ保存される。読み込み直しても残る
+    await expect.poll(settings).toEqual({ dateSize: 'lg', colors: { ...DEFAULT_PREFS.colors, normal: '#6b7280' } })
+    await page.evaluate(() => localStorage.removeItem('qr-calendar-prefs'))
+    await page.reload()
+    await expect(dayCell(page, DAY).locator('[data-priority="normal"]')).toHaveCSS(
+      'background-color',
+      'rgb(107, 114, 128)',
+    )
+
+    // 既定に戻す
+    await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
+    await page.getByRole('dialog', { name: 'カレンダーの設定' }).getByRole('button', { name: '既定に戻す' }).click()
+    await expect(dayCell(page, DAY).locator('span').first()).toHaveCSS('font-size', '20px')
+    await expect.poll(settings).toEqual(DEFAULT_PREFS)
   })
 
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {

@@ -4,7 +4,8 @@ import { useState, type ReactNode } from "react";
 import { holidayName } from "../event/holidays";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import { saveEventDone } from "./eventDone";
-import { eventColorClass } from "./priorityColor";
+import { useCalendarPrefs } from "./prefsStore";
+import { eventColor } from "./priorityColor";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
@@ -22,7 +23,7 @@ export function dayTitle(day: string): string {
 // 時刻は先頭の 0 を落とす (09:30 → 9:30)
 const shortTime = (time: string) => time.replace(/^0/, "");
 
-// 予定の行は SaiSuke2 と同じく色の帯 (優先度の色、済みは灰。priorityColor.ts)。高さは 2 行ぶん (56px) で、
+// 予定の行は SaiSuke2 と同じく色の帯 (優先度の色は設定から、済みは灰。priorityColor.ts)。高さは 2 行ぶん (56px) で、
 // 左に時刻 (開始と終了の 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
 export const DAY_ROW_CLASS = "flex min-h-14 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
 
@@ -134,6 +135,7 @@ export function DayEventList({
   trailing?: ReactNode;
 }) {
   const { shown, toggle, error } = useDoneOverrides(events);
+  const { prefs } = useCalendarPrefs();
   return (
     <div>
       {/* 見出しの帯 (SaiSuke2 と同じ緑) */}
@@ -157,16 +159,20 @@ export function DayEventList({
         <p className="px-2 py-2 text-base text-gray-500">{loading ? "読み込み中…" : "予定はありません"}</p>
       ) : (
         <ul className="space-y-0.5 pt-0.5">
-          {shown.map((event) => (
-            <li
-              key={event.itemId}
-              data-priority={event.priority ?? "normal"}
-              className={`flex items-stretch rounded-sm ${eventColorClass(event)}`}
-            >
-              <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
-              {renderRow(event)}
-            </li>
-          ))}
+          {shown.map((event) => {
+            const color = eventColor(event, prefs);
+            return (
+              <li
+                key={event.itemId}
+                data-priority={event.priority ?? "normal"}
+                style={color.style}
+                className={`flex items-stretch rounded-sm ${color.className}`}
+              >
+                <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
+                {renderRow(event)}
+              </li>
+            );
+          })}
         </ul>
       )}
       {error !== null && (
