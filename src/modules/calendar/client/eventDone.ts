@@ -8,7 +8,7 @@ import { isItemDto } from "@/lib/api/itemDto";
 import { noteWritten } from "@/lib/client/invalidate";
 import { noteCache } from "@/lib/client/noteStore";
 import { formatBase } from "@/lib/editor/saveBase";
-import { setEventDone, setEventOrder, setEventTime, setEventTitle } from "../event/eventMemo";
+import { moveEventDate, setEventDone, setEventOrder, setEventTime, setEventTitle } from "../event/eventMemo";
 import { jstToday } from "../event/monthLayout";
 import { invalidateCalendar } from "./calendarStore";
 import { putMemo } from "./saveMemo";
@@ -25,6 +25,10 @@ export function saveEventTitle(itemId: string, title: string): Promise<string | 
 // start が null なら終日にする
 export function saveEventTime(itemId: string, start: string | null, end: string | null): Promise<string | null> {
   return saveEventEdit(itemId, (memo) => setEventTime(memo, start, end));
+}
+
+export function saveEventDate(itemId: string, date: string): Promise<string | null> {
+  return saveEventEdit(itemId, (memo) => moveEventDate(memo, date));
 }
 
 export function saveEventOrder(itemId: string, order: number): Promise<string | null> {

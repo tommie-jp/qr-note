@@ -5,7 +5,7 @@ import { holidayName } from "../event/holidays";
 import { eventSpan, jstParts } from "../event/eventTime";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import type { TimeRange } from "../event/timeOptions";
-import { saveEventDone, saveEventOrder, saveEventTime, saveEventTitle } from "./eventDone";
+import { saveEventDate, saveEventDone, saveEventOrder, saveEventTime, saveEventTitle } from "./eventDone";
 import { TimePopover } from "./TimePopover";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
@@ -124,7 +124,8 @@ function TitleEditor({
   );
 }
 
-// 並べ替えのつまみ (︙)。上下にドラッグする (ポインタ。指でも)。焦点があれば ↑ ↓ でも動く。
+// 並べ替えのつまみ (︙)。上下にドラッグする (ポインタ。指でも)。月のマス目の別の日の
+// マスまで持っていって離すと、その日へ移す (§1-16)。焦点があれば ↑ ↓ でも動く。
 // touch-none … 指でなぞったときに一覧ごとスクロールさせない
 function DragHandle({
   event,
@@ -164,11 +165,32 @@ function DragHandle({
 
 // ドラッグ中の並び。ids はいま見せている順、startIds は掴んだときの順、mids は掴んだ
 // ときの各行の縦の中心 (この位置との比べで落とし先を決める。行が入れ替わっても動かない)
+// dropDay … 指が別の日のマスの上にあればその日 (離すとその日へ移す。§1-16)
 interface DragState {
   id: string;
   ids: readonly string[];
   startIds: readonly string[];
   mids: readonly number[];
+  dropDay: string | null;
+}
+
+// 移す先のマスの目印 (MonthGrid が data-[drop-target] で枠を描く)
+const DROP_TARGET = "data-drop-target";
+
+function markDropTarget(day: string | null): void {
+  for (const cell of document.querySelectorAll(`[${DROP_TARGET}]`)) {
+    cell.removeAttribute(DROP_TARGET);
+  }
+  if (day !== null) {
+    document.querySelector(`[data-day="${day}"]`)?.setAttribute(DROP_TARGET, "");
+  }
+}
+
+// 指の下の日のマス。今の日・マス以外は null
+function dayUnder(x: number, y: number, today: string): string | null {
+  const cell = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-day]");
+  const day = cell?.dataset.day ?? null;
+  return day === today ? null : day;
 }
 
 // 落とし先: 掴んだ行を除いた各行の中心のうち、指より上にある数
@@ -207,11 +229,20 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
   );
 }
 
-type Override = Partial<Pick<DayEvent, "done" | "title" | "start" | "end" | "allDay" | "order">>;
+type EventFields = Partial<Pick<DayEvent, "done" | "title" | "start" | "end" | "allDay" | "order">>;
+// movedTo … 別の日へ移した (月の予定を取り直すまで、この日の一覧から隠す)
+type Override = EventFields & { movedTo?: string };
 
-const caughtUp = (event: DayEvent | undefined, override: Override) =>
-  event !== undefined &&
-  (Object.keys(override) as (keyof Override)[]).every((key) => event[key] === override[key]);
+const caughtUp = (event: DayEvent | undefined, override: Override) => {
+  if (override.movedTo !== undefined) {
+    // 取り直した一覧から消えたら追いついた
+    return event === undefined;
+  }
+  return (
+    event !== undefined &&
+    (Object.keys(override) as (keyof EventFields)[]).every((key) => event[key] === override[key])
+  );
+};
 
 // 押した「済み」・直した題名を、サーバの応答 (月の予定の取り直し) が追いつくまで
 // 上書きして見せる
@@ -260,17 +291,20 @@ function useEventOverrides(events: readonly DayEvent[]) {
       }
     });
   };
+  const move = (event: DayEvent, date: string) =>
+    apply(event.itemId, { movedTo: date }, saveEventDate(event.itemId, date));
   const retime = (event: DayEvent, range: TimeRange | null) =>
     apply(event.itemId, withRange(event, range), saveEventTime(event.itemId, range?.start ?? null, range?.end ?? null));
 
   // 上書きした値で並べ直す (済みは最後。マス目の並びと同じ)
   const shown = events
+    .filter((event) => overrides.get(event.itemId)?.movedTo === undefined)
     .map((event) => {
       const override = overrides.get(event.itemId);
       return override === undefined ? event : { ...event, ...override };
     })
     .sort(compareDayEvents);
-  return { shown, toggle, rename, retime, reorder, error };
+  return { shown, toggle, rename, retime, reorder, move, error };
 }
 
 // 選んだ日の見出し・「+」・予定の行 (docs/126 §1-6)。浮かせた一覧 (1 ペイン) と
@@ -299,7 +333,7 @@ export function DayEventList({
   // ノートへ移る (clientNoteNav が先に受ける) ので付けない
   inlineEdit?: boolean;
 }) {
-  const { shown, toggle, rename, retime, reorder, error } = useEventOverrides(events);
+  const { shown, toggle, rename, retime, reorder, move, error } = useEventOverrides(events);
   const listRef = useRef<HTMLUListElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   // ドラッグ中は指の位置の並びで見せる
@@ -319,19 +353,29 @@ export function DayEventList({
         const rect = li.getBoundingClientRect();
         return rect.top + rect.height / 2;
       }),
+      dropDay: null,
     });
   };
   const moveDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (drag === null) {
       return;
     }
-    const ids = moveId(drag.startIds, drag.id, dropIndex(drag, e.clientY));
-    if (ids.join() !== drag.ids.join()) {
-      setDrag({ ...drag, ids });
+    // 別の日のマスの上なら移す (並べ替えはしない)。でなければ一覧の中の並べ替え
+    const dropDay = dayUnder(e.clientX, e.clientY, day);
+    const ids = dropDay !== null ? drag.startIds : moveId(drag.startIds, drag.id, dropIndex(drag, e.clientY));
+    if (dropDay !== drag.dropDay) {
+      markDropTarget(dropDay);
+    }
+    if (ids.join() !== drag.ids.join() || dropDay !== drag.dropDay) {
+      setDrag({ ...drag, ids, dropDay });
     }
   };
   const endDrag = (commit: boolean) => {
-    if (drag !== null && commit && drag.ids.join() !== drag.startIds.join()) {
+    markDropTarget(null);
+    const dragged = drag === null ? undefined : shown.find((x) => x.itemId === drag.id);
+    if (drag !== null && commit && drag.dropDay !== null && dragged !== undefined) {
+      move(dragged, drag.dropDay);
+    } else if (drag !== null && commit && drag.ids.join() !== drag.startIds.join()) {
       reorder(drag.ids);
     }
     setDrag(null);

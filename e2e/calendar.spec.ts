@@ -436,6 +436,41 @@ test.describe('予定カレンダー', () => {
     await expect.poll(() => memoOf(NOTE2.id)).toContain('order=1')
   })
 
+  test('︙ を別の日のマスへドラッグすると、その日へ移る (時刻はそのまま)', async ({ page }) => {
+    const OTHER = '2026-11-12'
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = page.getByRole('region', { name: '11月5日 (木) の予定' })
+    const memo2 = async () =>
+      ((await (await page.request.get(`/api/items/${NOTE2.id}`)).json()) as { data: { item: { memo: string } } }).data.item
+        .memo
+    const drag = async (handle: Locator, target: Locator) => {
+      const from = (await handle.boundingBox())!
+      const to = (await target.boundingBox())!
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 })
+      // 移す先のマスに枠
+      await expect(target).toHaveAttribute('data-drop-target', '')
+      await page.mouse.up()
+      await expect(target).not.toHaveAttribute('data-drop-target')
+    }
+
+    await drag(pane.getByRole('button', { name: `${NOTE2.heading} を並べ替える` }), dayCell(page, OTHER))
+    // この日の一覧から消え、移した日のマスに出る
+    await expect(pane.locator('li', { hasText: NOTE2.key })).toHaveCount(0)
+    await expect.poll(memo2).toContain(`date=${OTHER} start=10:00`)
+    await expect(dayCell(page, OTHER)).toContainText(NOTE2.key)
+    await expect(dayCell(page, DAY)).not.toContainText(NOTE2.key)
+
+    // 移した日の一覧から元の日へ戻す
+    await dayCell(page, OTHER).click()
+    const otherPane = page.getByRole('region', { name: '11月12日 (木) の予定' })
+    await drag(otherPane.getByRole('button', { name: `${NOTE2.heading} を並べ替える` }), dayCell(page, DAY))
+    await expect.poll(memo2).toContain(`date=${DAY} start=10:00`)
+    await expect(dayCell(page, DAY)).toContainText(NOTE2.key)
+  })
+
   test('1 ペインでは日の一覧をマスの横に浮かせる', async ({ page }) => {
     await openCalendar(page, '1')
     await dayCell(page, DAY).click()

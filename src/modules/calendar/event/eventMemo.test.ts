@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { applyEvent, eventTitleOf, newEventMemo, requiredTags, setEventDone, setEventOrder, setEventTime, setEventTitle } from './eventMemo'
+import {
+  applyEvent,
+  eventTitleOf,
+  moveEventDate,
+  newEventMemo,
+  requiredTags,
+  setEventDone,
+  setEventOrder,
+  setEventTime,
+  setEventTitle,
+} from './eventMemo'
 
 const timed = { title: '歯医者', date: '2026-11-05', start: '10:00', end: '11:00' }
 const allDay = { title: '歯医者', date: '2026-11-05', start: null, end: null }
@@ -181,5 +191,23 @@ describe('setEventOrder', () => {
 
   test('予定の行が無ければそのまま', () => {
     expect(setEventOrder('# a\n', 1)).toBe('# a\n')
+  })
+})
+
+describe('moveEventDate', () => {
+  test('date= だけを差し替え、他は残す', () => {
+    expect(moveEventDate('# a\ndate=2026-11-05 start=10:00 order=2\n', '2026-11-20')).toBe(
+      '# a\ndate=2026-11-20 start=10:00 order=2\n',
+    )
+  })
+
+  test('複数日なら until= も同じ日数だけずらす', () => {
+    expect(moveEventDate('# 旅行\ndate=2026-11-05 until=2026-11-07\n', '2026-12-30')).toBe(
+      '# 旅行\ndate=2026-12-30 until=2027-01-01\n',
+    )
+  })
+
+  test('予定の行が無ければそのまま', () => {
+    expect(moveEventDate('# a\n', '2026-11-20')).toBe('# a\n')
   })
 })

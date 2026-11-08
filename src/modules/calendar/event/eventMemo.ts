@@ -10,6 +10,7 @@
 // 行を組み直さないことが、本文を正本と言い続ける条件
 import { parsePropToken } from '@/lib/markdown/props'
 import { parseSearchExpr } from '@/lib/search/parse'
+import { addDays } from './eventTime'
 import type { EventPriority } from './parseEvent'
 import type { SearchExpr } from '@/lib/search/types'
 
@@ -154,6 +155,33 @@ export function setEventTime(memo: string, start: string | null, end: string | n
     tokens.splice(at, 0, `start=${start}`, ...(end === null ? [] : [`end=${end}`]))
   }
   lines[eventLine] = tokens.join(' ')
+  return lines.join(newline)
+}
+
+// 予定を別の日へ移す (日の一覧の ︙ を別の日のマスへドラッグ。docs/126 §1-16)。
+// date= を差し替え、until= (複数日の最終日) があれば同じ日数だけずらす。時刻などは残す
+export function moveEventDate(memo: string, date: string): string {
+  const newline = memo.includes('\r\n') ? '\r\n' : '\n'
+  const lines = memo.split(/\r?\n/)
+  const eventLine = findEventLine(lines)
+  if (eventLine < 0) {
+    return memo
+  }
+  const tokens = eventLineTokens(lines[eventLine]) ?? []
+  const from = parsePropToken(tokens.find((t) => parsePropToken(t)?.key === 'date') ?? '')?.value ?? date
+  const delta = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
+  lines[eventLine] = tokens
+    .map((t) => {
+      const prop = parsePropToken(t)
+      if (prop?.key === 'date') {
+        return `date=${date}`
+      }
+      if (prop?.key === 'until' && /^\d{4}-\d{2}-\d{2}$/.test(prop.value)) {
+        return `until=${addDays(prop.value, delta)}`
+      }
+      return t
+    })
+    .join(' ')
   return lines.join(newline)
 }
 

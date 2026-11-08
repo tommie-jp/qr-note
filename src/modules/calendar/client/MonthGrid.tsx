@@ -80,7 +80,8 @@ export function MonthGrid({
               data-day={day}
               data-holiday={holiday ?? undefined}
               onClick={(event) => onSelect(day, event.currentTarget)}
-              className={`relative flex h-22 min-w-0 flex-col items-stretch gap-px overflow-hidden border-r border-b border-gray-200 text-left align-top hover:brightness-95 ${
+              // data-drop-target … 日の一覧の ︙ をこのマスへドラッグ中 (DayEventList が付け外しする)
+              className={`relative flex h-22 min-w-0 flex-col items-stretch gap-px overflow-hidden border-r border-b border-gray-200 text-left align-top hover:brightness-95 data-drop-target:ring-4 data-drop-target:ring-blue-500 data-drop-target:ring-inset ${
                 holiday !== null || isWeekend ? "bg-pink-50" : "bg-white"
               }`}
             >
