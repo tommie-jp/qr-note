@@ -29,14 +29,17 @@ const shortTime = (time: string) => time.replace(/^0/, "");
 // 予定の行は SaiSuke2 と同じく色の帯 (優先度の色は設定から、済みは灰。priorityColor.ts)。
 // 高さは 28px (題名の 1 行 24px + 上下 2px。docs/126 §1-26 で 36px から詰めた)。
 // 左に時刻 (1 行、終日は「終日」)、右に題名。色は行の器 (li) が持つ
-export const DAY_ROW_CLASS = "flex min-h-7 min-w-0 flex-1 items-center gap-2 px-1 text-left text-base leading-6 hover:brightness-95";
+export const DAY_ROW_CLASS = "flex min-h-7 min-w-0 flex-1 items-center gap-2 pr-1 text-left text-base leading-6 hover:brightness-95";
+
+// 表の罫線 (docs/126 §1-27)。一覧の外枠 (上・左)、行の下、列 (︙・済み・時刻) の右に引く
+const GRID_LINE = "border-gray-300";
 
 // 時刻は 1 行 (「10:00 ~ 11:00」)。終日は「終日」。押すと時刻のパネル (data-event-time)
 function TimeLabel({ event }: { event: DayEvent }) {
   const start = eventTimeLabel(event);
   const end = eventEndLabel(event);
   return (
-    <span data-event-time="" className="w-20 shrink-0 cursor-pointer text-center text-xs leading-6 whitespace-nowrap tabular-nums opacity-90">
+    <span data-event-time="" className={`flex w-20 shrink-0 cursor-pointer items-center justify-center self-stretch border-r ${GRID_LINE} text-xs leading-6 whitespace-nowrap tabular-nums opacity-90`}>
       {start === null ? "終日" : `${shortTime(start)} ~ ${end === null ? "" : shortTime(end)}`}
     </span>
   );
@@ -98,7 +101,7 @@ function TitleEditor({
     }
   };
   return (
-    <div className="flex min-h-7 min-w-0 flex-1 items-center gap-2 px-1">
+    <div className="flex min-h-7 min-w-0 flex-1 items-center gap-2 pr-1">
       <TimeLabel event={event} />
       <input
         aria-label="題名"
@@ -156,9 +159,9 @@ function DragHandle({
           onStep(e.key === "ArrowUp" ? -1 : 1);
         }
       }}
-      className="flex w-6 shrink-0 cursor-grab touch-none items-center justify-center self-stretch text-lg leading-none opacity-60 select-none active:cursor-grabbing"
+      className={`flex w-6 shrink-0 cursor-grab touch-none items-center justify-center self-stretch border-r ${GRID_LINE} text-lg leading-none select-none active:cursor-grabbing`}
     >
-      ︙
+      <span className="opacity-60">︙</span>
     </button>
   );
 }
@@ -215,7 +218,7 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
       aria-label={`${event.title || "(無題)"} を${done ? "未済に戻す" : "済みにする"}`}
       title={done ? "未済に戻す" : "済みにする"}
       onClick={onToggle}
-      className="flex w-6 shrink-0 items-center justify-center self-stretch"
+      className={`flex w-6 shrink-0 items-center justify-center self-stretch border-r ${GRID_LINE}`}
     >
       <span
         aria-hidden="true"
@@ -415,7 +418,7 @@ export function DayEventList({
       {events.length === 0 ? (
         <p className="px-2 py-2 text-base text-gray-500">{loading ? "読み込み中…" : "予定はありません"}</p>
       ) : (
-        <ul ref={listRef} className="space-y-0.5 pt-0.5">
+        <ul ref={listRef} className={`border-t border-l ${GRID_LINE}`}>
           {rows.map((event) => {
             const color = eventColor(event, prefs);
             return (
@@ -423,10 +426,10 @@ export function DayEventList({
                 key={event.itemId}
                 data-priority={event.priority ?? "normal"}
                 style={color.style}
-                // 薄い縁 … 地を白にした行どうしも見分けが付くように
+                // 表の罫線 (行の下・右)。地を白にした行どうしも見分けが付く
                 data-dragging={drag?.id === event.itemId ? "" : undefined}
-                className={`flex items-stretch rounded-sm ring-1 ring-black/10 ring-inset ${color.className} ${
-                  drag?.id === event.itemId ? "relative z-10 shadow-lg ring-2 ring-blue-500" : ""
+                className={`flex items-stretch border-r border-b ${GRID_LINE} ${color.className} ${
+                  drag?.id === event.itemId ? "relative z-10 shadow-lg ring-2 ring-blue-500 ring-inset" : ""
                 }`}
                 // 題名の文字を押したら、行の動き (フォームを開く) より先に受けて編集にする
                 onClickCapture={(e) => {
