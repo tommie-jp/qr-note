@@ -118,7 +118,7 @@ export function FolderPane({
     <aside
       data-folder-pane
       aria-label="検索フォルダー"
-      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto bg-white px-2 pt-2 pb-4"
+      className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto bg-white pt-2 pr-[var(--pane-side-pad,1rem)] pb-4 pl-[max(var(--pane-side-pad,1rem),env(safe-area-inset-left))]"
     >
       <ul>
         <FolderRow
@@ -206,7 +206,7 @@ export function FolderPaneShell() {
       <aside
         data-folder-pane
         aria-label="検索フォルダー"
-        className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto bg-white px-2 pt-2 pb-4"
+        className="fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] left-0 z-0 w-[var(--folder-pane-w)] overflow-y-auto bg-white pt-2 pr-[var(--pane-side-pad,1rem)] pb-4 pl-[max(var(--pane-side-pad,1rem),env(safe-area-inset-left))]"
       />
     </>
   );

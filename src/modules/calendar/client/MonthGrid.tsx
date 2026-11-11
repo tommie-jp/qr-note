@@ -3,6 +3,7 @@
 import { dayProgress, type DayProgress } from "../event/dayProgress";
 import { holidayName } from "../event/holidays";
 import type { DayEvent } from "../event/monthLayout";
+import { SIDE_PADDING_PX } from "@/lib/prefs/paneSidePadding";
 import { DATE_SIZE_CLASS, EVENT_SIZE_CLASS } from "./dateSize";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
@@ -64,7 +65,6 @@ function progressLabel(progress: DayProgress | null): string {
   return progress.kind === "done" ? " すべて済み" : ` 残り ${progress.count} 件`;
 }
 
-const SIDE_PADDING_LENGTH = { none: "0px", sm: "0.5rem", md: "1rem" } as const;
 
 function bleed(side: "left" | "right", keep: string): string {
   const inset = `env(safe-area-inset-${side})`;
@@ -88,7 +88,7 @@ export function MonthGrid({
   onSelect: (day: string, cell: HTMLElement) => void;
 }) {
   const { prefs } = useCalendarPrefs();
-  const keep = SIDE_PADDING_LENGTH[prefs.sidePadding];
+  const keep = `${SIDE_PADDING_PX[prefs.sidePadding]}px`;
   const height = cellHeightPx(prefs.eventsPerDay);
   return (
     <div

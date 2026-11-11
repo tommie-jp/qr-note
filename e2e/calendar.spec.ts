@@ -237,6 +237,35 @@ test.describe('予定カレンダー', () => {
     await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
   })
 
+  test('月の左右の余白はフォルダーペインの左右の余白にも効き、読み込み直しても残る', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await page.context().addCookies([{ name: 'panes', value: '3', url: BASE_URL }])
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
+    await expectHydrated(dayCell(page, DAY))
+    const folder = page.locator('[data-folder-pane]')
+    // 既定は中 (16px)
+    await expect(folder).toHaveCSS('padding-left', '16px')
+
+    await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
+    const group = page.getByRole('dialog', { name: 'カレンダーの設定' }).getByRole('group', { name: '月の左右の余白' })
+    await group.getByRole('button', { name: '0', exact: true }).click()
+    await expect(folder).toHaveCSS('padding-left', '0px')
+    await expect(folder).toHaveCSS('padding-right', '0px')
+
+    // 一覧表示に戻して読み込み直しても、先回りで当たる
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}`)
+    await expect(page.locator('[data-folder-pane]')).toHaveCSS('padding-left', '0px')
+
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
+    await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
+    await page
+      .getByRole('dialog', { name: 'カレンダーの設定' })
+      .getByRole('group', { name: '月の左右の余白' })
+      .getByRole('button', { name: '中', exact: true })
+      .click()
+    await expect(page.locator('[data-folder-pane]')).toHaveCSS('padding-left', '16px')
+  })
+
   test('狭い画面では見出しの釦を横に送れ、設定のアイコンは動かない', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })
     await openCalendar(page, '1')

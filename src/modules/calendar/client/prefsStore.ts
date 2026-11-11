@@ -12,6 +12,7 @@
 import "client-only";
 import { useSyncExternalStore } from "react";
 import { apiGet, apiSend } from "@/lib/client/api";
+import { applyPaneSidePadding, SIDE_PADDING_PX } from "@/lib/prefs/paneSidePadding";
 import {
   DEFAULT_CALENDAR_PREFS,
   layoutOf,
@@ -40,6 +41,10 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<() => void>();
 
 function emit(next: PrefsState): void {
+  if (next.prefs.sidePadding !== state.prefs.sidePadding) {
+    // フォルダーペインの余白も同じ値にする (docs/86 §4-20)
+    applyPaneSidePadding(SIDE_PADDING_PX[next.prefs.sidePadding]);
+  }
   state = next;
   for (const listener of listeners) {
     listener();
@@ -78,6 +83,8 @@ function start(): void {
     // 端末の表示がまだ無ければ、前の版の写し (表示も含む) から引き継ぐ
     const prefs = { ...parseCalendarPrefs(copy), ...parseCalendarLayout(layout ?? copy) };
     state = { ...state, prefs };
+    // 写しが無い端末 (前の版から) もここで揃える
+    applyPaneSidePadding(SIDE_PADDING_PX[prefs.sidePadding]);
     if (layout === null && copy !== null) {
       writeCopy(prefs);
     }
