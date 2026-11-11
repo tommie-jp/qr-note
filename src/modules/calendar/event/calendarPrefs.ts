@@ -2,7 +2,9 @@
 // 月の左右の余白、1 日に出す予定の数、優先度ごとの色。
 // DB にも React にも触らない純関数で、サーバ (検査・既定) と端末 (描く) が共有する。
 //
-// 保存は user_settings の 1 行 (key = calendar-prefs、値は JSON)。端末をまたいで効く
+// 色 (colors・textColors) は user_settings の 1 行 (key = calendar-prefs、値は JSON) に
+// 保存し、端末をまたいで効く。大きさ・余白・予定数 (layout) は端末ごと (§1-20。
+// 端末の localStorage が正本。iPhone と PC で別々に選べる)
 import type { EventPriority } from './parseEvent'
 
 export type DateSize = 'sm' | 'md' | 'lg'
@@ -24,6 +26,9 @@ export interface CalendarPrefs {
   // 文字の色。#rrggbb (小文字) か 'auto'
   textColors: Record<EventPriority, string>
 }
+
+// 端末ごとの表示の項目 (§1-20)
+export type CalendarLayout = Pick<CalendarPrefs, 'dateSize' | 'eventSize' | 'sidePadding' | 'eventsPerDay'>
 
 export const CALENDAR_PREFS_SETTING_KEY = 'calendar-prefs'
 
@@ -99,8 +104,8 @@ const lower = (record: Record<string, unknown>): Record<EventPriority, string> =
 })
 
 // API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)。
-// 文字色 (textColors)・予定の大きさ (eventSize)・余白 (sidePadding)・予定数 (eventsPerDay) は
-// 省略してよい (前の版の画面から来る PUT。既定と見る)
+// 色 (colors) のほかは省略してよい。いまの画面は色だけを送る (layout は端末ごと。§1-20)。
+// 前の版の画面は全体を送ってくるので、来た値は検査する (保存しても読む側は使わない)
 export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (typeof value !== 'object' || value === null) {
     return null
@@ -113,10 +118,11 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
     colors?: unknown
     textColors?: unknown
   }
-  if (!isDateSize(dateSize) || typeof colors !== 'object' || colors === null) {
+  if (typeof colors !== 'object' || colors === null) {
     return null
   }
   if (
+    (dateSize !== undefined && !isDateSize(dateSize)) ||
     (eventSize !== undefined && !isDateSize(eventSize)) ||
     (sidePadding !== undefined && !isSidePadding(sidePadding)) ||
     (eventsPerDay !== undefined && !isEventsPerDay(eventsPerDay))
@@ -124,6 +130,7 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
     return null
   }
   const layout = {
+    dateSize: dateSize ?? DEFAULT_CALENDAR_PREFS.dateSize,
     eventSize: eventSize ?? DEFAULT_CALENDAR_PREFS.eventSize,
     sidePadding: sidePadding ?? DEFAULT_CALENDAR_PREFS.sidePadding,
     eventsPerDay: eventsPerDay ?? DEFAULT_CALENDAR_PREFS.eventsPerDay,
@@ -133,7 +140,7 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
     return null
   }
   if (textColors === undefined) {
-    return { dateSize, ...layout, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
+    return { ...layout, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
   }
   if (typeof textColors !== 'object' || textColors === null) {
     return null
@@ -142,7 +149,7 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (!PRIORITIES.every((p) => isTextColor(t[p]))) {
     return null
   }
-  return { dateSize, ...layout, colors: lower(c), textColors: lower(t) }
+  return { ...layout, colors: lower(c), textColors: lower(t) }
 }
 
 // 保存値 (JSON 文字列) を畳む。読めない所は既定に寄せる (表示の設定なので
@@ -178,6 +185,16 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
     colors: pick(c, isHex, DEFAULT_CALENDAR_PREFS.colors),
     textColors: pick(t, isTextColor, DEFAULT_CALENDAR_PREFS.textColors),
   }
+}
+
+export function layoutOf(prefs: CalendarPrefs): CalendarLayout {
+  const { dateSize, eventSize, sidePadding, eventsPerDay } = prefs
+  return { dateSize, eventSize, sidePadding, eventsPerDay }
+}
+
+// 端末の写し (JSON) から layout だけを読む。前の版の写し (色も含む全体) もそのまま読める
+export function parseCalendarLayout(raw: string | null): CalendarLayout {
+  return layoutOf(parseCalendarPrefs(raw))
 }
 
 // 地の色に載せる文字の色。WCAG の相対輝度で、明るい地は濃い灰、暗い地は白

@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
   DEFAULT_CALENDAR_PREFS,
+  layoutOf,
+  parseCalendarLayout,
   eventTextColor,
   parseCalendarPrefs,
   readableTextColor,
@@ -45,6 +47,7 @@ describe('validateCalendarPrefs (API の入口は畳まず断る)', () => {
     expect(validateCalendarPrefs({ dateSize: 'xl', colors: DEFAULT_CALENDAR_PREFS.colors })).toBeNull()
     expect(validateCalendarPrefs({ dateSize: 'md', colors: { ...DEFAULT_CALENDAR_PREFS.colors, low: 'url(x)' } })).toBeNull()
     expect(validateCalendarPrefs({ dateSize: 'md' })).toBeNull()
+    expect(validateCalendarPrefs({ dateSize: 'xl', colors: DEFAULT_CALENDAR_PREFS.colors })).toBeNull()
     expect(
       validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, textColors: { ...DEFAULT_CALENDAR_PREFS.textColors, high: 'red' } }),
     ).toBeNull()
@@ -83,6 +86,23 @@ describe('左右の余白 (sidePadding) と 1 日の予定数 (eventsPerDay)', (
     expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventsPerDay: 21 })).toBeNull()
     expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventsPerDay: 4.5 })).toBeNull()
     expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, sidePadding: 'lg' })).toBeNull()
+  })
+})
+
+describe('端末ごとの表示 (layout、docs/126 §1-20)', () => {
+  test('layoutOf は大きさ・余白・予定数だけを抜く (色は含めない)', () => {
+    expect(layoutOf(DEFAULT_CALENDAR_PREFS)).toEqual({ dateSize: 'md', eventSize: 'md', sidePadding: 'md', eventsPerDay: 5 })
+  })
+
+  test('parseCalendarLayout は前の版の写し (色を含む全体) からも読め、読めない所は既定', () => {
+    const old = JSON.stringify({ ...DEFAULT_CALENDAR_PREFS, dateSize: 'lg', eventsPerDay: 9 })
+    expect(parseCalendarLayout(old)).toEqual({ dateSize: 'lg', eventSize: 'md', sidePadding: 'md', eventsPerDay: 9 })
+    expect(parseCalendarLayout(null)).toEqual(layoutOf(DEFAULT_CALENDAR_PREFS))
+  })
+
+  test('PUT は色だけ (大きさ無し) でも通る', () => {
+    const { colors, textColors } = DEFAULT_CALENDAR_PREFS
+    expect(validateCalendarPrefs({ colors, textColors })).toEqual(DEFAULT_CALENDAR_PREFS)
   })
 })
 

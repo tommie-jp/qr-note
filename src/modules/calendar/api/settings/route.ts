@@ -1,5 +1,6 @@
-// GET / PUT /api/calendar/settings (docs/126 §1-12)。カレンダーの表示の設定
-// (日付の文字の大きさ・優先度ごとの色) を利用者ごとに読み書きする。
+// GET / PUT /api/calendar/settings (docs/126 §1-12・§1-20)。カレンダーの優先度ごとの色を
+// 利用者ごとに読み書きする。大きさ・余白・予定数は端末ごと (端末の localStorage) で、
+// いまの画面は送ってこない (前の版の画面が送る分は検査して保存するが、読む側は使わない)。
 // src/app/api/calendar/settings/route.ts はこれを再輸出するだけ (モジュールの境界)。
 //
 // 保存は user_settings の 1 行 (prefs/userSettingStore.ts)。名前はセッションから取り、

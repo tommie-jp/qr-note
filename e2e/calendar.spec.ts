@@ -285,7 +285,7 @@ test.describe('予定カレンダー', () => {
     expect(await memo()).not.toContain('priority=')
   })
 
-  test('設定で日付の大きさと優先度の色を変えられ、読み込み直しても残る', async ({ page }) => {
+  test('設定で日付の大きさと優先度の色を変えられ、読み込み直しても残る (大きさは端末ごと)', async ({ page, browser }) => {
     await openCalendar(page)
     const settings = async () =>
       ((await (await page.request.get('/api/calendar/settings')).json()) as { data: unknown }).data
@@ -310,20 +310,30 @@ test.describe('予定カレンダー', () => {
     await panel.getByRole('button', { name: '標準の文字を #b91c1c にする' }).click()
     await expect(chip).toHaveCSS('color', 'rgb(185, 28, 28)')
 
-    // 少し待ってサーバへ保存される。読み込み直しても残る
+    // 色は少し待ってサーバへ保存される。大きさはサーバへ送らない (端末ごと。docs/126 §1-20)
     await expect.poll(settings).toEqual({
       ...DEFAULT_PREFS,
-      dateSize: 'lg',
-      eventSize: 'sm',
       colors: { ...DEFAULT_PREFS.colors, normal: '#6b7280' },
       textColors: { ...DEFAULT_PREFS.textColors, normal: '#b91c1c' },
     })
+    // 色の写しを消して読み込み直しても、色はサーバから・大きさはこの端末から戻る
     await page.evaluate(() => localStorage.removeItem('qr-calendar-prefs'))
     await page.reload()
     await expect(dayCell(page, DAY).locator('[data-priority="normal"]')).toHaveCSS(
       'background-color',
       'rgb(107, 114, 128)',
     )
+    await expect(dayCell(page, DAY).locator('span').first()).toHaveCSS('font-size', '24px')
+
+    // 別の端末 (別のブラウザ文脈) は色だけが同じで、大きさは既定のまま
+    const other = await newLoggedInPage(browser)
+    await openCalendar(other)
+    await expect(dayCell(other, DAY).locator('[data-priority="normal"]')).toHaveCSS(
+      'background-color',
+      'rgb(107, 114, 128)',
+    )
+    await expect(dayCell(other, DAY).locator('span').first()).toHaveCSS('font-size', '20px')
+    await closePage(other)
 
     // 既定に戻す
     await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
