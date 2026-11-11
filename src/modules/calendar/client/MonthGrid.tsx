@@ -167,7 +167,9 @@ export function MonthGrid({
                     // 色は優先度 (高い 赤・標準 橙・低い 緑)。済みは灰に取り消し線
                     // (日の中では最後に並ぶ。eventsByDay)
                     data-priority={event.priority ?? "normal"}
-                    className={`shrink-0 truncate rounded-sm px-0.5 leading-5 ${EVENT_SIZE_CLASS[prefs.eventSize]} ${color.className} ${
+                    // はみ出した題名は「…」を付けずに切る (docs/126 §1-22。狭いマスでは
+                    // … が 1 文字ぶんを食い、読める字が減る)
+                    className={`shrink-0 overflow-hidden rounded-sm px-0.5 leading-5 whitespace-nowrap ${EVENT_SIZE_CLASS[prefs.eventSize]} ${color.className} ${
                       event.done ? "line-through" : ""
                     }`}
                   >

@@ -173,6 +173,8 @@ test.describe('予定カレンダー', () => {
     const progress = dayCell(page, DAY).locator('[data-day-progress]')
     await expect(progress).toHaveAttribute('data-day-progress', 'left')
     await expect(progress).toHaveText('残1')
+    // 予定の題名ははみ出しても「…」を付けない (docs/126 §1-22)
+    await expect(dayCell(page, DAY).locator('[data-priority]').first()).toHaveCSS('text-overflow', 'clip')
 
     await done.click()
     const undo = pane.getByRole('button', { name: new RegExp(`${NOTE.key}.* を未済に戻す`) })
