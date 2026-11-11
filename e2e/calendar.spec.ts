@@ -617,6 +617,50 @@ test.describe('予定カレンダー', () => {
     await expect(dayCell(page, DAY)).toContainText(NOTE2.key)
   })
 
+  test('︙ を一覧の中で並べ替えてから別の日のマスへ持っていっても、離せばその日へ移る', async ({ page }) => {
+    // 並びが入れ替わると React が掴んだ行を付け替え、ポインタのキャプチャが外れる。
+    // 離した知らせがつまみに届かず、枠が残って移らなかった (docs/126 §1-31)
+    // 前のテストで 2 件とも DAY に戻っている (眼科 10:00 → 歯医者 13:00 の順)
+    const OTHER = '2026-11-12'
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = page.getByRole('region', { name: '11月5日 (木) の予定' })
+    const titles = () => pane.locator('li [data-event-title]').allTextContents()
+    await expect.poll(titles).toEqual([NOTE2.heading, NOTE.heading])
+    const target = dayCell(page, OTHER)
+    await target.scrollIntoViewIfNeeded()
+    const handle = pane.getByRole('button', { name: `${NOTE.heading} を並べ替える` })
+    const from = (await handle.boundingBox())!
+    const top = (await pane.locator('li').first().boundingBox())!
+    const to = (await target.boundingBox())!
+
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    // 1 行上へ (並べ替え) → 別の日のマスへ
+    await page.mouse.move(from.x + from.width / 2, top.y + 4, { steps: 6 })
+    await expect.poll(titles).toEqual([NOTE.heading, NOTE2.heading])
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 })
+    await expect(target).toHaveAttribute('data-drop-target', '')
+    await page.mouse.up()
+
+    await expect(target).not.toHaveAttribute('data-drop-target')
+    await expect(pane.locator('[data-dragging]')).toHaveCount(0)
+    await expect(dayCell(page, OTHER)).toContainText(NOTE.key)
+    await expect(pane.locator('li', { hasText: NOTE.key })).toHaveCount(0)
+
+    // 後のテストのために元の日へ戻す
+    await dayCell(page, OTHER).click()
+    const otherPane = page.getByRole('region', { name: '11月12日 (木) の予定' })
+    await dayCell(page, DAY).scrollIntoViewIfNeeded()
+    const back = (await otherPane.getByRole('button', { name: `${NOTE.heading} を並べ替える` }).boundingBox())!
+    const home = (await dayCell(page, DAY).boundingBox())!
+    await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(home.x + home.width / 2, home.y + home.height / 2, { steps: 8 })
+    await page.mouse.up()
+    await expect(dayCell(page, DAY)).toContainText(NOTE.key)
+  })
+
   test('検索窓の＋は選んだ日の新しい予定を開く (カレンダーの外では新規ノート)', async ({ page }) => {
     await openCalendar(page)
     const plus = page.getByRole('button', { name: 'カレンダーに追加' })

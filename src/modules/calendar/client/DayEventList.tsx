@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { holidayName } from "../event/holidays";
 import { eventSpan, jstParts } from "../event/eventTime";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
@@ -129,18 +129,15 @@ function TitleEditor({
 
 // 並べ替えのつまみ (︙)。上下にドラッグする (ポインタ。指でも)。月のマス目の別の日の
 // マスまで持っていって離すと、その日へ移す (§1-16)。焦点があれば ↑ ↓ でも動く。
-// touch-none … 指でなぞったときに一覧ごとスクロールさせない
+// touch-none … 指でなぞったときに一覧ごとスクロールさせない。
+// 押した後の動きと離したときは window で受ける (DayEventList の startDrag。§1-31)
 function DragHandle({
   event,
   onPointerDown,
-  onPointerMove,
-  onPointerEnd,
   onStep,
 }: {
   event: DayEvent;
   onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onPointerEnd: (commit: boolean) => void;
   onStep: (delta: -1 | 1) => void;
 }) {
   return (
@@ -150,9 +147,6 @@ function DragHandle({
       title="ドラッグで並べ替える (↑ ↓ でも)"
       data-drag-handle=""
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={() => onPointerEnd(true)}
-      onPointerCancel={() => onPointerEnd(false)}
       onKeyDown={(e) => {
         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           e.preventDefault();
@@ -339,16 +333,62 @@ export function DayEventList({
   const { shown, toggle, rename, retime, reorder, move, error } = useEventOverrides(events);
   const listRef = useRef<HTMLUListElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+  // window の受け手は掴んだときに作るので、最新の状態と処理は ref から読む
+  const dragRef = useRef<DragState | null>(null);
+  const updateDrag = (next: DragState | null) => {
+    dragRef.current = next;
+    setDrag(next);
+  };
+  const handlersRef = useRef({
+    move: (_x: number, _y: number) => {},
+    end: (_commit: boolean) => {},
+  });
+  const stopListeningRef = useRef<(() => void) | null>(null);
   // ドラッグ中は指の位置の並びで見せる
   const rows =
     drag === null
       ? shown
       : drag.ids.flatMap((id) => shown.filter((event) => event.itemId === id));
+  // 押した後の動きと離したときは、つまみではなく window で受ける (§1-31)。
+  // 並びが入れ替わると React が掴んだ行を DOM の中で付け替え、そのときポインタの
+  // キャプチャが外れる。つまみで受けていると離した知らせが届かず、移す先の枠が
+  // 残ったまま予定が移らなかった
+  const listenWindow = (pointerId: number) => {
+    stopListeningRef.current?.();
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId === pointerId) {
+        handlersRef.current.move(e.clientX, e.clientY);
+      }
+    };
+    const finish = (commit: boolean) => (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) {
+        return;
+      }
+      stop();
+      handlersRef.current.end(commit);
+    };
+    const onUp = finish(true);
+    const onCancel = finish(false);
+    const stop = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      stopListeningRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    stopListeningRef.current = stop;
+  };
   const startDrag = (event: DayEvent, e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) {
+      return;
+    }
     const items = listRef.current === null ? [] : [...listRef.current.children];
     const ids = shown.map((x) => x.itemId);
     e.currentTarget.setPointerCapture(e.pointerId);
-    setDrag({
+    listenWindow(e.pointerId);
+    updateDrag({
       id: event.itemId,
       ids,
       startIds: ids,
@@ -359,30 +399,43 @@ export function DayEventList({
       dropDay: null,
     });
   };
-  const moveDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (drag === null) {
+  const moveDrag = (x: number, y: number) => {
+    const current = dragRef.current;
+    if (current === null) {
       return;
     }
     // 別の日のマスの上なら移す (並べ替えはしない)。でなければ一覧の中の並べ替え
-    const dropDay = dayUnder(e.clientX, e.clientY, day);
-    const ids = dropDay !== null ? drag.startIds : moveId(drag.startIds, drag.id, dropIndex(drag, e.clientY));
-    if (dropDay !== drag.dropDay) {
+    const dropDay = dayUnder(x, y, day);
+    const ids = dropDay !== null ? current.startIds : moveId(current.startIds, current.id, dropIndex(current, y));
+    if (dropDay !== current.dropDay) {
       markDropTarget(dropDay);
     }
-    if (ids.join() !== drag.ids.join() || dropDay !== drag.dropDay) {
-      setDrag({ ...drag, ids, dropDay });
+    if (ids.join() !== current.ids.join() || dropDay !== current.dropDay) {
+      updateDrag({ ...current, ids, dropDay });
     }
   };
   const endDrag = (commit: boolean) => {
     markDropTarget(null);
-    const dragged = drag === null ? undefined : shown.find((x) => x.itemId === drag.id);
-    if (drag !== null && commit && drag.dropDay !== null && dragged !== undefined) {
-      move(dragged, drag.dropDay);
-    } else if (drag !== null && commit && drag.ids.join() !== drag.startIds.join()) {
-      reorder(drag.ids);
+    const current = dragRef.current;
+    const dragged = current === null ? undefined : shown.find((x) => x.itemId === current.id);
+    if (current !== null && commit && current.dropDay !== null && dragged !== undefined) {
+      move(dragged, current.dropDay);
+    } else if (current !== null && commit && current.ids.join() !== current.startIds.join()) {
+      reorder(current.ids);
     }
-    setDrag(null);
+    updateDrag(null);
   };
+  useEffect(() => {
+    handlersRef.current = { move: moveDrag, end: endDrag };
+  });
+  // 掴んだまま一覧が閉じたら、window の受け手と枠を片付ける
+  useEffect(
+    () => () => {
+      stopListeningRef.current?.();
+      markDropTarget(null);
+    },
+    [],
+  );
   const step = (event: DayEvent, delta: -1 | 1) => {
     const ids = shown.map((x) => x.itemId);
     const to = ids.indexOf(event.itemId) + delta;
@@ -459,8 +512,6 @@ export function DayEventList({
                 <DragHandle
                   event={event}
                   onPointerDown={(e) => startDrag(event, e)}
-                  onPointerMove={moveDrag}
-                  onPointerEnd={endDrag}
                   onStep={(delta) => step(event, delta)}
                 />
                 <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
