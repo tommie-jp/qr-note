@@ -1,0 +1,202 @@
+"use client";
+
+import { startTransition, useRef, useState } from "react";
+import { refreshServerView } from "@/lib/client/navigation";
+import {
+  BOTTOM_BAR_FALLBACK_PX,
+  COLLAPSE_FOLDER_CHARS,
+  COLLAPSE_LINES,
+  LINE_REM,
+  PANE_SIZES,
+  clampPaneSize,
+  livePaneSizeLimit,
+  rawPaneSizeFromPointer,
+  type PaneKind,
+} from "@/lib/prefs/paneSize";
+import type { PaneMode } from "@/lib/prefs/paneMode";
+import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import {
+  HANDLE_TAB,
+  HANDLE_TAB_SKIN,
+  headerBottomPx,
+  readCssPx,
+  setPaneSize,
+} from "@/components/panes/PaneResizer";
+import { switchPaneMode } from "@/components/panes/switchPaneMode";
+import {
+  TAB_LENGTH_REM,
+  setTabPosition,
+  tabFraction,
+  tabOffsetCss,
+  useTabPosition,
+} from "@/components/panes/paneTabPosition";
+
+// 押しただけ (ドラッグでない) とみなす動きの量 (px)
+const CLICK_SLOP_PX = 4;
+
+interface Drag {
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  moved: boolean;
+}
+
+// 隠したペインのタブ (docs/86 §4-21)。境界を引き切って (またはダブルクリックで) ペインを
+// 隠した後も、タブを画面の端に半分だけ残す — フォルダーは左端に右半分、下のペインは
+// 下端に上半分。引き出して離すとその大きさでペインを戻し (2 文字・2 行を超えたら)、
+// 押すだけなら覚えている大きさで戻す。境界に沿った向き (縦のタブは上下、横のタブは
+// 左右) にも動かせ、位置は開いているときのタブと同じ所に覚える
+export function CollapsedPaneTabs() {
+  const { mode, detailItemId } = usePaneMode();
+  // 1 ペインでノートを全画面に開いている間は出さない (ノートの上に被さる)
+  if (mode === "1" && detailItemId !== null) {
+    return null;
+  }
+  return (
+    <>
+      {mode !== "3" && <CollapsedTab kind="folder" openMode="3" />}
+      {mode === "1" && <CollapsedTab kind="preview" openMode="2" />}
+    </>
+  );
+}
+
+function CollapsedTab({ kind, openMode }: { kind: PaneKind; openMode: PaneMode }) {
+  const storedTab = useTabPosition(kind);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const [liveTab, setLiveTab] = useState<number | null>(null);
+  const dragRef = useRef<Drag | null>(null);
+  const fraction = liveTab ?? storedTab;
+
+  const geometry = (x: number, y: number) => ({
+    clientX: x,
+    clientY: y,
+    rootFontSizePx: readCssPx("font-size", 16),
+    viewportHeightPx: window.innerHeight,
+    bottomBarPx: readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX),
+  });
+
+  const open = (size: number) => {
+    setPaneSize(kind, size);
+    void switchPaneMode(openMode, () => {
+      startTransition(refreshServerView);
+    });
+  };
+
+  // 境界に沿った向きの範囲 (縦のタブ: ヘッダーの下〜下部バーの上、横のタブ: 画面の幅)
+  const alongFraction = (x: number, y: number) => {
+    const g = geometry(x, y);
+    const tabPx = TAB_LENGTH_REM * g.rootFontSizePx;
+    if (kind === "folder") {
+      const top = headerBottomPx();
+      return tabFraction(y, top, window.innerHeight - g.bottomBarPx - top, tabPx);
+    }
+    return tabFraction(x, 0, window.innerWidth, tabPx);
+  };
+
+  const finish = (d: Drag) => {
+    if (liveTab !== null) {
+      setTabPosition(kind, liveTab);
+      setLiveTab(null);
+    }
+    if (!d.moved) {
+      open(clampPaneSize(kind, localStorageSize(kind)));
+      return;
+    }
+    const g = geometry(d.x, d.y);
+    const limit = livePaneSizeLimit(kind, {
+      widthPx: window.innerWidth,
+      heightPx: window.innerHeight,
+      rootFontSizePx: g.rootFontSizePx,
+      bottomBarPx: g.bottomBarPx,
+      headerPx: headerBottomPx(),
+    });
+    const raw = Math.min(limit, rawPaneSizeFromPointer(kind, g));
+    // 隠す目安 (2 文字・2 行) を超えて引き出したときだけ戻す
+    const openedEnough =
+      kind === "folder"
+        ? d.x > COLLAPSE_FOLDER_CHARS * g.rootFontSizePx
+        : window.innerHeight - g.bottomBarPx - d.y > COLLAPSE_LINES * LINE_REM * g.rootFontSizePx;
+    if (openedEnough) {
+      open(clampPaneSize(kind, raw));
+    }
+  };
+
+  // 引き出している間はタブが指について動く。画面の外へは出さない (端で半分残る)
+  const dragStyle = (d: Drag): React.CSSProperties =>
+    kind === "folder"
+      ? { left: Math.min(window.innerWidth, Math.max(0, d.x)) }
+      : { top: Math.min(window.innerHeight, Math.max(headerBottomPx(), d.y)), bottom: "auto" };
+
+  const restStyle: React.CSSProperties =
+    kind === "folder"
+      ? {
+          left: 0,
+          top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
+        }
+      : { bottom: "var(--bottom-bar-h)", left: tabOffsetCss(fraction, "100vw") };
+
+  const label = kind === "folder" ? "フォルダーを開く" : "下のペインを開く";
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={`${label} (押すか引き出す)`}
+      data-collapsed-tab={kind}
+      style={drag?.moved ? { ...restStyle, ...dragStyle(drag) } : restStyle}
+      className={`group fixed z-20 touch-none ${
+        kind === "folder" ? "-translate-x-1/2 cursor-col-resize" : "translate-y-1/2 cursor-row-resize"
+      } ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN}`}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        const d = { startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, moved: false };
+        dragRef.current = d;
+        setDrag(d);
+      }}
+      onPointerMove={(event) => {
+        const current = dragRef.current;
+        if (current === null) return;
+        const moved =
+          current.moved ||
+          Math.hypot(event.clientX - current.startX, event.clientY - current.startY) > CLICK_SLOP_PX;
+        const d = { ...current, x: event.clientX, y: event.clientY, moved };
+        dragRef.current = d;
+        setDrag(d);
+        if (moved) {
+          setLiveTab(alongFraction(event.clientX, event.clientY));
+        }
+      }}
+      onPointerUp={() => {
+        const d = dragRef.current;
+        dragRef.current = null;
+        setDrag(null);
+        if (d !== null) {
+          finish(d);
+        }
+      }}
+      onPointerCancel={() => {
+        dragRef.current = null;
+        setDrag(null);
+        setLiveTab(null);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open(clampPaneSize(kind, localStorageSize(kind)));
+        }
+      }}
+    >
+      <span aria-hidden="true">{HANDLE_TAB[kind].glyph}</span>
+    </button>
+  );
+}
+
+// 覚えている寸法 (無ければ既定)。隠すときは掴む前の寸法に戻してから隠している
+function localStorageSize(kind: PaneKind): number {
+  try {
+    return clampPaneSize(kind, localStorage.getItem(PANE_SIZES[kind].storageKey));
+  } catch {
+    return PANE_SIZES[kind].default;
+  }
+}

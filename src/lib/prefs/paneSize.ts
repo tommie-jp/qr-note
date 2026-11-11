@@ -26,9 +26,10 @@ export const PANE_SIZES = {
     cssVar: "--folder-pane-w",
     unit: "rem",
     default: 14,
-    // 下限は「#タグ + 件数」が読める幅、上限は一覧が主役でいられる幅
-    min: 9,
-    max: 28,
+    // 下限は隠す目安 (2 文字) のすぐ上。上限は実質「画面の幅」 — ドラッグでは
+    // タブが画面の右端に半分残るまで広げられる (docs/86 §4-21。livePaneSizeLimit)
+    min: 3,
+    max: 200,
     step: 1,
     label: "フォルダーの幅",
     orientation: "vertical",
@@ -38,9 +39,9 @@ export const PANE_SIZES = {
     cssVar: "--preview-pane-h",
     unit: "dvh",
     default: 45,
-    // 下限は見出し行 + 数行、上限は一覧が数行残る高さ
-    min: 20,
-    max: 80,
+    // 下限・上限は隠す目安 (2 行) の少し内側 (docs/86 §4-21)
+    min: 10,
+    max: 95,
     step: 5,
     label: "プレビューの高さ",
     orientation: "horizontal",
@@ -108,6 +109,20 @@ export function rawPaneSizeFromPointer(kind: PaneKind, geometry: PointerGeometry
   return (heightPx / viewport) * 100;
 }
 
+// ドラッグ中に寸法を動かせる上限 (docs/86 §4-21)。タブが画面の外へ出ないよう、
+// フォルダーは画面の幅まで、下のペインはヘッダーの下までに止める。下限は 0
+// (タブが画面の端に半分残る)
+export function livePaneSizeLimit(
+  kind: PaneKind,
+  viewport: { widthPx: number; heightPx: number; rootFontSizePx: number; bottomBarPx: number; headerPx: number },
+): number {
+  if (kind === "folder") {
+    return viewport.widthPx / (viewport.rootFontSizePx || 16);
+  }
+  const height = viewport.heightPx || 1;
+  return Math.max(0, ((height - viewport.bottomBarPx - viewport.headerPx) / height) * 100);
+}
+
 // 境界を引き切って離したら、狭くなった側のペインを隠して構成を減らす (docs/86 §4-19)。
 // 見ているのは寸法の上下限ではなく、**ポインタの位置で残る中身の量**:
 //
@@ -119,7 +134,7 @@ export function rawPaneSizeFromPointer(kind: PaneKind, geometry: PointerGeometry
 // いる間もペインは端の大きさのまま (タブの色で「離すと隠す」を見せる)
 export const COLLAPSE_FOLDER_CHARS = 2;
 export const COLLAPSE_LINES = 2;
-const LINE_REM = 1.5;
+export const LINE_REM = 1.5;
 
 export type PaneCollapse =
   | { hide: "folder"; mode: "2" }

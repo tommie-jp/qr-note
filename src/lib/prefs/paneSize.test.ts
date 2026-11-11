@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  livePaneSizeLimit,
   paneCollapse,
   paneHideByDoubleClick,
   rawPaneSizeFromPointer,
@@ -276,4 +277,10 @@ test("rawPaneSizeFromPointer は上下限で止めない (引き切りの判定�
   const geometry = { clientX: 32, clientY: 0, rootFontSizePx: 16, viewportHeightPx: 1000, bottomBarPx: 0 };
   expect(rawPaneSizeFromPointer("folder", geometry)).toBe(2);
   expect(rawPaneSizeFromPointer("preview", { ...geometry, clientY: 950 })).toBe(5);
+});
+
+test("livePaneSizeLimit はフォルダーを画面の幅まで、下のペインをヘッダーの下まで (docs/86 §4-21)", () => {
+  const viewport = { widthPx: 480, heightPx: 1000, rootFontSizePx: 16, bottomBarPx: 50, headerPx: 50 };
+  expect(livePaneSizeLimit("folder", viewport)).toBe(30);
+  expect(livePaneSizeLimit("preview", viewport)).toBe(90);
 });

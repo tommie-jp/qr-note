@@ -6,6 +6,7 @@ import {
   BOTTOM_BAR_FALLBACK_PX,
   PANE_SIZES,
   clampPaneSize,
+  livePaneSizeLimit,
   paneCollapse,
   paneHideByDoubleClick,
   paneSizeValue,
@@ -15,6 +16,13 @@ import {
 } from "@/lib/prefs/paneSize";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
 import { listHrefFromItemUrl, notifyPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
+import {
+  TAB_LENGTH_REM,
+  setTabPosition,
+  tabFraction,
+  tabOffsetCss,
+  useTabPosition,
+} from "@/components/panes/paneTabPosition";
 
 // 境界そのものの置き方。**ポインタ → 寸法の計算 (prefs/paneSize.ts) と対**で、
 // どちらか片方だけ直すと掴む場所と動く量がずれる。
@@ -50,17 +58,31 @@ const HANDLE_LINE: Record<PaneKind, string> = {
   preview: "m-auto h-0.5 w-full",
 };
 
-// 境界の中央のつまみ (タブ)。8px の帯だけでは指でも マウスでも狙いにくいので、
-// 線の真ん中に掴みやすい大きさのタブを重ねる。帯の子なので、押せば帯の
+// 境界のつまみ (タブ)。8px の帯だけでは指でも マウスでも狙いにくいので、
+// 線の上に掴みやすい大きさのタブを重ねる。帯の子なので、押せば帯の
 // ドラッグ・ダブルクリックがそのまま働く (イベントは帯へ浮かぶ)。
-// 帯から両側へはみ出して、ペインの端に少し重なる (z-20 で上に出る)
-const HANDLE_TAB: Record<PaneKind, { className: string; glyph: string }> = {
-  folder: { className: "h-12 w-5 text-base", glyph: "︙" },
-  preview: { className: "h-5 w-12 text-base", glyph: "⋯" },
+// 帯から両側へはみ出して、ペインの端に少し重なる (z-20 で上に出る)。
+// 境界に沿った位置は端末ごとに覚え、タブを掴んで境界に沿って動かせる
+// (docs/86 §4-21。縦の境界は上下、横の境界は左右)。長さ (h-12 / w-12) は TAB_LENGTH_REM と対
+export const HANDLE_TAB: Record<PaneKind, { shape: string; glyph: string }> = {
+  folder: { shape: "h-12 w-5 text-base", glyph: "︙" },
+  preview: { shape: "h-5 w-12 text-base", glyph: "⋯" },
 };
 
-const HANDLE_TAB_SKIN =
-  "absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-gray-400 bg-gray-100 leading-none text-gray-600 shadow-sm transition-colors group-hover:border-blue-500 group-hover:bg-blue-50 group-hover:text-blue-700 group-active:bg-blue-100";
+// 帯の中のタブの置き方 (境界の線の上に中心を載せる。沿った向きの位置は tabStyle)
+const HANDLE_TAB_PLACE: Record<PaneKind, string> = {
+  folder: "left-1/2 -translate-x-1/2",
+  preview: "top-1/2 -translate-y-1/2",
+};
+
+export const HANDLE_TAB_SKIN =
+  "flex items-center justify-center rounded border border-gray-400 bg-gray-100 leading-none text-gray-600 shadow-sm transition-colors group-hover:border-blue-500 group-hover:bg-blue-50 group-hover:text-blue-700 group-active:bg-blue-100";
+
+// 境界に沿ったタブの位置 (帯の中で。帯の長さからタブの長さを引いた範囲に割合を掛ける)
+function tabStyle(kind: PaneKind, fraction: number): React.CSSProperties {
+  const offset = tabOffsetCss(fraction, "100%");
+  return kind === "folder" ? { top: offset } : { left: offset };
+}
 
 // 引き切って「離すと隠す」位置まで来ている間のタブ (docs/86 §4-19)
 const HANDLE_TAB_COLLAPSE = "border-amber-600 bg-amber-100 text-amber-800";
@@ -80,7 +102,7 @@ function resultsTopPx(): number {
 const HANDLE_LINE_SKIN =
   "bg-gray-400 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600";
 
-function readCssPx(name: string, fallback: number): number {
+export function readCssPx(name: string, fallback: number): number {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
   const value = Number.parseFloat(raw);
   return Number.isFinite(value) ? value : fallback;
@@ -112,6 +134,17 @@ function readStored(kind: PaneKind): number {
   } catch {
     return PANE_SIZES[kind].default;
   }
+}
+
+// 寸法を当てて覚える。隠れたペインを端のタブから戻すとき (CollapsedPaneTabs) も使う
+export function setPaneSize(kind: PaneKind, size: number): void {
+  document.documentElement.style.setProperty(PANE_SIZES[kind].cssVar, paneSizeValue(kind, size));
+  storePaneSize(kind, size);
+}
+
+// ヘッダーの下端 (px)。--header-h は calc の式なので数としては読めない
+export function headerBottomPx(): number {
+  return document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
 }
 
 function storePaneSize(kind: PaneKind, size: number): void {
@@ -154,6 +187,11 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
   const startRef = useRef<number>(spec.default);
   // 引き切っていま離すと隠すなら、その中身。ドラッグ中だけ
   const [collapse, setCollapse] = useState<PaneCollapse | null>(null);
+  // 境界に沿ったタブの位置。掴んで動かしている間は live、離したら覚える
+  const storedTab = useTabPosition(kind);
+  const [liveTab, setLiveTab] = useState<number | null>(null);
+  // タブを掴んでドラッグしているか (帯の他の所を掴んだときはタブを動かさない)
+  const grabbedTabRef = useRef(false);
 
   const apply = (next: number) => {
     sizeRef.current = next;
@@ -176,7 +214,25 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       viewportHeightPx: window.innerHeight,
       bottomBarPx: readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX),
     };
-    apply(clampPaneSize(kind, rawPaneSizeFromPointer(kind, geometry)));
+    // ドラッグ中は 0 から画面の端まで指について動かす (docs/86 §4-21)。
+    // 上下限に寄せるのは離したとき
+    const limit = livePaneSizeLimit(kind, {
+      widthPx: window.innerWidth,
+      heightPx: window.innerHeight,
+      rootFontSizePx: geometry.rootFontSizePx,
+      bottomBarPx: geometry.bottomBarPx,
+      headerPx: headerBottomPx(),
+    });
+    apply(Math.min(limit, Math.max(0, rawPaneSizeFromPointer(kind, geometry))));
+    if (grabbedTabRef.current) {
+      const band = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const tabPx = TAB_LENGTH_REM * geometry.rootFontSizePx;
+      setLiveTab(
+        kind === "folder"
+          ? tabFraction(event.clientY, band.top, band.height, tabPx)
+          : tabFraction(event.clientX, band.left, band.width, tabPx),
+      );
+    }
     const next = paneCollapse(kind, { ...geometry, resultsTopPx: resultsTopPx() }, currentPaneMode());
     if (next?.hide !== collapse?.hide) {
       setCollapse(next);
@@ -208,12 +264,18 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
     setCollapse(null);
     document.body.style.removeProperty("user-select");
     document.body.style.removeProperty("cursor");
+    if (liveTab !== null) {
+      setTabPosition(kind, liveTab);
+      setLiveTab(null);
+    }
+    grabbedTabRef.current = false;
     // 取り消し (pointercancel) では隠さない
     if (collapse !== null && event.type === "pointerup") {
       hidePane(collapse);
       return;
     }
-    storePaneSize(kind, sizeRef.current);
+    // ドラッグ中は上下限の外まで動かしているので、離したら寄せる
+    commit(clampPaneSize(kind, sizeRef.current));
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -265,6 +327,8 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
         // 主ボタン以外は無視する
         if (event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
+        grabbedTabRef.current =
+          event.target instanceof Element && event.target.closest("[data-pane-resizer-tab]") !== null;
         // 掴んだ時点の値から始める (ドラッグ中はここから ref だけで進む)
         sizeRef.current = size;
         startRef.current = size;
@@ -300,7 +364,8 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       <span
         aria-hidden
         data-pane-resizer-tab=""
-        className={`${HANDLE_TAB[kind].className} ${HANDLE_TAB_SKIN} ${
+        style={tabStyle(kind, liveTab ?? storedTab)}
+        className={`absolute ${HANDLE_TAB_PLACE[kind]} ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN} ${
           collapse !== null ? HANDLE_TAB_COLLAPSE : dragging ? "border-blue-600 bg-blue-100 text-blue-700" : ""
         }`}
       >

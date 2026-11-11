@@ -155,12 +155,12 @@ test.describe('境界の引き切りでペインを隠す', () => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await openWithPanes(page, '3')
     const separator = page.getByRole('separator', { name: 'フォルダーの幅' })
-    // 6rem (96px)。下限 9rem は越えるが、隠す 2rem までは届かない
+    // 6rem (96px)。隠す 2rem までは届かないので、その幅で止まる
     await dragTabTo(page, separator, { x: 96 })
     await expect(separator).not.toHaveAttribute('data-collapse')
     await page.mouse.up()
     await expect.poll(() => panesShown(page)).toBe('3')
-    await expect(separator).toHaveAttribute('aria-valuenow', '9')
+    await expect(separator).toHaveAttribute('aria-valuenow', '6')
   })
 
   test('下のペインは 2 行より高いうちは隠さない (端で止まるだけ)', async ({ page }) => {
@@ -170,11 +170,81 @@ test.describe('境界の引き切りでペインを隠す', () => {
     const bar = await page.evaluate(() =>
       Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
     )
-    // 下のペインが 16dvh (下限 20 を越えるが、隠す 2 行までは届かない)
+    // 下のペインが 16dvh (隠す 2 行までは届かないので、その高さで止まる)
     await dragTabTo(page, separator, { y: height - bar - height * 0.16 })
     await expect(separator).not.toHaveAttribute('data-collapse')
     await page.mouse.up()
     await expect.poll(() => panesShown(page)).toBe('2')
-    await expect(separator).toHaveAttribute('aria-valuenow', '20')
+    await expect(separator).toHaveAttribute('aria-valuenow', '16')
+  })
+})
+
+// 隠したペインのタブは画面の端に半分残り、引き出すか押すと戻る。タブは境界に沿って
+// 動かせ、画面の外へは出ない (docs/86 §4-21)
+test.describe('隠したペインのタブ', () => {
+  const panesShown = (page: Page) => page.locator('[data-panes]').getAttribute('data-panes')
+
+  test('フォルダーを隠すと左端にタブの右半分が残り、引き出すとその幅で 3 ペインに戻る', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await openWithPanes(page, '3')
+    await page.getByRole('separator', { name: 'フォルダーの幅' }).locator('[data-pane-resizer-tab]').dblclick()
+    await expect.poll(() => panesShown(page)).toBe('2')
+
+    const tab = page.getByRole('button', { name: 'フォルダーを開く' })
+    const box = (await tab.boundingBox())!
+    // 幅 20px のタブの右半分だけが画面に入る
+    expect(box.x).toBeCloseTo(-box.width / 2, 0)
+
+    await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(192, box.y + box.height / 2, { steps: 6 })
+    await page.mouse.up()
+    await expect.poll(() => panesShown(page)).toBe('3')
+    await expect(page.getByRole('separator', { name: 'フォルダーの幅' })).toHaveAttribute('aria-valuenow', '12')
+    await expect(tab).toHaveCount(0)
+  })
+
+  test('1 ペインでは下端にタブの上半分が残り、押すと 2 ペインに戻る', async ({ page }) => {
+    await openWithPanes(page, '2')
+    await page.getByRole('separator', { name: 'プレビューの高さ' }).last().locator('[data-pane-resizer-tab]').dblclick()
+    await expect.poll(() => panesShown(page)).toBe('1')
+
+    const tab = page.getByRole('button', { name: '下のペインを開く' })
+    const box = (await tab.boundingBox())!
+    const bar = await page.evaluate(() =>
+      Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
+    )
+    // タブの中心が下部バーの上端 (= 下のペインがあった所の下端) に載る
+    expect(box.y + box.height / 2).toBeCloseTo(page.viewportSize()!.height - bar, 0)
+
+    await tab.click()
+    await expect.poll(() => panesShown(page)).toBe('2')
+  })
+
+  test('タブは境界に沿って動かせて位置を覚え、右端まで引いても半分は画面に残る', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await openWithPanes(page, '3')
+    const separator = page.getByRole('separator', { name: 'フォルダーの幅' })
+    const tab = separator.locator('[data-pane-resizer-tab]')
+    const before = (await tab.boundingBox())!
+
+    // 上へ 200px (幅は変えない)
+    await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2 - 200, { steps: 6 })
+    // そのまま右端の外まで: タブの中心は画面の右端で止まる (左半分が残る)
+    await page.mouse.move(1400 + 80, before.y + before.height / 2 - 200, { steps: 6 })
+    const atEdge = (await tab.boundingBox())!
+    expect(atEdge.x + atEdge.width / 2).toBeCloseTo(1400, 0)
+    // 左へ戻してから離す
+    await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2 - 200, { steps: 6 })
+    await page.mouse.up()
+
+    const after = (await tab.boundingBox())!
+    expect(after.y).toBeCloseTo(before.y - 200, 0)
+    await page.reload()
+    await expectHydrated(page.locator('[data-search-results] [data-calendar] [data-day="2026-11-05"]'))
+    const reloaded = (await page.getByRole('separator', { name: 'フォルダーの幅' }).locator('[data-pane-resizer-tab]').boundingBox())!
+    expect(reloaded.y).toBeCloseTo(after.y, 0)
   })
 })

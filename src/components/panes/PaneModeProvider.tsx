@@ -15,6 +15,7 @@ import {
   type PaneMode,
 } from "@/lib/prefs/paneMode";
 import { useShownPaneMode } from "@/lib/prefs/pendingPaneMode";
+import { CollapsedPaneTabs } from "@/components/panes/CollapsedPaneTabs";
 import { noteHintFromClick, noteHintStore } from "@/components/panes/noteHint";
 
 interface PaneModeState {
@@ -123,6 +124,8 @@ export function ResultsPaneRoot({ children }: { children: ReactNode }) {
   return (
     <div data-results-pane data-panes={mode} className="space-y-2">
       {children}
+      {/* 隠したペインのタブ。画面の端に半分残す (docs/86 §4-21) */}
+      <CollapsedPaneTabs />
     </div>
   );
 }
