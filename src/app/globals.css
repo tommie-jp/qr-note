@@ -864,3 +864,11 @@ body:has([data-folder-pane]) [data-preview-pane],
 body:has([data-folder-pane]) [role="separator"][aria-orientation="horizontal"] {
   left: var(--folder-pane-w);
 }
+
+/* 下端に残す横のタブ (CollapsedPaneTabs) は、下のペインが出ている間は隠す —
+   そのペインの境界にタブがある (docs/86 §4-25)。下のペインはノートの器
+   (PreviewPane) と日の一覧 (DayPane) の 2 つが別々に出すので、構成からは
+   判らない。どちらも data-preview-pane を付けるので :has で見る */
+body:has([data-preview-pane]) [data-collapsed-tab="preview"] {
+  display: none;
+}

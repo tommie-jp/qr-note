@@ -253,4 +253,22 @@ test.describe('隠したペインのタブ', () => {
     const reloaded = (await page.getByRole('separator', { name: 'フォルダーの幅' }).locator('[data-pane-resizer-tab]').boundingBox())!
     expect(reloaded.y).toBeCloseTo(after.y, 0)
   })
+
+  test('2・3 ペインで下に何も開いていなくても下端に横のタブを出し、下のペインが出たら隠す', async ({ page }) => {
+    for (const panes of ['2', '3'] as const) {
+      await page.context().addCookies([{ name: 'panes', value: panes, url: BASE_URL }])
+      await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
+      const cell = page.locator('[data-search-results] [data-calendar] [data-day="2026-11-05"]')
+      await expectHydrated(cell)
+      const tab = page.locator('[data-collapsed-tab="preview"]')
+      await expect(tab).toBeVisible()
+      // 開く物が無いので、押しても構成は変わらない
+      await tab.click()
+      expect(await panesShown(page)).toBe(panes)
+
+      await cell.click()
+      await expect(page.getByRole('separator', { name: 'プレビューの高さ' }).last()).toBeVisible()
+      await expect(tab).toBeHidden()
+    }
+  })
 })

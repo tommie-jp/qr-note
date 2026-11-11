@@ -58,8 +58,8 @@ test("境界には濃いめのグレイの線を常に描く", () => {
   for (const kind of ["folder", "preview"] as const) {
     const html = renderToStaticMarkup(<PaneResizer kind={kind} />);
     expect(html).toContain("bg-gray-400");
-    // 掴んでいる間は青 (どの境界を動かしているか判る)
-    expect(html).toContain("group-active:bg-blue-600");
+    // 掴んでいる間も普段の灰色のまま (青くしない。docs/86 §4-25)
+    expect(html).not.toContain("group-active:bg-blue-600");
   }
 });
 

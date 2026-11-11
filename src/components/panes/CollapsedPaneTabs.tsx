@@ -48,17 +48,19 @@ interface Drag {
 // 隠した後も、タブを画面の端に半分だけ残す — フォルダーは左端に右半分、下のペインは
 // 下端に上半分。引き出して離すとその大きさでペインを戻し (2 文字・2 行を超えたら)、
 // 押すだけなら覚えている大きさで戻す。境界に沿った向き (縦のタブは上下、横のタブは
-// 左右) にも動かせ、位置は開いているときのタブと同じ所に覚える
+// 左右) にも動かせ、位置は開いているときのタブと同じ所に覚える。
+//
+// **タブは常に出す** (docs/86 §4-25)。全画面のノートの上にも出し、2・3 ペインで
+// 下に何も開いていない (ノートも日の一覧も無い) ときも下端に出す。そのときは
+// 開く物が無いので、引き出した高さを覚えるだけ (次に開くノートがその高さで出る)。
+// 下のペインが出ている間は、そのペインの境界のタブがあるので隠す (globals.css が
+// data-preview-pane を :has で見る。出す・出さないは DOM でしか判らない)
 export function CollapsedPaneTabs() {
-  const { mode, detailItemId } = usePaneMode();
-  // 1 ペインでノートを全画面に開いている間は出さない (ノートの上に被さる)
-  if (mode === "1" && detailItemId !== null) {
-    return null;
-  }
+  const { mode } = usePaneMode();
   return (
     <>
       {mode !== "3" && <CollapsedTab kind="folder" openMode="3" />}
-      {mode === "1" && <CollapsedTab kind="preview" openMode="2" />}
+      <CollapsedTab kind="preview" openMode={mode === "1" ? "2" : null} />
     </>
   );
 }
@@ -68,7 +70,8 @@ function CollapsedTab({
   openMode,
 }: {
   kind: PaneKind;
-  openMode: PaneMode;
+  // 戻す先の構成。null は構成を変えない (高さを覚えるだけ)
+  openMode: PaneMode | null;
 }) {
   // 引き出している間も共有の控えに流す (開いた境界のタブと同じ作り)
   const fraction = useTabPosition(kind);
@@ -86,6 +89,9 @@ function CollapsedTab({
 
   const open = (size: number) => {
     setPaneSize(kind, size);
+    if (openMode === null) {
+      return;
+    }
     void switchPaneMode(openMode, () => {
       startTransition(refreshServerView);
     });
@@ -156,16 +162,23 @@ function CollapsedTab({
           left: tabOffsetCss(fraction, "100vw"),
         };
 
-  const label = kind === "folder" ? "フォルダーを開く" : "下のペインを開く";
+  const label =
+    kind === "folder"
+      ? "フォルダーを開く"
+      : openMode === null
+        ? "下のペインの高さ"
+        : "下のペインを開く";
+  const hint =
+    openMode === null ? "引き出した高さで次のノートを開く" : "押すか引き出す";
   return (
     <>
       {/* 引き出している間は境界の線もタブについて動かす (docs/86 §4-23)。
-        開いた境界をドラッグしているときと同じ青の線。押せない飾り */}
+        普段の境界と同じ灰色の線。押せない飾り */}
       {drag?.moved && <DragLine kind={kind} drag={drag} />}
       <button
         type="button"
         aria-label={label}
-        title={`${label} (押すか引き出す)`}
+        title={`${label} (${hint})`}
         data-collapsed-tab={kind}
         style={drag?.moved ? { ...restStyle, ...dragStyle(drag) } : restStyle}
         className={`group fixed z-20 touch-none ${
