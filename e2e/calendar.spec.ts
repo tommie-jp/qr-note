@@ -237,7 +237,7 @@ test.describe('予定カレンダー', () => {
     await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
   })
 
-  test('月の左右の余白はフォルダーペインの左右の余白にも効き、読み込み直しても残る', async ({ page }) => {
+  test('月の左右の余白はフォルダーペイン・日の一覧のペインにも効き、読み込み直しても残る', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await page.context().addCookies([{ name: 'panes', value: '3', url: BASE_URL }])
     await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
@@ -251,6 +251,11 @@ test.describe('予定カレンダー', () => {
     await group.getByRole('button', { name: '0', exact: true }).click()
     await expect(folder).toHaveCSS('padding-left', '0px')
     await expect(folder).toHaveCSS('padding-right', '0px')
+    // 日の一覧のペインも同じ余白 (docs/126 §1-25)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    await expect(pane).toHaveCSS('padding-left', '0px')
+    await expect(pane).toHaveCSS('padding-right', '0px')
 
     // 一覧表示に戻して読み込み直しても、先回りで当たる
     await page.goto(`/?q=${encodeURIComponent(QUERY)}`)

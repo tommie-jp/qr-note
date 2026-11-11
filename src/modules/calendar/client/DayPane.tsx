@@ -86,7 +86,8 @@ export function DayPane({
         data-preview-pane=""
         data-note-pane=""
         aria-label={`${dayLabel(day)} の予定`}
-        className={`fixed inset-x-0 m-0 overflow-y-auto bg-white px-safe pb-safe ${PANE_BOX_CLASS.pane}`}
+        // 左右の余白は月の余白の設定と同じ (--pane-side-pad。docs/126 §1-25)。切り欠きの内へは寄せない
+        className={`fixed inset-x-0 m-0 overflow-y-auto bg-white pr-[max(var(--pane-side-pad,1rem),env(safe-area-inset-right))] pb-safe pl-[max(var(--pane-side-pad,1rem),env(safe-area-inset-left))] ${PANE_BOX_CLASS.pane}`}
       >
         <div className="pb-3">
           <DayEventList
