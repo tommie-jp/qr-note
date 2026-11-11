@@ -22,10 +22,10 @@ import {
 // 先回りして済ませており、ここはその続きから始める
 // (useState の遅延初期化で同じ値を読むので、両者は必ず一致する)。
 //
-// size-9 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-9) と揃える。ここだけ
+// h-5 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-5) と揃える。ここだけ
 // 44px を残すと、メニューの中でこの行だけ背が高くなり間隔がガタつく
 const STEP_BUTTON_CLASS =
-  "inline-flex size-9 items-center justify-center rounded text-xl text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
+  "inline-flex h-5 w-9 items-center justify-center rounded text-xl leading-none text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
 
 function readStoredScale(): number {
   try {
@@ -102,7 +102,7 @@ export function TextSizeMenuItem() {
           type="button"
           aria-label={`${noteFontScaleLabel(scale)}。押すと等倍に戻す`}
           onClick={() => apply(DEFAULT_NOTE_FONT_SCALE)}
-          className="inline-flex min-h-9 min-w-14 items-center justify-center rounded text-center tabular-nums transition-colors hover:bg-gray-100 active:bg-gray-200"
+          className="inline-flex h-5 min-w-14 items-center justify-center rounded text-center tabular-nums transition-colors hover:bg-gray-100 active:bg-gray-200"
         >
           {noteFontScaleLabel(scale)}
         </button>

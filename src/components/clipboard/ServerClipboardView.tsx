@@ -157,7 +157,7 @@ export function ServerClipboardView({
             type="button"
             onClick={onClear}
             disabled={busy !== null}
-            className="min-h-8 shrink-0 px-2 text-sm font-medium text-red-700 disabled:opacity-60"
+            className="min-h-5 shrink-0 px-2 text-sm font-medium text-red-700 disabled:opacity-60"
           >
             消す
           </button>

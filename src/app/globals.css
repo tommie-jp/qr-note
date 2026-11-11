@@ -872,3 +872,17 @@ body:has([data-folder-pane]) [role="separator"][aria-orientation="horizontal"] {
 body:has([data-preview-pane]) [data-collapsed-tab="preview"] {
   display: none;
 }
+
+/* スクロールバーを隠す (docs/11 §6-8。ハンバーガーメニューの「スクロールバー」、
+   端末ごと)。既定は隠す — 3 ペインでは各ペインのバーが縦に並んで狭い画面の幅を
+   食う。隠してもホイール・指・キーでは動く。値は <head> の先回りスクリプトが
+   html の data-scrollbars に書く。Firefox・新しい Chromium は scrollbar-width、
+   Safari は ::-webkit-scrollbar で消える */
+html[data-scrollbars="hidden"],
+html[data-scrollbars="hidden"] * {
+  scrollbar-width: none;
+}
+
+html[data-scrollbars="hidden"] ::-webkit-scrollbar {
+  display: none;
+}

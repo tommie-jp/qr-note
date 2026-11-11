@@ -256,3 +256,13 @@ export function StopwatchIcon() {
     </StrokeIcon>
   );
 }
+
+// スクロールバー: 縦の溝とつまみ (塗り)。スクロールの話だと判る最小の絵
+export function ScrollbarIcon() {
+  return (
+    <StrokeIcon className="text-slate-600">
+      <rect x="8" y="3" width="8" height="18" rx="2" />
+      <rect x="10" y="8" width="4" height="6" rx="1" {...TINT} />
+    </StrokeIcon>
+  );
+}

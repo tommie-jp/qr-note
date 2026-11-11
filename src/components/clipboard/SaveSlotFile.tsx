@@ -32,7 +32,7 @@ interface SaveSlotFileProps {
   readonly summary?: string;
 }
 
-const SMALL_CLASS = "flex min-h-8 shrink-0 items-center px-2 text-sm font-medium text-sky-700";
+const SMALL_CLASS = "flex min-h-5 shrink-0 items-center px-2 text-sm font-medium text-sky-700";
 
 export function SaveSlotFile({ slot, now, variant, summary }: SaveSlotFileProps) {
   // 共有が唯一の出口で、実際に動く iOS でだけ共有にする。サーバ描画では false

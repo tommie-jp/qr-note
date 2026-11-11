@@ -24,10 +24,10 @@ import {
 // 失敗しても色は戻さない — 見えている色と押した色が食い違うほうが混乱する。
 // 食い違いは下の文言で伝え、次の読み込みで元へ戻ることを含みにする。
 
-// 色見本 1 つぶんのボタン。行の高さ (min-h-9) と同じ 36px 角にして、
+// 色見本 1 つぶんのボタン。行の高さ (min-h-5) と同じ高さ 20px にして、
 // 行だけ背が高くならないようにする (TextSizeMenuItem の ＋ / − と同じ)
 const SWATCH_BUTTON_CLASS =
-  "inline-flex size-9 items-center justify-center rounded transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:opacity-60";
+  "inline-flex h-5 w-9 items-center justify-center rounded transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:opacity-60";
 
 // 保存を諦めるまで。1 行を upsert するだけの口なので、これだけ待って
 // 返らなければ電波か鯖の問題で、待ち続けても変わらない
@@ -39,14 +39,14 @@ function Swatch({ tint, selected }: { tint: RowTint; selected: boolean }) {
   // どちらが選択の印か読めない。濃い枠を 1 本だけ外に回す
   return (
     <span
-      className={`inline-flex rounded-full border-2 p-0.5 ${
+      className={`inline-flex rounded-full border-2 p-px ${
         selected ? "border-gray-800" : "border-transparent"
       }`}
     >
       {/* 中の丸は「一覧の行がこの色になる」の見本。地色だけだと白い紙の上で
           輪郭が消えるので、画像タイルで使う枠色 (400 番台) で縁取る */}
       <span
-        className="size-4 rounded-full border"
+        className="size-3 rounded-full border"
         style={{ backgroundColor: tint.bg, borderColor: tint.border }}
       />
     </span>

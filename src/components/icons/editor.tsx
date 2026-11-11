@@ -102,9 +102,10 @@ export function OcrIcon() {
 
 // シークレット挿入: 南京錠。掛け金 (上の弧) と本体で「閉じている」を示す。
 // 鍵 (KeyIcon) と紛らわしくならないよう、あちらは鍵そのもの、こちらは錠前
-export function LockIcon() {
+// メニューの行 (20px) では regular で使う
+export function LockIcon({ size = "large" }: { size?: "regular" | "large" }) {
   return (
-    <StrokeIcon size="large">
+    <StrokeIcon size={size}>
       <rect {...TINT} x="4" y="10" width="16" height="10" rx="2" />
       <path d="M8 10V7a4 4 0 0 1 8 0v3" />
     </StrokeIcon>

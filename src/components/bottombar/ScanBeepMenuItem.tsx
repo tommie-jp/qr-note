@@ -29,10 +29,10 @@ import {
 // 本文が変わるのが見えるが、音量は見えない。閉じてスキャンするまで結果が
 // 判らないのでは選べない。押した操作の中で鳴らすので iOS でも鳴る
 
-// size-9 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-9) と揃える
+// h-5 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-5) と揃える
 // (TextSizeMenuItem と同じ)
 const STEP_BUTTON_CLASS =
-  "inline-flex size-9 items-center justify-center rounded text-xl text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
+  "inline-flex h-5 w-9 items-center justify-center rounded text-xl leading-none text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
 
 function previewBeep(level: ScanBeepLevel): void {
   if (level === "off" || typeof Audio === "undefined") {
@@ -93,7 +93,7 @@ export function ScanBeepMenuItem() {
           type="button"
           aria-label={`${label}。押すと${scanBeepLabel(DEFAULT_SCAN_BEEP_LEVEL)}に戻す`}
           onClick={() => apply(DEFAULT_SCAN_BEEP_LEVEL)}
-          className="inline-flex min-h-9 min-w-14 items-center justify-center rounded text-center transition-colors hover:bg-gray-100 active:bg-gray-200"
+          className="inline-flex h-5 min-w-14 items-center justify-center rounded text-center transition-colors hover:bg-gray-100 active:bg-gray-200"
         >
           {label}
         </button>

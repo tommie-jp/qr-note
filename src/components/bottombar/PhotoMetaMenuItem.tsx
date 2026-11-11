@@ -55,9 +55,9 @@ export function __setSavedPhotoMetaModeForTest(mode: PhotoMetaMode | null): void
   rememberSaved(mode);
 }
 
-// 2 つで 1 組の切り替え。行の高さ (min-h-9) に収まるよう 32px にする
+// 2 つで 1 組の切り替え。枠 (上下 1px) と合わせて行の高さ (min-h-5) の 20px に収める
 const OPTION_BUTTON_CLASS =
-  "min-h-8 px-3 text-sm transition-colors disabled:opacity-60";
+  "h-4.5 px-3 text-sm leading-none transition-colors disabled:opacity-60";
 
 export function PhotoMetaMenuItem({ value }: { value: PhotoMetaMode }) {
   const [mode, setMode] = useState<PhotoMetaMode>(() => savedInThisTab ?? value);

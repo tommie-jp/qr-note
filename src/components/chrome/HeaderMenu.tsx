@@ -204,7 +204,7 @@ export function HeaderMenu({
               role="menu"
               tabIndex={-1}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[calc(100dvh-max(0.25rem,env(safe-area-inset-top))-2.5rem)] max-w-2xl flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-t-2xl border border-gray-300 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.15)] motion-safe:animate-sheet-up landscape-phone:max-w-4xl [&>*]:shrink-0"
+              className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[calc(100dvh-max(0.25rem,env(safe-area-inset-top))-2.5rem)] max-w-2xl flex-col gap-0 overflow-y-auto overscroll-contain rounded-t-2xl border border-gray-300 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.15)] motion-safe:animate-sheet-up landscape-phone:max-w-4xl [&>*]:shrink-0"
             >
               {/* つまみ。掴んで動かせるわけではないが、この形が
                   「下から出た一時的なシート」の合図として通じている */}

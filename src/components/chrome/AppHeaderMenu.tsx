@@ -22,6 +22,7 @@ import { ServerClipboardMenuItems } from "@/components/clipboard/ServerClipboard
 import { PhotoMetaMenuItem } from "@/components/bottombar/PhotoMetaMenuItem";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
 import { ScanBeepMenuItem } from "@/components/bottombar/ScanBeepMenuItem";
+import { ScrollbarMenuItem } from "@/components/bottombar/ScrollbarMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { isAdminUser } from "@/lib/auth/admin";
@@ -86,6 +87,9 @@ export function AppHeaderMenu({
           選択色のように「保存する相手」を要らないので、ログイン状態・
           デモに依らず出す */}
       <ScanBeepMenuItem />
+      {/* スクロールバーを出すか (docs/11 §6-8)。端末ごとの見た目の好みなので、
+          テキストサイズと同じくログイン状態・デモに依らず出す */}
+      <ScrollbarMenuItem />
       {user ? (
         <>
           {/* デモでは設定系の導線を出さない (docs/38-デモモード計画.md §4)。
@@ -163,7 +167,7 @@ export function AppHeaderMenu({
                   解錠はノートを開いたときにも促されるが、初回設定と
                   復旧キーの入口はここだけ */}
               <Link href={SECRET_SETTINGS_PATH} className={HEADER_MENU_ITEM_CLASS}>
-                <LockIcon />
+                <LockIcon size="regular" />
                 シークレット
               </Link>
               {/* 写真の撮影情報 (docs/113-写真の撮影情報削除計画.md §4)。

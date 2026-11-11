@@ -21,6 +21,8 @@ const PROP_VARIANTS: Readonly<
   ScanIcon: [{}, { sizeClass: "size-5 shrink-0" }],
   ImageSearchIcon: [{}, { sizeClass: "size-5 shrink-0" }],
   TrashIcon: [{}, { small: true }],
+  // メニューの行 (20px) では regular で使う
+  LockIcon: [{}, { size: "regular" }],
   SpeakerIcon: [{ speaking: false }, { speaking: true }],
   PaneModeIcon: [{ mode: "3" }, { mode: "2" }, { mode: "1" }],
   TriangleIcon: [{ direction: "back" }, { direction: "forward" }],

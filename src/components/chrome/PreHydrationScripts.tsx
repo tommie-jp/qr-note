@@ -1,6 +1,7 @@
 import { NOTE_FONT_SCALE_INIT_SCRIPT } from "@/lib/prefs/noteFontScale";
 import { PANE_SIZE_INIT_SCRIPT } from "@/lib/prefs/paneSize";
 import { PANE_SIDE_PADDING_INIT_SCRIPT } from "@/lib/prefs/paneSidePadding";
+import { SCROLLBARS_INIT_SCRIPT } from "@/lib/prefs/scrollbars";
 
 // root layout の <head> に置く、hydration より前に同期で走るインラインスクリプト。
 // どちらも端末に置いた好みを初回描画の前に html へ書き足す。書き足された
@@ -25,6 +26,9 @@ export function PreHydrationScripts({ nonce }: { nonce?: string }) {
       <script nonce={nonce} dangerouslySetInnerHTML={{ __html: PANE_SIZE_INIT_SCRIPT }} />
       {/* ペインの左右の余白 (docs/86 §4-20。カレンダーの設定で選ぶ)。同じ理由 */}
       <script nonce={nonce} dangerouslySetInnerHTML={{ __html: PANE_SIDE_PADDING_INIT_SCRIPT }} />
+      {/* スクロールバーを出すか (docs/11 §6-8。メニューで選ぶ)。同じ理由 — 後から
+          消すとバーの幅のぶん中身が横に揺れる */}
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: SCROLLBARS_INIT_SCRIPT }} />
     </>
   );
 }
