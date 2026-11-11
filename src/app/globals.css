@@ -886,3 +886,10 @@ html[data-scrollbars="hidden"] * {
 html[data-scrollbars="hidden"] ::-webkit-scrollbar {
   display: none;
 }
+
+/* キーボードの上へ持ち上げた下部ペイン (docs/126 §1-35)。ふだんの z-0 のままだと、
+   入り込んだカレンダーの見出し (sticky z-10) やマス目の下に潜る。ヘッダー (z-20) と
+   境界 (z-20) よりは下。目印は lib/client/keyboardInset.ts が html に付け外しする */
+html[data-keyboard-lift] [data-preview-pane] {
+  z-index: 15;
+}

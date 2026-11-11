@@ -9,6 +9,10 @@ export const KEYBOARD_INSET_VAR = "--keyboard-inset";
 // キーボードが出ている間の下部ペインの高さの上限 (docs/126 §1-34)。持ち上げたペインの
 // 上端がヘッダーの下より上へ出ないよう、見えている範囲からヘッダーの分を引いた高さ
 export const KEYBOARD_PANE_MAX_VAR = "--keyboard-pane-max";
+// 持ち上げている間の目印 (html の属性)。下部ペインはふだん重なり順が一番下 (z-0) で、
+// 一覧に場所を空けてもらっている。持ち上げるとカレンダーの見出し (sticky z-10) や
+// マス目の上に入り込み、その下に潜った (§1-35)。globals.css がこの目印でペインを上げる
+export const KEYBOARD_LIFT_ATTR = "data-keyboard-lift";
 
 // headerBottom … ヘッダーの下端 (レイアウトの座標)。送られて見えている範囲の上端が
 // それより下なら、ヘッダーは見えていないので引かない
@@ -43,6 +47,7 @@ export function useKeyboardInset(active: boolean, onChange?: () => void): void {
     const update = () => {
       const inset = keyboardInsetPx(window.innerHeight, vv);
       root.style.setProperty(KEYBOARD_INSET_VAR, `${inset}px`);
+      root.toggleAttribute(KEYBOARD_LIFT_ATTR, inset > 0);
       if (vv !== null && inset > 0) {
         const header = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
         // getBoundingClientRect はレイアウトの座標なので、そのまま比べられる
@@ -60,6 +65,7 @@ export function useKeyboardInset(active: boolean, onChange?: () => void): void {
       vv?.removeEventListener("scroll", update);
       root.style.removeProperty(KEYBOARD_INSET_VAR);
       root.style.removeProperty(KEYBOARD_PANE_MAX_VAR);
+      root.removeAttribute(KEYBOARD_LIFT_ATTR);
     };
   }, [active, onChange]);
 }
