@@ -16,6 +16,7 @@ import {
 import type { PaneMode } from "@/lib/prefs/paneMode";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import {
+  DIVIDER_LINE_COLOR,
   HANDLE_TAB,
   HANDLE_TAB_SKIN,
   headerBottomPx,
@@ -232,7 +233,7 @@ function CollapsedTab({
   );
 }
 
-// 引き出している間の境界の線。縦はヘッダーの下から下部バーの上まで、横は画面の幅いっぱい
+// 引き出している間の境界の線。普段の境界と同じ色・太さで描く。縦はヘッダーの下から下部バーの上まで、横は画面の幅いっぱい
 function DragLine({ kind, drag }: { kind: PaneKind; drag: Drag }) {
   const style: React.CSSProperties =
     kind === "folder"
@@ -245,7 +246,7 @@ function DragLine({ kind, drag }: { kind: PaneKind; drag: Drag }) {
       aria-hidden="true"
       data-collapsed-drag-line={kind}
       style={style}
-      className={`pointer-events-none fixed z-20 bg-blue-600 ${
+      className={`pointer-events-none fixed z-20 ${DIVIDER_LINE_COLOR} ${
         kind === "folder"
           ? "top-[var(--header-h)] bottom-[var(--bottom-bar-h)] w-0.5 -translate-x-1/2"
           : "inset-x-0 h-0.5 -translate-y-1/2"

@@ -48,8 +48,10 @@ const HANDLE_CLASS: Record<PaneKind, string> = {
 // 掴む帯そのものは透明のまま。**境界の線は中の 2px が描く** (docs/86 §4-10) —
 // 帯 (8px) を塗ると太い色帯になって、ペインの枠と二重に見える。
 // 触れている間だけ帯を薄く色付けて「掴める場所」を示す
+// 動かしている間は色を付けない (普段の境界のまま。ペインの継ぎ目が動いて見える)
 const HANDLE_SKIN =
-  "group flex bg-transparent transition-colors hover:bg-blue-400/30 active:bg-blue-500/40 focus-visible:bg-blue-400/40 focus-visible:outline-none";
+  "group flex bg-transparent transition-colors focus-visible:bg-blue-400/40 focus-visible:outline-none";
+const HANDLE_SKIN_IDLE = "hover:bg-blue-400/30";
 
 // 境界の線。**濃いめのグレイで常に見せる** — ペインの継ぎ目が判らないと、
 // どこを掴めば動かせるのかも判らない。掴んでいる間は青にして、いま動かして
@@ -100,8 +102,10 @@ function resultsTopPx(): number {
   return box?.top ?? readCssPx("--header-h", 0);
 }
 
-const HANDLE_LINE_SKIN =
-  "bg-gray-400 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600";
+// 境界の線の色。隠したペインの引き出し中の線 (CollapsedPaneTabs) もこれで描く
+export const DIVIDER_LINE_COLOR = "bg-gray-400";
+const HANDLE_LINE_SKIN = `${DIVIDER_LINE_COLOR} transition-colors`;
+const HANDLE_LINE_SKIN_IDLE = "group-hover:bg-blue-500";
 
 export function readCssPx(name: string, fallback: number): number {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name);
@@ -323,7 +327,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       title={`${spec.label} (ドラッグか矢印キーで調整、Enter で既定に戻す。ダブルクリックか端まで引き切って離すとペインを隠す)`}
       data-collapse={collapse?.hide}
       className={`${HANDLE_CLASS[kind]} ${HANDLE_SKIN} ${
-        dragging ? "bg-blue-500/50" : ""
+        dragging ? "" : HANDLE_SKIN_IDLE
       }`}
       onPointerDown={(event) => {
         // 掴んだ瞬間は動かさない (押しただけで寸法が飛ばないように)。
@@ -361,7 +365,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       <span
         aria-hidden
         className={`${HANDLE_LINE[kind]} ${HANDLE_LINE_SKIN} ${
-          dragging ? "bg-blue-600" : ""
+          dragging ? "" : HANDLE_LINE_SKIN_IDLE
         }`}
       />
       <span
