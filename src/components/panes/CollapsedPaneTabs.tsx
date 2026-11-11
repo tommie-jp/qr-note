@@ -33,12 +33,16 @@ import {
   useTabPosition,
 } from "@/components/panes/paneTabPosition";
 
-// 画面の端に半分だけ出したタブの、指で触れる範囲 (docs/86 §4-26)。見えている半分は
-// 10px しかないので、透明な ::before を画面の内側へ延ばし、画面の上で 44px にする
-// (タブの箱は 20px で半分が画面の外。内側へ 34px 足すと 10 + 34 = 44px)
+// 画面の端のタブは**全体を見せる** (docs/86 §4-27)。半分だけ (見えるのは 10px) では、
+// 触れる範囲を広げても iPhone で掴みにくかった。タブの細い向きの半分 (w-5 / h-5 の半分) だけ
+// 画面の内側へ寄せ、中心をそこに置く (ドラッグ中に指へ中心を合わせる作りと同じ)
+const TAB_HALF_REM = 0.625;
+
+// 指で触れる範囲 (docs/86 §4-26)。透明な ::before を画面の内側へ 24px 延ばし、
+// 画面の上で 20 + 24 = 44px (iOS の標準の的) にする
 const COLLAPSED_TAB_HIT: Record<PaneKind, string> = {
-  folder: "before:absolute before:inset-y-0 before:left-0 before:-right-[34px]",
-  preview: "before:absolute before:inset-x-0 before:bottom-0 before:-top-[34px]",
+  folder: "before:absolute before:inset-y-0 before:left-0 before:-right-6",
+  preview: "before:absolute before:inset-x-0 before:bottom-0 before:-top-6",
 };
 
 // 押しただけ (ドラッグでない) とみなす動きの量 (px)
@@ -53,8 +57,8 @@ interface Drag {
 }
 
 // 隠したペインのタブ (docs/86 §4-21)。境界を引き切って (またはダブルクリックで) ペインを
-// 隠した後も、タブを画面の端に半分だけ残す — フォルダーは左端に右半分、下のペインは
-// 下端に上半分。引き出して離すとその大きさでペインを戻し (2 文字・2 行を超えたら)、
+// 隠した後も、タブを画面の端に残す — フォルダーは左端、下のペインは下端
+// (はじめは半分だけ見せていたが、iPhone で掴みにくいので全体を見せる。§4-27)。引き出して離すとその大きさでペインを戻し (2 文字・2 行を超えたら)、
 // 押すだけなら覚えている大きさで戻す。境界に沿った向き (縦のタブは上下、横のタブは
 // 左右) にも動かせ、位置は開いているときのタブと同じ所に覚える。
 //
@@ -150,23 +154,28 @@ function CollapsedTab({
     }
   };
 
-  // 引き出している間はタブが指について動く。画面の外へは出さない (端で半分残る)
-  const dragStyle = (d: Drag): React.CSSProperties =>
-    kind === "folder"
-      ? { left: Math.min(window.innerWidth, Math.max(0, d.x)) }
+  // 引き出している間はタブが指について動く。画面の外へは出さない (端でも全体が見える)
+  const dragStyle = (d: Drag): React.CSSProperties => {
+    const half = TAB_HALF_REM * readCssPx("font-size", 16);
+    return kind === "folder"
+      ? { left: Math.min(window.innerWidth - half, Math.max(half, d.x)) }
       : {
-          top: Math.min(window.innerHeight, Math.max(headerBottomPx(), d.y)),
+          top: Math.min(
+            window.innerHeight - readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX) - half,
+            Math.max(headerBottomPx() + half, d.y),
+          ),
           bottom: "auto",
         };
+  };
 
   const restStyle: React.CSSProperties =
     kind === "folder"
       ? {
-          left: 0,
+          left: `${TAB_HALF_REM}rem`,
           top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
         }
       : {
-          bottom: "var(--bottom-bar-h)",
+          bottom: `calc(var(--bottom-bar-h) + ${TAB_HALF_REM}rem)`,
           left: tabOffsetCss(fraction, "100vw"),
         };
 

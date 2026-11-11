@@ -179,12 +179,12 @@ test.describe('境界の引き切りでペインを隠す', () => {
   })
 })
 
-// 隠したペインのタブは画面の端に半分残り、引き出すか押すと戻る。タブは境界に沿って
+// 隠したペインのタブは画面の端に全体が見える形で残り (docs/86 §4-27)、引き出すか押すと戻る。タブは境界に沿って
 // 動かせ、画面の外へは出ない (docs/86 §4-21)
 test.describe('隠したペインのタブ', () => {
   const panesShown = (page: Page) => page.locator('[data-panes]').getAttribute('data-panes')
 
-  test('フォルダーを隠すと左端にタブの右半分が残り、引き出すとその幅で 3 ペインに戻る', async ({ page }) => {
+  test('フォルダーを隠すと左端にタブが残り、引き出すとその幅で 3 ペインに戻る', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await openWithPanes(page, '3')
     await page.getByRole('separator', { name: 'フォルダーの幅' }).locator('[data-pane-resizer-tab]').dblclick()
@@ -192,8 +192,8 @@ test.describe('隠したペインのタブ', () => {
 
     const tab = page.getByRole('button', { name: 'フォルダーを開く' })
     const box = (await tab.boundingBox())!
-    // 幅 20px のタブの右半分だけが画面に入る
-    expect(box.x).toBeCloseTo(-box.width / 2, 0)
+    // 幅 20px のタブが画面の左端にぴったり全体で入る
+    expect(box.x).toBeCloseTo(0, 0)
 
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2)
     await page.mouse.down()
@@ -210,7 +210,7 @@ test.describe('隠したペインのタブ', () => {
     await expect(tab).toHaveCount(0)
   })
 
-  test('1 ペインでは下端にタブの上半分が残り、押すと 2 ペインに戻る', async ({ page }) => {
+  test('1 ペインでは下端にタブが残り、押すと 2 ペインに戻る', async ({ page }) => {
     await openWithPanes(page, '2')
     await page.getByRole('separator', { name: 'プレビューの高さ' }).last().locator('[data-pane-resizer-tab]').dblclick()
     await expect.poll(() => panesShown(page)).toBe('1')
@@ -220,8 +220,8 @@ test.describe('隠したペインのタブ', () => {
     const bar = await page.evaluate(() =>
       Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
     )
-    // タブの中心が下部バーの上端 (= 下のペインがあった所の下端) に載る
-    expect(box.y + box.height / 2).toBeCloseTo(page.viewportSize()!.height - bar, 0)
+    // タブの下端が下部バーの上端 (= 下のペインがあった所の下端) に載り、全体が見える
+    expect(box.y + box.height).toBeCloseTo(page.viewportSize()!.height - bar, 0)
 
     await tab.click()
     await expect.poll(() => panesShown(page)).toBe('2')
