@@ -25,6 +25,7 @@ import {
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
 import {
   TAB_LENGTH_REM,
+  setLiveTabPosition,
   setTabPosition,
   tabFraction,
   tabOffsetCss,
@@ -68,11 +69,11 @@ function CollapsedTab({
   kind: PaneKind;
   openMode: PaneMode;
 }) {
-  const storedTab = useTabPosition(kind);
+  // 引き出している間も共有の控えに流す (開いた境界のタブと同じ作り)
+  const fraction = useTabPosition(kind);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const [liveTab, setLiveTab] = useState<number | null>(null);
+  const liveTabRef = useRef<number | null>(null);
   const dragRef = useRef<Drag | null>(null);
-  const fraction = liveTab ?? storedTab;
 
   const geometry = (x: number, y: number) => ({
     clientX: x,
@@ -106,9 +107,9 @@ function CollapsedTab({
   };
 
   const finish = (d: Drag) => {
-    if (liveTab !== null) {
-      setTabPosition(kind, liveTab);
-      setLiveTab(null);
+    if (liveTabRef.current !== null) {
+      setTabPosition(kind, liveTabRef.current);
+      liveTabRef.current = null;
     }
     if (!d.moved) {
       open(clampPaneSize(kind, localStorageSize(kind)));
@@ -197,7 +198,8 @@ function CollapsedTab({
           dragRef.current = d;
           setDrag(d);
           if (moved) {
-            setLiveTab(alongFraction(event.clientX, event.clientY));
+            liveTabRef.current = alongFraction(event.clientX, event.clientY);
+            setLiveTabPosition(kind, liveTabRef.current);
           }
         }}
         onPointerUp={() => {
@@ -211,7 +213,11 @@ function CollapsedTab({
         onPointerCancel={() => {
           dragRef.current = null;
           setDrag(null);
-          setLiveTab(null);
+          // 取り消されても、動かした所にタブを残す
+          if (liveTabRef.current !== null) {
+            setTabPosition(kind, liveTabRef.current);
+            liveTabRef.current = null;
+          }
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {

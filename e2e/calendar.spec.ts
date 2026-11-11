@@ -502,6 +502,27 @@ test.describe('予定カレンダー', () => {
     await expect(pane).toBeVisible()
   })
 
+  test('境界が 2 本重なっても、タブは動かしている間から一緒に動く (docs/86 §4-24)', async ({ page }) => {
+    await openCalendar(page)
+    // 予定のノートを下のペインに開いてから、日の一覧をその上に出す
+    await page.evaluate((url) => window.history.pushState(null, '', url), noteHref('&tab=event'))
+    await expect(page.getByRole('form', { name: '予定' })).toBeVisible()
+    await dayCell(page, DAY).click()
+    await expect(dayPane(page)).toBeVisible()
+    const tabs = page.locator('[role="separator"][aria-orientation="horizontal"] [data-pane-resizer-tab]')
+    // ノートのペインの境界と日の一覧のペインの境界
+    await expect(tabs).toHaveCount(2)
+    const grab = (await tabs.last().boundingBox())!
+    await page.mouse.move(grab.x + grab.width / 2, grab.y + grab.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(grab.x + grab.width / 2 - 150, grab.y + grab.height / 2, { steps: 6 })
+    // 離す前から両方のタブが同じ所にある
+    const [first, second] = [(await tabs.first().boundingBox())!, (await tabs.last().boundingBox())!]
+    expect(second.x).toBeCloseTo(grab.x - 150, 0)
+    expect(first.x).toBeCloseTo(second.x, 0)
+    await page.mouse.up()
+  })
+
   test('日の予定のペインも境界をドラッグして高さを変えられる', async ({ page }) => {
     // Arrange: ノートを開いていない (ノートのペインの境界が無い) カレンダー
     await openCalendar(page)

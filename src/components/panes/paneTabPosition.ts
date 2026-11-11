@@ -49,6 +49,21 @@ function read(kind: PaneKind): number {
   }
 }
 
+function notify(): void {
+  for (const listener of listeners) {
+    listener()
+  }
+}
+
+// ドラッグ中の位置。端末にはまだ書かず、同じ境界のタブすべてに流す — カレンダーの
+// 日の一覧のペインはノートのペインと境界が 2 本重なり、片方の中だけで動かすと
+// もう片方のタブが古い位置に残る (docs/86 §4-24)
+export function setLiveTabPosition(kind: PaneKind, fraction: number): void {
+  memory.set(kind, clampFraction(fraction))
+  notify()
+}
+
+// 離したとき。端末に覚える
 export function setTabPosition(kind: PaneKind, fraction: number): void {
   const value = clampFraction(fraction)
   memory.set(kind, value)
@@ -57,9 +72,7 @@ export function setTabPosition(kind: PaneKind, fraction: number): void {
   } catch {
     // 覚えられなくてもこのセッションの間は保つ
   }
-  for (const listener of listeners) {
-    listener()
-  }
+  notify()
 }
 
 function subscribe(listener: () => void): () => void {

@@ -18,6 +18,7 @@ import { switchPaneMode } from "@/components/panes/switchPaneMode";
 import { listHrefFromItemUrl, notifyPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
 import {
   TAB_LENGTH_REM,
+  setLiveTabPosition,
   setTabPosition,
   tabFraction,
   tabOffsetCss,
@@ -187,9 +188,10 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
   const startRef = useRef<number>(spec.default);
   // 引き切っていま離すと隠すなら、その中身。ドラッグ中だけ
   const [collapse, setCollapse] = useState<PaneCollapse | null>(null);
-  // 境界に沿ったタブの位置。掴んで動かしている間は live、離したら覚える
-  const storedTab = useTabPosition(kind);
-  const [liveTab, setLiveTab] = useState<number | null>(null);
+  // 境界に沿ったタブの位置。動かしている間も共有の控えに流す (重なった境界のタブも動く)
+  const tabPosition = useTabPosition(kind);
+  // 動かしている間の最後の位置 (離したら覚える)
+  const liveTabRef = useRef<number | null>(null);
   // タブを掴んでドラッグしているか (帯の他の所を掴んだときはタブを動かさない)
   const grabbedTabRef = useRef(false);
 
@@ -227,11 +229,12 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
     if (grabbedTabRef.current) {
       const band = (event.currentTarget as HTMLElement).getBoundingClientRect();
       const tabPx = TAB_LENGTH_REM * geometry.rootFontSizePx;
-      setLiveTab(
+      const fraction =
         kind === "folder"
           ? tabFraction(event.clientY, band.top, band.height, tabPx)
-          : tabFraction(event.clientX, band.left, band.width, tabPx),
-      );
+          : tabFraction(event.clientX, band.left, band.width, tabPx);
+      liveTabRef.current = fraction;
+      setLiveTabPosition(kind, fraction);
     }
     const next = paneCollapse(kind, { ...geometry, resultsTopPx: resultsTopPx() }, currentPaneMode());
     if (next?.hide !== collapse?.hide) {
@@ -264,9 +267,9 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
     setCollapse(null);
     document.body.style.removeProperty("user-select");
     document.body.style.removeProperty("cursor");
-    if (liveTab !== null) {
-      setTabPosition(kind, liveTab);
-      setLiveTab(null);
+    if (liveTabRef.current !== null) {
+      setTabPosition(kind, liveTabRef.current);
+      liveTabRef.current = null;
     }
     grabbedTabRef.current = false;
     // 取り消し (pointercancel) では隠さない
@@ -364,7 +367,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       <span
         aria-hidden
         data-pane-resizer-tab=""
-        style={tabStyle(kind, liveTab ?? storedTab)}
+        style={tabStyle(kind, tabPosition)}
         className={`absolute ${HANDLE_TAB_PLACE[kind]} ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN} ${
           collapse !== null ? HANDLE_TAB_COLLAPSE : dragging ? "border-blue-600 bg-blue-100 text-blue-700" : ""
         }`}
