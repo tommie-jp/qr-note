@@ -61,7 +61,13 @@ export function CollapsedPaneTabs() {
   );
 }
 
-function CollapsedTab({ kind, openMode }: { kind: PaneKind; openMode: PaneMode }) {
+function CollapsedTab({
+  kind,
+  openMode,
+}: {
+  kind: PaneKind;
+  openMode: PaneMode;
+}) {
   const storedTab = useTabPosition(kind);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [liveTab, setLiveTab] = useState<number | null>(null);
@@ -89,7 +95,12 @@ function CollapsedTab({ kind, openMode }: { kind: PaneKind; openMode: PaneMode }
     const tabPx = TAB_LENGTH_REM * g.rootFontSizePx;
     if (kind === "folder") {
       const top = headerBottomPx();
-      return tabFraction(y, top, window.innerHeight - g.bottomBarPx - top, tabPx);
+      return tabFraction(
+        y,
+        top,
+        window.innerHeight - g.bottomBarPx - top,
+        tabPx,
+      );
     }
     return tabFraction(x, 0, window.innerWidth, tabPx);
   };
@@ -116,7 +127,8 @@ function CollapsedTab({ kind, openMode }: { kind: PaneKind; openMode: PaneMode }
     const openedEnough =
       kind === "folder"
         ? d.x > COLLAPSE_FOLDER_CHARS * g.rootFontSizePx
-        : window.innerHeight - g.bottomBarPx - d.y > COLLAPSE_LINES * LINE_REM * g.rootFontSizePx;
+        : window.innerHeight - g.bottomBarPx - d.y >
+          COLLAPSE_LINES * LINE_REM * g.rootFontSizePx;
     if (openedEnough) {
       open(clampPaneSize(kind, raw));
     }
@@ -126,7 +138,10 @@ function CollapsedTab({ kind, openMode }: { kind: PaneKind; openMode: PaneMode }
   const dragStyle = (d: Drag): React.CSSProperties =>
     kind === "folder"
       ? { left: Math.min(window.innerWidth, Math.max(0, d.x)) }
-      : { top: Math.min(window.innerHeight, Math.max(headerBottomPx(), d.y)), bottom: "auto" };
+      : {
+          top: Math.min(window.innerHeight, Math.max(headerBottomPx(), d.y)),
+          bottom: "auto",
+        };
 
   const restStyle: React.CSSProperties =
     kind === "folder"
@@ -134,68 +149,112 @@ function CollapsedTab({ kind, openMode }: { kind: PaneKind; openMode: PaneMode }
           left: 0,
           top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
         }
-      : { bottom: "var(--bottom-bar-h)", left: tabOffsetCss(fraction, "100vw") };
+      : {
+          bottom: "var(--bottom-bar-h)",
+          left: tabOffsetCss(fraction, "100vw"),
+        };
 
   const label = kind === "folder" ? "フォルダーを開く" : "下のペインを開く";
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={`${label} (押すか引き出す)`}
-      data-collapsed-tab={kind}
-      style={drag?.moved ? { ...restStyle, ...dragStyle(drag) } : restStyle}
-      className={`group fixed z-20 touch-none ${
-        kind === "folder" ? "-translate-x-1/2 cursor-col-resize" : "translate-y-1/2 cursor-row-resize"
-      } ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN}`}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        const d = { startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, moved: false };
-        dragRef.current = d;
-        setDrag(d);
-      }}
-      onPointerMove={(event) => {
-        const current = dragRef.current;
-        if (current === null) return;
-        const moved =
-          current.moved ||
-          Math.hypot(event.clientX - current.startX, event.clientY - current.startY) > CLICK_SLOP_PX;
-        const d = { ...current, x: event.clientX, y: event.clientY, moved };
-        dragRef.current = d;
-        setDrag(d);
-        if (moved) {
-          setLiveTab(alongFraction(event.clientX, event.clientY));
-        }
-      }}
-      onPointerUp={() => {
-        const d = dragRef.current;
-        dragRef.current = null;
-        setDrag(null);
-        if (d !== null) {
-          finish(d);
-        }
-      }}
-      onPointerCancel={() => {
-        dragRef.current = null;
-        setDrag(null);
-        setLiveTab(null);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          open(clampPaneSize(kind, localStorageSize(kind)));
-        }
-      }}
-    >
-      <span aria-hidden="true">{HANDLE_TAB[kind].glyph}</span>
-    </button>
+    <>
+      {/* 引き出している間は境界の線もタブについて動かす (docs/86 §4-23)。
+        開いた境界をドラッグしているときと同じ青の線。押せない飾り */}
+      {drag?.moved && <DragLine kind={kind} drag={drag} />}
+      <button
+        type="button"
+        aria-label={label}
+        title={`${label} (押すか引き出す)`}
+        data-collapsed-tab={kind}
+        style={drag?.moved ? { ...restStyle, ...dragStyle(drag) } : restStyle}
+        className={`group fixed z-20 touch-none ${
+          kind === "folder"
+            ? "-translate-x-1/2 cursor-col-resize"
+            : "translate-y-1/2 cursor-row-resize"
+        } ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN}`}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          const d = {
+            startX: event.clientX,
+            startY: event.clientY,
+            x: event.clientX,
+            y: event.clientY,
+            moved: false,
+          };
+          dragRef.current = d;
+          setDrag(d);
+        }}
+        onPointerMove={(event) => {
+          const current = dragRef.current;
+          if (current === null) return;
+          const moved =
+            current.moved ||
+            Math.hypot(
+              event.clientX - current.startX,
+              event.clientY - current.startY,
+            ) > CLICK_SLOP_PX;
+          const d = { ...current, x: event.clientX, y: event.clientY, moved };
+          dragRef.current = d;
+          setDrag(d);
+          if (moved) {
+            setLiveTab(alongFraction(event.clientX, event.clientY));
+          }
+        }}
+        onPointerUp={() => {
+          const d = dragRef.current;
+          dragRef.current = null;
+          setDrag(null);
+          if (d !== null) {
+            finish(d);
+          }
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null;
+          setDrag(null);
+          setLiveTab(null);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open(clampPaneSize(kind, localStorageSize(kind)));
+          }
+        }}
+      >
+        <span aria-hidden="true">{HANDLE_TAB[kind].glyph}</span>
+      </button>
+    </>
+  );
+}
+
+// 引き出している間の境界の線。縦はヘッダーの下から下部バーの上まで、横は画面の幅いっぱい
+function DragLine({ kind, drag }: { kind: PaneKind; drag: Drag }) {
+  const style: React.CSSProperties =
+    kind === "folder"
+      ? { left: Math.min(window.innerWidth, Math.max(0, drag.x)) }
+      : {
+          top: Math.min(window.innerHeight, Math.max(headerBottomPx(), drag.y)),
+        };
+  return (
+    <span
+      aria-hidden="true"
+      data-collapsed-drag-line={kind}
+      style={style}
+      className={`pointer-events-none fixed z-20 bg-blue-600 ${
+        kind === "folder"
+          ? "top-[var(--header-h)] bottom-[var(--bottom-bar-h)] w-0.5 -translate-x-1/2"
+          : "inset-x-0 h-0.5 -translate-y-1/2"
+      }`}
+    />
   );
 }
 
 // 覚えている寸法 (無ければ既定)。隠すときは掴む前の寸法に戻してから隠している
 function localStorageSize(kind: PaneKind): number {
   try {
-    return clampPaneSize(kind, localStorage.getItem(PANE_SIZES[kind].storageKey));
+    return clampPaneSize(
+      kind,
+      localStorage.getItem(PANE_SIZES[kind].storageKey),
+    );
   } catch {
     return PANE_SIZES[kind].default;
   }

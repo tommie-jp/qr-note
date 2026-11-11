@@ -198,7 +198,13 @@ test.describe('隠したペインのタブ', () => {
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height / 2)
     await page.mouse.down()
     await page.mouse.move(192, box.y + box.height / 2, { steps: 6 })
+    // 引き出している間は境界の線もついてくる (docs/86 §4-23)
+    const line = page.locator('[data-collapsed-drag-line="folder"]')
+    const lineBox = (await line.boundingBox())!
+    expect(lineBox.x + lineBox.width / 2).toBeCloseTo(192, 0)
+    expect(lineBox.height).toBeGreaterThan(500)
     await page.mouse.up()
+    await expect(line).toHaveCount(0)
     await expect.poll(() => panesShown(page)).toBe('3')
     await expect(page.getByRole('separator', { name: 'フォルダーの幅' })).toHaveAttribute('aria-valuenow', '12')
     await expect(tab).toHaveCount(0)
