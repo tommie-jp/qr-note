@@ -59,8 +59,9 @@ function FolderRow({
         aria-current={active ? "page" : undefined}
         // 行の高さは本文の 1 行ぶん (py-0.5 + text-sm の行送り ≒ 24px)。
         // 44px のタップ目標は取らない — このペインは xl 以上、つまり
-        // ポインタで狙う画面にしか出ないので、指の的より一覧性を優先する
-        className={`flex items-center justify-between gap-2 rounded px-2 py-0.5 text-sm ${
+        // ポインタで狙う画面にしか出ないので、指の的より一覧性を優先する。
+        // 件数の左右は空けない (gap-0・pr-0。docs/86 §4-22) — 細いペインでも名前を 1 字でも多く見せる
+        className={`flex items-center justify-between gap-0 rounded py-0.5 pr-0 pl-2 text-sm ${
           active
             ? "bg-blue-100 font-medium text-blue-800"
             : "text-gray-700 hover:bg-gray-100"
