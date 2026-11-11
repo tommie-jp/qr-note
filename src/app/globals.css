@@ -794,15 +794,17 @@ html:has([data-bottom-bar]) {
    3 / 2 は選んだ以上どの幅でもペインの積み方で通す — 一方 1 ペインの
    狭い画面は従来どおり文書スクロールのまま。
    引っ張って更新 (docs/47) は、一覧の器 [data-results-scroll] を window の
-   代わりに見る (PullToRefresh の nearestScroller) --- */
-body:has(:is([data-panes="3"], [data-panes="2"])) {
+   代わりに見る (PullToRefresh の nearestScroller)。
+   [data-results-view] … 検索結果をカレンダーなどの表示で出している間は、1 ペインでも
+   この積み方にする。表示の見出しを器の上端に貼り付けるため (docs/126 §1-28) --- */
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])) {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
 }
 
-body:has(:is([data-panes="3"], [data-panes="2"])) main {
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])) main {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -814,26 +816,26 @@ body:has(:is([data-panes="3"], [data-panes="2"])) main {
   padding-bottom: 0;
 }
 
-body:has(:is([data-panes="3"], [data-panes="2"])) [data-results-pane],
-body:has(:is([data-panes="3"], [data-panes="2"])) [data-search-results] {
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])) [data-results-pane],
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])) [data-search-results] {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-body:has(:is([data-panes="3"], [data-panes="2"])) [data-results-scroll] {
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])) [data-results-scroll] {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-body:has(:is([data-panes="3"], [data-panes="2"])) [data-bottom-bar-spacer] {
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])) [data-bottom-bar-spacer] {
   display: none;
 }
 
-body:has(:is([data-panes="3"], [data-panes="2"])):has([data-preview-pane]) main {
+body:has(:is([data-panes="3"], [data-panes="2"], [data-results-view])):has([data-preview-pane]) main {
   margin-bottom: calc(var(--bottom-bar-h) + var(--preview-pane-h));
 }
 

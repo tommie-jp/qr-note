@@ -262,6 +262,8 @@ test.describe('予定カレンダー', () => {
     await expect(page.locator('[data-folder-pane]')).toHaveCSS('padding-left', '0px')
 
     await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
+    // 動き出す前に押すと空振りする (設定の釦はまだ素の HTML)
+    await expectHydrated(dayCell(page, DAY))
     await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
     await page
       .getByRole('dialog', { name: 'カレンダーの設定' })
@@ -270,6 +272,28 @@ test.describe('予定カレンダー', () => {
       .click()
     await expect(page.locator('[data-folder-pane]')).toHaveCSS('padding-left', '16px')
   })
+
+  for (const panes of ['1', '2'] as const) {
+    test(`見出し行と曜日の行は送っても上端に残る (${panes} ペイン)`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 700 })
+      await openCalendar(page, panes)
+      const heading = calendar(page).getByRole('heading', { name: '2026年11月' })
+      const weekday = calendar(page).locator('[data-calendar-head]').getByText('月', { exact: true })
+      const before = { heading: (await heading.boundingBox())!.y, weekday: (await weekday.boundingBox())!.y }
+
+      // 送るのは結果の器だけ (1 ペインでも画面全体は動かない)
+      const scroller = page.locator('[data-results-scroll]')
+      await scroller.evaluate((el) => el.scrollTo({ top: 400 }))
+      await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(100)
+      expect(await page.evaluate(() => window.scrollY)).toBe(0)
+
+      expect((await heading.boundingBox())!.y).toBeCloseTo(before.heading, 0)
+      expect((await weekday.boundingBox())!.y).toBeCloseTo(before.weekday, 0)
+      // 先頭の週のマスは見出しの下に潜っている
+      const firstCell = (await dayCell(page, '2026-10-26').boundingBox())!
+      expect(firstCell.y).toBeLessThan(before.weekday)
+    })
+  }
 
   test('狭い画面では見出しの釦を横に送れ、設定のアイコンは動かない', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 })

@@ -82,7 +82,9 @@ function ModuleResults({ view, cookieSort }: { view: ResultView; cookieSort: Sor
   const Component = view.Component;
   return (
     <SearchResults query={query}>
-      <div data-results-scroll className="-mx-safe space-y-2 px-safe">
+      {/* data-results-view … 表示を出している間は 1 ペインでも器の中で送る (globals.css。
+          見出しを上端に貼り付けるため。docs/126 §1-28) */}
+      <div data-results-scroll data-results-view="" className="-mx-safe space-y-2 px-safe">
         <Component query={query} />
       </div>
     </SearchResults>

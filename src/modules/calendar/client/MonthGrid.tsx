@@ -71,6 +71,31 @@ function bleed(side: "left" | "right", keep: string): string {
   return `calc(max(${keep}, ${inset}) - max(1rem, ${inset}))`;
 }
 
+// 左右の余白の設定ぶん、マス目と曜日の行を画面の余白へはみ出させる
+function useBleedStyle(): { marginLeft: string; marginRight: string } {
+  const { prefs } = useCalendarPrefs();
+  const keep = `${SIDE_PADDING_PX[prefs.sidePadding]}px`;
+  return { marginLeft: bleed("left", keep), marginRight: bleed("right", keep) };
+}
+
+// 曜日の行。マス目と別の部品にして、見出し行と一緒に上端へ貼り付ける (docs/126 §1-28)。
+// 下の罫線はマス目の上端の線を兼ねる
+export function WeekdayHeader() {
+  return (
+    <div
+      className="grid grid-cols-7 border-t border-l border-gray-200 text-center text-sm leading-5 select-none"
+      style={useBleedStyle()}
+      aria-hidden="true"
+    >
+      {WEEKDAYS.map((label) => (
+        <div key={label} className="border-r border-b border-gray-200 py-0.5 text-gray-700">
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function MonthGrid({
   month,
   days,
@@ -88,27 +113,9 @@ export function MonthGrid({
   onSelect: (day: string, cell: HTMLElement) => void;
 }) {
   const { prefs } = useCalendarPrefs();
-  const keep = `${SIDE_PADDING_PX[prefs.sidePadding]}px`;
   const height = cellHeightPx(prefs.eventsPerDay);
   return (
-    <div
-      className="select-none"
-      data-calendar-grid=""
-      style={{ marginLeft: bleed("left", keep), marginRight: bleed("right", keep) }}
-    >
-      <div
-        className="grid grid-cols-7 border-t border-l border-gray-200 text-center text-sm leading-5"
-        aria-hidden="true"
-      >
-        {WEEKDAYS.map((label) => (
-          <div
-            key={label}
-            className="border-r border-b border-gray-200 py-0.5 text-gray-700"
-          >
-            {label}
-          </div>
-        ))}
-      </div>
+    <div className="select-none" data-calendar-grid="" style={useBleedStyle()}>
       <div
         className="grid grid-cols-7 border-l border-gray-200"
         role="grid"

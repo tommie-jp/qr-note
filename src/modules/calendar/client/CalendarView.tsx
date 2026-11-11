@@ -10,7 +10,7 @@ import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
 import { DayPane } from "./DayPane";
 import { CalendarMenu } from "./CalendarMenu";
 import { DayPopover } from "./DayPopover";
-import { MonthGrid } from "./MonthGrid";
+import { MonthGrid, WeekdayHeader } from "./MonthGrid";
 import { setSelectedCalendarDay } from "./selectedDay";
 
 // URL の cal を書き換える。履歴を増やさない (月送りは「戻る」で辿る物ではない)。
@@ -70,7 +70,10 @@ export default function CalendarView({ query }: { query: string }) {
   const [year, monthNumber] = month.split("-").map(Number);
 
   return (
-    <div className="space-y-1" data-calendar="">
+    <div data-calendar="">
+      {/* 見出し行と曜日の行は送る器の上端に貼り付ける (docs/126 §1-28)。
+          器の左右の余白 (px-safe) ごと覆い、マス目が両脇から透けないようにする */}
+      <div data-calendar-head="" className="sticky top-0 z-10 -mx-safe bg-white px-safe">
       <div className="flex items-center gap-1">
         {/* カレンダー専用の設定 (日付の大きさ・優先度の色。docs/126 §1-12)。
             ここは送らない (docs/126 §1-19) */}
@@ -114,9 +117,13 @@ export default function CalendarView({ query }: { query: string }) {
         </button>
         </div>
       </div>
+      <div className="mt-1">
+        <WeekdayHeader />
+      </div>
+      </div>
 
       {entry?.error && payload === undefined ? (
-        <p role="alert" className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
+        <p role="alert" className="my-1 rounded bg-yellow-50 px-3 py-2 text-yellow-800">
           予定を読み込めませんでした: {entry.error.message}{" "}
           <button type="button" className="underline" onClick={() => calendarCache.load(key, { force: true })}>
             もう一度
@@ -124,7 +131,7 @@ export default function CalendarView({ query }: { query: string }) {
         </p>
       ) : null}
       {payload !== undefined && payload.omitted > 0 ? (
-        <p role="status" className="rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+        <p role="status" className="my-1 rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
           予定が多すぎるため {payload.omitted} 件を表示していません。検索式で絞ってください。
         </p>
       ) : null}
