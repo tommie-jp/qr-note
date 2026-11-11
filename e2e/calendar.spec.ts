@@ -592,6 +592,27 @@ test.describe('予定カレンダー', () => {
     await expect(popover).toHaveCount(0)
   })
 
+  test('ヘッダーのロゴはカレンダーを出し直す (同じ検索語・同じ月。ノートは閉じる)', async ({ page }) => {
+    await openCalendar(page)
+    const logo = page.locator('header a[href="/"]').first()
+    // 予定のノートを開いた状態から
+    await page.evaluate((url) => window.history.pushState(null, '', url), noteHref('&tab=event'))
+    await expect(page).toHaveURL(/\/item\//)
+    await logo.click()
+    await expect(page).toHaveURL(new RegExp(`/\\?q=${encodeURIComponent(QUERY)}&cal=${MONTH}$`))
+    await expect(calendar(page).getByRole('heading', { name: '2026年11月' })).toBeVisible()
+    // カレンダーを出したままもう一度押すと、月の予定を取り直す
+    const refetch = page.waitForRequest((request) => request.url().includes('/api/calendar?'))
+    await logo.click()
+    await refetch
+
+    // 一覧の画面ではいままでどおりホームへ
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}`)
+    await expectHydrated(page.locator('header a[href="/"]').first())
+    await page.locator('header a[href="/"]').first().click()
+    await expect(page).toHaveURL(/\/$/)
+  })
+
   test('「一覧」で一覧に戻り、ツールバーの「カレンダー」で戻れる', async ({ page }) => {
     await openCalendar(page)
     await calendar(page).getByRole('button', { name: '一覧', exact: true }).click()

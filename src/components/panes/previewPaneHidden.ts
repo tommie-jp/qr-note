@@ -4,9 +4,7 @@
 // ばらばらで、境界 (PaneResizer) はどれが出ているかを知らない。1 ペインへ移ると
 // それぞれ全画面・覆い・浮かせる一覧に化けて画面を覆うので、知らせを受けて
 // 自分で閉じてもらう。ノートは URL が正なので、境界の側が一覧の URL へ戻す
-import { buildSearchUrl } from '@/lib/search/url'
-import { parseSort } from '@/lib/validation'
-import { carryResultViewParams } from '@/modules/registry'
+import { searchHrefKeepingView } from '@/components/search/resultViewHref'
 
 const listeners = new Set<() => void>()
 
@@ -29,7 +27,5 @@ export function listHrefFromItemUrl(url: URL): string | null {
   if (!url.pathname.startsWith('/item/')) {
     return null
   }
-  const params = url.searchParams
-  const list = buildSearchUrl((params.get('q') ?? '').trim(), 1, parseSort(params.get('sort')))
-  return carryResultViewParams(list, params)
+  return searchHrefKeepingView(url.searchParams)
 }

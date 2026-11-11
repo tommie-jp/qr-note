@@ -13,6 +13,7 @@ import {
   CalendarView,
   calendarEnterHref,
   calendarNewItemHref,
+  refreshCalendar,
   EventForm,
   isEventNote,
 } from "./calendar";
@@ -30,6 +31,8 @@ export interface ResultView {
   // 検索窓の＋で開く URL (この表示を出している間だけ。無ければ普通の新規ノート)。
   // 押したときに呼ぶ
   newItemHref?: (query: string, params: ParamsLike) => string;
+  // ヘッダーのロゴで再表示するときに、表示の控えを古くして取り直させる
+  refresh?: () => void;
   Component: ComponentType<{ query: string }>;
 }
 
@@ -41,6 +44,7 @@ export const RESULT_VIEWS: readonly ResultView[] = [
     icon: <CalendarIcon />,
     enterHref: calendarEnterHref,
     newItemHref: calendarNewItemHref,
+    refresh: refreshCalendar,
     Component: CalendarView,
   },
 ];

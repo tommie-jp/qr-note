@@ -23,6 +23,12 @@ export function calendarEnterHref(query: string): string {
   return calendarEntryHref(query, jstToday().slice(0, 7));
 }
 
+// ヘッダーのロゴで再表示するとき、月の予定を取り直す。控えは端末だけの部品
+// ('client-only') なので、押したときに読み込む (この登録情報はサーバも読む)
+export function refreshCalendar(): void {
+  void import("./client/calendarStore").then(({ invalidateCalendar }) => invalidateCalendar());
+}
+
 // 検索窓の＋で開く新しい予定の URL (docs/126 §1-17)。選んでいる日に足す。
 // 押したときに呼ぶ (番号はそのとき振る。描くたびに振ると開いた後で変わる)
 export function calendarNewItemHref(query: string, params: { get(name: string): string | null }): string {

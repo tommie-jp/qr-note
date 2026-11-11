@@ -1,7 +1,7 @@
-import Link from "next/link";
 import pkg from "../../../package.json";
 import { AppHeaderMenu } from "@/components/chrome/AppHeaderMenu";
 import { HistoryNav } from "@/components/chrome/HistoryNav";
+import { HomeLink } from "@/components/chrome/HomeLink";
 import { PaneModeButton } from "@/components/panes/PaneModeButton";
 import type { PaneMode } from "@/lib/prefs/paneMode";
 import type { PhotoMetaMode } from "@/lib/prefs/photoMeta";
@@ -108,10 +108,8 @@ export function AppHeader({
             (版だけ押しても何も起きないと、押し損ねたように見える)。
             /icon.svg は app/icon.svg が規約で配信するもの (PNG より
             拡大に強い)。alt は空 — 隣の文字が同じことを言っている */}
-        <Link
-          href="/"
-          className="inline-flex items-baseline gap-1.5 text-lg font-bold"
-        >
+        {/* カレンダーなどの表示を出しているときは、その表示を出し直す (HomeLink) */}
+        <HomeLink className="inline-flex items-baseline gap-1.5 text-lg font-bold">
           {/* h-[1cap] … アイコンの高さをサイト名の大文字 (Q) と同じにする。
               items-baseline で img の下端 (= 置換要素のベースライン) が
               文字のベースラインに載り、上端が Q の頭と揃う */}
@@ -122,7 +120,7 @@ export function AppHeader({
           <span className="text-xs font-normal text-gray-400">
             v{pkg.version}
           </span>
-        </Link>
+        </HomeLink>
         {/* 戻る/進む (◀ ▶)。下部バーの左端から、サイト名・バージョンの右へ
             戻した (docs/11 §5-2)。ヘッダーは全ページで同じ位置にあり、
             編集帯やスロットの並びと場所を取り合わない */}
