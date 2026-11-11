@@ -136,14 +136,19 @@ export const COLLAPSE_FOLDER_CHARS = 2;
 export const COLLAPSE_LINES = 2;
 export const LINE_REM = 1.5;
 
+//
+// **1 ペインにしない表示** (カレンダー。docs/86 §4-28) では allowSingle が false。
+// 下のペインは閉じるが構成はそのまま (2 / 3)、上の一覧は隠さない (端で止まるだけ)
 export type PaneCollapse =
   | { hide: "folder"; mode: "2" }
-  | { hide: "preview" | "results"; mode: "1" };
+  | { hide: "preview"; mode: "1" | "2" | "3" }
+  | { hide: "results"; mode: "1" };
 
 export function paneCollapse(
   kind: PaneKind,
   geometry: PointerGeometry & { resultsTopPx: number },
   mode: string,
+  allowSingle = true,
 ): PaneCollapse | null {
   const rootPx = geometry.rootFontSizePx || 16;
   if (kind === "folder") {
@@ -157,9 +162,9 @@ export function paneCollapse(
   const limit = COLLAPSE_LINES * LINE_REM * rootPx;
   const bottomPx = geometry.viewportHeightPx - geometry.bottomBarPx - geometry.clientY;
   if (bottomPx <= limit) {
-    return { hide: "preview", mode: "1" };
+    return { hide: "preview", mode: allowSingle ? "1" : mode };
   }
-  if (geometry.clientY - geometry.resultsTopPx <= limit) {
+  if (allowSingle && geometry.clientY - geometry.resultsTopPx <= limit) {
     return { hide: "results", mode: "1" };
   }
   return null;
@@ -167,11 +172,18 @@ export function paneCollapse(
 
 // タブのダブルクリックで隠すペイン。フォルダーの境界はフォルダー、一覧とノートの
 // 境界は下のペイン (どちらも引き切ったときと同じ行き先)
-export function paneHideByDoubleClick(kind: PaneKind, mode: string): PaneCollapse | null {
+export function paneHideByDoubleClick(
+  kind: PaneKind,
+  mode: string,
+  allowSingle = true,
+): PaneCollapse | null {
   if (kind === "folder") {
     return mode === "3" ? { hide: "folder", mode: "2" } : null;
   }
-  return mode === "2" || mode === "3" ? { hide: "preview", mode: "1" } : null;
+  if (mode !== "2" && mode !== "3") {
+    return null;
+  }
+  return { hide: "preview", mode: allowSingle ? "1" : mode };
 }
 
 // 初回描画の前に走らせるスクリプト (chrome/PreHydrationScripts.tsx が layout の

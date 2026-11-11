@@ -16,6 +16,7 @@ import {
 } from "@/lib/prefs/paneSize";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
 import { listHrefFromItemUrl, notifyPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
+import { allowsSinglePane } from "@/modules/registry";
 import {
   TAB_LENGTH_REM,
   setLiveTabPosition,
@@ -100,6 +101,11 @@ const HANDLE_TAB_COLLAPSE = "border-amber-600 bg-amber-100 text-amber-800";
 
 // いまの構成 (ペインの根の data-panes)。境界はフォルダーペイン (構成の文脈の外) にも
 // 描かれるので、文脈ではなく画面から読む
+// いまの表示が 1 ペインを許すか (カレンダーは許さない。docs/86 §4-28)。押した時の URL で決める
+function allowSingleNow(): boolean {
+  return allowsSinglePane(new URLSearchParams(location.search));
+}
+
 function currentPaneMode(): string {
   return document.querySelector("[data-panes]")?.getAttribute("data-panes") ?? "";
 }
@@ -248,7 +254,12 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       liveTabRef.current = fraction;
       setLiveTabPosition(kind, fraction);
     }
-    const next = paneCollapse(kind, { ...geometry, resultsTopPx: resultsTopPx() }, currentPaneMode());
+    const next = paneCollapse(
+      kind,
+      { ...geometry, resultsTopPx: resultsTopPx() },
+      currentPaneMode(),
+      allowSingleNow(),
+    );
     if (next?.hide !== collapse?.hide) {
       setCollapse(next);
     }
@@ -265,6 +276,10 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       if (listHref !== null) {
         navigate(listHref, { replace: true });
       }
+    }
+    // 構成を変えない隠し方 (カレンダーで下を閉じるだけ) は切り替えない
+    if (target.mode === currentPaneMode()) {
+      return;
     }
     void switchPaneMode(target.mode, () => {
       startTransition(refreshServerView);
@@ -363,7 +378,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       // ダブルクリックでペインを隠す (docs/86 §4-19)。フォルダーの境界はフォルダー、
       // 一覧とノートの境界は下のペイン。隠すペインが無い構成では何もしない
       onDoubleClick={() => {
-        const target = paneHideByDoubleClick(kind, currentPaneMode());
+        const target = paneHideByDoubleClick(kind, currentPaneMode(), allowSingleNow());
         if (target !== null) {
           hidePane(target);
         }

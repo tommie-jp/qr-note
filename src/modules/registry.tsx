@@ -33,6 +33,8 @@ export interface ResultView {
   newItemHref?: (query: string, params: ParamsLike) => string;
   // ヘッダーのロゴで再表示するときに、表示の控えを古くして取り直させる
   refresh?: () => void;
+  // この表示の間は 1 ペインにしない (境界の引き切り・構成の釦。docs/86 §4-28)
+  keepsPanes?: boolean;
   Component: ComponentType<{ query: string }>;
 }
 
@@ -45,6 +47,7 @@ export const RESULT_VIEWS: readonly ResultView[] = [
     enterHref: calendarEnterHref,
     newItemHref: calendarNewItemHref,
     refresh: refreshCalendar,
+    keepsPanes: true,
     Component: CalendarView,
   },
 ];
@@ -56,6 +59,11 @@ interface ParamsLike {
 // URL が選んでいる表示。無ければ null (一覧)
 export function activeResultView(params: ParamsLike): ResultView | null {
   return RESULT_VIEWS.find((view) => params.get(view.param) !== null) ?? null;
+}
+
+// いまの表示が 1 ペインを許すか (カレンダーは許さない)
+export function allowsSinglePane(params: ParamsLike): boolean {
+  return activeResultView(params)?.keepsPanes !== true;
 }
 
 // 検索語を打ち替えた URL に、いまの表示の引数を持ち越す (カレンダーを

@@ -13,6 +13,16 @@ import {
   type PaneMode,
 } from "@/lib/prefs/paneMode";
 import { useShownPaneMode } from "@/lib/prefs/pendingPaneMode";
+import { allowsSinglePane } from "@/modules/registry";
+
+// 送る先。1 ペインを許さない表示 (カレンダー) では 1 を飛ばす (3 → 2 → 3。docs/86 §4-28)。
+// 表示は URL で決まるので、押した時に読む
+function nextModeNow(shown: PaneMode): PaneMode {
+  const next = nextPaneMode(shown);
+  return next === "1" && !allowsSinglePane(new URLSearchParams(location.search))
+    ? nextPaneMode(next)
+    : next;
+}
 
 // ヘッダーのペイン構成ボタン (docs/86 §4-4)。押すと 3 → 2 → 1 → 3 と循環する。
 //
@@ -38,7 +48,7 @@ export function PaneModeButton({
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void switchPaneMode(next, () => {
+    void switchPaneMode(nextModeNow(shown), () => {
       startTransition(() => refreshRouter(router));
     });
   };

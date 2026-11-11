@@ -262,6 +262,12 @@ describe("paneCollapse (境界を引き切ったら構成を減らす。docs/86 
     expect(paneCollapse("folder", at(0, 0), "2")).toBeNull();
     expect(paneCollapse("preview", at(0, 990), "1")).toBeNull();
   });
+  test("1 ペインを許さない表示 (カレンダー) では、下は閉じるだけで構成はそのまま、上の一覧は隠さない", () => {
+    expect(paneCollapse("preview", at(0, 902), "2", false)).toEqual({ hide: "preview", mode: "2" });
+    expect(paneCollapse("preview", at(0, 902), "3", false)).toEqual({ hide: "preview", mode: "3" });
+    expect(paneCollapse("preview", at(0, 148), "2", false)).toBeNull();
+    expect(paneCollapse("folder", at(32, 0), "3", false)).toEqual({ hide: "folder", mode: "2" });
+  });
 });
 
 describe("paneHideByDoubleClick (タブのダブルクリック)", () => {
@@ -270,6 +276,11 @@ describe("paneHideByDoubleClick (タブのダブルクリック)", () => {
     expect(paneHideByDoubleClick("preview", "2")).toEqual({ hide: "preview", mode: "1" });
     expect(paneHideByDoubleClick("preview", "3")).toEqual({ hide: "preview", mode: "1" });
     expect(paneHideByDoubleClick("folder", "2")).toBeNull();
+  });
+
+  test("1 ペインを許さない表示 (カレンダー) では、下を閉じても構成はそのまま", () => {
+    expect(paneHideByDoubleClick("preview", "2", false)).toEqual({ hide: "preview", mode: "2" });
+    expect(paneHideByDoubleClick("preview", "3", false)).toEqual({ hide: "preview", mode: "3" });
   });
 });
 

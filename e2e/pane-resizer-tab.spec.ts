@@ -96,7 +96,9 @@ test.describe('境界の引き切りでペインを隠す', () => {
     expect(await page.evaluate(() => localStorage.getItem('pane-folder-w'))).toBe(String(before))
   })
 
-  test('2 ペインで下のペインを下へ引き切ると、下を閉じて 1 ペイン (日の一覧も出直さない)', async ({ page }) => {
+  // カレンダーは 1 ペインにしない (docs/86 §4-28)。下のペインを閉じるだけで構成はそのまま。
+  // 1 ペインへ減らす側 (一覧の表示) は単体テスト (paneSize.test.ts) で見る
+  test('カレンダーの 2 ペインで下のペインを下へ引き切ると、下を閉じて 2 ペインのまま', async ({ page }) => {
     await openWithPanes(page, '2')
     const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
     await expect(dayPane).toBeVisible()
@@ -106,24 +108,26 @@ test.describe('境界の引き切りでペインを隠す', () => {
     await expect(separator).toHaveAttribute('data-collapse', 'preview')
     await page.mouse.up()
 
-    await expect.poll(() => panesShown(page)).toBe('1')
     await expect(dayPane).toHaveCount(0)
+    expect(await panesShown(page)).toBe('2')
     await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toHaveCount(0)
+    // 下端に横のタブが残る (§4-25)
+    await expect(page.locator('[data-collapsed-tab="preview"]')).toBeVisible()
   })
 
-  test('2 ペインで上の一覧を上へ引き切ると、一覧側を隠して 1 ペイン (日の一覧は浮かせて残る)', async ({ page }) => {
+  test('カレンダーの 2 ペインで上の一覧を上へ引き切っても、一覧は隠さない (端で止まるだけ)', async ({ page }) => {
     await openWithPanes(page, '2')
     const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
 
     await dragTabTo(page, separator, { y: 5 })
-    await expect(separator).toHaveAttribute('data-collapse', 'results')
+    await expect(separator).not.toHaveAttribute('data-collapse')
     await page.mouse.up()
 
-    await expect.poll(() => panesShown(page)).toBe('1')
-    await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toBeVisible()
+    expect(await panesShown(page)).toBe('2')
+    await expect(page.getByRole('region', { name: '11月5日 (木) の予定' })).toBeVisible()
   })
 
-  test('3 ペインでも一覧とノートの境界を下へ引き切ると、下を閉じて 1 ペイン', async ({ page }) => {
+  test('カレンダーの 3 ペインで一覧とノートの境界を下へ引き切ると、下を閉じて 3 ペインのまま', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await openWithPanes(page, '3')
     const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
@@ -132,8 +136,8 @@ test.describe('境界の引き切りでペインを隠す', () => {
     await expect(separator).toHaveAttribute('data-collapse', 'preview')
     await page.mouse.up()
 
-    await expect.poll(() => panesShown(page)).toBe('1')
     await expect(page.getByRole('region', { name: '11月5日 (木) の予定' })).toHaveCount(0)
+    expect(await panesShown(page)).toBe('3')
   })
 
   test('タブのダブルクリックで隠す (フォルダーの境界はフォルダー、一覧とノートの境界は下のペイン)', async ({ page }) => {
@@ -147,8 +151,15 @@ test.describe('境界の引き切りでペインを隠す', () => {
     const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
     await expect(dayPane).toBeVisible()
     await page.getByRole('separator', { name: 'プレビューの高さ' }).last().locator('[data-pane-resizer-tab]').dblclick()
-    await expect.poll(() => panesShown(page)).toBe('1')
+    // カレンダーは 1 ペインにしない (下を閉じるだけ)
     await expect(dayPane).toHaveCount(0)
+    expect(await panesShown(page)).toBe('2')
+  })
+
+  test('カレンダーではヘッダーの構成の釦も 1 を飛ばす (2 → 3)', async ({ page }) => {
+    await openWithPanes(page, '2')
+    await page.getByRole('button', { name: /^2 ペイン/ }).click()
+    await expect.poll(() => panesShown(page)).toBe('3')
   })
 
   test('フォルダーは 2 文字の幅より太いうちは隠さない (端で止まるだけ)', async ({ page }) => {
@@ -211,9 +222,11 @@ test.describe('隠したペインのタブ', () => {
   })
 
   test('1 ペインでは下端にタブが残り、押すと 2 ペインに戻る', async ({ page }) => {
-    await openWithPanes(page, '2')
-    await page.getByRole('separator', { name: 'プレビューの高さ' }).last().locator('[data-pane-resizer-tab]').dblclick()
-    await expect.poll(() => panesShown(page)).toBe('1')
+    // カレンダーでは 1 ペインに減らせないので、構成の cookie で 1 ペインから始める
+    await page.context().addCookies([{ name: 'panes', value: '1', url: BASE_URL }])
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
+    await expectHydrated(page.getByRole('button', { name: '下のペインを開く' }))
+    expect(await panesShown(page)).toBe('1')
 
     const tab = page.getByRole('button', { name: '下のペインを開く' })
     const box = (await tab.boundingBox())!
