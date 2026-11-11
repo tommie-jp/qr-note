@@ -72,6 +72,14 @@ export const HANDLE_TAB: Record<PaneKind, { shape: string; glyph: string }> = {
   preview: { shape: "h-5 w-12 text-base", glyph: "⋯" },
 };
 
+// 指で触れる範囲 (docs/86 §4-26)。タブの見た目 (幅 20px) のままでは iPhone で狙えないので、
+// 透明な ::before で細い向きを 44px (iOS の標準の的) まで広げる。見た目は変えない。
+// 疑似要素はタブの一部として当たるので、押せば帯のドラッグがそのまま働く
+const HANDLE_TAB_HIT: Record<PaneKind, string> = {
+  folder: "before:absolute before:inset-y-0 before:-inset-x-3",
+  preview: "before:absolute before:inset-x-0 before:-inset-y-3",
+};
+
 // 帯の中のタブの置き方 (境界の線の上に中心を載せる。沿った向きの位置は tabStyle)
 const HANDLE_TAB_PLACE: Record<PaneKind, string> = {
   folder: "left-1/2 -translate-x-1/2",
@@ -372,7 +380,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
         aria-hidden
         data-pane-resizer-tab=""
         style={tabStyle(kind, tabPosition)}
-        className={`absolute ${HANDLE_TAB_PLACE[kind]} ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN} ${
+        className={`absolute ${HANDLE_TAB_PLACE[kind]} ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN} ${HANDLE_TAB_HIT[kind]} ${
           collapse !== null ? HANDLE_TAB_COLLAPSE : dragging ? "border-blue-600 bg-blue-100 text-blue-700" : ""
         }`}
       >

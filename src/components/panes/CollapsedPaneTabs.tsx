@@ -33,6 +33,14 @@ import {
   useTabPosition,
 } from "@/components/panes/paneTabPosition";
 
+// 画面の端に半分だけ出したタブの、指で触れる範囲 (docs/86 §4-26)。見えている半分は
+// 10px しかないので、透明な ::before を画面の内側へ延ばし、画面の上で 44px にする
+// (タブの箱は 20px で半分が画面の外。内側へ 34px 足すと 10 + 34 = 44px)
+const COLLAPSED_TAB_HIT: Record<PaneKind, string> = {
+  folder: "before:absolute before:inset-y-0 before:left-0 before:-right-[34px]",
+  preview: "before:absolute before:inset-x-0 before:bottom-0 before:-top-[34px]",
+};
+
 // 押しただけ (ドラッグでない) とみなす動きの量 (px)
 const CLICK_SLOP_PX = 4;
 
@@ -185,7 +193,7 @@ function CollapsedTab({
           kind === "folder"
             ? "-translate-x-1/2 cursor-col-resize"
             : "translate-y-1/2 cursor-row-resize"
-        } ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN}`}
+        } ${HANDLE_TAB[kind].shape} ${HANDLE_TAB_SKIN} ${COLLAPSED_TAB_HIT[kind]}`}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.currentTarget.setPointerCapture(event.pointerId);

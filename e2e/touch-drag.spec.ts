@@ -93,9 +93,11 @@ test.describe('タッチでのドラッグ', () => {
       await expectHydrated(handle)
       await expect(handle).toHaveCSS('touch-action', 'none')
       const box = (await handle.boundingBox())!
-      // 画面に見えている側 (半分) を掴む
-      let x = Math.max(2, box.x + box.width * 0.75)
-      let y = Math.min(667 - 2, box.y + box.height * 0.25)
+      // 見えている半分 (10px) の外、画面の端から 40px の所を掴む。指で触れる範囲は
+      // 画面の上で 44px まで広げてある (docs/86 §4-26)
+      let x = tab.dx > 0 ? 40 : box.x + box.width / 2
+      let y = tab.dy < 0 ? 667 - 40 : box.y + box.height / 2
+      expect(await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.closest('button')?.getAttribute('aria-label'), [x, y])).toBe(tab.name)
       const cdp = await context.newCDPSession(page)
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
       for (let i = 0; i < 10; i++) {
