@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   paneCollapse,
+  paneHideByDoubleClick,
   rawPaneSizeFromPointer,
   PANE_SIZES,
   PANE_SIZE_INIT_SCRIPT,
@@ -227,25 +228,47 @@ describe("PANE_SIZE_INIT_SCRIPT (生成器へ移す前との互換)", () => {
 });
 
 describe("paneCollapse (境界を引き切ったら構成を減らす。docs/86 §4-19)", () => {
-  test("3 ペインでフォルダーを下限より 3rem 以上細くすると、フォルダーを隠して 2 ペイン", () => {
-    expect(paneCollapse("folder", 6, "3")).toEqual({ hide: "folder", mode: "2" });
-    expect(paneCollapse("folder", 6.1, "3")).toBeNull();
-    expect(paneCollapse("folder", 9, "3")).toBeNull();
+  // 画面 1000px・下部バー 50px・一覧の器の上端 100px・1rem = 16px (1 行 = 24px、2 行 = 48px)
+  const at = (clientX: number, clientY: number) => ({
+    clientX,
+    clientY,
+    rootFontSizePx: 16,
+    viewportHeightPx: 1000,
+    bottomBarPx: 50,
+    resultsTopPx: 100,
   });
 
-  test("2 ペインで下のペインを下限より 8dvh 以上低くすると、下を隠して 1 ペイン", () => {
-    expect(paneCollapse("preview", 12, "2")).toEqual({ hide: "preview", mode: "1" });
-    expect(paneCollapse("preview", 12.1, "2")).toBeNull();
+  test("3 ペインでフォルダーを 2 文字 (2rem) 以下まで細くすると、フォルダーを隠して 2 ペイン", () => {
+    expect(paneCollapse("folder", at(32, 0), "3")).toEqual({ hide: "folder", mode: "2" });
+    expect(paneCollapse("folder", at(33, 0), "3")).toBeNull();
   });
 
-  test("2 ペインで上の一覧を狭くし、下のペインが上限より 8dvh 以上高くなると、一覧を隠して 1 ペイン", () => {
-    expect(paneCollapse("preview", 88, "2")).toEqual({ hide: "results", mode: "1" });
-    expect(paneCollapse("preview", 87.9, "2")).toBeNull();
+  test("下のペインが 2 行 (48px) 以下になると、下を隠して 1 ペイン (2・3 ペインとも)", () => {
+    // 下のペイン = 1000 - 50 - y
+    expect(paneCollapse("preview", at(0, 902), "2")).toEqual({ hide: "preview", mode: "1" });
+    expect(paneCollapse("preview", at(0, 902), "3")).toEqual({ hide: "preview", mode: "1" });
+    expect(paneCollapse("preview", at(0, 901), "2")).toBeNull();
   });
 
-  test("3 ペインの一覧とノートの境界は畳まない (フォルダー + 一覧の構成が無い)", () => {
-    expect(paneCollapse("preview", 5, "3")).toBeNull();
-    expect(paneCollapse("preview", 95, "3")).toBeNull();
+  test("上の一覧が 2 行 (48px) 以下になると、一覧を隠して 1 ペイン (2・3 ペインとも)", () => {
+    // 一覧 = y - 100
+    expect(paneCollapse("preview", at(0, 148), "2")).toEqual({ hide: "results", mode: "1" });
+    expect(paneCollapse("preview", at(0, 148), "3")).toEqual({ hide: "results", mode: "1" });
+    expect(paneCollapse("preview", at(0, 149), "3")).toBeNull();
+  });
+
+  test("ペインの無い構成では隠さない", () => {
+    expect(paneCollapse("folder", at(0, 0), "2")).toBeNull();
+    expect(paneCollapse("preview", at(0, 990), "1")).toBeNull();
+  });
+});
+
+describe("paneHideByDoubleClick (タブのダブルクリック)", () => {
+  test("フォルダーの境界はフォルダー、一覧とノートの境界は下のペインを隠す", () => {
+    expect(paneHideByDoubleClick("folder", "3")).toEqual({ hide: "folder", mode: "2" });
+    expect(paneHideByDoubleClick("preview", "2")).toEqual({ hide: "preview", mode: "1" });
+    expect(paneHideByDoubleClick("preview", "3")).toEqual({ hide: "preview", mode: "1" });
+    expect(paneHideByDoubleClick("folder", "2")).toBeNull();
   });
 });
 

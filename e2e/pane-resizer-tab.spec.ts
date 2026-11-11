@@ -66,8 +66,9 @@ test.describe('ペインの境界のつまみ', () => {
   })
 })
 
-// 境界を上下限の外まで引き切って離すと、狭くなった側のペインを隠して構成を 1 つ減らす
-// (docs/86 §4-19)。引き切っている間はタブの色が変わる (data-collapse)
+// 境界を引き切って離すと (フォルダーは 2 文字以下、上下のペインは 2 行以下)、狭くなった側の
+// ペインを隠して構成を減らす。タブのダブルクリックでも隠す (docs/86 §4-19)。
+// 引き切っている間はタブの色が変わる (data-collapse)
 test.describe('境界の引き切りでペインを隠す', () => {
   const panesShown = (page: Page) => page.locator('[data-panes]').getAttribute('data-panes')
 
@@ -122,14 +123,54 @@ test.describe('境界の引き切りでペインを隠す', () => {
     await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toBeVisible()
   })
 
-  test('上下限のすこし外で離しただけでは隠さない', async ({ page }) => {
+  test('3 ペインでも一覧とノートの境界を下へ引き切ると、下を閉じて 1 ペイン', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await openWithPanes(page, '3')
+    const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
+
+    await dragTabTo(page, separator, { y: page.viewportSize()!.height - 5 })
+    await expect(separator).toHaveAttribute('data-collapse', 'preview')
+    await page.mouse.up()
+
+    await expect.poll(() => panesShown(page)).toBe('1')
+    await expect(page.getByRole('region', { name: '11月5日 (木) の予定' })).toHaveCount(0)
+  })
+
+  test('タブのダブルクリックで隠す (フォルダーの境界はフォルダー、一覧とノートの境界は下のペイン)', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await openWithPanes(page, '3')
+    await page.getByRole('separator', { name: 'フォルダーの幅' }).locator('[data-pane-resizer-tab]').dblclick()
+    await expect.poll(() => panesShown(page)).toBe('2')
+
+    // 2 ペインで日を選び直して、下のペインの境界をダブルクリック
+    await page.locator('[data-search-results] [data-calendar] [data-day="2026-11-05"]').click()
+    const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
+    await expect(dayPane).toBeVisible()
+    await page.getByRole('separator', { name: 'プレビューの高さ' }).last().locator('[data-pane-resizer-tab]').dblclick()
+    await expect.poll(() => panesShown(page)).toBe('1')
+    await expect(dayPane).toHaveCount(0)
+  })
+
+  test('フォルダーは 2 文字の幅より太いうちは隠さない (端で止まるだけ)', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await openWithPanes(page, '3')
+    const separator = page.getByRole('separator', { name: 'フォルダーの幅' })
+    // 6rem (96px)。下限 9rem は越えるが、隠す 2rem までは届かない
+    await dragTabTo(page, separator, { x: 96 })
+    await expect(separator).not.toHaveAttribute('data-collapse')
+    await page.mouse.up()
+    await expect.poll(() => panesShown(page)).toBe('3')
+    await expect(separator).toHaveAttribute('aria-valuenow', '9')
+  })
+
+  test('下のペインは 2 行より高いうちは隠さない (端で止まるだけ)', async ({ page }) => {
     await openWithPanes(page, '2')
     const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
     const height = page.viewportSize()!.height
     const bar = await page.evaluate(() =>
       Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
     )
-    // 下のペインが 16dvh (下限 20 を越えるが、隠す 12 までは届かない)
+    // 下のペインが 16dvh (下限 20 を越えるが、隠す 2 行までは届かない)
     await dragTabTo(page, separator, { y: height - bar - height * 0.16 })
     await expect(separator).not.toHaveAttribute('data-collapse')
     await page.mouse.up()

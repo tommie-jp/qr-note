@@ -7,6 +7,7 @@ import {
   PANE_SIZES,
   clampPaneSize,
   paneCollapse,
+  paneHideByDoubleClick,
   paneSizeValue,
   rawPaneSizeFromPointer,
   type PaneCollapse,
@@ -68,6 +69,12 @@ const HANDLE_TAB_COLLAPSE = "border-amber-600 bg-amber-100 text-amber-800";
 // 描かれるので、文脈ではなく画面から読む
 function currentPaneMode(): string {
   return document.querySelector("[data-panes]")?.getAttribute("data-panes") ?? "";
+}
+
+// 一覧の器の上端 (上の一覧が何行残るかを測る起点)。見つからなければヘッダーの下
+function resultsTopPx(): number {
+  const box = document.querySelector("[data-results-scroll]")?.getBoundingClientRect();
+  return box?.top ?? readCssPx("--header-h", 0);
 }
 
 const HANDLE_LINE_SKIN =
@@ -162,15 +169,15 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
   };
 
   const moveTo = (event: React.PointerEvent) => {
-    const raw = rawPaneSizeFromPointer(kind, {
+    const geometry = {
       clientX: event.clientX,
       clientY: event.clientY,
       rootFontSizePx: readCssPx("font-size", 16),
       viewportHeightPx: window.innerHeight,
       bottomBarPx: readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX),
-    });
-    apply(clampPaneSize(kind, raw));
-    const next = paneCollapse(kind, raw, currentPaneMode());
+    };
+    apply(clampPaneSize(kind, rawPaneSizeFromPointer(kind, geometry)));
+    const next = paneCollapse(kind, { ...geometry, resultsTopPx: resultsTopPx() }, currentPaneMode());
     if (next?.hide !== collapse?.hide) {
       setCollapse(next);
     }
@@ -222,7 +229,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       commit(clampPaneSize(kind, size + delta));
       return;
     }
-    // Home / End は端まで、Enter は既定へ (ダブルクリックと同じ)
+    // Home / End は端まで、Enter は既定へ
     const jump =
       event.key === "Home"
         ? spec.min
@@ -248,7 +255,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       aria-valuemin={spec.min}
       aria-valuemax={spec.max}
       tabIndex={0}
-      title={`${spec.label} (ドラッグか矢印キーで調整、ダブルクリックで既定に戻す。端まで引き切って離すとペインを隠す)`}
+      title={`${spec.label} (ドラッグか矢印キーで調整、Enter で既定に戻す。ダブルクリックか端まで引き切って離すとペインを隠す)`}
       data-collapse={collapse?.hide}
       className={`${HANDLE_CLASS[kind]} ${HANDLE_SKIN} ${
         dragging ? "bg-blue-500/50" : ""
@@ -274,7 +281,14 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       }}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onDoubleClick={() => commit(spec.default)}
+      // ダブルクリックでペインを隠す (docs/86 §4-19)。フォルダーの境界はフォルダー、
+      // 一覧とノートの境界は下のペイン。隠すペインが無い構成では何もしない
+      onDoubleClick={() => {
+        const target = paneHideByDoubleClick(kind, currentPaneMode());
+        if (target !== null) {
+          hidePane(target);
+        }
+      }}
       onKeyDown={onKeyDown}
     >
       <span

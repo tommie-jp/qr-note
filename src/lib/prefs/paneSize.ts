@@ -108,35 +108,55 @@ export function rawPaneSizeFromPointer(kind: PaneKind, geometry: PointerGeometry
   return (heightPx / viewport) * 100;
 }
 
-// 境界を上下限の外までさらに引き切って離したら、狭くなった側のペインを隠して
-// 構成を 1 つ減らす (docs/86 §4-19)。どれだけ越えたら畳むかは境界ごと (表の単位で)。
+// 境界を引き切って離したら、狭くなった側のペインを隠して構成を減らす (docs/86 §4-19)。
+// 見ているのは寸法の上下限ではなく、**ポインタの位置で残る中身の量**:
 //
-//   3 ペインのフォルダーの境界 … フォルダーを隠して 2 ペイン
-//   2 ペインの一覧とノートの境界 … 下のペインか上の一覧を隠して 1 ペイン
+//   フォルダーの境界 (3 ペイン) … 幅が 2 文字 (2rem) 以下 → フォルダーを隠して 2 ペイン
+//   一覧とノートの境界 (2・3 ペイン) … 下のペインが 2 行以下 → 下を隠して 1 ペイン、
+//     上の一覧が 2 行以下 → 一覧を隠して 1 ペイン (3 ペインはフォルダーも一緒に隠れる)
 //
-// 3 ペインの一覧とノートの境界は畳まない — 「フォルダー + 一覧」の構成が無い
-export const COLLAPSE_OVERSHOOT = { folder: 3, preview: 8 } as const;
+// 1 行は 1.5rem (本文の行の高さ)。寸法そのものは上下限で止まるので、引き切って
+// いる間もペインは端の大きさのまま (タブの色で「離すと隠す」を見せる)
+export const COLLAPSE_FOLDER_CHARS = 2;
+export const COLLAPSE_LINES = 2;
+const LINE_REM = 1.5;
 
 export type PaneCollapse =
   | { hide: "folder"; mode: "2" }
   | { hide: "preview" | "results"; mode: "1" };
 
-export function paneCollapse(kind: PaneKind, raw: number, mode: string): PaneCollapse | null {
-  const spec = PANE_SIZES[kind];
-  const overshoot = COLLAPSE_OVERSHOOT[kind];
+export function paneCollapse(
+  kind: PaneKind,
+  geometry: PointerGeometry & { resultsTopPx: number },
+  mode: string,
+): PaneCollapse | null {
+  const rootPx = geometry.rootFontSizePx || 16;
   if (kind === "folder") {
-    return mode === "3" && raw <= spec.min - overshoot ? { hide: "folder", mode: "2" } : null;
+    return mode === "3" && geometry.clientX <= COLLAPSE_FOLDER_CHARS * rootPx
+      ? { hide: "folder", mode: "2" }
+      : null;
   }
-  if (mode !== "2") {
+  if (mode !== "2" && mode !== "3") {
     return null;
   }
-  if (raw <= spec.min - overshoot) {
+  const limit = COLLAPSE_LINES * LINE_REM * rootPx;
+  const bottomPx = geometry.viewportHeightPx - geometry.bottomBarPx - geometry.clientY;
+  if (bottomPx <= limit) {
     return { hide: "preview", mode: "1" };
   }
-  if (raw >= spec.max + overshoot) {
+  if (geometry.clientY - geometry.resultsTopPx <= limit) {
     return { hide: "results", mode: "1" };
   }
   return null;
+}
+
+// タブのダブルクリックで隠すペイン。フォルダーの境界はフォルダー、一覧とノートの
+// 境界は下のペイン (どちらも引き切ったときと同じ行き先)
+export function paneHideByDoubleClick(kind: PaneKind, mode: string): PaneCollapse | null {
+  if (kind === "folder") {
+    return mode === "3" ? { hide: "folder", mode: "2" } : null;
+  }
+  return mode === "2" || mode === "3" ? { hide: "preview", mode: "1" } : null;
 }
 
 // 初回描画の前に走らせるスクリプト (chrome/PreHydrationScripts.tsx が layout の
