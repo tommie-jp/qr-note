@@ -19,6 +19,8 @@ const MONTH = '2026-11'
 const DEFAULT_PREFS = {
   dateSize: 'md',
   eventSize: 'md',
+  sidePadding: 'md',
+  eventsPerDay: 5,
   colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
   textColors: { high: 'auto', normal: 'auto', low: 'auto' },
 }
@@ -206,6 +208,39 @@ test.describe('予定カレンダー', () => {
     expect((await dayCell(page, DAY).boundingBox())!.height).toBe(withEvent!.height)
   })
 
+  test('設定で 1 日の予定数 (マスの高さ) と月の左右の余白を変えられる', async ({ page }) => {
+    await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
+    await openCalendar(page)
+    const grid = calendar(page).locator('[data-calendar-grid]')
+    // 既定は 5 行: 25 + 21 × 5 = 130px
+    expect((await dayCell(page, DAY).boundingBox())!.height).toBe(130)
+    const widthMd = (await grid.boundingBox())!.width
+
+    await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
+    const panel = page.getByRole('dialog', { name: 'カレンダーの設定' })
+    await panel.getByLabel('1 日に出す予定の数').selectOption('10')
+    await expect.poll(async () => (await dayCell(page, DAY).boundingBox())!.height).toBe(235)
+    await panel.getByRole('group', { name: '月の左右の余白' }).getByRole('button', { name: '0', exact: true }).click()
+    // 左右 16px ずつ広がる (縦に送る器に切られない)
+    await expect.poll(async () => (await grid.boundingBox())!.width).toBe(widthMd + 32)
+    await panel.getByRole('group', { name: '月の左右の余白' }).getByRole('button', { name: '小', exact: true }).click()
+    await expect.poll(async () => (await grid.boundingBox())!.width).toBe(widthMd + 16)
+    await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
+  })
+
+  test('狭い画面では見出しの釦を横に送れ、設定のアイコンは動かない', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 })
+    await openCalendar(page, '1')
+    const nav = calendar(page).locator('[data-calendar-nav]')
+    const settings = calendar(page).getByRole('button', { name: 'カレンダーの設定' })
+    const before = (await settings.boundingBox())!.x
+    // 1 行のまま (折り返さない) で、はみ出した分を送れる
+    expect(await nav.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+    await nav.evaluate((el) => el.scrollTo({ left: el.scrollWidth }))
+    await expect(nav.getByRole('button', { name: '一覧', exact: true })).toBeInViewport()
+    expect((await settings.boundingBox())!.x).toBe(before)
+  })
+
   test('祝日のマスは薄いピンクで、日の一覧の見出しに祝日名が出る', async ({ page }) => {
     await openCalendar(page)
     const holiday = dayCell(page, '2026-11-03')
@@ -277,6 +312,7 @@ test.describe('予定カレンダー', () => {
 
     // 少し待ってサーバへ保存される。読み込み直しても残る
     await expect.poll(settings).toEqual({
+      ...DEFAULT_PREFS,
       dateSize: 'lg',
       eventSize: 'sm',
       colors: { ...DEFAULT_PREFS.colors, normal: '#6b7280' },
@@ -452,6 +488,8 @@ test.describe('予定カレンダー', () => {
       ((await (await page.request.get(`/api/items/${NOTE2.id}`)).json()) as { data: { item: { memo: string } } }).data.item
         .memo
     const drag = async (handle: Locator, target: Locator) => {
+      // 1 日 5 行の月は日のペインより縦に長い。移す先のマスを見える所へ送ってから掴む
+      await target.scrollIntoViewIfNeeded()
       const from = (await handle.boundingBox())!
       const to = (await target.boundingBox())!
       await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)

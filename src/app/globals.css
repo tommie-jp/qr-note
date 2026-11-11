@@ -196,6 +196,15 @@ select,
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
+/* px-safe の余白を打ち消して、器を画面の端 (safe-area の内側) まで広げる。
+   px-safe と組んで使うと、中身の位置は変わらず、中の要素が負の margin で
+   余白へはみ出せる。縦に送る器 (overflow-y:auto) は横のはみ出しを切るので、
+   はみ出したい物の器はこれで余白ごと持つ (検索結果のモジュールの表示。docs/126 §1-19) */
+@utility -mx-safe {
+  margin-left: calc(-1 * max(1rem, env(safe-area-inset-left)));
+  margin-right: calc(-1 * max(1rem, env(safe-area-inset-right)));
+}
+
 /* 右だけの版。ヘッダーの帯は左の余白をハンバーガーボタン自身の padding として
    持たせている (器に左パディングを残すと、横スクロールを始めた瞬間に
    sticky のボタンがその幅ぶん左へ飛ぶ)。左を捨てる代わりにこちらを使う */

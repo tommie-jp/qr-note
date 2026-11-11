@@ -19,6 +19,8 @@ describe('parseCalendarPrefs (保存値を畳む)', () => {
       dateSize: 'lg',
       // 前の版の保存値 (予定の大きさを持たない) は中
       eventSize: 'md',
+      sidePadding: 'md',
+      eventsPerDay: 5,
       colors: { high: '#112233', normal: DEFAULT_CALENDAR_PREFS.colors.normal, low: '#abcdef' },
       // 前の版の保存値 (文字色を持たない) は自動
       textColors: { high: 'auto', normal: 'auto', low: 'auto' },
@@ -31,6 +33,8 @@ describe('validateCalendarPrefs (API の入口は畳まず断る)', () => {
     const ok = {
       dateSize: 'sm',
       eventSize: 'lg',
+      sidePadding: 'none',
+      eventsPerDay: 20,
       colors: { high: '#ff0000', normal: '#00ff00', low: '#0000ff' },
       textColors: { high: '#ffffff', normal: 'auto', low: '#1f2937' },
     }
@@ -56,6 +60,29 @@ describe('予定の文字の大きさ (eventSize)', () => {
   test('PUT は省略なら中、知らない大きさは断る', () => {
     expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventSize: undefined })?.eventSize).toBe('md')
     expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventSize: 'xl' })).toBeNull()
+  })
+})
+
+describe('左右の余白 (sidePadding) と 1 日の予定数 (eventsPerDay)', () => {
+  test('保存値の読めない値は既定 (中・5) に寄せる', () => {
+    expect(parseCalendarPrefs(JSON.stringify({ sidePadding: 'xl', eventsPerDay: 2 }))).toMatchObject({
+      sidePadding: 'md',
+      eventsPerDay: 5,
+    })
+    expect(parseCalendarPrefs(JSON.stringify({ sidePadding: 'sm', eventsPerDay: 12 }))).toMatchObject({
+      sidePadding: 'sm',
+      eventsPerDay: 12,
+    })
+  })
+
+  test('PUT は省略なら既定、範囲外・小数・知らない余白は断る', () => {
+    const base = { ...DEFAULT_CALENDAR_PREFS, sidePadding: undefined, eventsPerDay: undefined }
+    expect(validateCalendarPrefs(base)).toMatchObject({ sidePadding: 'md', eventsPerDay: 5 })
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventsPerDay: 3 })?.eventsPerDay).toBe(3)
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventsPerDay: 2 })).toBeNull()
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventsPerDay: 21 })).toBeNull()
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventsPerDay: 4.5 })).toBeNull()
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, sidePadding: 'lg' })).toBeNull()
   })
 })
 

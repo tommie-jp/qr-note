@@ -74,13 +74,15 @@ export function SearchResultsClient(props: SearchResultsClientProps) {
 }
 
 // モジュールの表示。検索窓・件数の器 (SearchResults) は一覧と共有し、
-// 中身だけを差し替える
+// 中身だけを差し替える。器は画面の左右の余白まで広げ (-mx-safe)、同じ幅の
+// padding で中身を戻す — 表示が余白へはみ出せるように (カレンダーの余白の
+// 設定。docs/126 §1-19)。2・3 ペインではこの器が縦に送るので横を切る
 function ModuleResults({ view, cookieSort }: { view: ResultView; cookieSort: Sort }) {
   const { query } = useSearchState(cookieSort);
   const Component = view.Component;
   return (
     <SearchResults query={query}>
-      <div data-results-scroll className="space-y-2">
+      <div data-results-scroll className="-mx-safe space-y-2 px-safe">
         <Component query={query} />
       </div>
     </SearchResults>

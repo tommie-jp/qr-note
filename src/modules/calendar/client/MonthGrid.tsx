@@ -14,11 +14,24 @@ import { eventColor } from "./priorityColor";
 // 中の文字をリンクにすると日を選ぶつもりの指が予定を開いてしまう。
 // 日を押すとその日の予定が並び (DayPane / DayPopover)、そこから開く
 const WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"] as const;
-// 1 マスに出す行 (祝日名 + 予定) の数。超えた分は右下の角に「+N」。
+// 1 マスに出す行 (祝日名 + 予定) の数は設定 (eventsPerDay、3〜20)。超えた分は右下の角に「+N」。
 // **マスの高さは予定の数で変えない** (週の行が伸び縮みすると月の見た目が揃わない)。
-// 高さ h-22 (88px) は 日付 24 + 行 20 × 3 + 間 1 × 3 + 枠 1 で、行数とは対。
-// 日付の文字の大きさは設定で変わるが、行の高さ (leading-6) は変えない
-const LINES_PER_DAY = 3;
+// 高さは 日付 24 + 行 20 × N + 間 1 × N + 枠 1 で、行数とは対 (3 行で 88px)。
+// 行を増やすと月は画面より縦に長くなり、送って見る前提 (docs/126 §1-19)。
+// 日付・予定の文字の大きさは設定で変わるが、行の高さ (leading-6・leading-5) は変えない
+export function cellHeightPx(lines: number): number {
+  return 25 + 21 * lines;
+}
+
+// 月の左右の余白 (docs/126 §1-19)。結果の器は画面の余白 (px-safe、1rem か safe-area の
+// 大きいほう) まで広がっている (-mx-safe px-safe)。マス目だけをそこへ出し、残す余白を
+// 0 / 8px / 16px にする。safe-area (iPhone の切り欠き) より内へは出さない
+const SIDE_PADDING_LENGTH = { none: "0px", sm: "0.5rem", md: "1rem" } as const;
+
+function bleed(side: "left" | "right", keep: string): string {
+  const inset = `env(safe-area-inset-${side})`;
+  return `calc(max(${keep}, ${inset}) - max(1rem, ${inset}))`;
+}
 
 export function MonthGrid({
   month,
@@ -37,8 +50,14 @@ export function MonthGrid({
   onSelect: (day: string, cell: HTMLElement) => void;
 }) {
   const { prefs } = useCalendarPrefs();
+  const keep = SIDE_PADDING_LENGTH[prefs.sidePadding];
+  const height = cellHeightPx(prefs.eventsPerDay);
   return (
-    <div className="select-none" data-calendar-grid="">
+    <div
+      className="select-none"
+      data-calendar-grid=""
+      style={{ marginLeft: bleed("left", keep), marginRight: bleed("right", keep) }}
+    >
       <div
         className="grid grid-cols-7 border-t border-l border-gray-200 text-center text-base"
         aria-hidden="true"
@@ -66,7 +85,7 @@ export function MonthGrid({
           // 土日・祝日・休日はマスを薄いピンクにする (docs/126 §1-9)
           const holiday = holidayName(day);
           const isWeekend = i % 7 >= 5;
-          const eventLines = LINES_PER_DAY - (holiday === null ? 0 : 1);
+          const eventLines = prefs.eventsPerDay - (holiday === null ? 0 : 1);
           const hidden = events.length - eventLines;
           return (
             <button
@@ -80,8 +99,9 @@ export function MonthGrid({
               data-day={day}
               data-holiday={holiday ?? undefined}
               onClick={(event) => onSelect(day, event.currentTarget)}
+              style={{ height }}
               // data-drop-target … 日の一覧の ︙ をこのマスへドラッグ中 (DayEventList が付け外しする)
-              className={`relative flex h-22 min-w-0 flex-col items-stretch gap-px overflow-hidden border-r border-b border-gray-200 text-left align-top hover:brightness-95 data-drop-target:ring-4 data-drop-target:ring-blue-500 data-drop-target:ring-inset ${
+              className={`relative flex min-w-0 flex-col items-stretch gap-px overflow-hidden border-r border-b border-gray-200 text-left align-top hover:brightness-95 data-drop-target:ring-4 data-drop-target:ring-blue-500 data-drop-target:ring-inset ${
                 holiday !== null || isWeekend ? "bg-pink-50" : "bg-white"
               }`}
             >

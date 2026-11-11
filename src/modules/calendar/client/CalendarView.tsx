@@ -70,9 +70,16 @@ export default function CalendarView({ query }: { query: string }) {
 
   return (
     <div className="space-y-2" data-calendar="">
-      <div className="flex flex-wrap items-center gap-1">
-        {/* カレンダー専用の設定 (日付の大きさ・優先度の色。docs/126 §1-12) */}
+      <div className="flex items-center gap-1">
+        {/* カレンダー専用の設定 (日付の大きさ・優先度の色。docs/126 §1-12)。
+            ここは送らない (docs/126 §1-19) */}
         <CalendarMenu />
+        {/* 右の釦は 1 行の帯にして横に送る (折り返すとマス目が下へずれる)。
+            設定のパネルは body へ portal するので、帯の overflow には切られない */}
+        <div
+          data-calendar-nav=""
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&>*]:shrink-0"
+        >
         <button type="button" className={NAV_BUTTON} aria-label="前の月" onClick={() => {
             setOpened(null);
             replaceMonth(addMonths(month, -1));
@@ -104,6 +111,7 @@ export default function CalendarView({ query }: { query: string }) {
         <button type="button" className={`${NAV_BUTTON} border border-gray-300`} onClick={pushList}>
           一覧
         </button>
+        </div>
       </div>
 
       {entry?.error && payload === undefined ? (

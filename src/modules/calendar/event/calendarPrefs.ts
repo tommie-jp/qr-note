@@ -1,10 +1,13 @@
-// カレンダーの表示の設定 (docs/126 §1-12・§1-18)。日付と予定の文字の大きさと、優先度ごとの色。
+// カレンダーの表示の設定 (docs/126 §1-12・§1-18・§1-19)。日付と予定の文字の大きさ、
+// 月の左右の余白、1 日に出す予定の数、優先度ごとの色。
 // DB にも React にも触らない純関数で、サーバ (検査・既定) と端末 (描く) が共有する。
 //
 // 保存は user_settings の 1 行 (key = calendar-prefs、値は JSON)。端末をまたいで効く
 import type { EventPriority } from './parseEvent'
 
 export type DateSize = 'sm' | 'md' | 'lg'
+// 月のマス目の左右の余白 (§1-19)。none 0 / sm 8px / md 16px (画面の余白と同じ)
+export type SidePadding = 'none' | 'sm' | 'md'
 
 // 文字色の「自動」(地の明るさから白か濃い灰を選ぶ)
 export const AUTO_TEXT = 'auto'
@@ -13,6 +16,9 @@ export interface CalendarPrefs {
   dateSize: DateSize
   // マス目の予定の文字の大きさ (§1-18)。段階は日付と同じ小・中・大
   eventSize: DateSize
+  sidePadding: SidePadding
+  // 1 マスに出す行 (祝日名 + 予定) の数 (§1-19)。マスの高さはこの行数で固定する
+  eventsPerDay: number
   // 地の色。#rrggbb (小文字)
   colors: Record<EventPriority, string>
   // 文字の色。#rrggbb (小文字) か 'auto'
@@ -20,6 +26,15 @@ export interface CalendarPrefs {
 }
 
 export const CALENDAR_PREFS_SETTING_KEY = 'calendar-prefs'
+
+export const SIDE_PADDINGS: readonly { value: SidePadding; label: string }[] = [
+  { value: 'none', label: '0' },
+  { value: 'sm', label: '小' },
+  { value: 'md', label: '中' },
+]
+
+export const MIN_EVENTS_PER_DAY = 3
+export const MAX_EVENTS_PER_DAY = 20
 
 export const DATE_SIZES: readonly { value: DateSize; label: string }[] = [
   { value: 'sm', label: '小' },
@@ -31,6 +46,8 @@ export const DATE_SIZES: readonly { value: DateSize; label: string }[] = [
 export const DEFAULT_CALENDAR_PREFS: CalendarPrefs = {
   dateSize: 'md',
   eventSize: 'md',
+  sidePadding: 'md',
+  eventsPerDay: 5,
   colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
   textColors: { high: AUTO_TEXT, normal: AUTO_TEXT, low: AUTO_TEXT },
 }
@@ -69,6 +86,9 @@ const HEX = /^#[0-9a-f]{6}$/i
 const PRIORITIES: readonly EventPriority[] = ['high', 'normal', 'low']
 
 const isDateSize = (value: unknown): value is DateSize => DATE_SIZES.some((size) => size.value === value)
+const isSidePadding = (value: unknown): value is SidePadding => SIDE_PADDINGS.some((p) => p.value === value)
+const isEventsPerDay = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= MIN_EVENTS_PER_DAY && value <= MAX_EVENTS_PER_DAY
 const isHex = (value: unknown): value is string => typeof value === 'string' && HEX.test(value)
 
 const isTextColor = (value: unknown): value is string => value === AUTO_TEXT || isHex(value)
@@ -79,31 +99,41 @@ const lower = (record: Record<string, unknown>): Record<EventPriority, string> =
 })
 
 // API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)。
-// 文字色 (textColors)・予定の大きさ (eventSize) は省略してよい (前の版の画面から来る PUT。
-// 自動・中と見る)
+// 文字色 (textColors)・予定の大きさ (eventSize)・余白 (sidePadding)・予定数 (eventsPerDay) は
+// 省略してよい (前の版の画面から来る PUT。既定と見る)
 export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
-  const { dateSize, eventSize, colors, textColors } = value as {
+  const { dateSize, eventSize, sidePadding, eventsPerDay, colors, textColors } = value as {
     dateSize?: unknown
     eventSize?: unknown
+    sidePadding?: unknown
+    eventsPerDay?: unknown
     colors?: unknown
     textColors?: unknown
   }
   if (!isDateSize(dateSize) || typeof colors !== 'object' || colors === null) {
     return null
   }
-  if (eventSize !== undefined && !isDateSize(eventSize)) {
+  if (
+    (eventSize !== undefined && !isDateSize(eventSize)) ||
+    (sidePadding !== undefined && !isSidePadding(sidePadding)) ||
+    (eventsPerDay !== undefined && !isEventsPerDay(eventsPerDay))
+  ) {
     return null
   }
-  const size = eventSize ?? DEFAULT_CALENDAR_PREFS.eventSize
+  const layout = {
+    eventSize: eventSize ?? DEFAULT_CALENDAR_PREFS.eventSize,
+    sidePadding: sidePadding ?? DEFAULT_CALENDAR_PREFS.sidePadding,
+    eventsPerDay: eventsPerDay ?? DEFAULT_CALENDAR_PREFS.eventsPerDay,
+  }
   const c = colors as Record<string, unknown>
   if (!PRIORITIES.every((p) => isHex(c[p]))) {
     return null
   }
   if (textColors === undefined) {
-    return { dateSize, eventSize: size, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
+    return { dateSize, ...layout, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
   }
   if (typeof textColors !== 'object' || textColors === null) {
     return null
@@ -112,7 +142,7 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (!PRIORITIES.every((p) => isTextColor(t[p]))) {
     return null
   }
-  return { dateSize, eventSize: size, colors: lower(c), textColors: lower(t) }
+  return { dateSize, ...layout, colors: lower(c), textColors: lower(t) }
 }
 
 // 保存値 (JSON 文字列) を畳む。読めない所は既定に寄せる (表示の設定なので
@@ -127,6 +157,8 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
   const v = (typeof value === 'object' && value !== null ? value : {}) as {
     dateSize?: unknown
     eventSize?: unknown
+    sidePadding?: unknown
+    eventsPerDay?: unknown
     colors?: unknown
     textColors?: unknown
   }
@@ -141,6 +173,8 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
   return {
     dateSize: isDateSize(v.dateSize) ? v.dateSize : DEFAULT_CALENDAR_PREFS.dateSize,
     eventSize: isDateSize(v.eventSize) ? v.eventSize : DEFAULT_CALENDAR_PREFS.eventSize,
+    sidePadding: isSidePadding(v.sidePadding) ? v.sidePadding : DEFAULT_CALENDAR_PREFS.sidePadding,
+    eventsPerDay: isEventsPerDay(v.eventsPerDay) ? v.eventsPerDay : DEFAULT_CALENDAR_PREFS.eventsPerDay,
     colors: pick(c, isHex, DEFAULT_CALENDAR_PREFS.colors),
     textColors: pick(t, isTextColor, DEFAULT_CALENDAR_PREFS.textColors),
   }

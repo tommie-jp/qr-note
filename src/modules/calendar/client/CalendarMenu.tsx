@@ -7,10 +7,12 @@ import {
   DATE_SIZES,
   DEFAULT_CALENDAR_PREFS,
   eventTextColor,
+  MAX_EVENTS_PER_DAY,
+  MIN_EVENTS_PER_DAY,
+  SIDE_PADDINGS,
   TEMPLATE_COLORS,
   TEXT_TEMPLATE_COLORS,
   type CalendarPrefs,
-  type DateSize,
 } from "../event/calendarPrefs";
 import type { EventPriority } from "../event/parseEvent";
 import { placeAround, type Placement } from "../event/placePopover";
@@ -22,13 +24,28 @@ const PRIORITY_ROWS: readonly { value: EventPriority; label: string }[] = [
   { value: "low", label: "低い" },
 ];
 
-// 小・中・大の 3 つの釦 (日付と予定の文字の大きさ)
-function SizeField({ legend, value, onChange }: { legend: string; value: DateSize; onChange: (size: DateSize) => void }) {
+const EVENTS_PER_DAY_OPTIONS = Array.from(
+  { length: MAX_EVENTS_PER_DAY - MIN_EVENTS_PER_DAY + 1 },
+  (_, i) => MIN_EVENTS_PER_DAY + i,
+);
+
+// 並んだ釦から 1 つ選ぶ欄 (文字の大きさ・左右の余白)
+function ChoiceField<T extends string>({
+  legend,
+  options,
+  value,
+  onChange,
+}: {
+  legend: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
   return (
     <fieldset className="space-y-1">
       <legend className="text-gray-600">{legend}</legend>
       <div className="flex gap-1">
-        {DATE_SIZES.map((size) => (
+        {options.map((size) => (
           <button
             key={size.value}
             type="button"
@@ -60,7 +77,7 @@ function SettingsIcon() {
 }
 
 // カレンダー専用の設定 (docs/126 §1-12)。月の見出し行の左端のアイコンで開く。
-// 日付と予定の文字の大きさと、優先度ごとの色 (テンプレート色かカラーピッカー)。
+// 日付と予定の文字の大きさ、月の左右の余白、1 日の予定数、優先度ごとの色 (テンプレート色かカラーピッカー)。
 // 変えた値はすぐマス目に当たり、保存は裏で行う (prefsStore)。
 // パネルは body へ portal する (DayPopover と同じ理由)
 export function CalendarMenu() {
@@ -147,8 +164,39 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
       }
       className="fixed z-40 w-80 max-w-[calc(100vw-1rem)] space-y-4 overflow-y-auto rounded border border-gray-300 bg-white p-3 text-sm shadow-xl"
     >
-      <SizeField legend="日付の文字の大きさ" value={prefs.dateSize} onChange={(dateSize) => change({ dateSize })} />
-      <SizeField legend="予定の文字の大きさ" value={prefs.eventSize} onChange={(eventSize) => change({ eventSize })} />
+      <ChoiceField
+        legend="日付の文字の大きさ"
+        options={DATE_SIZES}
+        value={prefs.dateSize}
+        onChange={(dateSize) => change({ dateSize })}
+      />
+      <ChoiceField
+        legend="予定の文字の大きさ"
+        options={DATE_SIZES}
+        value={prefs.eventSize}
+        onChange={(eventSize) => change({ eventSize })}
+      />
+      <ChoiceField
+        legend="月の左右の余白"
+        options={SIDE_PADDINGS}
+        value={prefs.sidePadding}
+        onChange={(sidePadding) => change({ sidePadding })}
+      />
+      {/* 1 マスの行数。マスの高さはこの行数で固定する (docs/126 §1-19) */}
+      <label className="flex items-center justify-between gap-2">
+        <span className="text-gray-600">1 日に出す予定の数</span>
+        <select
+          value={prefs.eventsPerDay}
+          onChange={(e) => change({ eventsPerDay: Number(e.target.value) })}
+          className="min-h-9 rounded border border-gray-300 bg-white px-2 text-gray-800"
+        >
+          {EVENTS_PER_DAY_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <fieldset className="space-y-3">
         <legend className="text-gray-600">優先度の色</legend>
