@@ -235,6 +235,8 @@ test.describe('隠したペインのタブ', () => {
     )
     // タブの下端が下部バーの上端 (= 下のペインがあった所の下端) に載り、全体が見える
     expect(box.y + box.height).toBeCloseTo(page.viewportSize()!.height - bar, 0)
+    // 端にある間は高さを倍 (40px) にする (docs/86 §4-29)
+    expect(box.height).toBeCloseTo(40, 0)
 
     await tab.click()
     await expect.poll(() => panesShown(page)).toBe('2')
