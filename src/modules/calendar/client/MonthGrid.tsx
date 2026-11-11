@@ -1,5 +1,6 @@
 "use client";
 
+import { dayProgress, type DayProgress } from "../event/dayProgress";
 import { holidayName } from "../event/holidays";
 import type { DayEvent } from "../event/monthLayout";
 import { DATE_SIZE_CLASS, EVENT_SIZE_CLASS } from "./dateSize";
@@ -26,6 +27,43 @@ export function cellHeightPx(lines: number): number {
 // 月の左右の余白 (docs/126 §1-19)。結果の器は画面の余白 (px-safe、1rem か safe-area の
 // 大きいほう) まで広がっている (-mx-safe px-safe)。マス目だけをそこへ出し、残す余白を
 // 0 / 8px / 16px にする。safe-area (iPhone の切り欠き) より内へは出さない
+// 日付の右に寄せる進み具合 (docs/126 §1-21)。すべて済みは ✓、残りがあれば「残n」。
+// 日付の大きさの設定に関わらず 12px (マスの幅は iPhone で 55px ほどしかない)
+function ProgressMark({ progress }: { progress: DayProgress | null }) {
+  if (progress === null) {
+    return null;
+  }
+  if (progress.kind === "done") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        data-day-progress="done"
+        className="size-4 shrink-0 text-emerald-600"
+      >
+        <path d="M4.5 12.5l5 5 10-11" />
+      </svg>
+    );
+  }
+  return (
+    <span aria-hidden="true" data-day-progress="left" className="shrink-0 text-xs leading-6 text-gray-700">
+      残{progress.count}
+    </span>
+  );
+}
+
+function progressLabel(progress: DayProgress | null): string {
+  if (progress === null) {
+    return "";
+  }
+  return progress.kind === "done" ? " すべて済み" : ` 残り ${progress.count} 件`;
+}
+
 const SIDE_PADDING_LENGTH = { none: "0px", sm: "0.5rem", md: "1rem" } as const;
 
 function bleed(side: "left" | "right", keep: string): string {
@@ -87,6 +125,7 @@ export function MonthGrid({
           const isWeekend = i % 7 >= 5;
           const eventLines = prefs.eventsPerDay - (holiday === null ? 0 : 1);
           const hidden = events.length - eventLines;
+          const progress = dayProgress(events);
           return (
             <button
               key={day}
@@ -95,7 +134,7 @@ export function MonthGrid({
               aria-selected={isSelected}
               aria-haspopup="dialog"
               aria-expanded={isSelected}
-              aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日${holiday === null ? "" : ` ${holiday}`} ${events.length} 件`}
+              aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日${holiday === null ? "" : ` ${holiday}`} ${events.length} 件${progressLabel(progress)}`}
               data-day={day}
               data-holiday={holiday ?? undefined}
               onClick={(event) => onSelect(day, event.currentTarget)}
@@ -107,11 +146,12 @@ export function MonthGrid({
             >
               {/* 日付の帯。今日は緑、選んだ日は黄 (SaiSuke2 と同じ) */}
               <span
-                className={`shrink-0 px-1 leading-6 ${DATE_SIZE_CLASS[prefs.dateSize]} ${
+                className={`flex shrink-0 items-center justify-between gap-0.5 px-1 leading-6 ${DATE_SIZE_CLASS[prefs.dateSize]} ${
                   isSelected ? "bg-yellow-200" : isToday ? "bg-green-300" : ""
                 } ${inMonth ? "text-gray-900" : "text-gray-400"}`}
               >
                 {dayNumber}
+                <ProgressMark progress={progress} />
               </span>
               {holiday !== null && (
                 <span className="shrink-0 truncate px-0.5 text-sm leading-5 text-gray-900">

@@ -169,6 +169,10 @@ test.describe('予定カレンダー', () => {
     await dayCell(page, DAY).click()
     const pane = dayPane(page)
     const done = pane.getByRole('button', { name: new RegExp(`${NOTE.key}.* を済みにする`) })
+    // 日付の右に済みでない数 (この日の予定はこの 1 件。docs/126 §1-21)
+    const progress = dayCell(page, DAY).locator('[data-day-progress]')
+    await expect(progress).toHaveAttribute('data-day-progress', 'left')
+    await expect(progress).toHaveText('残1')
 
     await done.click()
     const undo = pane.getByRole('button', { name: new RegExp(`${NOTE.key}.* を未済に戻す`) })
@@ -176,6 +180,8 @@ test.describe('予定カレンダー', () => {
     await expect(eventRow(pane).locator('.line-through')).toBeVisible()
     // マス目も取り消し線 (月の予定を取り直した後)
     await expect(dayCell(page, DAY).locator('.line-through')).toContainText(NOTE.key)
+    // すべて済みなので ✓
+    await expect(progress).toHaveAttribute('data-day-progress', 'done')
 
     // 本文の予定の行に done= が入る
     const res = await page.request.get(`/api/items/${NOTE.id}`)
@@ -186,6 +192,7 @@ test.describe('予定カレンダー', () => {
     await undo.click()
     await expect(done).toHaveAttribute('aria-pressed', 'false')
     await expect(dayCell(page, DAY).locator('.line-through')).toHaveCount(0)
+    await expect(progress).toHaveText('残1')
     const after = await page.request.get(`/api/items/${NOTE.id}`)
     expect(((await after.json()) as { data: { item: { memo: string } } }).data.item.memo).not.toContain('done=')
   })
