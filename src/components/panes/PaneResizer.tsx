@@ -44,6 +44,18 @@ const HANDLE_LINE: Record<PaneKind, string> = {
   preview: "m-auto h-0.5 w-full",
 };
 
+// 境界の中央のつまみ (タブ)。8px の帯だけでは指でも マウスでも狙いにくいので、
+// 線の真ん中に掴みやすい大きさのタブを重ねる。帯の子なので、押せば帯の
+// ドラッグ・ダブルクリックがそのまま働く (イベントは帯へ浮かぶ)。
+// 帯から両側へはみ出して、ペインの端に少し重なる (z-20 で上に出る)
+const HANDLE_TAB: Record<PaneKind, { className: string; glyph: string }> = {
+  folder: { className: "h-12 w-5 text-base", glyph: "︙" },
+  preview: { className: "h-5 w-12 text-base", glyph: "⋯" },
+};
+
+const HANDLE_TAB_SKIN =
+  "absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-gray-400 bg-gray-100 leading-none text-gray-600 shadow-sm transition-colors group-hover:border-blue-500 group-hover:bg-blue-50 group-hover:text-blue-700 group-active:bg-blue-100";
+
 const HANDLE_LINE_SKIN =
   "bg-gray-400 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600";
 
@@ -225,6 +237,15 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
           dragging ? "bg-blue-600" : ""
         }`}
       />
+      <span
+        aria-hidden
+        data-pane-resizer-tab=""
+        className={`${HANDLE_TAB[kind].className} ${HANDLE_TAB_SKIN} ${
+          dragging ? "border-blue-600 bg-blue-100 text-blue-700" : ""
+        }`}
+      >
+        {HANDLE_TAB[kind].glyph}
+      </span>
     </div>
   );
 }
