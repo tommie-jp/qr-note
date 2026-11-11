@@ -233,7 +233,8 @@ test.describe('隠したペインのタブ', () => {
     const bar = await page.evaluate(() =>
       Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
     )
-    // タブの下端が下部バーの上端 (= 下のペインがあった所の下端) に載り、全体が見える
+    // タブの下端が下部バーの上端 (= 下のペインがあった所の下端) に載り、全体が見える。
+    // ホームインジケーターの帯の無い画面なので浮かせる高さは 0 (docs/86 §4-30)
     expect(box.y + box.height).toBeCloseTo(page.viewportSize()!.height - bar, 0)
     // 端にある間は高さを倍 (40px) にする (docs/86 §4-29)
     expect(box.height).toBeCloseTo(40, 0)

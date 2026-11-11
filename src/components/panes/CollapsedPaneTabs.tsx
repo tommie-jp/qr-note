@@ -168,7 +168,10 @@ function CollapsedTab({
       ? { left: Math.min(window.innerWidth - half, Math.max(half, d.x)) }
       : {
           top: Math.min(
-            window.innerHeight - readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX) - half,
+            window.innerHeight -
+              readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX) -
+              readCssPx("--home-indicator-gap", 0) -
+              half,
             Math.max(headerBottomPx() + half, d.y),
           ),
           bottom: "auto",
@@ -182,7 +185,8 @@ function CollapsedTab({
           top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
         }
       : {
-          bottom: `calc(var(--bottom-bar-h) + ${TAB_HALF_REM.preview}rem)`,
+          // iPhone のホームインジケーターの帯の上へ浮かせる (§4-30。帯から始まるタッチは OS が取る)
+          bottom: `calc(var(--bottom-bar-h) + var(--home-indicator-gap, 0px) + ${TAB_HALF_REM.preview}rem)`,
           left: tabOffsetCss(fraction, "100vw"),
         };
 

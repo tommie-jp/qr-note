@@ -893,3 +893,20 @@ html[data-scrollbars="hidden"] ::-webkit-scrollbar {
 html[data-keyboard-lift] [data-preview-pane] {
   z-index: 15;
 }
+
+/* 下端の横のタブ (CollapsedPaneTabs) を浮かせる高さ (docs/86 §4-30)。iPhone の画面の
+   下端はホームインジケーターの帯 (ホームへ戻るスワイプ) で、そこから始まるタッチは OS が
+   先に取る。帯 (safe-area-inset-bottom) の上へ、さらに 8px 離して置く。帯の無い画面は 0。
+   @property で長さとして登録するのは、JS (readCssPx) が px で読めるようにするため
+   (登録しないと calc(env(...)) の文字列のまま返る) */
+@property --home-indicator-gap {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+:root {
+  --home-indicator-gap: calc(
+    env(safe-area-inset-bottom, 0px) + min(env(safe-area-inset-bottom, 0px), 8px)
+  );
+}
