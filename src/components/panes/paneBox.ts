@@ -9,8 +9,10 @@ import type { NotePaneLayout } from "@/lib/prefs/paneMode";
 // --note-view-h … ノートが見えている高さ。画像の表示モード「全体」(docs/106)
 // が画像の高さの上限に使う。**器の高さと同じ式を書く** — ずれると全体のつもりで
 // ペインからはみ出す (globals.css の :root が単独ページの既定を持つ)
+// --keyboard-inset … iPhone のソフトキーボードが覆う高さ。日の一覧で題名を打つ間だけ
+// lib/client/keyboardInset.ts が書き、下部ペインをキーボードの上へ浮かせる (docs/126 §1-33)
 export const PANE_BOX_CLASS: Record<NotePaneLayout, string> = {
-  pane: "top-auto bottom-[var(--bottom-bar-h)] z-0 h-[var(--preview-pane-h)] [--note-view-h:var(--preview-pane-h)]",
+  pane: "top-auto bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px))] z-0 h-[var(--preview-pane-h)] [--note-view-h:var(--preview-pane-h)]",
   fullscreen:
     "top-[var(--header-h)] bottom-0 z-10 [--note-view-h:calc(100dvh-var(--header-h))]",
 };

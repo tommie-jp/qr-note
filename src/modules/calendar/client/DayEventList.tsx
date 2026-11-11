@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useKeyboardInset } from "@/lib/client/keyboardInset";
 import { holidayName } from "../event/holidays";
 import { eventSpan, jstParts } from "../event/eventTime";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
@@ -86,6 +87,13 @@ function TitleEditor({
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(event.title);
+  // 打っている間は下のペインをキーボードの上へ浮かせ、欄をペインの中で見える所へ送る
+  // (iPhone はキーボードで画面を縮めず、下端のペインがその下に隠れた。§1-33)
+  const inputRef = useRef<HTMLInputElement>(null);
+  const keepVisible = useCallback(() => {
+    inputRef.current?.scrollIntoView({ block: "nearest" });
+  }, []);
+  useKeyboardInset(true, keepVisible);
   // Enter で確定した後、欄が消えるときの blur で 2 度確定しない
   const finished = useRef(false);
   const finish = (commit: boolean) => {
@@ -104,6 +112,7 @@ function TitleEditor({
     <div className="flex min-h-7 min-w-0 flex-1 items-center gap-2 pr-1">
       <TimeLabel event={event} />
       <input
+        ref={inputRef}
         aria-label="題名"
         value={value}
         onChange={(e) => setValue(e.target.value)}

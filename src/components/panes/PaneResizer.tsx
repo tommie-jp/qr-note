@@ -43,7 +43,7 @@ const HANDLE_CLASS: Record<PaneKind, string> = {
   // 構成のときだけ効かせたいので :has で見る)
   // m-0 … 境界の帯もペインと同じ理由で親の余白を打ち消す (docs/86 §4-12)
   preview:
-    "fixed inset-x-0 m-0 bottom-[calc(var(--bottom-bar-h)+var(--preview-pane-h))] z-20 h-2 translate-y-1/2 cursor-row-resize touch-none",
+    "fixed inset-x-0 m-0 bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px)+var(--preview-pane-h))] z-20 h-2 translate-y-1/2 cursor-row-resize touch-none",
 };
 
 // 掴む帯そのものは透明のまま。**境界の線は中の 2px が描く** (docs/86 §4-10) —

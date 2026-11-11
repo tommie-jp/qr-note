@@ -127,7 +127,7 @@ test("3 / 2 ペインのノートは下部ペイン (一覧の底を上げるフ
 // URL を離れても出し続けて画面を覆う心配がない
 test("3 ペインのノートは幅に関係なく下部のペイン", () => {
   const html = render("/item/4951", "3");
-  expect(html).toContain("bottom-[var(--bottom-bar-h)]");
+  expect(html).toContain("bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px))]");
   expect(html).toContain("h-[var(--preview-pane-h)]");
   expect(html).not.toContain("max-lg:hidden");
 });
@@ -136,7 +136,7 @@ test("3 ペインのノートは幅に関係なく下部のペイン", () => {
 // lg 未満で全画面になり、一覧とノートを同時に見られなかった
 test("2 ペインのノートも幅に関係なく下部のペイン", () => {
   const html = render("/item/4951", "2");
-  expect(html).toContain("bottom-[var(--bottom-bar-h)]");
+  expect(html).toContain("bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px))]");
   expect(html).toContain("h-[var(--preview-pane-h)]");
   expect(html).not.toContain("top-[var(--header-h)]");
   expect(html).not.toContain("lg:bottom-");
