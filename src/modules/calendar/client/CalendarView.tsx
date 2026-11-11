@@ -27,7 +27,8 @@ function pushList(): void {
 // 「予定が変わった」と見て控えを直し続ける
 const NO_EVENTS: readonly DayEvent[] = [];
 
-const NAV_BUTTON = "min-h-9 min-w-9 rounded px-2 text-sm text-gray-700 hover:bg-gray-100 active:bg-gray-200";
+// 見出し行は詰める (32px の釦・16px の年月。docs/126 §1-23)
+const NAV_BUTTON = "min-h-8 min-w-8 rounded px-2 text-sm text-gray-700 hover:bg-gray-100 active:bg-gray-200";
 
 // 検索結果のカレンダー表示 (docs/126 §1-3)。検索式に当たる予定を月のマス目に並べる。
 // 検索窓・ペインの器は一覧と共有し、ここが持つのは結果の中身だけ
@@ -69,7 +70,7 @@ export default function CalendarView({ query }: { query: string }) {
   const [year, monthNumber] = month.split("-").map(Number);
 
   return (
-    <div className="space-y-2" data-calendar="">
+    <div className="space-y-1" data-calendar="">
       <div className="flex items-center gap-1">
         {/* カレンダー専用の設定 (日付の大きさ・優先度の色。docs/126 §1-12)。
             ここは送らない (docs/126 §1-19) */}
@@ -86,7 +87,7 @@ export default function CalendarView({ query }: { query: string }) {
           }}>
           ◀
         </button>
-        <h2 className="min-w-36 text-center text-xl" aria-live="polite">
+        <h2 className="min-w-28 text-center text-base leading-6" aria-live="polite">
           {year}年{monthNumber}月
         </h2>
         <button type="button" className={NAV_BUTTON} aria-label="次の月" onClick={() => {

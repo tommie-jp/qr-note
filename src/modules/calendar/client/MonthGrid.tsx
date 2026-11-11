@@ -97,13 +97,13 @@ export function MonthGrid({
       style={{ marginLeft: bleed("left", keep), marginRight: bleed("right", keep) }}
     >
       <div
-        className="grid grid-cols-7 border-t border-l border-gray-200 text-center text-base"
+        className="grid grid-cols-7 border-t border-l border-gray-200 text-center text-sm leading-5"
         aria-hidden="true"
       >
         {WEEKDAYS.map((label) => (
           <div
             key={label}
-            className="border-r border-b border-gray-200 py-1 text-gray-700"
+            className="border-r border-b border-gray-200 py-0.5 text-gray-700"
           >
             {label}
           </div>

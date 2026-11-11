@@ -95,7 +95,7 @@ export function CalendarMenu() {
           const button = e.currentTarget;
           setAnchor((current) => (current === null ? button : null));
         }}
-        className="flex min-h-9 min-w-9 items-center justify-center rounded border border-gray-300 text-gray-700 hover:bg-gray-100 active:bg-gray-200"
+        className="flex min-h-8 min-w-8 items-center justify-center rounded border border-gray-300 text-gray-700 hover:bg-gray-100 active:bg-gray-200"
       >
         <SettingsIcon />
       </button>
