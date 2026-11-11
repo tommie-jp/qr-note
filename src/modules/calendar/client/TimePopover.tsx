@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { placeAround, type Placement } from "../event/placePopover";
+import { placeAroundInView, type Placement } from "../event/placePopover";
+import { onVisibleViewChange, visibleView } from "./visibleView";
 import { moveStart, quarterHours, type TimeRange } from "../event/timeOptions";
 
 // 終日を外したときの時刻
@@ -29,18 +30,23 @@ export function TimePopover({
   // 終日を切り替えると背が変わるので置き直す
   const allDay = range === null;
 
+  // 置く範囲は見えている範囲 (iPhone のキーボードで縮む。§1-32)
   useLayoutEffect(() => {
-    const box = ref.current;
-    if (box === null) {
-      return;
-    }
-    setPlacement(
-      placeAround(
-        anchor.getBoundingClientRect(),
-        { width: box.offsetWidth, height: box.scrollHeight },
-        { width: window.innerWidth, height: window.innerHeight },
-      ),
-    );
+    const place = () => {
+      const box = ref.current;
+      if (box === null) {
+        return;
+      }
+      setPlacement(
+        placeAroundInView(
+          anchor.getBoundingClientRect(),
+          { width: box.offsetWidth, height: box.scrollHeight },
+          visibleView(),
+        ),
+      );
+    };
+    place();
+    return onVisibleViewChange(place);
   }, [anchor, allDay]);
 
   // 外を押す・Esc で閉じる (Esc はペインの「閉じる」まで届かせない)

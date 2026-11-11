@@ -70,3 +70,34 @@ export function placeAround(
   const maxHeight = Math.max(0, above)
   return { left, top: VIEWPORT_MARGIN, maxHeight, side: 'over' }
 }
+
+// 見えている範囲 (レイアウトの画面に対する位置と大きさ)。iPhone はソフトキーボードが
+// 出てもレイアウトの画面 (innerHeight) を縮めず、見えている範囲 (visualViewport) だけを
+// 縮めて送る (docs/126 §1-32)
+export interface View {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+// placeAround を見えている範囲の中で行う。fixed の座標はレイアウトの画面に対する
+// ものなので、見えている範囲の座標に直して置き、戻す。行がキーボードの下に隠れて
+// いても、フォームは見えている範囲の中に収める (はみ出す分は縮めて中を送る)
+export function placeAroundInView(
+  anchor: Rect,
+  size: { width: number; height: number },
+  view: View,
+): Placement {
+  const local = {
+    left: anchor.left - view.left,
+    right: anchor.right - view.left,
+    top: anchor.top - view.top,
+    bottom: anchor.bottom - view.top,
+  }
+  const placed = placeAround(local, size, { width: view.width, height: view.height })
+  const maxHeight = Math.max(0, Math.min(placed.maxHeight, view.height - VIEWPORT_MARGIN * 2))
+  const height = Math.min(size.height, maxHeight)
+  const top = Math.max(VIEWPORT_MARGIN, Math.min(placed.top, view.height - VIEWPORT_MARGIN - height))
+  return { ...placed, left: placed.left + view.left, top: top + view.top, maxHeight }
+}

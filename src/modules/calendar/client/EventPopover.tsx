@@ -4,7 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import { ClearIcon } from "@/components/icons";
 import { noteCache } from "@/lib/client/noteStore";
-import { placeAround, type Placement } from "../event/placePopover";
+import { placeAroundInView, type Placement } from "../event/placePopover";
+import { onVisibleViewChange, visibleView } from "./visibleView";
 import EventForm from "./EventForm";
 
 // 開く予定。isNew は「+」で振った新しい番号 (まだサーバに無いので取りに行かない)
@@ -20,7 +21,9 @@ export interface EditingEvent {
 // ゴミ箱へ移したら閉じる。
 //
 // 送り (scroll) では閉じずに置き直す — iPhone はキーボードが出ると画面を
-// 送るので、閉じるとフォームが打つ前に消える。body へ portal する理由は
+// 送るので、閉じるとフォームが打つ前に消える。置く範囲は**見えている範囲**
+// (visualViewport)。iPhone はキーボードでレイアウトの画面を縮めないので、
+// innerHeight を基準にするとフォームがキーボードの下や画面の外へ出た (§1-32)。body へ portal する理由は
 // DayPopover と同じ
 export function EventPopover({
   editing,
@@ -46,10 +49,10 @@ export function EventPopover({
     }
     box.style.maxHeight = "";
     setPlacement(
-      placeAround(
+      placeAroundInView(
         anchor.getBoundingClientRect(),
         { width: box.offsetWidth, height: box.scrollHeight },
-        { width: window.innerWidth, height: window.innerHeight },
+        visibleView(),
       ),
     );
   }, [anchor]);
@@ -66,7 +69,9 @@ export function EventPopover({
     observer.observe(box.firstElementChild ?? box);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
+    const stopView = onVisibleViewChange(place);
     return () => {
+      stopView();
       observer.disconnect();
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
