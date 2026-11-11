@@ -101,15 +101,21 @@ body {
   }
 }
 
-/* ダブルタップズーム待ちの 300ms 遅延をなくす。ピンチズームは残す */
-a,
-button,
-input,
-select,
-textarea,
-label,
-summary {
-  touch-action: manipulation;
+/* ダブルタップズーム待ちの 300ms 遅延をなくす。ピンチズームは残す。
+   **@layer base に入れる。** レイヤーの外に置くと Tailwind のユーティリティ
+   (@layer utilities) より常に強く、釦に付けた touch-none が効かなかった —
+   ドラッグのつまみ (日の一覧の ︙・隠したペインのタブ) を指でなぞると
+   ブラウザがスクロールとして横取りし、pointercancel で止まっていた (docs/126 §1-30) */
+@layer base {
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  summary {
+    touch-action: manipulation;
+  }
 }
 
 /* 下部バーだけは倍率に上限を設ける (docs/61 §3)。
