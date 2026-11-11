@@ -24,7 +24,7 @@ import {
 // 失敗しても色は戻さない — 見えている色と押した色が食い違うほうが混乱する。
 // 食い違いは下の文言で伝え、次の読み込みで元へ戻ることを含みにする。
 
-// 色見本 1 つぶんのボタン。行の高さ (min-h-5) と同じ高さ 20px にして、
+// 色見本 1 つぶんのボタン。高さ 20px にして行の高さ (min-h-6) に収め、
 // 行だけ背が高くならないようにする (TextSizeMenuItem の ＋ / − と同じ)
 const SWATCH_BUTTON_CLASS =
   "inline-flex h-5 w-9 items-center justify-center rounded transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:opacity-60";

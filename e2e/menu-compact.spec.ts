@@ -3,7 +3,7 @@ import { expect, test } from './helpers'
 // ハンバーガーメニューの詰めた行と「スクロールバー」の設定 (docs/11 §6-8)
 
 test.describe('メニューの行とスクロールバー', () => {
-  test('行の高さは文字 1 行 + 1/4 (20px) で、行の間は空けない', async ({ page }) => {
+  test('行の高さは 24px で、行の間は空けない', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'メニュー', exact: true }).click()
     const github = page.getByRole('link', { name: 'GitHub' })
@@ -19,7 +19,7 @@ test.describe('メニューの行とスクロールバー', () => {
     const singles = rows.filter((row) => row.height > 10 && row.height < 30)
     expect(singles.length).toBeGreaterThan(4)
     for (const row of singles) {
-      expect(row.height).toBe(20)
+      expect(row.height).toBe(24)
     }
     // 行と行の間は空けない (先頭のつまみの飾りの下は除く)
     for (let i = 2; i < rows.length; i++) {

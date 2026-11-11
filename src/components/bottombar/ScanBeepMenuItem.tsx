@@ -29,7 +29,7 @@ import {
 // 本文が変わるのが見えるが、音量は見えない。閉じてスキャンするまで結果が
 // 判らないのでは選べない。押した操作の中で鳴らすので iOS でも鳴る
 
-// h-5 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-5) と揃える
+// h-5 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-6) に収める
 // (TextSizeMenuItem と同じ)
 const STEP_BUTTON_CLASS =
   "inline-flex h-5 w-9 items-center justify-center rounded text-xl leading-none text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";

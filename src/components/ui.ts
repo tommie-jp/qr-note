@@ -131,10 +131,11 @@ export const SUBMIT_ICON_SPINNER_CLASS = `size-6 ${WHITE_SPINNER_RING}`;
 // 押せる行と寸法だけを共有し、押した感じの色は持たない — 行のどこを押しても
 // 何も起きないのに反応が返ると、押し損ねたように見えるため
 // **2026-11-12 にさらに詰めた (docs/11 §6-8)。** 行の高さは文字 1 行 + 文字の高さの 1/4
-// (text-base で 20px = min-h-5、leading-tight)。行と行の間 (シートの gap) も 0。
-// 中に置くボタン類も h-5 に揃える (揃えないとその行だけ背が高くなる)。
+// (text-base で 20px)。詰めすぎて読みにくかったので、同じ日に 24px (min-h-6) へ少し戻した。
+// 行と行の間 (シートの gap) は 0。中に置くボタン類は h-5 (20px) で、行より低ければよい
+// (高いとその行だけ背が伸びる)。
 export const HEADER_MENU_ROW_CLASS =
-  "flex min-h-5 leading-tight w-full items-center gap-2 rounded px-3 text-left font-medium text-gray-700";
+  "flex min-h-6 leading-tight w-full items-center gap-2 rounded px-3 text-left font-medium text-gray-700";
 
 export const HEADER_MENU_ITEM_CLASS = `${HEADER_MENU_ROW_CLASS} transition-colors hover:bg-gray-100 active:bg-gray-200`;
 
