@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ClearIcon } from "@/components/icons";
 import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
 import { PaneResizer } from "@/components/panes/PaneResizer";
+import { onPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
 import { newItemId } from "@/lib/items/itemId";
 import type { DayEvent } from "../event/monthLayout";
 import {
@@ -56,6 +57,10 @@ export function DayPane({
       }
     };
   }, []);
+
+  // 境界を引き切って下のペインを隠したら閉じる (docs/86 §4-19)。
+  // 閉じないと 1 ペインへ移った後にマスの横へ浮かせる一覧として出直す
+  useEffect(() => onPreviewPaneHidden(onClose), [onClose]);
 
   // Esc で閉じる (フォームが出ている間はフォームが先に受けて止める)
   useEffect(() => {

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  paneCollapse,
+  rawPaneSizeFromPointer,
   PANE_SIZES,
   PANE_SIZE_INIT_SCRIPT,
   clampPaneSize,
@@ -222,4 +224,33 @@ describe("PANE_SIZE_INIT_SCRIPT (生成器へ移す前との互換)", () => {
       expect(now.threw).toBe(false);
     }
   });
+});
+
+describe("paneCollapse (境界を引き切ったら構成を減らす。docs/86 §4-19)", () => {
+  test("3 ペインでフォルダーを下限より 3rem 以上細くすると、フォルダーを隠して 2 ペイン", () => {
+    expect(paneCollapse("folder", 6, "3")).toEqual({ hide: "folder", mode: "2" });
+    expect(paneCollapse("folder", 6.1, "3")).toBeNull();
+    expect(paneCollapse("folder", 9, "3")).toBeNull();
+  });
+
+  test("2 ペインで下のペインを下限より 8dvh 以上低くすると、下を隠して 1 ペイン", () => {
+    expect(paneCollapse("preview", 12, "2")).toEqual({ hide: "preview", mode: "1" });
+    expect(paneCollapse("preview", 12.1, "2")).toBeNull();
+  });
+
+  test("2 ペインで上の一覧を狭くし、下のペインが上限より 8dvh 以上高くなると、一覧を隠して 1 ペイン", () => {
+    expect(paneCollapse("preview", 88, "2")).toEqual({ hide: "results", mode: "1" });
+    expect(paneCollapse("preview", 87.9, "2")).toBeNull();
+  });
+
+  test("3 ペインの一覧とノートの境界は畳まない (フォルダー + 一覧の構成が無い)", () => {
+    expect(paneCollapse("preview", 5, "3")).toBeNull();
+    expect(paneCollapse("preview", 95, "3")).toBeNull();
+  });
+});
+
+test("rawPaneSizeFromPointer は上下限で止めない (引き切りの判定に使う)", () => {
+  const geometry = { clientX: 32, clientY: 0, rootFontSizePx: 16, viewportHeightPx: 1000, bottomBarPx: 0 };
+  expect(rawPaneSizeFromPointer("folder", geometry)).toBe(2);
+  expect(rawPaneSizeFromPointer("preview", { ...geometry, clientY: 950 })).toBe(5);
 });

@@ -65,3 +65,75 @@ test.describe('ペインの境界のつまみ', () => {
     await expect.poll(async () => Number(await separator.getAttribute('aria-valuenow'))).toBeGreaterThan(before)
   })
 })
+
+// 境界を上下限の外まで引き切って離すと、狭くなった側のペインを隠して構成を 1 つ減らす
+// (docs/86 §4-19)。引き切っている間はタブの色が変わる (data-collapse)
+test.describe('境界の引き切りでペインを隠す', () => {
+  const panesShown = (page: Page) => page.locator('[data-panes]').getAttribute('data-panes')
+
+  async function dragTabTo(page: Page, separator: Locator, to: { x?: number; y?: number }): Promise<void> {
+    const tab = (await separator.locator('[data-pane-resizer-tab]').boundingBox())!
+    const from = { x: tab.x + tab.width / 2, y: tab.y + tab.height / 2 }
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x ?? from.x, to.y ?? from.y, { steps: 8 })
+  }
+
+  test('3 ペインでフォルダーを左へ引き切ると、フォルダーを隠して 2 ペイン', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await openWithPanes(page, '3')
+    const separator = page.getByRole('separator', { name: 'フォルダーの幅' })
+    const before = Number(await separator.getAttribute('aria-valuenow'))
+
+    await dragTabTo(page, separator, { x: 20 })
+    await expect(separator).toHaveAttribute('data-collapse', 'folder')
+    await page.mouse.up()
+
+    await expect.poll(() => panesShown(page)).toBe('2')
+    await expect(separator).toHaveCount(0)
+    // 寸法は掴む前のまま (次に 3 ペインへ戻したとき端に張り付かない)
+    expect(await page.evaluate(() => localStorage.getItem('pane-folder-w'))).toBe(String(before))
+  })
+
+  test('2 ペインで下のペインを下へ引き切ると、下を閉じて 1 ペイン (日の一覧も出直さない)', async ({ page }) => {
+    await openWithPanes(page, '2')
+    const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
+    await expect(dayPane).toBeVisible()
+    const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
+
+    await dragTabTo(page, separator, { y: page.viewportSize()!.height - 5 })
+    await expect(separator).toHaveAttribute('data-collapse', 'preview')
+    await page.mouse.up()
+
+    await expect.poll(() => panesShown(page)).toBe('1')
+    await expect(dayPane).toHaveCount(0)
+    await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toHaveCount(0)
+  })
+
+  test('2 ペインで上の一覧を上へ引き切ると、一覧側を隠して 1 ペイン (日の一覧は浮かせて残る)', async ({ page }) => {
+    await openWithPanes(page, '2')
+    const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
+
+    await dragTabTo(page, separator, { y: 5 })
+    await expect(separator).toHaveAttribute('data-collapse', 'results')
+    await page.mouse.up()
+
+    await expect.poll(() => panesShown(page)).toBe('1')
+    await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toBeVisible()
+  })
+
+  test('上下限のすこし外で離しただけでは隠さない', async ({ page }) => {
+    await openWithPanes(page, '2')
+    const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
+    const height = page.viewportSize()!.height
+    const bar = await page.evaluate(() =>
+      Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
+    )
+    // 下のペインが 16dvh (下限 20 を越えるが、隠す 12 までは届かない)
+    await dragTabTo(page, separator, { y: height - bar - height * 0.16 })
+    await expect(separator).not.toHaveAttribute('data-collapse')
+    await page.mouse.up()
+    await expect.poll(() => panesShown(page)).toBe('2')
+    await expect(separator).toHaveAttribute('aria-valuenow', '20')
+  })
+})

@@ -84,24 +84,59 @@ export function paneSizeValue(kind: PaneKind, size: number): string {
 //             rem に直すのは、保存する単位が rem だから (上の表)。
 //   preview … ペインは下部バーのぶん上で終わるので、
 //             高さ = 画面の高さ - バー - ポインタの y。dvh に直す。
-export function paneSizeFromPointer(
-  kind: PaneKind,
-  geometry: {
-    clientX: number;
-    clientY: number;
-    rootFontSizePx: number;
-    viewportHeightPx: number;
-    bottomBarPx: number;
-  },
-): number {
+export interface PointerGeometry {
+  clientX: number;
+  clientY: number;
+  rootFontSizePx: number;
+  viewportHeightPx: number;
+  bottomBarPx: number;
+}
+
+export function paneSizeFromPointer(kind: PaneKind, geometry: PointerGeometry): number {
+  return clampPaneSize(kind, rawPaneSizeFromPointer(kind, geometry));
+}
+
+// 上下限で止める前の寸法。引き切ったか (paneCollapse) の判定に使う
+export function rawPaneSizeFromPointer(kind: PaneKind, geometry: PointerGeometry): number {
   if (kind === "folder") {
     // 0 除算だけは避ける (root の font-size が読めない環境)
     const rootPx = geometry.rootFontSizePx || 16;
-    return clampPaneSize(kind, geometry.clientX / rootPx);
+    return geometry.clientX / rootPx;
   }
   const viewport = geometry.viewportHeightPx || 1;
   const heightPx = viewport - geometry.bottomBarPx - geometry.clientY;
-  return clampPaneSize(kind, (heightPx / viewport) * 100);
+  return (heightPx / viewport) * 100;
+}
+
+// 境界を上下限の外までさらに引き切って離したら、狭くなった側のペインを隠して
+// 構成を 1 つ減らす (docs/86 §4-19)。どれだけ越えたら畳むかは境界ごと (表の単位で)。
+//
+//   3 ペインのフォルダーの境界 … フォルダーを隠して 2 ペイン
+//   2 ペインの一覧とノートの境界 … 下のペインか上の一覧を隠して 1 ペイン
+//
+// 3 ペインの一覧とノートの境界は畳まない — 「フォルダー + 一覧」の構成が無い
+export const COLLAPSE_OVERSHOOT = { folder: 3, preview: 8 } as const;
+
+export type PaneCollapse =
+  | { hide: "folder"; mode: "2" }
+  | { hide: "preview" | "results"; mode: "1" };
+
+export function paneCollapse(kind: PaneKind, raw: number, mode: string): PaneCollapse | null {
+  const spec = PANE_SIZES[kind];
+  const overshoot = COLLAPSE_OVERSHOOT[kind];
+  if (kind === "folder") {
+    return mode === "3" && raw <= spec.min - overshoot ? { hide: "folder", mode: "2" } : null;
+  }
+  if (mode !== "2") {
+    return null;
+  }
+  if (raw <= spec.min - overshoot) {
+    return { hide: "preview", mode: "1" };
+  }
+  if (raw >= spec.max + overshoot) {
+    return { hide: "results", mode: "1" };
+  }
+  return null;
 }
 
 // 初回描画の前に走らせるスクリプト (chrome/PreHydrationScripts.tsx が layout の

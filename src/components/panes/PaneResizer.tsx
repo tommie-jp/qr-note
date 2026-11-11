@@ -1,14 +1,19 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { startTransition, useRef, useState, useSyncExternalStore } from "react";
+import { navigate, refreshServerView } from "@/lib/client/navigation";
 import {
   BOTTOM_BAR_FALLBACK_PX,
   PANE_SIZES,
   clampPaneSize,
-  paneSizeFromPointer,
+  paneCollapse,
   paneSizeValue,
+  rawPaneSizeFromPointer,
+  type PaneCollapse,
   type PaneKind,
 } from "@/lib/prefs/paneSize";
+import { switchPaneMode } from "@/components/panes/switchPaneMode";
+import { listHrefFromItemUrl, notifyPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
 
 // 境界そのものの置き方。**ポインタ → 寸法の計算 (prefs/paneSize.ts) と対**で、
 // どちらか片方だけ直すと掴む場所と動く量がずれる。
@@ -55,6 +60,15 @@ const HANDLE_TAB: Record<PaneKind, { className: string; glyph: string }> = {
 
 const HANDLE_TAB_SKIN =
   "absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded border border-gray-400 bg-gray-100 leading-none text-gray-600 shadow-sm transition-colors group-hover:border-blue-500 group-hover:bg-blue-50 group-hover:text-blue-700 group-active:bg-blue-100";
+
+// 引き切って「離すと隠す」位置まで来ている間のタブ (docs/86 §4-19)
+const HANDLE_TAB_COLLAPSE = "border-amber-600 bg-amber-100 text-amber-800";
+
+// いまの構成 (ペインの根の data-panes)。境界はフォルダーペイン (構成の文脈の外) にも
+// 描かれるので、文脈ではなく画面から読む
+function currentPaneMode(): string {
+  return document.querySelector("[data-panes]")?.getAttribute("data-panes") ?? "";
+}
 
 const HANDLE_LINE_SKIN =
   "bg-gray-400 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600";
@@ -129,6 +143,10 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
   // ある状態で引っかかるので、動かしている間は ref と CSS 変数だけで進める
   const sizeRef = useRef<number>(spec.default);
   const [dragging, setDragging] = useState(false);
+  // 掴んだときの寸法 (引き切って隠したら、ここへ戻してから構成を変える)
+  const startRef = useRef<number>(spec.default);
+  // 引き切っていま離すと隠すなら、その中身。ドラッグ中だけ
+  const [collapse, setCollapse] = useState<PaneCollapse | null>(null);
 
   const apply = (next: number) => {
     sizeRef.current = next;
@@ -144,24 +162,50 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
   };
 
   const moveTo = (event: React.PointerEvent) => {
-    apply(
-      paneSizeFromPointer(kind, {
-        clientX: event.clientX,
-        clientY: event.clientY,
-        rootFontSizePx: readCssPx("font-size", 16),
-        viewportHeightPx: window.innerHeight,
-        bottomBarPx: readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX),
-      }),
-    );
+    const raw = rawPaneSizeFromPointer(kind, {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      rootFontSizePx: readCssPx("font-size", 16),
+      viewportHeightPx: window.innerHeight,
+      bottomBarPx: readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX),
+    });
+    apply(clampPaneSize(kind, raw));
+    const next = paneCollapse(kind, raw, currentPaneMode());
+    if (next?.hide !== collapse?.hide) {
+      setCollapse(next);
+    }
+  };
+
+  // 引き切って離した: 寸法は掴む前に戻し (次にペインを出したとき端に張り付かない)、
+  // 狭くなった側を隠して構成を 1 つ減らす (docs/86 §4-19)
+  const hidePane = (target: PaneCollapse) => {
+    commit(startRef.current);
+    if (target.hide === "preview") {
+      // 下のペインの中身を閉じる。ノートは URL が正なので一覧の URL へ戻す
+      notifyPreviewPaneHidden();
+      const listHref = listHrefFromItemUrl(new URL(location.href));
+      if (listHref !== null) {
+        navigate(listHref, { replace: true });
+      }
+    }
+    void switchPaneMode(target.mode, () => {
+      startTransition(refreshServerView);
+    });
   };
 
   // ドラッグ中は本文の選択とカーソルの点滅を止める。帯から指が外れても
   // 掴んだままにするのは setPointerCapture の役目
-  const endDrag = () => {
+  const endDrag = (event: React.PointerEvent) => {
     if (!dragging) return;
     setDragging(false);
+    setCollapse(null);
     document.body.style.removeProperty("user-select");
     document.body.style.removeProperty("cursor");
+    // 取り消し (pointercancel) では隠さない
+    if (collapse !== null && event.type === "pointerup") {
+      hidePane(collapse);
+      return;
+    }
     storePaneSize(kind, sizeRef.current);
   };
 
@@ -204,7 +248,8 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
       aria-valuemin={spec.min}
       aria-valuemax={spec.max}
       tabIndex={0}
-      title={`${spec.label} (ドラッグか矢印キーで調整、ダブルクリックで既定に戻す)`}
+      title={`${spec.label} (ドラッグか矢印キーで調整、ダブルクリックで既定に戻す。端まで引き切って離すとペインを隠す)`}
+      data-collapse={collapse?.hide}
       className={`${HANDLE_CLASS[kind]} ${HANDLE_SKIN} ${
         dragging ? "bg-blue-500/50" : ""
       }`}
@@ -215,6 +260,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
         event.currentTarget.setPointerCapture(event.pointerId);
         // 掴んだ時点の値から始める (ドラッグ中はここから ref だけで進む)
         sizeRef.current = size;
+        startRef.current = size;
         setDragging(true);
         document.body.style.setProperty("user-select", "none");
         document.body.style.setProperty(
@@ -241,7 +287,7 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
         aria-hidden
         data-pane-resizer-tab=""
         className={`${HANDLE_TAB[kind].className} ${HANDLE_TAB_SKIN} ${
-          dragging ? "border-blue-600 bg-blue-100 text-blue-700" : ""
+          collapse !== null ? HANDLE_TAB_COLLAPSE : dragging ? "border-blue-600 bg-blue-100 text-blue-700" : ""
         }`}
       >
         {HANDLE_TAB[kind].glyph}

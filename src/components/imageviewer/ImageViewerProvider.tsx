@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import { onPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
 import { attachmentUrl, thumbUrl } from "@/lib/images/memoImages";
 import { isValidVideoName } from "@/lib/uploads/names";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
@@ -207,6 +208,9 @@ export function ImageViewerProvider({
     setPlaying(false);
     setOpened(null);
   }, []);
+  // 境界を引き切って下のペインを隠したら閉じる (docs/86 §4-19)。
+  // 閉じないと 1 ペインへ移った後に全画面の覆いとして出直す
+  useEffect(() => onPreviewPaneHidden(close), [close]);
   // ペインから全画面の覆いへ移ると 1 枚を作り直す (動画は頭から流れ直す)
   // ので、表示の番号も新しくする。もう覆いなら作り直さないので番号も据え置く
   const showFullscreen = useCallback(
