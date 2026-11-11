@@ -18,6 +18,7 @@ const QUERY = `#${TAG}`
 const MONTH = '2026-11'
 const DEFAULT_PREFS = {
   dateSize: 'md',
+  eventSize: 'md',
   colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
   textColors: { high: 'auto', normal: 'auto', low: 'auto' },
 }
@@ -256,7 +257,8 @@ test.describe('予定カレンダー', () => {
 
     await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
     const panel = page.getByRole('dialog', { name: 'カレンダーの設定' })
-    await panel.getByRole('button', { name: '大', exact: true }).click()
+    await panel.getByRole('group', { name: '日付の文字の大きさ' }).getByRole('button', { name: '大', exact: true }).click()
+    await panel.getByRole('group', { name: '予定の文字の大きさ' }).getByRole('button', { name: '小', exact: true }).click()
     await panel.getByRole('button', { name: '標準を #6b7280 にする' }).click()
 
     // すぐ効く: 日付は 24px、標準の帯は灰の地に白い文字 (暗い地は白)
@@ -265,6 +267,9 @@ test.describe('予定カレンダー', () => {
     const chip = dayCell(page, DAY).locator('[data-priority="normal"]')
     await expect(chip).toHaveCSS('background-color', 'rgb(107, 114, 128)')
     await expect(chip).toHaveCSS('color', 'rgb(255, 255, 255)')
+    // 予定の文字は 12px (行の高さ 20px は変えない)
+    await expect(chip).toHaveCSS('font-size', '12px')
+    await expect(chip).toHaveCSS('line-height', '20px')
 
     // 文字の色も選べる (自動をやめて濃い赤)
     await panel.getByRole('button', { name: '標準の文字を #b91c1c にする' }).click()
@@ -273,6 +278,7 @@ test.describe('予定カレンダー', () => {
     // 少し待ってサーバへ保存される。読み込み直しても残る
     await expect.poll(settings).toEqual({
       dateSize: 'lg',
+      eventSize: 'sm',
       colors: { ...DEFAULT_PREFS.colors, normal: '#6b7280' },
       textColors: { ...DEFAULT_PREFS.textColors, normal: '#b91c1c' },
     })
@@ -287,6 +293,7 @@ test.describe('予定カレンダー', () => {
     await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
     await page.getByRole('dialog', { name: 'カレンダーの設定' }).getByRole('button', { name: '既定に戻す' }).click()
     await expect(dayCell(page, DAY).locator('span').first()).toHaveCSS('font-size', '20px')
+    await expect(dayCell(page, DAY).locator('[data-priority="normal"]')).toHaveCSS('font-size', '14px')
     await expect.poll(settings).toEqual(DEFAULT_PREFS)
   })
 
@@ -469,6 +476,24 @@ test.describe('予定カレンダー', () => {
     await drag(otherPane.getByRole('button', { name: `${NOTE2.heading} を並べ替える` }), dayCell(page, DAY))
     await expect.poll(memo2).toContain(`date=${DAY} start=10:00`)
     await expect(dayCell(page, DAY)).toContainText(NOTE2.key)
+  })
+
+  test('検索窓の＋は選んだ日の新しい予定を開く (カレンダーの外では新規ノート)', async ({ page }) => {
+    await openCalendar(page)
+    const plus = page.getByRole('button', { name: 'カレンダーに追加' })
+    await expectHydrated(plus)
+    await expect(page.getByRole('link', { name: '新規ノート' })).toHaveCount(0)
+    await dayCell(page, DAY).click()
+    await plus.click()
+    // 保存はしない (番号が毎回新しく、E2E の門番で消せない)
+    await expect(page).toHaveURL(new RegExp(`tab=event.*date=${DAY}`))
+    const form = page.getByRole('form', { name: '予定' })
+    await expect(form.getByRole('button', { name: '追加' })).toBeVisible()
+    await expect(form.getByLabel('日付')).toHaveValue(DAY)
+
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}`)
+    await expect(page.getByRole('link', { name: '新規ノート' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'カレンダーに追加' })).toHaveCount(0)
   })
 
   test('1 ペインでは日の一覧をマスの横に浮かせる', async ({ page }) => {

@@ -2,7 +2,7 @@
 
 import { holidayName } from "../event/holidays";
 import type { DayEvent } from "../event/monthLayout";
-import { DATE_SIZE_CLASS } from "./dateSize";
+import { DATE_SIZE_CLASS, EVENT_SIZE_CLASS } from "./dateSize";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
 
@@ -107,7 +107,7 @@ export function MonthGrid({
                     // 色は優先度 (高い 赤・標準 橙・低い 緑)。済みは灰に取り消し線
                     // (日の中では最後に並ぶ。eventsByDay)
                     data-priority={event.priority ?? "normal"}
-                    className={`shrink-0 truncate rounded-sm px-0.5 text-sm leading-5 ${color.className} ${
+                    className={`shrink-0 truncate rounded-sm px-0.5 leading-5 ${EVENT_SIZE_CLASS[prefs.eventSize]} ${color.className} ${
                       event.done ? "line-through" : ""
                     }`}
                   >

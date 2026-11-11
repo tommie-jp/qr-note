@@ -5,9 +5,12 @@
 import dynamic from "next/dynamic";
 import type { Item } from "@/generated/prisma/client";
 import { parseStoredProps } from "@/lib/markdown/props";
-import { jstToday } from "./event/monthLayout";
+import { newItemId } from "@/lib/items/itemId";
+import { dayToAdd } from "./event/addDay";
+import { isMonth, jstToday } from "./event/monthLayout";
 import { parseEvent } from "./event/parseEvent";
-import { CAL_PARAM, calendarEntryHref } from "./client/calendarUrl";
+import { CAL_PARAM, calendarEntryHref, eventNoteHref } from "./client/calendarUrl";
+import { selectedCalendarDay } from "./client/selectedDay";
 
 const loading = () => <p className="py-6 text-center text-sm text-gray-500">読み込み中…</p>;
 
@@ -18,6 +21,15 @@ export const CALENDAR_PARAM = CAL_PARAM;
 
 export function calendarEnterHref(query: string): string {
   return calendarEntryHref(query, jstToday().slice(0, 7));
+}
+
+// 検索窓の＋で開く新しい予定の URL (docs/126 §1-17)。選んでいる日に足す。
+// 押したときに呼ぶ (番号はそのとき振る。描くたびに振ると開いた後で変わる)
+export function calendarNewItemHref(query: string, params: { get(name: string): string | null }): string {
+  const today = jstToday();
+  const raw = params.get(CAL_PARAM) ?? "";
+  const month = isMonth(raw) ? raw : today.slice(0, 7);
+  return eventNoteHref(newItemId(), query, month, dayToAdd(selectedCalendarDay(), month, today));
 }
 
 // ノートに「予定」タブを出すか。本文に読める date= がある、または URL が

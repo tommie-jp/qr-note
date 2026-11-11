@@ -17,6 +17,8 @@ describe('parseCalendarPrefs (保存値を畳む)', () => {
     const raw = JSON.stringify({ dateSize: 'lg', colors: { high: '#112233', normal: 'red', low: '#ABCDEF' } })
     expect(parseCalendarPrefs(raw)).toEqual({
       dateSize: 'lg',
+      // 前の版の保存値 (予定の大きさを持たない) は中
+      eventSize: 'md',
       colors: { high: '#112233', normal: DEFAULT_CALENDAR_PREFS.colors.normal, low: '#abcdef' },
       // 前の版の保存値 (文字色を持たない) は自動
       textColors: { high: 'auto', normal: 'auto', low: 'auto' },
@@ -28,6 +30,7 @@ describe('validateCalendarPrefs (API の入口は畳まず断る)', () => {
   test('正しい形だけ通す', () => {
     const ok = {
       dateSize: 'sm',
+      eventSize: 'lg',
       colors: { high: '#ff0000', normal: '#00ff00', low: '#0000ff' },
       textColors: { high: '#ffffff', normal: 'auto', low: '#1f2937' },
     }
@@ -41,6 +44,18 @@ describe('validateCalendarPrefs (API の入口は畳まず断る)', () => {
     expect(
       validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, textColors: { ...DEFAULT_CALENDAR_PREFS.textColors, high: 'red' } }),
     ).toBeNull()
+  })
+})
+
+describe('予定の文字の大きさ (eventSize)', () => {
+  test('保存値の読めない大きさは中に寄せる', () => {
+    expect(parseCalendarPrefs(JSON.stringify({ eventSize: 'xl' })).eventSize).toBe('md')
+    expect(parseCalendarPrefs(JSON.stringify({ eventSize: 'sm' })).eventSize).toBe('sm')
+  })
+
+  test('PUT は省略なら中、知らない大きさは断る', () => {
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventSize: undefined })?.eventSize).toBe('md')
+    expect(validateCalendarPrefs({ ...DEFAULT_CALENDAR_PREFS, eventSize: 'xl' })).toBeNull()
   })
 })
 

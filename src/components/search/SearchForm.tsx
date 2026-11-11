@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PlusIcon, SearchIcon } from "@/components/icons";
 import { useKeyboardDismissOnScroll } from "@/components/hooks/useKeyboardDismissOnScroll";
 import { PendingLink } from "@/components/chrome/PendingLink";
@@ -22,6 +23,8 @@ import {
   type Suggestion,
 } from "@/lib/search/suggest";
 import { recordQueryUse } from "@/lib/search/queryClient";
+import { navigate as navigateTo } from "@/lib/client/navigation";
+import { activeResultView } from "@/modules/registry";
 
 interface SearchFormProps {
   initialQuery: string;
@@ -60,6 +63,9 @@ export function SearchForm({
   leading,
 }: SearchFormProps) {
   const { navigate } = useSearchNav();
+  const params = useSearchParams();
+  const activeView = activeResultView(params);
+  const newItemHref = activeView?.newItemHref;
   const [query, setQuery] = useState(initialQuery);
   // 入力中かどうか (URL の反映を止める判断に使う)
   const [isFocused, setIsFocused] = useState(false);
@@ -297,6 +303,20 @@ export function SearchForm({
             中央に見えなかった。緑なのは「足す」の合図 (icons/search.tsx)。
             スピナーは absolute で流れから抜く。流れに置くと ＋ と横に並んで
             正方形からはみ出す (PendingLink の spinnerClassName) */}
+        {/* 検索結果の表示 (カレンダーなど) が自分の「足す」を持っていれば、＋は
+            そちらへ向ける (docs/126 §1-17。カレンダーなら選んだ日の新しい予定)。
+            番号は押したときに振るのでリンクにしない */}
+        {newItemHref !== undefined ? (
+          <button
+            type="button"
+            aria-label={`${activeView?.label}に追加`}
+            title={`${activeView?.label}に追加`}
+            onClick={() => navigateTo(newItemHref(params.get("q") ?? "", params))}
+            className={COMPACT_ICON_BUTTON_CLASS}
+          >
+            <PlusIcon />
+          </button>
+        ) : (
         <PendingLink
           href="/new"
           prefetch={false}
@@ -308,6 +328,7 @@ export function SearchForm({
         >
           <PlusIcon />
         </PendingLink>
+        )}
       </div>
     </form>
   );

@@ -10,6 +10,7 @@ import {
   TEMPLATE_COLORS,
   TEXT_TEMPLATE_COLORS,
   type CalendarPrefs,
+  type DateSize,
 } from "../event/calendarPrefs";
 import type { EventPriority } from "../event/parseEvent";
 import { placeAround, type Placement } from "../event/placePopover";
@@ -20,6 +21,32 @@ const PRIORITY_ROWS: readonly { value: EventPriority; label: string }[] = [
   { value: "normal", label: "標準" },
   { value: "low", label: "低い" },
 ];
+
+// 小・中・大の 3 つの釦 (日付と予定の文字の大きさ)
+function SizeField({ legend, value, onChange }: { legend: string; value: DateSize; onChange: (size: DateSize) => void }) {
+  return (
+    <fieldset className="space-y-1">
+      <legend className="text-gray-600">{legend}</legend>
+      <div className="flex gap-1">
+        {DATE_SIZES.map((size) => (
+          <button
+            key={size.value}
+            type="button"
+            aria-pressed={value === size.value}
+            onClick={() => onChange(size.value)}
+            className={`min-h-9 flex-1 rounded border ${
+              value === size.value
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-gray-300 text-gray-800 hover:bg-gray-50"
+            }`}
+          >
+            {size.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 function SettingsIcon() {
   return (
@@ -33,7 +60,7 @@ function SettingsIcon() {
 }
 
 // カレンダー専用の設定 (docs/126 §1-12)。月の見出し行の左端のアイコンで開く。
-// 日付の文字の大きさと、優先度ごとの色 (テンプレート色かカラーピッカー)。
+// 日付と予定の文字の大きさと、優先度ごとの色 (テンプレート色かカラーピッカー)。
 // 変えた値はすぐマス目に当たり、保存は裏で行う (prefsStore)。
 // パネルは body へ portal する (DayPopover と同じ理由)
 export function CalendarMenu() {
@@ -120,26 +147,8 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
       }
       className="fixed z-40 w-80 max-w-[calc(100vw-1rem)] space-y-4 overflow-y-auto rounded border border-gray-300 bg-white p-3 text-sm shadow-xl"
     >
-      <fieldset className="space-y-1">
-        <legend className="text-gray-600">日付の文字の大きさ</legend>
-        <div className="flex gap-1">
-          {DATE_SIZES.map((size) => (
-            <button
-              key={size.value}
-              type="button"
-              aria-pressed={prefs.dateSize === size.value}
-              onClick={() => change({ dateSize: size.value })}
-              className={`min-h-9 flex-1 rounded border ${
-                prefs.dateSize === size.value
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-gray-300 text-gray-800 hover:bg-gray-50"
-              }`}
-            >
-              {size.label}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <SizeField legend="日付の文字の大きさ" value={prefs.dateSize} onChange={(dateSize) => change({ dateSize })} />
+      <SizeField legend="予定の文字の大きさ" value={prefs.eventSize} onChange={(eventSize) => change({ eventSize })} />
 
       <fieldset className="space-y-3">
         <legend className="text-gray-600">優先度の色</legend>

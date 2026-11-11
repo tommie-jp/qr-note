@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
@@ -11,6 +11,7 @@ import { DayPane } from "./DayPane";
 import { CalendarMenu } from "./CalendarMenu";
 import { DayPopover } from "./DayPopover";
 import { MonthGrid } from "./MonthGrid";
+import { setSelectedCalendarDay } from "./selectedDay";
 
 // URL の cal を書き換える。履歴を増やさない (月送りは「戻る」で辿る物ではない)。
 // Next は外からの replaceState に useSearchParams を追随させる (docs/123 §4-2)
@@ -49,6 +50,12 @@ export default function CalendarView({ query }: { query: string }) {
     setOpened(null);
   }
   const shown = opened !== null && days.includes(opened.day) && opened.openedFor === detailItemId ? opened : null;
+  // 検索窓の＋が足す日 (docs/126 §1-17)。カレンダーを離れたら忘れる
+  const shownDay = shown?.day ?? null;
+  useEffect(() => {
+    setSelectedCalendarDay(shownDay);
+    return () => setSelectedCalendarDay(null);
+  }, [shownDay]);
   const close = useCallback(() => setOpened(null), []);
   const select = useCallback(
     (day: string, cell: HTMLElement) => setOpened({ day, cell, openedFor: detailItemId }),

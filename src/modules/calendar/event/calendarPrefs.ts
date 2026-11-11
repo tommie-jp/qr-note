@@ -1,4 +1,4 @@
-// カレンダーの表示の設定 (docs/126 §1-12)。日付の文字の大きさと、優先度ごとの色。
+// カレンダーの表示の設定 (docs/126 §1-12・§1-18)。日付と予定の文字の大きさと、優先度ごとの色。
 // DB にも React にも触らない純関数で、サーバ (検査・既定) と端末 (描く) が共有する。
 //
 // 保存は user_settings の 1 行 (key = calendar-prefs、値は JSON)。端末をまたいで効く
@@ -11,6 +11,8 @@ export const AUTO_TEXT = 'auto'
 
 export interface CalendarPrefs {
   dateSize: DateSize
+  // マス目の予定の文字の大きさ (§1-18)。段階は日付と同じ小・中・大
+  eventSize: DateSize
   // 地の色。#rrggbb (小文字)
   colors: Record<EventPriority, string>
   // 文字の色。#rrggbb (小文字) か 'auto'
@@ -28,6 +30,7 @@ export const DATE_SIZES: readonly { value: DateSize; label: string }[] = [
 // 既定は §1-11 の色 (Tailwind の red/orange/green-200)
 export const DEFAULT_CALENDAR_PREFS: CalendarPrefs = {
   dateSize: 'md',
+  eventSize: 'md',
   colors: { high: '#fecaca', normal: '#fed7aa', low: '#bbf7d0' },
   textColors: { high: AUTO_TEXT, normal: AUTO_TEXT, low: AUTO_TEXT },
 }
@@ -76,21 +79,31 @@ const lower = (record: Record<string, unknown>): Record<EventPriority, string> =
 })
 
 // API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)。
-// 文字色 (textColors) は省略してよい (前の版の画面から来る PUT。自動と見る)
+// 文字色 (textColors)・予定の大きさ (eventSize) は省略してよい (前の版の画面から来る PUT。
+// 自動・中と見る)
 export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (typeof value !== 'object' || value === null) {
     return null
   }
-  const { dateSize, colors, textColors } = value as { dateSize?: unknown; colors?: unknown; textColors?: unknown }
+  const { dateSize, eventSize, colors, textColors } = value as {
+    dateSize?: unknown
+    eventSize?: unknown
+    colors?: unknown
+    textColors?: unknown
+  }
   if (!isDateSize(dateSize) || typeof colors !== 'object' || colors === null) {
     return null
   }
+  if (eventSize !== undefined && !isDateSize(eventSize)) {
+    return null
+  }
+  const size = eventSize ?? DEFAULT_CALENDAR_PREFS.eventSize
   const c = colors as Record<string, unknown>
   if (!PRIORITIES.every((p) => isHex(c[p]))) {
     return null
   }
   if (textColors === undefined) {
-    return { dateSize, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
+    return { dateSize, eventSize: size, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
   }
   if (typeof textColors !== 'object' || textColors === null) {
     return null
@@ -99,7 +112,7 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   if (!PRIORITIES.every((p) => isTextColor(t[p]))) {
     return null
   }
-  return { dateSize, colors: lower(c), textColors: lower(t) }
+  return { dateSize, eventSize: size, colors: lower(c), textColors: lower(t) }
 }
 
 // 保存値 (JSON 文字列) を畳む。読めない所は既定に寄せる (表示の設定なので
@@ -113,6 +126,7 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
   }
   const v = (typeof value === 'object' && value !== null ? value : {}) as {
     dateSize?: unknown
+    eventSize?: unknown
     colors?: unknown
     textColors?: unknown
   }
@@ -126,6 +140,7 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
     >
   return {
     dateSize: isDateSize(v.dateSize) ? v.dateSize : DEFAULT_CALENDAR_PREFS.dateSize,
+    eventSize: isDateSize(v.eventSize) ? v.eventSize : DEFAULT_CALENDAR_PREFS.eventSize,
     colors: pick(c, isHex, DEFAULT_CALENDAR_PREFS.colors),
     textColors: pick(t, isTextColor, DEFAULT_CALENDAR_PREFS.textColors),
   }
