@@ -27,16 +27,16 @@ export function dayTitle(day: string): string {
 const shortTime = (time: string) => time.replace(/^0/, "");
 
 // 予定の行は SaiSuke2 と同じく色の帯 (優先度の色は設定から、済みは灰。priorityColor.ts)。
-// 高さは題名の文字 1.5 行ぶん (24px × 1.5 = 36px)。左に時刻 (開始と終了を小さい文字の
-// 2 段、終日は「終日」)、右に題名。色は行の器 (li) が持つ
-export const DAY_ROW_CLASS = "flex min-h-9 min-w-0 flex-1 items-center gap-3 px-1 text-left text-base leading-6 hover:brightness-95";
+// 高さは 28px (題名の 1 行 24px + 上下 2px。docs/126 §1-26 で 36px から詰めた)。
+// 左に時刻 (1 行、終日は「終日」)、右に題名。色は行の器 (li) が持つ
+export const DAY_ROW_CLASS = "flex min-h-7 min-w-0 flex-1 items-center gap-2 px-1 text-left text-base leading-6 hover:brightness-95";
 
 // 時刻は 1 行 (「10:00 ~ 11:00」)。終日は「終日」。押すと時刻のパネル (data-event-time)
 function TimeLabel({ event }: { event: DayEvent }) {
   const start = eventTimeLabel(event);
   const end = eventEndLabel(event);
   return (
-    <span data-event-time="" className="w-26 shrink-0 cursor-pointer text-center text-sm leading-6 whitespace-nowrap tabular-nums opacity-90">
+    <span data-event-time="" className="w-20 shrink-0 cursor-pointer text-center text-xs leading-6 whitespace-nowrap tabular-nums opacity-90">
       {start === null ? "終日" : `${shortTime(start)} ~ ${end === null ? "" : shortTime(end)}`}
     </span>
   );
@@ -98,7 +98,7 @@ function TitleEditor({
     }
   };
   return (
-    <div className="flex min-h-9 min-w-0 flex-1 items-center gap-3 px-1">
+    <div className="flex min-h-7 min-w-0 flex-1 items-center gap-2 px-1">
       <TimeLabel event={event} />
       <input
         aria-label="題名"
@@ -215,11 +215,11 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
       aria-label={`${event.title || "(無題)"} を${done ? "未済に戻す" : "済みにする"}`}
       title={done ? "未済に戻す" : "済みにする"}
       onClick={onToggle}
-      className="flex w-9 shrink-0 items-center justify-center self-stretch"
+      className="flex w-6 shrink-0 items-center justify-center self-stretch"
     >
       <span
         aria-hidden="true"
-        className={`flex size-5 items-center justify-center rounded-full border-2 text-xs leading-none font-bold ${
+        className={`flex size-4 items-center justify-center rounded-full border-2 text-[0.625rem] leading-none font-bold ${
           done ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-400 bg-white text-transparent"
         }`}
       >
