@@ -144,9 +144,12 @@ export function AppHeader({
             DEMO
           </span>
         )}
-        {/* 右端の一群。ml-auto がここまでの左寄せと切り離す */}
+        {/* 右端の一群。ml-auto がここまでの左寄せと切り離す。
+            -my-1.5 self-center … 戻る/進む (HistoryNav) と同じく、ペイン構成の釦の
+            min-h-11 (44px) のはみ出しを帯の高さから外す。外さないとこの塊が帯の
+            高さを決め、サイト名の上下に空きができていた (docs/11 §6-7) */}
         {user && (
-          <span className="ml-auto flex items-center gap-1.5">
+          <span className="-my-1.5 ml-auto flex items-center gap-1.5 self-center lg:my-0">
             {/* 検索画面のペイン構成 (docs/86 §4-4)。ヘッダーに置くのは、
                 どのペインにも属さない「画面全体の畳み方」だから。
                 どの幅でも出す (PaneModeButton の注) */}

@@ -126,10 +126,10 @@ export default async function RootLayout({
           {/* 幅は CONTENT_WIDTH_CLASS (いまは上限なし = ブラウザの幅いっぱい)。
               以前は max-w-2xl で読める行長に収めていた (docs/101 で改めた)。
               mx-auto は上限を戻した日の中央寄せのために残してある */}
-          {/* pt-2 … ヘッダーと本文の間はこれだけ。24px 空けていたのをやめた
-              (docs/75-ノート上部圧縮計画.md §5)。スマホの 1 画面に入る本文を
+          {/* pt-1 … ヘッダーと本文の間はこれだけ。24px 空けていたのをやめ
+              (docs/75-ノート上部圧縮計画.md §5)、2026-11-12 に 8px → 4px へ詰めた (docs/11 §6-7)。スマホの 1 画面に入る本文を
               増やすのが目的で、ここは全ページに効く */}
-          <main className={`mx-auto px-safe pt-2 pb-safe ${CONTENT_WIDTH_CLASS}`}>
+          <main className={`mx-auto px-safe pt-1 pb-safe ${CONTENT_WIDTH_CLASS}`}>
             {children}
           </main>
           {/* 下部バー。中身はノート編集中の編集ボタン (portal) だけで、差し込む
