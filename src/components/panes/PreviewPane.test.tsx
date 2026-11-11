@@ -128,7 +128,7 @@ test("3 / 2 ペインのノートは下部ペイン (一覧の底を上げるフ
 test("3 ペインのノートは幅に関係なく下部のペイン", () => {
   const html = render("/item/4951", "3");
   expect(html).toContain("bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px))]");
-  expect(html).toContain("h-[var(--preview-pane-h)]");
+  expect(html).toContain("h-[min(var(--preview-pane-h),var(--keyboard-pane-max,100vh))]");
   expect(html).not.toContain("max-lg:hidden");
 });
 
@@ -137,7 +137,7 @@ test("3 ペインのノートは幅に関係なく下部のペイン", () => {
 test("2 ペインのノートも幅に関係なく下部のペイン", () => {
   const html = render("/item/4951", "2");
   expect(html).toContain("bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px))]");
-  expect(html).toContain("h-[var(--preview-pane-h)]");
+  expect(html).toContain("h-[min(var(--preview-pane-h),var(--keyboard-pane-max,100vh))]");
   expect(html).not.toContain("top-[var(--header-h)]");
   expect(html).not.toContain("lg:bottom-");
 });

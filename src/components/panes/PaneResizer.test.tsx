@@ -32,7 +32,7 @@ test("フォルダーの境界はペインの幅の変数に貼り付く (幅で
 test("プレビューの境界は下部バーとペインの高さの和に貼り付く", () => {
   const html = renderToStaticMarkup(<PaneResizer kind="preview" />);
   expect(html).toContain(
-    "bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px)+var(--preview-pane-h))]",
+    "bottom-[calc(var(--bottom-bar-h)+var(--keyboard-inset,0px)+min(var(--preview-pane-h),var(--keyboard-pane-max,100vh)))]",
   );
   expect(html).toContain("cursor-row-resize");
   expect(html).toContain('aria-orientation="horizontal"');
