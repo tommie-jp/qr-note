@@ -865,14 +865,6 @@ body:has([data-folder-pane]) [role="separator"][aria-orientation="horizontal"] {
   left: var(--folder-pane-w);
 }
 
-/* 下端に残す横のタブ (CollapsedPaneTabs) は、下のペインが出ている間は隠す —
-   そのペインの境界にタブがある (docs/86 §4-25)。下のペインはノートの器
-   (PreviewPane) と日の一覧 (DayPane) の 2 つが別々に出すので、構成からは
-   判らない。どちらも data-preview-pane を付けるので :has で見る */
-body:has([data-preview-pane]) [data-collapsed-tab="preview"] {
-  display: none;
-}
-
 /* スクロールバーを隠す (docs/11 §6-8。ハンバーガーメニューの「スクロールバー」、
    端末ごと)。既定は隠す — 3 ペインでは各ペインのバーが縦に並んで狭い画面の幅を
    食う。隠してもホイール・指・キーでは動く。値は <head> の先回りスクリプトが
@@ -892,21 +884,4 @@ html[data-scrollbars="hidden"] ::-webkit-scrollbar {
    境界 (z-20) よりは下。目印は lib/client/keyboardInset.ts が html に付け外しする */
 html[data-keyboard-lift] [data-preview-pane] {
   z-index: 15;
-}
-
-/* 下端の横のタブ (CollapsedPaneTabs) を浮かせる高さ (docs/86 §4-30)。iPhone の画面の
-   下端はホームインジケーターの帯 (ホームへ戻るスワイプ) で、そこから始まるタッチは OS が
-   先に取る。帯 (safe-area-inset-bottom) の上へ、さらに 8px 離して置く。帯の無い画面は 0。
-   @property で長さとして登録するのは、JS (readCssPx) が px で読めるようにするため
-   (登録しないと calc(env(...)) の文字列のまま返る) */
-@property --home-indicator-gap {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 0px;
-}
-
-:root {
-  --home-indicator-gap: calc(
-    env(safe-area-inset-bottom, 0px) + min(env(safe-area-inset-bottom, 0px), 8px)
-  );
 }

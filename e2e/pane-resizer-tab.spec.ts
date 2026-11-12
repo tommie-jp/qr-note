@@ -111,8 +111,8 @@ test.describe('境界の引き切りでペインを隠す', () => {
     await expect(dayPane).toHaveCount(0)
     expect(await panesShown(page)).toBe('2')
     await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toHaveCount(0)
-    // 下端に横のタブが残る (§4-25)
-    await expect(page.locator('[data-collapsed-tab="preview"]')).toBeVisible()
+    // 下端に横のタブは出さない (§4-31)
+    await expect(page.locator('[data-collapsed-tab="preview"]')).toHaveCount(0)
   })
 
   test('カレンダーの 2 ペインで上の一覧を上へ引き切っても、一覧は隠さない (端で止まるだけ)', async ({ page }) => {
@@ -221,28 +221,6 @@ test.describe('隠したペインのタブ', () => {
     await expect(tab).toHaveCount(0)
   })
 
-  test('1 ペインでは下端にタブが残り、押すと 2 ペインに戻る', async ({ page }) => {
-    // カレンダーでは 1 ペインに減らせないので、構成の cookie で 1 ペインから始める
-    await page.context().addCookies([{ name: 'panes', value: '1', url: BASE_URL }])
-    await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
-    await expectHydrated(page.getByRole('button', { name: '下のペインを開く' }))
-    expect(await panesShown(page)).toBe('1')
-
-    const tab = page.getByRole('button', { name: '下のペインを開く' })
-    const box = (await tab.boundingBox())!
-    const bar = await page.evaluate(() =>
-      Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-bar-h')),
-    )
-    // タブの下端が下部バーの上端 (= 下のペインがあった所の下端) に載り、全体が見える。
-    // ホームインジケーターの帯の無い画面なので浮かせる高さは 0 (docs/86 §4-30)
-    expect(box.y + box.height).toBeCloseTo(page.viewportSize()!.height - bar, 0)
-    // 端にある間は高さを倍 (40px) にする (docs/86 §4-29)
-    expect(box.height).toBeCloseTo(40, 0)
-
-    await tab.click()
-    await expect.poll(() => panesShown(page)).toBe('2')
-  })
-
   test('タブは境界に沿って動かせて位置を覚え、右端まで引いても半分は画面に残る', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await openWithPanes(page, '3')
@@ -270,21 +248,13 @@ test.describe('隠したペインのタブ', () => {
     expect(reloaded.y).toBeCloseTo(after.y, 0)
   })
 
-  test('2・3 ペインで下に何も開いていなくても下端に横のタブを出し、下のペインが出たら隠す', async ({ page }) => {
-    for (const panes of ['2', '3'] as const) {
+  test('下端の横のタブはどの構成でも出さない (docs/86 §4-31)', async ({ page }) => {
+    for (const panes of ['1', '2', '3'] as const) {
       await page.context().addCookies([{ name: 'panes', value: panes, url: BASE_URL }])
       await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
-      const cell = page.locator('[data-search-results] [data-calendar] [data-day="2026-11-05"]')
-      await expectHydrated(cell)
-      const tab = page.locator('[data-collapsed-tab="preview"]')
-      await expect(tab).toBeVisible()
-      // 開く物が無いので、押しても構成は変わらない
-      await tab.click()
+      await expectHydrated(page.locator('[data-search-results] [data-calendar] [data-day="2026-11-05"]'))
       expect(await panesShown(page)).toBe(panes)
-
-      await cell.click()
-      await expect(page.getByRole('separator', { name: 'プレビューの高さ' }).last()).toBeVisible()
-      await expect(tab).toBeHidden()
+      await expect(page.locator('[data-collapsed-tab="preview"]')).toHaveCount(0)
     }
   })
 })

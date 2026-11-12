@@ -76,7 +76,6 @@ test.describe('タッチでのドラッグ', () => {
   // 隠したペインの端のタブも釦なので、同じ理由で指では引き出せなかった (docs/86 §4-21)
   for (const tab of [
     { name: 'フォルダーを開く', from: '2', to: '3', dx: 160, dy: 0 },
-    { name: '下のペインを開く', from: '1', to: '2', dx: 0, dy: -250 },
   ] as const) {
     test(`端のタブ「${tab.name}」を指で引き出すと戻る`, async ({ browser }) => {
       const context = await browser.newContext({

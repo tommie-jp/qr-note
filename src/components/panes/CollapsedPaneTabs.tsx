@@ -5,15 +5,11 @@ import { refreshServerView } from "@/lib/client/navigation";
 import {
   BOTTOM_BAR_FALLBACK_PX,
   COLLAPSE_FOLDER_CHARS,
-  COLLAPSE_LINES,
-  LINE_REM,
   PANE_SIZES,
   clampPaneSize,
   livePaneSizeLimit,
   rawPaneSizeFromPointer,
-  type PaneKind,
 } from "@/lib/prefs/paneSize";
-import type { PaneMode } from "@/lib/prefs/paneMode";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import {
   DIVIDER_LINE_COLOR,
@@ -34,23 +30,13 @@ import {
 } from "@/components/panes/paneTabPosition";
 
 // 画面の端のタブは**全体を見せる** (docs/86 §4-27)。半分だけ (見えるのは 10px) では、
-// 触れる範囲を広げても iPhone で掴みにくかった。タブの細い向きの半分 (w-5 / h-5 の半分) だけ
+// 触れる範囲を広げても iPhone で掴みにくかった。タブの幅の半分 (w-5 の半分) だけ
 // 画面の内側へ寄せ、中心をそこに置く (ドラッグ中に指へ中心を合わせる作りと同じ)
-//
-// **横のタブは端にある間だけ高さを倍 (h-10 = 40px) にする** (docs/86 §4-29)。iPhone で
-// 下端の 20px のタブがまだ掴みにくかった。開いている境界のタブ (PaneResizer) は 20px のまま
-const COLLAPSED_TAB_SHAPE: Record<PaneKind, string> = {
-  folder: HANDLE_TAB.folder.shape,
-  preview: "h-10 w-12 text-base",
-};
-const TAB_HALF_REM: Record<PaneKind, number> = { folder: 0.625, preview: 1.25 };
+const TAB_HALF_REM = 0.625;
 
-// 指で触れる範囲 (docs/86 §4-26)。透明な ::before を画面の内側へ延ばし、画面の上で
-// 44px (iOS の標準の的) にする。縦は 20 + 24、横は 40 + 4
-const COLLAPSED_TAB_HIT: Record<PaneKind, string> = {
-  folder: "before:absolute before:inset-y-0 before:left-0 before:-right-6",
-  preview: "before:absolute before:inset-x-0 before:bottom-0 before:-top-1",
-};
+// 指で触れる範囲 (docs/86 §4-26)。透明な ::before を画面の内側へ 24px 延ばし、
+// 画面の上で 20 + 24 = 44px (iOS の標準の的) にする
+const TAB_HIT = "before:absolute before:inset-y-0 before:left-0 before:-right-6";
 
 // 押しただけ (ドラッグでない) とみなす動きの量 (px)
 const CLICK_SLOP_PX = 4;
@@ -63,37 +49,20 @@ interface Drag {
   moved: boolean;
 }
 
-// 隠したペインのタブ (docs/86 §4-21)。境界を引き切って (またはダブルクリックで) ペインを
-// 隠した後も、タブを画面の端に残す — フォルダーは左端、下のペインは下端
-// (はじめは半分だけ見せていたが、iPhone で掴みにくいので全体を見せる。§4-27)。引き出して離すとその大きさでペインを戻し (2 文字・2 行を超えたら)、
-// 押すだけなら覚えている大きさで戻す。境界に沿った向き (縦のタブは上下、横のタブは
-// 左右) にも動かせ、位置は開いているときのタブと同じ所に覚える。
+// 隠したフォルダーのタブ (docs/86 §4-21)。フォルダーを隠した構成 (1・2 ペイン) では、
+// 左端にタブを残す。引き出して離すとその幅で 3 ペインに戻し (2 文字を超えたら)、
+// 押すだけなら覚えている幅で戻す。上下にも動かせ、位置は開いているときのタブと同じ所に覚える。
 //
-// **タブは常に出す** (docs/86 §4-25)。全画面のノートの上にも出し、2・3 ペインで
-// 下に何も開いていない (ノートも日の一覧も無い) ときも下端に出す。そのときは
-// 開く物が無いので、引き出した高さを覚えるだけ (次に開くノートがその高さで出る)。
-// 下のペインが出ている間は、そのペインの境界のタブがあるので隠す (globals.css が
-// data-preview-pane を :has で見る。出す・出さないは DOM でしか判らない)
+// **下端の横のタブはやめた** (§4-31)。iPhone の下端はホームへ戻るスワイプとぶつかり、
+// 浮かせると宙に浮いて邪魔だった。下のペインはヘッダーの構成の釦・日やノートを押して開く
 export function CollapsedPaneTabs() {
   const { mode } = usePaneMode();
-  return (
-    <>
-      {mode !== "3" && <CollapsedTab kind="folder" openMode="3" />}
-      <CollapsedTab kind="preview" openMode={mode === "1" ? "2" : null} />
-    </>
-  );
+  return mode === "3" ? null : <CollapsedFolderTab />;
 }
 
-function CollapsedTab({
-  kind,
-  openMode,
-}: {
-  kind: PaneKind;
-  // 戻す先の構成。null は構成を変えない (高さを覚えるだけ)
-  openMode: PaneMode | null;
-}) {
+function CollapsedFolderTab() {
   // 引き出している間も共有の控えに流す (開いた境界のタブと同じ作り)
-  const fraction = useTabPosition(kind);
+  const fraction = useTabPosition("folder");
   const [drag, setDrag] = useState<Drag | null>(null);
   const liveTabRef = useRef<number | null>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -107,113 +76,71 @@ function CollapsedTab({
   });
 
   const open = (size: number) => {
-    setPaneSize(kind, size);
-    if (openMode === null) {
-      return;
-    }
-    void switchPaneMode(openMode, () => {
+    setPaneSize("folder", size);
+    void switchPaneMode("3", () => {
       startTransition(refreshServerView);
     });
   };
 
-  // 境界に沿った向きの範囲 (縦のタブ: ヘッダーの下〜下部バーの上、横のタブ: 画面の幅)
+  // 境界に沿った向き (上下) の位置。ヘッダーの下〜下部バーの上
   const alongFraction = (x: number, y: number) => {
     const g = geometry(x, y);
-    const tabPx = TAB_LENGTH_REM * g.rootFontSizePx;
-    if (kind === "folder") {
-      const top = headerBottomPx();
-      return tabFraction(
-        y,
-        top,
-        window.innerHeight - g.bottomBarPx - top,
-        tabPx,
-      );
-    }
-    return tabFraction(x, 0, window.innerWidth, tabPx);
+    const top = headerBottomPx();
+    return tabFraction(
+      y,
+      top,
+      window.innerHeight - g.bottomBarPx - top,
+      TAB_LENGTH_REM * g.rootFontSizePx,
+    );
   };
 
   const finish = (d: Drag) => {
     if (liveTabRef.current !== null) {
-      setTabPosition(kind, liveTabRef.current);
+      setTabPosition("folder", liveTabRef.current);
       liveTabRef.current = null;
     }
     if (!d.moved) {
-      open(clampPaneSize(kind, localStorageSize(kind)));
+      open(storedFolderWidth());
       return;
     }
     const g = geometry(d.x, d.y);
-    const limit = livePaneSizeLimit(kind, {
+    const limit = livePaneSizeLimit("folder", {
       widthPx: window.innerWidth,
       heightPx: window.innerHeight,
       rootFontSizePx: g.rootFontSizePx,
       bottomBarPx: g.bottomBarPx,
       headerPx: headerBottomPx(),
     });
-    const raw = Math.min(limit, rawPaneSizeFromPointer(kind, g));
-    // 隠す目安 (2 文字・2 行) を超えて引き出したときだけ戻す
-    const openedEnough =
-      kind === "folder"
-        ? d.x > COLLAPSE_FOLDER_CHARS * g.rootFontSizePx
-        : window.innerHeight - g.bottomBarPx - d.y >
-          COLLAPSE_LINES * LINE_REM * g.rootFontSizePx;
-    if (openedEnough) {
-      open(clampPaneSize(kind, raw));
+    // 隠す目安 (2 文字) を超えて引き出したときだけ戻す
+    if (d.x > COLLAPSE_FOLDER_CHARS * g.rootFontSizePx) {
+      open(clampPaneSize("folder", Math.min(limit, rawPaneSizeFromPointer("folder", g))));
     }
   };
 
   // 引き出している間はタブが指について動く。画面の外へは出さない (端でも全体が見える)
   const dragStyle = (d: Drag): React.CSSProperties => {
-    const half = TAB_HALF_REM[kind] * readCssPx("font-size", 16);
-    return kind === "folder"
-      ? { left: Math.min(window.innerWidth - half, Math.max(half, d.x)) }
-      : {
-          top: Math.min(
-            window.innerHeight -
-              readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX) -
-              readCssPx("--home-indicator-gap", 0) -
-              half,
-            Math.max(headerBottomPx() + half, d.y),
-          ),
-          bottom: "auto",
-        };
+    const half = TAB_HALF_REM * readCssPx("font-size", 16);
+    return { left: Math.min(window.innerWidth - half, Math.max(half, d.x)) };
   };
 
-  const restStyle: React.CSSProperties =
-    kind === "folder"
-      ? {
-          left: `${TAB_HALF_REM.folder}rem`,
-          top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
-        }
-      : {
-          // iPhone のホームインジケーターの帯の上へ浮かせる (§4-30。帯から始まるタッチは OS が取る)
-          bottom: `calc(var(--bottom-bar-h) + var(--home-indicator-gap, 0px) + ${TAB_HALF_REM.preview}rem)`,
-          left: tabOffsetCss(fraction, "100vw"),
-        };
+  const restStyle: React.CSSProperties = {
+    left: `${TAB_HALF_REM}rem`,
+    top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
+  };
 
-  const label =
-    kind === "folder"
-      ? "フォルダーを開く"
-      : openMode === null
-        ? "下のペインの高さ"
-        : "下のペインを開く";
-  const hint =
-    openMode === null ? "引き出した高さで次のノートを開く" : "押すか引き出す";
+  const label = "フォルダーを開く";
   return (
     <>
       {/* 引き出している間は境界の線もタブについて動かす (docs/86 §4-23)。
         普段の境界と同じ灰色の線。押せない飾り */}
-      {drag?.moved && <DragLine kind={kind} drag={drag} />}
+      {drag?.moved && <DragLine drag={drag} />}
       <button
         type="button"
         aria-label={label}
-        title={`${label} (${hint})`}
-        data-collapsed-tab={kind}
+        title={`${label} (押すか引き出す)`}
+        data-collapsed-tab="folder"
         style={drag?.moved ? { ...restStyle, ...dragStyle(drag) } : restStyle}
-        className={`group fixed z-20 touch-none ${
-          kind === "folder"
-            ? "-translate-x-1/2 cursor-col-resize"
-            : "translate-y-1/2 cursor-row-resize"
-        } ${COLLAPSED_TAB_SHAPE[kind]} ${HANDLE_TAB_SKIN} ${COLLAPSED_TAB_HIT[kind]}`}
+        className={`group fixed z-20 touch-none -translate-x-1/2 cursor-col-resize ${HANDLE_TAB.folder.shape} ${HANDLE_TAB_SKIN} ${TAB_HIT}`}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -241,7 +168,7 @@ function CollapsedTab({
           setDrag(d);
           if (moved) {
             liveTabRef.current = alongFraction(event.clientX, event.clientY);
-            setLiveTabPosition(kind, liveTabRef.current);
+            setLiveTabPosition("folder", liveTabRef.current);
           }
         }}
         onPointerUp={() => {
@@ -257,53 +184,40 @@ function CollapsedTab({
           setDrag(null);
           // 取り消されても、動かした所にタブを残す
           if (liveTabRef.current !== null) {
-            setTabPosition(kind, liveTabRef.current);
+            setTabPosition("folder", liveTabRef.current);
             liveTabRef.current = null;
           }
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            open(clampPaneSize(kind, localStorageSize(kind)));
+            open(storedFolderWidth());
           }
         }}
       >
-        <span aria-hidden="true">{HANDLE_TAB[kind].glyph}</span>
+        <span aria-hidden="true">{HANDLE_TAB.folder.glyph}</span>
       </button>
     </>
   );
 }
 
-// 引き出している間の境界の線。普段の境界と同じ色・太さで描く。縦はヘッダーの下から下部バーの上まで、横は画面の幅いっぱい
-function DragLine({ kind, drag }: { kind: PaneKind; drag: Drag }) {
-  const style: React.CSSProperties =
-    kind === "folder"
-      ? { left: Math.min(window.innerWidth, Math.max(0, drag.x)) }
-      : {
-          top: Math.min(window.innerHeight, Math.max(headerBottomPx(), drag.y)),
-        };
+// 引き出している間の境界の線。普段の境界と同じ色・太さで、ヘッダーの下から下部バーの上まで
+function DragLine({ drag }: { drag: Drag }) {
   return (
     <span
       aria-hidden="true"
-      data-collapsed-drag-line={kind}
-      style={style}
-      className={`pointer-events-none fixed z-20 ${DIVIDER_LINE_COLOR} ${
-        kind === "folder"
-          ? "top-[var(--header-h)] bottom-[var(--bottom-bar-h)] w-0.5 -translate-x-1/2"
-          : "inset-x-0 h-0.5 -translate-y-1/2"
-      }`}
+      data-collapsed-drag-line="folder"
+      style={{ left: Math.min(window.innerWidth, Math.max(0, drag.x)) }}
+      className={`pointer-events-none fixed top-[var(--header-h)] bottom-[var(--bottom-bar-h)] z-20 w-0.5 -translate-x-1/2 ${DIVIDER_LINE_COLOR}`}
     />
   );
 }
 
-// 覚えている寸法 (無ければ既定)。隠すときは掴む前の寸法に戻してから隠している
-function localStorageSize(kind: PaneKind): number {
+// 覚えている幅 (無ければ既定)。隠すときは掴む前の幅に戻してから隠している
+function storedFolderWidth(): number {
   try {
-    return clampPaneSize(
-      kind,
-      localStorage.getItem(PANE_SIZES[kind].storageKey),
-    );
+    return clampPaneSize("folder", localStorage.getItem(PANE_SIZES.folder.storageKey));
   } catch {
-    return PANE_SIZES[kind].default;
+    return PANE_SIZES.folder.default;
   }
 }
