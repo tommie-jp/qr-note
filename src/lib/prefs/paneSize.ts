@@ -137,12 +137,11 @@ export const COLLAPSE_LINES = 2;
 export const LINE_REM = 1.5;
 
 //
-// **1 ペインにしない表示** (カレンダー。docs/86 §4-28) では allowSingle が false。
-// 下のペインは閉じるが構成はそのまま (2 / 3)、上の一覧は隠さない (端で止まるだけ)
+// **1 ペインにしない表示** (カレンダー。docs/86 §4-28・§4-32) では allowSingle が false。
+// 下のペインも上の一覧も隠さない (端で止まるだけ)。カレンダーは日の一覧を常に出す
 export type PaneCollapse =
   | { hide: "folder"; mode: "2" }
-  | { hide: "preview"; mode: "1" | "2" | "3" }
-  | { hide: "results"; mode: "1" };
+  | { hide: "preview" | "results"; mode: "1" };
 
 export function paneCollapse(
   kind: PaneKind,
@@ -156,15 +155,15 @@ export function paneCollapse(
       ? { hide: "folder", mode: "2" }
       : null;
   }
-  if (mode !== "2" && mode !== "3") {
+  if ((mode !== "2" && mode !== "3") || !allowSingle) {
     return null;
   }
   const limit = COLLAPSE_LINES * LINE_REM * rootPx;
   const bottomPx = geometry.viewportHeightPx - geometry.bottomBarPx - geometry.clientY;
   if (bottomPx <= limit) {
-    return { hide: "preview", mode: allowSingle ? "1" : mode };
+    return { hide: "preview", mode: "1" };
   }
-  if (allowSingle && geometry.clientY - geometry.resultsTopPx <= limit) {
+  if (geometry.clientY - geometry.resultsTopPx <= limit) {
     return { hide: "results", mode: "1" };
   }
   return null;
@@ -180,10 +179,10 @@ export function paneHideByDoubleClick(
   if (kind === "folder") {
     return mode === "3" ? { hide: "folder", mode: "2" } : null;
   }
-  if (mode !== "2" && mode !== "3") {
+  if ((mode !== "2" && mode !== "3") || !allowSingle) {
     return null;
   }
-  return { hide: "preview", mode: allowSingle ? "1" : mode };
+  return { hide: "preview", mode: "1" };
 }
 
 // 初回描画の前に走らせるスクリプト (chrome/PreHydrationScripts.tsx が layout の

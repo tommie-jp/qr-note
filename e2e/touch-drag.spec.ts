@@ -73,6 +73,23 @@ test.describe('タッチでのドラッグ', () => {
     await context.close()
   })
 
+  test('スマホで 1 ペインのままカレンダーを開くと、2 ペインにして日の一覧を出す (docs/126 §1-36)', async ({ browser }) => {
+    const context = await browser.newContext({
+      baseURL: BASE_URL,
+      storageState: AUTH_FILE,
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 375, height: 667 },
+    })
+    await context.addCookies([{ name: 'panes', value: '1', url: BASE_URL }])
+    const page = await context.newPage()
+    await page.goto(`/?q=%23${TAG}&cal=2026-10`)
+    await expect.poll(() => page.locator('[data-panes]').getAttribute('data-panes')).toBe('2')
+    await expect(page.getByRole('region', { name: '10月1日 (木) の予定' })).toBeVisible()
+    // 構成は元に戻しておく (cookie はこの context だけ)
+    await context.close()
+  })
+
   // 隠したペインの端のタブも釦なので、同じ理由で指では引き出せなかった (docs/86 §4-21)
   for (const tab of [
     { name: 'フォルダーを開く', from: '2', to: '3', dx: 160, dy: 0 },

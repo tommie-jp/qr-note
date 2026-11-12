@@ -98,22 +98,24 @@ test.describe('境界の引き切りでペインを隠す', () => {
 
   // カレンダーは 1 ペインにしない (docs/86 §4-28)。下のペインを閉じるだけで構成はそのまま。
   // 1 ペインへ減らす側 (一覧の表示) は単体テスト (paneSize.test.ts) で見る
-  test('カレンダーの 2 ペインで下のペインを下へ引き切ると、下を閉じて 2 ペインのまま', async ({ page }) => {
-    await openWithPanes(page, '2')
-    const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
-    await expect(dayPane).toBeVisible()
-    const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
+  // カレンダーは 1 ペインにせず、日の一覧も常に出す (docs/86 §4-32・docs/126 §1-36)。
+  // 引き切っても・ダブルクリックしても隠さない。1 ペインへ減らす側 (一覧の表示) は単体テスト
+  for (const panes of ['2', '3'] as const) {
+    test(`カレンダーの ${panes} ペインで下のペインを下へ引き切っても、日の一覧は隠さない`, async ({ page }) => {
+      await page.setViewportSize({ width: 1400, height: 900 })
+      await openWithPanes(page, panes)
+      const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
+      await expect(dayPane).toBeVisible()
+      const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
 
-    await dragTabTo(page, separator, { y: page.viewportSize()!.height - 5 })
-    await expect(separator).toHaveAttribute('data-collapse', 'preview')
-    await page.mouse.up()
+      await dragTabTo(page, separator, { y: page.viewportSize()!.height - 5 })
+      await expect(separator).not.toHaveAttribute('data-collapse')
+      await page.mouse.up()
 
-    await expect(dayPane).toHaveCount(0)
-    expect(await panesShown(page)).toBe('2')
-    await expect(page.getByRole('dialog', { name: '11月5日 (木) の予定' })).toHaveCount(0)
-    // 下端に横のタブは出さない (§4-31)
-    await expect(page.locator('[data-collapsed-tab="preview"]')).toHaveCount(0)
-  })
+      await expect(dayPane).toBeVisible()
+      expect(await panesShown(page)).toBe(panes)
+    })
+  }
 
   test('カレンダーの 2 ペインで上の一覧を上へ引き切っても、一覧は隠さない (端で止まるだけ)', async ({ page }) => {
     await openWithPanes(page, '2')
@@ -127,33 +129,24 @@ test.describe('境界の引き切りでペインを隠す', () => {
     await expect(page.getByRole('region', { name: '11月5日 (木) の予定' })).toBeVisible()
   })
 
-  test('カレンダーの 3 ペインで一覧とノートの境界を下へ引き切ると、下を閉じて 3 ペインのまま', async ({ page }) => {
-    await page.setViewportSize({ width: 1400, height: 900 })
-    await openWithPanes(page, '3')
-    const separator = page.getByRole('separator', { name: 'プレビューの高さ' }).last()
-
-    await dragTabTo(page, separator, { y: page.viewportSize()!.height - 5 })
-    await expect(separator).toHaveAttribute('data-collapse', 'preview')
-    await page.mouse.up()
-
-    await expect(page.getByRole('region', { name: '11月5日 (木) の予定' })).toHaveCount(0)
-    expect(await panesShown(page)).toBe('3')
-  })
-
-  test('タブのダブルクリックで隠す (フォルダーの境界はフォルダー、一覧とノートの境界は下のペイン)', async ({ page }) => {
+  test('タブのダブルクリック: フォルダーの境界はフォルダーを隠し、カレンダーの下のペインは隠さない', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await openWithPanes(page, '3')
     await page.getByRole('separator', { name: 'フォルダーの幅' }).locator('[data-pane-resizer-tab]').dblclick()
     await expect.poll(() => panesShown(page)).toBe('2')
 
-    // 2 ペインで日を選び直して、下のペインの境界をダブルクリック
-    await page.locator('[data-search-results] [data-calendar] [data-day="2026-11-05"]').click()
     const dayPane = page.getByRole('region', { name: '11月5日 (木) の予定' })
     await expect(dayPane).toBeVisible()
     await page.getByRole('separator', { name: 'プレビューの高さ' }).last().locator('[data-pane-resizer-tab]').dblclick()
-    // カレンダーは 1 ペインにしない (下を閉じるだけ)
-    await expect(dayPane).toHaveCount(0)
+    await expect(dayPane).toBeVisible()
     expect(await panesShown(page)).toBe('2')
+  })
+
+  test('カレンダーの 2 ペインでは、日を選ばなくても今日 (無ければ月の 1 日) の一覧を出す', async ({ page }) => {
+    await page.context().addCookies([{ name: 'panes', value: '2', url: BASE_URL }])
+    await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=2026-10`)
+    await expectHydrated(page.locator('[data-search-results] [data-calendar] [data-day="2026-10-01"]'))
+    await expect(page.getByRole('region', { name: '10月1日 (木) の予定' })).toBeVisible()
   })
 
   test('カレンダーではヘッダーの構成の釦も 1 を飛ばす (2 → 3)', async ({ page }) => {

@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
+import { switchPaneMode } from "@/components/panes/switchPaneMode";
+import { refreshServerView } from "@/lib/client/navigation";
 import { notePaneLayout } from "@/lib/prefs/paneMode";
 import { addMonths, eventsByDay, isMonth, jstToday, monthCells, type DayEvent } from "../event/monthLayout";
 import { calendarCache } from "./calendarStore";
@@ -27,6 +29,11 @@ function pushList(): void {
 // 「予定が変わった」と見て控えを直し続ける
 const NO_EVENTS: readonly DayEvent[] = [];
 
+// スマホ (指で操作する端末) か。カレンダーはスマホでは 1 ペインにしない (docs/126 §1-36)
+function isTouchDevice(): boolean {
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
 // 見出し行は詰める (32px の釦・16px の年月。docs/126 §1-23)
 const NAV_BUTTON = "min-h-8 min-w-8 rounded px-2 text-sm text-gray-700 hover:bg-gray-100 active:bg-gray-200";
 
@@ -43,14 +50,27 @@ export default function CalendarView({ query }: { query: string }) {
   // 開いている日。浮かせるときは押したマスの要素で位置を測る
   // openedFor … 開いたときにペインに出ていたノート。別のノートが開いたら
   // (戻る・一覧から開く) 日のペインはそれを覆わずに退く (画像ビューアと同じ)
-  const [opened, setOpened] = useState<{ day: string; cell: HTMLElement; openedFor: string | null } | null>(null);
+  const [opened, setOpened] = useState<{ day: string; cell: HTMLElement | null; openedFor: string | null } | null>(null);
   const days = useMemo(() => monthCells(month), [month]);
   // 月送りの釦は閉じてから送る。URL の書き換え (戻る・検索語) で月が替わったときも
   // 開いていた日がマス目に無ければ出さない
   if (opened !== null && opened.openedFor !== detailItemId) {
     setOpened(null);
   }
-  const shown = opened !== null && days.includes(opened.day) && opened.openedFor === detailItemId ? opened : null;
+  // **2・3 ペインでは日の一覧を常に出す** (docs/126 §1-36)。選んでいなければ今日、
+  // 今日の無い月はその月の 1 日。下のペインにノートを開いている間はノートに譲る
+  const defaultDay = today.startsWith(month) ? today : `${month}-01`;
+  const picked = opened !== null && days.includes(opened.day) && opened.openedFor === detailItemId ? opened : null;
+  const shown =
+    picked ?? (inPane && detailItemId === null ? { day: defaultDay, cell: null, openedFor: null } : null);
+  // スマホで 1 ペインのまま開いたら 2 ペインにする (§1-36)。マスの横に浮かせる一覧は PC だけ
+  useEffect(() => {
+    if (mode === "1" && isTouchDevice()) {
+      void switchPaneMode("2", () => {
+        startTransition(refreshServerView);
+      });
+    }
+  }, [mode]);
   // 検索窓の＋が足す日 (docs/126 §1-17)。カレンダーを離れたら忘れる
   const shownDay = shown?.day ?? null;
   useEffect(() => {
@@ -153,10 +173,9 @@ export default function CalendarView({ query }: { query: string }) {
           events={byDay.get(shown.day) ?? NO_EVENTS}
           loading={payload === undefined}
           query={query}
-          onClose={close}
         />
       )}
-      {shown !== null && !inPane && (
+      {shown !== null && shown.cell !== null && !inPane && (
         <DayPopover
           key={shown.day}
           day={shown.day}

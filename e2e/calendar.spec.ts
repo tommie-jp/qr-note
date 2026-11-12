@@ -108,8 +108,10 @@ test.describe('予定カレンダー', () => {
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
     await expect(pane).toBeVisible()
-    await pane.getByRole('button', { name: '閉じる' }).click()
-    await expect(pane).toHaveCount(0)
+    // 日の一覧は閉じない (× も Esc も無い。docs/126 §1-36)
+    await expect(pane.getByRole('button', { name: '閉じる' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(pane).toBeVisible()
 
     // 固定 id のノートの予定タブで保存する
     await page.evaluate((url) => window.history.pushState(null, '', url), noteHref(`&tab=event&date=${DAY}`))
@@ -153,8 +155,6 @@ test.describe('予定カレンダー', () => {
     // 保存したら閉じ、一覧が新しい時刻になる
     await expect(dialog).toHaveCount(0)
     await expect(row).toContainText('13:00')
-    await page.keyboard.press('Escape')
-    await expect(pane).toHaveCount(0)
 
     // 本文は決まった所だけ変わる (タグの行は残る)
     await page.evaluate((url) => window.history.pushState(null, '', url), noteHref())

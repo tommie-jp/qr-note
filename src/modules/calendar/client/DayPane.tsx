@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ClearIcon } from "@/components/icons";
 import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
 import { PaneResizer } from "@/components/panes/PaneResizer";
-import { onPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
 import { newItemId } from "@/lib/items/itemId";
 import type { DayEvent } from "../event/monthLayout";
 import {
@@ -27,18 +25,19 @@ import { EventPopover, type EditingEvent } from "./EventPopover";
 // ノートを開いていないカレンダーでは日のペインを出しても掴む所が無い。
 // 寸法は同じ所に保存するので、ノートのペインが居て境界が 2 本重なっても
 // 同じ位置・同じ動きになる
+//
+// **閉じる手段は持たない** (docs/126 §1-36)。カレンダーの 2・3 ペインでは日の一覧を
+// 常に出す (選んでいなければ今日か月の 1 日)。× も Esc も無く、境界を引き切っても隠さない
 export function DayPane({
   day,
   events,
   loading,
   query,
-  onClose,
 }: {
   day: string;
   events: readonly DayEvent[];
   loading: boolean;
   query: string;
-  onClose: () => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState<EditingEvent | null>(null);
@@ -57,21 +56,6 @@ export function DayPane({
       }
     };
   }, []);
-
-  // 境界を引き切って下のペインを隠したら閉じる (docs/86 §4-19)。
-  // 閉じないと 1 ペインへ移った後にマスの横へ浮かせる一覧として出直す
-  useEffect(() => onPreviewPaneHidden(onClose), [onClose]);
-
-  // Esc で閉じる (フォームが出ている間はフォームが先に受けて止める)
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   // 番号は押したときに振る (描くたびに振ると、開いた後で番号が変わる)
   const add = (anchor: HTMLElement) =>
@@ -113,17 +97,6 @@ export function DayPane({
                 <DayRowContent event={event} />
               </button>
             )}
-            trailing={
-              <button
-                type="button"
-                aria-label="閉じる"
-                title="閉じる"
-                onClick={onClose}
-                className="flex size-7 items-center justify-center rounded text-white hover:bg-white/20 [&>svg]:size-5"
-              >
-                <ClearIcon />
-              </button>
-            }
           />
         </div>
         {editing !== null && (

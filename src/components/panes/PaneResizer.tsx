@@ -277,10 +277,6 @@ export function PaneResizer({ kind }: { kind: PaneKind }) {
         navigate(listHref, { replace: true });
       }
     }
-    // 構成を変えない隠し方 (カレンダーで下を閉じるだけ) は切り替えない
-    if (target.mode === currentPaneMode()) {
-      return;
-    }
     void switchPaneMode(target.mode, () => {
       startTransition(refreshServerView);
     });
