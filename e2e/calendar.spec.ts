@@ -471,6 +471,36 @@ test.describe('予定カレンダー', () => {
     await expect.poll(memo).toMatch(new RegExp(`^# ${NOTE.heading}\n`))
   })
 
+  test('長い題名は省略せず折り返し、行が縦に伸びる', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const memo = async () =>
+      ((await (await page.request.get(`/api/items/${NOTE.id}`)).json()) as { data: { item: { memo: string } } }).data.item
+        .memo
+    const long = `${NOTE.heading} とても長い題名を付けて一行に収まらないことを確かめるための予定 averyveryverylongwordwithoutspaces`
+
+    await eventRow(pane).locator('[data-event-title]').click()
+    await pane.getByRole('textbox', { name: '題名' }).fill(long)
+    await pane.getByRole('textbox', { name: '題名' }).press('Enter')
+    await expect.poll(memo).toMatch(new RegExp(`^# ${long}\n`))
+
+    const row = pane.locator('li', { hasText: NOTE.key })
+    await expect(eventRow(pane)).toContainText(long)
+    // 2 行以上 (28px の 1 行より高い) で、題名の器から文字がはみ出さない (… で切らない)
+    expect((await row.boundingBox())!.height).toBeGreaterThan(29)
+    const title = eventRow(pane).locator('[data-event-title]').locator('..')
+    expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await expect(title).not.toHaveCSS('text-overflow', 'ellipsis')
+
+    // 元の題名へ戻す (後のテストが題名で探す)
+    await eventRow(pane).locator('[data-event-title]').click()
+    await pane.getByRole('textbox', { name: '題名' }).fill(NOTE.heading)
+    await pane.getByRole('textbox', { name: '題名' }).press('Enter')
+    await expect.poll(memo).toMatch(new RegExp(`^# ${NOTE.heading}\n`))
+  })
+
   test('時刻は 1 行で出し、押すと 15 分刻みで直せる (開始を動かすと終了も動く)', async ({ page }) => {
     await openCalendar(page)
     await dayCell(page, DAY).click()

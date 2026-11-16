@@ -29,6 +29,7 @@ const shortTime = (time: string) => time.replace(/^0/, "");
 
 // 予定の行は SaiSuke2 と同じく色の帯 (優先度の色は設定から、済みは灰。priorityColor.ts)。
 // 高さは 28px (題名の 1 行 24px + 上下 2px。docs/126 §1-26 で 36px から詰めた)。
+// 題名が長いときは折り返して行が縦に伸びる (時刻は縦の中央のまま)。
 // 左に時刻 (1 行、終日は「終日」)、右に題名。色は行の器 (li) が持つ
 export const DAY_ROW_CLASS = "flex min-h-7 min-w-0 flex-1 items-center gap-2 pr-1 text-left text-base leading-6 hover:brightness-95";
 
@@ -66,7 +67,8 @@ export function DayRowContent({ event }: { event: DayEvent }) {
   return (
     <>
       <TimeLabel event={event} />
-      <span className="min-w-0 flex-1 truncate">
+      {/* 長い題名は省略せず折り返す (英数字の長い連なりも途中で折る)。複数行の時は上下に 2px 空ける */}
+      <span className="min-w-0 flex-1 py-0.5 wrap-anywhere">
         <span data-event-title="" className={`cursor-text ${event.done ? "line-through" : ""}`}>
           {event.title || "(無題)"}
         </span>
