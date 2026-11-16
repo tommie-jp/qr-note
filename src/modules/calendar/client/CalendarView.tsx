@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
@@ -12,7 +12,9 @@ import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
 import { DayPane } from "./DayPane";
 import { CalendarMenu } from "./CalendarMenu";
 import { DayPopover } from "./DayPopover";
-import { MonthGrid, WeekdayHeader } from "./MonthGrid";
+import { cellHeightPx, MonthGrid, WeekdayHeader } from "./MonthGrid";
+import { currentCalendarPrefs, useCalendarPrefs } from "./prefsStore";
+import { revealDayWeek } from "./revealToday";
 import { setSelectedCalendarDay } from "./selectedDay";
 
 // URL の cal を書き換える。履歴を増やさない (月送りは「戻る」で辿る物ではない)。
@@ -32,6 +34,13 @@ const NO_EVENTS: readonly DayEvent[] = [];
 // スマホ (指で操作する端末) か。カレンダーはスマホでは 1 ペインにしない (docs/126 §1-36)
 function isTouchDevice(): boolean {
   return window.matchMedia("(pointer: coarse)").matches;
+}
+
+// 1 ペインを 2 ペインにする (日の一覧を下のペインに出す。docs/126 §1-36・§1-39)
+function switchToTwoPanes(): void {
+  void switchPaneMode("2", () => {
+    startTransition(refreshServerView);
+  });
 }
 
 // 見出し行は詰める (32px の釦・16px の年月。docs/126 §1-23)
@@ -66,11 +75,28 @@ export default function CalendarView({ query }: { query: string }) {
   // スマホで 1 ペインのまま開いたら 2 ペインにする (§1-36)。マスの横に浮かせる一覧は PC だけ
   useEffect(() => {
     if (mode === "1" && isTouchDevice()) {
-      void switchPaneMode("2", () => {
-        startTransition(refreshServerView);
-      });
+      switchToTwoPanes();
     }
   }, [mode]);
+  // 今日の週を見える範囲の一番上へ送る (docs/126 §1-39)。開いた直後と「今日」の釦。
+  // 頼みは ref に残し、今日のマスが描けたときに果たす — 「今日」で月を戻すと
+  // URL (useSearchParams) の書き換えは釦の描き直しより後に届くため。
+  // 開いた直後の最初の描画は設定の読み込み前 (既定の 1 日の予定数) のことがあり、
+  // マスの高さが後で変わる。描画の高さが store と食い違う間は送らずに待つ
+  const rootRef = useRef<HTMLDivElement>(null);
+  const reveal = useRef<{ smooth: boolean } | null>({ smooth: false });
+  const [revealCount, setRevealCount] = useState(0);
+  const { prefs } = useCalendarPrefs();
+  const cellHeight = cellHeightPx(prefs.eventsPerDay);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (cellHeight !== cellHeightPx(currentCalendarPrefs().eventsPerDay)) {
+      return;
+    }
+    if (reveal.current !== null && root !== null && revealDayWeek(root, today, reveal.current.smooth)) {
+      reveal.current = null;
+    }
+  }, [revealCount, month, cellHeight, today]);
   // 検索窓の＋が足す日 (docs/126 §1-17)。カレンダーを離れたら忘れる
   const shownDay = shown?.day ?? null;
   useEffect(() => {
@@ -90,7 +116,7 @@ export default function CalendarView({ query }: { query: string }) {
   const [year, monthNumber] = month.split("-").map(Number);
 
   return (
-    <div data-calendar="">
+    <div ref={rootRef} data-calendar="">
       {/* 見出し行と曜日の行は送る器の上端に貼り付ける (docs/126 §1-28)。
           器の左右の余白 (px-safe) ごと覆い、マス目が両脇から透けないようにする */}
       <div data-calendar-head="" className="sticky top-0 z-10 -mx-safe bg-white px-safe">
@@ -106,6 +132,7 @@ export default function CalendarView({ query }: { query: string }) {
         >
         <button type="button" className={NAV_BUTTON} aria-label="前の月" onClick={() => {
             setOpened(null);
+            reveal.current = null;
             replaceMonth(addMonths(month, -1));
           }}>
           ◀
@@ -115,6 +142,7 @@ export default function CalendarView({ query }: { query: string }) {
         </h2>
         <button type="button" className={NAV_BUTTON} aria-label="次の月" onClick={() => {
             setOpened(null);
+            reveal.current = null;
             replaceMonth(addMonths(month, 1));
           }}>
           ▶
@@ -123,8 +151,15 @@ export default function CalendarView({ query }: { query: string }) {
           type="button"
           className={NAV_BUTTON}
           onClick={() => {
+            // 今日のマスの週を一番上へ、日の一覧は今日の予定を先頭から (docs/126 §1-39)。
+            // 1 ペイン (PC の浮かせる一覧) は 2 ペインにして下のペインに今日を出す
             setOpened(null);
+            reveal.current = { smooth: true };
+            setRevealCount((n) => n + 1);
             replaceMonth(today.slice(0, 7));
+            if (mode === "1") {
+              switchToTwoPanes();
+            }
           }}
         >
           今日
@@ -173,6 +208,7 @@ export default function CalendarView({ query }: { query: string }) {
           events={byDay.get(shown.day) ?? NO_EVENTS}
           loading={payload === undefined}
           query={query}
+          revealKey={revealCount}
         />
       )}
       {shown !== null && shown.cell !== null && !inPane && (

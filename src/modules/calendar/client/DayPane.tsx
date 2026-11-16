@@ -33,11 +33,15 @@ export function DayPane({
   events,
   loading,
   query,
+  revealKey,
 }: {
   day: string;
   events: readonly DayEvent[];
   loading: boolean;
   query: string;
+  // 「今日」を押すたびに変わる。変わったら一覧を先頭まで戻す (docs/126 §1-39)。
+  // 日が替わるときは key で作り直されるので、同じ日のまま押したときのための物
+  revealKey: number;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState<EditingEvent | null>(null);
@@ -56,6 +60,10 @@ export function DayPane({
       }
     };
   }, []);
+
+  useEffect(() => {
+    sectionRef.current?.scrollTo({ top: 0 });
+  }, [revealKey]);
 
   // 番号は押したときに振る (描くたびに振ると、開いた後で番号が変わる)
   const add = (anchor: HTMLElement) =>

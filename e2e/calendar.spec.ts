@@ -53,6 +53,20 @@ async function expectBesideCell(page: Page, popover: Locator): Promise<void> {
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height)
 }
 
+// day の週の上端が、器の上端に貼り付いた見出し行のすぐ下にある (docs/126 §1-39)
+async function expectWeekAtTop(page: Page, day: string): Promise<void> {
+  await expect
+    .poll(async () =>
+      dayCell(page, day).evaluate((cell) => {
+        const scroller = cell.closest('[data-results-scroll]')!
+        const head = document.querySelector<HTMLElement>('[data-calendar-head]')!
+        const viewTop = scroller.getBoundingClientRect().top + scroller.clientTop + head.offsetHeight
+        return Math.abs(cell.getBoundingClientRect().top - viewTop) <= 1
+      }),
+    )
+    .toBe(true)
+}
+
 function dayPane(page: Page): Locator {
   return page.getByRole('region', { name: '11月5日 (木) の予定' })
 }
@@ -66,7 +80,13 @@ function noteHref(extra = ''): string {
   return `/item/${NOTE.id}?q=${encodeURIComponent(QUERY)}&cal=${MONTH}${extra}`
 }
 
-async function openCalendar(page: Page, panes: '1' | '2' = '2'): Promise<void> {
+// E2E の「今日」。開いた直後に今日の週を一番上へ送る (docs/126 §1-39) ので、実際の日付の
+// ままでは日によって DAY のマスが見出しの下に隠れる (1 ペインの浮かせる一覧は、クリックの
+// ための送りで閉じてしまう)。DAY と同じ週の月曜に固定する
+const E2E_TODAY = '2026-11-02'
+
+async function openCalendar(page: Page, panes: '1' | '2' = '2', today = E2E_TODAY): Promise<void> {
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00+09:00`))
   // 2 ペイン (検索結果 + ノート)。選んだ日はノートのペインの場所に出る
   await page.context().addCookies([{ name: 'panes', value: panes, url: BASE_URL }])
   await page.goto(`/?q=${encodeURIComponent(QUERY)}&cal=${MONTH}`)
@@ -809,6 +829,49 @@ test.describe('予定カレンダー', () => {
     await page.goto(`/?q=${encodeURIComponent(QUERY)}`)
     await expect(page.getByRole('link', { name: '新規ノート' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'カレンダーに追加' })).toHaveCount(0)
+  })
+
+  test('開いた直後と「今日」で今日の週が一番上に来て、日の一覧は先頭から出る (1 ペインは 2 ペインになる)', async ({ page }) => {
+    // 今日を DAY (2 週目) に固定する。マスを 20 行 (445px) にして、送らないと見えない形にする
+    await openCalendar(page, '2', DAY)
+    await calendar(page).getByRole('button', { name: 'カレンダーの設定' }).click()
+    await page.getByRole('dialog', { name: 'カレンダーの設定' }).getByLabel('1 日に出す予定の数').selectOption('20')
+    await page.keyboard.press('Escape')
+
+    // 開いた直後 (1 日の予定数は端末の設定から読む)
+    await page.reload()
+    await expectHydrated(dayCell(page, DAY))
+    await expectWeekAtTop(page, DAY)
+
+    // 月の先頭へ戻し、日の一覧も下へ送ってから「今日」
+    const scroller = page.locator('[data-results-scroll]')
+    await scroller.evaluate((el) => el.scrollTo({ top: 0 }))
+    const pane = page.locator('[data-day-pane]')
+    await pane.evaluate((el) => {
+      const filler = document.createElement('div')
+      filler.style.height = '3000px'
+      el.appendChild(filler)
+      el.scrollTo({ top: 2000 })
+    })
+    expect(await pane.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    const today = calendar(page).getByRole('button', { name: '今日', exact: true })
+    await today.click()
+    await expectWeekAtTop(page, DAY)
+    await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBe(0)
+
+    // 別の月から戻っても同じ
+    await calendar(page).getByRole('button', { name: '次の月' }).click()
+    await expect(calendar(page).getByRole('heading', { name: '2026年12月' })).toBeVisible()
+    await today.click()
+    await expect(calendar(page).getByRole('heading', { name: '2026年11月' })).toBeVisible()
+    await expectWeekAtTop(page, DAY)
+
+    // 1 ペイン (PC) では 2 ペインにして、下のペインに今日の一覧を出す
+    await openCalendar(page, '1', DAY)
+    await expect(dayPane(page)).toHaveCount(0)
+    await today.click()
+    await expect(dayPane(page)).toBeVisible()
+    await expectWeekAtTop(page, DAY)
   })
 
   test('1 ペインでは日の一覧をマスの横に浮かせる', async ({ page }) => {

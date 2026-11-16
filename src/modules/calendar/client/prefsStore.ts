@@ -115,6 +115,13 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+// store のいまの設定。描画に使った値と比べ、端末の設定 (localStorage) を読み込む前の
+// 既定値で描いたマス目かを見分ける (CalendarView の「今日」へ送る処理)。
+// 読み込みは購読したときに始まり、その描き直しはまだ届いていないことがある
+export function currentCalendarPrefs(): CalendarPrefs {
+  return state.prefs;
+}
+
 export function useCalendarPrefs(): PrefsState {
   return useSyncExternalStore(
     subscribe,
