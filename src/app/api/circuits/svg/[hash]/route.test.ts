@@ -1,4 +1,3 @@
-import { brotliDecompressSync } from 'node:zlib'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // 回路図の SVG を配る口 (docs/124 §1)。門番 (ログイン・クロスサイト) は本物を
@@ -59,13 +58,13 @@ describe('GET /api/circuits/svg/:hash', () => {
     expect(await res.text()).toBe(SVG)
   })
 
-  test('br を受ける相手には brotli で返す', async () => {
+  test('br を受ける相手にも圧縮せずに返す (圧縮は next start に任せる)', async () => {
     // Act
     const res = await call(HASH, { 'accept-encoding': 'gzip, br' })
 
     // Assert
-    expect(res.headers.get('content-encoding')).toBe('br')
-    expect(brotliDecompressSync(Buffer.from(await res.arrayBuffer())).toString()).toBe(SVG)
+    expect(res.headers.get('content-encoding')).toBeNull()
+    expect(await res.text()).toBe(SVG)
   })
 
   test('未ログインは 401 で、DB を引かない', async () => {

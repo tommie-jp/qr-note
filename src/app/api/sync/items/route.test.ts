@@ -137,19 +137,17 @@ describe('変化が無ければ 304', () => {
   })
 })
 
-// 本文は gzip で返す (docs/118 §4-1)。展開すれば素の封筒と同じ
-test('gzip を受ける相手には圧縮して返す', async () => {
-  const { gunzipSync } = await import('node:zlib')
-  // 1KB 未満は圧縮しない (route/compress.ts の GZIP_MIN_BYTES)。実物の同期は数 MB
+// 本文は素のまま返し、圧縮は next start に任せる (route/compress.ts の冒頭。
+// Next 16.4.5 から Route Handler の Content-Encoding は捨てられる)
+test('gzip を受ける相手にも圧縮せずに返す', async () => {
   const original = mocks.payload
   mocks.payload = { ...original, items: [{ memo: 'x'.repeat(2000) }] } as never
   const res = await GET(syncRequest({ 'sec-fetch-site': 'same-origin', 'accept-encoding': 'gzip' }))
 
   expect(res.status).toBe(200)
-  expect(res.headers.get('Content-Encoding')).toBe('gzip')
+  expect(res.headers.get('Content-Encoding')).toBeNull()
   expect(res.headers.get('Cache-Control')).toBe('no-store')
-  const body = gunzipSync(Buffer.from(await res.arrayBuffer())).toString('utf8')
-  expect(JSON.parse(body)).toEqual(okEnvelope({ ...mocks.payload, etag: '"v-1"' }))
+  expect(await res.json()).toEqual(okEnvelope({ ...mocks.payload, etag: '"v-1"' }))
   mocks.payload = original
 })
 

@@ -31,8 +31,8 @@ import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
 // 転送を軽くする 2 段 (docs/118 §4):
 //   ETag … 本文を組む前に安い問い合わせ 1 本で版を決め (syncVersion.ts)、端末が
 //          If-None-Match で同じ版を送ってきたら 304 で本文を送らない
-//   gzip … 版が変わっていれば本文を gzip で返す (11MB → 約 2.3MB)。Next も
-//          nginx も Route Handler の JSON を圧縮しない (route/compress.ts)
+//   gzip … 版が変わっていれば本文を gzip で返す (11MB → 約 2.3MB)。圧縮は
+//          next start が行う (route/compress.ts の冒頭)
 export async function GET(request: Request): Promise<NextResponse> {
   const guard = await guardRequest(request, { demo: 'deny' })
   if (!guard.ok) {
@@ -53,7 +53,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     since === null ? loadOfflineSyncPayload() : loadOfflineSyncDelta(since),
   )
   // 端末は写しに etag を残し、次の同期で If-None-Match に載せる (offline/sync.ts)。
-  // json … JSON.stringify と圧縮 (brotli / gzip) を合わせた時間
+  // json … JSON.stringify の時間 (圧縮は送出時に next start が行う)
   const res = await t.time('json', () => apiOkGzip({ ...payload, etag }, request, { ETag: etag }))
   return finish(res, t.done(), payload)
 }
