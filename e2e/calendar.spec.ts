@@ -12,6 +12,9 @@ import { e2eNote, removeE2eNote, searchResults } from './notes'
 const NOTE = e2eNote(41, `歯医者 ${Date.now() % 100000}`)
 // 並べ替えのテストの 2 件目 (同じ日の 10:00)
 const NOTE2 = e2eNote(46, `眼科 ${Date.now() % 100000}`)
+// 題名に URL を持つ予定 (自動リンク・︙ のメニューの削除。docs/126 §1-37・§1-38)
+const LINK_URL = 'https://example.com/e2e-cal'
+const NOTE3 = e2eNote(47, `資料 ${LINK_URL}`)
 // 他の予定と混ざらないよう、このテストだけのタグで絞ったカレンダーを開く
 const TAG = 'zze2ecal'
 const QUERY = `#${TAG}`
@@ -76,6 +79,7 @@ test.describe('予定カレンダー', () => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, NOTE)
     await removeE2eNote(page, NOTE2)
+    await removeE2eNote(page, NOTE3)
     await closePage(page)
   })
 
@@ -83,6 +87,7 @@ test.describe('予定カレンダー', () => {
     const page = await newLoggedInPage(browser)
     await removeE2eNote(page, NOTE)
     await removeE2eNote(page, NOTE2)
+    await removeE2eNote(page, NOTE3)
     // 設定のテストが途中で落ちても既定へ戻す
     await page.request.put('/api/calendar/settings', { data: DEFAULT_PREFS })
     await closePage(page)
@@ -589,7 +594,7 @@ test.describe('予定カレンダー', () => {
     await expect.poll(titles).toEqual([NOTE2.heading, NOTE.heading])
 
     // NOTE の ︙ を 1 行ぶん上へドラッグ
-    const handle = pane.getByRole('button', { name: `${NOTE.heading} を並べ替える` })
+    const handle = pane.getByRole('button', { name: `${NOTE.heading} の操作` })
     const from = (await handle.boundingBox())!
     const top = (await pane.locator('li').first().boundingBox())!
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
@@ -632,7 +637,7 @@ test.describe('予定カレンダー', () => {
       await expect(target).not.toHaveAttribute('data-drop-target')
     }
 
-    await drag(pane.getByRole('button', { name: `${NOTE2.heading} を並べ替える` }), dayCell(page, OTHER))
+    await drag(pane.getByRole('button', { name: `${NOTE2.heading} の操作` }), dayCell(page, OTHER))
     // この日の一覧から消え、移した日のマスに出る
     await expect(pane.locator('li', { hasText: NOTE2.key })).toHaveCount(0)
     await expect.poll(memo2).toContain(`date=${OTHER} start=10:00`)
@@ -642,7 +647,7 @@ test.describe('予定カレンダー', () => {
     // 移した日の一覧から元の日へ戻す
     await dayCell(page, OTHER).click()
     const otherPane = page.getByRole('region', { name: '11月12日 (木) の予定' })
-    await drag(otherPane.getByRole('button', { name: `${NOTE2.heading} を並べ替える` }), dayCell(page, DAY))
+    await drag(otherPane.getByRole('button', { name: `${NOTE2.heading} の操作` }), dayCell(page, DAY))
     await expect.poll(memo2).toContain(`date=${DAY} start=10:00`)
     await expect(dayCell(page, DAY)).toContainText(NOTE2.key)
   })
@@ -659,7 +664,7 @@ test.describe('予定カレンダー', () => {
     await expect.poll(titles).toEqual([NOTE2.heading, NOTE.heading])
     const target = dayCell(page, OTHER)
     await target.scrollIntoViewIfNeeded()
-    const handle = pane.getByRole('button', { name: `${NOTE.heading} を並べ替える` })
+    const handle = pane.getByRole('button', { name: `${NOTE.heading} の操作` })
     const from = (await handle.boundingBox())!
     const top = (await pane.locator('li').first().boundingBox())!
     const to = (await target.boundingBox())!
@@ -682,13 +687,110 @@ test.describe('予定カレンダー', () => {
     await dayCell(page, OTHER).click()
     const otherPane = page.getByRole('region', { name: '11月12日 (木) の予定' })
     await dayCell(page, DAY).scrollIntoViewIfNeeded()
-    const back = (await otherPane.getByRole('button', { name: `${NOTE.heading} を並べ替える` }).boundingBox())!
+    const back = (await otherPane.getByRole('button', { name: `${NOTE.heading} の操作` }).boundingBox())!
     const home = (await dayCell(page, DAY).boundingBox())!
     await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2)
     await page.mouse.down()
     await page.mouse.move(home.x + home.width / 2, home.y + home.height / 2, { steps: 8 })
     await page.mouse.up()
     await expect(dayCell(page, DAY)).toContainText(NOTE.key)
+  })
+
+  test('︙ を押すとメニューが出て、「編集」で行のそばにフォームが出る (ドラッグでは出ない)', async ({ page }) => {
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const handle = pane.getByRole('button', { name: `${NOTE.heading} の操作` })
+    const menu = page.getByRole('menu', { name: `${NOTE.heading} の操作` })
+
+    // Act: 動かさずに押す
+    await handle.click()
+
+    // Assert
+    await expect(menu.getByRole('menuitem')).toHaveText(['編集', '削除'])
+    await expect(handle).toHaveAttribute('aria-expanded', 'true')
+    // もう一度押すと閉じる
+    await handle.click()
+    await expect(menu).toHaveCount(0)
+
+    // 「編集」は行を押したのと同じフォーム
+    await handle.click()
+    await menu.getByRole('menuitem', { name: '編集' }).click()
+    const dialog = page.getByRole('dialog', { name: '予定を直す' })
+    await expect(dialog.getByRole('form', { name: '予定' }).getByLabel('題名')).toHaveValue(NOTE.heading)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+
+    // ドラッグして離してもメニューは出ない (︙ の上で離しても)
+    const box = (await handle.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 20, { steps: 4 })
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
+    await page.mouse.up()
+    await expect(pane.locator('[data-dragging]')).toHaveCount(0)
+    await expect(menu).toHaveCount(0)
+  })
+
+  test('題名の URL はリンクになり、押すとブラウザで開く。︙ の「削除」でゴミ箱へ移る', async ({ page }) => {
+    // 外へは出さない (開いたことだけ確かめる)
+    await page.context().route('https://example.com/**', (route) => route.fulfill({ body: 'ok' }))
+    const created = await page.request.put(`/api/items/${NOTE3.id}`, {
+      data: { memo: `# ${NOTE3.heading}\n\n#${TAG}\ndate=${DAY}\n`, base: 'new', checkpoint: false },
+    })
+    expect(created.ok()).toBe(true)
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    const pane = dayPane(page)
+    const row = pane.locator('li', { hasText: NOTE3.key })
+    const link = row.locator('[data-event-link]')
+    await expect(link).toHaveText(LINK_URL)
+
+    // Act: URL を押す
+    const popupPromise = page.waitForEvent('popup')
+    await link.click()
+    const popup = await popupPromise
+
+    // Assert: 新しいタブで開き、題名の編集にもフォームにもならない
+    await popup.waitForURL(LINK_URL)
+    await popup.close()
+    await expect(row.getByRole('textbox', { name: '題名' })).toHaveCount(0)
+    await expect(page.getByRole('dialog', { name: '予定を直す' })).toHaveCount(0)
+
+    // URL 以外の文字 (前の「zze2e47 資料 」) を押すと、これまでどおりその場で直せる
+    await row.locator('[data-event-title]').click({ position: { x: 4, y: 8 } })
+    // 編集中は題名が入力欄の値になり、行を hasText で絞れないのでペインから引く
+    const editor = pane.getByRole('textbox', { name: '題名' })
+    await expect(editor).toHaveValue(NOTE3.heading)
+    await page.keyboard.press('Escape')
+    await expect(editor).toHaveCount(0)
+
+    // 1 ペインの浮かせる一覧は行がノートへのリンク。URL を押してもノートへは移らない
+    await openCalendar(page, '1')
+    await dayCell(page, DAY).click()
+    const popover = page.getByRole('dialog', { name: '11月5日 (木) の予定' })
+    const popupPromise1 = page.waitForEvent('popup')
+    await popover.locator('[data-event-link]').click()
+    await (await popupPromise1).close()
+    await expect(page).not.toHaveURL(/\/item\//)
+    await expect(popover).toBeVisible()
+
+    // ︙ → 削除 で一覧から消え、ゴミ箱へ移る (2 ペインに戻して)
+    await openCalendar(page)
+    await dayCell(page, DAY).click()
+    await pane.getByRole('button', { name: `${NOTE3.heading} の操作` }).click()
+    await page.getByRole('menu').getByRole('menuitem', { name: '削除' }).click()
+    await expect(row).toHaveCount(0)
+    await expect(dayCell(page, DAY)).not.toContainText(NOTE3.key)
+    // ゴミ箱のノートは GET で null か、deletedAt 付きで返る
+    await expect
+      .poll(async () => {
+        const response = await page.request.get(`/api/items/${NOTE3.id}`)
+        const body = (await response.json()) as { data?: { item?: { deletedAt: string | null } | null } }
+        const item = body.data?.item
+        return item === undefined || item === null || item.deletedAt !== null ? 'trashed' : 'live'
+      })
+      .toBe('trashed')
   })
 
   test('検索窓の＋は選んだ日の新しい予定を開く (カレンダーの外では新規ノート)', async ({ page }) => {

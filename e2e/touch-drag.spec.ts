@@ -56,7 +56,7 @@ test.describe('タッチでのドラッグ', () => {
     await expect.poll(titles).toEqual([A.heading, B.heading])
 
     // 乙の ︙ を指で 1 行ぶん上へなぞる (CDP のタッチ。Playwright の touchscreen は tap だけ)
-    const handle = pane.getByRole('button', { name: `${B.heading} を並べ替える` })
+    const handle = pane.getByRole('button', { name: `${B.heading} の操作` })
     await expect(handle).toHaveCSS('touch-action', 'none')
     const box = (await handle.boundingBox())!
     const cdp = await context.newCDPSession(page)

@@ -132,6 +132,8 @@ export function DayPopover({
             href={eventNoteHref(event.itemId, query, month)}
             // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
             data-client-note=""
+            // ︙ のメニューの「編集」はこれを押す (DayEventList の EVENT_ROW_ATTR)
+            data-event-row=""
             onClick={onClose}
             className={DAY_ROW_CLASS}
           >

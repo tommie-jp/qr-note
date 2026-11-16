@@ -83,6 +83,8 @@ export function DayPane({
             renderRow={(event) => (
               <button
                 type="button"
+                // ︙ のメニューの「編集」はこれを押す (DayEventList の EVENT_ROW_ATTR)
+                data-event-row=""
                 aria-haspopup="dialog"
                 aria-expanded={editing?.itemId === event.itemId}
                 onClick={(e) =>

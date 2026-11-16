@@ -6,8 +6,11 @@ import { holidayName } from "../event/holidays";
 import { eventSpan, jstParts } from "../event/eventTime";
 import { compareDayEvents, eventEndLabel, eventTimeLabel, type DayEvent } from "../event/monthLayout";
 import type { TimeRange } from "../event/timeOptions";
-import { saveEventDate, saveEventDone, saveEventOrder, saveEventTime, saveEventTitle } from "./eventDone";
+import { hasDragStarted, isClickAfterDrag, type Point } from "../event/dragGesture";
+import { saveEventDate, saveEventDone, saveEventOrder, saveEventTime, saveEventTitle, trashEvent } from "./eventDone";
+import { EventRowMenu } from "./EventRowMenu";
 import { TimePopover } from "./TimePopover";
+import { TitleText, useTitleLinkClicks } from "./TitleText";
 import { useCalendarPrefs } from "./prefsStore";
 import { eventColor } from "./priorityColor";
 
@@ -32,6 +35,10 @@ const shortTime = (time: string) => time.replace(/^0/, "");
 // 題名が長いときは折り返して行が縦に伸びる (時刻は縦の中央のまま)。
 // 左に時刻 (1 行、終日は「終日」)、右に題名。色は行の器 (li) が持つ
 export const DAY_ROW_CLASS = "flex min-h-7 min-w-0 flex-1 items-center gap-2 pr-1 text-left text-base leading-6 hover:brightness-95";
+
+// 行の本体 (renderRow が返す、押すとフォーム・ノートを開く要素) の目印。
+// ︙ のメニューの「編集」はこれを押したことにする (§1-38)
+export const EVENT_ROW_ATTR = "data-event-row";
 
 // 表の罫線 (docs/126 §1-27)。横の線だけ (一覧の上・行の下)。縦の線は引かない (§1-29)
 const GRID_LINE = "border-gray-300";
@@ -62,7 +69,8 @@ function withRange(event: DayEvent, range: TimeRange | null): Pick<DayEvent, "st
 
 // 済みの予定は題名に取り消し線を引く (マス目と同じ)。
 // 題名の文字 (data-event-title) を押すとインライン編集 (DayEventList)。文字の幅だけを
-// 的にし、行の残り (時刻・余白) は器の動き (フォーム・ノートを開く) に残す
+// 的にし、行の残り (時刻・余白) は器の動き (フォーム・ノートを開く) に残す。
+// 題名の中の URL は押すとブラウザで開く (TitleText。§1-37)
 export function DayRowContent({ event }: { event: DayEvent }) {
   return (
     <>
@@ -70,7 +78,7 @@ export function DayRowContent({ event }: { event: DayEvent }) {
       {/* 長い題名は省略せず折り返す (英数字の長い連なりも途中で折る)。複数行の時は上下に 2px 空ける */}
       <span className="min-w-0 flex-1 py-0.5 wrap-anywhere">
         <span data-event-title="" className={`cursor-text ${event.done ? "line-through" : ""}`}>
-          {event.title || "(無題)"}
+          <TitleText title={event.title || "(無題)"} />
         </span>
       </span>
     </>
@@ -140,24 +148,32 @@ function TitleEditor({
 
 // 並べ替えのつまみ (︙)。上下にドラッグする (ポインタ。指でも)。月のマス目の別の日の
 // マスまで持っていって離すと、その日へ移す (§1-16)。焦点があれば ↑ ↓ でも動く。
+// 動かさずに押すとメニュー (編集・削除。§1-38)。Enter・Space でも開く。
 // touch-none … 指でなぞったときに一覧ごとスクロールさせない。
 // 押した後の動きと離したときは window で受ける (DayEventList の startDrag。§1-31)
 function DragHandle({
   event,
+  menuOpen,
   onPointerDown,
+  onClick,
   onStep,
 }: {
   event: DayEvent;
+  menuOpen: boolean;
   onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onStep: (delta: -1 | 1) => void;
 }) {
   return (
     <button
       type="button"
-      aria-label={`${event.title || "(無題)"} を並べ替える`}
-      title="ドラッグで並べ替える (↑ ↓ でも)"
+      aria-label={`${event.title || "(無題)"} の操作 (ドラッグで並べ替え)`}
+      aria-haspopup="menu"
+      aria-expanded={menuOpen}
+      title="押すとメニュー・ドラッグで並べ替える (↑ ↓ でも)"
       data-drag-handle=""
       onPointerDown={onPointerDown}
+      onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           e.preventDefault();
@@ -174,12 +190,15 @@ function DragHandle({
 // ドラッグ中の並び。ids はいま見せている順、startIds は掴んだときの順、mids は掴んだ
 // ときの各行の縦の中心 (この位置との比べで落とし先を決める。行が入れ替わっても動かない)
 // dropDay … 指が別の日のマスの上にあればその日 (離すとその日へ移す。§1-16)
+// start … 押した点。moved … そこから DRAG_START_PX 以上動いた (それまでは「押した」。§1-38)
 interface DragState {
   id: string;
   ids: readonly string[];
   startIds: readonly string[];
   mids: readonly number[];
   dropDay: string | null;
+  start: Point;
+  moved: boolean;
 }
 
 // 移す先のマスの目印 (MonthGrid が data-[drop-target] で枠を描く)
@@ -238,11 +257,15 @@ function DoneButton({ event, onToggle }: { event: DayEvent; onToggle: () => void
 }
 
 type EventFields = Partial<Pick<DayEvent, "done" | "title" | "start" | "end" | "allDay" | "order">>;
-// movedTo … 別の日へ移した (月の予定を取り直すまで、この日の一覧から隠す)
-type Override = EventFields & { movedTo?: string };
+// movedTo … 別の日へ移した・removed … ゴミ箱へ移した
+// (どちらも月の予定を取り直すまで、この日の一覧から隠す)
+type Override = EventFields & { movedTo?: string; removed?: boolean };
+
+const isHidden = (override: Override | undefined) =>
+  override !== undefined && (override.movedTo !== undefined || override.removed === true);
 
 const caughtUp = (event: DayEvent | undefined, override: Override) => {
-  if (override.movedTo !== undefined) {
+  if (isHidden(override)) {
     // 取り直した一覧から消えたら追いついた
     return event === undefined;
   }
@@ -303,16 +326,17 @@ function useEventOverrides(events: readonly DayEvent[]) {
     apply(event.itemId, { movedTo: date }, saveEventDate(event.itemId, date));
   const retime = (event: DayEvent, range: TimeRange | null) =>
     apply(event.itemId, withRange(event, range), saveEventTime(event.itemId, range?.start ?? null, range?.end ?? null));
+  const remove = (event: DayEvent) => apply(event.itemId, { removed: true }, trashEvent(event.itemId));
 
   // 上書きした値で並べ直す (済みは最後。マス目の並びと同じ)
   const shown = events
-    .filter((event) => overrides.get(event.itemId)?.movedTo === undefined)
+    .filter((event) => !isHidden(overrides.get(event.itemId)))
     .map((event) => {
       const override = overrides.get(event.itemId);
       return override === undefined ? event : { ...event, ...override };
     })
     .sort(compareDayEvents);
-  return { shown, toggle, rename, retime, reorder, move, error };
+  return { shown, toggle, rename, retime, reorder, move, remove, error };
 }
 
 // 選んだ日の見出し・「+」・予定の行 (docs/126 §1-6)。浮かせた一覧 (1 ペイン) と
@@ -341,8 +365,15 @@ export function DayEventList({
   // ノートへ移る (clientNoteNav が先に受ける) ので付けない
   inlineEdit?: boolean;
 }) {
-  const { shown, toggle, rename, retime, reorder, move, error } = useEventOverrides(events);
+  const { shown, toggle, rename, retime, reorder, move, remove, error } = useEventOverrides(events);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useTitleLinkClicks(rootRef);
   const listRef = useRef<HTMLUListElement>(null);
+  // ︙ のメニューを開いている予定と、押した ︙ (§1-38)
+  const [menu, setMenu] = useState<{ itemId: string; anchor: HTMLElement } | null>(null);
+  const menuEvent = menu === null ? undefined : shown.find((e) => e.itemId === menu.itemId);
+  // 最後にドラッグを終えた時刻 (イベントの timeStamp、ms)。直後に届く ︙ の click でメニューを開かない
+  const dragEndedAtRef = useRef<number | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   // window の受け手は掴んだときに作るので、最新の状態と処理は ref から読む
   const dragRef = useRef<DragState | null>(null);
@@ -352,7 +383,7 @@ export function DayEventList({
   };
   const handlersRef = useRef({
     move: (_x: number, _y: number) => {},
-    end: (_commit: boolean) => {},
+    end: (_commit: boolean, _at: number) => {},
   });
   const stopListeningRef = useRef<(() => void) | null>(null);
   // ドラッグ中は指の位置の並びで見せる
@@ -376,7 +407,7 @@ export function DayEventList({
         return;
       }
       stop();
-      handlersRef.current.end(commit);
+      handlersRef.current.end(commit, e.timeStamp);
     };
     const onUp = finish(true);
     const onCancel = finish(false);
@@ -408,12 +439,18 @@ export function DayEventList({
         return rect.top + rect.height / 2;
       }),
       dropDay: null,
+      start: { x: e.clientX, y: e.clientY },
+      moved: false,
     });
   };
   const moveDrag = (x: number, y: number) => {
     const current = dragRef.current;
-    if (current === null) {
+    // 押した点から少し動くまではドラッグにしない (動かずに離せばメニュー。§1-38)
+    if (current === null || (!current.moved && !hasDragStarted(current.start, { x, y }))) {
       return;
+    }
+    if (!current.moved) {
+      setMenu(null);
     }
     // 別の日のマスの上なら移す (並べ替えはしない)。でなければ一覧の中の並べ替え
     const dropDay = dayUnder(x, y, day);
@@ -421,20 +458,38 @@ export function DayEventList({
     if (dropDay !== current.dropDay) {
       markDropTarget(dropDay);
     }
-    if (ids.join() !== current.ids.join() || dropDay !== current.dropDay) {
-      updateDrag({ ...current, ids, dropDay });
+    if (!current.moved || ids.join() !== current.ids.join() || dropDay !== current.dropDay) {
+      updateDrag({ ...current, ids, dropDay, moved: true });
     }
   };
-  const endDrag = (commit: boolean) => {
+  const endDrag = (commit: boolean, at: number) => {
     markDropTarget(null);
     const current = dragRef.current;
-    const dragged = current === null ? undefined : shown.find((x) => x.itemId === current.id);
-    if (current !== null && commit && current.dropDay !== null && dragged !== undefined) {
+    updateDrag(null);
+    // 動かさずに離した … 並べ替えも移しもしない (続く click がメニューを開く)
+    if (current === null || !current.moved) {
+      return;
+    }
+    dragEndedAtRef.current = at;
+    const dragged = shown.find((x) => x.itemId === current.id);
+    if (commit && current.dropDay !== null && dragged !== undefined) {
       move(dragged, current.dropDay);
-    } else if (current !== null && commit && current.ids.join() !== current.startIds.join()) {
+    } else if (commit && current.ids.join() !== current.startIds.join()) {
       reorder(current.ids);
     }
-    updateDrag(null);
+  };
+  // ︙ を押した (動かさずに離した・Enter・Space)。もう一度押すと閉じる
+  const toggleMenu = (event: DayEvent, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (isClickAfterDrag(dragEndedAtRef.current, e.timeStamp)) {
+      return;
+    }
+    const anchor = e.currentTarget;
+    setMenu((prev) => (prev?.itemId === event.itemId ? null : { itemId: event.itemId, anchor }));
+  };
+  // メニューの「編集」… 行の本体を押したことにする。器ごとの動き (2・3 ペインは
+  // 行のそばのフォーム、1 ペインはノートの予定タブ) をそのまま通る
+  const editFromMenu = (anchor: HTMLElement) => {
+    anchor.closest("li")?.querySelector<HTMLElement>(`[${EVENT_ROW_ATTR}]`)?.click();
   };
   useEffect(() => {
     handlersRef.current = { move: moveDrag, end: endDrag };
@@ -461,7 +516,7 @@ export function DayEventList({
   const [renaming, setRenaming] = useState<string | null>(null);
   const { prefs } = useCalendarPrefs();
   return (
-    <div>
+    <div ref={rootRef}>
       {/* 見出しの帯 (SaiSuke2 と同じ緑) */}
       <div className="flex items-center gap-2 bg-[#82bd8a] px-2 py-0.5 text-white">
         <h3 className="min-w-0 flex-1 truncate text-lg leading-8">
@@ -485,15 +540,17 @@ export function DayEventList({
         <ul ref={listRef} className={`border-t ${GRID_LINE}`}>
           {rows.map((event) => {
             const color = eventColor(event, prefs);
+            // 掴んだ印は動き始めてから出す (押しただけならメニュー。§1-38)
+            const dragging = drag?.id === event.itemId && drag.moved;
             return (
               <li
                 key={event.itemId}
                 data-priority={event.priority ?? "normal"}
                 style={color.style}
                 // 行の下の罫線。地を白にした行どうしも見分けが付く
-                data-dragging={drag?.id === event.itemId ? "" : undefined}
+                data-dragging={dragging ? "" : undefined}
                 className={`flex items-stretch border-b ${GRID_LINE} ${color.className} ${
-                  drag?.id === event.itemId ? "relative z-10 shadow-lg ring-2 ring-blue-500 ring-inset" : ""
+                  dragging ? "relative z-10 shadow-lg ring-2 ring-blue-500 ring-inset" : ""
                 }`}
                 // 題名の文字を押したら、行の動き (フォームを開く) より先に受けて編集にする
                 onClickCapture={(e) => {
@@ -522,7 +579,9 @@ export function DayEventList({
               >
                 <DragHandle
                   event={event}
+                  menuOpen={menu?.itemId === event.itemId}
                   onPointerDown={(e) => startDrag(event, e)}
+                  onClick={(e) => toggleMenu(event, e)}
                   onStep={(delta) => step(event, delta)}
                 />
                 <DoneButton event={event} onToggle={() => toggle(event, event.done !== true)} />
@@ -551,6 +610,17 @@ export function DayEventList({
           range={rangeOf(timingEvent)}
           onChange={(range) => retime(timingEvent, range)}
           onClose={() => setTiming(null)}
+        />
+      )}
+      {menu !== null && menuEvent !== undefined && (
+        <EventRowMenu
+          // 別の予定の ︙ を押したら作り直す (置き場所を測り直す)
+          key={menu.itemId}
+          title={menuEvent.title || "(無題)"}
+          anchor={menu.anchor}
+          onEdit={() => editFromMenu(menu.anchor)}
+          onDelete={() => remove(menuEvent)}
+          onClose={() => setMenu(null)}
         />
       )}
       {error !== null && (

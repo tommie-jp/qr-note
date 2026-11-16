@@ -5,6 +5,7 @@
 // 本文は控え (noteCache) から読む。控えが古くて 409 になったら、1 度だけ
 // 取り直してやり直す — 押した人に「読み直す」をさせるほどの操作ではない
 import { isItemDto } from "@/lib/api/itemDto";
+import { trashItemsAction } from "@/lib/client/actions";
 import { noteWritten } from "@/lib/client/invalidate";
 import { noteCache } from "@/lib/client/noteStore";
 import { formatBase } from "@/lib/editor/saveBase";
@@ -33,6 +34,20 @@ export function saveEventDate(itemId: string, date: string): Promise<string | nu
 
 export function saveEventOrder(itemId: string, order: number): Promise<string | null> {
   return saveEventEdit(itemId, (memo) => setEventOrder(memo, order));
+}
+
+// 日の一覧の ︙ のメニューの「削除」(docs/126 §1-38)。予定のフォームの「ゴミ箱へ」と
+// 同じくゴミ箱へ移す (ゴミ箱から戻せるので確かめない)
+export async function trashEvent(itemId: string): Promise<string | null> {
+  const form = new FormData();
+  form.append("itemId", itemId);
+  try {
+    await trashItemsAction(form);
+  } catch (error) {
+    return `削除できませんでした: ${error instanceof Error ? error.message : String(error)}`;
+  }
+  invalidateCalendar();
+  return null;
 }
 
 // edit は本文を受けて書き換えた本文を返す。変わらなければ保存しない
