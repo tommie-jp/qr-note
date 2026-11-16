@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
 import { PaneResizer } from "@/components/panes/PaneResizer";
@@ -28,6 +28,11 @@ import { EventPopover, type EditingEvent } from "./EventPopover";
 //
 // **閉じる手段は持たない** (docs/126 §1-36)。カレンダーの 2・3 ペインでは日の一覧を
 // 常に出す (選んでいなければ今日か月の 1 日)。× も Esc も無く、境界を引き切っても隠さない
+//
+// 常に出すのでサーバ描画にも乗る。body への portal はサーバでは作れない (document が無い) ので、
+// ハイドレーションが済むまでは何も描かない
+const subscribeNothing = () => () => {};
+
 export function DayPane({
   day,
   events,
@@ -46,8 +51,16 @@ export function DayPane({
   const sectionRef = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState<EditingEvent | null>(null);
   const closeEditing = useCallback(() => setEditing(null), []);
+  const hydrated = useSyncExternalStore(
+    subscribeNothing,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
     const covered = [
       ...document.querySelectorAll<HTMLElement>("[data-note-pane]"),
     ].filter((el) => el !== sectionRef.current && !el.inert);
@@ -59,7 +72,7 @@ export function DayPane({
         el.inert = false;
       }
     };
-  }, []);
+  }, [hydrated]);
 
   useEffect(() => {
     sectionRef.current?.scrollTo({ top: 0 });
@@ -69,6 +82,9 @@ export function DayPane({
   const add = (anchor: HTMLElement) =>
     setEditing({ itemId: newItemId(), isNew: true, anchor });
 
+  if (!hydrated) {
+    return null;
+  }
   return createPortal(
     <>
       <PaneResizer kind="preview" />

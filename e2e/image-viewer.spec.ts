@@ -181,9 +181,9 @@ test.describe('検索結果の画像ビューア', () => {
   })
 
   test('小表示の行のサムネからも開ける', async ({ page }) => {
-    // Arrange: 行の顔は先頭の画像 1 枚
+    // Arrange: 行のサムネは本文の画像を出現順に並べる (最大 5 枚。b11d2a3)
     const openers = await openResults(page, '2', 'compact')
-    await expect(openers).toHaveCount(1)
+    await expect(openers).toHaveCount(2)
 
     // Act
     await openers.first().click()
@@ -192,7 +192,7 @@ test.describe('検索結果の画像ビューア', () => {
     const pane = page.getByRole('region', { name: '画像の表示' })
     await expect(viewerImage(pane)).toHaveAttribute('src', `${IMAGES_PATH}/${TALL}`)
     await expectInside(viewerImage(pane), pane)
-    // スライドショーの入口は画像表示だけ (行の表示はサムネが 1 ノート 1 枚)
+    // スライドショーの入口は画像表示だけ (行の表示には出さない)
     await expect(
       searchResults(page).getByRole('button', { name: 'スライドショー', exact: true }),
     ).toHaveCount(0)
