@@ -56,7 +56,8 @@ const render = (
         query={query}
         page={1}
         sort="updated"
-        action={noop}
+        action={async () => []}
+        undoTagAction={async () => {}}
         view={view}
         trashAction={noop}
         pinAction={noop}

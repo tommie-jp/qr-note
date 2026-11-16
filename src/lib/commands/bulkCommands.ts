@@ -9,6 +9,7 @@ import { setItemOfflinePin } from '@/lib/items/flags'
 import { getItem } from '@/lib/items/read'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
 import { modifyMemo } from '@/lib/items/write'
+import { changedTagsOf, type TagChange } from '@/lib/markdown/tags/bulk'
 import { addTagsToMemo, removeTagsFromMemo } from '@/lib/markdown/tags/edit'
 
 // ゴミ箱の出し入れは公開ノートの画面 (サーバ描画) にも効く
@@ -58,19 +59,31 @@ async function tombstoneNotes(itemIds: string[]): Promise<void> {
   }
 }
 
+// 返すのはノートごとに実際に増えた (外れた) タグ。変化の無かったノートは
+// 入れない。端末はこれを控え、「元に戻す」で増えた分だけを外す
 export async function applyBulkTags(
   mode: 'add' | 'remove',
   itemIds: readonly string[],
   tags: readonly string[],
-): Promise<void> {
+): Promise<TagChange[]> {
   if (itemIds.length === 0 || tags.length === 0) {
-    return
+    return []
   }
+  const changes: TagChange[] = []
   for (const itemId of itemIds) {
-    await modifyMemo(itemId, (memo) =>
-      mode === 'add' ? addTagsToMemo(memo, [...tags]) : removeTagsFromMemo(memo, [...tags]),
-    )
+    // 競合で当て直したときは最後に当てた本文の差を採る (書かれたのはそれ)
+    let changed: string[] = []
+    const outcome = await modifyMemo(itemId, (memo) => {
+      const next =
+        mode === 'add' ? addTagsToMemo(memo, [...tags]) : removeTagsFromMemo(memo, [...tags])
+      changed = changedTagsOf(mode, memo, next, tags)
+      return next
+    })
+    if (outcome === 'saved' && changed.length > 0) {
+      changes.push({ itemId, tags: changed })
+    }
   }
+  return changes
 }
 
 // オフラインの印 (docs/65 §7)。付けるときは回路図を先に描いておく

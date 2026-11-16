@@ -5,9 +5,21 @@ import { selectedTagsUnion } from "@/lib/markdown/tags/bulk";
 import { OfflinePinIcon, TrashIcon } from "../icons";
 import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "../ui";
 
+// タグを追加した直後に出す「元に戻す」の状態。持つのは ItemList
+// (追加の結果を受け取るのが form の action なので)
+export interface TagUndoState {
+  // 「3 件に #a を追加しました」
+  message: string;
+  // ready … 押せる / busy … 外している最中 / done … 戻し終えた / failed … 戻せなかった
+  status: "ready" | "busy" | "done" | "failed";
+  onUndo: () => void;
+}
+
 interface BulkTagToolbarProps {
   items: Item[];
   selected: Set<string>;
+  // 直前のタグ追加を取り消す帯。追加していない間は undefined
+  tagUndo?: TagUndoState;
   // ノートをゴミ箱へ入れるサーバーアクション。同じ form のまま formAction で
   // 送り先だけ差し替える (bulkTagAction に mode 分岐を足さない)
   trashAction: (formData: FormData) => void | Promise<void>;
@@ -29,6 +41,7 @@ interface BulkTagToolbarProps {
 export function BulkTagToolbar({
   items,
   selected,
+  tagUndo,
   trashAction,
   pinAction,
   onSelectAll,
@@ -85,6 +98,8 @@ export function BulkTagToolbar({
           追加
         </button>
       </div>
+
+      {tagUndo && <TagUndoBar undo={tagUndo} />}
 
       {removable.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -155,6 +170,41 @@ export function BulkTagToolbar({
           <TrashIcon />
         </button>
       </div>
+    </div>
+  );
+}
+
+const UNDO_BUTTON_CLASS =
+  "whitespace-nowrap text-blue-600 underline disabled:text-gray-400 disabled:no-underline";
+
+// 追加の直後に出す「N 件に #a を追加しました [元に戻す]」。
+// 常設の UNDO 釦にしないのは、取り消せるのが直前の 1 回だけだから —
+// 次の操作をするか選択モードを抜けると消える (ItemList)。
+// type="button" … 親の form (一括タグ) を送らない
+function TagUndoBar({ undo }: { undo: TagUndoState }) {
+  const { message, status, onUndo } = undo;
+  if (status === "done") {
+    return (
+      <p role="status" className="text-gray-700">
+        元に戻しました
+      </p>
+    );
+  }
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className={status === "failed" ? "text-red-600" : "text-gray-700"}>
+        {status === "failed"
+          ? "元に戻せませんでした。通信を確認して再度お試しください。"
+          : message}
+      </span>
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={status === "busy"}
+        className={UNDO_BUTTON_CLASS}
+      >
+        {status === "busy" ? "戻しています…" : "元に戻す"}
+      </button>
     </div>
   );
 }

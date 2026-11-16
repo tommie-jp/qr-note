@@ -106,13 +106,18 @@ describe('PUT /api/items/pin (オフラインの印)', () => {
 })
 
 describe('POST /api/items/tags (一括タグ)', () => {
-  test('入力をタグに読み、本体へ渡す', async () => {
+  test('入力をタグに読み、本体へ渡し、実際に増えたタグを返す', async () => {
+    vi.mocked(applyBulkTags).mockResolvedValueOnce([{ itemId: ID1, tags: ['toeic'] }])
     const res = await tags.POST(
       request('POST', { mode: 'add', itemIds: [ID1, ID2], tags: '#英単語 #TOEIC' }),
     )
 
     expect(applyBulkTags).toHaveBeenCalledWith('add', [ID1, ID2], ['英単語', 'toeic'])
-    expect(await res.json()).toEqual({ success: true, data: { count: 2 }, error: null })
+    expect(await res.json()).toEqual({
+      success: true,
+      data: { count: 2, changes: [{ itemId: ID1, tags: ['toeic'] }] },
+      error: null,
+    })
   })
 
   test('remove も同じ形で渡す', async () => {

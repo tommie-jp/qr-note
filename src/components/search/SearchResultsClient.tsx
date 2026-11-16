@@ -22,6 +22,7 @@ import {
   setSortAction,
   setViewModeAction,
   trashItemsAction,
+  undoTagChangesAction,
 } from "@/lib/client/actions";
 import {
   listCache,
@@ -389,6 +390,7 @@ const LoadedResults = memo(function LoadedResults({
             page={page}
             sort={sort}
             action={bulkTagAction}
+            undoTagAction={undoTagChangesAction}
             view={view}
             trashAction={trashItemsAction}
             pinAction={setItemsOfflinePinAction}

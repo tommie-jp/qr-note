@@ -16,7 +16,8 @@ import type { NotePreviewMap } from "./NotePreviewThumb";
 import { buildItemUrl, itemIdFromPathname } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
-import { BulkTagToolbar } from "../search/BulkTagToolbar";
+import { BulkTagToolbar, type TagUndoState } from "../search/BulkTagToolbar";
+import { tagUndoMessage, type TagChange } from "@/lib/markdown/tags/bulk";
 import { ImageMasonry } from "./ImageMasonry";
 import { SearchTileMenuProvider } from "./row-actions/TileActions";
 import { ItemRow } from "./ItemRow";
@@ -28,6 +29,10 @@ import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "../ui";
 // bulkTagAction をそのまま import すると db.ts (DATABASE_URL 必須) まで巻き込み
 // テストが動かないため、サーバーアクションは page.tsx から prop で受け取る。
 type BulkTagAction = (formData: FormData) => void | Promise<void>;
+// 一括タグの「追加」。ノートごとに実際に増えたタグを返す (外したときは空)
+type BulkTagSubmit = (formData: FormData) => Promise<TagChange[]>;
+// 直前のタグ追加を取り消す
+type UndoTagAction = (changes: readonly TagChange[]) => Promise<void>;
 
 interface ItemListProps {
   items: Item[];
@@ -35,7 +40,8 @@ interface ItemListProps {
   query: string;
   page: number;
   sort: Sort;
-  action: BulkTagAction;
+  action: BulkTagSubmit;
+  undoTagAction: UndoTagAction;
   // 表示モード (docs/23-検索結果表示モード計画.md)。切替そのものは
   // 下部バーが持つので、ここは受け取って描き分けるだけ
   view?: ViewMode;
@@ -122,6 +128,7 @@ export function ItemList({
   page,
   sort,
   action,
+  undoTagAction,
   view = DEFAULT_VIEW_MODE,
   trashAction,
   pinAction,
@@ -153,6 +160,13 @@ export function ItemList({
   const { shownItemId } = usePaneMode();
   const previewItemId = shownItemId ?? itemIdFromPathname(pathname);
 
+  // 直前のタグ追加の取り消し (BulkTagToolbar の「元に戻す」)。取り消せるのは
+  // 直前の 1 回だけ — 次の操作を送るか、選択モードを抜けたら捨てる
+  const [tagUndo, setTagUndo] = useState<{
+    changes: TagChange[];
+    status: TagUndoState["status"];
+  } | null>(null);
+
   // 選択モードを抜けたら選択を捨てる。バーから抜けることもあるので、
   // 抜ける操作それぞれに後始末を配らず、モードの変化 1 か所で受ける
   const [wasSelectMode, setWasSelectMode] = useState(selectMode);
@@ -160,8 +174,40 @@ export function ItemList({
     setWasSelectMode(selectMode);
     if (!selectMode) {
       setSelected(new Set());
+      setTagUndo(null);
     }
   }
+
+  const submitBulkTags = async (formData: FormData) => {
+    setTagUndo(null);
+    const changes = await action(formData);
+    if (changes.length > 0) {
+      setTagUndo({ changes, status: "ready" });
+    }
+  };
+
+  const undoTags = async () => {
+    if (tagUndo === null || tagUndo.status === "busy" || tagUndo.status === "done") {
+      return;
+    }
+    const { changes } = tagUndo;
+    setTagUndo({ changes, status: "busy" });
+    try {
+      await undoTagAction(changes);
+      setTagUndo({ changes, status: "done" });
+    } catch (error) {
+      console.error("タグの追加を取り消せませんでした", error);
+      setTagUndo({ changes, status: "failed" });
+    }
+  };
+
+  // ゴミ箱・オフラインの送信も「次の操作」なので、取り消しの帯を先に畳む
+  const clearingTagUndo =
+    (send: BulkTagAction): BulkTagAction =>
+    (formData) => {
+      setTagUndo(null);
+      return send(formData);
+    };
 
   const toggle = (itemId: string) =>
     setSelected((prev) => {
@@ -273,15 +319,24 @@ export function ItemList({
   }
 
   return (
-    <form action={action} className="space-y-2">
+    <form action={submitBulkTags} className="space-y-2">
       <input type="hidden" name="q" value={query} />
       <input type="hidden" name="page" value={page} />
       <input type="hidden" name="sort" value={sort} />
       <BulkTagToolbar
         items={items}
         selected={selected}
-        trashAction={trashAction}
-        pinAction={pinAction}
+        tagUndo={
+          tagUndo === null
+            ? undefined
+            : {
+                message: tagUndoMessage(tagUndo.changes),
+                status: tagUndo.status,
+                onUndo: undoTags,
+              }
+        }
+        trashAction={clearingTagUndo(trashAction)}
+        pinAction={clearingTagUndo(pinAction)}
         onSelectAll={() => setSelected(new Set(items.map((i) => i.itemId)))}
         onClear={() => setSelected(new Set())}
         onCancel={exit}

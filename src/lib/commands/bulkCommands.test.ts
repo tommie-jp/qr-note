@@ -160,6 +160,21 @@ describe('applyBulkTags', () => {
     expect(transform('本文')).toBe(addTagsToMemo('本文', ['英単語', 'toeic']))
   })
 
+  test('add はノートごとに実際に増えたタグだけを返す (元から持つタグ・書けなかったノートは入れない)', async () => {
+    const memos: Record<string, string> = { [ID1]: '本文', [ID2]: '本文\n#英単語', [ID3]: '本文' }
+    vi.mocked(modifyMemo).mockImplementation(async (itemId, transform) => {
+      await transform(memos[itemId])
+      return itemId === ID3 ? 'missing' : 'saved'
+    })
+
+    const changes = await applyBulkTags('add', [ID1, ID2, ID3], ['英単語', 'toeic'])
+
+    expect(changes).toEqual([
+      { itemId: ID1, tags: ['英単語', 'toeic'] },
+      { itemId: ID2, tags: ['toeic'] },
+    ])
+  })
+
   test('remove は本文からそのタグを外す', async () => {
     vi.mocked(modifyMemo).mockResolvedValue('saved')
 

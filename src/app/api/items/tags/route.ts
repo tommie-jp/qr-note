@@ -32,7 +32,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return body.response
   }
   return runCommand('一括タグ', async () => {
-    await applyBulkTags(body.value.mode, body.value.itemIds, body.value.tags)
-    return apiOk({ count: body.value.itemIds.length })
+    const changes = await applyBulkTags(body.value.mode, body.value.itemIds, body.value.tags)
+    // changes … ノートごとに実際に増えた (外れた) タグ。端末が取り消しに使う
+    return apiOk({ count: body.value.itemIds.length, changes })
   })
 }

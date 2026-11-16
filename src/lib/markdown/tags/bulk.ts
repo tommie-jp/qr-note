@@ -3,7 +3,7 @@
 // 「選択アイテムのタグ集計」だけを担う。
 
 import { parseBackUrl, parseSelectedItemIds } from '../../items/itemSelection'
-import { parseTagToken } from './tags'
+import { extractTags, parseTagToken } from './tags'
 
 // タグ入力の上限。itemId と同様、細工された巨大入力で 1 回の操作が
 // item 数 × タグ数の重い処理にならないよう有界にする。
@@ -74,4 +74,68 @@ export function parseBulkTagForm(formData: FormData): BulkTagRequest {
     tags: parseTagInput(rawTags),
     back: parseBackUrl(formData),
   }
+}
+
+// 一括タグで 1 件のノートに実際に起きた変化 (タグ追加の取り消しに使う)
+export interface TagChange {
+  itemId: string
+  tags: string[] // 正規化済み。このノートで実際に増えた (外れた) タグだけ
+}
+
+// 書き換えの前後の本文から、指定したタグのうち実際に増えた (mode=remove なら
+// 外れた) ものを返す。**元から持っていたタグは入れない** — 取り消しでそれを
+// 外すと、追加する前から付いていたタグまで消えてしまう
+export function changedTagsOf(
+  mode: 'add' | 'remove',
+  before: string,
+  after: string,
+  tags: readonly string[],
+): string[] {
+  const had = new Set(extractTags(before))
+  const has = new Set(extractTags(after))
+  return tags.filter((tag) => (mode === 'add' ? !had.has(tag) && has.has(tag) : had.has(tag) && !has.has(tag)))
+}
+
+// 取り消しの送り方。同じタグの組を持つノートを 1 回の「外す」にまとめる。
+// 大半は全件が同じ組 (= 1 回で済む)。組の並びは初出順
+export function groupTagChanges(
+  changes: readonly TagChange[],
+): { tags: string[]; itemIds: string[] }[] {
+  const groups = new Map<string, { tags: string[]; itemIds: string[] }>()
+  for (const { itemId, tags } of changes) {
+    if (tags.length === 0) {
+      continue
+    }
+    const key = tags.join(' ')
+    const group = groups.get(key)
+    if (group) {
+      group.itemIds.push(itemId)
+    } else {
+      groups.set(key, { tags: [...tags], itemIds: [itemId] })
+    }
+  }
+  return [...groups.values()]
+}
+
+// API の応答 (data.changes) を TagChange[] に読む。形の違う項目は捨てる
+// (取り消せる分が減るだけで、追加そのものは済んでいる)
+export function parseTagChanges(data: unknown): TagChange[] {
+  const changes = (data as { changes?: unknown } | null)?.changes
+  if (!Array.isArray(changes)) {
+    return []
+  }
+  return changes.flatMap((change: unknown) => {
+    const { itemId, tags } = (change ?? {}) as { itemId?: unknown; tags?: unknown }
+    if (typeof itemId !== 'string' || !Array.isArray(tags)) {
+      return []
+    }
+    const names = tags.filter((tag): tag is string => typeof tag === 'string')
+    return names.length > 0 ? [{ itemId, tags: names }] : []
+  })
+}
+
+// 取り消しの帯の文。「3 件に #a #b を追加しました」
+export function tagUndoMessage(changes: readonly TagChange[]): string {
+  const tags = [...new Set(changes.flatMap((change) => change.tags))]
+  return `${changes.length} 件に ${tags.map((tag) => `#${tag}`).join(' ')} を追加しました`
 }

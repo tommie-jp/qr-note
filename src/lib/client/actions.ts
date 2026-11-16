@@ -9,6 +9,7 @@
 // (ゴミ箱・履歴) は refreshServerView で描き直させる
 import 'client-only'
 import { isItemDto, type ItemDto } from '@/lib/api/itemDto'
+import { groupTagChanges, parseTagChanges, type TagChange } from '@/lib/markdown/tags/bulk'
 import type { SaveState } from '@/lib/editor/saveState'
 import { switchPaneMode } from '@/components/panes/switchPaneMode'
 import { switchViewMode } from '@/components/search/switchViewMode'
@@ -168,17 +169,37 @@ export async function setItemsOfflinePinAction(formData: FormData): Promise<void
   notesWritten(itemIds)
 }
 
-// 一括タグ (選択モードの「追加」と、タグの × による「外す」)
-export async function bulkTagAction(formData: FormData): Promise<void> {
+// 一括タグ (選択モードの「追加」と、タグの × による「外す」)。
+// 追加のときは、ノートごとに実際に増えたタグを返す (「元に戻す」の材料)。
+// 外したときと、何も増えなかったときは空
+export async function bulkTagAction(formData: FormData): Promise<TagChange[]> {
   const itemIds = formItemIds(formData)
   const removeTag = formString(formData, 'removeTag')
   const isRemove = removeTag.length > 0
-  await apiSend('POST', '/api/items/tags', {
+  const { data } = await apiSend('POST', '/api/items/tags', {
     mode: isRemove ? 'remove' : 'add',
     itemIds,
     tags: isRemove ? removeTag : formString(formData, 'addTags'),
   })
   notesWritten(itemIds)
+  return isRemove ? [] : parseTagChanges(data)
+}
+
+// タグの追加を取り消す。増えたタグだけを、増えたノートからだけ外す —
+// 追加する前から持っていたタグは残る (applyBulkTags の changes)
+export async function undoTagChangesAction(changes: readonly TagChange[]): Promise<void> {
+  try {
+    for (const group of groupTagChanges(changes)) {
+      await apiSend('POST', '/api/items/tags', {
+        mode: 'remove',
+        itemIds: group.itemIds,
+        tags: group.tags.join(' '),
+      })
+    }
+  } finally {
+    // 途中で落ちても、外し終えた分は控えを古くする
+    notesWritten(changes.map((change) => change.itemId))
+  }
 }
 
 async function trashOp(op: 'trash' | 'restore' | 'purge' | 'empty', itemIds: string[]): Promise<void> {

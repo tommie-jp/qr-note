@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
 import type { Item } from "@/generated/prisma/client";
-import { BulkTagToolbar } from "./BulkTagToolbar";
+import { BulkTagToolbar, type TagUndoState } from "./BulkTagToolbar";
 
 function makeItem(overrides: Partial<Item> = {}): Item {
   return {
@@ -27,11 +27,12 @@ function makeItem(overrides: Partial<Item> = {}): Item {
 
 const noop = () => {};
 
-const render = (items: Item[], selected: Set<string>) =>
+const render = (items: Item[], selected: Set<string>, tagUndo?: TagUndoState) =>
   renderToStaticMarkup(
     <BulkTagToolbar
       items={items}
       selected={selected}
+      tagUndo={tagUndo}
       trashAction={noop}
       pinAction={noop}
       onSelectAll={noop}
@@ -121,4 +122,38 @@ test("1 件も選んでいなければオフラインもゴミ箱も押せない
   const html = render([makeItem({ itemId: "1" })], new Set());
   // disabled な submit ボタンが 3 つ (エクスポート・オフライン・ゴミ箱) 以上ある
   expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(3);
+});
+
+test("タグを追加していない間は「元に戻す」を出さない", () => {
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]));
+  expect(html).not.toContain("元に戻す");
+});
+
+test("追加の直後は追加した内容と「元に戻す」(送信しない釦) を出す", () => {
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]), {
+    message: "1 件に #a を追加しました",
+    status: "ready",
+    onUndo: noop,
+  });
+  expect(html).toContain("1 件に #a を追加しました");
+  expect(html).toMatch(/<button type="button"[^>]*>元に戻す<\/button>/);
+});
+
+test("戻している最中は押せず、戻し終えたら知らせる", () => {
+  const items = [makeItem({ itemId: "1" })];
+  const busy = render(items, new Set(["1"]), { message: "m", status: "busy", onUndo: noop });
+  expect(busy).toMatch(/<button type="button" disabled=""[^>]*>戻しています…<\/button>/);
+  const done = render(items, new Set(["1"]), { message: "m", status: "done", onUndo: noop });
+  expect(done).toContain("元に戻しました");
+  expect(done).not.toContain(">元に戻す</button>");
+});
+
+test("戻せなかったら知らせ、もう一度押せる", () => {
+  const html = render([makeItem({ itemId: "1" })], new Set(["1"]), {
+    message: "m",
+    status: "failed",
+    onUndo: noop,
+  });
+  expect(html).toContain("元に戻せませんでした");
+  expect(html).toContain(">元に戻す</button>");
 });

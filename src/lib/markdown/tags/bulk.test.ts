@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import {
+  changedTagsOf,
+  groupTagChanges,
   parseBulkTagForm,
+  parseTagChanges,
   parseTagInput,
   selectedTagsUnion,
+  tagUndoMessage,
 } from './bulk'
 
 function form(entries: Array<[string, string]>): FormData {
@@ -136,5 +140,67 @@ describe('parseBulkTagForm', () => {
       ]),
     )
     expect(req.back).toBe('/?q=%E6%8A%B5%E6%8A%97&page=3&sort=registered')
+  })
+})
+
+describe('changedTagsOf', () => {
+  test('add は前に無く後にあるタグだけ', () => {
+    expect(changedTagsOf('add', '本文\n#a', '本文\n#a #b #c', ['a', 'b', 'c'])).toEqual(['b', 'c'])
+  })
+
+  test('remove は前にあり後に無いタグだけ', () => {
+    expect(changedTagsOf('remove', '本文\n#a #b', '本文\n#b', ['a', 'z'])).toEqual(['a'])
+  })
+
+  test('変化が無ければ空', () => {
+    expect(changedTagsOf('add', '本文\n#a', '本文\n#a', ['a'])).toEqual([])
+  })
+})
+
+describe('groupTagChanges', () => {
+  test('同じタグの組を持つノートを 1 回にまとめ、空の変化は捨てる', () => {
+    expect(
+      groupTagChanges([
+        { itemId: '1', tags: ['a', 'b'] },
+        { itemId: '2', tags: ['b'] },
+        { itemId: '3', tags: ['a', 'b'] },
+        { itemId: '4', tags: [] },
+      ]),
+    ).toEqual([
+      { tags: ['a', 'b'], itemIds: ['1', '3'] },
+      { tags: ['b'], itemIds: ['2'] },
+    ])
+  })
+})
+
+describe('parseTagChanges', () => {
+  test('形の合う項目だけを読む', () => {
+    expect(
+      parseTagChanges({
+        changes: [
+          { itemId: '1', tags: ['a', 2, 'b'] },
+          { itemId: 3, tags: ['a'] },
+          { itemId: '4', tags: [] },
+          null,
+        ],
+      }),
+    ).toEqual([{ itemId: '1', tags: ['a', 'b'] }])
+  })
+
+  test('changes が無い・配列でないなら空', () => {
+    expect(parseTagChanges(null)).toEqual([])
+    expect(parseTagChanges({ count: 1 })).toEqual([])
+    expect(parseTagChanges({ changes: 'x' })).toEqual([])
+  })
+})
+
+describe('tagUndoMessage', () => {
+  test('件数と増えたタグ (重複なし・初出順) を並べる', () => {
+    expect(
+      tagUndoMessage([
+        { itemId: '1', tags: ['a', 'b'] },
+        { itemId: '2', tags: ['b'] },
+      ]),
+    ).toBe('2 件に #a #b を追加しました')
   })
 })
