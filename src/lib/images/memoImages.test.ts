@@ -6,6 +6,7 @@ import {
   attachmentUrl,
   firstImageName,
   firstThumbInfo,
+  thumbInfos,
   replaceImageName,
 } from './memoImages'
 
@@ -210,4 +211,17 @@ test('allViewerMedia は同じ添付を 2 度並べない・添付が無けれ�
   const memo = `![](/api/images/${VIDEO_MP4})\n![](/api/images/${VIDEO_MP4})`
   expect(allViewerMedia(memo)).toEqual([{ name: VIDEO_MP4, isVideo: true }])
   expect(allViewerMedia('本文だけ')).toEqual([])
+})
+
+// thumbInfos: 一覧の行に並べるサムネ (出現順・重複なし・上限つき)
+test('thumbInfos: 画像と動画を出現順に重複なしで上限まで返す', () => {
+  const memo = [NAME, VIDEO_MP4, NAME, AUDIO, VIDEO_MKV].map((n) => `![](/api/images/${n})`).join('\n')
+  expect(thumbInfos(memo, 5)).toEqual([
+    { name: NAME, isVideo: false },
+    { name: VIDEO_MP4, isVideo: true },
+    { name: VIDEO_MKV, isVideo: true },
+  ])
+  expect(thumbInfos(memo, 2)).toHaveLength(2)
+  expect(thumbInfos(memo, 0)).toEqual([])
+  expect(thumbInfos('メモだけ', 5)).toEqual([])
 })

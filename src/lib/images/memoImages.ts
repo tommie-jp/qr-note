@@ -101,6 +101,31 @@ export function firstThumbInfo(
   return null
 }
 
+// 本文でサムネにできる添付 (画像 or 動画) を出現順・重複除去で最大 max 個。
+// 一覧の行に複数のサムネを並べるのに使う (先頭は firstThumbInfo と同じ)
+export function thumbInfos(
+  memo: string,
+  max: number,
+): { name: string; isVideo: boolean }[] {
+  // 足切りは firstThumbInfo と同じ (一覧は全行でこれを呼ぶ)
+  if (max <= 0 || !memo.includes(IMAGE_PATH_PREFIX)) {
+    return []
+  }
+  const seen = new Set<string>()
+  const infos: { name: string; isVideo: boolean }[] = []
+  for (const info of iterThumbAttachments(memo)) {
+    if (seen.has(info.name)) {
+      continue
+    }
+    seen.add(info.name)
+    infos.push(info)
+    if (infos.length >= max) {
+      break
+    }
+  }
+  return infos
+}
+
 // 本文に貼られた自前の添付を種類を問わず (画像・動画・音声・PDF・テキスト)
 // 出現順・重複除去で返す (docs/65-オフライン対応計画.md §10)。
 //

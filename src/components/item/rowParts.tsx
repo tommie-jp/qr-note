@@ -7,7 +7,11 @@ import { MathText } from "@/components/markdown/MathText";
 import { NotePreviewFrame } from "@/components/item/NotePreviewFrame";
 import { RowThumb } from "@/components/item/RowThumb";
 import { ViewerImageButton } from "@/components/imageviewer/ViewerImageButton";
+import { RowQuickActionsSlot } from "@/components/item/row-actions/RowActions";
 import {
+  CARD_EXTRA_THUMB_PX,
+  CARD_EXTRA_THUMB_SIZE_CLASS,
+  extraThumbClass,
   ROW_SKIP_OFFSCREEN_CLASS,
   rowFace,
   rowTintClass,
@@ -17,6 +21,7 @@ import {
   THUMB_PX,
   THUMB_SIZE_CLASS,
   type RowText,
+  type RowThumbInfo,
   type RowViewMode,
 } from "@/lib/items/itemRowDecor";
 import { tagSearchHref } from "@/lib/markdown/tags/tags";
@@ -89,6 +94,85 @@ function RowTags({ tags }: { tags: readonly string[] }) {
   );
 }
 
+// 行の右端に並べる画像・動画のサムネの帯 (本文の出現順。最大 ROW_THUMB_MAX 枚)。
+//
+//   小・中 … 同じ寸法で横に並べる。左が 1 枚目 (顔)。
+//   大     … 1 枚目は今までの 96px、2 枚目以降は 46px を 2 段に積んで左隣に。
+//
+// 何枚まで見せるかは行の幅で決まる (extraThumbClass)。
+//
+// 画像のサムネは押すとビューアで大きく見せ、動画のサムネはビューアで
+// 再生する (docs/116 §1・docs/117 §8-6)。ビューアからは ▶ でスライドショーに
+// できる。動画もかつてはノートを開いていたが、「動画を押しても
+// スライドショーにならない」と言われた (2026-10-28)。
+// 選択モード中は行のどこを押しても選択にしたいので釦にしない
+// (近道の釦も出ないので印も要らない)。
+//
+// data-row-thumb … 帯のある行の印 (テストと、帯を探す目印)。
+// RowQuickActionsSlot … PC のホバーで出る近道の釦を、帯の左に出す口。
+// 回路図・プレビューの顔には付けない (押すとノートが開くので、釦が
+// 重なっても困らない)
+function ThumbStrip({
+  thumbs,
+  itemId,
+  href,
+  view,
+  isSelecting,
+}: {
+  thumbs: RowThumbInfo[];
+  itemId: string;
+  href: string;
+  view: RowViewMode;
+  isSelecting: boolean;
+}) {
+  const cells = thumbs.map((info, index) => {
+    const isExtraCard = view === "card" && index > 0;
+    const thumb = (
+      <RowThumb
+        name={info.name}
+        isVideo={info.isVideo}
+        animate={index === 0}
+        sizePx={isExtraCard ? CARD_EXTRA_THUMB_PX : THUMB_PX[view]}
+        sizeClass={isExtraCard ? CARD_EXTRA_THUMB_SIZE_CLASS : THUMB_SIZE_CLASS[view]}
+      />
+    );
+    return (
+      <span key={info.name} className={extraThumbClass(view, index)}>
+        {isSelecting ? (
+          thumb
+        ) : (
+          <ViewerImageButton
+            target={{ itemId, name: info.name, href }}
+            className="shrink-0 rounded"
+          >
+            {thumb}
+          </ViewerImageButton>
+        )}
+      </span>
+    );
+  });
+  const [first, ...rest] = cells;
+  return (
+    <div
+      data-row-thumb={isSelecting ? undefined : view}
+      // relative … 近道の釦 (RowQuickActionsSlot) をこの帯の左に置く基準
+      className="relative flex shrink-0 gap-1 self-center"
+    >
+      {view === "card" ? (
+        <>
+          {rest.length > 0 && (
+            <div className="grid grid-flow-col grid-rows-2 gap-1">{rest}</div>
+          )}
+          {first}
+        </>
+      ) : (
+        cells
+      )}
+      {!isSelecting && <RowQuickActionsSlot />}
+    </div>
+  );
+}
+
 // 顔の優先順位は rowFace (lib/items/itemRowDecor.ts) が持つ
 function renderThumb(
   input: Pick<
@@ -99,37 +183,16 @@ function renderThumb(
   const { item, href, checkbox, view, circuitThumb, notePreview } = input;
   const face = rowFace(item, { circuitThumb, hasNotePreview: Boolean(notePreview) });
   switch (face?.kind) {
-    case "image": {
-      const thumb = (
-        <RowThumb
-          name={face.name}
-          isVideo={face.isVideo}
-          sizePx={THUMB_PX[view]}
-          sizeClass={THUMB_SIZE_CLASS[view]}
+    case "image":
+      return (
+        <ThumbStrip
+          thumbs={face.thumbs}
+          itemId={item.itemId}
+          href={href}
+          view={view}
+          isSelecting={Boolean(checkbox)}
         />
       );
-      // 選択モード中は行のどこを押しても選択にしたいので包まない
-      // (近道の釦も出ないので印も要らない)
-      if (checkbox) {
-        return thumb;
-      }
-      // 画像のサムネは押すとビューアで大きく見せ、動画のサムネはビューアで
-      // 再生する (docs/116 §1・docs/117 §8-6)。ビューアからは ▶ でスライドショーに
-      // できる。動画もかつてはノートを開いていたが、「動画を押しても
-      // スライドショーにならない」と言われた (2026-10-28)。
-      // data-row-thumb … PC のホバーで出る近道の釦 (RowActionButtons) が、
-      // この印を見てサムネの左へ退く。回路図・プレビューの顔には付けない
-      // (押すとノートが開く。退くと題の末尾に釦がかぶるだけ)
-      return (
-        <ViewerImageButton
-          target={{ itemId: item.itemId, name: face.name, href }}
-          className="shrink-0 self-center rounded"
-          dataRowThumb={view}
-        >
-          {thumb}
-        </ViewerImageButton>
-      );
-    }
     case "circuit":
       return (
         <CircuitThumb

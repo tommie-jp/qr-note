@@ -1,6 +1,12 @@
 "use client";
 
-import type { MouseEvent as ReactMouseEvent, ReactNode, Ref } from "react";
+import {
+  createContext,
+  use,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import type { MenuOrigin } from "@/lib/gesture/rowActionMenu";
 import { MoreIcon } from "../../icons";
 import { COMPACT_ICON_BUTTON_CLASS, ROW_MENU_TRIGGER_CLASS } from "../../ui";
@@ -57,29 +63,41 @@ interface RowActionButtonsProps {
 //
 // Tailwind v4 の hover 系は @media (hover: hover) に包まれるので、スマホで
 // 触れた指にボタンが貼り付くことはない (あちらは ⋮ と長押しのメニューが受ける)。
-// 小・中表示での置き場所。既定は ⋮ (右端 40px) のすぐ左。
-// **サムネのある行ではサムネの左へ退く** (docs/116 §1)。サムネは押すと画像を
-// 大きく見せる釦なので、ホバーで釦が重なると押せなくなる (小表示の 24px は
-// ゴミ箱の釦 36px にまるごと隠れていた)。位置は ⋮ の幅 (pr-10 = 40px) +
-// サムネ (size-6 / size-10) + 行の gap-3 (12px)。サムネの寸法 (THUMB_SIZE_CLASS)
-// を変えるときはここも直す
-const COMPACT_PLACEMENT_CLASS =
-  "inset-y-0 right-11 items-center group-has-[[data-row-thumb=compact]]:right-19 group-has-[[data-row-thumb=medium]]:right-23";
+// 小・中表示での置き場所。⋮ (右端 40px) のすぐ左。
+// **画像のサムネの帯がある行では、この列は引っ込み、帯の中の差し込み口
+// (RowQuickActionsSlot) が帯の左に出す** (docs/116 §1)。サムネは押すと画像を
+// 大きく見せる釦なので、ホバーで釦が重なると押せなくなる。帯の幅は枚数と
+// 行の幅で変わるので、行の右端からの固定の距離では合わせきれない
+const COMPACT_PLACEMENT_CLASS = "inset-y-0 right-11 items-center";
 
-// 大 (カード) 表示での置き場所。既定は ⋮ (右上の丸) のすぐ左。
-// **押せるサムネのあるカードではサムネの左へ退く** (docs/117 §8-6)。
-// かつては「96px のサムネの角にかかるだけ」として退かせなかったが、
-// ゴミ箱の釦が動画の poster と ▶ に重なると言われた (2026-10-28)。
-// 位置はカードの横の余白 (px-4 = 16px) + サムネ (size-24 = 96px) + gap-3 (12px)
-// = 124px。ItemRowCard の余白・THUMB_SIZE_CLASS を変えるときはここも直す
-const CARD_PLACEMENT_CLASS =
-  "top-2 right-11 group-has-[[data-row-thumb=card]]:right-31";
+// 大 (カード) 表示での置き場所。⋮ (右上の丸) のすぐ左。画像の帯があるカードでは
+// 帯の左へ出す (小・中と同じ。docs/117 §8-6)
+const CARD_PLACEMENT_CLASS = "top-2 right-11";
 
-export function RowActionButtons({
+// 帯の中の差し込み口の置き場所。帯の左端から行の gap-3 (12px) ぶん離す
+const SLOT_PLACEMENT_CLASS: Record<"compact" | "card", string> = {
+  compact: "inset-y-0 right-full mr-3 items-center",
+  card: "top-0 right-full mr-3",
+};
+
+// 差し込み口が居るか (帯のある行) の印。行の列はこれを見て引っ込む
+const QUICK_SLOT_ATTR = "data-row-quick-slot";
+
+// 近道の列の見た目。出し入れは opacity と pointer-events (上の説明)
+const QUICK_BAR_CLASS =
+  "pointer-events-none absolute z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100";
+
+function QuickButtons({
   name,
   actions,
-  view,
-}: RowActionButtonsProps) {
+  className,
+  isSlot = false,
+}: {
+  name: string;
+  actions: RowAction[];
+  className: string;
+  isSlot?: boolean;
+}) {
   const quick = actions.filter((action) => action.quick);
   if (quick.length === 0) {
     return null;
@@ -87,11 +105,10 @@ export function RowActionButtons({
   return (
     <div
       data-row-action=""
+      {...(isSlot ? { [QUICK_SLOT_ATTR]: "" } : {})}
       // z-10 … タイトルの当たり判定 (::after) より前に出す。膜の下に居ると
       // ボタンを押してもノートが開く (タグを relative z-10 にするのと同じ)
-      className={`pointer-events-none absolute z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-has-[:focus-visible]:pointer-events-auto group-has-[:focus-visible]:opacity-100 ${
-        view === "card" ? CARD_PLACEMENT_CLASS : COMPACT_PLACEMENT_CLASS
-      }`}
+      className={`${QUICK_BAR_CLASS} ${className}`}
     >
       {quick.map((action) => (
         <button
@@ -116,6 +133,48 @@ export function RowActionButtons({
         </button>
       ))}
     </div>
+  );
+}
+
+export function RowActionButtons({
+  name,
+  actions,
+  view,
+}: RowActionButtonsProps) {
+  return (
+    <QuickButtons
+      name={name}
+      actions={actions}
+      // 差し込み口が出ている行 (画像の帯がある) では引っ込む。二重に出さない
+      className={`group-has-[[data-row-quick-slot]]:hidden ${
+        view === "card" ? CARD_PLACEMENT_CLASS : COMPACT_PLACEMENT_CLASS
+      }`}
+    />
+  );
+}
+
+// 行の操作を、行の中身 (ItemRow が組む部品) へ渡す口。中身は server でも
+// 描かれる部品なので props で降ろせず、操作を持つ SwipeToTrashRow が包む
+export const RowQuickActionsContext = createContext<{
+  name: string;
+  actions: RowAction[];
+  view: "compact" | "card";
+} | null>(null);
+
+// サムネの帯の中に置く近道の列。帯 (relative) の左に出る。
+// 包みの外 (選択モード・ゴミ箱の一覧) では何も出さない
+export function RowQuickActionsSlot() {
+  const row = use(RowQuickActionsContext);
+  if (row === null) {
+    return null;
+  }
+  return (
+    <QuickButtons
+      name={row.name}
+      actions={row.actions}
+      className={SLOT_PLACEMENT_CLASS[row.view]}
+      isSlot
+    />
   );
 }
 

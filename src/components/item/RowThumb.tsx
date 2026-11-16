@@ -15,6 +15,9 @@ interface RowThumbProps {
   sizePx: number;
   // 大きさの Tailwind クラス (size-10 / size-24)
   sizeClass: string;
+  // 動画を動くサムネにするか。行に並ぶ 2 枚目以降は止めておく (1 行で
+  // 何本も動くと重いうえ、どれが顔なのか判らなくなる)
+  animate?: boolean;
 }
 
 // 一覧の 1 件のサムネ (docs/23-検索結果表示モード計画.md §2, 41-QR-search/docs/14 §Phase4)。
@@ -28,13 +31,19 @@ interface RowThumbProps {
 // 動画にはさらに「動くサムネ」がある (docs/72-動画アニメサムネ計画.md)。
 // 常に動かす (docs/117 §8-8)。サーバ描画は静止 poster、ブラウザで動き出したら
 // 同じ <img> の src をアニメ WebP へ差し替える (components/video/useAnimThumb.ts)。
-export function RowThumb({ name, isVideo, sizePx, sizeClass }: RowThumbProps) {
+export function RowThumb({
+  name,
+  isVideo,
+  sizePx,
+  sizeClass,
+  animate = true,
+}: RowThumbProps) {
   // 動画で poster が 404 だったら true。アイコン表示に切り替える
   const [posterFailed, setPosterFailed] = useState(false);
   const showIcon = isVideo && posterFailed;
   // 分割代入で受ける — まとめた object のまま参照すると、eslint の
   // react-hooks/refs が「描画中に ref を読んでいる」と誤検知する
-  const { playing, fail, failed: animFailed } = useAnimThumb(isVideo && !posterFailed);
+  const { playing, fail, failed: animFailed } = useAnimThumb(isVideo && animate && !posterFailed);
 
   // 落ちたのが動くサムネ (未生成) なのか poster なのかを分ける。動くサムネなら
   // 静止へ戻すだけで、poster を巻き添えにしてアイコンにしてはいけない。

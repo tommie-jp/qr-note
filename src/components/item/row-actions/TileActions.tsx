@@ -15,6 +15,7 @@ import { purgeConfirmMessage } from "../../trash/purgeConfirm";
 import { RowActionMenu } from "./RowActionMenu";
 import { RowMenuTrigger, anchorOriginOf, type RowAction } from "./RowActions";
 import { tileTrashConfirmMessage } from "./tileTrash";
+import { editRowAction } from "./editAction";
 import { sendNoteAction, type NoteAction } from "./noteAction";
 import { sendTrash, type RowSearchState } from "./useRowTrash";
 
@@ -110,6 +111,7 @@ export function SearchTileMenuProvider({
 }: SearchTileMenuProviderProps) {
   const { stateOf, run } = useNoteSubmissions();
   const actionsFor = (itemId: string, name: string, tileCount: number): RowAction[] => [
+    editRowAction(itemId),
     {
       key: "trash",
       label: "ゴミ箱へ移動",

@@ -590,3 +590,30 @@ test("題の無いノートには印を付けない (器は骨組みだけ)", ()
   const html = renderRow(makeItem({ title: "" }));
   expect(html).not.toContain("data-note-title");
 });
+
+// 1 ノートに複数の画像があれば、出現順に最大 5 枚を帯に並べる。
+// 2 枚目以降は行の幅 (li の @container) で出し入れし、動くのは 1 枚目だけ
+const PHOTOS = Array.from(
+  { length: 7 },
+  (_, i) => `00000000-0000-4000-8000-00000000000${i}.jpg`,
+);
+
+test.each(["compact", "medium", "card"] as const)(
+  "%s 表示では複数の画像を 5 枚までビューアの釦にして並べる",
+  (view) => {
+    const memo = PHOTOS.map((name) => `![](/api/images/${name})`).join("\n");
+    const html = renderInViewer(makeItem({ memo: `写真\n${memo}` }), undefined, view);
+    for (const name of PHOTOS.slice(0, 5)) {
+      expect(html).toContain(`data-viewer-image="${name}"`);
+    }
+    expect(html).not.toContain(PHOTOS[5]);
+    expect(html.match(/data-row-thumb=/g)).toHaveLength(1);
+    // 2 枚目以降は幅で出し入れする (1 枚目は常に出す)
+    expect(html).toContain("hidden @lg:flex");
+  },
+);
+
+test("行の li は幅でサムネの枚数を決める container になる", () => {
+  const html = renderRow(makeItem({ memo: `![](/api/images/${PHOTOS[0]})` }));
+  expect(html).toMatch(/<li class="@container/);
+});

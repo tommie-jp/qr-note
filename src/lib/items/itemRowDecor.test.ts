@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import {
   THUMB_SIZE_CLASS,
+  extraThumbClass,
   hasRowText,
+  ROW_THUMB_MAX,
   rowFace,
   rowPreview,
   rowTintClass,
@@ -74,7 +76,7 @@ describe('rowFace', () => {
     })
 
     // Assert
-    expect(face).toEqual({ kind: 'image', name: IMAGE, isVideo: false })
+    expect(face).toEqual({ kind: 'image', thumbs: [{ name: IMAGE, isVideo: false }] })
   })
 
   test('動画は poster を出すので isVideo を立てる', () => {
@@ -82,7 +84,29 @@ describe('rowFace', () => {
     const face = rowFace(memoNote(`![](/api/images/${VIDEO})`), { hasNotePreview: false })
 
     // Assert
-    expect(face).toEqual({ kind: 'image', name: VIDEO, isVideo: true })
+    expect(face).toEqual({ kind: 'image', thumbs: [{ name: VIDEO, isVideo: true }] })
+  })
+
+  test('複数の画像・動画は出現順に重複なしで ROW_THUMB_MAX 枚まで並べる', () => {
+    // Arrange
+    const names = Array.from(
+      { length: ROW_THUMB_MAX + 2 },
+      (_, i) => `00000000-0000-4000-8000-00000000000${i}.jpg`,
+    )
+    const memo = [IMAGE, IMAGE, VIDEO, ...names].map((name) => `![](/api/images/${name})`).join('\n')
+
+    // Act
+    const face = rowFace(memoNote(memo), { hasNotePreview: false })
+
+    // Assert
+    expect(face).toEqual({
+      kind: 'image',
+      thumbs: [
+        { name: IMAGE, isVideo: false },
+        { name: VIDEO, isVideo: true },
+        ...names.slice(0, ROW_THUMB_MAX - 2).map((name) => ({ name, isVideo: false })),
+      ],
+    })
   })
 
   test('画像が無ければ回路図、それも無ければノート全体プレビュー', () => {
@@ -135,4 +159,18 @@ test('行のサムネの寸法は、近道の釦の退き先と組で決まっ�
   expect(THUMB_SIZE_CLASS.compact).toBe('size-6')
   expect(THUMB_SIZE_CLASS.medium).toBe('size-10')
   expect(THUMB_SIZE_CLASS.card).toBe('size-24')
+})
+
+describe('extraThumbClass', () => {
+  test('1 枚目は常に出し、2 枚目以降は行の幅で出し入れする', () => {
+    expect(extraThumbClass('compact', 0)).toBe('flex')
+    expect(extraThumbClass('medium', 2)).toBe('hidden @xs:flex')
+    expect(extraThumbClass('compact', 3)).toBe('hidden @lg:flex')
+  })
+
+  test('カードは縦の 1 列 (2・3 枚目) を常に出し、2 列目は広いときだけ', () => {
+    expect(extraThumbClass('card', 0)).toBe('flex')
+    expect(extraThumbClass('card', 2)).toBe('flex')
+    expect(extraThumbClass('card', 4)).toBe('hidden @lg:flex')
+  })
 })

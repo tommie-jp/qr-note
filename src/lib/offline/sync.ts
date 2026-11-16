@@ -15,7 +15,8 @@ import 'client-only'
 import { snapshotChanged } from '@/lib/client/invalidate'
 import { indexSnapshot, snapshotIndexStore } from './snapshotIndex'
 import { envelopeData } from '@/lib/api/envelope'
-import { firstThumbInfo, thumbUrl } from '@/lib/images/memoImages'
+import { thumbInfos, thumbUrl } from '@/lib/images/memoImages'
+import { ROW_THUMB_MAX } from '@/lib/items/itemRowDecor'
 import { clearOfflineData, loadOfflineSnapshot, saveOfflineSnapshot } from './snapshotDb'
 import { awaitResource, isPerfActive, perfNow, perfSend } from '@/lib/logging/perfClient'
 import { formatTransfer, serverTimingSummary } from '@/lib/logging/perf'
@@ -191,10 +192,10 @@ export async function prefetchOfflineThumbs(
     throw new Error('この画面ではまだ画像を保存できません。開き直してから試してください')
   }
 
-  const urls = items.flatMap((item) => {
-    const thumb = firstThumbInfo(item.memo)
-    return thumb === null ? [] : [thumbUrl(thumb.name)]
-  })
+  // 一覧の行は複数のサムネを並べる (rowFace) ので、並ぶ分だけ控える
+  const urls = items.flatMap((item) =>
+    thumbInfos(item.memo, ROW_THUMB_MAX).map((thumb) => thumbUrl(thumb.name)),
+  )
 
   let done = 0
   let failed = 0

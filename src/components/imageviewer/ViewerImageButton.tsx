@@ -16,13 +16,10 @@ import { useImageViewer } from "./ImageViewerProvider";
 export function ViewerImageButton({
   target,
   className = "",
-  dataRowThumb,
   children,
 }: {
   target: ViewerTarget;
   className?: string;
-  // 行のサムネのとき、その表示の寸法 (RowActions.tsx の COMPACT_PLACEMENT_CLASS)
-  dataRowThumb?: string;
   children: ReactNode;
 }) {
   const viewer = useImageViewer();
@@ -39,7 +36,6 @@ export function ViewerImageButton({
       data-viewer-image={target.name}
       data-viewer-item={target.itemId}
       data-viewer-href={target.href}
-      data-row-thumb={dataRowThumb}
       // 動画のタイルはビューアで再生する (docs/117 §8)
       aria-label={isValidVideoName(target.name) ? "動画を再生" : "画像を大きく表示"}
       aria-pressed={active}

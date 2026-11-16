@@ -12,9 +12,11 @@ import {
 import { useSwipeDrawer } from "./useSwipeDrawer";
 import { TrashIcon } from "../../icons";
 import { RowActionMenu } from "./RowActionMenu";
+import { editRowAction } from "./editAction";
 import {
   RowActionButtons,
   RowMenuTrigger,
+  RowQuickActionsContext,
   anchorOriginOf,
   type RowAction,
 } from "./RowActions";
@@ -106,6 +108,7 @@ export function SwipeToTrashRow({
   // useMemo で包まない — 読む側 (ボタン列・メニュー) はどちらも毎描画で
   // 描き直す軽い部品で、同一性に依存する所が無い
   const actions: RowAction[] = [
+    editRowAction(itemId),
     {
       key: "trash",
       label: "ゴミ箱へ移動",
@@ -131,7 +134,10 @@ export function SwipeToTrashRow({
       // liClassName … カードの枠 (h-full rounded border bg-white。小では無い) と、
       // 画面外で描画を飛ばすクラス (ROW_SKIP_OFFSCREEN_CLASS)。切り取りは
       // この overflow-hidden で元からあるので、飛ばしても見た目は変わらない
-      className={`relative overflow-hidden transition-all duration-200 ${liClassName} ${
+      // @container … 行のサムネを何枚見せるかを行の幅で決める (rowParts.tsx の
+      // EXTRA_THUMB_CLASS)。画面の幅ではなく行の幅で見るのは、3 ペインの
+      // 一覧のように画面が広くても行が狭いことがあるから
+      className={`@container relative overflow-hidden transition-all duration-200 ${liClassName} ${
         removing ? removingClass : restingClass
       }`}
     >
@@ -167,7 +173,10 @@ export function SwipeToTrashRow({
         } ${drawer.dragging ? "" : "transition-transform duration-200"}`}
         style={{ transform: `translateX(${drawer.offset}px)` }}
       >
-        {children}
+        {/* 中身のサムネの帯にも近道を出せるよう、操作を渡す (RowQuickActionsSlot) */}
+        <RowQuickActionsContext value={{ name, actions, view }}>
+          {children}
+        </RowQuickActionsContext>
         {/* PC 用の近道。スマホでは hover が無いので出ない (§4) */}
         <RowActionButtons name={name} actions={actions} view={view} />
         <RowMenuTrigger

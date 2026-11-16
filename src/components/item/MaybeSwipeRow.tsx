@@ -45,8 +45,9 @@ export function MaybeSwipeRow({
       </SwipeToTrashRow>
     );
   }
+  // @container … サムネを何枚見せるかを行の幅で決める (SwipeToTrashRow と同じ)
   return (
-    <li className={frameClassName && `overflow-hidden ${frameClassName}`}>
+    <li className={`@container ${frameClassName ? `overflow-hidden ${frameClassName}` : ""}`}>
       {children}
     </li>
   );

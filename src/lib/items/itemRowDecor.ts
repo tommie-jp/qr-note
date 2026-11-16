@@ -5,7 +5,7 @@
 // 両方から描かれるので、ここにも server-only / client-only は付けない。
 
 import type { Item } from '@/generated/prisma/client'
-import { firstThumbInfo } from '@/lib/images/memoImages'
+import { thumbInfos } from '@/lib/images/memoImages'
 import { memoPreview } from '@/lib/markdown/memoPreview'
 import { memoSummary } from '@/lib/markdown/memoSummary'
 import type { ViewMode } from '@/lib/prefs/viewMode'
@@ -28,6 +28,25 @@ export const THUMB_SIZE_CLASS: Record<RowViewMode, string> = {
   compact: 'size-6',
   medium: 'size-10',
   card: 'size-24',
+}
+
+// カードの 2 枚目以降のサムネ。2 枚を縦に積んで (46 + 4 + 46) 1 枚目の 96px に揃える
+export const CARD_EXTRA_THUMB_PX = 46
+export const CARD_EXTRA_THUMB_SIZE_CLASS = 'size-[46px]'
+
+// 2 枚目以降のサムネを行の幅 (li の @container) で出し入れするクラス。
+// 狭い行で並べきると題が潰れるので、幅に応じて減らす:
+//
+//   小・中 … 2・3 枚目は 20rem から、4・5 枚目は 32rem から
+//   大     … 2・3 枚目 (縦の 1 列) は常に、4・5 枚目 (2 列目) は 32rem から
+//
+// hidden と flex を同じ要素で競わせない (並び順任せになる) ため、出すときの
+// display は変種の側だけが持つ。1 枚目は常に出す
+export function extraThumbClass(view: RowViewMode, index: number): string {
+  if (index === 0 || (view === 'card' && index <= 2)) {
+    return 'flex'
+  }
+  return index <= 2 ? 'hidden @xs:flex' : 'hidden @lg:flex'
 }
 
 // 画面外の行はスタイル・レイアウト・描画を飛ばす (docs/122 §10-2)。値は
@@ -94,8 +113,15 @@ export function hasRowText(text: RowText): boolean {
 // サムネにできる添付 (画像 or 動画 poster)。音声・PDF・テキストは thumb を
 // 持たないので対象外 (一覧では文字だけ)。動画は poster を出し、無ければ
 // RowThumb がアイコンへ切り替える (41-QR-search/docs/14 §Phase4)
+//
+// 画像/動画は本文の出現順に最大 ROW_THUMB_MAX 枚を並べる (thumbs は 1 枚以上)。
+// 何枚まで見せるかは行の幅で決まる (rowParts.tsx の EXTRA_THUMB_CLASS)
+export const ROW_THUMB_MAX = 5
+
+export type RowThumbInfo = { name: string; isVideo: boolean }
+
 export type RowFace =
-  | { kind: 'image'; name: string; isVideo: boolean }
+  | { kind: 'image'; thumbs: RowThumbInfo[] }
   // 回路図の SVG の hash (docs/124 §1)
   | { kind: 'circuit'; hash: string }
   | { kind: 'preview' }
@@ -105,9 +131,9 @@ export function rowFace(
   item: RowItem,
   { circuitThumb, hasNotePreview }: { circuitThumb?: string; hasNotePreview: boolean },
 ): RowFace {
-  const thumbInfo = firstThumbInfo(item.memo)
-  if (thumbInfo) {
-    return { kind: 'image', name: thumbInfo.name, isVideo: thumbInfo.isVideo }
+  const thumbs = thumbInfos(item.memo, ROW_THUMB_MAX)
+  if (thumbs.length > 0) {
+    return { kind: 'image', thumbs }
   }
   if (circuitThumb) {
     return { kind: 'circuit', hash: circuitThumb }
