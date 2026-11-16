@@ -2,8 +2,13 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   clientNoteClickHref,
   clientNoteHref,
+  DOUBLE_CLICK_MS,
+  DOUBLE_CLICK_SLOP_PX,
+  editNoteHref,
+  isSecondRowClick,
   openClientNote,
   registerClientNotePane,
+  rowEditItemId,
   showingClientNote,
 } from './clientNoteNav'
 import { dropDeferredRefresh, flushDeferredRefresh, navigate, refreshRouter, registerRouter } from './navigation'
@@ -175,5 +180,41 @@ describe('検索画面に器が居るときの navigate / refreshRouter', () => 
 
     expect(router.refresh).toHaveBeenCalledTimes(1)
     expect(router.replace).not.toHaveBeenCalled()
+  })
+})
+
+describe('一覧の行のダブルクリック', () => {
+  test('印の付いた行のリンクなら、そのノートの番号を返す', () => {
+    stubDom()
+    const anchor = new FakeAnchor(`${ORIGIN}/item/${ID}?q=a`)
+    expect(rowEditItemId(new FakeElement(anchor) as unknown as EventTarget, ORIGIN)).toBe(ID)
+  })
+
+  test('印の付いたリンクの外・旧番号・別 origin は null', () => {
+    stubDom()
+    expect(rowEditItemId(new FakeElement(null) as unknown as EventTarget, ORIGIN)).toBeNull()
+    expect(rowEditItemId(new FakeAnchor(`${ORIGIN}/item/1003`) as unknown as EventTarget, ORIGIN)).toBeNull()
+    expect(rowEditItemId(new FakeAnchor(`https://other.example/item/${ID}`) as unknown as EventTarget, ORIGIN)).toBeNull()
+    expect(rowEditItemId(null, ORIGIN)).toBeNull()
+  })
+
+  test('間が短く同じ所なら 2 回目と見なす', () => {
+    const mark = { itemId: ID, x: 100, y: 200, at: 1000 }
+    expect(isSecondRowClick(mark, { x: 100, y: 200, at: 1000 + DOUBLE_CLICK_MS })).toBe(true)
+    expect(
+      isSecondRowClick(mark, { x: 100 + DOUBLE_CLICK_SLOP_PX, y: 200 - DOUBLE_CLICK_SLOP_PX, at: 1200 }),
+    ).toBe(true)
+  })
+
+  test('遅い・離れている・控えが無いときは 2 回目にしない', () => {
+    const mark = { itemId: ID, x: 100, y: 200, at: 1000 }
+    expect(isSecondRowClick(mark, { x: 100, y: 200, at: 1001 + DOUBLE_CLICK_MS })).toBe(false)
+    expect(isSecondRowClick(mark, { x: 101 + DOUBLE_CLICK_SLOP_PX, y: 200, at: 1100 })).toBe(false)
+    expect(isSecondRowClick(mark, { x: 100, y: 201 + DOUBLE_CLICK_SLOP_PX, at: 1100 })).toBe(false)
+    expect(isSecondRowClick(null, { x: 100, y: 200, at: 1100 })).toBe(false)
+  })
+
+  test('編集画面の URL', () => {
+    expect(editNoteHref(ID)).toBe(`/edit/${ID}`)
   })
 })

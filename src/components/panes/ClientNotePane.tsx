@@ -7,10 +7,18 @@ import { NoteView } from "@/components/item/NoteView";
 import { PreviewPane } from "@/components/panes/PreviewPane";
 import {
   clientNoteClickHref,
+  editNoteHref,
+  isSecondRowClick,
   openClientNote,
   registerClientNotePane,
+  rowEditItemId,
+  type RowClickMark,
 } from "@/lib/client/clientNoteNav";
-import { dropDeferredRefresh, flushDeferredRefresh } from "@/lib/client/navigation";
+import {
+  dropDeferredRefresh,
+  flushDeferredRefresh,
+  navigate,
+} from "@/lib/client/navigation";
 import { useSearchState } from "@/lib/client/useSearchState";
 import { buildItemUrl, itemIdFromPathname } from "@/lib/search/url";
 import { isValidItemId, type Sort } from "@/lib/validation";
@@ -74,18 +82,51 @@ export function ClientNotePane({
   // 印の付いたリンクの素の左クリックを横取りする。capture で document に
   // 付けるので、Link の onClick より先に走る (Link は defaultPrevented を
   // 見て自分の遷移をやめる)。行の他の onClick (計測・題の控え) はそのまま走る
+  //
+  // 一覧の行をマウスで素早く 2 度押したら編集画面へ送る。1 回目は今までどおり
+  // ノートを開き (遅らせると普段のクリックが鈍る)、その行を控えておく。
+  // 2 回目の的は何でもよい — 1 ペインでは 1 回目でノートが一覧を覆うので、
+  // 的ではなく控えた座標と時刻で見る (clientNoteNav.ts の isSecondRowClick)。
+  // 指 (タッチ・ペン) は外す。スマホのダブルタップは拡大とぶつかるので、
+  // 行の ⋯ メニューの「編集」が受ける
   useEffect(() => {
     const unregister = registerClientNotePane();
+    let lastPointerType = "mouse";
+    let mark: RowClickMark | null = null;
+    const onPointerDown = (event: PointerEvent) => {
+      lastPointerType = event.pointerType;
+    };
     const onClick = (event: MouseEvent) => {
+      const at = event.timeStamp;
+      const point = { x: event.clientX, y: event.clientY, at };
+      if (lastPointerType === "mouse" && isSecondRowClick(mark, point)) {
+        const { itemId } = mark;
+        mark = null;
+        event.preventDefault();
+        event.stopPropagation();
+        // 2 度目のクリックで選ばれた語を外す (編集画面へ持ち越さない)
+        window.getSelection()?.removeAllRanges();
+        // 1 回目で積んだ /item を編集画面に置き換える。戻るで一覧へ帰れる
+        navigate(editNoteHref(itemId), { replace: true });
+        return;
+      }
+      mark = null;
       const href = clientNoteClickHref(event, location.origin);
       if (href === null) {
         return;
       }
       event.preventDefault();
       openClientNote(href);
+      const rowItemId =
+        lastPointerType === "mouse" ? rowEditItemId(event.target, location.origin) : null;
+      if (rowItemId !== null) {
+        mark = { itemId: rowItemId, ...point };
+      }
     };
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("click", onClick, true);
     return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("click", onClick, true);
       unregister();
       dropDeferredRefresh();

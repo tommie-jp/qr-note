@@ -52,6 +52,9 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
               prefetch={false}
               // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
               data-client-note=""
+              // マウスの 2 度押しで編集画面へ送る印 (clientNoteNav.ts の
+              // ROW_EDIT_ATTR)。選択モードでは付けない (押すのは選ぶため)
+              data-row-edit={checkbox ? undefined : ""}
               // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
               data-note-title={parts.hintTitle}
               transitionTypes={["nav-forward"]}

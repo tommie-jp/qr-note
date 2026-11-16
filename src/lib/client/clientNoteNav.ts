@@ -114,3 +114,56 @@ export function showingClientNote(): boolean {
   const itemId = itemIdFromPathname(location.pathname)
   return itemId !== null && isValidItemId(itemId)
 }
+
+// ---- 一覧の行のダブルクリックで編集画面へ ----
+//
+// 横取りしたクリックのうち、**この印の付いたリンク (一覧の行・画像タイル)** の
+// 素の左クリックを控え、間を置かずに同じ所がもう一度押されたら編集画面へ送る。
+// 前後ナビや表の行には付けない (連打してページを送る操作とぶつかる)
+export const ROW_EDIT_ATTR = 'data-row-edit'
+
+// 2 回目を「ダブルクリック」と見なす間と、指 (カーソル) のずれの許し。
+// 間は OS の既定 (Windows 500ms) に合わせる
+export const DOUBLE_CLICK_MS = 500
+export const DOUBLE_CLICK_SLOP_PX = 8
+
+// ブラウザの dblclick を使わないのは、**1 ペインでは 1 回目でノートが一覧を
+// 覆う**から。2 回目の的が行ではなくノートの器になり、dblclick が出るかは
+// ブラウザ任せになる。控えと座標・時刻で判定すれば、的が何に変わっても同じ
+export interface RowClickMark {
+  itemId: string
+  x: number
+  y: number
+  at: number
+}
+
+// 押されたのが印の付いた行のリンクなら、その行のノートの番号
+export function rowEditItemId(target: EventTarget | null, origin: string): string | null {
+  if (!(target instanceof Element)) {
+    return null
+  }
+  const anchor = target.closest(`a[href][${ROW_EDIT_ATTR}]`)
+  if (!(anchor instanceof HTMLAnchorElement)) {
+    return null
+  }
+  const href = clientNoteHref(anchor.href, origin)
+  return href === null ? null : itemIdFromPathname(new URL(href, origin).pathname)
+}
+
+// 控え (1 回目) に対して、今回のクリックが 2 回目に当たるか
+export function isSecondRowClick(
+  mark: RowClickMark | null,
+  click: { x: number; y: number; at: number },
+): mark is RowClickMark {
+  return (
+    mark !== null &&
+    click.at - mark.at <= DOUBLE_CLICK_MS &&
+    Math.abs(click.x - mark.x) <= DOUBLE_CLICK_SLOP_PX &&
+    Math.abs(click.y - mark.y) <= DOUBLE_CLICK_SLOP_PX
+  )
+}
+
+// ノートの編集画面の URL
+export function editNoteHref(itemId: string): string {
+  return `/edit/${itemId}`
+}
