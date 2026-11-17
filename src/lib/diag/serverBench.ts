@@ -12,7 +12,6 @@ import 'server-only'
 import os from 'node:os'
 import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'node:zlib'
 import { brotliQualityFor, SYNC_GZIP_LEVEL } from '@/lib/route/compress'
-import sharp from 'sharp'
 import pkg from '../../../package.json'
 import { prisma } from '@/lib/db'
 import { makeThumbnail } from '@/lib/images/thumbnail'
@@ -26,7 +25,10 @@ import { profilePath, saveServerBench, writeAtomic } from './benchStore'
 import type { BenchEnv, MemoryRound, MemorySnapshot, ServerBenchItem, ServerBenchResult } from './benchTypes'
 import { CGROUP_MEMORY_MAX_PATH } from './hostInfo'
 import { diffMemory, nodeMemoryProbe, parseCgroupBytes, takeMemorySnapshot } from './memorySample'
+import { makeNoiseJpeg } from './noiseJpeg'
 import { parseBatch } from './parseBench'
+
+export { makeNoiseJpeg }
 
 const WARMUP_RUNS = 1
 const MEASURE_RUNS = 3
@@ -87,22 +89,6 @@ const elapsed = async <T>(fn: () => Promise<T>): Promise<{ value: T; ms: number 
   const started = performance.now()
   const value = await fn()
   return { value, ms: performance.now() - started }
-}
-
-// 決まった模様のノイズ画像 (JPEG)。ノイズにするのは、平らな画像だと縮小も
-// 圧縮も一瞬で終わり、写真の重さにならないため。乱数を固定の種で作るので
-// 毎回同じ材料になる
-export async function makeNoiseJpeg(width = THUMB_WIDTH, height = THUMB_HEIGHT): Promise<Uint8Array> {
-  const raw = Buffer.alloc(width * height * 3)
-  let seed = 0x2545f491
-  for (let i = 0; i < raw.length; i += 1) {
-    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0
-    // 斜めの濃淡 + 小さなノイズ (写真に近い圧縮率にする)
-    const x = Math.floor(i / 3) % width
-    const y = Math.floor(i / 3 / width)
-    raw[i] = ((x + y) / 8 + (seed >>> 27)) & 0xff
-  }
-  return new Uint8Array(await sharp(raw, { raw: { width, height, channels: 3 } }).jpeg({ quality: 85 }).toBuffer())
 }
 
 // 回路フェンスを持つノートを固定で選ぶ。判定は position — **LIKE は PGroonga が
@@ -387,7 +373,7 @@ export async function runServerBench(options: ServerBenchOptions = {}): Promise<
   const started = await snapshot()
   const env = await collectBenchEnv()
   const coldMemos = await loadColdMemos()
-  const jpeg = await makeNoiseJpeg()
+  const jpeg = await makeNoiseJpeg(THUMB_WIDTH, THUMB_HEIGHT)
   const tasks: BenchTask[] = [
     ...searchTasks(),
     // 回路ノートが 1 件も無い DB (新しい移行先など) では実ノートの行を飛ばす

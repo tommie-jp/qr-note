@@ -88,3 +88,6 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /e2e/.auth/
+
+# リファクタリング前後のプロファイルの生データ (docs/127)。要約は docs に書く
+/perf-baseline/

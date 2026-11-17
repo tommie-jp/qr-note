@@ -55,6 +55,11 @@ const ENV_ALLOW = {
   // circuit-addresses の下見と、計測行の取得鍵の置き場の差し替え
   DRY_RUN: ['in-example'],
   QR_PERF_TOKEN_FILE: ['in-example'],
+  // ブラウザ側のプロファイル (scripts/profileBrowser.ts、docs/127 §4) の宛先と
+  // 計測用サーバの資格情報。手元の :perf を測るときだけ。アプリは読まない
+  PROFILE_BASE_URL: ['in-example'],
+  PROFILE_USER: ['in-example'],
+  PROFILE_PASS: ['in-example'],
 }
 
 // ---------------------------------------------------------------------------
