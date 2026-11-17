@@ -73,11 +73,14 @@ test.describe('検索結果の行の ⋮ メニュー', () => {
     // Act
     await trigger.click()
 
-    // Assert
-    const item = rowMenu(page).getByRole('menuitem', { name: 'ゴミ箱へ移動', exact: true })
-    await expect(item).toBeVisible()
-    await expect(item).toHaveText('ゴミ箱へ移動')
-    await expect(item).toBeFocused()
+    // Assert: 先頭は「編集」(b11d2a3)。「ゴミ箱へ移動」も文字付きで並ぶ
+    const first = rowMenu(page).getByRole('menuitem', { name: '編集', exact: true })
+    await expect(first).toBeVisible()
+    await expect(first).toHaveText('編集')
+    await expect(first).toBeFocused()
+    await expect(rowMenu(page).getByRole('menuitem', { name: 'ゴミ箱へ移動', exact: true })).toHaveText(
+      'ゴミ箱へ移動',
+    )
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 

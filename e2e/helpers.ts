@@ -8,7 +8,7 @@ import {
 } from '@playwright/test'
 import { collectCoverage, startCoverage } from './coverage'
 import { solidPng } from './imageBytes'
-import { AUTH_FILE, BASE_URL } from './env'
+import { AUTH_FILE, BASE_URL, E2E_PASSWORD, E2E_USER } from './env'
 
 // ブラウザを駆動するときの罠をコードにしたもの (.claude/skills/verify/SKILL.md)。
 // spec は `@playwright/test` ではなくここの test / expect を使う
@@ -105,6 +105,32 @@ export async function newLoggedInPage(browser: Browser): Promise<Page> {
   const page = await context.newPage()
   await startCoverage(page)
   return page
+}
+
+// ログインし直したばかりのページを開く (新しいセッションを発行する)。
+//
+// パスキーの登録や鍵束の設定は「ログインから 10 分以内」を要求する
+// (lib/auth/stepUp.ts)。setup が保存したセッションは、全体を流すと後ろの方の
+// spec に届くころには 10 分を過ぎている。そうした操作をする spec はこれで開き、
+// 後始末は closeFreshLoginPage でセッションごと消す
+export async function newFreshLoginPage(browser: Browser): Promise<Page> {
+  const context = await browser.newContext({
+    baseURL: BASE_URL,
+    httpCredentials: { username: E2E_USER, password: E2E_PASSWORD },
+  })
+  await prepareContext(context)
+  const page = await context.newPage()
+  await startCoverage(page)
+  await page.goto('/login')
+  await expect(page).toHaveURL((url) => url.pathname === '/')
+  return page
+}
+
+// newFreshLoginPage の相方。発行したセッションを消してから閉じる
+export async function closeFreshLoginPage(page: Page): Promise<void> {
+  const response = await page.request.post('/api/auth/logout')
+  expect(response.status()).toBe(200)
+  await closePage(page)
 }
 
 // newLoggedInPage / newTouchPage で開いたページをコンテキストごと閉じる。

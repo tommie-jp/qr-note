@@ -2,12 +2,12 @@ import type { Page, Request } from '@playwright/test'
 import { BASE_URL, E2E_HEADING_PREFIX, secretsDbProblem } from './env'
 import {
   clearEditor,
-  closePage,
+  closeFreshLoginPage,
   expect,
   expectHydrated,
   injectFiles,
   memoEditor,
-  newLoggedInPage,
+  newFreshLoginPage,
   test,
 } from './helpers'
 import { e2eNote, removeE2eNote } from './notes'
@@ -125,7 +125,8 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
   }
 
   test.beforeAll(async ({ browser }) => {
-    const page = await newLoggedInPage(browser)
+    // パスキーの登録と鍵束の設定は「ログインから 10 分以内」が要る (helpers の注)
+    const page = await newFreshLoginPage(browser)
     sharedPage = page
     // コピーの確認にクリップボードを読む
     await page
@@ -142,7 +143,7 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
       return
     }
     await removeE2eNote(sharedPage, NOTE)
-    await closePage(sharedPage)
+    await closeFreshLoginPage(sharedPage)
   })
 
   // 以下のテストは beforeAll が用意したページを使う (page フィクスチャは使わない)

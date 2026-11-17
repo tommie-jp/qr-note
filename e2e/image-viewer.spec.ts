@@ -413,13 +413,28 @@ test.describe('検索結果の画像ビューア (2 ページ目へ送る)', () 
     const loadMore = page.locator('[data-auto-load-more]')
     await expect(loadMore).toBeAttached()
 
-    // Act: 末尾の目印が器の下端より半画面ぶん下に隠れる所までスクロール
-    await scroller.evaluate((el) => {
-      el.scrollTop = el.scrollHeight - el.clientHeight * 1.5
-    })
-
-    // Assert: 目印は見えていないが、2 ページ目が届いている
-    await expect(openers).toHaveCount(PAGED_COUNT)
+    // Act + Assert: 末尾の目印が器の下端より半画面ぶん下に隠れる所までスクロールし、
+    // 目印は見えていないが 2 ページ目が届く。
+    //
+    // 続きの読み込みは「下へスクロールした」のを見てから解禁する (loadMoreGate.ts)。
+    // その見張りは描画の後に付くので、遅い環境 (CI・カバレッジ計測) では見張りより
+    // 先にスクロールが済み、その位置が起点になって解禁されないことがある。
+    // 先頭へ戻してから次のフレームで下ろす、を届くまで繰り返す
+    await expect(async () => {
+      await scroller.evaluate((el) => {
+        el.scrollTop = 0
+      })
+      await scroller.evaluate(
+        (el) =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => {
+              el.scrollTop = el.scrollHeight - el.clientHeight * 1.5
+              resolve()
+            })
+          }),
+      )
+      await expect(openers).toHaveCount(PAGED_COUNT, { timeout: 3_000 })
+    }).toPass({ timeout: 30_000 })
   })
 })
 
