@@ -8,13 +8,18 @@
 //                                                          → coverage-e2e/coverage-final.json
 //   npm run coverage:merge                                 → coverage-merged/ (html と表)
 //
+// CI は E2E を shard に分けて流すので、E2E の JSON は shard ごとに
+// coverage-e2e/<shard>/coverage-final.json に届く。直下に 1 つあればそれを、
+// 無ければ下の階層のものをすべて読んで足し合わせる
+//
 // 行の数え方は istanbul と同じ (文の先頭行ごとに、最も多い実行回数を取る)。
 // 単体と E2E は変換器が違い、同じ行でも文の位置がずれることがある。istanbul の
 // 合算は位置で突き合わせるので、片方にしか無い文も残る (分母が少し膨らむ側に倒れる)
-import { appendFile, readFile } from 'node:fs/promises'
+import { appendFile, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { CoverageReport } from 'monocart-coverage-reports'
 import {
+  E2E_COVERAGE_DIR,
   E2E_COVERAGE_JSON,
   MERGED_COVERAGE_DIR,
   ROOT,
@@ -53,6 +58,25 @@ async function readCoverage(file: string, hint: string): Promise<CoverageJson> {
   return JSON.parse(text) as CoverageJson
 }
 
+// E2E の JSON を集める (上の注)。shard ごとの置き場は 1 階層下
+async function readE2eParts(): Promise<CoverageJson[]> {
+  const hint = 'E2E_COVERAGE=1 npm run test:e2e'
+  try {
+    return [await readCoverage(E2E_COVERAGE_JSON, hint)]
+  } catch {
+    // 直下に無ければ shard ごとの置き場を探す
+  }
+  const entries = await readdir(E2E_COVERAGE_DIR, { withFileTypes: true }).catch(() => [])
+  const files = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(E2E_COVERAGE_DIR, entry.name, 'coverage-final.json'))
+    .sort()
+  if (files.length === 0) {
+    throw new Error(`${path.relative(ROOT, E2E_COVERAGE_JSON)} が無い。先に ${hint} を流す`)
+  }
+  return Promise.all(files.map((file) => readCoverage(file, hint)))
+}
+
 // vitest は絶対パス、monocart は作業ディレクトリからの相対パスを鍵にする。
 // 同じファイルが 1 つに合わさるよう絶対パスへ揃える
 function withAbsolutePaths(json: CoverageJson): CoverageJson {
@@ -79,17 +103,22 @@ interface LineSummary {
   readonly total: number
 }
 
-function summarizeDir(json: CoverageJson, dir: string): LineSummary {
+// 複数の JSON (E2E の shard) は、同じファイルの同じ行を 1 行として数え、
+// どれかで通っていれば通ったことにする
+function summarizeDir(jsons: readonly CoverageJson[], dir: string): LineSummary {
   const prefix = path.join(ROOT, dir) + path.sep
-  let covered = 0
-  let total = 0
-  for (const [file, coverage] of Object.entries(json)) {
-    if (!file.startsWith(prefix)) continue
-    for (const hits of lineHits(coverage).values()) {
-      total += 1
-      if (hits > 0) covered += 1
+  const lines = new Map<string, number>()
+  for (const json of jsons) {
+    for (const [file, coverage] of Object.entries(json)) {
+      if (!file.startsWith(prefix)) continue
+      for (const [line, hits] of lineHits(coverage)) {
+        const key = `${file}:${line}`
+        lines.set(key, Math.max(lines.get(key) ?? 0, hits))
+      }
     }
   }
+  const total = lines.size
+  const covered = [...lines.values()].filter((hits) => hits > 0).length
   return { covered, total }
 }
 
@@ -100,7 +129,7 @@ function percent({ covered, total }: LineSummary): string {
 
 async function mergeCoverage(
   unit: CoverageJson,
-  e2e: CoverageJson,
+  e2eParts: readonly CoverageJson[],
 ): Promise<CoverageJson> {
   const report = new CoverageReport({
     name: '単体 + E2E のカバレッジ',
@@ -114,7 +143,9 @@ async function mergeCoverage(
   // istanbul の合算は渡したオブジェクトを書き換える。表の「単体」「E2E」が
   // 合算後の値にならないよう、複製を渡す
   await report.add(structuredClone(unit))
-  await report.add(structuredClone(e2e))
+  for (const e2e of e2eParts) {
+    await report.add(structuredClone(e2e))
+  }
   await report.generate()
   return readCoverage(MERGED_JSON, 'coverage:merge')
 }
@@ -143,16 +174,14 @@ async function main(): Promise<void> {
   const unit = withAbsolutePaths(
     await readCoverage(UNIT_COVERAGE_JSON, 'npm run test:coverage'),
   )
-  const e2e = withAbsolutePaths(
-    await readCoverage(E2E_COVERAGE_JSON, 'E2E_COVERAGE=1 npm run test:e2e'),
-  )
-  const merged = withAbsolutePaths(await mergeCoverage(unit, e2e))
+  const e2eParts = (await readE2eParts()).map(withAbsolutePaths)
+  const merged = withAbsolutePaths(await mergeCoverage(unit, e2eParts))
 
   const rows: Row[] = REPORTED_DIRS.map((dir) => ({
     dir,
-    unit: percent(summarizeDir(unit, dir)),
-    e2e: percent(summarizeDir(e2e, dir)),
-    merged: percent(summarizeDir(merged, dir)),
+    unit: percent(summarizeDir([unit], dir)),
+    e2e: percent(summarizeDir(e2eParts, dir)),
+    merged: percent(summarizeDir([merged], dir)),
   }))
   console.table(
     Object.fromEntries(

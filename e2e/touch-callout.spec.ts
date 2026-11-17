@@ -1,6 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
 import {
-  clearEditor,
   closePage,
   expect,
   memoEditor,
@@ -10,7 +9,7 @@ import {
   test,
   selectNoteTab,
 } from './helpers'
-import { e2eNote, removeE2eNote } from './notes'
+import { e2eNote, putE2eNote, removeE2eNote } from './notes'
 
 // 長押しで出る OS のメニュー (docs/98-長押しメニュー抑止計画.md)。
 // 指で触る画面では文字の選択と iOS の吹き出しを画面全体で止め、ノートの
@@ -48,14 +47,7 @@ function selectModeButton(page: Page): Locator {
 test.describe('長押しで OS のメニューを出さない', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, NOTE)
-    await page.goto(`/edit/${ITEM_ID}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).pressSequentially(BODY, { delay: 10 })
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    await putE2eNote(page, NOTE, BODY)
     await closePage(page)
   })
 

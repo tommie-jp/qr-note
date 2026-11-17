@@ -1,11 +1,9 @@
 import type { Browser, Page } from '@playwright/test'
 import { BASE_URL } from './env'
 import {
-  clearEditor,
   closePage,
   expect,
   expectHydrated,
-  memoEditor,
   newLoggedInPage,
   newTouchPage,
   test,
@@ -15,6 +13,7 @@ import {
   e2eNote,
   noteName,
   openSearch,
+  putE2eNote,
   removeE2eNote,
   rowOf,
   searchResults,
@@ -29,14 +28,7 @@ const UPPER_NOTE = e2eNote(9, `row menu upper ${Date.now()}`)
 // 本文を書いて保存する (無ければ作る)。途中で落ちた回の残りは先に消す
 async function saveNote(browser: Browser, note: E2eNote) {
   const page = await newLoggedInPage(browser)
-  await removeE2eNote(page, note)
-  await page.goto(`/edit/${note.id}`)
-  const save = page.getByRole('button', { name: '更新', exact: true })
-  await expect(save).toBeVisible()
-  await clearEditor(page)
-  await memoEditor(page).pressSequentially(note.heading, { delay: 10 })
-  await save.click()
-  await expect(page).toHaveURL((url) => url.pathname === `/item/${note.id}`)
+  await putE2eNote(page, note, note.heading)
   await closePage(page)
 }
 
@@ -203,16 +195,7 @@ async function openImageMode(page: Page) {
 test.describe('画像モードのタイルの ⋮ メニュー', () => {
   test.beforeEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, TILE_NOTE)
-    await page.goto(`/edit/${TILE_NOTE.id}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).click()
-    // insertText は 1 回の入力なので、![ の括弧の自動補完が挟まらない
-    await page.keyboard.insertText(TILE_BODY)
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${TILE_NOTE.id}`)
+    await putE2eNote(page, TILE_NOTE, TILE_BODY)
     await closePage(page)
   })
 
@@ -265,15 +248,7 @@ test.describe('画像モードのタイルの ⋮ メニュー', () => {
 test.describe('ゴミ箱の画像表示のタイルの ⋮ メニュー', () => {
   test.beforeEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, TILE_NOTE)
-    await page.goto(`/edit/${TILE_NOTE.id}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).click()
-    await page.keyboard.insertText(TILE_BODY)
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${TILE_NOTE.id}`)
+    await putE2eNote(page, TILE_NOTE, TILE_BODY)
     // 画像モードの ⋮ からゴミ箱へ入れる (ユーザーが踏んだ流れ)
     const triggers = await openImageMode(page)
     page.once('dialog', (dialog) => void dialog.accept())

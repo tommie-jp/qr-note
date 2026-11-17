@@ -2,13 +2,17 @@ import type { Locator, Page } from '@playwright/test'
 import { E2E_HEADING_PREFIX, E2E_ITEM_PREFIX, e2eItemId, e2eKey } from './env'
 import { expect, expectHydrated } from './helpers'
 
-// E2E が作ったノートを UI から片付ける手順 (ゴミ箱 → 永久削除)。
-// spec 本体と、途中で落ちたときの後始末 (afterAll) の両方がこれを通る。
+// E2E が作ったノートを作る・片付ける手順。
+//
+// 準備と後始末は API で行う (putE2eNote / removeE2eNote)。画面から打ち込んで
+// 保存する・ゴミ箱から永久削除するのは数秒ずつかかり、21 件を作る spec では
+// 準備だけで数分になっていた。画面を通す流れは、それを確かめる spec が
+// trashFromSearch / purgeFromTrash や編集画面で別に通している。
 //
 // ローカル DB には本物のノートが入っている。**id の頭が E2E_ITEM_PREFIX で
-// なければ何もしない** (assertE2eItemId)。行は id のリンク (`/item/<id>`) で
-// 特定し、永久削除の確認ダイアログも、文面がそのノートの呼び名 (`「zze2e7 …」`)
-// で始まるときだけ受け入れる
+// なければ何もしない** (assertE2eItemId)。画面から消すときは、行を id のリンク
+// (`/item/<id>`) で特定し、永久削除の確認ダイアログも、文面がそのノートの
+// 呼び名 (`「zze2e7 …」`) で始まるときだけ受け入れる
 
 // E2E のノート 1 件。id は固定の UUID (env.ts の e2eItemId)、本文 1 行目
 // (= 一覧の見出し・読み上げの呼び名) は key (`zze2e7`) で始まる
@@ -135,6 +139,27 @@ export async function removeE2eNote(
   page: Page,
   note: Pick<E2eNote, 'id' | 'key'>,
 ): Promise<void> {
-  await trashFromSearch(page, note)
-  await purgeFromTrash(page, note)
+  assertE2eItemId(note.id)
+  // 永久削除はゴミ箱にある行だけを消す (lib/items/trash.ts) ので、先に入れる。
+  // 無い id はどちらも何もしない
+  for (const op of ['trash', 'purge'] as const) {
+    const response = await page.request.post('/api/trash', {
+      data: { op, itemIds: [note.id] },
+    })
+    expect(response.status(), `ゴミ箱の ${op}`).toBe(200)
+  }
+}
+
+// 本文を memo にしたノートを API で作る (前の回の残りは先に消す)。
+// 保存の口は画面の「更新」と同じ (PUT /api/items/<id>。docs/123 §2-2)
+export async function putE2eNote(
+  page: Page,
+  note: Pick<E2eNote, 'id' | 'key'>,
+  memo: string,
+): Promise<void> {
+  await removeE2eNote(page, note)
+  const response = await page.request.put(`/api/items/${note.id}`, {
+    data: { memo, base: 'new', checkpoint: false },
+  })
+  expect(response.status(), 'ノートの保存').toBe(200)
 }

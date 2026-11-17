@@ -10,7 +10,7 @@
 | --- | --- |
 | `env.ts` | 接続先・資格情報・`AUTH_FILE`・E2E のノートの id と見出しの頭・専用 DB の門番 |
 | `helpers.ts` | spec が使う `test` / `expect` と、下の罠を避ける道具 |
-| `notes.ts` | E2E のノートをゴミ箱 → 永久削除で片付ける手順 |
+| `notes.ts` | E2E のノートを API で作る・消す道具と、画面から消す手順 |
 | `webauthn.ts` | 仮想認証器 (CDP WebAuthn) を 1 本のセッションでページに付ける |
 | `drawCanvas.ts` | お絵かき画面の道具・レイヤパネルの操作と、canvas の画素の比べ方 |
 | `imageBytes.ts` | PNG / WebP のヘッダ読み・multipart の欄の取り出し・下敷き用の PNG 作り |
@@ -22,6 +22,15 @@
 
 spec は `@playwright/test` ではなく `./helpers` から `test` と `expect` を
 import する (dev オーバーレイ退けと検索履歴の遮断が全ページに掛かる)。
+
+## 書き方
+
+- **準備のノートは `putE2eNote` で API から作る。** 編集画面で打ち込んで保存すると
+  1 件に数秒かかり、21 件を作る spec は準備だけで数分になっていた。編集画面を
+  通すのは、編集の流れそのものを確かめる spec (editor-guard・short-url など) だけ
+- **CI は spec を 3 つの shard に分けて別々のジョブで流す** (`--shard=n/3`)。
+  shard ごとに DB と dev サーバを持つので、spec は他の spec が作ったノートに
+  頼らない (いまもそう書いてある)
 
 ## 罠
 

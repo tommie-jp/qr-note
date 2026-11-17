@@ -1,6 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
 import {
-  clearEditor,
   closePage,
   expect,
   expectHydrated,
@@ -11,7 +10,7 @@ import {
   selectNoteTab,
   test,
 } from './helpers'
-import { e2eNote, openSearch, removeE2eNote } from './notes'
+import { e2eNote, openSearch, putE2eNote, removeE2eNote } from './notes'
 
 // ノートの全画面表示 (docs/108-ノート全画面表示計画.md)。
 // 読むタブの間は見出し行・タグ・タブ・時刻を畳み、上端の行へのホバー (PC)・
@@ -43,14 +42,7 @@ async function openNote(page: Page): Promise<void> {
 test.describe('ノートの操作を畳んで重ねる', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, NOTE)
-    await page.goto(`/edit/${ITEM_ID}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).pressSequentially(`${BODY}\n\n#e2etag`, { delay: 10 })
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    await putE2eNote(page, NOTE, `${BODY}\n\n#e2etag`)
     await closePage(page)
   })
 
@@ -271,14 +263,7 @@ test.describe('ノートの操作を畳んで重ねる', () => {
 test.describe('下部ペインでは操作の行を本文の上に浮かせる', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, NOTE)
-    await page.goto(`/edit/${ITEM_ID}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).pressSequentially(`${BODY}\n\n#e2etag`, { delay: 10 })
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    await putE2eNote(page, NOTE, `${BODY}\n\n#e2etag`)
     await closePage(page)
   })
 

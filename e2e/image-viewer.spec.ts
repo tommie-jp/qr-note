@@ -3,16 +3,14 @@ import path from 'node:path'
 import type { BrowserContext, Locator, Page } from '@playwright/test'
 import { BASE_URL } from './env'
 import {
-  clearEditor,
   closePage,
   expect,
   expectHydrated,
-  memoEditor,
   newLoggedInPage,
   test,
 } from './helpers'
 import { solidPng } from './imageBytes'
-import { e2eNote, openSearch, removeE2eNote, searchResults } from './notes'
+import { e2eNote, openSearch, putE2eNote, removeE2eNote, searchResults } from './notes'
 
 // 検索結果の画像ビューア (docs/116-検索結果の画像最大表示計画.md)。
 // 画像を押すと 2 / 3 ペインではノートのペインの場所に画像だけが出て、
@@ -78,15 +76,7 @@ async function expectInside(image: Locator, pane: Locator) {
 test.describe('検索結果の画像ビューア', () => {
   test.beforeEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, NOTE)
-    await page.goto(`/edit/${NOTE.id}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).click()
-    await page.keyboard.insertText(BODY)
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${NOTE.id}`)
+    await putE2eNote(page, NOTE, BODY)
     await closePage(page)
   })
 
@@ -211,15 +201,7 @@ test.describe('検索結果のスライドショー', () => {
       window.localStorage.setItem(key, '3')
     }, SLIDESHOW_INTERVAL_KEY)
     const setup = await newLoggedInPage(browser)
-    await removeE2eNote(setup, NOTE)
-    await setup.goto(`/edit/${NOTE.id}`)
-    const save = setup.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(setup)
-    await memoEditor(setup).click()
-    await setup.keyboard.insertText(BODY)
-    await save.click()
-    await expect(setup).toHaveURL((url) => url.pathname === `/item/${NOTE.id}`)
+    await putE2eNote(setup, NOTE, BODY)
     await closePage(setup)
   })
 
@@ -339,15 +321,7 @@ test.describe('検索結果の画像ビューア (2 ページ目へ送る)', () 
     const page = await newLoggedInPage(browser)
     // 古い順に作る (一覧は更新の新しい順なので、最初に作った 1 件が 2 ページ目に回る)
     for (const [i, note] of PAGED_NOTES.entries()) {
-      await removeE2eNote(page, note)
-      await page.goto(`/edit/${note.id}`)
-      const save = page.getByRole('button', { name: '更新', exact: true })
-      await expect(save).toBeVisible()
-      await clearEditor(page)
-      await memoEditor(page).click()
-      await page.keyboard.insertText(`${note.heading}\n![](${IMAGES_PATH}/${pagedImage(i)})\n`)
-      await save.click()
-      await expect(page).toHaveURL((url) => url.pathname === `/item/${note.id}`)
+      await putE2eNote(page, note, `${note.heading}\n![](${IMAGES_PATH}/${pagedImage(i)})\n`)
     }
     await closePage(page)
   })
@@ -480,15 +454,7 @@ test.describe('検索結果のスライドショー (動画)', () => {
       window.localStorage.setItem(key, '10')
     }, SLIDESHOW_INTERVAL_KEY)
     const setup = await newLoggedInPage(browser)
-    await removeE2eNote(setup, VIDEO_NOTE)
-    await setup.goto(`/edit/${VIDEO_NOTE.id}`)
-    const save = setup.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(setup)
-    await memoEditor(setup).click()
-    await setup.keyboard.insertText(VIDEO_BODY)
-    await save.click()
-    await expect(setup).toHaveURL((url) => url.pathname === `/item/${VIDEO_NOTE.id}`)
+    await putE2eNote(setup, VIDEO_NOTE, VIDEO_BODY)
     await closePage(setup)
   })
 
@@ -584,14 +550,7 @@ test.describe('検索結果のスライドショー (動画)', () => {
     await serveImages(page.context())
     await serveVideo(page.context())
     const setup = await newLoggedInPage(page.context().browser()!)
-    await setup.goto(`/edit/${VIDEO_NOTE.id}`)
-    const save = setup.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(setup)
-    await memoEditor(setup).click()
-    await setup.keyboard.insertText(`${VIDEO_NOTE.heading}\n![録画](${IMAGES_PATH}/${CLIP})\n`)
-    await save.click()
-    await expect(setup).toHaveURL((url) => url.pathname === `/item/${VIDEO_NOTE.id}`)
+    await putE2eNote(setup, VIDEO_NOTE, `${VIDEO_NOTE.heading}\n![録画](${IMAGES_PATH}/${CLIP})\n`)
     await closePage(setup)
     await page.context().addCookies([
       { name: 'view', value: view, url: BASE_URL },

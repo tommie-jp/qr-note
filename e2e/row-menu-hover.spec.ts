@@ -1,15 +1,13 @@
 import type { Page } from '@playwright/test'
 import {
-  clearEditor,
   closePage,
   expect,
   expectHydrated,
-  memoEditor,
   newLoggedInPage,
   newTouchPage,
   test,
 } from './helpers'
-import { e2eNote, noteName, openSearch, removeE2eNote, rowOf } from './notes'
+import { e2eNote, noteName, openSearch, putE2eNote, removeE2eNote, rowOf } from './notes'
 
 // 行の ⋯ の出し方 (ui.ts の ROW_MENU_TRIGGER_CLASS)。
 // PC (hover がある) ではホバー中の行にだけ出し、キーボードで入ったときと
@@ -38,14 +36,7 @@ async function moveAway(page: Page) {
 test.describe('行の ⋯ はPC ではホバー中だけ出す', () => {
   test.beforeEach(async ({ browser }) => {
     const page = await newLoggedInPage(browser)
-    await removeE2eNote(page, NOTE)
-    await page.goto(`/edit/${ITEM_ID}`)
-    const save = page.getByRole('button', { name: '更新', exact: true })
-    await expect(save).toBeVisible()
-    await clearEditor(page)
-    await memoEditor(page).pressSequentially(BODY, { delay: 10 })
-    await save.click()
-    await expect(page).toHaveURL((url) => url.pathname === `/item/${ITEM_ID}`)
+    await putE2eNote(page, NOTE, BODY)
     await closePage(page)
   })
 

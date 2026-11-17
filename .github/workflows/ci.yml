@@ -130,10 +130,18 @@ jobs:
   # 画面を通す E2E (e2e/README.md)。専用の空 DB に向けるので、手元では専用 DB
   # でしか走らないシークレットの spec (docs/96 §4-3) もここで一緒に流す。
   # dev サーバは Playwright が立てる (E2E_START_SERVER)。資格情報と WebAuthn の
-  # origin は playwright.config.ts が上書きし、DB は下の env から引き継がれる
+  # origin は playwright.config.ts が上書きし、DB は下の env から引き継がれる。
+  #
+  # 直列で 20 分かかっていたので、spec を 3 つの shard に分けて別々のジョブで
+  # 並べる。ジョブごとに DB と dev サーバを持つので互いに干渉しない。
+  # 1 つ落ちても残りは最後まで流す (fail-fast: false) — どれが落ちたかを 1 回で見る
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       db:
         # compose.yaml の db と同じイメージ (上げるときは両方)
@@ -197,14 +205,15 @@ jobs:
 
       # ブラウザ側のカバレッジも取る (e2e/coverage.ts)。数えるだけで合否には使わない
       - name: E2E
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
         env:
           E2E_COVERAGE: '1'
 
+      # shard ごとに別の名前で置く。coverage ジョブがまとめて落として足し合わせる
       - name: E2E のカバレッジを渡す
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: e2e-coverage
+          name: e2e-coverage-${{ matrix.shard }}
           path: coverage-e2e/coverage-final.json
           retention-days: 7
 
@@ -212,7 +221,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
@@ -247,9 +256,11 @@ jobs:
 
       - run: npm run test:coverage
 
+      # shard ごとの JSON を coverage-e2e/e2e-coverage-<n>/ に並べる
+      # (scripts/coverageMerge.ts が下の階層をすべて読む)
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: e2e-coverage
+          pattern: e2e-coverage-*
           path: coverage-e2e
 
       - run: npm run coverage:merge
