@@ -3,12 +3,79 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { newItemId } from "@/lib/items/itemId";
 import type { DayEvent } from "../event/monthLayout";
 import { DAY_ROW_CLASS, DayEventList, dayLabel } from "./DayEventList";
 import { DayRowContent } from "./DayRowParts";
 import { EventPopover, type EditingEvent } from "./EventPopover";
+
+// 常に出すのでサーバ描画にも乗る。body への portal はサーバでは作れない (document が無い) ので、
+// ハイドレーションが済むまでは何も描かない
+const subscribeNothing = () => () => {};
+
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeNothing,
+    () => true,
+    () => false,
+  );
+}
+
+// 下に隠れたノートのペインを inert にする (押せない・読み上げない)
+function useCoverNotePanes(sectionRef: RefObject<HTMLElement | null>, hydrated: boolean): void {
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+    const covered = [
+      ...document.querySelectorAll<HTMLElement>("[data-note-pane]"),
+    ].filter((el) => el !== sectionRef.current && !el.inert);
+    for (const el of covered) {
+      el.inert = true;
+    }
+    return () => {
+      for (const el of covered) {
+        el.inert = false;
+      }
+    };
+  }, [hydrated, sectionRef]);
+}
+
+// 予定の行の本体。押すと行のそばに予定のフォームを浮かせる
+function paneRow(event: DayEvent, editing: EditingEvent | null, setEditing: (editing: EditingEvent) => void) {
+  return (
+    <button
+      type="button"
+      // ︙ のメニューの「編集」はこれを押す (DayEventList の EVENT_ROW_ATTR)
+      data-event-row=""
+      aria-haspopup="dialog"
+      aria-expanded={editing?.itemId === event.itemId}
+      onClick={(e) =>
+        setEditing({
+          itemId: event.itemId,
+          isNew: false,
+          anchor: e.currentTarget,
+        })
+      }
+      className={`${DAY_ROW_CLASS} ${editing?.itemId === event.itemId ? "outline-2 -outline-offset-2 outline-yellow-300" : ""}`}
+    >
+      <DayRowContent event={event} />
+    </button>
+  );
+}
+
+interface DayPaneProps {
+  day: string;
+  events: readonly DayEvent[];
+  loading: boolean;
+  query: string;
+  // 「今日」を押すたびに変わる。変わったら一覧を先頭まで戻す (docs/126 §1-39)。
+  // 日が替わるときは key で作り直されるので、同じ日のまま押したときのための物
+  revealKey: number;
+  // 下のペインの境界 (core の PaneResizer kind="preview")
+  resizer: ReactNode;
+}
 
 // 2・3 ペインで、選んだ日の予定をノートのペインの場所に出す (docs/126 §1-6)。
 // 予定・「+」を押すと、その行のそばに予定のフォームを浮かせる (EventPopover)。
@@ -25,54 +92,13 @@ import { EventPopover, type EditingEvent } from "./EventPopover";
 //
 // **閉じる手段は持たない** (docs/126 §1-36)。カレンダーの 2・3 ペインでは日の一覧を
 // 常に出す (選んでいなければ今日か月の 1 日)。× も Esc も無く、境界を引き切っても隠さない
-//
-// 常に出すのでサーバ描画にも乗る。body への portal はサーバでは作れない (document が無い) ので、
-// ハイドレーションが済むまでは何も描かない
-const subscribeNothing = () => () => {};
-
-export function DayPane({
-  day,
-  events,
-  loading,
-  query,
-  revealKey,
-  resizer,
-}: {
-  day: string;
-  events: readonly DayEvent[];
-  loading: boolean;
-  query: string;
-  // 「今日」を押すたびに変わる。変わったら一覧を先頭まで戻す (docs/126 §1-39)。
-  // 日が替わるときは key で作り直されるので、同じ日のまま押したときのための物
-  revealKey: number;
-  // 下のペインの境界 (core の PaneResizer kind="preview")
-  resizer: ReactNode;
-}) {
+export function DayPane({ day, events, loading, query, revealKey, resizer }: DayPaneProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState<EditingEvent | null>(null);
   const closeEditing = useCallback(() => setEditing(null), []);
-  const hydrated = useSyncExternalStore(
-    subscribeNothing,
-    () => true,
-    () => false,
-  );
+  const hydrated = useHydrated();
 
-  useEffect(() => {
-    if (!hydrated) {
-      return;
-    }
-    const covered = [
-      ...document.querySelectorAll<HTMLElement>("[data-note-pane]"),
-    ].filter((el) => el !== sectionRef.current && !el.inert);
-    for (const el of covered) {
-      el.inert = true;
-    }
-    return () => {
-      for (const el of covered) {
-        el.inert = false;
-      }
-    };
-  }, [hydrated]);
+  useCoverNotePanes(sectionRef, hydrated);
 
   useEffect(() => {
     sectionRef.current?.scrollTo({ top: 0 });
@@ -104,25 +130,7 @@ export function DayPane({
             loading={loading}
             onAdd={add}
             inlineEdit
-            renderRow={(event) => (
-              <button
-                type="button"
-                // ︙ のメニューの「編集」はこれを押す (DayEventList の EVENT_ROW_ATTR)
-                data-event-row=""
-                aria-haspopup="dialog"
-                aria-expanded={editing?.itemId === event.itemId}
-                onClick={(e) =>
-                  setEditing({
-                    itemId: event.itemId,
-                    isNew: false,
-                    anchor: e.currentTarget,
-                  })
-                }
-                className={`${DAY_ROW_CLASS} ${editing?.itemId === event.itemId ? "outline-2 -outline-offset-2 outline-yellow-300" : ""}`}
-              >
-                <DayRowContent event={event} />
-              </button>
-            )}
+            renderRow={(event) => paneRow(event, editing, setEditing)}
           />
         </div>
         {editing !== null && (
