@@ -19,18 +19,11 @@ import {
   useSecretUnlocked,
 } from "@/lib/secret/session";
 import { unlockWithPasskey } from "@/lib/secret/unlock";
+import { SecretMarkdown } from "./SecretMarkdown";
 
-// MarkdownView は**動的に読む**。理由は 2 つ:
-//
-// - MarkdownView 側が img からこの部品へ振り分けるため、静的 import にすると
-//   循環参照になる (どちらかが評価途中の undefined を掴みうる)。
-// - react-markdown + KaTeX 一式は重い。断片を開くまで読み込まなければ、
-//   シークレットを使わないノートの表示は今までどおり軽いまま
-//   (DrawModal / ScannerModal と同じ流儀)。
-const MarkdownView = dynamic(
-  () => import("@/components/markdown/MarkdownView").then((m) => m.MarkdownView),
-  { ssr: false, loading: () => null },
-);
+// 開いた中身は MarkdownView で描くが、ここからは import しない。MarkdownView 側が
+// img からこの部品へ振り分けるため循環になる。layout の SecretMarkdownProvider が
+// 動的に読んだ MarkdownView を context で渡す (SecretMarkdown.tsx の注)
 
 // 入力ダイアログも開くまで読まない (編集画面と同じ流儀)。閲覧画面から
 // 編集できるようにするため、こちらからも同じ部品を使う (docs/52 §2)
@@ -260,7 +253,7 @@ export function SecretBlock({
         // 通常のメモと同じ描画パイプライン (同じサニタイズ) を通す。
         // タグはリンクにしない — 断片の中身から検索へ飛ばす導線は、平文の
         // 検索語をサーバへ送ることになるため (docs/51 §5)
-        <MarkdownView markdown={markdown} linkTags={false} blobKinds={blobKinds} />
+        <SecretMarkdown markdown={markdown} linkTags={false} blobKinds={blobKinds} />
       )}
 
       {error !== null && <span className="text-sm text-red-700">{error}</span>}

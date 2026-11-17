@@ -7,6 +7,7 @@ import { PreHydrationScripts } from "@/components/chrome/PreHydrationScripts";
 import { DemoBanner } from "@/components/chrome/DemoBanner";
 import { PageBottomBar } from "@/components/bottombar/PageBottomBar";
 import { RouterBridge } from "@/components/client/RouterBridge";
+import { SecretMarkdownProvider } from "@/components/secret/SecretMarkdownProvider";
 import { PANE_MODE_COOKIE, parsePaneMode } from "@/lib/prefs/paneMode";
 import { rowTintVars } from "@/lib/prefs/rowTint";
 import { loadRowTintId } from "@/lib/prefs/rowTintStore";
@@ -130,7 +131,9 @@ export default async function RootLayout({
               (docs/75-ノート上部圧縮計画.md §5)、2026-11-12 に 8px → 4px へ詰めた (docs/11 §6-7)。スマホの 1 画面に入る本文を
               増やすのが目的で、ここは全ページに効く */}
           <main className={`mx-auto px-safe pt-1 pb-safe ${CONTENT_WIDTH_CLASS}`}>
-            {children}
+            {/* シークレット断片の中身を描く MarkdownView の受け渡し
+                (components/secret/SecretMarkdown.tsx)。DOM は持たない */}
+            <SecretMarkdownProvider>{children}</SecretMarkdownProvider>
           </main>
           {/* 下部バー。中身はノート編集中の編集ボタン (portal) だけで、差し込む
               側がいなければ自身を描かない。戻る/進むはヘッダーへ移した */}
