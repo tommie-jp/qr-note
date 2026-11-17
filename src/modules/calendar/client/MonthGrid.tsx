@@ -1,5 +1,6 @@
 "use client";
 
+import type { CalendarPrefs } from "../event/calendarPrefs";
 import { dayProgress, type DayProgress } from "../event/dayProgress";
 import { holidayName } from "../event/holidays";
 import type { DayEvent } from "../event/monthLayout";
@@ -96,6 +97,99 @@ export function WeekdayHeader() {
   );
 }
 
+// マスの中の予定 (入るだけ)
+function CellEvents({ events, prefs }: { events: readonly DayEvent[]; prefs: CalendarPrefs }) {
+  return (
+    <>
+      {events.map((event) => {
+        const color = eventColor(event, prefs);
+        return (
+          <span
+            key={event.itemId}
+            style={color.style}
+            // 色は優先度 (高い 赤・標準 橙・低い 緑)。済みは灰に取り消し線
+            // (日の中では最後に並ぶ。eventsByDay)
+            data-priority={event.priority ?? "normal"}
+            // はみ出した題名は「…」を付けずに切る (docs/126 §1-22。狭いマスでは
+            // … が 1 文字ぶんを食い、読める字が減る)
+            className={`shrink-0 overflow-hidden rounded-sm px-0.5 leading-5 whitespace-nowrap ${EVENT_SIZE_CLASS[prefs.eventSize]} ${color.className} ${
+              event.done ? "line-through" : ""
+            }`}
+          >
+            {event.title || "(無題)"}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+interface DayCellProps {
+  day: string;
+  // マス目の中の位置 (0 始まり。7 で割った余りが曜日の列)
+  index: number;
+  month: string;
+  events: readonly DayEvent[];
+  today: string;
+  selected: string | null;
+  prefs: CalendarPrefs;
+  height: number;
+  onSelect: (day: string, cell: HTMLElement) => void;
+}
+
+// 1 日のマス
+function DayCell({ day, index, month, events, today, selected, prefs, height, onSelect }: DayCellProps) {
+  const inMonth = day.startsWith(month);
+  const isToday = day === today;
+  const isSelected = day === selected;
+  const dayNumber = Number(day.slice(8));
+  // 土日・祝日・休日はマスを薄いピンクにする (docs/126 §1-9)
+  const holiday = holidayName(day);
+  const isWeekend = index % 7 >= 5;
+  const eventLines = prefs.eventsPerDay - (holiday === null ? 0 : 1);
+  const hidden = events.length - eventLines;
+  const progress = dayProgress(events);
+  return (
+    <button
+      type="button"
+      role="gridcell"
+      aria-selected={isSelected}
+      aria-haspopup="dialog"
+      aria-expanded={isSelected}
+      aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日${holiday === null ? "" : ` ${holiday}`} ${events.length} 件${progressLabel(progress)}`}
+      data-day={day}
+      data-holiday={holiday ?? undefined}
+      onClick={(event) => onSelect(day, event.currentTarget)}
+      style={{ height }}
+      // data-drop-target … 日の一覧の ︙ をこのマスへドラッグ中 (DayEventList が付け外しする)
+      className={`relative flex min-w-0 flex-col items-stretch gap-px overflow-hidden border-r border-b border-gray-200 text-left align-top hover:brightness-95 data-drop-target:ring-4 data-drop-target:ring-blue-500 data-drop-target:ring-inset ${
+        holiday !== null || isWeekend ? "bg-pink-50" : "bg-white"
+      }`}
+    >
+      {/* 日付の帯。今日は緑、選んだ日は黄 (SaiSuke2 と同じ) */}
+      <span
+        className={`flex shrink-0 items-center justify-between gap-0.5 px-1 leading-6 ${DATE_SIZE_CLASS[prefs.dateSize]} ${
+          isSelected ? "bg-yellow-200" : isToday ? "bg-green-300" : ""
+        } ${inMonth ? "text-gray-900" : "text-gray-400"}`}
+      >
+        {dayNumber}
+        <ProgressMark progress={progress} />
+      </span>
+      {holiday !== null && (
+        <span className="shrink-0 truncate px-0.5 text-sm leading-5 text-gray-900">
+          {holiday}
+        </span>
+      )}
+      <CellEvents events={events.slice(0, eventLines)} prefs={prefs} />
+      {hidden > 0 && (
+        <span className="absolute right-0 bottom-0 rounded-tl-sm bg-gray-600/80 px-0.5 text-[0.625rem] leading-3 text-white">
+          +{hidden}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function MonthGrid({
   month,
   days,
@@ -121,77 +215,20 @@ export function MonthGrid({
         role="grid"
         aria-label={`${month} の予定`}
       >
-        {days.map((day, i) => {
-          const events = byDay.get(day) ?? [];
-          const inMonth = day.startsWith(month);
-          const isToday = day === today;
-          const isSelected = day === selected;
-          const dayNumber = Number(day.slice(8));
-          // 土日・祝日・休日はマスを薄いピンクにする (docs/126 §1-9)
-          const holiday = holidayName(day);
-          const isWeekend = i % 7 >= 5;
-          const eventLines = prefs.eventsPerDay - (holiday === null ? 0 : 1);
-          const hidden = events.length - eventLines;
-          const progress = dayProgress(events);
-          return (
-            <button
-              key={day}
-              type="button"
-              role="gridcell"
-              aria-selected={isSelected}
-              aria-haspopup="dialog"
-              aria-expanded={isSelected}
-              aria-label={`${Number(day.slice(5, 7))}月${dayNumber}日${holiday === null ? "" : ` ${holiday}`} ${events.length} 件${progressLabel(progress)}`}
-              data-day={day}
-              data-holiday={holiday ?? undefined}
-              onClick={(event) => onSelect(day, event.currentTarget)}
-              style={{ height }}
-              // data-drop-target … 日の一覧の ︙ をこのマスへドラッグ中 (DayEventList が付け外しする)
-              className={`relative flex min-w-0 flex-col items-stretch gap-px overflow-hidden border-r border-b border-gray-200 text-left align-top hover:brightness-95 data-drop-target:ring-4 data-drop-target:ring-blue-500 data-drop-target:ring-inset ${
-                holiday !== null || isWeekend ? "bg-pink-50" : "bg-white"
-              }`}
-            >
-              {/* 日付の帯。今日は緑、選んだ日は黄 (SaiSuke2 と同じ) */}
-              <span
-                className={`flex shrink-0 items-center justify-between gap-0.5 px-1 leading-6 ${DATE_SIZE_CLASS[prefs.dateSize]} ${
-                  isSelected ? "bg-yellow-200" : isToday ? "bg-green-300" : ""
-                } ${inMonth ? "text-gray-900" : "text-gray-400"}`}
-              >
-                {dayNumber}
-                <ProgressMark progress={progress} />
-              </span>
-              {holiday !== null && (
-                <span className="shrink-0 truncate px-0.5 text-sm leading-5 text-gray-900">
-                  {holiday}
-                </span>
-              )}
-              {events.slice(0, eventLines).map((event) => {
-                const color = eventColor(event, prefs);
-                return (
-                  <span
-                    key={event.itemId}
-                    style={color.style}
-                    // 色は優先度 (高い 赤・標準 橙・低い 緑)。済みは灰に取り消し線
-                    // (日の中では最後に並ぶ。eventsByDay)
-                    data-priority={event.priority ?? "normal"}
-                    // はみ出した題名は「…」を付けずに切る (docs/126 §1-22。狭いマスでは
-                    // … が 1 文字ぶんを食い、読める字が減る)
-                    className={`shrink-0 overflow-hidden rounded-sm px-0.5 leading-5 whitespace-nowrap ${EVENT_SIZE_CLASS[prefs.eventSize]} ${color.className} ${
-                      event.done ? "line-through" : ""
-                    }`}
-                  >
-                    {event.title || "(無題)"}
-                  </span>
-                );
-              })}
-              {hidden > 0 && (
-                <span className="absolute right-0 bottom-0 rounded-tl-sm bg-gray-600/80 px-0.5 text-[0.625rem] leading-3 text-white">
-                  +{hidden}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {days.map((day, i) => (
+          <DayCell
+            key={day}
+            day={day}
+            index={i}
+            month={month}
+            events={byDay.get(day) ?? []}
+            today={today}
+            selected={selected}
+            prefs={prefs}
+            height={height}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
     </div>
   );
