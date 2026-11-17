@@ -66,7 +66,7 @@
     "html-url-attributes": "^3.0.1",
     "katex": "^0.16.47",
     "logic-fence": "file:vendor/logic-fence-0.2.0.tgz",
-    "mdast-util-directive": "^3.1.1",
+    "mdast-util-directive": "^3.2.0",
     "mdast-util-gfm-footnote": "^2.1.0",
     "mermaid": "^12.3.0",
     "micromark-extension-directive": "^4.0.0",
