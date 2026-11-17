@@ -15,6 +15,7 @@ import { ACTION_LINK_CLASS, CONTENT_WIDTH_CLASS } from "@/components/ui";
 import {
   keepsNoteOpen,
   notePaneLayout,
+  type PaneMode,
 } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
 import { shownPaneItemId } from "@/components/panes/shownItemId";
@@ -41,27 +42,66 @@ interface PreviewPaneProps {
   children: ReactNode;
 }
 
-// 検索 3 ペインの右下、選択したノートの器 (docs/86 §4)。
-//
-// 中身 (ItemView) は components/item/ItemDetail.tsx が入れる。器の畳み方は
-// ペイン構成で決まり、画面幅には依らない (docs/86 §4-9, §4-16):
-//
-//   3 / 2 … 画面下部に固定し、中で独立にスクロールする。高さは
-//           --preview-pane-h (globals.css)。一覧の底上げ padding と
-//           必ず同じ変数で動かす。
-//   1     … 全画面のオーバーレイ (ヘッダーの下から)。「従来の画面遷移と
-//           同じ見た目」として描く。
-export function PreviewPane({
-  bgClass,
-  itemId,
-  source = "detail",
+// 操作行の右の札に足す「全画面で開く」と「閉じる」
+function PaneChromeEnd({
   openHref,
-  children,
-}: PreviewPaneProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { mode, setDetailItemId, setAutoItemId } = usePaneMode();
+  isBottomPane,
+  onClose,
+}: {
+  openHref: string | undefined;
+  isBottomPane: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {openHref &&
+        (isBottomPane ? (
+          <PressTip label="全画面で開く">
+            <a
+              href={openHref}
+              aria-label="全画面で開く"
+              // ACTION_LINK_CLASS の rounded と rounded-full は同じ
+              // プロパティで競るので、絵だけの輪はここで組む
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-blue-600 transition-colors active:bg-blue-50"
+            >
+              <OpenFullIcon />
+            </a>
+          </PressTip>
+        ) : (
+          <a href={openHref} className={ACTION_LINK_CLASS}>
+            全画面で開く
+          </a>
+        ))}
+      {!isBottomPane && (
+        <button
+          type="button"
+          onClick={onClose}
+          className={ACTION_LINK_CLASS}
+        >
+          <ClearIcon />
+          閉じる
+        </button>
+      )}
+    </>
+  );
+}
 
+// ペインを出すか。出しているノートの番号を context へ知らせる (docs/86 §4-4)
+function usePaneVisibility({
+  pathname,
+  mode,
+  itemId,
+  source,
+  setDetailItemId,
+  setAutoItemId,
+}: {
+  pathname: string;
+  mode: PaneMode;
+  itemId: string | undefined;
+  source: "detail" | "auto";
+  setDetailItemId: (itemId: string | null) => void;
+  setAutoItemId: (itemId: string | null) => void;
+}): boolean {
   // 「URL が正」(docs/11 §3) をペインにも通す: /item/<番号> に居ないなら
   // 描かない (判定は itemIdFromPathname で一覧のハイライトと共有)。
   // スロットの中身は「合わない URL へのソフト遷移では残る」仕様なので
@@ -96,21 +136,21 @@ export function PreviewPane({
       setAutoItemId(shown);
     }
   }, [shown, source, setDetailItemId, setAutoItemId]);
+  return visible;
+}
 
-  if (!visible) {
-    return null;
-  }
+type PaneBoxProps = Omit<PreviewPaneProps, "source"> & {
+  source: "detail" | "auto";
+  // 下部のペインか全画面か
+  layout: ReturnType<typeof notePaneLayout>;
+  onClose: () => void;
+};
 
-  // 器の畳み方は構成が決める (docs/86 §4-9)。3 / 2 ペインは幅に関係なく
-  // 下部のペイン、1 ペインは常に全画面
-  const layout = notePaneLayout(mode);
+// ペインの器 (操作行と本文)
+function PaneBox({ bgClass, itemId, source, layout, openHref, onClose, children }: PaneBoxProps) {
   const isBottomPane = layout !== "fullscreen";
-
   return (
     <>
-      {/* 上端の境界をドラッグして高さを変える (docs/86 §4-2)。帯は z-20 で
-          ペインの上に出る。全画面のときは動かす境界が無いので出さない */}
-      {isBottomPane && <PaneResizer kind="preview" />}
       {/* data-preview-pane … 一覧 (main) の底を上げるフック (globals.css の
           body:has)。**下部ペインのときだけ付ける** — 全画面のときに付けると、
           隠れている一覧が意味もなく縮む。
@@ -165,38 +205,7 @@ export function PreviewPane({
             // 下部ペインでは絵だけ (⋯ と同じ 44px の輪) にして札を小さく保つ。
             // 名前は aria-label と長押しの吹き出し (PressTip) が言う。全画面は
             // 場所があるので文字のまま
-            end={
-              <>
-                {openHref &&
-                  (isBottomPane ? (
-                    <PressTip label="全画面で開く">
-                      <a
-                        href={openHref}
-                        aria-label="全画面で開く"
-                        // ACTION_LINK_CLASS の rounded と rounded-full は同じ
-                        // プロパティで競るので、絵だけの輪はここで組む
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-blue-600 transition-colors active:bg-blue-50"
-                      >
-                        <OpenFullIcon />
-                      </a>
-                    </PressTip>
-                  ) : (
-                    <a href={openHref} className={ACTION_LINK_CLASS}>
-                      全画面で開く
-                    </a>
-                  ))}
-                {!isBottomPane && (
-                  <button
-                    type="button"
-                    onClick={() => router.back()}
-                    className={ACTION_LINK_CLASS}
-                  >
-                    <ClearIcon />
-                    閉じる
-                  </button>
-                )}
-              </>
-            }
+            end={<PaneChromeEnd openHref={openHref} isBottomPane={isBottomPane} onClose={onClose} />}
           />
           {/* pb-safe … 画面の下端に接する器 (全画面・下部バーの無い画面の
             下部ペイン) ではホームバーに潜らせない。
@@ -212,6 +221,57 @@ export function PreviewPane({
           </div>
         </section>
       </NoteChromeProvider>
+    </>
+  );
+}
+
+// 検索 3 ペインの右下、選択したノートの器 (docs/86 §4)。
+//
+// 中身 (ItemView) は components/item/ItemDetail.tsx が入れる。器の畳み方は
+// ペイン構成で決まり、画面幅には依らない (docs/86 §4-9, §4-16):
+//
+//   3 / 2 … 画面下部に固定し、中で独立にスクロールする。高さは
+//           --preview-pane-h (globals.css)。一覧の底上げ padding と
+//           必ず同じ変数で動かす。
+//   1     … 全画面のオーバーレイ (ヘッダーの下から)。「従来の画面遷移と
+//           同じ見た目」として描く。
+export function PreviewPane({
+  bgClass,
+  itemId,
+  source = "detail",
+  openHref,
+  children,
+}: PreviewPaneProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { mode, setDetailItemId, setAutoItemId } = usePaneMode();
+
+  const visible = usePaneVisibility({ pathname, mode, itemId, source, setDetailItemId, setAutoItemId });
+
+  if (!visible) {
+    return null;
+  }
+
+  // 器の畳み方は構成が決める (docs/86 §4-9)。3 / 2 ペインは幅に関係なく
+  // 下部のペイン、1 ペインは常に全画面
+  const layout = notePaneLayout(mode);
+  const isBottomPane = layout !== "fullscreen";
+
+  return (
+    <>
+      {/* 上端の境界をドラッグして高さを変える (docs/86 §4-2)。帯は z-20 で
+          ペインの上に出る。全画面のときは動かす境界が無いので出さない */}
+      {isBottomPane && <PaneResizer kind="preview" />}
+      <PaneBox
+        bgClass={bgClass}
+        itemId={itemId}
+        source={source}
+        layout={layout}
+        openHref={openHref}
+        onClose={() => router.back()}
+      >
+        {children}
+      </PaneBox>
     </>
   );
 }
