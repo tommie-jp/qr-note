@@ -38,6 +38,44 @@ export function isListScrollable(el: HTMLElement): boolean {
     : canScroll(root.scrollHeight, root.clientHeight);
 }
 
+// 一覧の大きさが変わるたびに onChange を呼ぶ見張りを付ける。戻り値で外す。
+// 付けた直後にも 1 度呼ばれる (ResizeObserver の初回の通知)
+function watchListSize(el: HTMLElement, content: HTMLElement, onChange: () => void): () => void {
+  // 器 (内側スクロールの高さ)・文書 (文書スクロールでは html の高さ =
+  // 中身の高さ)・一覧の中身 (特性表・行・目印) の大きさ。ResizeObserver の
+  // 通知はレイアウトの済んだ時点なので、そこで測っても強制にならない
+  const resize = new ResizeObserver(onChange);
+  const scroller = el.closest<HTMLElement>("[data-results-scroll]");
+  const observeAll = () => {
+    resize.disconnect();
+    resize.observe(document.documentElement);
+    if (scroller !== null) resize.observe(scroller);
+    for (const child of Array.from(content.children)) {
+      resize.observe(child);
+    }
+  };
+  // 一覧の要素が差し替わったら (表示モードで器の要素が替わる) 見張り直す
+  const mutation = new MutationObserver(observeAll);
+  mutation.observe(content, { childList: true });
+  observeAll();
+  // 文書スクロールで画面の高さだけが変わった分は上の見張りに出ないので
+  // resize で拾う。ドラッグ中は毎フレーム届くので、描画の後に 1 回にまとめる
+  let cancelResize: (() => void) | undefined;
+  const onResize = () => {
+    cancelResize ??= afterNextPaint(() => {
+      cancelResize = undefined;
+      onChange();
+    });
+  };
+  window.addEventListener("resize", onResize);
+  return () => {
+    resize.disconnect();
+    mutation.disconnect();
+    window.removeEventListener("resize", onResize);
+    cancelResize?.();
+  };
+}
+
 interface Measured {
   key: string;
   fits: boolean;
@@ -64,45 +102,12 @@ export function useFitsInScroller(
     // 測り始めるのは描画の後。scrollRootOf の getComputedStyle を描画の直後に
     // 読むと、スタイルを前倒しで強制し検索結果の最初の 1 枚を遅らせる (docs/122 §10-2)
     const cancel = afterNextPaint(() => {
-      const measure = () => {
+      detach = watchListSize(el, content, () => {
         const fits = !isListScrollable(el);
         setMeasured((prev) =>
           prev?.key === key && prev.fits === fits ? prev : { key, fits },
         );
-      };
-      // 器 (内側スクロールの高さ)・文書 (文書スクロールでは html の高さ =
-      // 中身の高さ)・一覧の中身 (特性表・行・目印) の大きさ。ResizeObserver の
-      // 通知はレイアウトの済んだ時点なので、そこで測っても強制にならない
-      const resize = new ResizeObserver(measure);
-      const scroller = el.closest<HTMLElement>("[data-results-scroll]");
-      const observeAll = () => {
-        resize.disconnect();
-        resize.observe(document.documentElement);
-        if (scroller !== null) resize.observe(scroller);
-        for (const child of Array.from(content.children)) {
-          resize.observe(child);
-        }
-      };
-      // 一覧の要素が差し替わったら (表示モードで器の要素が替わる) 見張り直す
-      const mutation = new MutationObserver(observeAll);
-      mutation.observe(content, { childList: true });
-      observeAll();
-      // 文書スクロールで画面の高さだけが変わった分は上の見張りに出ないので
-      // resize で拾う。ドラッグ中は毎フレーム届くので、描画の後に 1 回にまとめる
-      let cancelResize: (() => void) | undefined;
-      const onResize = () => {
-        cancelResize ??= afterNextPaint(() => {
-          cancelResize = undefined;
-          measure();
-        });
-      };
-      window.addEventListener("resize", onResize);
-      detach = () => {
-        resize.disconnect();
-        mutation.disconnect();
-        window.removeEventListener("resize", onResize);
-        cancelResize?.();
-      };
+      });
     });
     return () => {
       cancel();

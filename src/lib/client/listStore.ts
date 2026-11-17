@@ -184,6 +184,27 @@ function deferLoadMore(key: ListKey): void {
   })
 }
 
+// 届いた続きのページを一覧に足す。fromPage … 頼んだ時点で読み終えていたページ。
+//
+// 待つ間に書き込みで古くなった (取り直しが走っている) なら足さない。
+// ここで set すると取り直しを打ち消し、古い一覧を新しいことにしてしまう
+function appendPage(key: ListKey, fromPage: number, next: Awaited<ReturnType<typeof fetchPage>>): void {
+  const latestEntry = listCache.peek(key)
+  const latest = latestEntry?.value
+  if (latest === undefined || latest.page !== fromPage || latestEntry?.stale || latestEntry?.loading) {
+    return
+  }
+  const seen = new Set(latest.items.map((item) => item.itemId))
+  listCache.set(key, {
+    ...latest,
+    items: [...latest.items, ...next.items.filter((dto) => !seen.has(dto.itemId)).map(reviveItem)],
+    total: next.total,
+    page: next.page,
+    pageCount: next.pageCount,
+    circuitThumbs: { ...latest.circuitThumbs, ...next.circuitThumbs },
+  })
+}
+
 export function loadMore(key: ListKey): Promise<void> {
   const id = listKeyOf(key)
   const running = loadingMore.get(id)
@@ -195,7 +216,7 @@ export function loadMore(key: ListKey): Promise<void> {
     return Promise.resolve()
   }
   if (currentEntry === undefined || currentEntry.stale || currentEntry.loading) {
-    // 取り直しの最中に足すと打ち消し合う (下の then の注) ので、いまは読まない。
+    // 取り直しの最中に足すと打ち消し合う (appendPage の注) ので、いまは読まない。
     // ただし頼みは捨てずに、取り直し (値の無い鍵なら最初の読み込み) が済んで
     // から読む (deferLoadMore)
     deferLoadMore(key)
@@ -206,29 +227,7 @@ export function loadMore(key: ListKey): Promise<void> {
     return Promise.resolve()
   }
   const promise = fetchPage(key, current.page + 1)
-    .then((next) => {
-      // 待つ間に書き込みで古くなった (取り直しが走っている) なら足さない。
-      // ここで set すると取り直しを打ち消し、古い一覧を新しいことにしてしまう
-      const latestEntry = listCache.peek(key)
-      const latest = latestEntry?.value
-      if (
-        latest === undefined ||
-        latest.page !== current.page ||
-        latestEntry?.stale ||
-        latestEntry?.loading
-      ) {
-        return
-      }
-      const seen = new Set(latest.items.map((item) => item.itemId))
-      listCache.set(key, {
-        ...latest,
-        items: [...latest.items, ...next.items.filter((dto) => !seen.has(dto.itemId)).map(reviveItem)],
-        total: next.total,
-        page: next.page,
-        pageCount: next.pageCount,
-        circuitThumbs: { ...latest.circuitThumbs, ...next.circuitThumbs },
-      })
-    })
+    .then((next) => appendPage(key, current.page, next))
     .catch((error: unknown) => {
       loadMoreFailed.add(id)
       throw error
