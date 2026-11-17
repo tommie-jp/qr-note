@@ -61,7 +61,7 @@
     "fflate": "^0.8.3",
     "fix-webm-duration": "^1.0.6",
     "graph-fence": "file:vendor/graph-fence-0.3.0.tgz",
-    "hast-util-to-jsx-runtime": "^2.3.6",
+    "hast-util-to-jsx-runtime": "^2.3.7",
     "heic-decode": "^2.1.0",
     "html-url-attributes": "^3.0.1",
     "katex": "^0.16.47",
