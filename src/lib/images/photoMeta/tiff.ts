@@ -9,6 +9,8 @@
 // 「何も無い」を返す — 呼ぶ側は EXIF の区画を丸ごと落とすので、読めなくても
 // 漏れることはない (向きが失われるだけ)。
 
+import type { MetaKind } from './types'
+
 const TAG_ORIENTATION = 0x0112
 const TAG_MAKE = 0x010f
 const TAG_MODEL = 0x0110
@@ -99,19 +101,25 @@ function readOrientationValue(reader: Reader, entry: IfdEntry | undefined): numb
   return value >= 1 && value <= 8 ? value : null
 }
 
-export function readExifFacts(tiff: Uint8Array): ExifFacts {
+// TIFF のヘッダ (並び・42) を確かめて読み手を作る。読めなければ null
+function openTiff(tiff: Uint8Array): Reader | null {
   if (tiff.byteLength < 8) {
-    return NOTHING
+    return null
   }
   const order = String.fromCharCode(tiff[0], tiff[1])
   if (order !== 'II' && order !== 'MM') {
-    return NOTHING
+    return null
   }
   const reader: Reader = {
     view: new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength),
     little: order === 'II',
   }
-  if (reader.view.getUint16(2, reader.little) !== 42) {
+  return reader.view.getUint16(2, reader.little) === 42 ? reader : null
+}
+
+export function readExifFacts(tiff: Uint8Array): ExifFacts {
+  const reader = openTiff(tiff)
+  if (!reader) {
     return NOTHING
   }
   const ifd0Offset = reader.view.getUint32(4, reader.little)
@@ -138,6 +146,15 @@ export function readExifFacts(tiff: Uint8Array): ExifFacts {
       ifd0.has(TAG_ORIENTATION) &&
       nextIfdOffset(reader, ifd0Offset, ifd0.size) === 0,
   }
+}
+
+// EXIF の区画を落としたときに、抜いた情報の種類を記録する (PNG・JPEG・WebP 共通)。
+// 向きだけの EXIF (書き戻したもの) は 'exif' に数えない
+export function recordExifFacts(removed: Set<MetaKind>, facts: ExifFacts): void {
+  if (facts.gps) removed.add('gps')
+  if (facts.datetime) removed.add('datetime')
+  if (facts.camera) removed.add('camera')
+  if (!facts.onlyOrientation) removed.add('exif')
 }
 
 // 向き (1〜8) だけを持つ TIFF。26 バイト固定 (§3-7)。

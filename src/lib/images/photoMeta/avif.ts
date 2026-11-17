@@ -226,6 +226,28 @@ function exifFacts(data: Uint8Array) {
   return readExifFacts(data.subarray(Math.min(4 + skip, data.byteLength)))
 }
 
+// アイテムの中身 1 区間を 0 で塗り、抜いた種類を記録する。消し済み (全部 0) なら何もしない
+function eraseExtent(
+  input: Uint8Array,
+  out: Uint8Array,
+  { offset, length }: Extent,
+  kind: MetaKind,
+  removed: Set<MetaKind>,
+): void {
+  const data = input.subarray(offset, offset + length)
+  if (data.every((byte) => byte === 0)) {
+    return // 消し済み
+  }
+  removed.add(kind)
+  if (kind === 'exif') {
+    const facts = exifFacts(data)
+    if (facts?.gps) removed.add('gps')
+    if (facts?.datetime) removed.add('datetime')
+    if (facts?.camera) removed.add('camera')
+  }
+  out.fill(0, offset, offset + length)
+}
+
 export function stripAvif(input: Uint8Array<ArrayBuffer>): StripOutcome {
   const view = new DataView(input.buffer, input.byteOffset, input.byteLength)
   const meta = boxesIn(view, input, 0, input.byteLength).find((box) => box.type === 'meta')
@@ -255,19 +277,8 @@ export function stripAvif(input: Uint8Array<ArrayBuffer>): StripOutcome {
     if (!location) {
       throw new PhotoMetaFormatError(`アイテム ${id} の位置がありません`)
     }
-    for (const { offset, length } of extentRanges(location, idat, input.byteLength)) {
-      const data = input.subarray(offset, offset + length)
-      if (data.every((byte) => byte === 0)) {
-        continue // 消し済み
-      }
-      removed.add(kind)
-      if (kind === 'exif') {
-        const facts = exifFacts(data)
-        if (facts?.gps) removed.add('gps')
-        if (facts?.datetime) removed.add('datetime')
-        if (facts?.camera) removed.add('camera')
-      }
-      out.fill(0, offset, offset + length)
+    for (const extent of extentRanges(location, idat, input.byteLength)) {
+      eraseExtent(input, out, extent, kind, removed)
     }
   }
   return outcome(input, [out], removed)

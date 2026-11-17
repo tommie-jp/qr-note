@@ -60,6 +60,35 @@ function extensionKind(input: Uint8Array, at: number): MetaKind | null {
   return 'other'
 }
 
+// 拡張 1 つを読み、残すものなら parts に積む。次の区画の位置を返す
+function takeExtension(
+  input: Uint8Array,
+  at: number,
+  parts: Uint8Array[],
+  removed: Set<MetaKind>,
+): number {
+  const end = skipSubBlocks(input, at + 2)
+  const kind = extensionKind(input, at)
+  if (kind === null) {
+    pushSlice(parts, input, at, end)
+  } else {
+    removed.add(kind)
+  }
+  return end
+}
+
+// 画像 1 つを読んで parts に積む。次の区画の位置を返す
+function takeImage(input: Uint8Array, at: number, parts: Uint8Array[]): number {
+  if (at + 10 > input.byteLength) {
+    throw new PhotoMetaFormatError('画像の記述が途中で終わっています')
+  }
+  // 画像の記述(10) + 局所の色表 + LZW の最小符号長(1) の後に小区画
+  const dataAt = at + 10 + colorTableSize(input[at + 9]) + 1
+  const end = skipSubBlocks(input, dataAt)
+  pushSlice(parts, input, at, end)
+  return end
+}
+
 export function stripGif(input: Uint8Array<ArrayBuffer>): StripOutcome {
   if (!hasAsciiPrefix(input, 'GIF87a') && !hasAsciiPrefix(input, 'GIF89a')) {
     throw new PhotoMetaFormatError('GIF の署名がありません')
@@ -85,25 +114,11 @@ export function stripGif(input: Uint8Array<ArrayBuffer>): StripOutcome {
       break
     }
     if (introducer === EXTENSION) {
-      const end = skipSubBlocks(input, at + 2)
-      const kind = extensionKind(input, at)
-      if (kind === null) {
-        pushSlice(parts, input, at, end)
-      } else {
-        removed.add(kind)
-      }
-      at = end
+      at = takeExtension(input, at, parts, removed)
       continue
     }
     if (introducer === IMAGE) {
-      if (at + 10 > input.byteLength) {
-        throw new PhotoMetaFormatError('画像の記述が途中で終わっています')
-      }
-      // 画像の記述(10) + 局所の色表 + LZW の最小符号長(1) の後に小区画
-      const dataAt = at + 10 + colorTableSize(input[at + 9]) + 1
-      const end = skipSubBlocks(input, dataAt)
-      pushSlice(parts, input, at, end)
-      at = end
+      at = takeImage(input, at, parts)
       continue
     }
     throw new PhotoMetaFormatError(`知らない区画の印です (0x${introducer.toString(16)})`)

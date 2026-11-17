@@ -13,6 +13,7 @@ import {
   minimalExifTiff,
   needsOrientation,
   readExifFacts,
+  recordExifFacts,
   withExifHeader,
   withoutExifHeader,
 } from './tiff'
@@ -53,6 +54,48 @@ function withFlags(vp8x: Uint8Array, addExif: boolean): Uint8Array<ArrayBuffer> 
   return copy
 }
 
+// 区画を読み進める間の状態。chunks と removed は stripWebp が持ち、ここで積む
+interface WebpScan {
+  readonly chunks: Uint8Array[]
+  readonly removed: Set<MetaKind>
+  orientation: number | null
+  vp8xIndex: number
+  hasImage: boolean
+}
+
+// 区画 1 つを振り分ける。EXIF・XMP は落とし、他は残す
+function takeChunk(scan: WebpScan, fourcc: string, data: Uint8Array, chunk: Uint8Array): void {
+  if (fourcc === 'EXIF') {
+    const facts = readExifFacts(withoutExifHeader(data))
+    scan.orientation ??= facts.orientation
+    recordExifFacts(scan.removed, facts)
+  } else if (fourcc === 'XMP ') {
+    scan.removed.add('xmp')
+  } else {
+    if (fourcc === 'VP8X' && scan.vp8xIndex === -1) {
+      scan.vp8xIndex = scan.chunks.length
+    }
+    scan.hasImage ||= IMAGE_CHUNKS.has(fourcc)
+    scan.chunks.push(chunk)
+  }
+}
+
+function scanChunks(scan: WebpScan, input: Uint8Array, view: DataView, riffEnd: number): void {
+  let at = 12
+  while (at + 8 <= riffEnd) {
+    const fourcc = LATIN1.decode(input.subarray(at, at + 4))
+    const size = view.getUint32(at + 4, true)
+    const dataEnd = at + 8 + size
+    if (dataEnd > riffEnd) {
+      throw new PhotoMetaFormatError(`区画の長さが RIFF の外へ出ています (${fourcc})`)
+    }
+    // 奇数長の詰め物。最後の区画で詰め物を省く書き手もいるので RIFF の端で止める
+    const end = Math.min(dataEnd + (size & 1), riffEnd)
+    takeChunk(scan, fourcc, input.subarray(at + 8, dataEnd), input.subarray(at, end))
+    at = end
+  }
+}
+
 export function stripWebp(input: Uint8Array<ArrayBuffer>): StripOutcome {
   if (!hasAsciiPrefix(input, 'RIFF') || !hasAsciiPrefix(input, 'WEBP', 8)) {
     throw new PhotoMetaFormatError('WebP (RIFF / WEBP) の印がありません')
@@ -63,44 +106,17 @@ export function stripWebp(input: Uint8Array<ArrayBuffer>): StripOutcome {
     throw new PhotoMetaFormatError('RIFF の長さが末尾を越えています')
   }
 
-  const chunks: Uint8Array[] = []
-  const removed = new Set<MetaKind>()
-  let orientation: number | null = null
-  let vp8xIndex = -1
-  let hasImage = false
-  let at = 12
-
-  while (at + 8 <= riffEnd) {
-    const fourcc = LATIN1.decode(input.subarray(at, at + 4))
-    const size = view.getUint32(at + 4, true)
-    const dataEnd = at + 8 + size
-    if (dataEnd > riffEnd) {
-      throw new PhotoMetaFormatError(`区画の長さが RIFF の外へ出ています (${fourcc})`)
-    }
-    // 奇数長の詰め物。最後の区画で詰め物を省く書き手もいるので RIFF の端で止める
-    const end = Math.min(dataEnd + (size & 1), riffEnd)
-    const data = input.subarray(at + 8, dataEnd)
-
-    if (fourcc === 'EXIF') {
-      const facts = readExifFacts(withoutExifHeader(data))
-      orientation ??= facts.orientation
-      if (facts.gps) removed.add('gps')
-      if (facts.datetime) removed.add('datetime')
-      if (facts.camera) removed.add('camera')
-      if (!facts.onlyOrientation) removed.add('exif')
-    } else if (fourcc === 'XMP ') {
-      removed.add('xmp')
-    } else {
-      if (fourcc === 'VP8X' && vp8xIndex === -1) {
-        vp8xIndex = chunks.length
-      }
-      hasImage ||= IMAGE_CHUNKS.has(fourcc)
-      chunks.push(input.subarray(at, end))
-    }
-    at = end
+  const scan: WebpScan = {
+    chunks: [],
+    removed: new Set<MetaKind>(),
+    orientation: null,
+    vp8xIndex: -1,
+    hasImage: false,
   }
+  scanChunks(scan, input, view, riffEnd)
+  const { chunks, removed, orientation, vp8xIndex } = scan
 
-  if (!hasImage) {
+  if (!scan.hasImage) {
     throw new PhotoMetaFormatError('画像の区画 (VP8 / VP8L / ANMF) がありません')
   }
   if (riffEnd < input.byteLength) {

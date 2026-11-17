@@ -14,6 +14,7 @@ import {
   minimalExifTiff,
   needsOrientation,
   readExifFacts,
+  recordExifFacts,
   withExifHeader,
   withoutExifHeader,
 } from './tiff'
@@ -110,10 +111,7 @@ function dropApp1(payload: Uint8Array, collected: Collected): void {
   if (hasAsciiPrefix(payload, 'Exif\0\0')) {
     const facts = readExifFacts(withoutExifHeader(payload))
     collected.orientation ??= facts.orientation
-    if (facts.gps) collected.removed.add('gps')
-    if (facts.datetime) collected.removed.add('datetime')
-    if (facts.camera) collected.removed.add('camera')
-    if (!facts.onlyOrientation) collected.removed.add('exif')
+    recordExifFacts(collected.removed, facts)
     return
   }
   collected.removed.add(XMP_IDS.some((id) => hasAsciiPrefix(payload, id)) ? 'xmp' : 'other')
@@ -151,70 +149,105 @@ function keepSegment(marker: number, payload: Uint8Array, collected: Collected):
   return null
 }
 
-export function stripJpeg(input: Uint8Array<ArrayBuffer>): StripOutcome {
-  if (input.byteLength < 4 || input[0] !== 0xff || input[1] !== SOI) {
-    throw new PhotoMetaFormatError('JPEG の先頭 (SOI) がありません')
-  }
-  const parts: Uint8Array[] = [input.subarray(0, 2)]
-  const collected: Collected = { removed: new Set(), orientation: null }
+// 区画を読み進める間の状態。parts と collected は stripJpeg が持ち、ここで積む
+interface JpegScan {
+  readonly input: Uint8Array<ArrayBuffer>
+  readonly parts: Uint8Array[]
+  readonly collected: Collected
   // 最小 EXIF を差し込む位置 (parts の添字)。SOI の直後、先頭が JFIF ならその直後
-  let exifAt = 1
-  let seenScan = false
-  let at = 2
+  exifAt: number
+  seenScan: boolean
+}
 
+// 区画の印 (0xFF) の位置。前に詰め物の 0xFF が続いていれば読み飛ばす
+function markerStart(input: Uint8Array, at: number): number {
+  if (input[at] !== 0xff) {
+    throw new PhotoMetaFormatError(`区画の境目に 0xFF がありません (${at})`)
+  }
+  let markerAt = at
+  while (markerAt + 1 < input.byteLength && input[markerAt + 1] === 0xff) {
+    markerAt++ // 区画の前の詰め物
+  }
+  return markerAt
+}
+
+// 長さを持つ区画の終わりの位置
+function segmentEnd(input: Uint8Array, markerAt: number): number {
+  if (markerAt + 4 > input.byteLength) {
+    throw new PhotoMetaFormatError('区画の長さが読めません')
+  }
+  const length = (input[markerAt + 2] << 8) | input[markerAt + 3]
+  const end = markerAt + 2 + length
+  if (length < 2 || end > input.byteLength) {
+    throw new PhotoMetaFormatError(`区画の長さが不正です (${length})`)
+  }
+  return end
+}
+
+function keepJpegSegment(scan: JpegScan, marker: number, markerAt: number, end: number): void {
+  const { input, parts } = scan
+  const kept = keepSegment(marker, input.subarray(markerAt + 4, end), scan.collected)
+  if (kept === null) {
+    return
+  }
+  if (kept === 'keep') {
+    pushSlice(parts, input, markerAt, end)
+  } else {
+    parts.push(kept)
+  }
+  if (marker === APP0 && parts.length === 2) {
+    scan.exifAt = 2
+  }
+}
+
+// EOI (か末尾) まで区画を読み、読み終えた位置を返す
+function scanSegments(scan: JpegScan): number {
+  const { input, parts } = scan
+  let at = 2
   while (at < input.byteLength) {
-    if (input[at] !== 0xff) {
-      throw new PhotoMetaFormatError(`区画の境目に 0xFF がありません (${at})`)
-    }
-    let markerAt = at
-    while (markerAt + 1 < input.byteLength && input[markerAt + 1] === 0xff) {
-      markerAt++ // 区画の前の詰め物
-    }
+    const markerAt = markerStart(input, at)
     if (markerAt + 1 >= input.byteLength) {
       break
     }
     const marker = input[markerAt + 1]
     if (marker === EOI) {
       pushSlice(parts, input, markerAt, markerAt + 2)
-      at = markerAt + 2
-      break
+      return markerAt + 2
     }
     if (isStandalone(marker)) {
       pushSlice(parts, input, markerAt, markerAt + 2)
       at = markerAt + 2
       continue
     }
-    if (markerAt + 4 > input.byteLength) {
-      throw new PhotoMetaFormatError('区画の長さが読めません')
-    }
-    const length = (input[markerAt + 2] << 8) | input[markerAt + 3]
-    const end = markerAt + 2 + length
-    if (length < 2 || end > input.byteLength) {
-      throw new PhotoMetaFormatError(`区画の長さが不正です (${length})`)
-    }
-
-    const kept = keepSegment(marker, input.subarray(markerAt + 4, end), collected)
-    if (kept !== null) {
-      if (kept === 'keep') {
-        pushSlice(parts, input, markerAt, end)
-      } else {
-        parts.push(kept)
-      }
-      if (marker === APP0 && parts.length === 2) {
-        exifAt = 2
-      }
-    }
+    const end = segmentEnd(input, markerAt)
+    keepJpegSegment(scan, marker, markerAt, end)
     at = end
 
     if (marker === SOS) {
-      seenScan = true
+      scan.seenScan = true
       const next = nextMarkerAfterScan(input, at)
       pushSlice(parts, input, at, next)
       at = next
     }
   }
+  return at
+}
 
-  if (!seenScan) {
+export function stripJpeg(input: Uint8Array<ArrayBuffer>): StripOutcome {
+  if (input.byteLength < 4 || input[0] !== 0xff || input[1] !== SOI) {
+    throw new PhotoMetaFormatError('JPEG の先頭 (SOI) がありません')
+  }
+  const scan: JpegScan = {
+    input,
+    parts: [input.subarray(0, 2)],
+    collected: { removed: new Set(), orientation: null },
+    exifAt: 1,
+    seenScan: false,
+  }
+  const at = scanSegments(scan)
+  const { parts, collected, exifAt } = scan
+
+  if (!scan.seenScan) {
     throw new PhotoMetaFormatError('画素 (SOS) に届く前に終わっています')
   }
   if (at < input.byteLength) {
