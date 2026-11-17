@@ -13,11 +13,14 @@ import type { CircuitThumbMap } from '@/lib/circuit/types'
 import type { FolderTotals, TagCount } from '@/lib/items/read'
 import type { ViewMode } from '@/lib/prefs/viewMode'
 import type { Sort } from '@/lib/validation'
-import { apiGet } from './api'
+import { apiGet, apiGetIfChanged } from './api'
+import { waitForListHydration } from './listHydration'
+import { reviveReusing, sameElements, sameJson } from './listReuse'
+import { MAX_RANGE_PAGES } from '@/lib/api/searchParams'
 import { primeNotes } from './noteStore'
 import { useSyncExternalStore } from 'react'
 import { createNotifier } from '@/lib/prefs/externalStore'
-import { createResourceCache } from './resourceCache'
+import { createResourceCache, type ResourceCache } from './resourceCache'
 
 export interface ListKey {
   query: string
@@ -32,6 +35,10 @@ export interface ListValue {
   pageCount: number
   circuitThumbs: CircuitThumbMap
   extras: SearchExtras
+  // 1〜etagThrough ページをまとめて引いた応答の ETag (docs/129 §2)。続きを
+  // 足すと page が進んで合わなくなるので、取り直しは同じ範囲のときだけ添える
+  etag: string | null
+  etagThrough: number
 }
 
 export function listKeyOf({ query, sort, view }: ListKey): string {
@@ -45,9 +52,10 @@ interface PageResponse {
   total: number
   page: number
   pageCount: number
+  etag: string | null
 }
 
-function isThumbMap(value: unknown): value is CircuitThumbMap {
+export function isThumbMap(value: unknown): value is CircuitThumbMap {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -57,7 +65,7 @@ function isThumbMap(value: unknown): value is CircuitThumbMap {
   )
 }
 
-function isMeta(value: unknown): value is { total: number; page: number; pageCount: number } {
+export function isMeta(value: unknown): value is { total: number; page: number; pageCount: number } {
   if (typeof value !== 'object' || value === null) {
     return false
   }
@@ -65,19 +73,32 @@ function isMeta(value: unknown): value is { total: number; page: number; pageCou
   return [v.total, v.page, v.pageCount].every((n) => typeof n === 'number' && Number.isInteger(n))
 }
 
-async function fetchPage(key: ListKey, page: number, through = 1): Promise<PageResponse> {
+function pagePath(key: ListKey, page: number, through: number): string {
   const params = new URLSearchParams({
     q: key.query,
     sort: key.sort,
     view: key.view,
     page: String(page),
   })
-  if (through > 1) {
+  if (through > page) {
     params.set('through', String(through))
   }
-  const { data, meta } = await apiGet<Record<string, unknown>>(`/api/items?${params}`)
-  const { items, circuitThumbs, extras } = (data ?? {}) as Record<string, unknown>
-  if (!Array.isArray(items) || !items.every(isItemDto) || !isThumbMap(circuitThumbs) || !isMeta(meta)) {
+  return `/api/items?${params}`
+}
+
+// page〜through ページを引く。etag を渡して 304 が返れば null
+async function fetchPage(
+  key: ListKey,
+  page: number,
+  through = page,
+  etag: string | null = null,
+): Promise<PageResponse | null> {
+  const res = await apiGetIfChanged<Record<string, unknown>>(pagePath(key, page, through), etag)
+  if (res.notModified) {
+    return null
+  }
+  const { items, circuitThumbs, extras } = (res.data ?? {}) as Record<string, unknown>
+  if (!Array.isArray(items) || !items.every(isItemDto) || !isThumbMap(circuitThumbs) || !isMeta(res.meta)) {
     throw new Error('検索結果の形が違います')
   }
   primeNotes(items)
@@ -85,29 +106,56 @@ async function fetchPage(key: ListKey, page: number, through = 1): Promise<PageR
     items,
     circuitThumbs,
     extras: (extras ?? null) as SearchExtras | null,
-    ...meta,
+    ...res.meta,
+    etag: res.etag,
   }
 }
 
-export const listCache = createResourceCache<ListKey, ListValue>({
+// 取り直した 1〜N ページを値にする。変わっていないノートは前の物を使い回し、
+// 何も変わっていなければ前の値の中身をそのまま渡す (docs/129 §2)
+function toListValue(first: PageResponse, extras: SearchExtras, previous: ListValue | undefined): ListValue {
+  const items = reviveReusing(first.items, previous?.items)
+  const value: ListValue = {
+    items,
+    total: first.total,
+    page: first.page,
+    pageCount: first.pageCount,
+    circuitThumbs: first.circuitThumbs,
+    extras,
+    etag: first.etag,
+    etagThrough: first.page,
+  }
+  if (previous === undefined) {
+    return value
+  }
+  return {
+    ...value,
+    items: sameElements(items, previous.items) ? previous.items : items,
+    circuitThumbs: sameJson(first.circuitThumbs, previous.circuitThumbs) ? previous.circuitThumbs : first.circuitThumbs,
+    extras: sameJson(extras, previous.extras) ? previous.extras : extras,
+  }
+}
+
+export const listCache: ResourceCache<ListKey, ListValue> = createResourceCache<ListKey, ListValue>({
   keyOf: listKeyOf,
   maxEntries: 30,
-  async fetch(key) {
+  async fetch(key): Promise<ListValue> {
+    // 端末に残した控えを読み終えるのを少しだけ待つ。入っていれば ETag を添えられる
+    await waitForListHydration()
     // 読み進めた所まで 1 回で引き直す。書き込みの後の取り直しで一覧が
     // 1 ページ目に縮むと、スクロールの位置も見ていた行も失う
-    const through = listCache.peek(key)?.value?.page ?? 1
-    const first = await fetchPage(key, 1, through)
+    const previous: ListValue | undefined = listCache.peek(key)?.value
+    const through = previous?.page ?? 1
+    const etag = previous !== undefined && previous.etagThrough === through ? previous.etag : null
+    const first = await fetchPage(key, 1, through, etag)
+    if (first === null) {
+      // 304 … 前と同じ。値ごと使い回すので画面は描き直さない
+      return previous as ListValue
+    }
     if (first.extras === null) {
       throw new Error('検索結果の形が違います')
     }
-    return {
-      items: first.items.map(reviveItem),
-      total: first.total,
-      page: first.page,
-      pageCount: first.pageCount,
-      circuitThumbs: first.circuitThumbs,
-      extras: first.extras,
-    }
+    return toListValue(first, first.extras, listCache.peek(key)?.value ?? previous)
   },
 })
 
@@ -117,6 +165,9 @@ const loadingMore = new Map<string, Promise<void>>()
 // 失敗したら利用者が押すまで止める
 const loadMoreFailed = new Set<string>()
 const loadingMoreNotifier = createNotifier()
+// 読みたいと頼まれた最後のページ (鍵ごと)。読み込み中に枠が画面に入って
+// 先のページを頼まれたら、ここを伸ばし、今の読み込みが済んだら続けて読む
+const wantedThrough = new Map<string, number>()
 
 export function useLoadMoreFailed(key: ListKey): boolean {
   const id = listKeyOf(key)
@@ -180,7 +231,10 @@ function deferLoadMore(key: ListKey): void {
     if (entry?.value === undefined) {
       return
     }
-    void loadMore(key).catch((error: unknown) => console.warn('続きを読めませんでした', error))
+    // 少なくとも次のページ。値の無いうちに頼まれた「続き」は、届いた値の次になる
+    void loadThrough(key, Math.max(wantedThrough.get(id) ?? 0, entry.value.page + 1)).catch((error: unknown) =>
+      console.warn('続きを読めませんでした', error),
+    )
   })
 }
 
@@ -188,7 +242,7 @@ function deferLoadMore(key: ListKey): void {
 //
 // 待つ間に書き込みで古くなった (取り直しが走っている) なら足さない。
 // ここで set すると取り直しを打ち消し、古い一覧を新しいことにしてしまう
-function appendPage(key: ListKey, fromPage: number, next: Awaited<ReturnType<typeof fetchPage>>): void {
+function appendPage(key: ListKey, fromPage: number, next: PageResponse): void {
   const latestEntry = listCache.peek(key)
   const latest = latestEntry?.value
   if (latest === undefined || latest.page !== fromPage || latestEntry?.stale || latestEntry?.loading) {
@@ -197,7 +251,7 @@ function appendPage(key: ListKey, fromPage: number, next: Awaited<ReturnType<typ
   const seen = new Set(latest.items.map((item) => item.itemId))
   listCache.set(key, {
     ...latest,
-    items: [...latest.items, ...next.items.filter((dto) => !seen.has(dto.itemId)).map(reviveItem)],
+    items: [...latest.items, ...reviveReusing(next.items.filter((dto) => !seen.has(dto.itemId)), undefined)],
     total: next.total,
     page: next.page,
     pageCount: next.pageCount,
@@ -205,8 +259,18 @@ function appendPage(key: ListKey, fromPage: number, next: Awaited<ReturnType<typ
   })
 }
 
+// 次の 20 件を足す
 export function loadMore(key: ListKey): Promise<void> {
+  // 値がまだ無ければ 0 (= 届いた値の次。deferLoadMore が決める)
+  const page = listCache.peek(key)?.value?.page
+  return loadThrough(key, page === undefined ? 0 : page + 1)
+}
+
+// target ページまでを足す (docs/129 §1)。読み終えた次のページから target までを
+// 1 回で引く (幅は MAX_RANGE_PAGES まで。残りは続けて読む)
+export function loadThrough(key: ListKey, target: number): Promise<void> {
   const id = listKeyOf(key)
+  wantedThrough.set(id, Math.max(wantedThrough.get(id) ?? 0, target))
   const running = loadingMore.get(id)
   if (running) {
     return running
@@ -223,22 +287,44 @@ export function loadMore(key: ListKey): Promise<void> {
     return Promise.resolve()
   }
   const current = currentEntry.value
-  if (current === undefined || current.page >= current.pageCount) {
+  const want = wantedThrough.get(id) ?? target
+  if (current === undefined || current.page >= Math.min(want, current.pageCount)) {
+    wantedThrough.delete(id)
     return Promise.resolve()
   }
-  const promise = fetchPage(key, current.page + 1)
-    .then((next) => appendPage(key, current.page, next))
+  const last = Math.min(want, current.pageCount, current.page + MAX_RANGE_PAGES)
+  return startLoad(key, id, current.page, last)
+}
+
+function startLoad(key: ListKey, id: string, fromPage: number, last: number): Promise<void> {
+  const promise = fetchPage(key, fromPage + 1, last)
+    .then((next) => {
+      if (next !== null) {
+        appendPage(key, fromPage, next)
+      }
+    })
     .catch((error: unknown) => {
       loadMoreFailed.add(id)
+      wantedThrough.delete(id)
       throw error
     })
     .finally(() => {
       loadingMore.delete(id)
       loadingMoreNotifier.notify()
+      continueWanted(key, id)
     })
   loadingMore.set(id, promise)
   loadingMoreNotifier.notify()
   return promise
+}
+
+// 読み込みの間に先のページを頼まれていたら、続けて読む
+function continueWanted(key: ListKey, id: string): void {
+  const want = wantedThrough.get(id)
+  if (want === undefined || loadMoreFailed.has(id)) {
+    return
+  }
+  void loadThrough(key, want).catch((error: unknown) => console.warn('続きを読めませんでした', error))
 }
 
 export const tagsCache = createResourceCache<'all', TagCount[]>({

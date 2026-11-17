@@ -19,6 +19,7 @@ import {
 } from "@/components/icons";
 import { PasskeyLoginButton } from "@/components/auth/PasskeyLoginButton";
 import { ServerClipboardMenuItems } from "@/components/clipboard/ServerClipboardMenuItems";
+import { ListPlaceholdersMenuItem } from "@/components/bottombar/ListPlaceholdersMenuItem";
 import { PhotoMetaMenuItem } from "@/components/bottombar/PhotoMetaMenuItem";
 import { RowTintMenuItem } from "@/components/bottombar/RowTintMenuItem";
 import { ScanBeepMenuItem } from "@/components/bottombar/ScanBeepMenuItem";
@@ -90,6 +91,9 @@ export function AppHeaderMenu({
       {/* スクロールバーを出すか (docs/11 §6-8)。端末ごとの見た目の好みなので、
           テキストサイズと同じくログイン状態・デモに依らず出す */}
       <ScrollbarMenuItem />
+      {/* 検索一覧で先に並べる空の枠の数 (docs/129 §1)。端末ごとの好みで、
+          スクロールバーと同じくログイン状態・デモに依らず出す */}
+      <ListPlaceholdersMenuItem />
       {user ? (
         <>
           {/* デモでは設定系の導線を出さない (docs/38-デモモード計画.md §4)。

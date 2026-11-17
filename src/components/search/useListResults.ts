@@ -6,12 +6,14 @@ import type { Entry } from "@/lib/client/resourceCache";
 import {
   listCache,
   loadMore,
+  loadThrough,
   retryLoadMore,
   useLoadMoreFailed,
   useLoadingMore,
   type ListKey,
   type ListValue,
 } from "@/lib/client/listStore";
+import { startListPersistence } from "@/lib/client/listPersist";
 import { useSearchState } from "@/lib/client/useSearchState";
 import { warmNotes } from "@/lib/client/warmNotes";
 import { perfQuery } from "@/lib/perf/perfLine";
@@ -33,25 +35,44 @@ function isPending(entry: Entry<ListValue> | undefined, fresh: ListValue | undef
   return entry === undefined || entry.loading || entry.stale || (fresh === undefined && !entry.error);
 }
 
-// 薄くするのは「出ているのが別の検索の結果」のときだけ (docs/123 §11-7)。
-// 表示モードだけを変えたときは、同じ結果を新しい表示で出し直しているので
-// 古くない — 一覧全体の不透明度を変えると、スマホでは一覧を丸ごと塗り直す
-// 分だけ切替が画面に出るのが遅れた (サーバ描画の頃の切替も薄くしなかった)
-function isDimmed(
-  pending: boolean,
-  fresh: ListValue | undefined,
-  lastShown: LastShown | undefined,
-  query: string,
-  sort: Sort,
-): boolean {
-  return (
-    pending &&
-    !(fresh === undefined && lastShown !== undefined && lastShown.query === query && lastShown.sort === sort)
-  );
+// 薄くするのは「出ているのが別の検索の結果」か「書き込みで古くなった結果」の
+// ときだけ (docs/123 §11-7・docs/129 §2)。表示モードだけを変えたときは、同じ
+// 結果を新しい表示で出し直しているので古くない — 一覧全体の不透明度を変えると、
+// スマホでは一覧を丸ごと塗り直す分だけ切替が画面に出るのが遅れた。
+//
+// **期限切れの確かめ (30 秒) や端末に残した控えの確かめの間は薄くしない。**
+// 出しているのはこの検索の結果で、変わっていなければ 304 でそのまま残る
+function isDimmed({
+  entry,
+  pending,
+  fresh,
+  lastShown,
+  query,
+  sort,
+}: {
+  entry: Entry<ListValue> | undefined;
+  pending: boolean;
+  fresh: ListValue | undefined;
+  lastShown: LastShown | undefined;
+  query: string;
+  sort: Sort;
+}): boolean {
+  if (fresh !== undefined) {
+    return entry?.stale === true;
+  }
+  return pending && !(lastShown !== undefined && lastShown.query === query && lastShown.sort === sort);
 }
 
 // 出す一覧を決める。新しい鍵の結果が届くまでは前に出していた結果を出す
-export function useShownResults(cookieSort: Sort, serverView: ViewMode) {
+export function useShownResults(cookieSort: Sort, serverView: ViewMode, isDemo: boolean) {
+  // 端末に残した一覧の控えを読み戻し、以後は残していく (docs/129 §3)。
+  // 下の useEntry の取得より前に始める (effect は書いた順に走る)。デモは
+  // 共有アカウントなので残さない
+  useEffect(() => {
+    if (!isDemo) {
+      startListPersistence();
+    }
+  }, [isDemo]);
   const { query, sort, page: urlPage } = useSearchState(cookieSort);
   const view = useShownViewMode(serverView);
   const key: ListKey = useMemo(() => ({ query, sort, view }), [query, sort, view]);
@@ -79,7 +100,7 @@ export function useShownResults(cookieSort: Sort, serverView: ViewMode) {
     fresh,
     shown: fresh ?? lastShown?.value,
     pending,
-    dimmed: isDimmed(pending, fresh, lastShown, query, sort),
+    dimmed: isDimmed({ entry, pending, fresh, lastShown, query, sort }),
   };
 }
 
@@ -146,7 +167,20 @@ export function useLoadMoreHandlers(listKey: ListKey) {
       console.warn("続きを読めませんでした", error),
     );
   }, []);
-  return { onLoadMore, loadingMore, loadMoreFailed, onRetryMore };
+  // 枠の塊が画面に入ったら、そのページまで (docs/129 §1)
+  const onLoadThrough = useCallback((page: number) => {
+    void loadThrough(listKeyRef.current, page).catch((error: unknown) =>
+      console.warn("続きを読めませんでした", error),
+    );
+  }, []);
+  // ResultsScrollBody の loadMore にそのまま渡せる形
+  return {
+    onLoad: onLoadMore,
+    onLoadThrough,
+    isPending: loadingMore,
+    failed: loadMoreFailed,
+    onRetry: onRetryMore,
+  };
 }
 
 // 欄の並びはサーバ描画の頃と同じ (q・panes・view・件数)。ベンチマークの

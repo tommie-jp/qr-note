@@ -17,6 +17,7 @@ import { useSearchParams } from "next/navigation";
 import { activeResultView, type ResultView } from "@/modules/registry";
 import { PaneResizer } from "@/components/panes/PaneResizer";
 import type { Sort } from "@/lib/validation";
+import { InitialPlaceholders } from "./PlaceholderPages";
 import {
   LoadFailedNotice,
   ResultsScrollBody,
@@ -82,7 +83,7 @@ function ListResults({
   isDemo,
 }: SearchResultsClientProps) {
   const { query, sort, urlPage, view, key, entry, fresh, shown, pending, dimmed } =
-    useShownResults(cookieSort, serverView);
+    useShownResults(cookieSort, serverView, isDemo);
 
   useLoadUrlPage(fresh, urlPage, key, entry?.loading);
 
@@ -91,9 +92,13 @@ function ListResults({
     return entry?.error ? (
       <LoadFailedNotice message={entry.error.message} onRetry={retry} />
     ) : (
-      <BusyNotice role="status" busy>
-        検索結果を読み込み中…
-      </BusyNotice>
+      // 件数はまだ判らないので、1 画面ぶんの空の枠を先に出す (docs/129 §1)
+      <div className="space-y-2">
+        <BusyNotice role="status" busy>
+          検索結果を読み込み中…
+        </BusyNotice>
+        <InitialPlaceholders view={view} />
+      </div>
     );
   }
 
@@ -201,7 +206,7 @@ const LoadedResults = memo(function LoadedResults({
   const first = showsAutoNote(mode) ? items[0] : undefined;
 
   const searchKey = listKeyOf({ ...listKey, view: "compact" });
-  const { onLoadMore, loadingMore, loadMoreFailed, onRetryMore } = useLoadMoreHandlers(listKey);
+  const loadMoreHandlers = useLoadMoreHandlers(listKey);
   const perfFields = useSearchPerfFields(query, mode, view, items.length, total);
   const perfKey = `${listKeyOf(listKey)}\u0000${valueIdOf(value)}`;
 
@@ -230,7 +235,7 @@ const LoadedResults = memo(function LoadedResults({
           mathSummaries={mathSummaries}
           mathTexts={mathTexts}
           notePreviews={notePreviews}
-          loadMore={{ searchKey, onLoad: onLoadMore, isPending: loadingMore, failed: loadMoreFailed, onRetry: onRetryMore }}
+          loadMore={{ searchKey, ...loadMoreHandlers }}
           perf={pending ? null : { key: perfKey, fields: perfFields }}
         />
       </SearchResults>

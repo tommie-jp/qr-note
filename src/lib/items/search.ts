@@ -80,6 +80,8 @@ export async function searchItems(
 }
 
 // N ページ目の 20 件だけを返す (docs/123 §4-2)。端末が足していく API 用。
+// through を渡すと N〜through ページをまとめて返す (枠を先に出した一覧の
+// 穴埋め。docs/129 §1)。返す page は含めた最後のページ。
 //
 // searchItems (累積) と違い OFFSET で引くので、読む間に行が増減すると
 // 重複・欠落がありうる。端末は itemId で重複を落とし、検索をやり直すときは
@@ -88,21 +90,23 @@ export async function searchItemsPage(
   query: string,
   page: number,
   sort: Sort = 'updated',
+  through: number = page,
 ): Promise<ItemSearchResult> {
   const where = buildWhere(query)
 
   const { total, pageCount, safePage } = await countPages(where, page)
+  const last = Math.min(Math.max(Math.floor(through), safePage), pageCount)
 
   const items = await prisma.$queryRaw<Item[]>`
     SELECT ${ITEM_COLUMNS}
     FROM items
     ${where}
     ${buildOrderBy(sort)}
-    LIMIT ${PAGE_SIZE}
+    LIMIT ${(last - safePage + 1) * PAGE_SIZE}
     OFFSET ${(safePage - 1) * PAGE_SIZE}
   `
 
-  return { items, total, page: safePage, pageCount }
+  return { items, total, page: last, pageCount }
 }
 
 // 表・グラフの元データを引く共通形 (特性表・進捗の表・健康グラフの三つ子)。

@@ -46,7 +46,8 @@ export interface SearchPayload {
 export interface SearchInput {
   query: string
   page: number
-  // 1 より大きければ 1〜through ページの累積を返す (page は 1 のときだけ)
+  // page より大きければ page〜through ページをまとめて返す
+  // (1 ページ目からなら累積。続きからなら枠の穴埋め。docs/129 §1)
   through?: number
   sort: Sort
   view: ViewMode
@@ -74,7 +75,9 @@ export async function loadSearchPayload({
   const showProgress = first && queryTracksTaskProgress(query)
   const [result, props, trashCount, progress] = await Promise.all([
     t.time('検索', () =>
-      through > 1 ? searchItems(query, through, sort) : searchItemsPage(query, page, sort),
+      first && through > 1
+        ? searchItems(query, through, sort)
+        : searchItemsPage(query, page, sort, Math.max(page, through)),
     ),
     showProps ? t.time('特性', () => searchItemProps(query, sort)) : Promise.resolve(EMPTY_PROPS),
     first ? t.time('ゴミ箱', () => countTrashedItems()) : Promise.resolve(0),

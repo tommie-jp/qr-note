@@ -119,8 +119,26 @@ describe('成功', () => {
     expect(loadSearchPayload).toHaveBeenCalledWith(expect.objectContaining({ page: 1, through: 4 }))
   })
 
+  test('続きのページから範囲で引く (枠の穴埋め。docs/129 §1)', async () => {
+    await GET(request('?page=2&through=4'))
+
+    expect(loadSearchPayload).toHaveBeenCalledWith(expect.objectContaining({ page: 2, through: 4 }))
+  })
+
+  test('応答に本文の ETag を付け、同じ ETag を送られたら 304 で本文を返さない (docs/129 §2)', async () => {
+    const first = await GET(request(''))
+    const etag = first.headers.get('etag')
+    expect(etag).toMatch(/^"[\w-]+"$/)
+
+    const again = await GET(request('', { 'if-none-match': `W/${etag}` }))
+
+    expect(again.status).toBe(304)
+    expect(await again.text()).toBe('')
+  })
+
   test.each([
-    ['続きのページと混ぜる', '?page=2&through=3'],
+    ['続きのページより前で終わる', '?page=3&through=2'],
+    ['範囲が広すぎる', '?page=2&through=60'],
     ['数でない', '?through=abc'],
     ['0 ページ', '?through=0'],
   ])('through の形が違えば 400: %s', async (_label, search) => {

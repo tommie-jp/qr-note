@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { ItemDto } from '@/lib/api/itemDto'
-import { listCache, loadMore, retryLoadMore, trashCache, type ListKey } from './listStore'
+import { listCache, loadMore, loadThrough, retryLoadMore, trashCache, type ListKey } from './listStore'
 import { noteCache } from './noteStore'
 
 // 一覧の控え (docs/123 §4-2)。1 ページ目で付属情報を受け、続きは足していく。
@@ -49,18 +49,28 @@ function page(items: ItemDto[], pageNo: number, extras: unknown) {
 
 let responses: unknown[] = []
 let requested: string[] = []
+// 送られた If-None-Match (要求ごと)
+let sentEtags: (string | null)[] = []
+const NOT_MODIFIED = Symbol('304')
 
 beforeEach(() => {
   responses = []
   requested = []
+  sentEtags = []
   listCache.remove(() => true)
   noteCache.remove(() => true)
   trashCache.remove(() => true)
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init?: RequestInit) => {
       requested.push(url)
-      return new Response(JSON.stringify(responses.shift()))
+      sentEtags.push(new Headers(init?.headers).get('if-none-match'))
+      const next = responses.shift()
+      if (next === NOT_MODIFIED) {
+        return new Response(null, { status: 304 })
+      }
+      const { etag, ...body } = next as { etag?: string }
+      return new Response(JSON.stringify(body), { headers: etag ? { ETag: etag } : {} })
     }),
   )
 })
@@ -259,6 +269,120 @@ describe('loadMore の失敗と競合', () => {
     // Assert
     expect(requested[2]).toContain('page=1&through=2')
     expect(listCache.peek(KEY)?.value?.items).toHaveLength(2)
+  })
+})
+
+describe('取り直しと ETag (docs/129 §2)', () => {
+  test('同じ範囲の取り直しは ETag を添え、304 なら前の値をそのまま使う', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1), dto(2)], 1, EXTRAS), etag: '"v1"' })
+    const before = await listCache.load(KEY)
+    responses.push(NOT_MODIFIED)
+
+    // Act
+    const after = await listCache.load(KEY, { force: true })
+
+    // Assert
+    expect(sentEtags).toEqual([null, '"v1"'])
+    expect(after).toBe(before)
+  })
+
+  test('本文が届いても、ハッシュの同じノートは前の物を使い回す', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1), dto(2)], 1, EXTRAS), etag: '"v1"' })
+    const before = await listCache.load(KEY)
+    const changed = { ...dto(2), memo: '# 書き換えた' }
+    responses.push({ ...page([dto(1), changed], 1, EXTRAS), etag: '"v2"' })
+
+    // Act
+    const after = await listCache.load(KEY, { force: true })
+
+    // Assert
+    expect(after.items[0]).toBe(before.items[0])
+    expect(after.items[1]).not.toBe(before.items[1])
+    expect(after.items[1].memo).toBe('# 書き換えた')
+    expect(after.extras).toBe(before.extras)
+    expect(after.etag).toBe('"v2"')
+  })
+
+  test('何も変わっていなければ一覧の中身ごと前の物を使う', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1)], 1, EXTRAS), etag: '"v1"' })
+    const before = await listCache.load(KEY)
+    responses.push({ ...page([dto(1)], 1, EXTRAS), etag: '"v1b"' })
+
+    // Act
+    const after = await listCache.load(KEY, { force: true })
+
+    // Assert
+    expect(after.items).toBe(before.items)
+    expect(after.circuitThumbs).toBe(before.circuitThumbs)
+  })
+
+  test('続きを足した後の取り直しは範囲が違うので ETag を添えない', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1)], 1, EXTRAS), etag: '"v1"' })
+    await listCache.load(KEY)
+    responses.push(page([dto(2)], 2, null))
+    await loadMore(KEY)
+    responses.push({ ...page([dto(1), dto(2)], 2, EXTRAS), etag: '"v2"' })
+
+    // Act
+    await listCache.load(KEY, { force: true })
+
+    // Assert
+    expect(requested[2]).toContain('page=1&through=2')
+    expect(sentEtags[2]).toBeNull()
+  })
+})
+
+describe('loadThrough (枠の穴埋め。docs/129 §1)', () => {
+  const many = (pageCount: number) => ({ total: pageCount * 20, page: 1, pageCount })
+
+  test('読み終えた次のページから頼まれたページまでを 1 回で引く', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1)], 1, EXTRAS), meta: many(5) })
+    await listCache.load(KEY)
+    responses.push({ ...page([dto(2), dto(3)], 4, null), meta: { ...many(5), page: 4 } })
+
+    // Act
+    await loadThrough(KEY, 4)
+
+    // Assert
+    expect(requested[1]).toContain('page=2&through=4')
+    expect(listCache.peek(KEY)?.value?.page).toBe(4)
+    expect(listCache.peek(KEY)?.value?.items).toHaveLength(3)
+  })
+
+  test('読み込みの間に先のページを頼まれたら、済んでから続けて読む', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1)], 1, EXTRAS), meta: many(5) })
+    await listCache.load(KEY)
+    responses.push(
+      { ...page([dto(2)], 2, null), meta: { ...many(5), page: 2 } },
+      { ...page([dto(3)], 5, null), meta: { ...many(5), page: 5 } },
+    )
+
+    // Act
+    const first = loadThrough(KEY, 2)
+    void loadThrough(KEY, 5)
+    await first
+
+    // Assert
+    await vi.waitFor(() => expect(listCache.peek(KEY)?.value?.page).toBe(5))
+    expect(requested[2]).toContain('page=3&through=5')
+  })
+
+  test('もう読んだページなら撃たない', async () => {
+    // Arrange
+    responses.push({ ...page([dto(1)], 1, EXTRAS), meta: many(5) })
+    await listCache.load(KEY)
+
+    // Act
+    await loadThrough(KEY, 1)
+
+    // Assert
+    expect(requested).toHaveLength(1)
   })
 })
 

@@ -12,6 +12,7 @@
 //
 // respond.ts (封筒の組み立て) に混ぜないのは、あちらが next/server だけを読む
 // 葉で、proxy.ts からも使われるため。関数名は呼び出し側を変えないために残す。
+import { createHash } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import type { PageMeta } from './respond'
 
@@ -50,19 +51,54 @@ export async function apiOkGzip<T>(
   return jsonEnvelope({ success: true, data, error: null }, extraHeaders)
 }
 
+// 検索の口 (docs/129 §2)。本文のハッシュを ETag に付け、端末が If-None-Match で
+// 同じ値を送ってきたら 304 で本文を送らない。
+//
+// **本文を組んでからハッシュする** (同期の口のような安い問い合わせの版は作らない)。
+// 検索の本文は数十〜数百 KB で、DB の読みは払うことになるが、運ぶ量と端末の
+// 読み直し・描き直しが消える。sha1 は 300KB で 1ms 未満
 export async function apiOkPagedGzip<T>(
   data: T,
   meta: PageMeta,
-  _request: Request,
+  request: Request,
 ): Promise<NextResponse> {
-  return jsonEnvelope({ success: true, data, error: null, meta }, {})
+  const body = JSON.stringify({ success: true, data, error: null, meta })
+  const etag = bodyEtag(body)
+  if (etagMatches(request.headers.get('if-none-match'), etag)) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: { ETag: etag, 'Cache-Control': NO_STORE, Vary: 'Accept-Encoding' },
+    })
+  }
+  return jsonBody(body, { ETag: etag })
+}
+
+// 引用符つきの強い ETag
+export function bodyEtag(body: string): string {
+  return `"${createHash('sha1').update(body).digest('base64url')}"`
+}
+
+// 送られてきた If-None-Match が本文の ETag と同じか。nginx の gzip は強い ETag を
+// 弱い印 (W/) に書き換えて渡すので、端末はそれを送り返してくる。W/ を外して比べる
+export function etagMatches(header: string | null, etag: string): boolean {
+  if (header === null) {
+    return false
+  }
+  return header
+    .split(',')
+    .map((tag) => tag.trim().replace(/^W\//, ''))
+    .some((tag) => tag === etag || tag === '*')
 }
 
 function jsonEnvelope(
   envelope: Readonly<Record<string, unknown>>,
   extraHeaders: Readonly<Record<string, string>>,
 ): NextResponse {
-  return new NextResponse(JSON.stringify(envelope), {
+  return jsonBody(JSON.stringify(envelope), extraHeaders)
+}
+
+function jsonBody(body: string, extraHeaders: Readonly<Record<string, string>>): NextResponse {
+  return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': 'application/json',

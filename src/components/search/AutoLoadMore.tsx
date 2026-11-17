@@ -1,15 +1,12 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
-import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import { keepsNoteOpen } from "@/lib/prefs/paneMode";
-import { itemIdFromPathname } from "@/lib/search/url";
 import { perfStart } from "@/lib/perf/perfClient";
 import { afterNextPaint } from "@/lib/afterNextPaint";
 import { LOAD_MORE_EVENT } from "./loadMore";
-import { createScrollArm, shouldObserveLoadMore } from "./loadMoreGate";
+import { shouldObserveLoadMore } from "./loadMoreGate";
+import { useCoveredByNote, useScrollArmed } from "./useScrollArmed";
 import { isListScrollable, scrollRootOf, useFitsInScroller } from "./useFitsInScroller";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
@@ -34,7 +31,7 @@ import { isListScrollable, scrollRootOf, useFitsInScroller } from "./useFitsInSc
 // 収まっているかは一度きりでなく、大きさが変わるたびに測り直す
 // (useFitsInScroller。表示モードの切替やウィンドウの拡大で後から収まる。docs/118 §2-6)
 // 先読みの距離。root の高さに対する割合 (1 画面ぶん)
-const PREFETCH_MARGIN = "100% 0px";
+export const PREFETCH_MARGIN = "100% 0px";
 
 export function AutoLoadMore({
   searchKey,
@@ -57,21 +54,11 @@ export function AutoLoadMore({
   onRetry?: () => void;
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
-  // 1 ペインで全画面のノートが一覧を覆っている間は読まない (docs/86 §4-18)。
-  // 次のページは router.replace で URL を一覧へ書き換えるので、裏で読むと
-  // 見ているノートが閉じる。覆われた一覧の番兵は画面に入ったままなので、
-  // 描き直し (ペイン構成の切り替え後の refresh など) で監視を作り直すたびに
-  // 発火していた。3 / 2 ペインはノートが一覧と並ぶ常設の面で、URL が一覧へ
-  // 移っても閉じない (PreviewPane) ので止めない
-  const pathname = usePathname();
-  const { mode } = usePaneMode();
-  const coveredByNote =
-    !keepsNoteOpen(mode) && itemIdFromPathname(pathname) !== null;
-
-  // 解禁は検索 (ページ番号を除いた href) ごと。ページが進んでも同じ検索の
-  // 間は解禁のまま、検索語か並び順が変わったら止め直す
-  const [armedFor, setArmedFor] = useState<string | null>(null);
-  const armed = armedFor === searchKey;
+  // 1 ペインで全画面のノートが一覧を覆っている間は読まない (useScrollArmed.ts)。
+  // 次のページを読むと見ているノートが閉じる
+  const { coveredByNote, mode } = useCoveredByNote();
+  // 解禁は検索 (ページ番号を除いた href) ごと。下へ動いたら解禁する
+  const armed = useScrollArmed(sentinelRef, searchKey, { enabled: !coveredByNote, mode });
   // 解禁前だけ、一覧が器に収まっているかを見張る。mode … 構成で器が替わる
   const fits = useFitsInScroller(
     sentinelRef,
@@ -84,34 +71,6 @@ export function AutoLoadMore({
     perfStart("追加", "/");
     onLoad();
   }, [onLoad]);
-
-  // 解禁を待つ。一覧が実際にスクロールする器 (無ければ文書) の位置を見て、
-  // 下へ動いたら解禁する。先頭へ戻されるスクロールでは解禁しない。
-  //
-  // 器を測るのは描画の後 (下の観測・useFitsInScroller も同じ)。scrollRootOf の
-  // getComputedStyle は、描画の直後に読むとスタイルを前倒しで強制し、
-  // 検索結果の最初の 1 枚を遅らせていた (docs/122 §10-2)
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (el === null || armed || coveredByNote) return;
-    let detach: (() => void) | undefined;
-    const cancel = afterNextPaint(() => {
-      const root = scrollRootOf(el);
-      const topOf = () => (root === null ? window.scrollY : root.scrollTop);
-      const arm = createScrollArm(topOf());
-      const onScroll = () => {
-        if (arm(topOf())) setArmedFor(searchKey);
-      };
-      const target: HTMLElement | Window = root ?? window;
-      target.addEventListener("scroll", onScroll, { passive: true });
-      detach = () => target.removeEventListener("scroll", onScroll);
-    });
-    return () => {
-      cancel();
-      detach?.();
-    };
-    // mode … 構成を押すとスクロールする器が替わる (下の観測と同じ理由)
-  }, [armed, coveredByNote, mode, searchKey]);
 
   useEffect(() => {
     const el = sentinelRef.current;

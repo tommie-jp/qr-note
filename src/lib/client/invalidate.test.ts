@@ -42,6 +42,8 @@ function seed(): void {
     pageCount: 1,
     circuitThumbs: {},
     extras: { props: { rows: [], omitted: 0 }, progress: { done: 0, total: 0 }, trashCount: 0, trashedMatches: 0, registerHref: null },
+    etag: null,
+    etagThrough: 1,
   })
   trashCache.set({ sort: 'deleted', view: 'compact' }, { items: [], circuitThumbs: {} })
   neighborsCache.set({ itemId: A, query: 'q', sort: 'updated' }, { prev: null, next: null })

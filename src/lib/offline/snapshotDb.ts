@@ -78,6 +78,7 @@ const CACHE_PREFIX = 'qr-'
 //
 // 消す先は 3 つある。**IndexedDB のノートだけでは足りない**:
 //   snapshot (IndexedDB) … ノート本文・タグ・URL (一覧と検索の中身そのもの)
+//   lists    (IndexedDB) … 最近の検索一覧の控え (client/listPersist.ts。docs/129 §3)
 //   keyring  (IndexedDB) … シークレットの鍵束の写し (keyring.ts)。中身は
 //     包んだ鍵なので単体では読めないが、ログアウトした端末に残す理由が無い
 //   Cache Storage … 添付のサムネと原寸 (/api/images/)、印付きノートの持ち出し
@@ -100,6 +101,12 @@ export async function clearOfflineData(): Promise<void> {
     await clearKeyringCache()
   } catch (error) {
     console.warn('オフライン用の鍵束を消せませんでした', error)
+  }
+  try {
+    // 最近の検索一覧の控え (client/listPersist.ts)。中身はノートの本文そのもの
+    await deleteRecord('lists', 'recent')
+  } catch (error) {
+    console.warn('検索一覧の控えを消せませんでした', error)
   }
   try {
     if (typeof caches !== 'undefined') {

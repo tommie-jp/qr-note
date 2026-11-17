@@ -33,6 +33,9 @@ export interface ResourceCache<K, V> {
   peek(key: K): Entry<V> | undefined
   load(key: K, options?: { force?: boolean }): Promise<V>
   set(key: K, value: V): void
+  // 端末に残した値 (IndexedDB) を、まだ値の無い鍵にだけ入れる (docs/129 §3)。
+  // 進行中の取得は止めない (届けばそちらで置き換わる)。at … 値を受けた時刻
+  seed(key: K, value: V, at: number): void
   update(key: K, fn: (value: V) => V): void
   invalidate(match?: (key: K) => boolean): void
   remove(match: (key: K) => boolean): void
@@ -191,6 +194,22 @@ export function createResourceCache<K, V>({
     put(id, key, { value, error: null, stale: false, loading: false, at: now() })
   }
 
+  function seed(key: K, value: V, at: number): void {
+    const id = keyOf(key)
+    const current = entries.get(id)
+    if (current?.value !== undefined) {
+      return
+    }
+    // 世代は進めない — 進めると、走っている取得の応答を捨ててしまう
+    put(id, key, {
+      value,
+      error: current?.error ?? null,
+      stale: false,
+      loading: current?.loading ?? false,
+      at,
+    })
+  }
+
   function update(key: K, fn: (value: V) => V): void {
     const current = entries.get(keyOf(key))?.value
     if (current !== undefined) {
@@ -257,7 +276,13 @@ export function createResourceCache<K, V>({
         return
       }
       const start = () => {
-        load(key).catch(() => {
+        // 描画の後へ回した間に、期限切れの値が入っていることがある (端末に残した
+        // 一覧の控えの読み戻し。docs/129 §3)。そのまま load すると「値がある」で
+        // 何もせず、確かめに行かない。期限切れなら強制で取りに行く
+        const current = entries.get(keyOf(key))
+        const expired =
+          current?.value !== undefined && !current.loading && now() - current.at > maxAgeMs
+        load(key, { force: expired }).catch(() => {
           // 失敗は項目の error に入る。画面はそれを見て知らせる
         })
       }
@@ -299,9 +324,13 @@ export function createResourceCache<K, V>({
         load(key, { force: true }).catch(() => {})
       }
     })
+    // 値が入ったときにも確かめる。描画の後へ回した取得の予約は、その前に値が
+    // 入ると (端末に残した控えの読み戻し。docs/129 §3) 取り消されるので、
+    // 期限切れの値を確かめずに出し続けてしまう
+    const hasValue = entry?.value !== undefined
     useEffect(() => {
       refreshIfExpired()
-    }, [id])
+    }, [id, hasValue])
     return entry
   }
 
@@ -309,6 +338,7 @@ export function createResourceCache<K, V>({
     peek: (key) => entries.get(keyOf(key)),
     load,
     set,
+    seed,
     update,
     invalidate,
     remove,

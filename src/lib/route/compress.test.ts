@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { apiOkGzip, apiOkPagedGzip, brotliQualityFor, BROTLI_LARGE_BYTES, compressedTextResponse } from './compress'
+import { apiOkGzip, apiOkPagedGzip, bodyEtag, brotliQualityFor, BROTLI_LARGE_BYTES, compressedTextResponse, etagMatches } from './compress'
 
 const request = (acceptEncoding?: string) =>
   new Request('http://localhost/api/sync/items', {
@@ -69,5 +69,40 @@ describe('brotli の品質 (docs/124 §8、ベンチ用)', () => {
   test('1MB 未満は品質 5、1MB 以上は品質 3', () => {
     expect(brotliQualityFor(BROTLI_LARGE_BYTES - 1)).toBe(5)
     expect(brotliQualityFor(BROTLI_LARGE_BYTES)).toBe(3)
+  })
+})
+
+describe('検索の ETag (docs/129 §2)', () => {
+  test('本文が同じなら同じ ETag、違えば違う ETag', () => {
+    expect(bodyEtag('{"a":1}')).toBe(bodyEtag('{"a":1}'))
+    expect(bodyEtag('{"a":1}')).not.toBe(bodyEtag('{"a":2}'))
+  })
+
+  test.each([
+    ['そのまま', '"x"', true],
+    ['nginx が弱い印にした', 'W/"x"', true],
+    ['複数の中に含む', '"y", W/"x"', true],
+    ['違う', '"y"', false],
+    ['無い', null, false],
+  ])('If-None-Match が %s', (_label, header, expected) => {
+    expect(etagMatches(header, '"x"')).toBe(expected)
+  })
+
+  test('一致すれば 304 で本文を返さない', async () => {
+    // Arrange
+    const meta = { total: 1, page: 1, pageCount: 1 }
+    const first = await apiOkPagedGzip({ a: 1 }, meta, request())
+    const etag = first.headers.get('ETag') ?? ''
+
+    // Act
+    const again = await apiOkPagedGzip(
+      { a: 1 },
+      meta,
+      new Request('http://localhost/api/items', { headers: { 'if-none-match': etag } }),
+    )
+
+    // Assert
+    expect(again.status).toBe(304)
+    expect(again.headers.get('ETag')).toBe(etag)
   })
 })

@@ -11,11 +11,16 @@ export const MAX_QUERY_LENGTH = 1000
 // ページの上限。20 件 × 1000 ページ = 2 万件。個人の規模を大きく超える
 export const MAX_PAGE = 1000
 
+// 続きのページを範囲で引くときの幅の上限 (docs/129 §1)。枠を先に出した一覧が
+// 末尾まで一気に送られても、1 応答を 50 ページ (1000 件) に抑える
+export const MAX_RANGE_PAGES = 50
+
 export interface ListQuery {
   query: string
   page: number
-  // 1 ページ目から何ページ目までをまとめて返すか (1 なら page のページだけ)。
-  // 書き込みの後の取り直しで、読み進めた所まで 1 回で引き直すため
+  // page から何ページ目までをまとめて返すか (page 以下なら page のページだけ)。
+  // 1 ページ目からなら書き込みの後の取り直し (読み進めた所まで 1 回で引き直す)、
+  // 続きのページからなら枠を先に出した一覧の穴埋め (docs/129 §1)
   through: number
   sort: Sort
   view: ViewMode
@@ -39,8 +44,7 @@ export function parseListQuery(url: URL): ListQuery | null {
   }
   const page = parsePageNumber(url.searchParams.get('page'), 1)
   const through = parsePageNumber(url.searchParams.get('through'), 1)
-  // まとめて返すのは 1 ページ目からだけ (続きのページと混ぜない)
-  if (page === null || through === null || (through > 1 && page !== 1)) {
+  if (page === null || through === null || !isRange(page, through)) {
     return null
   }
   return {
@@ -50,4 +54,13 @@ export function parseListQuery(url: URL): ListQuery | null {
     sort: parseSort(url.searchParams.get('sort')),
     view: parseViewMode(url.searchParams.get('view')),
   }
+}
+
+// 範囲の形。through が 1 (既定) なら page だけ。続きのページからの範囲は
+// page より後ろで、幅は MAX_RANGE_PAGES まで
+function isRange(page: number, through: number): boolean {
+  if (through === 1 || page === 1) {
+    return true
+  }
+  return through >= page && through - page < MAX_RANGE_PAGES
 }

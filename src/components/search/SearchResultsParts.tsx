@@ -5,6 +5,8 @@ import { PerfMarks } from "@/components/diag/PerfMarks";
 import { ItemList } from "@/components/item/ItemList";
 import { PropsTable } from "@/components/markdown/PropsTable";
 import { AutoLoadMore } from "@/components/search/AutoLoadMore";
+import { PlaceholderPages } from "@/components/search/PlaceholderPages";
+import { planPlaceholders } from "@/components/search/placeholderPlan";
 import { ResultsToolbar } from "@/components/search/ResultsToolbar";
 import {
   bulkTagAction,
@@ -16,6 +18,7 @@ import {
 } from "@/lib/client/actions";
 import type { ListValue } from "@/lib/client/listStore";
 import { allViewerMedia } from "@/lib/images/memoImages";
+import { useListPlaceholders } from "@/lib/prefs/listPlaceholders";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
 
@@ -120,6 +123,36 @@ function SearchPerf({ fields }: { fields: readonly (readonly [string, string])[]
   return <PerfMarks kind="検索" at={at} fields={fields} server="端末" />;
 }
 
+type ContinuationProps = Omit<ComponentProps<typeof AutoLoadMore>, "remaining"> & {
+  onLoadThrough: (page: number) => void;
+  failed: boolean;
+  onRetry: () => void;
+};
+
+// 一覧の続き。メニューの「一覧の枠」が 0 でなければ空の枠を先に並べ
+// (docs/129 §1)、0 なら今までの「さらに表示」だけ
+function Continuation({ value, view, loadMore }: { value: ListValue; view: ViewMode; loadMore: ContinuationProps }) {
+  const limit = useListPlaceholders();
+  const { items, total, page, pageCount } = value;
+  const remaining = total - items.length;
+  const chunks = planPlaceholders({ loaded: items.length, total, page, pageCount, limit });
+  if (chunks.length === 0) {
+    return <AutoLoadMore remaining={remaining} {...loadMore} />;
+  }
+  return (
+    <PlaceholderPages
+      searchKey={loadMore.searchKey}
+      view={view}
+      chunks={chunks}
+      remaining={remaining}
+      onLoadThrough={loadMore.onLoadThrough}
+      isPending={loadMore.isPending}
+      failed={loadMore.failed}
+      onRetry={loadMore.onRetry}
+    />
+  );
+}
+
 // 器の中で送る部分 (特性表・一覧・続き・計測の印)
 export function ResultsScrollBody({
   value,
@@ -139,11 +172,11 @@ export function ResultsScrollBody({
   mathSummaries: ComponentProps<typeof PropsTable>["mathSummaries"];
   mathTexts: ComponentProps<typeof ItemList>["mathTexts"];
   notePreviews: ComponentProps<typeof ItemList>["notePreviews"];
-  loadMore: Omit<ComponentProps<typeof AutoLoadMore>, "remaining">;
+  loadMore: ContinuationProps;
   // 計測の印。まだ届いていないときは null (出さない)
   perf: { key: string; fields: readonly (readonly [string, string])[] } | null;
 }) {
-  const { items, total, page, pageCount, extras } = value;
+  const { page, pageCount, extras } = value;
   return (
     <div data-results-scroll className="space-y-2">
       <PropsTable
@@ -163,7 +196,9 @@ export function ResultsScrollBody({
         notePreviews={notePreviews}
       />
 
-      {page < pageCount && <AutoLoadMore remaining={total - items.length} {...loadMore} />}
+      {page < pageCount && (
+        <Continuation value={value} view={view} loadMore={loadMore} />
+      )}
       {perf !== null && <SearchPerf key={perf.key} fields={perf.fields} />}
     </div>
   );

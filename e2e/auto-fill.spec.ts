@@ -117,4 +117,24 @@ test.describe('一覧が画面に収まったら続きを自動で読む', () =>
     // Assert
     await expect(loadMore).toHaveCount(0)
   })
+
+  test('続きの枠を先に並べ、枠が画面に入ったら中身が届く (docs/129 §1)', async ({ page }) => {
+    // Arrange: 小の表示で 20 件が画面より長い (1 ペイン・文書ごと送る)
+    await page.setViewportSize({ width: 900, height: 500 })
+    await setPrefs(page, 'compact', '1')
+    const results = await openSearch(page, TOKEN)
+    const frames = page.locator('[data-placeholder-page]')
+    await expect(frames).toHaveCount(1)
+    await expect(frames.locator('li')).toHaveCount(COUNT - 20)
+
+    // Act: 枠まで送る
+    await frames.scrollIntoViewIfNeeded()
+
+    // Assert: 枠が本物の行に置き換わり、続きの目印も消える
+    await expect(page.locator('[data-auto-load-more]')).toHaveCount(0)
+    await expect(frames).toHaveCount(0)
+    await expect(
+      results.getByRole('listitem').filter({ has: page.locator('a[href^="/item/"]') }),
+    ).toHaveCount(COUNT)
+  })
 })

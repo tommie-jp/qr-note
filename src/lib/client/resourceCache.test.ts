@@ -262,3 +262,36 @@ describe('createResourceCache', () => {
     expect(cache.peek('j')?.at).toBe(5000)
   })
 })
+
+describe('seed (端末に残した控え。docs/129 §3)', () => {
+  test('値の無い鍵にだけ入れ、進行中の取得の応答は捨てない', async () => {
+    // Arrange
+    let resolve: (value: string) => void = () => {}
+    const cache = createResourceCache<string, string>({
+      fetch: () => new Promise<string>((r) => (resolve = r)),
+    })
+    const loading = cache.load('a')
+
+    // Act
+    cache.seed('a', '残した値', 0)
+    const seeded = cache.peek('a')
+    resolve('届いた値')
+    await loading
+
+    // Assert
+    expect(seeded).toMatchObject({ value: '残した値', loading: true, at: 0 })
+    expect(cache.peek('a')?.value).toBe('届いた値')
+  })
+
+  test('もう値があれば入れない', () => {
+    // Arrange
+    const cache = createResourceCache<string, string>({ fetch: async () => 'x' })
+    cache.set('a', '新しい値')
+
+    // Act
+    cache.seed('a', '残した値', 0)
+
+    // Assert
+    expect(cache.peek('a')?.value).toBe('新しい値')
+  })
+})

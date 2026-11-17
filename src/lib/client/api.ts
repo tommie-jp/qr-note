@@ -56,7 +56,7 @@ async function readEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
   return { data: envelope.data as T, meta: envelope.meta }
 }
 
-async function send<T>(input: string, init: RequestInit): Promise<ApiEnvelope<T>> {
+async function request(input: string, init: RequestInit): Promise<Response> {
   let response: Response
   try {
     response = await fetch(input, { credentials: 'same-origin', ...init })
@@ -70,11 +70,35 @@ async function send<T>(input: string, init: RequestInit): Promise<ApiEnvelope<T>
     onUnauthorized()
     throw new ApiError(401, 'ログインが必要です')
   }
-  return readEnvelope<T>(response)
+  return response
+}
+
+async function send<T>(input: string, init: RequestInit): Promise<ApiEnvelope<T>> {
+  return readEnvelope<T>(await request(input, init))
 }
 
 export function apiGet<T>(path: string, signal?: AbortSignal): Promise<ApiEnvelope<T>> {
   return send<T>(path, { method: 'GET', signal, cache: 'no-store' })
+}
+
+// 前に受けた本文の ETag を添えて GET する (docs/129 §2)。サーバの本文が同じなら
+// 304 が返り、本文は運ばれない。cache: 'no-store' でも、ページが自分で付けた
+// If-None-Match の 304 はそのまま JS に届く (offline/sync.ts と同じ作法)
+export type ConditionalGet<T> =
+  | { notModified: true }
+  | (ApiEnvelope<T> & { notModified: false; etag: string | null })
+
+export async function apiGetIfChanged<T>(path: string, etag: string | null): Promise<ConditionalGet<T>> {
+  const response = await request(path, {
+    method: 'GET',
+    cache: 'no-store',
+    headers: etag === null ? undefined : { 'If-None-Match': etag },
+  })
+  if (response.status === 304 && etag !== null) {
+    return { notModified: true }
+  }
+  const envelope = await readEnvelope<T>(response)
+  return { ...envelope, notModified: false, etag: response.headers.get('etag') }
 }
 
 export function apiSend<T>(

@@ -266,3 +266,14 @@ export function ScrollbarIcon() {
     </StrokeIcon>
   );
 }
+
+// 一覧の枠: 中身のある行 1 本と、中身のない枠 2 つ (docs/129 §1)
+export function PlaceholderRowsIcon() {
+  return (
+    <StrokeIcon className="text-slate-600">
+      <rect x="4" y="4" width="16" height="4" rx="1" {...TINT} />
+      <rect x="4" y="10" width="16" height="4" rx="1" strokeDasharray="2 2" />
+      <rect x="4" y="16" width="16" height="4" rx="1" strokeDasharray="2 2" />
+    </StrokeIcon>
+  );
+}
