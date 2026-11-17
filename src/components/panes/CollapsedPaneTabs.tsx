@@ -3,16 +3,14 @@
 import { startTransition, useRef, useState } from "react";
 import { refreshServerView } from "@/lib/client/navigation";
 import {
-  BOTTOM_BAR_FALLBACK_PX,
   COLLAPSE_FOLDER_CHARS,
   PANE_SIZES,
   clampPaneSize,
-  livePaneSizeLimit,
   rawPaneSizeFromPointer,
 } from "@/lib/prefs/paneSize";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { DIVIDER_LINE_COLOR, HANDLE_TAB, HANDLE_TAB_SKIN } from "@/components/panes/paneHandleStyle";
-import { headerBottomPx, readCssPx } from "@/components/panes/paneGeometry";
+import { headerBottomPx, livePaneLimit, pointerGeometry, readCssPx } from "@/components/panes/paneGeometry";
 import { setPaneSize } from "@/components/panes/paneSizeStore";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
 import {
@@ -55,73 +53,107 @@ export function CollapsedPaneTabs() {
   return mode === "3" ? null : <CollapsedFolderTab />;
 }
 
-function CollapsedFolderTab() {
-  // 引き出している間も共有の控えに流す (開いた境界のタブと同じ作り)
-  const fraction = useTabPosition("folder");
+// フォルダーを開く (その幅で 3 ペインへ)
+function openFolder(size: number): void {
+  setPaneSize("folder", size);
+  void switchPaneMode("3", () => {
+    startTransition(refreshServerView);
+  });
+}
+
+// 境界に沿った向き (上下) の位置。ヘッダーの下〜下部バーの上
+function alongFraction(x: number, y: number): number {
+  const g = pointerGeometry(x, y);
+  const top = headerBottomPx();
+  return tabFraction(
+    y,
+    top,
+    window.innerHeight - g.bottomBarPx - top,
+    TAB_LENGTH_REM * g.rootFontSizePx,
+  );
+}
+
+// 離した: 押しただけなら覚えている幅で、引き出したならその幅で開く
+function releaseFolderTab(d: Drag): void {
+  if (!d.moved) {
+    openFolder(storedFolderWidth());
+    return;
+  }
+  const g = pointerGeometry(d.x, d.y);
+  const limit = livePaneLimit("folder", g);
+  // 隠す目安 (2 文字) を超えて引き出したときだけ戻す
+  if (d.x > COLLAPSE_FOLDER_CHARS * g.rootFontSizePx) {
+    openFolder(clampPaneSize("folder", Math.min(limit, rawPaneSizeFromPointer("folder", g))));
+  }
+}
+
+// 引き出している間はタブが指について動く。画面の外へは出さない (端でも全体が見える)
+function dragStyle(d: Drag): React.CSSProperties {
+  const half = TAB_HALF_REM * readCssPx("font-size", 16);
+  return { left: Math.min(window.innerWidth - half, Math.max(half, d.x)) };
+}
+
+function restStyle(fraction: number): React.CSSProperties {
+  return {
+    left: `${TAB_HALF_REM}rem`,
+    top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
+  };
+}
+
+// タブを引き出す・押す (docs/86 §4-21)
+function useFolderTabDrag() {
   const [drag, setDrag] = useState<Drag | null>(null);
   const liveTabRef = useRef<number | null>(null);
   const dragRef = useRef<Drag | null>(null);
-
-  const geometry = (x: number, y: number) => ({
-    clientX: x,
-    clientY: y,
-    rootFontSizePx: readCssPx("font-size", 16),
-    viewportHeightPx: window.innerHeight,
-    bottomBarPx: readCssPx("--bottom-bar-h", BOTTOM_BAR_FALLBACK_PX),
-  });
-
-  const open = (size: number) => {
-    setPaneSize("folder", size);
-    void switchPaneMode("3", () => {
-      startTransition(refreshServerView);
-    });
+  const update = (d: Drag | null) => {
+    dragRef.current = d;
+    setDrag(d);
   };
-
-  // 境界に沿った向き (上下) の位置。ヘッダーの下〜下部バーの上
-  const alongFraction = (x: number, y: number) => {
-    const g = geometry(x, y);
-    const top = headerBottomPx();
-    return tabFraction(
-      y,
-      top,
-      window.innerHeight - g.bottomBarPx - top,
-      TAB_LENGTH_REM * g.rootFontSizePx,
-    );
-  };
-
-  const finish = (d: Drag) => {
+  // 動かした所にタブを残す
+  const keepTab = () => {
     if (liveTabRef.current !== null) {
       setTabPosition("folder", liveTabRef.current);
       liveTabRef.current = null;
     }
-    if (!d.moved) {
-      open(storedFolderWidth());
-      return;
+  };
+  const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    update({ startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, moved: false });
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const current = dragRef.current;
+    if (current === null) return;
+    const moved =
+      current.moved ||
+      Math.hypot(event.clientX - current.startX, event.clientY - current.startY) > CLICK_SLOP_PX;
+    update({ ...current, x: event.clientX, y: event.clientY, moved });
+    if (moved) {
+      liveTabRef.current = alongFraction(event.clientX, event.clientY);
+      setLiveTabPosition("folder", liveTabRef.current);
     }
-    const g = geometry(d.x, d.y);
-    const limit = livePaneSizeLimit("folder", {
-      widthPx: window.innerWidth,
-      heightPx: window.innerHeight,
-      rootFontSizePx: g.rootFontSizePx,
-      bottomBarPx: g.bottomBarPx,
-      headerPx: headerBottomPx(),
-    });
-    // 隠す目安 (2 文字) を超えて引き出したときだけ戻す
-    if (d.x > COLLAPSE_FOLDER_CHARS * g.rootFontSizePx) {
-      open(clampPaneSize("folder", Math.min(limit, rawPaneSizeFromPointer("folder", g))));
+  };
+  const onPointerUp = () => {
+    const d = dragRef.current;
+    update(null);
+    if (d !== null) {
+      keepTab();
+      releaseFolderTab(d);
     }
   };
-
-  // 引き出している間はタブが指について動く。画面の外へは出さない (端でも全体が見える)
-  const dragStyle = (d: Drag): React.CSSProperties => {
-    const half = TAB_HALF_REM * readCssPx("font-size", 16);
-    return { left: Math.min(window.innerWidth - half, Math.max(half, d.x)) };
+  // 取り消されても、動かした所にタブを残す
+  const onPointerCancel = () => {
+    update(null);
+    keepTab();
   };
+  return { drag, onPointerDown, onPointerMove, onPointerUp, onPointerCancel };
+}
 
-  const restStyle: React.CSSProperties = {
-    left: `${TAB_HALF_REM}rem`,
-    top: `calc(var(--header-h) + ${tabOffsetCss(fraction, "(100dvh - var(--header-h) - var(--bottom-bar-h))")})`,
-  };
+function CollapsedFolderTab() {
+  // 引き出している間も共有の控えに流す (開いた境界のタブと同じ作り)
+  const fraction = useTabPosition("folder");
+  const { drag, ...handlers } = useFolderTabDrag();
+  const rest = restStyle(fraction);
 
   const label = "フォルダーを開く";
   return (
@@ -134,59 +166,13 @@ function CollapsedFolderTab() {
         aria-label={label}
         title={`${label} (押すか引き出す)`}
         data-collapsed-tab="folder"
-        style={drag?.moved ? { ...restStyle, ...dragStyle(drag) } : restStyle}
+        style={drag?.moved ? { ...rest, ...dragStyle(drag) } : rest}
         className={`group fixed z-20 touch-none -translate-x-1/2 cursor-col-resize ${HANDLE_TAB.folder.shape} ${HANDLE_TAB_SKIN} ${TAB_HIT}`}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          event.currentTarget.setPointerCapture(event.pointerId);
-          const d = {
-            startX: event.clientX,
-            startY: event.clientY,
-            x: event.clientX,
-            y: event.clientY,
-            moved: false,
-          };
-          dragRef.current = d;
-          setDrag(d);
-        }}
-        onPointerMove={(event) => {
-          const current = dragRef.current;
-          if (current === null) return;
-          const moved =
-            current.moved ||
-            Math.hypot(
-              event.clientX - current.startX,
-              event.clientY - current.startY,
-            ) > CLICK_SLOP_PX;
-          const d = { ...current, x: event.clientX, y: event.clientY, moved };
-          dragRef.current = d;
-          setDrag(d);
-          if (moved) {
-            liveTabRef.current = alongFraction(event.clientX, event.clientY);
-            setLiveTabPosition("folder", liveTabRef.current);
-          }
-        }}
-        onPointerUp={() => {
-          const d = dragRef.current;
-          dragRef.current = null;
-          setDrag(null);
-          if (d !== null) {
-            finish(d);
-          }
-        }}
-        onPointerCancel={() => {
-          dragRef.current = null;
-          setDrag(null);
-          // 取り消されても、動かした所にタブを残す
-          if (liveTabRef.current !== null) {
-            setTabPosition("folder", liveTabRef.current);
-            liveTabRef.current = null;
-          }
-        }}
+        {...handlers}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            open(storedFolderWidth());
+            openFolder(storedFolderWidth());
           }
         }}
       >
