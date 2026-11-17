@@ -1,14 +1,7 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
-import { errorText } from "@/lib/errorMessage";
-import {
-  attachmentShareName,
-  isShareAborted,
-  isShareActivationLost,
-  shareFile,
-  shouldOfferShare,
-} from "@/lib/clipboard/shareFile";
+import { attachmentShareName } from "@/lib/clipboard/shareFile";
+import { useAttachmentShare } from "@/components/hooks/useAttachmentShare";
 import { SECONDARY_BUTTON_CLASS } from "../ui";
 
 interface VideoPlayerProps {
@@ -19,12 +12,6 @@ interface VideoPlayerProps {
   // 本文の幅記法で指定された表示幅 (px)。null なら既定の上限のまま
   // (docs/73-動画幅指定計画.md)
   width?: number | null;
-}
-
-// 取り込んだ動画のバイト列と mime。共有シートへ渡すために一度だけ取得して持つ
-interface VideoBytes {
-  bytes: Uint8Array;
-  mime: string;
 }
 
 // 本文の動画プレイヤー + 共有ボタン (41-QR-search/docs/14-動画挿入計画.md)。
@@ -39,82 +26,14 @@ interface VideoBytes {
 // **playsInline は必須** — iOS はこれが無いと再生時に全画面へ遷移し、
 // standalone PWA でノートへ戻れなくなる。
 export function VideoPlayer({ src, label, width = null }: VideoPlayerProps) {
-  // 共有が「唯一の出口」でありかつ実際に動く iOS でだけボタンを出す
-  // (shouldOfferShare)。PC・Android はプレイヤーの ⋮ / 右クリックで保存でき、
-  // しかも Chromium は files 付き share を恒久拒否する (clipboard/shareFile.ts)
-  const canShare = useSyncExternalStore(
-    () => () => {},
-    () => shouldOfferShare(),
-    () => false,
-  );
-
-  const cached = useRef<VideoBytes | null>(null);
-  const loading = useRef<Promise<VideoBytes> | null>(null);
-  const [phase, setPhase] = useState<"idle" | "busy" | "retry">("idle");
-  const [error, setError] = useState<string | null>(null);
-
-  const loadBytes = (): Promise<VideoBytes> => {
-    if (cached.current) {
-      return Promise.resolve(cached.current);
-    }
-    loading.current ??= (async () => {
-      // 同一オリジンなので Cookie は既定で付く (認証つき配信もそのまま取れる)
-      const res = await fetch(src);
-      if (!res.ok) {
-        throw new Error(`動画を取得できませんでした (HTTP ${res.status})`);
-      }
-      const buffer = await res.arrayBuffer();
-      const value: VideoBytes = {
-        bytes: new Uint8Array(buffer),
-        mime: res.headers.get("content-type") ?? "application/octet-stream",
-      };
-      cached.current = value;
-      return value;
-    })().catch((e) => {
-      loading.current = null;
-      throw e;
-    });
-    return loading.current;
-  };
-
-  // 共有ボタンを押し始めた時点で先読みする (hover では落とさない — 動画は重い)
-  const prefetch = () => {
-    void loadBytes().catch(() => {});
-  };
-
-  const doShare = (data: VideoBytes): Promise<void> =>
-    shareFile(data.bytes, attachmentShareName(src, label, "録画"), data.mime);
-
-  const onShareError = (e: unknown) => {
-    if (isShareAborted(e)) {
-      setPhase("idle");
-      return;
-    }
-    if (isShareActivationLost(e)) {
-      // fetch で操作直後の許可が切れた。バイト列は取れているので、
-      // もう一度押せば通信なしで (同期 share で) 送れる
-      setPhase("retry");
-      return;
-    }
-    setError(errorText(e));
-    setPhase("idle");
-  };
-
-  const handleShare = () => {
-    setError(null);
-    setPhase("busy");
-    if (cached.current) {
-      // 手元にある: await を挟まず同期で share を呼ぶ (activation を保つ)
-      doShare(cached.current)
-        .then(() => setPhase("idle"))
-        .catch(onShareError);
-      return;
-    }
-    loadBytes()
-      .then((data) => doShare(data))
-      .then(() => setPhase("idle"))
-      .catch(onShareError);
-  };
+  // 共有の中身は AudioPlayer と同じ (useAttachmentShare)。共有ボタンを押し
+  // 始めた時点でだけ先読みする (hover では落とさない — 動画は重い)
+  const { canShare, phase, error, prefetch, handleShare } = useAttachmentShare({
+    src,
+    label,
+    fallbackName: "録画",
+    kindLabel: "動画",
+  });
 
   // ダウンロード時のファイル名 (UUID のままでは何か判らないので、録画日時 +
   // 保存拡張子に直す。共有シートのファイル名と揃える)
