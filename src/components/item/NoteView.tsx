@@ -1,64 +1,44 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Item } from "@/generated/prisma/client";
-import {
-  assignNoteNumberAction,
-  recordHealthAction,
-  restoreItemsAction,
-  setItemOfflinePinAction,
-  setItemPublicAction,
-  toggleMemoTaskAction,
-  updateMemoAction,
-} from "@/lib/client/actions";
+import { updateMemoAction } from "@/lib/client/actions";
 import { ItemTags } from "@/components/item/ItemTags";
 import { ItemTimestamps } from "@/components/item/ItemTimestamps";
-import {
-  EditIcon,
-  HistoryIcon,
-  NotationIcon,
-  PublicIcon,
-  QrIcon,
-} from "@/components/icons";
-import { NoteChromePinToggle } from "@/components/notechrome/NoteChromePinToggle";
 import { NoteBody } from "@/components/markdown/NoteBody";
 import { MemoPanel } from "@/components/editor/MemoPanel";
 import { MemoEditor } from "@/components/editor/MemoEditor";
 import { NoteSaveForm } from "@/components/editor/NoteSaveForm";
-import { NotePageModeToggle } from "@/components/notepage/NotePageModeToggle";
 import { ImageFitScope } from "@/components/markdown/ImageFitScope";
-import { ImageFitToggle } from "@/components/markdown/ImageFitToggle";
+import type { ToggleTaskHandler } from "@/components/markdown/TaskCheckbox";
+import type { RecordHealthHandler } from "@/components/health/HealthRecordForm";
 import { splitPages } from "@/components/notepage/notePages";
-import { OfflinePinToggle } from "@/components/item/OfflinePinToggle";
-import { NumberAssignButton } from "@/components/item/NumberAssignButton";
-import { PendingLink } from "@/components/chrome/PendingLink";
-import { PressTip } from "@/components/item/row-actions/PressTip";
-import { PublicToggle } from "@/components/item/PublicToggle";
 import { SavedToast } from "@/components/chrome/SavedToast";
 import { SkeletonBox } from "@/components/chrome/Skeleton";
-import { TrashedBanner } from "@/components/trash/TrashedBanner";
 import { UnsavedGuard } from "@/components/editor/UnsavedGuard";
 import { SavedDraftCleanup } from "@/components/editor/SavedDraftCleanup";
 import { PerfMarks } from "@/components/diag/PerfMarks";
-import { ACTION_LINK_CLASS, BOX_CLASS } from "@/components/ui";
+import { BOX_CLASS } from "@/components/ui";
 import {
   circuitsCache,
   noteCache,
   PendingCircuits,
-  renderCache,
 } from "@/lib/client/noteStore";
 import type { PendingCircuitMap } from "@/lib/circuit/types";
+import type { HealthMap } from "@/lib/health/healthData";
+import type { MatrixMap } from "@/lib/matrix/matrixData";
 import { formatBase } from "@/lib/editor/saveBase";
 import { allImageNames } from "@/lib/images/memoImages";
-import { hasNoteNumber } from "@/lib/items/noteNumber";
 import { perfKB } from "@/lib/logging/perfLine";
-import { CIRCUIT_LANGS, HEALTH_LANG, MATRIX_LANG } from "@/lib/markdown/fenceLanguages";
+import { CIRCUIT_LANGS } from "@/lib/markdown/fenceLanguages";
 import { ensureSnapshotIndex, snapshotIndexStore } from "@/lib/offline/snapshotIndex";
-import { notePaneLayout } from "@/lib/prefs/paneMode";
-import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import { useSearchParams } from "next/navigation";
-import { noteTabsFor } from "@/modules/registry";
+import {
+  NoteHeading,
+  type NoteHeadingProps,
+  NoteNotices,
+  PublicBadge,
+} from "./NoteHeading";
+import { useNoteActions, useNoteRender, useNoteTabs } from "./useLoadedNote";
 
 interface NoteViewProps {
   itemId: string;
@@ -151,10 +131,8 @@ function SnapshotPreview({
   );
 }
 
-// フェンスを持つかの粗い判定。**行頭に縛らない** — 引用 (`> `) や箇条書きの
-// 中のフェンスも描かれるので、縛ると図が出ない。取りすぎ (本文中の文字列に
-// 当たる) は 1 回余分に引くだけで済む
-const NEEDS_RENDER = new RegExp(`(?:\`{3,}|~{3,})\\s*(?:${MATRIX_LANG}|${HEALTH_LANG})\\b`);
+// フェンスを持つかの粗い判定は useLoadedNote.ts の NEEDS_RENDER と同じ流儀
+// (行頭に縛らない。取りすぎは 1 回余分に引くだけ)
 // 回路図のフェンスを持つか。持たないノートでは /circuits を引かない
 const HAS_CIRCUIT = new RegExp(`(?:\`{3,}|~{3,})\\s*(?:${CIRCUIT_LANGS.join("|")})\\b`);
 const NO_CIRCUITS: PendingCircuitMap = new Map();
@@ -184,145 +162,25 @@ function useCircuits(itemId: string, memo: string): PendingCircuitMap {
   }, [itemId, memo, fresh, wants]);
 }
 
-function LoadedNote({
-  itemId,
-  item,
-  saved,
-  isDemo,
-  shell,
-}: {
+interface LoadedNoteProps {
   itemId: string;
   item: Item | null;
   saved?: string;
   isDemo: boolean;
   shell: string;
-}) {
+}
+
+function LoadedNote({ itemId, item, saved, isDemo, shell }: LoadedNoteProps) {
   const memo = item?.memo ?? "";
   const circuits = useCircuits(itemId, memo);
-  // モジュールが足すタブ (予定など。docs/126 §1-4)。URL の ?tab= と ?date= は
-  // 開いたときの値を控える — 3 ペインでは URL が /item を離れてもノートが残るので、
-  // 後から読むと「予定」タブが消えてしまう
-  const searchParams = useSearchParams();
-  const [opened] = useState(() => ({ tab: searchParams.get("tab"), date: searchParams.get("date") }));
-  const { mode: paneMode } = usePaneMode();
-  const query = searchParams.get("q") ?? "";
-  const extraTabs = useMemo(
-    () =>
-      noteTabsFor({
-        itemId,
-        item,
-        tab: opened.tab,
-        date: opened.date,
-        query,
-        fullscreen: notePaneLayout(paneMode) === "fullscreen",
-      }),
-    [itemId, item, opened, query, paneMode],
-  );
-  // 本文へ渡す操作は id ごとに 1 度だけ作る。描画のたびに bind し直すと、
-  // チェックボックスが押すたびに新しい関数を受け取る (描き直しの種になる)
-  const onToggleTask = useMemo(() => toggleMemoTaskAction.bind(null, itemId), [itemId]);
-  const onRecordHealth = useMemo(() => recordHealthAction.bind(null, itemId), [itemId]);
-  // 表・健康のフェンスを持つノートだけ集計を引く。持たないノートは
-  // オフラインの印の吹き出しに出す添付量だけ (印を出すときだけ)
-  const needsFullRender = NEEDS_RENDER.test(memo);
+  const { extraTabs, openedTab } = useNoteTabs(itemId, item);
+  const { onToggleTask, onRecordHealth } = useNoteActions(itemId);
   const showsPin = item !== null && !isDemo;
-  const render = renderCache.useEntry(
-    needsFullRender ? { itemId, full: true } : showsPin ? { itemId, full: false } : null,
-  )?.value;
+  const { render, waitsForRender } = useNoteRender(itemId, memo, showsPin);
 
   // 区切りを書いていないノートにはページの切り替えを出さない (ItemView と同じ)
   const hasPages = useMemo(() => splitPages(memo).length > 1, [memo]);
   const hasImages = useMemo(() => allImageNames(memo).length > 0, [memo]);
-  // 表・グラフを持つノートだけ、集計が届くまで本文を待たせる。持たない
-  // ノートで待つと、使わない集計のために本文が遅れる
-  const waitsForRender = needsFullRender && render === undefined;
-
-  const heading = (
-    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold">item</h1>
-        {/* 未登録のノートにはトグルを出さない。デモでは公開とオフラインを
-            封じるので出さない (docs/22 §7・docs/38 §3) */}
-        {item && !isDemo && (
-          <>
-            <PublicToggle
-              itemId={itemId}
-              publicAt={item.publicAt}
-              setPublicAction={setItemPublicAction}
-            />
-            {/* 添付の量は吹き出しの文言にしか使わないので、数え終わるまでは 0 */}
-            <OfflinePinToggle
-              itemId={itemId}
-              pinned={item.offlinePin}
-              attachmentBytes={render?.attachmentBytes ?? 0}
-              setPinAction={setItemOfflinePinAction}
-            />
-          </>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-1">
-        <PressTip label="このノートを編集する">
-          <Link href={`/edit/${itemId}`} className={ACTION_LINK_CLASS} transitionTypes={["nav-forward"]}>
-            <EditIcon />
-            編集
-          </Link>
-        </PressTip>
-        {!isDemo && (
-          <PressTip label="いつ何を書き換えたかを見る">
-            <Link
-              href={`/item/${itemId}/history`}
-              className={ACTION_LINK_CLASS}
-              transitionTypes={["nav-forward"]}
-            >
-              <HistoryIcon />
-              履歴
-            </Link>
-          </PressTip>
-        )}
-        {item && !hasNoteNumber(item.tags) && !isDemo && (
-          <NumberAssignButton itemId={itemId} assignAction={assignNoteNumberAction} />
-        )}
-        <PressTip label="QR シールを印刷する">
-          <PendingLink href={`/print/${itemId}`} className={ACTION_LINK_CLASS} transitionTypes={["nav-forward"]}>
-            <QrIcon />
-            QR
-          </PendingLink>
-        </PressTip>
-        {hasPages && <NotePageModeToggle />}
-        {hasImages && <ImageFitToggle />}
-        <PressTip label="メモ記法の書き方を見る">
-          <Link href="/docs/memo" className={ACTION_LINK_CLASS} transitionTypes={["nav-forward"]}>
-            <NotationIcon />
-            記法
-          </Link>
-        </PressTip>
-        <NoteChromePinToggle />
-      </div>
-    </div>
-  );
-
-  // 出たときだけ間隔を持つ通知の束 (ItemView と同じ。&& ではなく三項で null)
-  const notices = (
-    <div className="space-y-3 py-3 empty:hidden">
-      {!item ? (
-        <p className="rounded bg-yellow-50 px-3 py-2 text-yellow-800">
-          未登録の部品番号です。メモを保存すると新規登録されます。
-        </p>
-      ) : null}
-      {item?.deletedAt ? <TrashedBanner itemId={itemId} restoreAction={restoreItemsAction} /> : null}
-    </div>
-  );
-
-  const badge: ReactNode = item?.publicAt ? (
-    <span
-      role="img"
-      aria-label="公開中"
-      title="公開中 — この URL を知っていれば誰でも見られます"
-      className="inline-flex size-8 items-center justify-center rounded-full bg-green-50 text-green-800"
-    >
-      <PublicIcon />
-    </span>
-  ) : null;
 
   return (
     <div>
@@ -332,52 +190,100 @@ function LoadedNote({
 
       <MemoPanel
         key={itemId}
-        chrome={{
-          heading,
-          notices,
-          tags: item ? <ItemTags tags={item.tags} /> : null,
-          footer: <ItemTimestamps item={item} />,
-          badge,
-        }}
+        chrome={noteChrome({
+          itemId,
+          item,
+          isDemo,
+          attachmentBytes: render?.attachmentBytes,
+          hasPages,
+          hasImages,
+        })}
         extraTabs={extraTabs}
-        defaultMode={
-          extraTabs.some(({ key }) => key === opened.tab) ? opened.tab ?? "markdown" : memo ? "markdown" : "edit"
-        }
+        defaultMode={defaultModeOf(extraTabs, openedTab, memo)}
         markdownView={
-          <ImageFitScope>
-            {waitsForRender ? (
-              <SkeletonBox className="h-72">本文を読み込み中…</SkeletonBox>
-            ) : (
-              <NoteBody
-                memo={memo}
-                circuits={circuits}
-                matrices={render?.matrices}
-                health={render?.health}
-                allowRotate
-                allowSecretEdit
-                onToggleTask={onToggleTask}
-                onRecordHealth={onRecordHealth}
-              />
-            )}
-          </ImageFitScope>
+          <NoteMarkdown
+            memo={memo}
+            circuits={circuits}
+            render={render}
+            waitsForRender={waitsForRender}
+            onToggleTask={onToggleTask}
+            onRecordHealth={onRecordHealth}
+          />
         }
         textView={
           <pre className={`whitespace-pre-wrap break-words ${BOX_CLASS} font-mono text-base`}>{memo}</pre>
         }
-        editForm={
-          <NoteSaveForm action={updateMemoAction} itemId={itemId} className="space-y-3">
-            <UnsavedGuard />
-            <MemoEditor
-              defaultValue={memo}
-              base={formatBase(item?.updatedAt ?? null)}
-              minHeight="18rem"
-              autoFocus={memo === ""}
-              draftKey={itemId}
-            />
-          </NoteSaveForm>
-        }
+        editForm={<NoteEditForm itemId={itemId} item={item} memo={memo} />}
       />
     </div>
+  );
+}
+
+// MemoPanel の枠に置く部品 (見出し行・通知の束・タグ・時刻・公開中の印)
+function noteChrome(props: NoteHeadingProps) {
+  const { itemId, item } = props;
+  return {
+    heading: <NoteHeading {...props} />,
+    notices: <NoteNotices itemId={itemId} item={item} />,
+    tags: item ? <ItemTags tags={item.tags} /> : null,
+    footer: <ItemTimestamps item={item} />,
+    badge: item?.publicAt ? <PublicBadge /> : null,
+  };
+}
+
+// 開いたときの ?tab= がモジュールのタブならそれを、無ければ本文があれば表示、
+// 空なら編集から始める
+function defaultModeOf(extraTabs: readonly { key: string }[], openedTab: string | null, memo: string) {
+  return extraTabs.some(({ key }) => key === openedTab) ? openedTab ?? "markdown" : memo ? "markdown" : "edit";
+}
+
+function NoteMarkdown({
+  memo,
+  circuits,
+  render,
+  waitsForRender,
+  onToggleTask,
+  onRecordHealth,
+}: {
+  memo: string;
+  circuits: PendingCircuitMap;
+  render: { matrices?: MatrixMap; health?: HealthMap } | undefined;
+  waitsForRender: boolean;
+  onToggleTask: ToggleTaskHandler;
+  onRecordHealth: RecordHealthHandler;
+}) {
+  return (
+    <ImageFitScope>
+      {waitsForRender ? (
+        <SkeletonBox className="h-72">本文を読み込み中…</SkeletonBox>
+      ) : (
+        <NoteBody
+          memo={memo}
+          circuits={circuits}
+          matrices={render?.matrices}
+          health={render?.health}
+          allowRotate
+          allowSecretEdit
+          onToggleTask={onToggleTask}
+          onRecordHealth={onRecordHealth}
+        />
+      )}
+    </ImageFitScope>
+  );
+}
+
+function NoteEditForm({ itemId, item, memo }: { itemId: string; item: Item | null; memo: string }) {
+  return (
+    <NoteSaveForm action={updateMemoAction} itemId={itemId} className="space-y-3">
+      <UnsavedGuard />
+      <MemoEditor
+        defaultValue={memo}
+        base={formatBase(item?.updatedAt ?? null)}
+        minHeight="18rem"
+        autoFocus={memo === ""}
+        draftKey={itemId}
+      />
+    </NoteSaveForm>
   );
 }
 
