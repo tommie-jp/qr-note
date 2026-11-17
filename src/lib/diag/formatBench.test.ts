@@ -144,3 +144,10 @@ test('環境の先頭にホスト名と OS を出し、古い保存 (kernel 無�
   expect(envRows(SERVER.env)[0]?.label).toBe('CPU')
   expect(envRows({ ...env, hostName: null, osName: null })[0]?.value).toBe('不明')
 })
+
+test('画面用に now を渡すと計測の日時に相対時刻が付き、コピー用 (now 無し) には付かない', () => {
+  const now = new Date('2026-11-08T05:00:00.000Z')
+  const value = (rows: { label: string; value: string }[]) => rows.find((row) => row.label === '計測')?.value
+  expect(value(envRows(SERVER.env, now))).toBe('2026/10/29 14:00:00(10日前)')
+  expect(value(envRows(SERVER.env))).toBe('2026/10/29 14:00:00')
+})

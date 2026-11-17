@@ -49,7 +49,7 @@ function rowValue(rows: { label: string; value: string }[], label: string) {
 
 test('版・PGroonga・大きさ・接続・表・件数・最新マイグレーションを並べる', async () => {
   // Act
-  const info = await collectDbInfo(fakeClient(HEALTHY_ANSWER))
+  const info = await collectDbInfo(fakeClient(HEALTHY_ANSWER), new Date('2026-10-17T03:00:00Z'))
   const rows = info.section.result.kind === 'ok' ? info.section.result.rows : []
 
   // Assert
@@ -57,12 +57,12 @@ test('版・PGroonga・大きさ・接続・表・件数・最新マイグレー
   expect(rowValue(rows, 'PGroonga')).toBe('4.1.0')
   expect(rowValue(rows, 'PGroonga 索引')).toBe('items_memo_pgroonga_idx, items_title_pgroonga_idx')
   expect(rowValue(rows, 'DB の大きさ')).toBe('700.0 MB')
-  expect(rowValue(rows, 'DB の起動')).toBe('2026/10/10 09:00:00')
+  expect(rowValue(rows, 'DB の起動')).toBe('2026/10/10 09:00:00(7日前)')
   expect(rowValue(rows, '接続数')).toBe('3 / 100')
   expect(rowValue(rows, '表の大きさ')).toBe('images 667.6 MB, items 28.6 MB')
   expect(rowValue(rows, 'ノート')).toBe('1234 件')
   expect(rowValue(rows, '画像・動画')).toBe('56 件')
-  expect(rowValue(rows, '最新マイグレーション')).toBe('20261017_item_uuid (2026/10/17 09:00:00)')
+  expect(rowValue(rows, '最新マイグレーション')).toBe('20261017_item_uuid (2026/10/17 09:00:00(3時間前))')
 })
 
 test('ヘルスチェックの入力 (応答時間・PGroonga・索引・壊れたマイグレーション) を返す', async () => {

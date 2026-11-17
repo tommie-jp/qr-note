@@ -5,7 +5,7 @@ import { PageTransition } from "@/components/chrome/PageTransition";
 import { CopyTextButton } from "@/components/CopyTextButton";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { requireAdminPage } from "@/lib/auth/pageGuard";
-import { formatJstDateTime } from "@/lib/datetime";
+import { DateTimeAgo } from "@/components/DateTimeAgo";
 import {
   formatServerInfo,
   LEVEL_LABEL,
@@ -92,7 +92,7 @@ export default async function ServerInfoPage() {
         </div>
         <div className="flex items-start justify-between gap-3">
           <p className="text-gray-500">
-            {formatJstDateTime(info.collectedAt)} 時点。再読み込みで更新します。
+            <DateTimeAgo iso={info.collectedAt.toISOString()} /> 時点。再読み込みで更新します。
           </p>
           <CopyTextButton
             text={formatServerInfo(info)}

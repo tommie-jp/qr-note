@@ -13,7 +13,7 @@
 import 'server-only'
 import type { PrismaClient } from '@/generated/prisma/client'
 import { prisma } from '../db'
-import { formatJstDateTime } from '../datetime'
+import { formatJstDateTimeAgo } from '../datetime'
 import { safeErrorText } from './safeErrorText'
 import { formatBytes } from '../formatBytes'
 import type { DbHealth } from './healthChecks'
@@ -103,21 +103,22 @@ async function snapshot(client: DbClient): Promise<Snapshot> {
   }
 }
 
-function migrationLabel(latest: Snapshot['latestMigration']): string {
+function migrationLabel(latest: Snapshot['latestMigration'], now: Date): string {
   if (latest === null) {
     return '無し'
   }
-  const when = latest.finished_at === null ? '未完' : formatJstDateTime(latest.finished_at)
+  const when = latest.finished_at === null ? '未完' : formatJstDateTimeAgo(latest.finished_at, now)
   return `${latest.migration_name} (${when})`
 }
 
-function rowsOf(s: Snapshot): InfoRow[] {
+// 日時には取得した時点からの「(5分前)」を添える (コピーにもその時点の値で載る)
+function rowsOf(s: Snapshot, now: Date): InfoRow[] {
   return [
     { label: 'PostgreSQL', value: s.version },
     { label: 'PGroonga', value: s.pgroongaVersion ?? '無し' },
     { label: 'PGroonga 索引', value: s.pgroongaIndexes.length === 0 ? '無し' : s.pgroongaIndexes.join(', ') },
     { label: 'DB の大きさ', value: formatBytes(s.databaseBytes) },
-    { label: 'DB の起動', value: formatJstDateTime(s.startedAt) },
+    { label: 'DB の起動', value: formatJstDateTimeAgo(s.startedAt, now) },
     { label: '接続数', value: `${s.connections} / ${s.maxConnections}` },
     {
       label: '表の大きさ',
@@ -125,15 +126,15 @@ function rowsOf(s: Snapshot): InfoRow[] {
     },
     { label: 'ノート', value: `${s.itemCount} 件` },
     { label: '画像・動画', value: `${s.imageCount} 件` },
-    { label: '最新マイグレーション', value: migrationLabel(s.latestMigration) },
+    { label: '最新マイグレーション', value: migrationLabel(s.latestMigration, now) },
   ]
 }
 
-export async function collectDbInfo(client: DbClient = prisma): Promise<DbInfo> {
+export async function collectDbInfo(client: DbClient = prisma, now: Date = new Date()): Promise<DbInfo> {
   try {
     const s = await snapshot(client)
     return {
-      section: { id: 'db', title: 'DB', result: { kind: 'ok', rows: rowsOf(s) } },
+      section: { id: 'db', title: 'DB', result: { kind: 'ok', rows: rowsOf(s, now) } },
       health: {
         kind: 'ok',
         pingMs: s.pingMs,

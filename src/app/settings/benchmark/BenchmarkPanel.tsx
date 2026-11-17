@@ -24,11 +24,12 @@ import {
   formatMs,
   formatPhases,
 } from "@/lib/diag/formatBench";
-import { formatJstDateTime } from "@/lib/datetime";
+import { formatJstDateTimeAgo } from "@/lib/datetime";
 import { errorText } from "@/lib/errorMessage";
 import { markPerfTestPending } from "@/lib/perf/perfTestFlag";
 import { HostSection } from "./HostSection";
 import { CELL_CLASS, TABLE_CLASS } from "./tableClasses";
+import { useNow } from "@/lib/client/useNow";
 
 // 計測の終わりを見に行く間隔
 const POLL_MS = 3000;
@@ -160,14 +161,14 @@ function ServerTable({ server }: { server: ServerBenchResult }) {
   );
 }
 
-function ClientTable({ run }: { run: ClientBenchRun }) {
+function ClientTable({ run, now }: { run: ClientBenchRun; now: Date | null }) {
   return (
     <div className="space-y-1">
       <h3 className="font-bold">
         {run.device} / {run.line}
         <span className="ml-2 text-sm font-normal text-gray-500">
           panes={run.panes} 幅={run.width} ・{" "}
-          {formatJstDateTime(new Date(run.measuredAt))}
+          {formatJstDateTimeAgo(new Date(run.measuredAt), now)}
         </span>
       </h3>
       <KeyValueTable rows={run.rows} />
@@ -225,6 +226,7 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
     }
   };
 
+  const now = useNow();
   const busy = status.running !== null || starting;
   const env = status.server?.env;
 
@@ -299,13 +301,13 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
       <section className="space-y-2">
         <h2 className="text-lg font-bold">環境</h2>
         {env ? (
-          <KeyValueTable rows={envRows(env)} />
+          <KeyValueTable rows={envRows(env, now)} />
         ) : (
           <p className="text-sm text-gray-500">未計測 (サーバを計測すると出ます)</p>
         )}
       </section>
 
-      <HostSection server={status.server} />
+      <HostSection server={status.server} now={now} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-bold">CPU (7z b)</h2>
@@ -325,7 +327,7 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
         <h2 className="text-lg font-bold">端末</h2>
         {status.clients.length > 0 ? (
           status.clients.map((client) => (
-            <ClientTable key={`${client.device}/${client.line}`} run={client} />
+            <ClientTable key={`${client.device}/${client.line}`} run={client} now={now} />
           ))
         ) : (
           <p className="text-sm text-gray-500">未計測</p>
@@ -370,7 +372,7 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
               qr-benchmark-parse.cpuprofile
             </a>
             <span className="ml-2 text-gray-500">
-              {formatJstDateTime(new Date(status.profileAt))} 取得。Chrome DevTools の
+              {formatJstDateTimeAgo(new Date(status.profileAt), now)} 取得。Chrome DevTools の
               Performance で「Load profile」から開きます
             </span>
           </p>

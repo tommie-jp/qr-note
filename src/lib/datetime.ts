@@ -16,6 +16,34 @@ export function formatJstDateTime(date: Date): string {
   return date.toLocaleString("ja-JP", JST_FORMAT);
 }
 
+const MS_PER_MINUTE = 60_000;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+
+// 今からどれだけ前か (「いま」「5分前」「3時間前」「10日前」)。切り捨て。
+// 時計のずれで未来になっても負の値を出さず「いま」にする
+export function agoLabelJa(at: Date, now: Date): string {
+  const minutes = Math.floor((now.getTime() - at.getTime()) / MS_PER_MINUTE);
+  if (minutes < 1) {
+    return "いま";
+  }
+  if (minutes < MINUTES_PER_HOUR) {
+    return `${minutes}分前`;
+  }
+  const hours = Math.floor(minutes / MINUTES_PER_HOUR);
+  if (hours < HOURS_PER_DAY) {
+    return `${hours}時間前`;
+  }
+  return `${Math.floor(hours / HOURS_PER_DAY)}日前`;
+}
+
+// 「2026/11/17 19:52:45(5分前)」。now が null (描き終える前) なら相対を付けない —
+// サーバの描画とブラウザの描画で文字が食い違わないようにするため
+export function formatJstDateTimeAgo(date: Date, now: Date | null): string {
+  const absolute = formatJstDateTime(date);
+  return now === null ? absolute : `${absolute}(${agoLabelJa(date, now)})`;
+}
+
 // 日付だけの JST 表記 (例: 2026-08-06)。エクスポートしたファイル名に使う
 // (docs/28-エクスポート計画.md §7)。ロケール "sv-SE" を選ぶのは、ゼロ埋めの
 // YYYY-MM-DD をそのまま返す数少ない既定書式だから (en-CA も同じ形)。

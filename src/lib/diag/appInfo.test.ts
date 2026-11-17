@@ -46,7 +46,7 @@ test('版・ランタイム・起動時刻・メモリ・外部連携のあり/�
   expect(rowValue(rows, 'Prisma')).toBe('7.9.1')
   expect(rowValue(rows, 'APP_ENV')).toBe('production')
   expect(rowValue(rows, 'デモモード')).toBe('いいえ')
-  expect(rowValue(rows, '起動')).toBe('2026/10/17 06:53:00 (5 時間 7 分 前)')
+  expect(rowValue(rows, '起動')).toBe('2026/10/17 06:53:00(5時間前)')
   expect(rowValue(rows, 'プロセスのメモリ')).toBe('RSS 300.0 MB / ヒープ 80.0 MB (確保 120.0 MB)')
   expect(rowValue(rows, 'タイムゾーン')).toBe('Asia/Tokyo')
   expect(rowValue(rows, 'データ領域')).toBe('/app/data/git-notes — 空き 20.0 GB / 40.0 GB (50%)')

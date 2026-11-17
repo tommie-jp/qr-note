@@ -12,10 +12,10 @@ import nextPkg from 'next/package.json'
 import pkg from '../../../package.json'
 import { Prisma } from '@/generated/prisma/client'
 import { appEnvEnv, isDemoMode, rakutenBooksEnv, webauthnEnv, yahooShoppingAppIdEnv } from '../appEnv'
-import { formatJstDateTime } from '../datetime'
+import { formatJstDateTimeAgo } from '../datetime'
 import { notesRepoDir } from '../git/notesRepo'
 import { recentLogs } from '../logging/buffer'
-import { formatBytes, formatDuration, formatPercent } from '../formatBytes'
+import { formatBytes, formatPercent } from '../formatBytes'
 import type { DiskInfo, GitRepoHealth } from './healthChecks'
 import { safeErrorText } from './safeErrorText'
 import type { InfoRow, InfoSection } from './types'
@@ -107,11 +107,9 @@ function presence(set: number, total: number): string {
 }
 
 function startedRow(probe: AppProbe): InfoRow {
-  const startedAt = new Date(probe.now().getTime() - probe.processUptimeSeconds * MS_PER_SECOND)
-  return {
-    label: '起動',
-    value: `${formatJstDateTime(startedAt)} (${formatDuration(probe.processUptimeSeconds)} 前)`,
-  }
+  const now = probe.now()
+  const startedAt = new Date(now.getTime() - probe.processUptimeSeconds * MS_PER_SECOND)
+  return { label: '起動', value: formatJstDateTimeAgo(startedAt, now) }
 }
 
 function dataDirRow(dataDir: string, disk: DiskInfo | null, diskError: string | null): InfoRow {

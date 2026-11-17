@@ -12,7 +12,7 @@ import {
   formatMemUsage,
   freeMemTable,
 } from "@/lib/diag/formatBench";
-import { formatJstDateTime } from "@/lib/datetime";
+import { formatJstDateTimeAgo } from "@/lib/datetime";
 import { CELL_CLASS, TABLE_CLASS } from "./tableClasses";
 
 const HEAD_NUM_CLASS = `${CELL_CLASS} text-right`;
@@ -79,13 +79,13 @@ function ContainerTable({ stats }: { stats: readonly ContainerStat[] }) {
   );
 }
 
-function HostTables({ host }: { host: HostSnapshot }) {
+function HostTables({ host, now }: { host: HostSnapshot; now: Date | null }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500">
-        {formatJstDateTime(new Date(host.takenAt))} 取得 (計測の負荷を掛ける前)。
+        {formatJstDateTimeAgo(new Date(host.takenAt), now)} 取得 (計測の負荷を掛ける前)。
         {host.namesAt &&
-          ` コンテナ名の表は ${formatJstDateTime(new Date(host.namesAt))} 時点 (配布で更新)。`}
+          ` コンテナ名の表は ${formatJstDateTimeAgo(new Date(host.namesAt), now)} 時点 (配布で更新)。`}
       </p>
       {host.freeMem && <FreeMemTable mem={host.freeMem} />}
       {host.containers.length > 0 && <ContainerTable stats={host.containers} />}
@@ -104,13 +104,20 @@ function HostTables({ host }: { host: HostSnapshot }) {
 }
 
 // 未計測は server が null。古い保存 (v0.23.142 まで) には host が無い
-export function HostSection({ server }: { server: ServerBenchResult | null }) {
+export function HostSection({
+  server,
+  now,
+}: {
+  server: ServerBenchResult | null;
+  // 「5分前」の基準。描き終える前は null
+  now: Date | null;
+}) {
   const host = server?.host;
   return (
     <section className="space-y-2">
       <h2 className="text-lg font-bold">ホストとコンテナ</h2>
       {host ? (
-        <HostTables host={host} />
+        <HostTables host={host} now={now} />
       ) : (
         <p className="text-sm text-gray-500">未計測 (サーバを計測すると出ます)</p>
       )}

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  agoLabelJa,
+  formatJstDateTimeAgo,
   formatJstDateTime,
   formatLocalCompactStamp,
   formatLocalDate,
@@ -58,5 +60,27 @@ describe("ローカル時刻の日時", () => {
     expect(timestampFileName("clipboard", padded, "png")).toBe(
       "clipboard-20260102-030405.png",
     );
+  });
+});
+
+describe("今からどれだけ前か", () => {
+  const now = new Date("2026-11-17T10:57:45Z");
+  const before = (ms: number) => new Date(now.getTime() - ms);
+  const MINUTE = 60_000;
+
+  test("1 分未満と未来は「いま」、以降は分・時間・日で切り捨てる", () => {
+    expect(agoLabelJa(before(59_000), now)).toBe("いま");
+    expect(agoLabelJa(before(-5 * MINUTE), now)).toBe("いま");
+    expect(agoLabelJa(before(5 * MINUTE), now)).toBe("5分前");
+    expect(agoLabelJa(before(59 * MINUTE), now)).toBe("59分前");
+    expect(agoLabelJa(before(60 * MINUTE), now)).toBe("1時間前");
+    expect(agoLabelJa(before(24 * 60 * MINUTE - 1), now)).toBe("23時間前");
+    expect(agoLabelJa(before(10 * 24 * 60 * MINUTE), now)).toBe("10日前");
+  });
+
+  test("絶対時刻の後ろに括弧で添え、now が無ければ絶対時刻だけ", () => {
+    const at = before(5 * MINUTE);
+    expect(formatJstDateTimeAgo(at, now)).toBe("2026/11/17 19:52:45(5分前)");
+    expect(formatJstDateTimeAgo(at, null)).toBe("2026/11/17 19:52:45");
   });
 });

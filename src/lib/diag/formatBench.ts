@@ -2,7 +2,7 @@
 //
 // コピーは `key=値` の 1 行 1 項目 (docs/119 §1-1 と同じ流儀)。WSL・本番・
 // 移行先の 3 枚を貼り並べて、行ごとに差を読む。状態を持たない葉
-import { formatJstDateTime } from '../datetime'
+import { formatJstDateTime, formatJstDateTimeAgo } from '../datetime'
 import type {
   BenchEnv,
   ClientBenchRun,
@@ -36,14 +36,15 @@ function machineRows(env: BenchEnv): { label: string; value: string }[] {
   ]
 }
 
-export function envRows(env: BenchEnv): { label: string; value: string }[] {
+// now を渡すと計測の日時に「(5分前)」を添える (画面用。コピーは貼った先で古びるので付けない)
+export function envRows(env: BenchEnv, now: Date | null = null): { label: string; value: string }[] {
   return [
     ...machineRows(env),
     { label: 'CPU', value: `${env.cpuModel} (${env.threads} スレッド)` },
     { label: 'メモリ', value: `${env.totalMemMB}MB` },
     { label: '版', value: `QR-Note ${env.appVersion} / Node.js ${env.nodeVersion}` },
     { label: 'ノート', value: `${env.items} 件 (回路 ${env.circuitItems} 件)` },
-    { label: '計測', value: formatJstDateTime(new Date(env.measuredAt)) },
+    { label: '計測', value: formatJstDateTimeAgo(new Date(env.measuredAt), now) },
   ]
 }
 
