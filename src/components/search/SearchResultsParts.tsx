@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { type ComponentProps, useState } from "react";
 import { PerfMarks } from "@/components/diag/PerfMarks";
-import { TrashIcon } from "@/components/icons";
 import { ItemList } from "@/components/item/ItemList";
 import { PropsTable } from "@/components/markdown/PropsTable";
 import { AutoLoadMore } from "@/components/search/AutoLoadMore";
@@ -51,30 +49,15 @@ export function ResultsSummaryRow({
   // スライドショーは画像表示で、画像か動画があるときだけ (docs/117 §1)
   const slideshow = view === "image" && items.some((item) => allViewerMedia(item.memo).length > 0);
   return (
-    <div className="@container flex flex-wrap items-center gap-2 text-sm text-gray-600">
-      <span className="min-w-0 flex-1 truncate">
+    // 1 行に固定する (折り返さない)。収まらない操作は ResultsToolbar の帯の
+    // 中だけ横へ送る (docs/86 §4-33)
+    <div className="@container flex items-center gap-2 text-sm text-gray-600">
+      {/* shrink-0 … 件数は削らず、詰まったら操作の帯のほうを送らせる。
+          max-w-[60%] … 長い検索語のときだけ件数を切る (帯が消えないように) */}
+      <span className="min-w-0 max-w-[60%] shrink-0 truncate">
         {query ? `「${query}」の検索結果: ` : "すべて: "}
         {total} 件
       </span>
-      <Link
-        href="/docs/search"
-        aria-label="検索ヘルプ"
-        title="検索ヘルプ"
-        className="rounded-full border border-blue-300 px-1.5 text-xs leading-4 text-blue-600"
-      >
-        ?
-      </Link>
-      {extras.trashCount > 0 && (
-        <Link
-          href="/trash"
-          transitionTypes={["nav-forward"]}
-          aria-label={`ゴミ箱 (${extras.trashCount} 件)`}
-          title="ゴミ箱"
-          className="inline-flex items-center gap-0.5 self-center text-xs text-blue-600"
-        >
-          <TrashIcon small />({extras.trashCount})
-        </Link>
-      )}
       <ResultsToolbar
         query={query}
         sort={sort}
@@ -82,6 +65,7 @@ export function ResultsSummaryRow({
         viewAction={setViewModeAction}
         sortAction={setSortAction}
         slideshow={slideshow}
+        trashCount={extras.trashCount}
       />
     </div>
   );

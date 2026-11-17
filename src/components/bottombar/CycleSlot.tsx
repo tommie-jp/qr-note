@@ -29,6 +29,28 @@ interface CycleSlotProps<T extends string> {
   onClick: (event: React.MouseEvent) => void;
 }
 
+// いま見せる値。送信中なら送った先、そうでなければサーバの値 (下の CycleSlot の注)。
+//
+// 同じ form の中の釦はどれもこれを読む — 並び順の種別と向き (SortSlot) は
+// 別の釦だが 1 つの値 (8 値の Sort) を分け合うので、片方を押した往復の間も
+// もう片方が送った先を先に見せる。form の外では pending が立たないので current のまま
+export function useShownValue<T extends string>(
+  cookieName: string,
+  current: T,
+  // 妥当な値をすべて並べた表。知らない値は current に倒す
+  known: Record<T, unknown>,
+) {
+  const { pending, data } = useFormStatus();
+  // FormData は送信ボタンの name/value から組まれるので普段は必ず表の中に居るが、
+  // 別の cookie の釦が同じ form に居ても取り違えないよう名前と表の両方で見る
+  const submitted = pending ? data?.get(cookieName) : null;
+  const shown =
+    typeof submitted === "string" && submitted in known
+      ? (submitted as T)
+      : current;
+  return { pending, shown };
+}
+
 // 下部バーの「押すと値が循環する」スロット (表示モード / 並び順)。
 //
 // **送信中は送った先の値を先に見せる** (docs/62 §3-1)。値の正本は cookie で、
@@ -61,15 +83,7 @@ export function CycleSlot<T extends string>({
   press,
   onClick,
 }: CycleSlotProps<T>) {
-  const { pending, data } = useFormStatus();
-  // 送った値が知らないものだったら current に倒す。FormData は
-  // 送信ボタンの name/value から組まれるので普段は必ず表の中に居るが、
-  // labelOf は妥当な値をすべて並べた表そのものなので、これで畳める
-  const submitted = pending ? data?.get(cookieName) : null;
-  const shown =
-    typeof submitted === "string" && submitted in labelOf
-      ? (submitted as T)
-      : current;
+  const { pending, shown } = useShownValue(cookieName, current, labelOf);
 
   return (
     <button

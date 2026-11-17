@@ -19,6 +19,7 @@ const render = (
   view: ViewMode = "compact",
   sort: Sort = "updated",
   query = "",
+  trashCount = 0,
 ) =>
   renderToStaticMarkup(
     <SelectModeProvider>
@@ -28,6 +29,7 @@ const render = (
         view={view}
         viewAction={noop}
         sortAction={noop}
+        trashCount={trashCount}
       />
     </SelectModeProvider>,
   );
@@ -81,10 +83,11 @@ test("更新順の次はアクセス順", () => {
   );
 });
 
-test("アクセス順の次は登録順", () => {
+// 向きは保つ (docs/64 追記 案 B)。アクセス順の新しい順の次は、登録順の新しい順
+test("アクセス順の次は登録順 (向きを保つ)", () => {
   const html = render("compact", "accessed");
   expect(html).toContain(">アクセス順<");
-  expect(html).toContain('value="registered"');
+  expect(html).toContain('value="registeredDesc"');
   expect(html).toContain(
     "並び順: アクセス順・新しい順 (押すと登録順に切替、長押しで一覧)",
   );
@@ -99,18 +102,17 @@ test("登録順の次はタイトル順", () => {
   );
 });
 
-test("タイトル順の次は既定の更新順に戻る (循環の最後の辺)", () => {
+test("タイトル順の次は更新順に戻る (循環の最後の辺。昇順を保つ)", () => {
   const html = render("compact", "title");
   expect(html).toContain(">タイトル順<");
-  expect(html).toContain('value="updated"');
+  expect(html).toContain('value="updatedAsc"');
   expect(html).toContain(
     "並び順: タイトル順・昇順 (押すと更新順に切替、長押しで一覧)",
   );
 });
 
-// 逆順 (docs/64-並び順逆順計画.md)。メニューは 4 行のままで、
-// **選んである行をもう一度押したときだけ**方向が裏返る。
-// バーのラベルは種別のまま (幅が増えない) で、方向はアイコンと読み上げに出す
+// 逆順 (docs/64)。種別の釦のラベルは種別のまま (幅が増えない) で、
+// 向きは隣の向きの釦と読み上げに出す
 test("逆順でも種別のラベルは変わらず、方向は読み上げに出る", () => {
   const html = render("compact", "updatedAsc");
   expect(html).toContain(">更新順<");
@@ -119,20 +121,48 @@ test("逆順でも種別のラベルは変わらず、方向は読み上げに�
   );
 });
 
-// 短いタップは今までどおり**種別だけ**を回す。方向はその種別の既定に戻す —
-// 8 値を 1 スロットで循環させると一周が遠すぎるし、いま何順なのかも見失う
-test("逆順から短いタップで回すと次の種別の既定の方向へ行く", () => {
-  expect(render("compact", "updatedAsc")).toContain('value="accessed"');
-  expect(render("compact", "registeredDesc")).toContain('value="title"');
+// 短いタップは種別だけを回し、**向きは保つ** (docs/64 追記 案 B)。
+// 押す前に見えている矢印が、押した後の並びの向きのまま
+test("逆順から短いタップで回すと次の種別の同じ向きへ行く", () => {
+  // 昇順 (古い順) の更新順 → 昇順のアクセス順
+  expect(render("compact", "updatedAsc")).toContain('value="accessedAsc"');
+  // 降順 (新しい順) の登録順 → 降順のタイトル順
+  expect(render("compact", "registeredDesc")).toContain('value="titleDesc"');
+  // 降順のタイトル順 → 降順 (既定) の更新順
   expect(render("compact", "titleDesc")).toContain('value="updated"');
 });
 
-test("方向ごとに違うアイコンを出す (昇順と降順で描画が変わる)", () => {
+// 向きの釦 (docs/64 追記 2026-11-17)。押すと種別はそのままで向きだけ裏返す
+test("向きの釦は同じ種別の逆向きを送る", () => {
+  expect(render("compact", "updated")).toContain('value="updatedAsc"');
+  expect(render("compact", "updatedAsc")).toContain('value="updated"');
+  expect(render("compact", "registered")).toContain('value="registeredDesc"');
+  expect(render("compact", "titleDesc")).toContain('value="title"');
+});
+
+test("向きの釦は今の向きと押した先を読み上げに出す", () => {
+  expect(render("compact", "updated")).toContain(
+    'aria-label="並び順の向き: 新しい順 (押すと古い順に切替)"',
+  );
+  expect(render("compact", "title")).toContain(
+    'aria-label="並び順の向き: 昇順 (押すと降順に切替)"',
+  );
+});
+
+test("向きごとに違うアイコンを出す (昇順と降順で描画が変わる)", () => {
   // 形そのもの (上向き / 下向きの矢印) はブラウザで確認する。ここで固定
   // できるのは「方向で描き分けている」ことだけ
   expect(render("compact", "accessed")).not.toBe(
     render("compact", "accessedAsc"),
   );
+});
+
+// 種別の釦と向きの釦は同じ form の中 (送信中に両方が送った先を先に見せる)
+test("向きの釦は種別の釦と同じ form にある", () => {
+  const html = render();
+  const sortForm =
+    html.split("<form").find((part) => part.includes('name="sort"')) ?? "";
+  expect(sortForm.match(/name="sort"/g)).toHaveLength(2);
 });
 
 // リンクのままだと URL しか変わらず、?sort= を持たない入口から入るたびに
@@ -211,6 +241,33 @@ test("ラベルを削っても読み上げは完全なまま", () => {
   // 「並び順: 更新順・新しい順 (押すと…)」のような完全な説明
   expect(html).toContain('aria-label="並び順:');
   expect(html).toContain('aria-label="表示:');
+});
+
+// 帯の並び (docs/86 §4-33)。出たり消えたりするゴミ箱は末尾寄り
+test("帯は ? / カレンダー / 表示 / 並び順 / 向き / 選択 / ゴミ箱 の順に並ぶ", () => {
+  const html = render("compact", "updated", "", 51);
+  const order = [
+    'aria-label="検索ヘルプ"',
+    'aria-label="カレンダー"',
+    'aria-label="表示:',
+    'aria-label="並び順:',
+    'aria-label="並び順の向き:',
+    ">選択<",
+    'aria-label="ゴミ箱 (51 件)"',
+  ].map((needle) => html.indexOf(needle));
+  expect(order.every((index) => index >= 0)).toBe(true);
+  expect(order).toEqual([...order].sort((a, b) => a - b));
+});
+
+test("ゴミ箱が空ならゴミ箱へのリンクを出さない", () => {
+  expect(render()).not.toContain('href="/trash"');
+});
+
+// 収まらない分は帯の中だけ横へ送る (折り返すと見出し行が 2 行になる)
+test("帯は横に送れる窓で、スクロールバーは出さない", () => {
+  const html = render();
+  expect(html).toContain("overflow-x-auto");
+  expect(html).toContain("[scrollbar-width:none]");
 });
 
 // モジュールの表示 (docs/126 §1-3)。登録口 (src/modules/registry.tsx) の一覧から出す

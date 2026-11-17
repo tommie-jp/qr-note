@@ -55,11 +55,22 @@ test("並び順はゴミ箱専用の cookie 名で送る", () => {
 });
 
 // 循環は 削除順 → 更新順 → アクセス順 → 番号順 → タイトル順 → 削除順。
-// 既定 (削除順) が先頭で、残りは検索一覧と同じ並び
+// 既定 (削除順) が先頭で、残りは検索一覧と同じ並び。向きは保つ (docs/64 追記 案 B)
 test("並び順は削除順を先頭にした 5 種別を循環する", () => {
   expect(render("compact", "deleted")).toContain('value="updated"');
   expect(render("compact", "updated")).toContain('value="accessed"');
-  expect(render("compact", "title")).toContain('value="deleted"');
+  // タイトル順の昇順 → 削除順の昇順 (古く消した順)
+  expect(render("compact", "title")).toContain('value="deletedAsc"');
+});
+
+// ゴミ箱も向きを別の釦にする (検索一覧と同じ部品)
+test("向きの釦は同じ種別の逆向きを送り、帯ではラベルも出す", () => {
+  const html = render("compact", "deleted");
+  expect(html).toContain('value="deletedAsc"');
+  expect(html).toContain(
+    'aria-label="並び順の向き: 新しい順 (押すと古い順に切替)"',
+  );
+  expect(html).toContain(">新しい順<");
 });
 
 test("並び順のラベルと方向を読み上げに出す", () => {

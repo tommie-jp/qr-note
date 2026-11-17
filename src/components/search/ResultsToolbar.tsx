@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { refreshRouter } from "@/lib/client/navigation";
 import { startTransition, useCallback, useState } from "react";
-import { SelectIcon, SlideshowIcon } from "@/components/icons";
+import { SelectIcon, SlideshowIcon, TrashIcon } from "@/components/icons";
 import { perfMarkImmediate, perfNow, perfStart } from "@/lib/perf/perfClient";
 import { switchViewMode } from "@/components/search/switchViewMode";
 import { useImageViewer } from "@/components/imageviewer/ImageViewerProvider";
@@ -32,9 +33,16 @@ interface ResultsToolbarProps {
   // 「スライドショー」を出すか (docs/117 §1)。画像表示で、一覧に画像が
   // あるときだけ立てる — 押しても何も起きない釦を置かない
   slideshow?: boolean;
+  // ゴミ箱の件数。0 ならゴミ箱へのリンクを出さない
+  trashCount?: number;
 }
 
 // 検索結果の見出し行 (件数の右) に並べる操作 (docs/86 §4-11)。
+//
+// **帯は 1 行で、収まらない分は帯の中だけ横へ送る** (docs/86 §4-33)。
+// 並びは ? / カレンダー / 表示 / 並び順 (種別・向き) / 選択 / ゴミ箱 / スライドショー。
+// 出たり消えたりする物 (ゴミ箱は件数 0 で、スライドショーは画像表示だけ) を
+// 末尾に寄せて、出入りで他の釦の位置が動かないようにしてある。
 //
 // 表示・並び順・選択は**一覧に効く操作**なので、一覧の頭に置く。
 // 画面下端のバーに置いていた頃は、3 ペインだとバーが画面の一番下 =
@@ -50,6 +58,7 @@ export function ResultsToolbar({
   viewAction,
   sortAction,
   slideshow = false,
+  trashCount = 0,
 }: ResultsToolbarProps) {
   const { selectMode, enter, exit } = useSelectMode();
   // provider の外 (オフライン一覧など) では出さない
@@ -65,14 +74,8 @@ export function ResultsToolbar({
   const onViewSubmit = useViewModeSubmit(shownView);
 
   return (
-    // ml-auto … 件数と補助リンクは左、操作は右。間が空くので、読む物と
-    // 押す物が混ざらない。
-    // shrink-0 … 詰まったときに譲るのは件数の側 (あちらは truncate する)。
-    // ここが縮むと、狭いペインで操作そのものが読めなくなる
-    <span className="ml-auto flex shrink-0 items-center gap-1">
-      {/* 一覧の先頭の画像から全画面で流す。選択中は出さない (選択モードは
-          一覧のどこを押しても選択にする流儀。docs/116 §1) */}
-      {slideshow && viewer !== null && !selectMode && slideshowButton(viewer.startSlideshow)}
+    <ToolbarStrip>
+      {helpLink()}
       {/* モジュールの表示 (カレンダーなど。docs/126 §1-3)。一覧から移るだけで、
           戻るのは表示の側の「一覧」。履歴に積むので「戻る」でも一覧へ戻れる */}
       {!selectMode && moduleViewButtons(query)}
@@ -99,10 +102,58 @@ export function ResultsToolbar({
         onClose={closeMenu}
         variant="inline"
       />
-      {/* 一括タグ付け・ゴミ箱行きのための選択モード。一覧側 (ItemList) と
-          状態を共有するので context 経由で切り替える */}
       {selectModeButton(selectMode, selectMode ? exit : enter)}
-    </span>
+      {trashCount > 0 && trashLink(trashCount)}
+      {/* 選択中は出さない (一覧のどこを押しても選択にする流儀。docs/116 §1) */}
+      {slideshow && viewer !== null && !selectMode && slideshowButton(viewer.startSlideshow)}
+    </ToolbarStrip>
+  );
+}
+
+// 横送りの窓。書き方はヘッダーの帯 (AppHeader) と同じ:
+// overscroll-x-contain … 端まで送った勢いがブラウザの「戻る」に化けない。
+// [scrollbar-width:none] … 帯の下にバーを出す場所が無い。右端で釦が
+//   切れていること自体が「まだある」の合図になる。
+// grow + min-w-0 … 件数の残りを全部もらい、足りなければ窓ごと縮んで送る。
+// 長押しメニューは body へ portal するので、この窓では切り取られない。
+// 送ると釦とメニューがずれるが、SlotMenu がスクロールで閉じる
+function ToolbarStrip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 grow overflow-x-auto overscroll-x-contain [scrollbar-width:none]">
+      {/* ml-auto … 収まるときは右寄せ (件数は左、操作は右)。溢れると 0 に
+          なり、左端から送れる (justify-end だと左にはみ出した分へ届かない)。
+          shrink-0 … 縮めずに溢れさせる。縮むと送る必要のない形に潰れる */}
+      <span className="ml-auto flex shrink-0 items-center gap-1">{children}</span>
+    </div>
+  );
+}
+
+// 検索の書き方の説明へ
+function helpLink() {
+  return (
+    <Link
+      href="/docs/search"
+      aria-label="検索ヘルプ"
+      title="検索ヘルプ"
+      className="rounded-full border border-blue-300 px-1.5 text-xs leading-4 text-blue-600"
+    >
+      ?
+    </Link>
+  );
+}
+
+// ゴミ箱の一覧へ
+function trashLink(trashCount: number) {
+  return (
+    <Link
+      href="/trash"
+      transitionTypes={["nav-forward"]}
+      aria-label={`ゴミ箱 (${trashCount} 件)`}
+      title="ゴミ箱"
+      className="inline-flex items-center gap-0.5 self-center px-1 text-xs text-blue-600"
+    >
+      <TrashIcon small />({trashCount})
+    </Link>
   );
 }
 
@@ -186,7 +237,8 @@ function moduleViewButtons(query: string) {
   ));
 }
 
-// 一括タグ付け・ゴミ箱行きのための選択モードの切り替え
+// 一括タグ付け・ゴミ箱行きのための選択モードの切り替え。一覧側 (ItemList) と
+// 状態を共有するので context 経由で切り替える
 function selectModeButton(selectMode: boolean, onClick: () => void) {
   return (
     <button

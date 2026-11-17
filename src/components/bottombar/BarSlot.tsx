@@ -25,11 +25,8 @@ export interface BarSlotMenuItem<T extends string> {
   label: string;
   icon: ReactNode;
   checked: boolean;
-  // ラベルだけでは何が起きるか判らない行 (現在行の再タップで方向が裏返る、
-  // など) の読み上げ
+  // ラベルだけでは何が起きるか判らない行の読み上げ
   ariaLabel?: string;
-  // 行末に離して置く補助表示 (並び順の方向)
-  mark?: ReactNode;
 }
 
 interface BarSlotProps<T extends string> {
@@ -56,6 +53,10 @@ interface BarSlotProps<T extends string> {
   // 並ぶコンパクトな形 (docs/86 §4-11)。ボタンの見た目とメニューの開く向きが
   // 変わるだけで、循環・長押し・送信の配線はまったく同じ
   variant?: "bar" | "inline";
+  // 同じ form に並べる別の釦 (並び順の向き。SortSlot)。**form を分けない** —
+  // 同じ値を分け合う釦どうしは、片方の送信中にもう片方も送った先を先に
+  // 見せたい (CycleSlot の useShownValue)。帯ではスロット 1 つぶんの幅を足す
+  extra?: ReactNode;
 }
 
 // 長押しメニューの行頭に置く「いまこれ」の印 (docs/62-下部バー長押し計画.md §3)。
@@ -97,6 +98,7 @@ export function BarSlot<T extends string>({
   onOpen,
   onClose,
   variant = "bar",
+  extra,
 }: BarSlotProps<T>) {
   const press = useLongPress(onOpen);
   // メニューを開いたボタン。SlotMenu が「外側の押下」からこの的を除くのに使う
@@ -141,17 +143,19 @@ export function BarSlot<T extends string>({
     }
   };
 
+  // flex-1 は帯のときだけ — 帯は等幅に割るための指定で、見出し行では
+  // 逆に働く。あちらは器が中身なりの幅なので、flex-basis:0 を持ったまま
+  // 親が詰まるとスロットが 0 幅へ潰れてボタンが器から溢れる。
+  // extra のある帯は 2 スロットぶん (flex-[2]) を取り、中で等分する
+  const formClass =
+    variant === "bar" ? (extra ? "flex-[2]" : "flex-1") : "shrink-0";
+
   return (
-    // relative … メニュー (absolute) の基準になる。
-    // flex-1 は帯のときだけ — 帯は等幅に割るための指定で、見出し行では
-    // 逆に働く。あちらは器が中身なりの幅なので、flex-basis:0 を持ったまま
-    // 親が詰まるとスロットが 0 幅へ潰れてボタンが器から溢れる
-    <form
-      id={formId}
-      action={action}
-      className={`relative flex ${variant === "bar" ? "flex-1" : "shrink-0"}`}
-    >
+    <form id={formId} action={action} className={`flex ${formClass}`}>
       {hidden}
+      {/* relative … メニュー (absolute) の基準。extra を含めない器に置くので、
+          帯のメニューは循環の釦の真上に開く (2 つの釦の真ん中に寄らない) */}
+      <div className={`relative flex ${variant === "bar" ? "flex-1" : ""}`}>
       <CycleSlot
         cookieName={cookieName}
         current={current}
@@ -199,11 +203,13 @@ export function BarSlot<T extends string>({
               <MenuCheck checked={item.checked} />
               <SlotIcon color={color}>{item.icon}</SlotIcon>
               {item.label}
-              {item.mark}
             </button>
           ))}
         </SlotMenu>
       )}
+      </div>
+      {/* メニューより後ろ … タブ順は 循環の釦 → (開いていれば) メニュー → extra */}
+      {extra}
     </form>
   );
 }
