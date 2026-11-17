@@ -43,27 +43,21 @@ export interface DrawHistoryControls {
   cancelScheduledSnapshot: () => void;
 }
 
-export function useDrawHistory({
-  fcRef,
-  applyLayerState,
-  refreshStats,
-}: UseDrawHistoryParams): DrawHistoryControls {
+interface SnapshotScheduling {
+  scheduleSnapshot: () => void;
+  suspendSnapshots: () => void;
+  resumeSnapshots: (commit: boolean) => void;
+  cancelScheduledSnapshot: () => void;
+}
+
+// 変更が落ち着いたら 1 手積む予約と、その一時停止・取り消し
+function useSnapshotScheduling(
+  fcRef: RefObject<fabric.Canvas | null>,
+  pushSnapshot: () => void,
+): SnapshotScheduling {
   // シーンを流し込んでいる間は履歴を積まない (戻した結果をまた積むと戻れなくなる)
   const suppressRef = useRef(false);
   const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const historyRef = useRef<DrawHistory>(createHistory(""));
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-
-  const syncHistoryState = useCallback((history: DrawHistory) => {
-    historyRef.current = history;
-    setHistoryState({ canUndo: historyCanUndo(history), canRedo: historyCanRedo(history) });
-  }, []);
-
-  const snapshot = useCallback((): string => {
-    const fc = fcRef.current;
-    // layer も残す。無いと戻したときに全部がレイヤ 1 へ落ちる (docs/50 §7)
-    return fc ? JSON.stringify(fc.toObject(["erasable", "layer"])) : "";
-  }, [fcRef]);
 
   const scheduleSnapshot = useCallback(() => {
     if (suppressRef.current) {
@@ -71,18 +65,12 @@ export function useDrawHistory({
     }
     clearTimeout(snapshotTimerRef.current);
     snapshotTimerRef.current = setTimeout(() => {
-      const fc = fcRef.current;
-      if (!fc) {
+      if (!fcRef.current) {
         return;
       }
-      syncHistoryState(pushHistory(historyRef.current, snapshot()));
-      refreshStats();
+      pushSnapshot();
     }, SNAPSHOT_DEBOUNCE_MS);
-  }, [fcRef, snapshot, syncHistoryState, refreshStats]);
-
-  const resetHistory = useCallback(() => {
-    syncHistoryState(createHistory(snapshot()));
-  }, [snapshot, syncHistoryState]);
+  }, [fcRef, pushSnapshot]);
 
   const suspendSnapshots = useCallback(() => {
     suppressRef.current = true;
@@ -99,6 +87,62 @@ export function useDrawHistory({
     clearTimeout(snapshotTimerRef.current);
   }, []);
 
+  return { scheduleSnapshot, suspendSnapshots, resumeSnapshots, cancelScheduledSnapshot };
+}
+
+// 履歴の列そのもの (ref が正、state は描画用の可否だけ) とシーンの JSON 化
+function useHistoryStack(fcRef: RefObject<fabric.Canvas | null>) {
+  const historyRef = useRef<DrawHistory>(createHistory(""));
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+
+  const syncHistoryState = useCallback((history: DrawHistory) => {
+    historyRef.current = history;
+    setHistoryState({ canUndo: historyCanUndo(history), canRedo: historyCanRedo(history) });
+  }, []);
+
+  const snapshot = useCallback((): string => {
+    const fc = fcRef.current;
+    // layer も残す。無いと戻したときに全部がレイヤ 1 へ落ちる (docs/50 §7)
+    return fc ? JSON.stringify(fc.toObject(["erasable", "layer"])) : "";
+  }, [fcRef]);
+
+  // 履歴を 1 歩動かす。動けなければ (端に居れば) null
+  const moveHistory = useCallback(
+    (move: (history: DrawHistory) => DrawHistory): string | null => {
+      const next = move(historyRef.current);
+      if (next === historyRef.current) {
+        return null;
+      }
+      syncHistoryState(next);
+      return currentEntry(next);
+    },
+    [syncHistoryState],
+  );
+
+  const pushEntry = useCallback(() => {
+    syncHistoryState(pushHistory(historyRef.current, snapshot()));
+  }, [snapshot, syncHistoryState]);
+
+  const resetHistory = useCallback(() => {
+    syncHistoryState(createHistory(snapshot()));
+  }, [snapshot, syncHistoryState]);
+
+  return { historyState, moveHistory, pushEntry, resetHistory };
+}
+
+export function useDrawHistory({
+  fcRef,
+  applyLayerState,
+  refreshStats,
+}: UseDrawHistoryParams): DrawHistoryControls {
+  const { historyState, moveHistory, pushEntry, resetHistory } = useHistoryStack(fcRef);
+  const pushSnapshot = useCallback(() => {
+    pushEntry();
+    refreshStats();
+  }, [pushEntry, refreshStats]);
+  const { scheduleSnapshot, suspendSnapshots, resumeSnapshots, cancelScheduledSnapshot } =
+    useSnapshotScheduling(fcRef, pushSnapshot);
+
   // 履歴のスナップショットを canvas へ戻す
   const applyEntry = useCallback(async (entry: string) => {
     const fc = fcRef.current;
@@ -107,8 +151,8 @@ export function useDrawHistory({
     }
     // 予約済みのスナップショットを捨てる。戻した結果をそのまま積み直すと
     // やり直しの先を失う
-    clearTimeout(snapshotTimerRef.current);
-    suppressRef.current = true;
+    cancelScheduledSnapshot();
+    suspendSnapshots();
     try {
       await fc.loadFromJSON(JSON.parse(entry));
       // 流し込んだ直後は visible/erasable/selectable が既定に戻っているので、
@@ -118,27 +162,20 @@ export function useDrawHistory({
     } catch {
       // 壊れたスナップショットは捨てる (いまの絵はそのまま残る)
     } finally {
-      suppressRef.current = false;
+      // commit=false なので積まずに止めを外すだけ
+      resumeSnapshots(false);
     }
-  }, [applyLayerState, fcRef, refreshStats]);
+  }, [applyLayerState, cancelScheduledSnapshot, fcRef, refreshStats, resumeSnapshots, suspendSnapshots]);
 
-  const undo = useCallback(() => {
-    const next = undoHistory(historyRef.current);
-    if (next === historyRef.current) {
-      return;
+  // 履歴を 1 歩動かし、動けたらその手を canvas へ戻す
+  const step = useCallback((move: (history: DrawHistory) => DrawHistory) => {
+    const entry = moveHistory(move);
+    if (entry !== null) {
+      void applyEntry(entry);
     }
-    syncHistoryState(next);
-    void applyEntry(currentEntry(next));
-  }, [applyEntry, syncHistoryState]);
-
-  const redo = useCallback(() => {
-    const next = redoHistory(historyRef.current);
-    if (next === historyRef.current) {
-      return;
-    }
-    syncHistoryState(next);
-    void applyEntry(currentEntry(next));
-  }, [applyEntry, syncHistoryState]);
+  }, [applyEntry, moveHistory]);
+  const undo = useCallback(() => step(undoHistory), [step]);
+  const redo = useCallback(() => step(redoHistory), [step]);
 
   return {
     canUndo: historyState.canUndo,

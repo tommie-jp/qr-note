@@ -52,7 +52,7 @@ const BUTTON_ON = `${BUTTON_BASE} bg-blue-600 text-white`;
 const BUTTON_OFF = `${BUTTON_BASE} bg-white/15 text-white hover:bg-white/25`;
 const BUTTON_DANGER = `${BUTTON_BASE} bg-red-600/80 text-white hover:bg-red-600`;
 
-interface DrawToolbarProps {
+export interface DrawToolbarProps {
   tool: DrawTool;
   onTool: (tool: DrawTool) => void;
   color: string;
@@ -73,28 +73,14 @@ interface DrawToolbarProps {
   onZoomReset: () => void;
 }
 
-export function DrawToolbar({
+// 道具の切り替え。選んでいる道具は aria-pressed と青で示す
+function ToolButtons({
   tool,
   onTool,
-  color,
-  onColor,
-  width,
-  onWidth,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-  onClear,
   disabled,
-  zoom,
-  canZoomIn,
-  canZoomOut,
-  onZoomIn,
-  onZoomOut,
-  onZoomReset,
-}: DrawToolbarProps) {
+}: Pick<DrawToolbarProps, "tool" | "onTool" | "disabled">) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto px-3 py-2 text-sm">
+    <>
       {TOOLS.map((item) => (
         <button
           key={item.id}
@@ -107,6 +93,21 @@ export function DrawToolbar({
           {item.label}
         </button>
       ))}
+    </>
+  );
+}
+
+// 色と太さ。効かない道具では押せなくする (COLOR_TOOLS・WIDTH_TOOLS)
+function StyleControls({
+  tool,
+  color,
+  onColor,
+  width,
+  onWidth,
+  disabled,
+}: Pick<DrawToolbarProps, "tool" | "color" | "onColor" | "width" | "onWidth" | "disabled">) {
+  return (
+    <>
       <input
         type="color"
         value={color}
@@ -130,32 +131,51 @@ export function DrawToolbar({
           </option>
         ))}
       </select>
-      <button
-        type="button"
-        onClick={onUndo}
-        disabled={disabled || !canUndo}
-        className={BUTTON_OFF}
-      >
+    </>
+  );
+}
+
+function HistoryButtons({
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  onClear,
+  disabled,
+}: Pick<DrawToolbarProps, "canUndo" | "canRedo" | "onUndo" | "onRedo" | "onClear" | "disabled">) {
+  return (
+    <>
+      <button type="button" onClick={onUndo} disabled={disabled || !canUndo} className={BUTTON_OFF}>
         元に戻す
       </button>
-      <button
-        type="button"
-        onClick={onRedo}
-        disabled={disabled || !canRedo}
-        className={BUTTON_OFF}
-      >
+      <button type="button" onClick={onRedo} disabled={disabled || !canRedo} className={BUTTON_OFF}>
         やり直す
       </button>
-      <button
-        type="button"
-        onClick={onClear}
-        disabled={disabled}
-        className={BUTTON_DANGER}
-      >
+      <button type="button" onClick={onClear} disabled={disabled} className={BUTTON_DANGER}>
         全消し
       </button>
-      {/* 拡大は「移動」道具でのピンチでも変えられる。ボタンは指の無い
-          環境と、倍率を戻す手立てのために置く (docs/36 §4) */}
+    </>
+  );
+}
+
+type ZoomButtonsProps = Pick<
+  DrawToolbarProps,
+  "zoom" | "canZoomIn" | "canZoomOut" | "onZoomIn" | "onZoomOut" | "onZoomReset" | "disabled"
+>;
+
+// 拡大は「移動」道具でのピンチでも変えられる。ボタンは指の無い
+// 環境と、倍率を戻す手立てのために置く (docs/36 §4)
+function ZoomButtons({
+  zoom,
+  canZoomIn,
+  canZoomOut,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
+  disabled,
+}: ZoomButtonsProps) {
+  return (
+    <>
       <button
         type="button"
         onClick={onZoomOut}
@@ -186,6 +206,17 @@ export function DrawToolbar({
       >
         ＋
       </button>
+    </>
+  );
+}
+
+export function DrawToolbar(props: DrawToolbarProps) {
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto px-3 py-2 text-sm">
+      <ToolButtons {...props} />
+      <StyleControls {...props} />
+      <HistoryButtons {...props} />
+      <ZoomButtons {...props} />
     </div>
   );
 }

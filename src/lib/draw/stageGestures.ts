@@ -119,55 +119,65 @@ function unchanged(state: GestureState): GestureResult {
   return { state, commit: null, preventDefault: false, twoFingerStart: false }
 }
 
-export function reduceStageGesture(
+// 2 本指が着いた。開始時の開き・中心・倍率・送りを控え、1 本指ドラッグは捨てる
+export function startPinch(
+  touches: readonly DrawPoint[],
+  input: StageView,
+): GestureResult | null {
+  if (touches.length !== 2) {
+    return null
+  }
+  const [a, b] = touches
+  return {
+    state: {
+      drag: null,
+      pinch: {
+        span: pinchSpan(a, b),
+        center: pinchCenter(a, b),
+        zoom: input.zoom,
+        pan: input.pan,
+      },
+    },
+    commit: null,
+    preventDefault: true,
+    twoFingerStart: true,
+  }
+}
+
+// ピンチの途中。開始時を基準に倍率と送りを求める
+export function movePinch(
+  pinch: PinchState | null,
+  touches: readonly DrawPoint[],
+): StageCommit | null {
+  if (!pinch || touches.length !== 2 || pinch.span <= 0) {
+    return null
+  }
+  const [a, b] = touches
+  const next = clampZoom(pinch.zoom * (pinchSpan(a, b) / pinch.span))
+  const moved = panForPinch({
+    pan: pinch.pan,
+    from: pinch.zoom,
+    startCenter: pinch.center,
+    currentCenter: pinchCenter(a, b),
+    to: next,
+  })
+  return { zoom: next, pan: moved, fromZoom: pinch.zoom }
+}
+
+// 1 本指ドラッグの途中。掴んだ位置からの指の移動ぶんだけ逆向きに送る
+export function moveDrag(drag: DragState, x: number, y: number): PanOffset {
+  return {
+    left: drag.pan.left - (x - drag.x),
+    top: drag.pan.top - (y - drag.y),
+  }
+}
+
+function reducePointer(
   state: GestureState,
-  event: GestureEvent,
+  event: Extract<GestureEvent, { type: 'pointerdown' | 'pointermove' | 'pointerend' }>,
   input: GestureInput,
 ): GestureResult {
   switch (event.type) {
-    case 'touchstart': {
-      if (event.touches.length !== 2) {
-        return unchanged(state)
-      }
-      const [a, b] = event.touches
-      return {
-        state: {
-          drag: null,
-          pinch: {
-            span: pinchSpan(a, b),
-            center: pinchCenter(a, b),
-            zoom: input.zoom,
-            pan: input.pan,
-          },
-        },
-        commit: null,
-        preventDefault: true,
-        twoFingerStart: true,
-      }
-    }
-    case 'touchmove': {
-      const { pinch } = state
-      if (!pinch || event.touches.length !== 2 || pinch.span <= 0) {
-        return unchanged(state)
-      }
-      const [a, b] = event.touches
-      const next = clampZoom(pinch.zoom * (pinchSpan(a, b) / pinch.span))
-      const moved = panForPinch({
-        pan: pinch.pan,
-        from: pinch.zoom,
-        startCenter: pinch.center,
-        currentCenter: pinchCenter(a, b),
-        to: next,
-      })
-      return {
-        state,
-        commit: { zoom: next, pan: moved, fromZoom: pinch.zoom },
-        preventDefault: true,
-        twoFingerStart: false,
-      }
-    }
-    case 'touchend':
-      return event.touchCount < 2 ? unchanged({ ...state, pinch: null }) : unchanged(state)
     case 'pointerdown':
       if (!input.dragPanEnabled || state.pinch) {
         return unchanged(state)
@@ -178,18 +188,36 @@ export function reduceStageGesture(
       if (!drag || state.pinch) {
         return unchanged(state)
       }
-      const moved = {
-        left: drag.pan.left - (event.x - drag.x),
-        top: drag.pan.top - (event.y - drag.y),
-      }
       return {
         state,
-        commit: { zoom: input.zoom, pan: moved, fromZoom: input.zoom },
+        commit: { zoom: input.zoom, pan: moveDrag(drag, event.x, event.y), fromZoom: input.zoom },
         preventDefault: false,
         twoFingerStart: false,
       }
     }
     case 'pointerend':
       return unchanged({ ...state, drag: null })
+  }
+}
+
+export function reduceStageGesture(
+  state: GestureState,
+  event: GestureEvent,
+  input: GestureInput,
+): GestureResult {
+  switch (event.type) {
+    case 'touchstart':
+      return startPinch(event.touches, input) ?? unchanged(state)
+    case 'touchmove': {
+      const commit = movePinch(state.pinch, event.touches)
+      if (!commit) {
+        return unchanged(state)
+      }
+      return { state, commit, preventDefault: true, twoFingerStart: false }
+    }
+    case 'touchend':
+      return event.touchCount < 2 ? unchanged({ ...state, pinch: null }) : unchanged(state)
+    default:
+      return reducePointer(state, event, input)
   }
 }

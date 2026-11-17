@@ -34,6 +34,39 @@ export interface FabricBrush {
   releaseEraser: () => void;
 }
 
+interface InstalledEraser {
+  brush: EraserBrush;
+  // 終了イベントの購読を外す
+  dispose: () => void;
+}
+
+// 道具に合うブラシを canvas に持たせる。消しゴムを作ったときだけ、後で手放す
+// ための控え (ブラシと購読の解除) を返す
+function installBrushForTool(
+  fc: fabric.Canvas,
+  tool: DrawTool,
+  onEraseEnd: () => void,
+): InstalledEraser | null {
+  if (tool === "pen" || tool === "marker") {
+    // マーカーは色に alpha を載せた PencilBrush。**alpha < 1 のブラシは
+    // needsFullRender() が真になり、消しゴムと同じ毎フレーム全再描画の
+    // 経路に入る** (docs/36 §2)。docs/34 §3-2 の対策が効いている前提
+    fc.freeDrawingBrush = new fabric.PencilBrush(fc);
+    return null;
+  }
+  if (tool === "eraser") {
+    const brush = new EraserBrush(fc);
+    fc.freeDrawingBrush = brush;
+    // 消しゴムは object:* イベントを出さない (既存オブジェクトの clipPath を
+    // 足すだけ) ので、専用の終了イベントから履歴を積む
+    return { brush, dispose: brush.on("end", () => onEraseEnd()) };
+  }
+  // 描かない道具のときはブラシを持たない (消しゴムの裏 canvas を抱えたままに
+  // しない)
+  fc.freeDrawingBrush = undefined;
+  return null;
+}
+
 export function useFabricBrush({
   fcRef,
   tool,
@@ -87,22 +120,10 @@ export function useFabricBrush({
     // 選択枠スタイルの当て直しと discardActiveObject もここに含まれる
     applyLayerState();
 
-    if (tool === "pen" || tool === "marker") {
-      // マーカーは色に alpha を載せた PencilBrush。**alpha < 1 のブラシは
-      // needsFullRender() が真になり、消しゴムと同じ毎フレーム全再描画の
-      // 経路に入る** (docs/36 §2)。docs/34 §3-2 の対策が効いている前提
-      fc.freeDrawingBrush = new fabric.PencilBrush(fc);
-    } else if (tool === "eraser") {
-      const brush = new EraserBrush(fc);
-      eraserRef.current = brush;
-      fc.freeDrawingBrush = brush;
-      // 消しゴムは object:* イベントを出さない (既存オブジェクトの clipPath を
-      // 足すだけ) ので、専用の終了イベントから履歴を積む
-      eraserDisposerRef.current = brush.on("end", () => onEraseEnd());
-    } else {
-      // 描かない道具のときはブラシを持たない (消しゴムの裏 canvas を抱えたままに
-      // しない)
-      fc.freeDrawingBrush = undefined;
+    const eraser = installBrushForTool(fc, tool, onEraseEnd);
+    if (eraser) {
+      eraserRef.current = eraser.brush;
+      eraserDisposerRef.current = eraser.dispose;
     }
     applyBrushStyle();
     fc.requestRenderAll();

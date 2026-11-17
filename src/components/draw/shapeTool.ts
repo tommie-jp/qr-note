@@ -41,94 +41,128 @@ export interface ShapeToolHandle {
   detach: () => void;
 }
 
+interface DragEnd {
+  // 最小の移動量を超えた (タップではない)
+  moved: boolean;
+  // 範囲だけを決める道具 (モザイク) か
+  isRegionTool: boolean;
+  // 動いたときの囲んだ矩形
+  region: DragRect | null;
+}
+
+// 指を離したときに、タップだったか・範囲の道具か・囲んだ矩形を決める
+function planDragEnd(
+  start: DrawPoint,
+  last: DrawPoint | null,
+  tool: DrawTool,
+  minDrag: number,
+): DragEnd {
+  // 動いていなければタップ。仮の図形は残さない
+  const moved = last !== null && dragDistance(start, last) >= minDrag;
+  const region = moved && last ? normalizeDragRect(start, last) : null;
+  return { moved, isRegionTool: tool === "mosaic", region };
+}
+
+// 進行中のドラッグ。取り付けた canvas ごとに 1 つ持ち、ハンドラが書き換える
+interface DragState {
+  start: DrawPoint | null;
+  last: DrawPoint | null;
+  preview: fabric.FabricObject | null;
+}
+
+function clearPreview(fc: fabric.Canvas, drag: DragState) {
+  if (drag.preview) {
+    fc.remove(drag.preview);
+    drag.preview = null;
+  }
+}
+
+// ドラッグの控えを捨てて描き直す (離したとき・打ち切ったとき共通)
+function resetDrag(fc: fabric.Canvas, drag: DragState) {
+  drag.start = null;
+  drag.last = null;
+  drag.preview = null;
+  fc.requestRenderAll();
+}
+
+function beginDrag(fc: fabric.Canvas, deps: ShapeToolDeps, drag: DragState, e: TypedEvent) {
+  if (!isShapeTool(deps.getTool())) {
+    return;
+  }
+  drag.start = fc.getScenePoint(e);
+  drag.last = drag.start;
+  drag.preview = null;
+  deps.beginPreview();
+}
+
+function updatePreview(fc: fabric.Canvas, deps: ShapeToolDeps, drag: DragState, e: TypedEvent) {
+  if (!drag.start) {
+    return;
+  }
+  drag.last = fc.getScenePoint(e);
+  // 形が変わるたびに作り直す。Path の path データを差し替えるより素直で、
+  // ドラッグ中は履歴を止めているので add/remove が残ることもない
+  clearPreview(fc, drag);
+  const next = createShape(
+    deps.getTool(),
+    drag.start,
+    drag.last,
+    deps.getColor(),
+    deps.getStrokeWidth(),
+  );
+  if (next) {
+    drag.preview = next;
+    fc.add(next);
+  }
+  fc.requestRenderAll();
+}
+
+function finishDrag(fc: fabric.Canvas, deps: ShapeToolDeps, drag: DragState) {
+  if (!drag.start) {
+    return;
+  }
+  const { moved, isRegionTool, region } = planDragEnd(
+    drag.start,
+    drag.last,
+    deps.getTool(),
+    deps.getMinDrag(),
+  );
+  if (!moved || isRegionTool) {
+    // 範囲を決めるだけの道具は、仮表示を必ず捨てる
+    clearPreview(fc, drag);
+  }
+  const committed = !isRegionTool && moved && drag.preview !== null;
+  resetDrag(fc, drag);
+  // 履歴を戻してから範囲を渡す。加工した画像が後から add されたときに、
+  // その object:added が 1 手として積まれるようにする
+  deps.endPreview(committed);
+  if (isRegionTool && region) {
+    deps.onRegion(region);
+  }
+}
+
+function cancelDrag(fc: fabric.Canvas, deps: ShapeToolDeps, drag: DragState) {
+  if (!drag.start) {
+    return;
+  }
+  clearPreview(fc, drag);
+  resetDrag(fc, drag);
+  deps.endPreview(false);
+}
+
 // fabric の canvas にドラッグ描画を取り付ける
 export function attachShapeTool(fc: fabric.Canvas, deps: ShapeToolDeps): ShapeToolHandle {
-  let start: DrawPoint | null = null;
-  let last: DrawPoint | null = null;
-  let preview: fabric.FabricObject | null = null;
-
-  const clearPreview = () => {
-    if (preview) {
-      fc.remove(preview);
-      preview = null;
-    }
-  };
-
-  const onDown = (options: { e: TypedEvent }) => {
-    if (!isShapeTool(deps.getTool())) {
-      return;
-    }
-    start = fc.getScenePoint(options.e);
-    last = start;
-    preview = null;
-    deps.beginPreview();
-  };
-
-  const onMove = (options: { e: TypedEvent }) => {
-    if (!start) {
-      return;
-    }
-    last = fc.getScenePoint(options.e);
-    // 形が変わるたびに作り直す。Path の path データを差し替えるより素直で、
-    // ドラッグ中は履歴を止めているので add/remove が残ることもない
-    clearPreview();
-    const next = createShape(
-      deps.getTool(),
-      start,
-      last,
-      deps.getColor(),
-      deps.getStrokeWidth(),
-    );
-    if (next) {
-      preview = next;
-      fc.add(next);
-    }
-    fc.requestRenderAll();
-  };
-
-  const onUp = () => {
-    if (!start) {
-      return;
-    }
-    // 動いていなければタップ。仮の図形は残さない
-    const moved = last !== null && dragDistance(start, last) >= deps.getMinDrag();
-    const region = moved && last ? normalizeDragRect(start, last) : null;
-    const isRegionTool = deps.getTool() === "mosaic";
-    if (!moved || isRegionTool) {
-      // 範囲を決めるだけの道具は、仮表示を必ず捨てる
-      clearPreview();
-    }
-    const committed = !isRegionTool && moved && preview !== null;
-    start = null;
-    last = null;
-    preview = null;
-    fc.requestRenderAll();
-    // 履歴を戻してから範囲を渡す。加工した画像が後から add されたときに、
-    // その object:added が 1 手として積まれるようにする
-    deps.endPreview(committed);
-    if (isRegionTool && region) {
-      deps.onRegion(region);
-    }
-  };
+  const drag: DragState = { start: null, last: null, preview: null };
+  const onDown = (options: { e: TypedEvent }) => beginDrag(fc, deps, drag, options.e);
+  const onMove = (options: { e: TypedEvent }) => updatePreview(fc, deps, drag, options.e);
+  const onUp = () => finishDrag(fc, deps, drag);
 
   fc.on("mouse:down", onDown);
   fc.on("mouse:move", onMove);
   fc.on("mouse:up", onUp);
 
-  const cancel = () => {
-    if (!start) {
-      return;
-    }
-    clearPreview();
-    start = null;
-    last = null;
-    preview = null;
-    fc.requestRenderAll();
-    deps.endPreview(false);
-  };
-
   return {
-    cancel,
+    cancel: () => cancelDrag(fc, deps, drag),
     detach: () => {
       fc.off("mouse:down", onDown);
       fc.off("mouse:move", onMove);

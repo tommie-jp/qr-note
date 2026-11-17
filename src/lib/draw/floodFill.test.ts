@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { floodFillMask, type RgbaImage } from './floodFill'
+import { floodFillMask, type RgbaImage, runStarts, spanAround } from './floodFill'
 
 // 1 文字 1 画素の絵から RgbaImage を作る。'.' は白、'#' は黒、'r' は赤
 const COLORS: Record<string, [number, number, number]> = {
@@ -138,5 +138,36 @@ describe('floodFillMask', () => {
 
     // Assert
     expect(result.filled).toBe(3)
+  })
+})
+
+describe('spanAround', () => {
+  test('extends left and right while the predicate holds', () => {
+    // Arrange — x = 2..5 が真
+    const ok = (x: number) => x >= 2 && x <= 5
+
+    // Act & Assert
+    expect(spanAround(3, 10, ok)).toEqual({ left: 2, right: 5 })
+  })
+
+  test('stops at the row edges', () => {
+    // Arrange & Act & Assert
+    expect(spanAround(4, 8, () => true)).toEqual({ left: 0, right: 7 })
+  })
+})
+
+describe('runStarts', () => {
+  test('returns the first x of each connected run', () => {
+    // Arrange — "##..#.##" の '#' が真
+    const row = '##..#.##'
+    const ok = (x: number) => row[x] === '#'
+
+    // Act & Assert
+    expect(runStarts(0, 7, ok)).toEqual([0, 4, 6])
+  })
+
+  test('returns nothing when no pixel matches', () => {
+    // Arrange & Act & Assert
+    expect(runStarts(0, 5, () => false)).toEqual([])
   })
 })

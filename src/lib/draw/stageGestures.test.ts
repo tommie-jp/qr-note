@@ -3,7 +3,10 @@ import {
   type GestureState,
   IDLE_GESTURE,
   LINE_HEIGHT_PX,
+  moveDrag,
+  movePinch,
   reduceStageGesture,
+  startPinch,
   WHEEL_SENSITIVITY,
   wheelZoomFactor,
   zoomAround,
@@ -415,5 +418,61 @@ describe('reduceStageGesture: a whole gesture', () => {
     expect(move.commit?.zoom).toBe(2)
     expect(state).toEqual({ pinch: null, drag: null })
     expect(after.commit).toBeNull()
+  })
+})
+
+describe('startPinch / movePinch / moveDrag', () => {
+  test('startPinch ignores anything but exactly two fingers', () => {
+    // Arrange & Act & Assert
+    expect(startPinch([{ x: 0, y: 0 }], FIT)).toBeNull()
+    expect(startPinch([...TWO_FINGERS, { x: 0, y: 0 }], FIT)).toBeNull()
+  })
+
+  test('startPinch records span, center, zoom and pan at the start', () => {
+    // Arrange
+    const view = { zoom: 2, pan: { left: 10, top: 20 } }
+
+    // Act
+    const result = startPinch(TWO_FINGERS, view)
+
+    // Assert
+    expect(result?.state).toEqual({
+      drag: null,
+      pinch: { span: 100, center: { x: 150, y: 100 }, zoom: 2, pan: { left: 10, top: 20 } },
+    })
+    expect(result?.twoFingerStart).toBe(true)
+    expect(result?.preventDefault).toBe(true)
+  })
+
+  test('movePinch returns null without a pinch or with a zero span', () => {
+    // Arrange
+    const zeroSpan = { span: 0, center: { x: 0, y: 0 }, zoom: 1, pan: { left: 0, top: 0 } }
+
+    // Act & Assert
+    expect(movePinch(null, TWO_FINGERS)).toBeNull()
+    expect(movePinch(zeroSpan, TWO_FINGERS)).toBeNull()
+  })
+
+  test('movePinch doubles the zoom when the fingers open to twice the span', () => {
+    // Arrange
+    const pinch = pinching().pinch
+
+    // Act
+    const commit = movePinch(pinch, [
+      { x: 50, y: 100 },
+      { x: 250, y: 100 },
+    ])
+
+    // Assert
+    expect(commit?.zoom).toBeCloseTo(2)
+    expect(commit?.fromZoom).toBe(1)
+  })
+
+  test('moveDrag pans opposite to the finger movement from the grab point', () => {
+    // Arrange
+    const drag = { x: 100, y: 100, pan: { left: 50, top: 60 } }
+
+    // Act & Assert
+    expect(moveDrag(drag, 130, 80)).toEqual({ left: 20, top: 80 })
   })
 })
