@@ -36,35 +36,9 @@ export async function PublicItemView({ itemId, item }: PublicItemViewProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-bold">
-          item
-        </h1>
-        <div className="flex gap-1">
-          {/* 持ち主の画面と同じ見た目にする (docs/82 §2)。長押しの吹き出しは
-              付けない — ここは押せる物が 1 つだけで、隣の文字が既に名前になっている */}
-          <PendingLink
-            href={`/print/${itemId}`}
-            className={ACTION_LINK_CLASS}
-            transitionTypes={["nav-forward"]}
-          >
-            <QrIcon />
-            QR
-          </PendingLink>
-        </div>
-      </div>
+      {publicHeading(itemId)}
 
-      {/* 持ち主が自分のノートを未ログインのブラウザで開くことはある
-          (ログアウトが無いので確認はプライベートウィンドウになる。docs/18 §3)。
-          そこから編集へ入れるよう、ログインの導線だけは残す */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-green-300 bg-green-50 px-3 py-2 text-green-900">
-        <p className="flex-1">
-          <span aria-hidden>🌐 </span>
-          <span className="font-medium">公開ノート</span> —
-          閲覧のみです。編集するにはログインしてください。
-        </p>
-        <LoginButton />
-      </div>
+      {publicNotice()}
 
       <ItemTags tags={item.tags} linked={false} />
 
@@ -88,6 +62,45 @@ export async function PublicItemView({ itemId, item }: PublicItemViewProps) {
       />
 
       <ItemTimestamps item={item} />
+    </div>
+  );
+}
+
+// 見出し行。QR ボタンだけを出す
+function publicHeading(itemId: string) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <h1 className="text-xl font-bold">
+        item
+      </h1>
+      <div className="flex gap-1">
+        {/* 持ち主の画面と同じ見た目にする (docs/82 §2)。長押しの吹き出しは
+            付けない — ここは押せる物が 1 つだけで、隣の文字が既に名前になっている */}
+        <PendingLink
+          href={`/print/${itemId}`}
+          className={ACTION_LINK_CLASS}
+          transitionTypes={["nav-forward"]}
+        >
+          <QrIcon />
+          QR
+        </PendingLink>
+      </div>
+    </div>
+  );
+}
+
+// 持ち主が自分のノートを未ログインのブラウザで開くことはある
+// (ログアウトが無いので確認はプライベートウィンドウになる。docs/18 §3)。
+// そこから編集へ入れるよう、ログインの導線だけは残す
+function publicNotice() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-green-300 bg-green-50 px-3 py-2 text-green-900">
+      <p className="flex-1">
+        <span aria-hidden>🌐 </span>
+        <span className="font-medium">公開ノート</span> —
+        閲覧のみです。編集するにはログインしてください。
+      </p>
+      <LoginButton />
     </div>
   );
 }

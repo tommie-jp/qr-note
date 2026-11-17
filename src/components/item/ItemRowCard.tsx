@@ -18,7 +18,7 @@ interface ItemRowCardProps {
 // 大 (card) 表示の 1 枚。番号と見出し + タグ + 本文プレビュー 3 行 + 大きめのサムネ。
 // 枠と地色は各カードが持つ (CARD_FRAME_CLASS)
 export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
-  const { itemId, name, href, selected, checkbox, title, tags, footer, thumb } = parts;
+  const { itemId, name, checkbox, tags, footer, thumb } = parts;
   return (
     <MaybeSwipeRow
       itemId={itemId}
@@ -43,26 +43,7 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
           className={`flex min-w-0 flex-1 flex-col ${swipe && !thumb ? "pr-8" : ""}`}
         >
           <div className="flex items-baseline gap-2">
-            <Link
-              href={href}
-              // 先読みしない (docs/118 §5)。/item は動的経路で、先読みで届くのは
-              // 待ち画面までしかなく、本文は押したときに取る。それなのに一覧の
-              // 行が画面に入るたびに要求が出て (1 検索で 8〜75 本)、iPhone では
-              // 押した直後の要求がその後ろに並んで 287ms 待たされていた
-              prefetch={false}
-              // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
-              data-client-note=""
-              // マウスの 2 度押しで編集画面へ送る印 (clientNoteNav.ts の
-              // ROW_EDIT_ATTR)。選択モードでは付けない (押すのは選ぶため)
-              data-row-edit={checkbox ? undefined : ""}
-              // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
-              data-note-title={parts.hintTitle}
-              transitionTypes={["nav-forward"]}
-              aria-current={selected ? "page" : undefined}
-              className={`truncate text-sm text-gray-600 ${parts.linkClass}`}
-            >
-              {title}
-            </Link>
+            {cardTitleLink(parts)}
           </div>
           {/* タグが無くても行の高さは取る。隣のカードと本文の始まる位置が
               揃わないと、並べたときに行がガタつく */}
@@ -79,5 +60,32 @@ export function ItemRowCard({ parts, preview, swipe }: ItemRowCardProps) {
         {thumb}
       </div>
     </MaybeSwipeRow>
+  );
+}
+
+// 番号と見出しのリンク
+function cardTitleLink(parts: RowParts) {
+  const { href, selected, checkbox, title } = parts;
+  return (
+    <Link
+      href={href}
+      // 先読みしない (docs/118 §5)。/item は動的経路で、先読みで届くのは
+      // 待ち画面までしかなく、本文は押したときに取る。それなのに一覧の
+      // 行が画面に入るたびに要求が出て (1 検索で 8〜75 本)、iPhone では
+      // 押した直後の要求がその後ろに並んで 287ms 待たされていた
+      prefetch={false}
+      // 検索画面では端末で開く印 (docs/123 §12。lib/client/clientNoteNav.ts)
+      data-client-note=""
+      // マウスの 2 度押しで編集画面へ送る印 (clientNoteNav.ts の
+      // ROW_EDIT_ATTR)。選択モードでは付けない (押すのは選ぶため)
+      data-row-edit={checkbox ? undefined : ""}
+      // 押した瞬間に読み込み中の器へ題を出す印 (docs/86 §4-18。noteHint.ts)
+      data-note-title={parts.hintTitle}
+      transitionTypes={["nav-forward"]}
+      aria-current={selected ? "page" : undefined}
+      className={`truncate text-sm text-gray-600 ${parts.linkClass}`}
+    >
+      {title}
+    </Link>
   );
 }
