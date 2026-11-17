@@ -21,6 +21,14 @@ updates:
     ignore:
       - dependency-name: "*-fence"
       - dependency-name: fence-kit
+      # TypeScript 7・ESLint 10 は eslint-config-next の道具 (typescript-eslint は
+      # TypeScript 6.1 未満、eslint-plugin-react / import / jsx-a11y は ESLint 9 まで)
+      # が対応するまで上げない (2026-11-17)。dev の組に混ざると組ごと取り込めなくなる。
+      # 対応したらこの 2 行を消す
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
