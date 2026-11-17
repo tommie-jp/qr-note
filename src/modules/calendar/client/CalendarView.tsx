@@ -1,21 +1,25 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import { switchPaneMode } from "@/components/panes/switchPaneMode";
-import { refreshServerView } from "@/lib/client/navigation";
-import { notePaneLayout } from "@/lib/prefs/paneMode";
+import { notePaneLayout, type PaneMode } from "@/lib/prefs/paneMode";
 import { addMonths, eventsByDay, isMonth, jstToday, monthCells, type DayEvent } from "../event/monthLayout";
 import { calendarCache } from "./calendarStore";
 import { CAL_PARAM, withCalendarMonth } from "./calendarUrl";
+import { CalendarHead, CalendarNotices } from "./CalendarHead";
 import { DayPane } from "./DayPane";
-import { CalendarMenu } from "./CalendarMenu";
 import { DayPopover } from "./DayPopover";
-import { cellHeightPx, MonthGrid, WeekdayHeader } from "./MonthGrid";
-import { currentCalendarPrefs, useCalendarPrefs } from "./prefsStore";
-import { revealDayWeek } from "./revealToday";
-import { setSelectedCalendarDay } from "./selectedDay";
+import { MonthGrid } from "./MonthGrid";
+import {
+  switchToTwoPanes,
+  useDaySelection,
+  useRevealToday,
+  useSelectedDaySync,
+  useShownDay,
+  useTwoPanesOnTouch,
+  type OpenedDay,
+} from "./useCalendarView";
 
 // URL の cal を書き換える。履歴を増やさない (月送りは「戻る」で辿る物ではない)。
 // Next は外からの replaceState に useSearchParams を追随させる (docs/123 §4-2)
@@ -31,20 +35,92 @@ function pushList(): void {
 // 「予定が変わった」と見て控えを直し続ける
 const NO_EVENTS: readonly DayEvent[] = [];
 
-// スマホ (指で操作する端末) か。カレンダーはスマホでは 1 ペインにしない (docs/126 §1-36)
-function isTouchDevice(): boolean {
-  return window.matchMedia("(pointer: coarse)").matches;
+// 月送りと「今日」の釦。月送りの釦は閉じてから送る
+function monthNav({
+  month,
+  today,
+  mode,
+  closeDay,
+  cancelReveal,
+  requestReveal,
+}: {
+  month: string;
+  today: string;
+  mode: PaneMode;
+  closeDay: () => void;
+  cancelReveal: () => void;
+  requestReveal: () => void;
+}) {
+  const goMonth = (delta: -1 | 1) => {
+    closeDay();
+    cancelReveal();
+    replaceMonth(addMonths(month, delta));
+  };
+  const goToday = () => {
+    // 今日のマスの週を一番上へ、日の一覧は今日の予定を先頭から (docs/126 §1-39)。
+    // 1 ペイン (PC の浮かせる一覧) は 2 ペインにして下のペインに今日を出す
+    closeDay();
+    requestReveal();
+    replaceMonth(today.slice(0, 7));
+    if (mode === "1") {
+      switchToTwoPanes();
+    }
+  };
+  return { goMonth, goToday };
 }
 
-// 1 ペインを 2 ペインにする (日の一覧を下のペインに出す。docs/126 §1-36・§1-39)
-function switchToTwoPanes(): void {
-  void switchPaneMode("2", () => {
-    startTransition(refreshServerView);
-  });
+// 月の予定 (控えから。届くまでは payload が undefined)
+function useMonthEvents(query: string, month: string, days: readonly string[]) {
+  const key = useMemo(() => ({ query, month }), [query, month]);
+  const entry = calendarCache.useEntry(key);
+  const payload = entry?.value;
+  const byDay = useMemo(() => eventsByDay(payload?.events ?? [], days), [payload, days]);
+  return { key, entry, payload, byDay };
 }
 
-// 見出し行は詰める (32px の釦・16px の年月。docs/126 §1-23)
-const NAV_BUTTON = "min-h-8 min-w-8 rounded px-2 text-sm text-gray-700 hover:bg-gray-100 active:bg-gray-200";
+// 選んだ日の予定。2・3 ペインは下のペイン (DayPane)、1 ペインは押したマスの横 (DayPopover)
+function ShownDay({
+  shown,
+  inPane,
+  events,
+  loading,
+  query,
+  month,
+  revealKey,
+  resizer,
+  onClose,
+}: {
+  shown: OpenedDay;
+  inPane: boolean;
+  events: readonly DayEvent[];
+  loading: boolean;
+  query: string;
+  month: string;
+  revealKey: number;
+  resizer: ReactNode;
+  onClose: () => void;
+}) {
+  if (inPane) {
+    return (
+      <DayPane key={shown.day} day={shown.day} events={events} loading={loading} query={query} revealKey={revealKey} resizer={resizer} />
+    );
+  }
+  if (shown.cell === null) {
+    return null;
+  }
+  return (
+    <DayPopover
+      key={shown.day}
+      day={shown.day}
+      anchor={shown.cell}
+      events={events}
+      loading={loading}
+      query={query}
+      month={month}
+      onClose={onClose}
+    />
+  );
+}
 
 // 検索結果のカレンダー表示 (docs/126 §1-3)。検索式に当たる予定を月のマス目に並べる。
 // 検索窓・ペインの器は一覧と共有し、ここが持つのは結果の中身だけ
@@ -63,171 +139,40 @@ export default function CalendarView({
   const [today] = useState(() => jstToday());
   const raw = params.get(CAL_PARAM) ?? "";
   const month = isMonth(raw) ? raw : today.slice(0, 7);
-  // 開いている日。浮かせるときは押したマスの要素で位置を測る
-  // openedFor … 開いたときにペインに出ていたノート。別のノートが開いたら
-  // (戻る・一覧から開く) 日のペインはそれを覆わずに退く (画像ビューアと同じ)
-  const [opened, setOpened] = useState<{ day: string; cell: HTMLElement | null; openedFor: string | null } | null>(null);
   const days = useMemo(() => monthCells(month), [month]);
-  // 月送りの釦は閉じてから送る。URL の書き換え (戻る・検索語) で月が替わったときも
-  // 開いていた日がマス目に無ければ出さない
-  if (opened !== null && opened.openedFor !== detailItemId) {
-    setOpened(null);
-  }
-  // **2・3 ペインでは日の一覧を常に出す** (docs/126 §1-36)。選んでいなければ今日、
-  // 今日の無い月はその月の 1 日。下のペインにノートを開いている間はノートに譲る
-  const defaultDay = today.startsWith(month) ? today : `${month}-01`;
-  const picked = opened !== null && days.includes(opened.day) && opened.openedFor === detailItemId ? opened : null;
-  const shown =
-    picked ?? (inPane && detailItemId === null ? { day: defaultDay, cell: null, openedFor: null } : null);
-  // スマホで 1 ペインのまま開いたら 2 ペインにする (§1-36)。マスの横に浮かせる一覧は PC だけ
-  useEffect(() => {
-    if (mode === "1" && isTouchDevice()) {
-      switchToTwoPanes();
-    }
-  }, [mode]);
-  // 今日の週を見える範囲の一番上へ送る (docs/126 §1-39)。開いた直後と「今日」の釦。
-  // 頼みは ref に残し、今日のマスが描けたときに果たす — 「今日」で月を戻すと
-  // URL (useSearchParams) の書き換えは釦の描き直しより後に届くため。
-  // 開いた直後の最初の描画は設定の読み込み前 (既定の 1 日の予定数) のことがあり、
-  // マスの高さが後で変わる。描画の高さが store と食い違う間は送らずに待つ
-  const rootRef = useRef<HTMLDivElement>(null);
-  const reveal = useRef<{ smooth: boolean } | null>({ smooth: false });
-  const [revealCount, setRevealCount] = useState(0);
-  const { prefs } = useCalendarPrefs();
-  const cellHeight = cellHeightPx(prefs.eventsPerDay);
-  useEffect(() => {
-    const root = rootRef.current;
-    if (cellHeight !== cellHeightPx(currentCalendarPrefs().eventsPerDay)) {
-      return;
-    }
-    if (reveal.current !== null && root !== null && revealDayWeek(root, today, reveal.current.smooth)) {
-      reveal.current = null;
-    }
-  }, [revealCount, month, cellHeight, today]);
-  // 検索窓の＋が足す日 (docs/126 §1-17)。カレンダーを離れたら忘れる
-  const shownDay = shown?.day ?? null;
-  useEffect(() => {
-    setSelectedCalendarDay(shownDay);
-    return () => setSelectedCalendarDay(null);
-  }, [shownDay]);
-  const close = useCallback(() => setOpened(null), []);
-  const select = useCallback(
-    (day: string, cell: HTMLElement) => setOpened({ day, cell, openedFor: detailItemId }),
-    [detailItemId],
-  );
+  const { shown, setOpened } = useShownDay({ month, days, today, inPane, detailItemId });
+  useTwoPanesOnTouch(mode);
+  const { rootRef, revealCount, cancelReveal, requestReveal } = useRevealToday(month, today);
+  useSelectedDaySync(shown?.day ?? null);
+  const { close, select } = useDaySelection(setOpened, detailItemId);
 
-  const key = useMemo(() => ({ query, month }), [query, month]);
-  const entry = calendarCache.useEntry(key);
-  const payload = entry?.value;
-  const byDay = useMemo(() => eventsByDay(payload?.events ?? [], days), [payload, days]);
-  const [year, monthNumber] = month.split("-").map(Number);
+  const { key, entry, payload, byDay } = useMonthEvents(query, month, days);
+  const loading = payload === undefined;
+  const { goMonth, goToday } = monthNav({ month, today, mode, closeDay: close, cancelReveal, requestReveal });
 
   return (
     <div ref={rootRef} data-calendar="">
-      {/* 見出し行と曜日の行は送る器の上端に貼り付ける (docs/126 §1-28)。
-          器の左右の余白 (px-safe) ごと覆い、マス目が両脇から透けないようにする */}
-      <div data-calendar-head="" className="sticky top-0 z-10 -mx-safe bg-white px-safe">
-      <div className="flex items-center gap-1">
-        {/* カレンダー専用の設定 (日付の大きさ・優先度の色。docs/126 §1-12)。
-            ここは送らない (docs/126 §1-19) */}
-        <CalendarMenu />
-        {/* 右の釦は 1 行の帯にして横に送る (折り返すとマス目が下へずれる)。
-            設定のパネルは body へ portal するので、帯の overflow には切られない */}
-        <div
-          data-calendar-nav=""
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&>*]:shrink-0"
-        >
-        <button type="button" className={NAV_BUTTON} aria-label="前の月" onClick={() => {
-            setOpened(null);
-            reveal.current = null;
-            replaceMonth(addMonths(month, -1));
-          }}>
-          ◀
-        </button>
-        <h2 className="min-w-28 text-center text-base leading-6" aria-live="polite">
-          {year}年{monthNumber}月
-        </h2>
-        <button type="button" className={NAV_BUTTON} aria-label="次の月" onClick={() => {
-            setOpened(null);
-            reveal.current = null;
-            replaceMonth(addMonths(month, 1));
-          }}>
-          ▶
-        </button>
-        <button
-          type="button"
-          className={NAV_BUTTON}
-          onClick={() => {
-            // 今日のマスの週を一番上へ、日の一覧は今日の予定を先頭から (docs/126 §1-39)。
-            // 1 ペイン (PC の浮かせる一覧) は 2 ペインにして下のペインに今日を出す
-            setOpened(null);
-            reveal.current = { smooth: true };
-            setRevealCount((n) => n + 1);
-            replaceMonth(today.slice(0, 7));
-            if (mode === "1") {
-              switchToTwoPanes();
-            }
-          }}
-        >
-          今日
-        </button>
-        <span className="flex-1" />
-        {/* 読み込み中の文字はここに出さない。見出し行が折り返してマス目がずれ、
-            浮かせた一覧 (マスの位置で置いた) と食い違う。待ちはマス目を薄くして見せる */}
-        <button type="button" className={`${NAV_BUTTON} border border-gray-300`} onClick={pushList}>
-          一覧
-        </button>
-        </div>
-      </div>
-      <div className="mt-1">
-        <WeekdayHeader />
-      </div>
-      </div>
+      <CalendarHead month={month} onPrev={() => goMonth(-1)} onNext={() => goMonth(1)} onToday={goToday} onList={pushList} />
 
-      {entry?.error && payload === undefined ? (
-        <p role="alert" className="my-1 rounded bg-yellow-50 px-3 py-2 text-yellow-800">
-          予定を読み込めませんでした: {entry.error.message}{" "}
-          <button type="button" className="underline" onClick={() => calendarCache.load(key, { force: true })}>
-            もう一度
-          </button>
-        </p>
-      ) : null}
-      {payload !== undefined && payload.omitted > 0 ? (
-        <p role="status" className="my-1 rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-          予定が多すぎるため {payload.omitted} 件を表示していません。検索式で絞ってください。
-        </p>
-      ) : null}
+      <CalendarNotices
+        error={entry?.error && loading ? entry.error : null}
+        omitted={payload?.omitted ?? 0}
+        onRetry={() => calendarCache.load(key, { force: true })}
+      />
 
-      <div className={payload === undefined ? "opacity-50" : undefined} aria-busy={payload === undefined}>
-        <MonthGrid
-          month={month}
-          days={days}
-          byDay={byDay}
-          today={today}
-          selected={shown?.day ?? null}
-          onSelect={select}
-        />
+      <div className={loading ? "opacity-50" : undefined} aria-busy={loading}>
+        <MonthGrid month={month} days={days} byDay={byDay} today={today} selected={shown?.day ?? null} onSelect={select} />
       </div>
-      {shown !== null && inPane && (
-        <DayPane
-          key={shown.day}
-          day={shown.day}
+      {shown !== null && (
+        <ShownDay
+          shown={shown}
+          inPane={inPane}
           events={byDay.get(shown.day) ?? NO_EVENTS}
-          loading={payload === undefined}
+          loading={loading}
           query={query}
+          month={month}
           revealKey={revealCount}
           resizer={previewResizer}
-        />
-      )}
-      {shown !== null && shown.cell !== null && !inPane && (
-        <DayPopover
-          key={shown.day}
-          day={shown.day}
-          anchor={shown.cell}
-          events={byDay.get(shown.day) ?? NO_EVENTS}
-          loading={payload === undefined}
-          query={query}
-          month={month}
           onClose={close}
         />
       )}
