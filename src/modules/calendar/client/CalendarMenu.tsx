@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import {
   AUTO_TEXT,
@@ -17,6 +17,7 @@ import {
 import type { EventPriority } from "../event/parseEvent";
 import { placeAround, type Placement } from "../event/placePopover";
 import { updateCalendarPrefs, useCalendarPrefs } from "./prefsStore";
+import { useDismissOnOutside } from "./useDismissOnOutside";
 
 const PRIORITY_ROWS: readonly { value: EventPriority; label: string }[] = [
   { value: "high", label: "高い" },
@@ -104,18 +105,9 @@ export function CalendarMenu() {
   );
 }
 
-function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const id = useId();
+// パネルを開いた釦のそばに置く。描いた直後に測る (置く前の 1 フレームを見せない)
+function usePanelPlacement(ref: RefObject<HTMLDivElement | null>, anchor: HTMLElement): Placement | null {
   const [placement, setPlacement] = useState<Placement | null>(null);
-  const { prefs, error } = useCalendarPrefs();
-  const change = (patch: Partial<CalendarPrefs>) => updateCalendarPrefs({ ...prefs, ...patch });
-  const setColor = (priority: EventPriority, color: string) =>
-    change({ colors: { ...prefs.colors, [priority]: color.toLowerCase() } });
-  // 文字の色。AUTO_TEXT なら地の明るさから選ぶ
-  const setTextColor = (priority: EventPriority, color: string) =>
-    change({ textColors: { ...prefs.textColors, [priority]: color.toLowerCase() } });
-
   useLayoutEffect(() => {
     const box = ref.current;
     if (box === null) {
@@ -128,42 +120,16 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
         { width: window.innerWidth, height: window.innerHeight },
       ),
     );
-  }, [anchor]);
+  }, [anchor, ref]);
+  return placement;
+}
 
-  // 外を押す・Esc で閉じる。開いた釦を押したときは釦の側が閉じる
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Node && !ref.current?.contains(target) && !anchor.contains(target)) {
-        onClose();
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        anchor.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [anchor, onClose]);
+type ChangePrefs = (patch: Partial<CalendarPrefs>) => void;
 
-  return createPortal(
-    <div
-      ref={ref}
-      role="dialog"
-      aria-label="カレンダーの設定"
-      style={
-        placement === null
-          ? { left: 0, top: 0, visibility: "hidden" }
-          : { left: placement.left, top: placement.top, maxHeight: placement.maxHeight }
-      }
-      className="fixed z-40 w-80 max-w-[calc(100vw-1rem)] space-y-4 overflow-y-auto rounded border border-gray-300 bg-white p-3 text-sm shadow-xl"
-    >
+// 文字の大きさ・左右の余白・1 日の予定数
+function LayoutFields({ prefs, change }: { prefs: CalendarPrefs; change: ChangePrefs }) {
+  return (
+    <>
       <ChoiceField
         legend="日付の文字の大きさ"
         options={DATE_SIZES}
@@ -197,100 +163,173 @@ function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () =
           ))}
         </select>
       </label>
+    </>
+  );
+}
 
-      <fieldset className="space-y-3">
-        <legend className="text-gray-600">優先度の色</legend>
-        {PRIORITY_ROWS.map((row) => {
-          const current = prefs.colors[row.value];
-          const text = prefs.textColors[row.value];
-          const shownText = eventTextColor(prefs, row.value);
-          return (
-            <div key={row.value} className="space-y-1" role="group" aria-label={`${row.label}の色`}>
-              <div className="flex items-center gap-2">
-                <span className="w-10">{row.label}</span>
-                {/* 見本の帯。地と文字の組み合わせをそのまま見せる */}
-                <span
-                  aria-hidden="true"
-                  className="h-6 flex-1 rounded-sm border border-gray-300 px-1 text-sm leading-6"
-                  style={{ backgroundColor: current, color: shownText }}
-                >
-                  予定
-                </span>
-                <label htmlFor={`${id}-${row.value}`} className="sr-only">
-                  {row.label}の色を選ぶ
-                </label>
-                <input
-                  id={`${id}-${row.value}`}
-                  type="color"
-                  value={current}
-                  onChange={(e) => setColor(row.value, e.target.value)}
-                  title="色を選ぶ"
-                  className="h-8 w-10 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
-                />
-              </div>
-              <div className="flex flex-wrap gap-1 pl-12">
-                {TEMPLATE_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`${row.label}を ${color} にする`}
-                    aria-pressed={current === color}
-                    title={color}
-                    onClick={() => setColor(row.value, color)}
-                    className={`size-6 rounded-sm border ${
-                      current === color ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-              {/* 文字の色。「自動」は地の明るさから白か濃い灰を選ぶ */}
-              <div className="flex flex-wrap items-center gap-1 pl-12">
-                <span className="mr-1 text-gray-600">文字</span>
-                <button
-                  type="button"
-                  aria-label={`${row.label}の文字を自動にする`}
-                  aria-pressed={text === AUTO_TEXT}
-                  onClick={() => setTextColor(row.value, AUTO_TEXT)}
-                  className={`h-6 rounded-sm border px-1 text-xs ${
-                    text === AUTO_TEXT ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
-                  }`}
-                >
-                  自動
-                </button>
-                {TEXT_TEMPLATE_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`${row.label}の文字を ${color} にする`}
-                    aria-pressed={text === color}
-                    title={color}
-                    onClick={() => setTextColor(row.value, color)}
-                    className={`flex size-6 items-center justify-center rounded-sm border text-sm font-bold ${
-                      text === color ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
-                    }`}
-                    // 地の上に字で見せる (白い字も見える)
-                    style={{ backgroundColor: current, color }}
-                  >
-                    あ
-                  </button>
-                ))}
-                <label htmlFor={`${id}-${row.value}-text`} className="sr-only">
-                  {row.label}の文字の色を選ぶ
-                </label>
-                <input
-                  id={`${id}-${row.value}-text`}
-                  type="color"
-                  value={shownText}
-                  onChange={(e) => setTextColor(row.value, e.target.value)}
-                  title="文字の色を選ぶ"
-                  className="h-7 w-9 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </fieldset>
+interface PriorityRowProps {
+  row: (typeof PRIORITY_ROWS)[number];
+  // 欄の id の頭 (useId)
+  id: string;
+  // 地の色・文字の色 (AUTO_TEXT なら自動)・実際に見せる文字の色
+  current: string;
+  text: string;
+  shownText: string;
+  setColor: (priority: EventPriority, color: string) => void;
+  setTextColor: (priority: EventPriority, color: string) => void;
+}
+
+// 地の色: 見本の帯・カラーピッカー・テンプレート色
+function BackgroundColorFields({ row, id, current, shownText, setColor }: PriorityRowProps) {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="w-10">{row.label}</span>
+        {/* 見本の帯。地と文字の組み合わせをそのまま見せる */}
+        <span
+          aria-hidden="true"
+          className="h-6 flex-1 rounded-sm border border-gray-300 px-1 text-sm leading-6"
+          style={{ backgroundColor: current, color: shownText }}
+        >
+          予定
+        </span>
+        <label htmlFor={`${id}-${row.value}`} className="sr-only">
+          {row.label}の色を選ぶ
+        </label>
+        <input
+          id={`${id}-${row.value}`}
+          type="color"
+          value={current}
+          onChange={(e) => setColor(row.value, e.target.value)}
+          title="色を選ぶ"
+          className="h-8 w-10 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
+        />
+      </div>
+      <div className="flex flex-wrap gap-1 pl-12">
+        {TEMPLATE_COLORS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            aria-label={`${row.label}を ${color} にする`}
+            aria-pressed={current === color}
+            title={color}
+            onClick={() => setColor(row.value, color)}
+            className={`size-6 rounded-sm border ${
+              current === color ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
+            }`}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+// 文字の色: 自動・テンプレート色・カラーピッカー
+function TextColorFields({ row, id, current, text, shownText, setTextColor }: PriorityRowProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-1 pl-12">
+      <span className="mr-1 text-gray-600">文字</span>
+      <button
+        type="button"
+        aria-label={`${row.label}の文字を自動にする`}
+        aria-pressed={text === AUTO_TEXT}
+        onClick={() => setTextColor(row.value, AUTO_TEXT)}
+        className={`h-6 rounded-sm border px-1 text-xs ${
+          text === AUTO_TEXT ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
+        }`}
+      >
+        自動
+      </button>
+      {TEXT_TEMPLATE_COLORS.map((color) => (
+        <button
+          key={color}
+          type="button"
+          aria-label={`${row.label}の文字を ${color} にする`}
+          aria-pressed={text === color}
+          title={color}
+          onClick={() => setTextColor(row.value, color)}
+          className={`flex size-6 items-center justify-center rounded-sm border text-sm font-bold ${
+            text === color ? "border-gray-900 ring-2 ring-blue-500" : "border-gray-300"
+          }`}
+          // 地の上に字で見せる (白い字も見える)
+          style={{ backgroundColor: current, color }}
+        >
+          あ
+        </button>
+      ))}
+      <label htmlFor={`${id}-${row.value}-text`} className="sr-only">
+        {row.label}の文字の色を選ぶ
+      </label>
+      <input
+        id={`${id}-${row.value}-text`}
+        type="color"
+        value={shownText}
+        onChange={(e) => setTextColor(row.value, e.target.value)}
+        title="文字の色を選ぶ"
+        className="h-7 w-9 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
+      />
+    </div>
+  );
+}
+
+// 優先度の色 (地と文字。優先度ごとに 1 組)
+function PriorityColorFields({ prefs, id, change }: { prefs: CalendarPrefs; id: string; change: ChangePrefs }) {
+  const setColor = (priority: EventPriority, color: string) =>
+    change({ colors: { ...prefs.colors, [priority]: color.toLowerCase() } });
+  // 文字の色。AUTO_TEXT なら地の明るさから選ぶ
+  const setTextColor = (priority: EventPriority, color: string) =>
+    change({ textColors: { ...prefs.textColors, [priority]: color.toLowerCase() } });
+  return (
+    <fieldset className="space-y-3">
+      <legend className="text-gray-600">優先度の色</legend>
+      {PRIORITY_ROWS.map((row) => {
+        const rowProps: PriorityRowProps = {
+          row,
+          id,
+          current: prefs.colors[row.value],
+          text: prefs.textColors[row.value],
+          shownText: eventTextColor(prefs, row.value),
+          setColor,
+          setTextColor,
+        };
+        return (
+          <div key={row.value} className="space-y-1" role="group" aria-label={`${row.label}の色`}>
+            <BackgroundColorFields {...rowProps} />
+            {/* 文字の色。「自動」は地の明るさから白か濃い灰を選ぶ */}
+            <TextColorFields {...rowProps} />
+          </div>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+function SettingsPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const placement = usePanelPlacement(ref, anchor);
+  const { prefs, error } = useCalendarPrefs();
+  const change = (patch: Partial<CalendarPrefs>) => updateCalendarPrefs({ ...prefs, ...patch });
+
+  // 外を押す・Esc で閉じる。開いた釦を押したときは釦の側が閉じる
+  useDismissOnOutside(ref, anchor, onClose);
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="カレンダーの設定"
+      style={
+        placement === null
+          ? { left: 0, top: 0, visibility: "hidden" }
+          : { left: placement.left, top: placement.top, maxHeight: placement.maxHeight }
+      }
+      className="fixed z-40 w-80 max-w-[calc(100vw-1rem)] space-y-4 overflow-y-auto rounded border border-gray-300 bg-white p-3 text-sm shadow-xl"
+    >
+      <LayoutFields prefs={prefs} change={change} />
+
+      <PriorityColorFields prefs={prefs} id={id} change={change} />
 
       {error !== null && (
         <p role="alert" className="rounded bg-yellow-50 px-2 py-1 text-yellow-800">
