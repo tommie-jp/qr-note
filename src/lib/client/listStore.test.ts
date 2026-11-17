@@ -180,6 +180,42 @@ describe('loadMore の失敗と競合', () => {
     expect(requested).toHaveLength(1)
   })
 
+  test('取り直しの間に頼まれた続きは、取り直しが済んでから読む', async () => {
+    // Arrange: 開いた直後の同期で一覧が古くなり、取り直しが走っている
+    responses.push(page([dto(1)], 1, EXTRAS))
+    await listCache.load(KEY)
+    listCache.invalidate()
+    responses.push(page([dto(1)], 1, EXTRAS))
+    const reload = listCache.load(KEY)
+
+    // Act: その間に画像ビューアの → が続きを頼む
+    await loadMore(KEY)
+    responses.push(page([dto(2)], 2, null))
+    await reload
+    await vi.waitFor(() => expect(requested).toHaveLength(3))
+    await vi.waitFor(() => expect(listCache.peek(KEY)?.value?.page).toBe(2))
+
+    // Assert: 頼みは捨てられず、取り直しの後に 2 ページ目を足した
+    expect(requested[2]).toContain('page=2')
+    expect(listCache.peek(KEY)?.value?.items.map((item) => item.title)).toEqual(['ノート 1', 'ノート 2'])
+  })
+
+  test('取り直しを待つ間に一覧の控えが消えたら、頼んだ続きは捨てる', async () => {
+    // Arrange
+    responses.push(page([dto(1)], 1, EXTRAS))
+    await listCache.load(KEY)
+    listCache.invalidate()
+
+    // Act
+    await loadMore(KEY)
+    listCache.remove(() => true)
+    responses.push(page([dto(1)], 1, EXTRAS))
+    await listCache.load(KEY)
+
+    // Assert: 控えが入れ替わった後に古い頼みで 2 ページ目を引かない
+    expect(requested).toHaveLength(2)
+  })
+
   test('取り直しは読み進めたページまでを 1 回で引く', async () => {
     // Arrange
     responses.push(page([dto(1)], 1, EXTRAS))
