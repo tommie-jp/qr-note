@@ -80,7 +80,7 @@
     "perfboard-fence": "file:vendor/perfboard-fence-0.41.0.tgz",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react-dom": "19.3.1",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "rehype-sanitize": "^6.0.0",
