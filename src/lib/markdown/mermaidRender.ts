@@ -79,7 +79,16 @@ export function sanitizeMermaidSvg(svg: string): string {
 
 export function loadMermaid() {
   mermaidPromise ??= import('mermaid').then(({ default: mermaid }) => {
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      // mermaid 12 は配置 (ELK)・色 (redux-color)・線 (neo) の既定を替えた。
+      // 既存のノートの図の並びと色が変わらないよう、11 までの既定を明示する。
+      // 図ごとの front matter (`config: layout: elk` など) はこれより優先される
+      layout: 'dagre',
+      theme: 'default',
+      look: 'classic',
+    })
     return mermaid
   })
   return mermaidPromise

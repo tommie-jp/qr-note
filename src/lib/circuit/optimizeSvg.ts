@@ -25,9 +25,10 @@ const CONFIG: Config = {
     {
       name: 'preset-default',
       params: {
+        // 一覧のサムネは viewBox で枠に合わせる (globals.css の .circuit-thumb)。
+        // svgo 4 から removeViewBox は preset-default に入っていないので、
+        // 何もしなくても残る (ここで false を書くと「組に無い」と毎回警告が出る)
         overrides: {
-          // 一覧のサムネは viewBox で枠に合わせる (globals.css の .circuit-thumb)
-          removeViewBox: false,
           cleanupIds: false,
           // <text> の font-family を残す (字体の埋め込みが要素ごとに拾う)
           moveElemsAttrsToGroup: false,
