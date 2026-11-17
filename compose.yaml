@@ -140,6 +140,15 @@ services:
       - /etc/os-release:/host/os-release:ro
       # ホストの hostname も同様 (os.hostname() はコンテナ ID を返す)
       - /etc/hostname:/host/hostname:ro
+      # ベンチマークのホストの節 (free -m・docker stats 相当)。docker.sock は渡さない
+      # (root と同等になる)。代わりにホストの cgroup v2 を read-only で見て、各コンテナの
+      # メモリと CPU を読む (src/lib/diag/containerStats.ts)。値はリソースの数字だけ
+      - /sys/fs/cgroup:/host/cgroup:ro
+      # cgroup には名前が無いので、doDeploy.sh・doStart.sh が docker ps で書く
+      # 「ID → 名前」の表 (containers.tsv) をここから読む。ファイルではなく
+      # ディレクトリをマウントする (書き換えで inode が変わっても追える)。
+      # 無いと Docker が root 所有で作り、配布が書けなくなるので、スクリプトが先に作る
+      - ./host-info:/host/info:ro
     depends_on:
       db:
         condition: service_healthy

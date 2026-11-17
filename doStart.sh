@@ -83,7 +83,13 @@ log "DB マイグレーション"
 npx prisma migrate deploy
 
 log "app 起動"
+# ベンチマークのコンテナ名の表 (compose.yaml の ./host-info)。先に作らないと
+# Docker が root 所有で作って書けなくなる
+mkdir -p host-info
 docker compose up -d app
+docker ps --no-trunc --format '{{.ID}}\t{{.Names}}' > host-info/containers.tsv.tmp \
+  && mv host-info/containers.tsv.tmp host-info/containers.tsv \
+  || echo "WARN: コンテナ名の表を書けなかった (ベンチマークの名前が ID になる)" >&2
 
 log "ヘルスチェック ($HEALTH_URL)"
 # -L で転送を追う。非本番の app は 127.0.0.1 を localhost へ 307 で

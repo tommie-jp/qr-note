@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { formatBenchCopy, formatMemoryDelta, formatMemoryRound, formatMs, formatPhases } from './formatBench'
-import type { ServerBenchResult } from './benchTypes'
+import { formatBenchCopy, formatMemUsage, formatMemoryDelta, formatMemoryRound, formatMiB, formatMs, formatPhases, hostLines } from './formatBench'
+import type { HostSnapshot, ServerBenchResult } from './benchTypes'
 
 const SERVER: ServerBenchResult = {
   version: 1,
@@ -91,4 +91,40 @@ test('コピーにメモリの行が入る (古い保存では出ない)', () =>
 
   expect(lines).toContain('サーバ.search:抵抗=123ms 規模=20/48 件 rss=200→201MB heap=+0.5MB ext=+0MB 最大rss=+0MB')
   expect(lines).toContain('メモリ.開始=rss 210MB heap 80/120MB ext 20MB 最大rss 250MB cgroup 512MB (ピーク 900MB) 起動 3600秒')
+})
+
+const HOST: HostSnapshot = {
+  takenAt: '2026-11-17T05:00:00.000Z',
+  freeMem: {
+    totalMB: 1962, usedMB: 757, freeMB: 120, sharedMB: 12, buffCacheMB: 1076, availableMB: 1205,
+    swapTotalMB: 2047, swapUsedMB: 713, swapFreeMB: 1334,
+  },
+  containers: [
+    { id: 'b786a64d6bb2', name: 'qr-search-app-1', isSelf: true, cpuPercent: 0.5, memUsageMB: 215, memLimitMB: 1600, pids: 11 },
+    { id: 'aaaaaaaaaaaa', name: null, isSelf: false, cpuPercent: null, memUsageMB: 12, memLimitMB: 1962, pids: null },
+  ],
+  namesAt: null,
+  notes: ['コンテナ名: 表が無い'],
+}
+
+test('メモリは docker stats と同じく 1GiB 未満を MiB、以上を GiB で書く', () => {
+  expect(formatMiB(215)).toBe('215.0MiB')
+  expect(formatMiB(1600)).toBe('1.56GiB')
+  expect(formatMemUsage(HOST.containers[0]!)).toBe('215.0MiB / 1.56GiB (13.44%)')
+})
+
+test('ホストの行は free -m の列とコンテナごとの docker stats の値を 1 行ずつ出す', () => {
+  expect(hostLines(HOST)).toEqual([
+    'ホスト.取得=2026/11/17 14:00:00 (計測前)',
+    'ホスト.Mem=total 1962 used 757 free 120 shared 12 buff/cache 1076 available 1205 (MiB)',
+    'ホスト.Swap=total 2047 used 713 free 1334 (MiB)',
+    'コンテナ.qr-search-app-1 (このアプリ)=CPU 0.50% MEM 215.0MiB / 1.56GiB (13.44%) PIDS 11',
+    'コンテナ.aaaaaaaaaaaa=CPU 不明 MEM 12.0MiB / 1.92GiB (0.61%) PIDS 不明',
+    'ホスト.注意=コンテナ名: 表が無い',
+  ])
+})
+
+test('ホストの節はサーバの行の後ろに入り、古い保存 (host 無し) では出ない', () => {
+  expect(formatBenchCopy({ cpu: null, server: { ...SERVER, host: HOST }, clients: [] })).toContain('ホスト.Mem=total 1962')
+  expect(formatBenchCopy({ cpu: null, server: SERVER, clients: [] })).not.toContain('ホスト.')
 })

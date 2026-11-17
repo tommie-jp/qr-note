@@ -79,6 +79,50 @@ export interface ServerBenchResult {
   memoryRounds?: MemoryRound[]
   // コンテナのメモリ上限 (cgroup の memory.max)。無制限・読めなければ null
   cgroupMaxMB?: number | null
+  // 計測前のホストとコンテナの様子 (free -m・docker stats 相当)。古い保存には無い
+  host?: HostSnapshot
+}
+
+// free -m と同じ列 (MiB、切り捨て)。used は procps-ng 4 と同じ total − available
+export interface FreeMem {
+  totalMB: number
+  usedMB: number
+  freeMB: number
+  sharedMB: number
+  buffCacheMB: number
+  availableMB: number
+  swapTotalMB: number
+  swapUsedMB: number
+  swapFreeMB: number
+}
+
+// docker stats --no-stream の 1 行に当たる値 (ホストの cgroup v2 から読む)
+export interface ContainerStat {
+  // 先頭 12 文字 (docker ps の CONTAINER ID)
+  id: string
+  // 名前の表に無ければ null (表が古い = 表を書いた後に作り直されたコンテナ)
+  name: string | null
+  // このアプリ自身のコンテナか (ホスト名 = 短い ID で見分ける)
+  isSelf: boolean
+  // 1 コア = 100% (docker stats と同じ尺度)。測れなければ null
+  cpuPercent: number | null
+  // memory.current − inactive_file (docker stats の MEM USAGE と同じ計算)
+  memUsageMB: number
+  // memory.max。無制限ならホストの総メモリ (docker stats の LIMIT と同じ)
+  memLimitMB: number
+  pids: number | null
+}
+
+export interface HostSnapshot {
+  // ISO 8601
+  takenAt: string
+  freeMem: FreeMem | null
+  // メモリの多い順
+  containers: ContainerStat[]
+  // 名前の表の更新日時 (ISO)。表が無ければ null
+  namesAt: string | null
+  // 読めなかった物の理由 (マウント漏れなど)。画面にそのまま出す
+  notes: string[]
 }
 
 export interface ClientBenchRow {

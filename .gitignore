@@ -91,3 +91,6 @@ next-env.d.ts
 
 # リファクタリング前後のプロファイルの生データ (docs/127)。要約は docs に書く
 /perf-baseline/
+
+# ベンチマークのコンテナ名の表 (doStart.sh・doDeploy.sh が書く)
+/host-info/

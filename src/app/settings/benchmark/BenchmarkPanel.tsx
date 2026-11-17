@@ -27,6 +27,8 @@ import {
 import { formatJstDateTime } from "@/lib/datetime";
 import { errorText } from "@/lib/errorMessage";
 import { markPerfTestPending } from "@/lib/perf/perfTestFlag";
+import { HostSection } from "./HostSection";
+import { CELL_CLASS, TABLE_CLASS } from "./tableClasses";
 
 // 計測の終わりを見に行く間隔
 const POLL_MS = 3000;
@@ -34,9 +36,6 @@ const POLL_MS = 3000;
 const LINE_STORAGE_KEY = "qr:benchLine";
 const RETURN_PATH = "/settings/benchmark";
 
-const TABLE_CLASS =
-  "w-full divide-y divide-gray-200 rounded border border-gray-200 bg-white text-sm";
-const CELL_CLASS = "px-3 py-1.5 text-left align-top";
 
 function readSavedLine(): NetLine {
   try {
@@ -305,6 +304,8 @@ export function BenchmarkPanel({ initial }: { initial: BenchStatus }) {
           <p className="text-sm text-gray-500">未計測 (サーバを計測すると出ます)</p>
         )}
       </section>
+
+      <HostSection server={status.server} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-bold">CPU (7z b)</h2>

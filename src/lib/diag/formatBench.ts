@@ -3,7 +3,17 @@
 // コピーは `key=値` の 1 行 1 項目 (docs/119 §1-1 と同じ流儀)。WSL・本番・
 // 移行先の 3 枚を貼り並べて、行ごとに差を読む。状態を持たない葉
 import { formatJstDateTime } from '../datetime'
-import type { BenchEnv, ClientBenchRun, MemoryDelta, MemoryRound, ServerBenchItem, ServerBenchResult } from './benchTypes'
+import type {
+  BenchEnv,
+  ClientBenchRun,
+  ContainerStat,
+  FreeMem,
+  HostSnapshot,
+  MemoryDelta,
+  MemoryRound,
+  ServerBenchItem,
+  ServerBenchResult,
+} from './benchTypes'
 
 export function formatMs(ms: number): string {
   return ms >= 100 ? `${Math.round(ms)}ms` : `${ms.toFixed(1)}ms`
@@ -61,6 +71,56 @@ export function formatMemoryRound(round: MemoryRound, cgroupMaxMB: number | null
     .join(' ')
 }
 
+// docker stats と同じ書き方 (1GiB 未満は MiB、以上は GiB)
+export function formatMiB(mb: number): string {
+  return mb >= 1024 ? `${(mb / 1024).toFixed(2)}GiB` : `${mb.toFixed(1)}MiB`
+}
+
+// free -m の表の行 (見出し・Mem・Swap)。列は free と同じ並び
+export function freeMemTable(mem: FreeMem): { head: string[]; rows: { label: string; cells: number[] }[] } {
+  return {
+    head: ['total', 'used', 'free', 'shared', 'buff/cache', 'available'],
+    rows: [
+      {
+        label: 'Mem',
+        cells: [mem.totalMB, mem.usedMB, mem.freeMB, mem.sharedMB, mem.buffCacheMB, mem.availableMB],
+      },
+      { label: 'Swap', cells: [mem.swapTotalMB, mem.swapUsedMB, mem.swapFreeMB] },
+    ],
+  }
+}
+
+export function containerLabel(stat: ContainerStat): string {
+  const name = stat.name ?? stat.id
+  return stat.isSelf ? `${name} (このアプリ)` : name
+}
+
+export function formatCpuPercent(stat: ContainerStat): string {
+  return stat.cpuPercent === null ? '不明' : `${stat.cpuPercent.toFixed(2)}%`
+}
+
+export function formatMemUsage(stat: ContainerStat): string {
+  const pct = stat.memLimitMB > 0 ? ` (${((stat.memUsageMB / stat.memLimitMB) * 100).toFixed(2)}%)` : ''
+  return `${formatMiB(stat.memUsageMB)} / ${formatMiB(stat.memLimitMB)}${pct}`
+}
+
+export function hostLines(host: HostSnapshot): string[] {
+  const table = host.freeMem ? freeMemTable(host.freeMem) : null
+  const free = (table?.rows ?? []).map((row) => {
+    const cells = row.cells.map((value, col) => `${table?.head[col]} ${value}`).join(' ')
+    return `ホスト.${row.label}=${cells} (MiB)`
+  })
+  return [
+    `ホスト.取得=${formatJstDateTime(new Date(host.takenAt))} (計測前)`,
+    ...free,
+    ...host.containers.map(
+      (stat) =>
+        `コンテナ.${containerLabel(stat)}=CPU ${formatCpuPercent(stat)} MEM ${formatMemUsage(stat)} PIDS ${stat.pids ?? '不明'}`,
+    ),
+    ...host.notes.map((note) => `ホスト.注意=${note}`),
+  ]
+}
+
 function serverItemLine(item: ServerBenchItem): string {
   const phases = formatPhases(item.phases)
   return [
@@ -99,6 +159,7 @@ export function formatBenchCopy(input: {
           ...(input.server.memoryRounds ?? []).map((round) =>
             formatMemoryRound(round, input.server?.cgroupMaxMB ?? null),
           ),
+          ...(input.server.host ? hostLines(input.server.host) : []),
         ]
       : ['サーバ=未計測']),
     ...(input.clients.length > 0 ? input.clients.flatMap(clientLines) : ['端末=未計測']),

@@ -24,6 +24,7 @@ import { type CpuProfile, type ModuleTime, remapProfile, summarizeByModule } fro
 import { profilePath, saveServerBench, writeAtomic } from './benchStore'
 import type { BenchEnv, MemoryRound, MemorySnapshot, ServerBenchItem, ServerBenchResult } from './benchTypes'
 import { CGROUP_MEMORY_MAX_PATH } from './hostInfo'
+import { collectHostSnapshot } from './hostSnapshot'
 import { diffMemory, nodeMemoryProbe, parseCgroupBytes, takeMemorySnapshot } from './memorySample'
 import { makeNoiseJpeg } from './noiseJpeg'
 import { parseBatch } from './parseBench'
@@ -370,6 +371,9 @@ async function readCgroupMaxMB(): Promise<number | null> {
 
 export async function runServerBench(options: ServerBenchOptions = {}): Promise<ServerBenchResult> {
   const snapshot = () => takeMemorySnapshot(nodeMemoryProbe)
+  // ホストの様子は計測の負荷を掛ける前に取る (手で流していた free -m・docker stats
+  // の平常時の値に当たる)。CPU % のために 1 秒待つ
+  const host = await collectHostSnapshot()
   const started = await snapshot()
   const env = await collectBenchEnv()
   const coldMemos = await loadColdMemos()
@@ -405,6 +409,7 @@ export async function runServerBench(options: ServerBenchOptions = {}): Promise<
     profileModules: profile.modules,
     memoryRounds: [{ label: '開始', memory: started }, { label: '本計測後', memory: measured }, ...rounds],
     cgroupMaxMB: await readCgroupMaxMB(),
+    host,
   }
   await saveServerBench(result)
   return result

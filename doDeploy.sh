@@ -615,7 +615,14 @@ else
   log "7/8 app コンテナ再作成"
 fi
 
+# ベンチマークのコンテナ名の表 (compose.yaml の ./host-info)。無いまま up すると
+# Docker が root 所有で作って書けなくなるので、先に作る
+remote_ssh "$REMOTE" "mkdir -p '$REMOTE_DIR/host-info'"
 remote_compose up -d --no-build --force-recreate app
+# 作り直した app の ID を含めて書く。失敗しても配布は止めない (名前が ID になるだけ)
+remote_ssh "$REMOTE" "docker ps --no-trunc --format '{{.ID}}\t{{.Names}}' > '$REMOTE_DIR/host-info/containers.tsv.tmp' \
+  && mv '$REMOTE_DIR/host-info/containers.tsv.tmp' '$REMOTE_DIR/host-info/containers.tsv'" \
+  || echo "WARN: コンテナ名の表を書けなかった (ベンチマークの名前が ID になる)" >&2
 step_done "7/8 app コンテナ再作成"
 
 log "8/8 ヘルスチェック ($REMOTE 上の $HEALTH_URL)"
