@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { formatBenchCopy, formatMemUsage, formatMemoryDelta, formatMemoryRound, formatMiB, formatMs, formatPhases, hostLines } from './formatBench'
+import { envRows, formatBenchCopy, formatMemUsage, formatMemoryDelta, formatMemoryRound, formatMiB, formatMs, formatPhases, hostLines } from './formatBench'
 import type { HostSnapshot, ServerBenchResult } from './benchTypes'
 
 const SERVER: ServerBenchResult = {
@@ -127,4 +127,20 @@ test('ホストの行は free -m の列とコンテナごとの docker stats の
 test('ホストの節はサーバの行の後ろに入り、古い保存 (host 無し) では出ない', () => {
   expect(formatBenchCopy({ cpu: null, server: { ...SERVER, host: HOST }, clients: [] })).toContain('ホスト.Mem=total 1962')
   expect(formatBenchCopy({ cpu: null, server: SERVER, clients: [] })).not.toContain('ホスト.')
+})
+
+test('環境の先頭にホスト名と OS を出し、古い保存 (kernel 無し) では出さない', () => {
+  // Arrange
+  const env = { ...SERVER.env, hostName: 'vps1', osName: 'Ubuntu 26.04.1 LTS', kernel: '7.0.0-15-generic' }
+
+  // Act
+  const rows = envRows(env)
+
+  // Assert
+  expect(rows.slice(0, 2)).toEqual([
+    { label: 'ホスト名', value: 'vps1' },
+    { label: 'OS', value: 'Ubuntu 26.04.1 LTS (カーネル 7.0.0-15-generic)' },
+  ])
+  expect(envRows(SERVER.env)[0]?.label).toBe('CPU')
+  expect(envRows({ ...env, hostName: null, osName: null })[0]?.value).toBe('不明')
 })

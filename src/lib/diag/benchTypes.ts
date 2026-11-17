@@ -16,6 +16,11 @@ export interface BenchEnv {
   circuitItems: number
   // ISO 8601
   measuredAt: string
+  // どの機械か (サーバー情報と同じ読み方。compose のマウントが無ければ null)。
+  // v0.23.143 以前の保存には無い
+  hostName?: string | null
+  osName?: string | null
+  kernel?: string
 }
 
 // 1 時点のメモリ (docs/127 §2)。MB の小数 1 桁。cgroup はコンテナ全体 (TeX の

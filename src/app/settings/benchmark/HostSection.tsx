@@ -25,7 +25,7 @@ function FreeMemTable({ mem }: { mem: FreeMem }) {
       <table className={TABLE_CLASS}>
         <thead className="text-gray-500">
           <tr>
-            <th className={CELL_CLASS}>free -m</th>
+            <th className={CELL_CLASS}>free -m (単位 MiB)</th>
             {head.map((name) => (
               <th key={name} className={HEAD_NUM_CLASS}>
                 {name}

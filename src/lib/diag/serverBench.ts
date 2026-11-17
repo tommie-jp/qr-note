@@ -23,7 +23,9 @@ import { profileCpu, readBundleSourceMap } from './benchProfile'
 import { type CpuProfile, type ModuleTime, remapProfile, summarizeByModule } from './profileRemap'
 import { profilePath, saveServerBench, writeAtomic } from './benchStore'
 import type { BenchEnv, MemoryRound, MemorySnapshot, ServerBenchItem, ServerBenchResult } from './benchTypes'
-import { CGROUP_MEMORY_MAX_PATH } from './hostInfo'
+import { readFile } from 'node:fs/promises'
+import { CGROUP_MEMORY_MAX_PATH, HOST_HOSTNAME_PATH, HOST_OS_RELEASE_PATH } from './hostInfo'
+import { osPrettyName } from './osRelease'
 import { collectHostSnapshot } from './hostSnapshot'
 import { diffMemory, nodeMemoryProbe, parseCgroupBytes, takeMemorySnapshot } from './memorySample'
 import { makeNoiseJpeg } from './noiseJpeg'
@@ -104,7 +106,13 @@ async function loadColdMemos(): Promise<string[]> {
   return rows.map((row) => row.memo)
 }
 
+const readOptional = (path: string): Promise<string | null> => readFile(path, 'utf8').catch(() => null)
+
 export async function collectBenchEnv(): Promise<BenchEnv> {
+  const [hostname, osRelease] = await Promise.all([
+    readOptional(HOST_HOSTNAME_PATH),
+    readOptional(HOST_OS_RELEASE_PATH),
+  ])
   const [counts] = await prisma.$queryRaw<{ items: number; circuit: number }[]>`
     SELECT count(*)::int AS items,
            count(*) FILTER (WHERE position('circuit' in memo) > 0)::int AS circuit
@@ -119,6 +127,9 @@ export async function collectBenchEnv(): Promise<BenchEnv> {
     items: counts?.items ?? 0,
     circuitItems: counts?.circuit ?? 0,
     measuredAt: new Date().toISOString(),
+    hostName: hostname?.trim() || null,
+    osName: osRelease === null ? null : osPrettyName(osRelease),
+    kernel: os.release(),
   }
 }
 

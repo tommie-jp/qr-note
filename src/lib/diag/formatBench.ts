@@ -25,8 +25,20 @@ export function formatPhases(phases: Readonly<Record<string, number>>): string {
     .join(' ')
 }
 
+// 古い保存 (v0.23.143 以前) には無い行。読めなかった値は「不明」と書く
+function machineRows(env: BenchEnv): { label: string; value: string }[] {
+  if (env.kernel === undefined) {
+    return []
+  }
+  return [
+    { label: 'ホスト名', value: env.hostName ?? '不明' },
+    { label: 'OS', value: `${env.osName ?? '不明'} (カーネル ${env.kernel})` },
+  ]
+}
+
 export function envRows(env: BenchEnv): { label: string; value: string }[] {
   return [
+    ...machineRows(env),
     { label: 'CPU', value: `${env.cpuModel} (${env.threads} スレッド)` },
     { label: 'メモリ', value: `${env.totalMemMB}MB` },
     { label: '版', value: `QR-Note ${env.appVersion} / Node.js ${env.nodeVersion}` },
