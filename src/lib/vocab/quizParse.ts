@@ -81,102 +81,161 @@ function joinBlock(lines: string[]): string {
   return lines.slice(start, end).join('\n')
 }
 
-export function parseQuiz(source: string): QuizParseResult {
-  const question: string[] = []
-  const choices: string[][] = []
-  const explanation: string[] = []
-  let answerText: string | null = null
-  let hasExplanation = false
+// 行を読み進める間の状態。parseQuiz が 1 つ作り、行ごとの処理が書き足す
+interface QuizState {
+  readonly question: string[]
+  readonly choices: string[][]
+  readonly explanation: string[]
+  answerText: string | null
+  hasExplanation: boolean
   // いま行を溜めている先。null なら「問:」がまだ来ていない
-  let sink: string[] | null = null
+  sink: string[] | null
   // 溜め先が選択肢そのものか (行が選択肢の続きになる状態か)。
   // 番号の振り間違いを叱るのは、この状態のときだけにする — 問題文の中の
   // 番号付きリストまで叱ると、ふつうの markdown が書けなくなる
-  let inChoice = false
+  inChoice: boolean
+}
 
-  for (const line of splitLines(source)) {
-    const questionMatch = QUESTION_RE.exec(line)
-    if (questionMatch) {
-      if (question.length > 0) {
-        return { error: '「問:」が 2 つあります。1 つのフェンスに 1 問です' }
-      }
-      if (sink !== null) {
-        return { error: '「問:」はいちばん先に書いてください' }
-      }
-      question.push(questionMatch[1])
-      sink = question
-      continue
-    }
+// 行 1 つの扱い: 'done' … 読んだ / null … この処理の行ではない / error … 書き間違い
+type LineResult = 'done' | null | { error: string }
 
-    // 番号が「次に来るはずのもの」と一致するときだけ選択肢の始まりと見る。
-    // 問題文中の番号付きリストを選択肢と読み違えないための歯止め
-    const choiceMatch = CHOICE_RE.exec(line)
-    if (
-      sink !== null &&
-      choiceMatch &&
-      numberOf(choiceMatch[1]) === choices.length + 1
-    ) {
-      if (answerText !== null || hasExplanation) {
-        return { error: '選択肢は「正解:」より前に並べてください' }
-      }
-      const choice = [choiceMatch[2]]
-      choices.push(choice)
-      sink = choice
-      inChoice = true
-      continue
-    }
-
-    // 選択肢を並べている途中の「番号付きに見えるが番号が合わない行」。
-    // 黙って直前の選択肢に吸い込むと選択肢が 1 つ消えたまま成立してしまう
-    if (inChoice && NUMBERED_LINE_RE.test(line)) {
-      return {
-        error:
-          choices.length >= MAX_CHOICES
-            ? `選択肢は ${MAX_CHOICES} つまでです`
-            : `選択肢の番号は 1 から順に振ってください (${choices.length + 1} が来るはずのところに「${line.trim()}」)`,
-      }
-    }
-
-    const answerMatch = ANSWER_RE.exec(line)
-    if (answerMatch) {
-      if (answerText !== null) {
-        return { error: '「正解:」が 2 つあります' }
-      }
-      answerText = answerMatch[1].trim()
-      // 正解は 1 行で完結する。以降の行は解説か、書き間違いのどちらか
-      sink = null
-      inChoice = false
-      continue
-    }
-
-    const explanationMatch = EXPLANATION_RE.exec(line)
-    if (explanationMatch) {
-      if (hasExplanation) {
-        return { error: '「解説:」が 2 つあります' }
-      }
-      hasExplanation = true
-      explanation.push(explanationMatch[1])
-      sink = explanation
-      inChoice = false
-      continue
-    }
-
-    if (line.trim() === '') {
-      // 空行は溜め先があるときだけ意味を持つ (段落の区切り)
-      sink?.push(line)
-      continue
-    }
-    if (sink === null) {
-      return {
-        error:
-          question.length === 0
-            ? '「問:」で始めてください'
-            : `「正解:」の後は「解説:」だけです (${line.trim()})`,
-      }
-    }
-    sink.push(line)
+function takeQuestion(state: QuizState, line: string): LineResult {
+  const questionMatch = QUESTION_RE.exec(line)
+  if (!questionMatch) {
+    return null
   }
+  if (state.question.length > 0) {
+    return { error: '「問:」が 2 つあります。1 つのフェンスに 1 問です' }
+  }
+  if (state.sink !== null) {
+    return { error: '「問:」はいちばん先に書いてください' }
+  }
+  state.question.push(questionMatch[1])
+  state.sink = state.question
+  return 'done'
+}
 
+// 番号が「次に来るはずのもの」と一致するときだけ選択肢の始まりと見る。
+// 問題文中の番号付きリストを選択肢と読み違えないための歯止め
+function takeChoice(state: QuizState, line: string): LineResult {
+  const choiceMatch = CHOICE_RE.exec(line)
+  if (
+    state.sink === null ||
+    !choiceMatch ||
+    numberOf(choiceMatch[1]) !== state.choices.length + 1
+  ) {
+    return null
+  }
+  if (state.answerText !== null || state.hasExplanation) {
+    return { error: '選択肢は「正解:」より前に並べてください' }
+  }
+  const choice = [choiceMatch[2]]
+  state.choices.push(choice)
+  state.sink = choice
+  state.inChoice = true
+  return 'done'
+}
+
+// 選択肢を並べている途中の「番号付きに見えるが番号が合わない行」。
+// 黙って直前の選択肢に吸い込むと選択肢が 1 つ消えたまま成立してしまう
+function rejectMisnumbered(state: QuizState, line: string): LineResult {
+  if (!state.inChoice || !NUMBERED_LINE_RE.test(line)) {
+    return null
+  }
+  return {
+    error:
+      state.choices.length >= MAX_CHOICES
+        ? `選択肢は ${MAX_CHOICES} つまでです`
+        : `選択肢の番号は 1 から順に振ってください (${state.choices.length + 1} が来るはずのところに「${line.trim()}」)`,
+  }
+}
+
+function takeAnswer(state: QuizState, line: string): LineResult {
+  const answerMatch = ANSWER_RE.exec(line)
+  if (!answerMatch) {
+    return null
+  }
+  if (state.answerText !== null) {
+    return { error: '「正解:」が 2 つあります' }
+  }
+  state.answerText = answerMatch[1].trim()
+  // 正解は 1 行で完結する。以降の行は解説か、書き間違いのどちらか
+  state.sink = null
+  state.inChoice = false
+  return 'done'
+}
+
+function takeExplanation(state: QuizState, line: string): LineResult {
+  const explanationMatch = EXPLANATION_RE.exec(line)
+  if (!explanationMatch) {
+    return null
+  }
+  if (state.hasExplanation) {
+    return { error: '「解説:」が 2 つあります' }
+  }
+  state.hasExplanation = true
+  state.explanation.push(explanationMatch[1])
+  state.sink = state.explanation
+  state.inChoice = false
+  return 'done'
+}
+
+// キーワードの無い行。いまの溜め先に足す
+function takeBodyLine(state: QuizState, line: string): LineResult {
+  if (line.trim() === '') {
+    // 空行は溜め先があるときだけ意味を持つ (段落の区切り)
+    state.sink?.push(line)
+    return 'done'
+  }
+  if (state.sink === null) {
+    return {
+      error:
+        state.question.length === 0
+          ? '「問:」で始めてください'
+          : `「正解:」の後は「解説:」だけです (${line.trim()})`,
+    }
+  }
+  state.sink.push(line)
+  return 'done'
+}
+
+// 上から順に試し、最初に引き受けた処理の結果を使う
+const LINE_HANDLERS: readonly ((state: QuizState, line: string) => LineResult)[] = [
+  takeQuestion,
+  takeChoice,
+  rejectMisnumbered,
+  takeAnswer,
+  takeExplanation,
+  takeBodyLine,
+]
+
+function takeLine(state: QuizState, line: string): LineResult {
+  for (const handler of LINE_HANDLERS) {
+    const result = handler(state, line)
+    if (result !== null) {
+      return result
+    }
+  }
+  return null
+}
+
+export function parseQuiz(source: string): QuizParseResult {
+  const state: QuizState = {
+    question: [],
+    choices: [],
+    explanation: [],
+    answerText: null,
+    hasExplanation: false,
+    sink: null,
+    inChoice: false,
+  }
+  for (const line of splitLines(source)) {
+    const result = takeLine(state, line)
+    if (result !== null && result !== 'done') {
+      return result
+    }
+  }
+  const { question, choices, answerText, hasExplanation, explanation } = state
   return buildQuiz(question, choices, answerText, hasExplanation ? explanation : null)
 }
 
