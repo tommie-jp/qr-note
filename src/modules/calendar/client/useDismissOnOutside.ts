@@ -37,3 +37,38 @@ export function useDismissOnOutside(
     };
   }, [ref, anchor, onClose, keepSelector]);
 }
+
+// 下のペインの中に浮かせる物 (予定のフォーム・時刻のパネル) を、外を押す・Esc で閉じる。
+// Esc は捕捉段で受けて止める (ペインの「閉じる」まで届かせない)。
+// 開いた要素 (anchor) を押したときは閉じない (押し直すと閉じて開き直し、ちらつく)。
+// refocus … 閉じたら開いた要素へ焦点を戻すか
+export function useDismissInPane(
+  ref: RefObject<HTMLElement | null>,
+  anchor: HTMLElement,
+  onClose: () => void,
+  refocus: boolean,
+): void {
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && !ref.current?.contains(target) && !anchor.contains(target)) {
+        onClose();
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+        if (refocus) {
+          anchor.focus();
+        }
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [ref, anchor, onClose, refocus]);
+}

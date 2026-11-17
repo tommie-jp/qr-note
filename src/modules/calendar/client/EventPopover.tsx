@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ClearIcon } from "@/components/icons";
 import { noteCache } from "@/lib/client/noteStore";
 import { placeAroundInView, type Placement } from "../event/placePopover";
 import { onVisibleViewChange, visibleView } from "./visibleView";
 import EventForm from "./EventForm";
+import { useDismissInPane } from "./useDismissOnOutside";
 
 // 開く予定。isNew は「+」で振った新しい番号 (まだサーバに無いので取りに行かない)
 export interface EditingEvent {
@@ -14,6 +15,85 @@ export interface EditingEvent {
   isNew: boolean;
   // 押した行 (「+」) の要素。そのすぐ上か下にフォームを出す
   anchor: HTMLElement;
+}
+
+// 押した行のすぐ上か下に置く。ready (中身が届いた) で置き直す
+function useRowPopoverPlacement(
+  ref: RefObject<HTMLDivElement | null>,
+  anchor: HTMLElement,
+  ready: boolean,
+): Placement | null {
+  const [placement, setPlacement] = useState<Placement | null>(null);
+
+  const place = useCallback(() => {
+    const box = ref.current;
+    if (box === null) {
+      return;
+    }
+    box.style.maxHeight = "";
+    setPlacement(
+      placeAroundInView(
+        anchor.getBoundingClientRect(),
+        { width: box.offsetWidth, height: box.scrollHeight },
+        visibleView(),
+      ),
+    );
+  }, [anchor, ref]);
+
+  useLayoutEffect(place, [place, ready]);
+
+  // 中身の高さが変わる (終日を外すと時刻の欄が出る・エラーの行) たびに置き直す
+  useEffect(() => {
+    const box = ref.current;
+    if (box === null) {
+      return;
+    }
+    const observer = new ResizeObserver(() => place());
+    observer.observe(box.firstElementChild ?? box);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    const stopView = onVisibleViewChange(place);
+    return () => {
+      stopView();
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [place, ref]);
+  return placement;
+}
+
+// 読み込み中・失敗の知らせか、予定のフォーム
+function EventPopoverBody({
+  editing,
+  entry,
+  ready,
+  day,
+  query,
+  onClose,
+}: {
+  editing: EditingEvent;
+  entry: ReturnType<typeof noteCache.useEntry>;
+  ready: boolean;
+  day: string;
+  query: string;
+  onClose: () => void;
+}) {
+  const { itemId, isNew } = editing;
+  return !ready ? (
+    <p className="rounded border border-gray-300 p-3 text-sm text-gray-500">
+      {entry?.error ? `読み込めませんでした: ${entry.error.message}` : "読み込み中…"}
+    </p>
+  ) : (
+    <EventForm
+      itemId={itemId}
+      item={isNew ? null : (entry?.value?.item ?? null)}
+      initialDate={day}
+      query={query}
+      fullscreen={false}
+      onDone={onClose}
+    />
+  );
 }
 
 // 下のペインの予定の行を押したとき、行のそばに予定のフォームを浮かせて出す
@@ -38,69 +118,14 @@ export function EventPopover({
 }) {
   const { itemId, isNew, anchor } = editing;
   const ref = useRef<HTMLDivElement>(null);
-  const [placement, setPlacement] = useState<Placement | null>(null);
   const entry = noteCache.useEntry(isNew ? null : itemId);
   const ready = isNew || entry?.value !== undefined;
 
-  const place = useCallback(() => {
-    const box = ref.current;
-    if (box === null) {
-      return;
-    }
-    box.style.maxHeight = "";
-    setPlacement(
-      placeAroundInView(
-        anchor.getBoundingClientRect(),
-        { width: box.offsetWidth, height: box.scrollHeight },
-        visibleView(),
-      ),
-    );
-  }, [anchor]);
-
-  useLayoutEffect(place, [place, ready]);
-
-  // 中身の高さが変わる (終日を外すと時刻の欄が出る・エラーの行) たびに置き直す
-  useEffect(() => {
-    const box = ref.current;
-    if (box === null) {
-      return;
-    }
-    const observer = new ResizeObserver(() => place());
-    observer.observe(box.firstElementChild ?? box);
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    const stopView = onVisibleViewChange(place);
-    return () => {
-      stopView();
-      observer.disconnect();
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [place]);
+  const placement = useRowPopoverPlacement(ref, anchor, ready);
 
   // 外を押す・Esc で閉じる。別の行を押したときは、閉じた後でその行が開き直す。
   // 開いた行そのものは閉じない (押し直すと閉じて開き直し、ちらつく)
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Node && !ref.current?.contains(target) && !anchor.contains(target)) {
-        onClose();
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-        anchor.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-    };
-  }, [anchor, onClose]);
+  useDismissInPane(ref, anchor, onClose, true);
 
   return createPortal(
     <div
@@ -125,20 +150,7 @@ export function EventPopover({
         >
           <ClearIcon />
         </button>
-        {!ready ? (
-          <p className="rounded border border-gray-300 p-3 text-sm text-gray-500">
-            {entry?.error ? `読み込めませんでした: ${entry.error.message}` : "読み込み中…"}
-          </p>
-        ) : (
-          <EventForm
-            itemId={itemId}
-            item={isNew ? null : (entry?.value?.item ?? null)}
-            initialDate={day}
-            query={query}
-            fullscreen={false}
-            onDone={onClose}
-          />
-        )}
+        <EventPopoverBody editing={editing} entry={entry} ready={ready} day={day} query={query} onClose={onClose} />
       </div>
     </div>,
     document.body,
