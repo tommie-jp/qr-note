@@ -48,6 +48,13 @@ const ENV_ALLOW = {
   // マウント先 /app/data/git-notes にそのまま一致する。差し替えるのはテストと開発だけ
   // (.env.example にはコメントアウトで説明を置いた)
   QR_GIT_DIR: ['in-compose'],
+  // 速度計測を起動直後から立てる口。本番の compose には渡さない (docs/119 §1-4)。
+  // 手元で本番ビルドを測るときに docker run -e で渡すだけ (docs/118 §0-1)
+  PERF_LOG: ['in-compose', 'in-example'],
+  // 運用スクリプトの旗と置き場 (アプリの設定ではない)。doBackfill.sh の
+  // circuit-addresses の下見と、計測行の取得鍵の置き場の差し替え
+  DRY_RUN: ['in-example'],
+  QR_PERF_TOKEN_FILE: ['in-example'],
 }
 
 // ---------------------------------------------------------------------------
@@ -187,13 +194,13 @@ export function parseNginxSize(text) {
 /** Caddyfile の request_body → { default, paths: { '/api/import': バイト } } */
 export function parseCaddyLimits(text) {
   const matchers = Object.fromEntries(
-    [...text.matchAll(/^\s*@(\w+)\s+path\s+(\S+)\s*$/gm)].map((m) => [m[1], m[2]]),
+    [...text.matchAll(/^\s*@(\w+)\s+path\s+(\S.*?)\s*$/gm)].map((m) => [m[1], m[2].split(/\s+/)]),
   )
   const limits = { default: undefined, paths: {} }
   for (const m of text.matchAll(/request_body(?:\s+@(\w+))?\s*\{\s*max_size\s+(\S+)\s*\}/g)) {
     const bytes = parseCaddySize(m[2])
     if (m[1] === undefined) limits.default = bytes
-    else limits.paths[matchers[m[1]] ?? `@${m[1]}`] = bytes
+    else for (const p of matchers[m[1]] ?? [`@${m[1]}`]) limits.paths[p] = bytes
   }
   return limits
 }
@@ -251,29 +258,39 @@ const MiB = 2 ** 20
 const fmt = (bytes) => `${bytes.toLocaleString('en-US')} バイト (${(bytes / MiB).toFixed(1)} MiB)`
 
 /**
- * 意図した大小関係。edge / app はどちらもバイト数を返す関数、op は '>=' か '<'。
- *   - エッジの既定の上限 ≥ アプリの門 (MAX_VIDEO_BYTES + MULTIPART_OVERHEAD_BYTES)。
- *     小さいと録画がアプリに届く前に 413 になる
+ * 意図した大小関係。edge / app はどちらもバイト数、op は '>=' か '<'。
+ *   - 既定は小さく (1MB。2026-11 の監査 M-15)、大きな本文が要る口だけ開ける。
+ *     アップロードの口 (添付・クリップボード・シークレット) の上限 ≥ アプリの門
+ *     (MAX_VIDEO_BYTES + MULTIPART_OVERHEAD_BYTES)。小さいと録画がアプリに届く前に 413 になる
+ *   - エッジの既定の上限 < アプリの門 (既定を動画の大きさまで開けない)
  *   - エッジの /api/import の上限 ≥ MAX_ZIP_BYTES (取り込みは multipart を使わず本文を
  *     そのまま流すので余白は要らない)。小さいとブラウザには "Load failed" としか出ない
  *   - エッジの既定の上限 < MAX_ZIP_BYTES。**既定を取り込みの大きさまで上げない**のが
  *     要点で、500MB をどの口へでも投げ込めるようにしない
- *   - デモのエッジ ≥ デモの門 (DEMO_MAX_IMAGE_BYTES + 余白)、かつ < 本番の門
+ *   - デモのアップロードの口 ≥ デモの門 (DEMO_MAX_IMAGE_BYTES + 余白)、かつ < 本番の門
  *     (デモは動画を扱わないので、本番の動画枠まで開けない)
  */
+// アップロードを受ける口 (Caddy は matcher の path、nginx は location のパス)
+const CADDY_UPLOAD_PATHS = ['/api/images', '/api/clipboard/*', '/api/secrets/*']
+const NGINX_UPLOAD_PATHS = ['/api/images', '/api/clipboard/', '/api/secrets/']
+const DEMO_UPLOAD_PATHS = ['/api/images', '/api/clipboard/']
+
 function limitRules({ caddy, nginx, nginxDemo, c }) {
   const appGate = c('MAX_VIDEO_BYTES') + c('MULTIPART_OVERHEAD_BYTES')
   const demoGate = c('DEMO_MAX_IMAGE_BYTES') + c('MULTIPART_OVERHEAD_BYTES')
   const zip = c('MAX_ZIP_BYTES')
+  const fits = (prefix, file, paths, limits, gate, gateName) =>
+    paths.map((p) => [`${prefix}-upload-fits:${p}`, `${file} の ${p} ≥ ${gateName}`, limits.paths[p], '>=', gate])
   return [
-    ['caddy-default-fits-upload', 'Caddyfile の既定 ≥ アップロードの門 (動画 + 余白)', caddy.default, '>=', appGate],
+    ...fits('caddy', 'Caddyfile', CADDY_UPLOAD_PATHS, caddy, appGate, 'アップロードの門 (動画 + 余白)'),
+    ['caddy-default-below-upload', 'Caddyfile の既定 < アップロードの門 (既定を動画の大きさに開けない)', caddy.default, '<', appGate],
     ['caddy-import-fits-zip', 'Caddyfile の /api/import ≥ MAX_ZIP_BYTES', caddy.paths['/api/import'], '>=', zip],
-    ['caddy-default-below-zip', 'Caddyfile の既定 < MAX_ZIP_BYTES (既定を取り込みの大きさに開けない)', caddy.default, '<', zip],
-    ['nginx-default-fits-upload', 'qr.tommie.jp.conf の既定 ≥ アップロードの門 (動画 + 余白)', nginx.default, '>=', appGate],
+    ...fits('nginx', 'qr.tommie.jp.conf', NGINX_UPLOAD_PATHS, nginx, appGate, 'アップロードの門 (動画 + 余白)'),
+    ['nginx-default-below-upload', 'qr.tommie.jp.conf の既定 < アップロードの門 (既定を動画の大きさに開けない)', nginx.default, '<', appGate],
     ['nginx-import-fits-zip', 'qr.tommie.jp.conf の /api/import ≥ MAX_ZIP_BYTES', nginx.paths['/api/import'], '>=', zip],
-    ['nginx-default-below-zip', 'qr.tommie.jp.conf の既定 < MAX_ZIP_BYTES (既定を取り込みの大きさに開けない)', nginx.default, '<', zip],
-    ['demo-default-fits-upload', 'qr-demo.tommie.jp.conf の既定 ≥ デモの門 (2MB + 余白)', nginxDemo.default, '>=', demoGate],
-    ['demo-default-below-upload', 'qr-demo.tommie.jp.conf の既定 < 本番の門 (デモに動画枠は要らない)', nginxDemo.default, '<', appGate],
+    ...fits('demo', 'qr-demo.tommie.jp.conf', DEMO_UPLOAD_PATHS, nginxDemo, demoGate, 'デモの門 (2MB + 余白)'),
+    ...DEMO_UPLOAD_PATHS.map((p) => [`demo-upload-below-prod:${p}`, `qr-demo.tommie.jp.conf の ${p} < 本番の門 (デモに動画枠は要らない)`, nginxDemo.paths[p], '<', appGate]),
+    ['demo-default-below-upload', 'qr-demo.tommie.jp.conf の既定 < デモの門 (既定を添付の大きさに開けない)', nginxDemo.default, '<', demoGate],
   ]
 }
 
