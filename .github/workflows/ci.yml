@@ -31,14 +31,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+          # ~/.npm は下の actions/cache で自分で持ち回る (v5 からの自動キャッシュと二重にしない)
+          package-manager-cache: false
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -68,7 +70,7 @@ jobs:
       # 消すうえ、複製先の public/ はチェックアウトに無いので、スタンプが一致する
       # ことが無い (node_modules からの複製自体は 1 秒未満)
       - name: OCR モデルのキャッシュ
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: public/paddle-ocr
           key: paddle-ocr-${{ hashFiles('scripts/assets.mjs') }}
@@ -103,14 +105,16 @@ jobs:
     env:
       DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+          # ~/.npm は下の actions/cache で自分で持ち回る (v5 からの自動キャッシュと二重にしない)
+          package-manager-cache: false
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -163,14 +167,16 @@ jobs:
       E2E_DATABASE_URL: postgresql://qr:ci@127.0.0.1:5432/qr_e2e
       E2E_START_SERVER: '1'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+          # ~/.npm は下の actions/cache で自分で持ち回る (v5 からの自動キャッシュと二重にしない)
+          package-manager-cache: false
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -183,7 +189,7 @@ jobs:
       # ブラウザ本体 (Chromium) は @playwright/test の版ごとに決まる
       - name: Playwright のブラウザのキャッシュ
         id: browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -198,7 +204,7 @@ jobs:
 
       # npm run dev の copy:assets がネットワークから取る OCR モデル (check と同じ)
       - name: OCR モデルのキャッシュ
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: public/paddle-ocr
           key: paddle-ocr-${{ hashFiles('scripts/assets.mjs') }}
@@ -211,7 +217,7 @@ jobs:
 
       # shard ごとに別の名前で置く。coverage ジョブがまとめて落として足し合わせる
       - name: E2E のカバレッジを渡す
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-coverage-${{ matrix.shard }}
           path: coverage-e2e/coverage-final.json
@@ -219,7 +225,7 @@ jobs:
 
       - name: 失敗したときの記録
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ matrix.shard }}
           path: |
@@ -238,14 +244,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
+          # ~/.npm は下の actions/cache で自分で持ち回る (v5 からの自動キャッシュと二重にしない)
+          package-manager-cache: false
 
       - name: npm のダウンロードキャッシュ
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -258,7 +266,7 @@ jobs:
 
       # shard ごとの JSON を coverage-e2e/e2e-coverage-<n>/ に並べる
       # (scripts/coverageMerge.ts が下の階層をすべて読む)
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: e2e-coverage-*
           path: coverage-e2e
@@ -266,7 +274,7 @@ jobs:
       - run: npm run coverage:merge
 
       - name: 合算したカバレッジの内訳
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: merged-coverage
           path: coverage-merged/
