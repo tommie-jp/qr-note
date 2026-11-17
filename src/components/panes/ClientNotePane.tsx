@@ -37,58 +37,17 @@ const sameNote = (a: ShownNote, b: ShownNote | null): boolean =>
   a.sort === b.sort &&
   a.saved === b.saved;
 
-// 検索画面の中のノートの器を、URL から端末で描く (docs/123 §12)。
+// 印の付いたリンクの素の左クリックを横取りする。capture で document に
+// 付けるので、Link の onClick より先に走る (Link は defaultPrevented を
+// 見て自分の遷移をやめる)。行の他の onClick (計測・題の控え) はそのまま走る
 //
-// 一覧の行などを押すと clientNoteNav が pushState で URL を /item/<id> にし、
-// この部品がその番号の NoteView を PreviewPane に入れて出す。サーバへは
-// 行かない (本文・描画材料・前後は NoteView / NoteNav が控えと API から取る)。
-// 戻る・進むは Next が履歴の木を復元し、usePathname が付いてくる。
-//
-// 横取りスロット ((search)/@detail/(.)item/[itemId]) は、UUID の番号では何も
-// 描かない (この部品と二重にならないように)。旧番号 (/item/1003) の解決は
-// サーバが要るので、あちらが受ける。
-//
-// **3 ペインでは URL が /item から離れても最後のノートを出し続ける**
-// (PreviewPane の keepOpen。docs/86 §4-4)。そのために最後に出したノートを
-// 覚える。旧番号の URL に来たら、あちらが器を出すので忘れる
-export function ClientNotePane({
-  bgClass,
-  isDemo,
-  cookieSort,
-}: {
-  bgClass: string;
-  isDemo: boolean;
-  cookieSort: Sort;
-}) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const { query, sort } = useSearchState(cookieSort);
-  const pathItemId = itemIdFromPathname(pathname);
-  const onClientNote = pathItemId !== null && isValidItemId(pathItemId);
-  const current: ShownNote | null = onClientNote
-    ? { itemId: pathItemId, query, sort, saved: searchParams.get("saved") ?? undefined }
-    : null;
-
-  // 最後に出したノート (前の描画の値を state に控える React の作法)
-  const [last, setLast] = useState<ShownNote | null>(current);
-  if (current !== null && !sameNote(current, last)) {
-    setLast(current);
-  }
-  const onOldKey = pathItemId !== null && !onClientNote;
-  if (onOldKey && last !== null) {
-    setLast(null);
-  }
-
-  // 印の付いたリンクの素の左クリックを横取りする。capture で document に
-  // 付けるので、Link の onClick より先に走る (Link は defaultPrevented を
-  // 見て自分の遷移をやめる)。行の他の onClick (計測・題の控え) はそのまま走る
-  //
-  // 一覧の行をマウスで素早く 2 度押したら編集画面へ送る。1 回目は今までどおり
-  // ノートを開き (遅らせると普段のクリックが鈍る)、その行を控えておく。
-  // 2 回目の的は何でもよい — 1 ペインでは 1 回目でノートが一覧を覆うので、
-  // 的ではなく控えた座標と時刻で見る (clientNoteNav.ts の isSecondRowClick)。
-  // 指 (タッチ・ペン) は外す。スマホのダブルタップは拡大とぶつかるので、
-  // 行の ⋯ メニューの「編集」が受ける
+// 一覧の行をマウスで素早く 2 度押したら編集画面へ送る。1 回目は今までどおり
+// ノートを開き (遅らせると普段のクリックが鈍る)、その行を控えておく。
+// 2 回目の的は何でもよい — 1 ペインでは 1 回目でノートが一覧を覆うので、
+// 的ではなく控えた座標と時刻で見る (clientNoteNav.ts の isSecondRowClick)。
+// 指 (タッチ・ペン) は外す。スマホのダブルタップは拡大とぶつかるので、
+// 行の ⋯ メニューの「編集」が受ける
+function useClientNoteClicks(): void {
   useEffect(() => {
     const unregister = registerClientNotePane();
     let lastPointerType = "mouse";
@@ -132,6 +91,51 @@ export function ClientNotePane({
       dropDeferredRefresh();
     };
   }, []);
+}
+
+// 検索画面の中のノートの器を、URL から端末で描く (docs/123 §12)。
+//
+// 一覧の行などを押すと clientNoteNav が pushState で URL を /item/<id> にし、
+// この部品がその番号の NoteView を PreviewPane に入れて出す。サーバへは
+// 行かない (本文・描画材料・前後は NoteView / NoteNav が控えと API から取る)。
+// 戻る・進むは Next が履歴の木を復元し、usePathname が付いてくる。
+//
+// 横取りスロット ((search)/@detail/(.)item/[itemId]) は、UUID の番号では何も
+// 描かない (この部品と二重にならないように)。旧番号 (/item/1003) の解決は
+// サーバが要るので、あちらが受ける。
+//
+// **3 ペインでは URL が /item から離れても最後のノートを出し続ける**
+// (PreviewPane の keepOpen。docs/86 §4-4)。そのために最後に出したノートを
+// 覚える。旧番号の URL に来たら、あちらが器を出すので忘れる
+export function ClientNotePane({
+  bgClass,
+  isDemo,
+  cookieSort,
+}: {
+  bgClass: string;
+  isDemo: boolean;
+  cookieSort: Sort;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { query, sort } = useSearchState(cookieSort);
+  const pathItemId = itemIdFromPathname(pathname);
+  const onClientNote = pathItemId !== null && isValidItemId(pathItemId);
+  const current: ShownNote | null = onClientNote
+    ? { itemId: pathItemId, query, sort, saved: searchParams.get("saved") ?? undefined }
+    : null;
+
+  // 最後に出したノート (前の描画の値を state に控える React の作法)
+  const [last, setLast] = useState<ShownNote | null>(current);
+  if (current !== null && !sameNote(current, last)) {
+    setLast(current);
+  }
+  const onOldKey = pathItemId !== null && !onClientNote;
+  if (onOldKey && last !== null) {
+    setLast(null);
+  }
+
+  useClientNoteClicks();
 
   // ノートを閉じたら、出している間に遅らせた refresh を流す
   // (navigation.ts の refreshRouter)
