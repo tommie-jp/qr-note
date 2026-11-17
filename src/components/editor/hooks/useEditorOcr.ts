@@ -1,7 +1,14 @@
 "use client";
 
 import type { EditorView } from "@codemirror/view";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { replaceToken } from "@/lib/editor/cmDoc";
 import { errorText } from "@/lib/errorMessage";
 import {
@@ -95,50 +102,23 @@ function pendingImages(
   });
 }
 
-// 編集画面の OCR (docs/24-画像OCR計画.md)。挿入した画像の OCR と
-// 「後から OCR」ボタン、全画像 OCR (docs/106)、モデル読み込みの進捗と
-// 後始末を持つ
-export function useEditorOcr({
-  editorRef,
+type SetOcrNote = (note: string | null) => void;
+type OcrIntoDoc = EditorOcr["ocrIntoDoc"];
+
+// 画像 1 枚を OCR し、指定位置へ引用ブロックを差し込む。挿入時 OCR と
+// 「後から OCR」と全画像 OCR がこの 1 本を使う (docs/24-画像OCR計画.md §4)。
+// 処理中はプレースホルダを置き、本文が編集されても文字列一致で差し替える。
+// 描画のたびに作る (フックから分ける前と同じ)
+function ocrIntoDocWith({
+  setOcrCount,
+  setOcrNote,
   setError,
 }: {
-  editorRef: EditorRef;
+  setOcrCount: (update: (n: number) => number) => void;
+  setOcrNote: SetOcrNote;
   setError: SetEditorError;
-}): EditorOcr {
-  const [ocrCount, setOcrCount] = useState(0);
-  const [modelPercent, setModelPercent] = useState<number | null>(null);
-  const [ocrNote, setOcrNote] = useState<string | null>(null);
-  const [ocrAll, setOcrAll] = useState<OcrAllProgress | null>(null);
-  // 中止の合図。ループが各周の頭で見る (state だと周の途中で古い値を読む)
-  const cancelAllRef = useRef(false);
-  // 全画像 OCR が走っているか。二重に起こさない門番は ref で持つ —
-  // state だと、続けて 2 回押したとき両方が描き直し前の null を読んで通る
-  const runningAllRef = useRef(false);
-
-  // モデルダウンロードの % をバナーに流す。100 (初期化完了) でクリアする
-  useEffect(() => {
-    return subscribeModelProgress((percent) => {
-      setModelPercent(percent >= MODEL_READY_PERCENT ? null : percent);
-    });
-  }, []);
-
-  // 編集画面を離れたら OCR の Worker を落とす。抱えたままだと OpenCV と
-  // onnxruntime の wasm ヒープが残り、後から開いた画像検索がモデルを積めずに
-  // 落ちる (iOS WebKit のタブ上限)。terminate は realm ごと捨てるので
-  // メモリが OS へ返る (ocrService.disposeOcr)
-  useEffect(() => {
-    return () => {
-      // 全画像 OCR の残りも捨てる。続けると、落としたばかりの Worker と
-      // wasm ヒープを次の 1 枚がまた立ち上げる (iOS の上限で落ちる元)
-      cancelAllRef.current = true;
-      disposeOcr("編集画面を離脱");
-    };
-  }, []);
-
-  // 画像 1 枚を OCR し、指定位置へ引用ブロックを差し込む。挿入時 OCR と
-  // 「後から OCR」と全画像 OCR がこの 1 本を使う (docs/24-画像OCR計画.md §4)。
-  // 処理中はプレースホルダを置き、本文が編集されても文字列一致で差し替える。
-  const ocrIntoDoc = async (
+}): OcrIntoDoc {
+  return async (
     view: EditorView,
     // Blob を直接、または後から届く Promise で受ける。プレースホルダは
     // insertPos が新鮮なうちに同期で挿し、画像取得の await はその後に回す
@@ -185,36 +165,138 @@ export function useEditorOcr({
       setOcrCount((n) => n - 1);
     }
   };
+}
 
-  // 「後から OCR」: カーソル位置にいちばん近い自前画像を取り直して OCR する。
-  // 既にある画像 (過去にアップロード済み) を後から検索対象にできる (docs/24 §4)。
-  const runOcrAtCursor = async () => {
-    const view = editorRef.current?.view;
-    if (!view) {
+// 全画像 OCR の周回。1 枚ずつ直列に読む。**1 枚ごとに今の本文から次の対象を
+// 選び直す** — 読んでいる間に本文が編集されると、最初に控えた位置はずれる
+async function ocrAllImages({
+  view,
+  pending,
+  unquoted,
+  cancelAllRef,
+  ocrIntoDoc,
+  setOcrAll,
+  setOcrNote,
+  setError,
+}: {
+  view: EditorView;
+  pending: () => ImageAtCursor[];
+  unquoted: Map<string, number>;
+  cancelAllRef: RefObject<boolean>;
+  ocrIntoDoc: OcrIntoDoc;
+  setOcrAll: Dispatch<SetStateAction<OcrAllProgress | null>>;
+  setOcrNote: SetOcrNote;
+  setError: SetEditorError;
+}): Promise<void> {
+  let done = 0;
+  for (let rest = pending(); rest.length > 0; rest = pending()) {
+    if (cancelAllRef.current) {
+      setOcrNote(`残り ${rest.length} 枚の OCR を中止しました。`);
       return;
     }
-    setError(null);
-    setOcrNote(null);
-    const doc = view.state.doc.toString();
-    const hit = imageAtCursor(doc, view.state.selection.main.head);
-    if (!hit) {
-      setOcrNote(
-        "カーソルの近くに画像が見つかりません。画像の上を選んでから押して下さい。",
-      );
+    const total = done + rest.length;
+    setOcrAll((prev) => ({
+      done,
+      total,
+      cancelling: prev?.cancelling ?? false,
+    }));
+    const image = rest[0];
+    // 取得の失敗は 1 枚だけのこと (消された画像・通信の瞬断)。知らせて次へ
+    const blob = fetchOwnImage(image.url).catch((e: unknown) => {
+      setError(errorText(e));
+      return null;
+    });
+    const outcome = await ocrIntoDoc(view, blob, image.insertAt);
+    done += 1;
+    if (outcome === "failed") {
+      // OCR そのものが失敗した (モデルを読めない等)。次の画像でも同じ所で
+      // 落ちるので、残りを読みに行かない。理由は ocrIntoDoc が出している
       return;
     }
-    // 取得は待たずに渡す。待ってから位置を使うと、その間の打鍵で位置がずれる
-    // (ocrIntoDoc が Promise を受けるのはこのため)。取得の失敗も ocrIntoDoc が出す
-    await ocrIntoDoc(view, fetchOwnImage(hit.url), hit.insertAt);
-  };
+    if (outcome !== "quoted") {
+      unquoted.set(image.url, (unquoted.get(image.url) ?? 0) + 1);
+    }
+  }
+}
 
-  const countImagesWithoutOcr = () => {
-    const view = editorRef.current?.view;
-    return view ? imagesWithoutOcr(view.state.doc.toString()).length : 0;
-  };
+// 「後から OCR」: カーソル位置にいちばん近い自前画像を取り直して OCR する。
+// 既にある画像 (過去にアップロード済み) を後から検索対象にできる (docs/24 §4)。
+async function ocrAtCursor({
+  editorRef,
+  setError,
+  setOcrNote,
+  ocrIntoDoc,
+}: {
+  editorRef: EditorRef;
+  setError: SetEditorError;
+  setOcrNote: SetOcrNote;
+  ocrIntoDoc: OcrIntoDoc;
+}): Promise<void> {
+  const view = editorRef.current?.view;
+  if (!view) {
+    return;
+  }
+  setError(null);
+  setOcrNote(null);
+  const doc = view.state.doc.toString();
+  const hit = imageAtCursor(doc, view.state.selection.main.head);
+  if (!hit) {
+    setOcrNote(
+      "カーソルの近くに画像が見つかりません。画像の上を選んでから押して下さい。",
+    );
+    return;
+  }
+  // 取得は待たずに渡す。待ってから位置を使うと、その間の打鍵で位置がずれる
+  // (ocrIntoDoc が Promise を受けるのはこのため)。取得の失敗も ocrIntoDoc が出す
+  await ocrIntoDoc(view, fetchOwnImage(hit.url), hit.insertAt);
+}
 
-  // 1 枚ずつ直列に読む。**1 枚ごとに今の本文から次の対象を選び直す** —
-  // 読んでいる間に本文が編集されると、最初に控えた位置はずれる
+// モデル読み込みの進捗と、画面を離れたときの後始末
+function useOcrLifecycle(cancelAllRef: RefObject<boolean>): number | null {
+  const [modelPercent, setModelPercent] = useState<number | null>(null);
+
+  // モデルダウンロードの % をバナーに流す。100 (初期化完了) でクリアする
+  useEffect(() => {
+    return subscribeModelProgress((percent) => {
+      setModelPercent(percent >= MODEL_READY_PERCENT ? null : percent);
+    });
+  }, []);
+
+  // 編集画面を離れたら OCR の Worker を落とす。抱えたままだと OpenCV と
+  // onnxruntime の wasm ヒープが残り、後から開いた画像検索がモデルを積めずに
+  // 落ちる (iOS WebKit のタブ上限)。terminate は realm ごと捨てるので
+  // メモリが OS へ返る (ocrService.disposeOcr)
+  useEffect(() => {
+    return () => {
+      // 全画像 OCR の残りも捨てる。続けると、落としたばかりの Worker と
+      // wasm ヒープを次の 1 枚がまた立ち上げる (iOS の上限で落ちる元)
+      cancelAllRef.current = true;
+      disposeOcr("編集画面を離脱");
+    };
+  }, [cancelAllRef]);
+
+  return modelPercent;
+}
+
+// 「ノートの全画像を OCR」(docs/106 §2) の状態と操作
+function useOcrAll({
+  editorRef,
+  setError,
+  setOcrNote,
+  ocrIntoDoc,
+  cancelAllRef,
+}: {
+  editorRef: EditorRef;
+  setError: SetEditorError;
+  setOcrNote: SetOcrNote;
+  ocrIntoDoc: OcrIntoDoc;
+  cancelAllRef: RefObject<boolean>;
+}) {
+  const [ocrAll, setOcrAll] = useState<OcrAllProgress | null>(null);
+  // 全画像 OCR が走っているか。二重に起こさない門番は ref で持つ —
+  // state だと、続けて 2 回押したとき両方が描き直し前の null を読んで通る
+  const runningAllRef = useRef(false);
+
   const runOcrForAll = async () => {
     const view = editorRef.current?.view;
     if (!view || runningAllRef.current) {
@@ -230,36 +312,9 @@ export function useEditorOcr({
     }
     runningAllRef.current = true;
     cancelAllRef.current = false;
-    let done = 0;
     try {
-      for (let rest = pending(); rest.length > 0; rest = pending()) {
-        if (cancelAllRef.current) {
-          setOcrNote(`残り ${rest.length} 枚の OCR を中止しました。`);
-          return;
-        }
-        const total = done + rest.length;
-        setOcrAll((prev) => ({
-          done,
-          total,
-          cancelling: prev?.cancelling ?? false,
-        }));
-        const image = rest[0];
-        // 取得の失敗は 1 枚だけのこと (消された画像・通信の瞬断)。知らせて次へ
-        const blob = fetchOwnImage(image.url).catch((e: unknown) => {
-          setError(errorText(e));
-          return null;
-        });
-        const outcome = await ocrIntoDoc(view, blob, image.insertAt);
-        done += 1;
-        if (outcome === "failed") {
-          // OCR そのものが失敗した (モデルを読めない等)。次の画像でも同じ所で
-          // 落ちるので、残りを読みに行かない。理由は ocrIntoDoc が出している
-          return;
-        }
-        if (outcome !== "quoted") {
-          unquoted.set(image.url, (unquoted.get(image.url) ?? 0) + 1);
-        }
-      }
+      const deps = { cancelAllRef, ocrIntoDoc, setOcrAll, setOcrNote, setError };
+      await ocrAllImages({ ...deps, view, pending, unquoted });
     } finally {
       runningAllRef.current = false;
       setOcrAll(null);
@@ -269,6 +324,39 @@ export function useEditorOcr({
   const cancelOcrAll = () => {
     cancelAllRef.current = true;
     setOcrAll((prev) => (prev === null ? null : { ...prev, cancelling: true }));
+  };
+
+  return { ocrAll, runOcrForAll, cancelOcrAll };
+}
+
+// 編集画面の OCR (docs/24-画像OCR計画.md)。挿入した画像の OCR と
+// 「後から OCR」ボタン、全画像 OCR (docs/106)、モデル読み込みの進捗と
+// 後始末を持つ
+export function useEditorOcr({
+  editorRef,
+  setError,
+}: {
+  editorRef: EditorRef;
+  setError: SetEditorError;
+}): EditorOcr {
+  const [ocrCount, setOcrCount] = useState(0);
+  const [ocrNote, setOcrNote] = useState<string | null>(null);
+  // 中止の合図。ループが各周の頭で見る (state だと周の途中で古い値を読む)
+  const cancelAllRef = useRef(false);
+  const modelPercent = useOcrLifecycle(cancelAllRef);
+  const ocrIntoDoc = ocrIntoDocWith({ setOcrCount, setOcrNote, setError });
+  const { ocrAll, runOcrForAll, cancelOcrAll } = useOcrAll({
+    editorRef,
+    setError,
+    setOcrNote,
+    ocrIntoDoc,
+    cancelAllRef,
+  });
+
+  const runOcrAtCursor = () => ocrAtCursor({ editorRef, setError, setOcrNote, ocrIntoDoc });
+  const countImagesWithoutOcr = () => {
+    const view = editorRef.current?.view;
+    return view ? imagesWithoutOcr(view.state.doc.toString()).length : 0;
   };
 
   return {

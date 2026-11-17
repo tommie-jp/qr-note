@@ -55,19 +55,18 @@ const MODES: { key: MemoMode; label: string }[] = [
   { key: "edit", label: "編集" },
 ];
 
-// memo の表示切替タブ。中身 (markdownView / textView / editForm) は
-// Server Component のまま slot として受け取る。
-// パネルは「一度開いたら hidden で保持」: 開くまでマウントしないことで
-// 重い中身 (CodeMirror, mermaid) の読み込みを遅延し、開いた後は
-// unmount しないことで編集中の入力を保持する
-export function MemoPanel({
+type ModeTab = { key: MemoMode; label: string };
+
+// タブの選択と「一度開いたタブ」の控え。足したタブが消えたら markdown へ戻す
+function useMemoTabs({
   defaultMode,
-  markdownView,
-  textView,
-  editForm,
-  chrome,
-  extraTabs = [],
-}: MemoPanelProps) {
+  hasEditForm,
+  extraTabs,
+}: {
+  defaultMode: MemoMode;
+  hasEditForm: boolean;
+  extraTabs: readonly ExtraTab[];
+}) {
   const [mode, setMode] = useState<MemoMode>(defaultMode);
   const [visited, setVisited] = useState<ReadonlySet<MemoMode>>(
     () => new Set([defaultMode]),
@@ -78,29 +77,30 @@ export function MemoPanel({
     setVisited((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   };
 
-  const panels: { key: MemoMode; content: ReactNode }[] = [
-    { key: "markdown", content: markdownView },
-    { key: "text", content: textView },
-    ...(editForm === undefined
-      ? []
-      : [{ key: "edit" as const, content: editForm }]),
-    ...extraTabs.map(({ key, content }) => ({ key, content })),
-  ];
-
   // 読み取り専用なら編集タブは出さない (editForm 省略時)
-  const modes = [
-    ...MODES.filter(({ key }) => key !== "edit" || editForm !== undefined),
+  const modes: ModeTab[] = [
+    ...MODES.filter(({ key }) => key !== "edit" || hasEditForm),
     ...extraTabs.map(({ key, label }) => ({ key, label })),
   ];
   // 足したタブが消えた (本文から date= を消した等) ら markdown へ戻す
   const shownMode = modes.some(({ key }) => key === mode) ? mode : "markdown";
+  return { visited, selectMode, modes, shownMode };
+}
 
+// 畳める器 (NoteChromeProvider) の中での形 (積む / 畳む) を決め、器へ伝える
+function useChromeLayout({
+  hasChrome,
+  editing,
+}: {
+  hasChrome: boolean;
+  editing: boolean;
+}) {
   const host = useNoteChrome();
   const pinned = useNoteChromePinned();
   const layout = noteChromeLayout({
-    collapsible: chrome !== undefined && host !== null,
+    collapsible: hasChrome && host !== null,
     pinned,
-    editing: shownMode === "edit" || extraTabs.some(({ key }) => key === shownMode),
+    editing,
   });
   const dismiss = host?.dismiss;
   const setInline = host?.setInline;
@@ -121,7 +121,6 @@ export function MemoPanel({
   // 描画後の effect だと戻る前の 1 フレームが見えて本文が 48px 跳ねる。
   // 後始末で畳む形に戻すのは、器 (NoteChromeProvider) がパネルより長生きする
   // ことがあるため (自動で選ぶペインは itemId で key を付けない)
-  const hasChrome = chrome !== undefined;
   useLayoutEffect(() => {
     if (!hasChrome) {
       return;
@@ -130,14 +129,147 @@ export function MemoPanel({
     return () => setInline?.(false);
   }, [hasChrome, layout, setInline]);
 
-  // 重ねた面からタブを選んだら面を閉じる (選んだ中身を読みに行くため)。
-  // 編集を選んだときは積む形に変わるので、閉じても戻り口は残る
-  const selectFromOverlay = (key: MemoMode) => {
-    selectMode(key);
-    dismiss?.();
-  };
+  return { host, inline: layout === "inline", dismiss };
+}
 
-  const tabPanels = panels.map(
+// memo の表示切替タブ。中身 (markdownView / textView / editForm) は
+// Server Component のまま slot として受け取る。
+// パネルは「一度開いたら hidden で保持」: 開くまでマウントしないことで
+// 重い中身 (CodeMirror, mermaid) の読み込みを遅延し、開いた後は
+// unmount しないことで編集中の入力を保持する
+export function MemoPanel({
+  defaultMode,
+  markdownView,
+  textView,
+  editForm,
+  chrome,
+  extraTabs = [],
+}: MemoPanelProps) {
+  const { visited, selectMode, modes, shownMode } = useMemoTabs({
+    defaultMode,
+    hasEditForm: editForm !== undefined,
+    extraTabs,
+  });
+  const { host, inline, dismiss } = useChromeLayout({
+    hasChrome: chrome !== undefined,
+    editing: shownMode === "edit" || extraTabs.some(({ key }) => key === shownMode),
+  });
+
+  const panels = panelsOf({ markdownView, textView, editForm, extraTabs });
+  const tabPanels = (
+    <TabPanels panels={panels} visited={visited} shownMode={shownMode} />
+  );
+  const tabs = <MemoTabs modes={modes} mode={shownMode} onSelect={selectMode} />;
+
+  if (chrome === undefined) {
+    return (
+      <div className="space-y-2">
+        {tabs}
+        {tabPanels}
+      </div>
+    );
+  }
+
+  return (
+    <ChromedPanel
+      chrome={chrome}
+      inline={inline}
+      host={host}
+      tabs={tabs}
+      tabPanels={tabPanels}
+      modes={modes}
+      shownMode={shownMode}
+      // 重ねた面からタブを選んだら面を閉じる (選んだ中身を読みに行くため)。
+      // 編集を選んだときは積む形に変わるので、閉じても戻り口は残る
+      onOverlaySelect={(key) => {
+        selectMode(key);
+        dismiss?.();
+      }}
+    />
+  );
+}
+
+type Panel = { key: MemoMode; content: ReactNode };
+
+// 中身の並び。読み取り専用 (editForm 省略) なら編集タブの中身は無い
+function panelsOf({
+  markdownView,
+  textView,
+  editForm,
+  extraTabs,
+}: Pick<MemoPanelProps, "markdownView" | "textView" | "editForm"> & {
+  extraTabs: readonly ExtraTab[];
+}): Panel[] {
+  return [
+    { key: "markdown", content: markdownView },
+    { key: "text", content: textView },
+    ...(editForm === undefined
+      ? []
+      : [{ key: "edit" as const, content: editForm }]),
+    ...extraTabs.map(({ key, content }) => ({ key, content })),
+  ];
+}
+
+// 畳める器の中のパネル。積む形 (inline) と畳む形の両方を描く
+function ChromedPanel({
+  chrome,
+  inline,
+  host,
+  tabs,
+  tabPanels,
+  modes,
+  shownMode,
+  onOverlaySelect,
+}: {
+  chrome: NoteChrome;
+  inline: boolean;
+  host: ReturnType<typeof useNoteChrome>;
+  tabs: ReactNode;
+  tabPanels: ReactNode;
+  modes: readonly ModeTab[];
+  shownMode: MemoMode;
+  onOverlaySelect: (key: MemoMode) => void;
+}) {
+  // **積む形と畳む形で木の形を変えない。** 編集タブに入ると積む形へ、出ると
+  // 畳む形へ切り替わるので、パネルの親や位置が変わると React はパネルを
+  // 作り直す — 開いたエディタが捨てられ、打ちかけの文字・undo の履歴・
+  // 離脱の確認が消える (レビューで判明)。出さない物は null の穴にして、
+  // パネルの器はどちらの形でも同じ位置の同じ div に置く
+  return (
+    <div>
+      {inline ? chrome.heading : null}
+      {chrome.notices}
+      {inline ? chrome.tags : null}
+      <div className={inline ? "space-y-2" : undefined}>
+        {inline ? tabs : null}
+        {tabPanels}
+      </div>
+      {/* 本文と地続きだと日時が本文の続きに見えるので、ここだけ間隔を残す */}
+      {inline ? <div className="mt-4">{chrome.footer}</div> : null}
+      {inline ? null : (
+        <CollapsedChrome
+          chrome={chrome}
+          host={host}
+          modes={modes}
+          shownMode={shownMode}
+          onSelect={onOverlaySelect}
+        />
+      )}
+    </div>
+  );
+}
+
+// 中身のパネル。一度開いたタブは hidden で保持する
+function TabPanels({
+  panels,
+  visited,
+  shownMode,
+}: {
+  panels: readonly Panel[];
+  visited: ReadonlySet<MemoMode>;
+  shownMode: MemoMode;
+}) {
+  return panels.map(
     ({ key, content }) =>
       // 表に出ているタブは必ず描く (足したタブが消えて markdown へ戻ったとき、
       // markdown をまだ一度も開いていないことがある)
@@ -155,62 +287,46 @@ export function MemoPanel({
         </div>
       ),
   );
+}
 
-  if (chrome === undefined) {
-    return (
-      <div className="space-y-2">
-        <MemoTabs modes={modes} mode={shownMode} onSelect={selectMode} />
-        {tabPanels}
-      </div>
-    );
-  }
-
-  // **積む形と畳む形で木の形を変えない。** 編集タブに入ると積む形へ、出ると
-  // 畳む形へ切り替わるので、パネルの親や位置が変わると React はパネルを
-  // 作り直す — 開いたエディタが捨てられ、打ちかけの文字・undo の履歴・
-  // 離脱の確認が消える (レビューで判明)。出さない物は null の穴にして、
-  // パネルの器はどちらの形でも同じ位置の同じ div に置く
-  const inline = layout === "inline";
+// 畳む形。操作は上端の行の差し込み口へ portal する — React の木の上では
+// このパネルの子のままなので、タブの状態はそのまま使える (docs/108 §3-2)。
+// 差し込み口は描いた後にしか無いので、サーバ描画では操作が 1 つも出ない
+function CollapsedChrome({
+  chrome,
+  host,
+  modes,
+  shownMode,
+  onSelect,
+}: {
+  chrome: NoteChrome;
+  host: ReturnType<typeof useNoteChrome>;
+  modes: readonly ModeTab[];
+  shownMode: MemoMode;
+  onSelect: (key: MemoMode) => void;
+}) {
   return (
-    <div>
-      {inline ? chrome.heading : null}
-      {chrome.notices}
-      {inline ? chrome.tags : null}
-      <div className={inline ? "space-y-2" : undefined}>
-        {inline ? (
-          <MemoTabs modes={modes} mode={shownMode} onSelect={selectMode} />
-        ) : null}
-        {tabPanels}
-      </div>
-      {/* 本文と地続きだと日時が本文の続きに見えるので、ここだけ間隔を残す */}
-      {inline ? <div className="mt-4">{chrome.footer}</div> : null}
-      {/* 畳む形。操作は上端の行の差し込み口へ portal する — React の木の上では
-          このパネルの子のままなので、タブの状態はそのまま使える (docs/108 §3-2)。
-          差し込み口は描いた後にしか無いので、サーバ描画では操作が 1 つも出ない */}
-      {!inline && host?.triggerSlot
+    <>
+      {host?.triggerSlot
         ? createPortal(
             <NoteChromeTrigger badge={chrome.badge} />,
             host.triggerSlot,
           )
         : null}
-      {!inline && host?.revealed && host.overlaySlot
+      {host?.revealed && host.overlaySlot
         ? createPortal(
             <NoteChromePanel>
               {chrome.heading}
               {chrome.tags}
               <div className="pt-2">
-                <MemoTabs
-                  modes={modes}
-                  mode={shownMode}
-                  onSelect={selectFromOverlay}
-                />
+                <MemoTabs modes={modes} mode={shownMode} onSelect={onSelect} />
               </div>
               <div className="mt-2">{chrome.footer}</div>
             </NoteChromePanel>,
             host.overlaySlot,
           )
         : null}
-    </div>
+    </>
   );
 }
 
@@ -220,7 +336,7 @@ function MemoTabs({
   mode,
   onSelect,
 }: {
-  modes: readonly { key: MemoMode; label: string }[];
+  modes: readonly ModeTab[];
   mode: MemoMode;
   onSelect: (key: MemoMode) => void;
 }) {

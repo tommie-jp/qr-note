@@ -1,10 +1,12 @@
 "use client";
 
+import type { EditorView } from "@codemirror/view";
 import { useState } from "react";
 import { insertBlock } from "@/lib/editor/cmDoc";
 import {
   DemoDisabledError,
   fetchPrefillSummary,
+  type PrefillTarget,
   prefillTargetFromCode,
 } from "@/lib/external/prefillSummary";
 import { isTaggableCode, scanRegisterMemo } from "@/lib/external/scanRegister";
@@ -20,6 +22,27 @@ export interface EditorScanInsert {
   openScanner: () => void;
   closeScanner: () => void;
   runScanInsert: (rawValue: string) => Promise<void>;
+}
+
+// 書籍・商品情報を引いてから挿す。取れても取れなくてもコード自体は入れる
+// (見つからなくても手掛かりが残る)。結果の知らせを返す (null = 知らせなし)
+async function insertWithSummary(
+  view: EditorView,
+  code: string,
+  target: PrefillTarget,
+  noun: string,
+): Promise<string | null> {
+  try {
+    const summary = await fetchPrefillSummary(target);
+    insertBlock(view, scanRegisterMemo(code, summary).trim());
+    return summary ? null : `${noun}が見つかりませんでした。コードだけ挿入しました。`;
+  } catch (e) {
+    // 取得に失敗してもコード (タグ) だけは入れておく
+    insertBlock(view, scanRegisterMemo(code).trim());
+    return e instanceof DemoDisabledError
+      ? `デモ版では${noun}を取得できません。コードだけ挿入しました。`
+      : `${noun}の取得に失敗しました。コードだけ挿入しました。`;
+  }
 }
 
 // 編集中スキャン (docs/13/14 の書誌・商品情報を挿入する導線)。
@@ -60,20 +83,7 @@ export function useEditorScanInsert({
     setScanBusy(true);
     setScanNote(`${noun}を取得中…`);
     try {
-      const summary = await fetchPrefillSummary(target);
-      // 取れても取れなくてもコード自体は入れる (見つからなくても手掛かりが残る)
-      insertBlock(view, scanRegisterMemo(code, summary).trim());
-      setScanNote(
-        summary ? null : `${noun}が見つかりませんでした。コードだけ挿入しました。`,
-      );
-    } catch (e) {
-      // 取得に失敗してもコード (タグ) だけは入れておく
-      insertBlock(view, scanRegisterMemo(code).trim());
-      setScanNote(
-        e instanceof DemoDisabledError
-          ? `デモ版では${noun}を取得できません。コードだけ挿入しました。`
-          : `${noun}の取得に失敗しました。コードだけ挿入しました。`,
-      );
+      setScanNote(await insertWithSummary(view, code, target, noun));
     } finally {
       setScanBusy(false);
     }

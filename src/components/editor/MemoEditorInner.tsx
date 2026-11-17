@@ -1,6 +1,5 @@
 "use client";
 
-import type { ViewUpdate } from "@codemirror/view";
 import "@atomic-editor/editor/styles.css";
 // ライブプレビューの数式 (mathBlocks.ts) が KaTeX の組んだ HTML を出すので、
 // 編集画面でもその CSS が要る。閲覧側 (MarkdownView) とは別の入り口なので
@@ -8,49 +7,27 @@ import "@atomic-editor/editor/styles.css";
 import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import {
-  useCallback,
   useContext,
   useEffect,
   useEffectEvent,
   useRef,
   useState,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import { useBottomBarSlot } from "@/components/bottombar/BottomBarContext";
-import { useLatest } from "@/components/hooks/useLatest";
-import type { EditToolbarEditor } from "@/components/editor/EditToolbar";
 import { PanelActiveContext } from "@/components/editor/PanelActiveContext";
 import { ACCEPTED_FILE_TYPES } from "@/lib/editor/attachmentKinds";
-import { busyReason, isEditorBusy } from "@/lib/editor/busyReason";
-import {
-  ocrButtonLabel,
-  recordButtonLabel,
-  uploadButtonLabel,
-} from "@/lib/progress/progressLabels";
 // 打ち止めと文字数表示は**サーバと同じ上限**を見る (別に持つと、編集画面が
 // 止めているのにインポートは通る/その逆のずれ方をする)
 import { MAX_TEXT_LENGTH } from "@/lib/validation";
 import { EditorBanners } from "./EditorBanners";
 import { EditorBottomBarPortal } from "./EditorBottomBarPortal";
 import { EditorModals } from "./EditorModals";
-import { useAttachmentInsert } from "./hooks/useAttachmentInsert";
-import { useDropZone } from "./hooks/useDropZone";
-import { useEditorClipboard } from "./hooks/useEditorClipboard";
-import { useEditorCommands } from "./hooks/useEditorCommands";
-import { useEditorDrawing } from "./hooks/useEditorDrawing";
-import {
-  BASIC_SETUP,
-  useEditorExtensions,
-} from "./hooks/useEditorExtensions";
-import { useEditorHistory } from "./hooks/useEditorHistory";
-import { useEditorOcr } from "./hooks/useEditorOcr";
-import { useEditorRecordings } from "./hooks/useEditorRecordings";
-import { useEditorScanInsert } from "./hooks/useEditorScanInsert";
-import { useEditorSecret } from "./hooks/useEditorSecret";
-import { useFenceGui } from "./hooks/useFenceGui";
-import { useLivePreview } from "./hooks/useLivePreview";
-import { useNoteFind } from "./hooks/useNoteFind";
-import { useOcrOnInsert } from "./hooks/useOcrOnInsert";
-import { useSubmitBlocker } from "./hooks/useSubmitBlocker";
+import type { EditToolbarEditor } from "./EditToolbar";
+import { type EditorTools, useEditorWiring } from "./hooks/useEditorFeatures";
+import type { EditorOcr } from "./hooks/useEditorOcr";
+import { BASIC_SETUP } from "./hooks/useEditorExtensions";
 
 export interface MemoEditorInnerProps {
   value: string;
@@ -77,6 +54,46 @@ export default function MemoEditorInner({
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const hostEl = useEditorHost(onReady);
+
+  const { ocr, tools, handleUpdate, toolbar, fileInputRef, handleFilePick } =
+    useEditorWiring({ editorRef, wrapperRef, setError, hostEl });
+  const { dropZone } = tools;
+
+  return (
+    <div ref={wrapperRef} className="space-y-2" {...dropZone.handlers}>
+      <EditorFrame dragging={dropZone.dragging}>
+        <CodeMirror
+          ref={editorRef}
+          value={value}
+          onChange={onChange}
+          extensions={tools.extensions}
+          autoFocus={autoFocus}
+          minHeight={minHeight}
+          placeholder="メモを入力して下さい。"
+          basicSetup={BASIC_SETUP}
+          onUpdate={handleUpdate}
+        />
+      </EditorFrame>
+      {/* 操作ボタンは下部バーへ portal した (EditToolbar)。エディタ直下には
+          文字数と補足だけを残す — バナー類 (エラー・録音/録画/OCR の知らせ) も
+          打鍵中に見える本文の近くに置く */}
+      <EditorFooter dragging={dropZone.dragging} length={value.length} />
+      <EditorAccessories
+        error={error}
+        ocr={ocr}
+        tools={tools}
+        hostEl={hostEl}
+        toolbar={toolbar}
+        fileInputRef={fileInputRef}
+        onFilePick={handleFilePick}
+      />
+    </div>
+  );
+}
+
+// 下部バーの差し込み口を申告し、マウント時に読み込み済みを親へ知らせる
+function useEditorHost(onReady: () => void): HTMLElement | null {
   // タブパネル (MemoPanel) が hidden で保持する構成では、非表示タブでも
   // このコンポーネントはマウントされたまま。portal は hidden の枠を抜けて
   // 下部バーに残るので、表向きのタブのときだけ portal する (既定 true =
@@ -97,184 +114,35 @@ export default function MemoEditorInner({
     notifyReady();
   }, []);
 
-  const ocr = useEditorOcr({ editorRef, setError });
-  const { ocrOnInsert, toggleOcrOnInsert } = useOcrOnInsert();
-  const ocrOnInsertRef = useLatest(ocrOnInsert);
-  // 戻り値は分けて受ける。fileInputRef (ref) と同じ入れ物のまま描画中に
-  // 他の値を読むと、react-hooks/refs が「ref を描画中に読んだ」と見なす
-  const {
-    upload,
-    uploading,
-    insertFiles,
-    fileEvents,
-    dropInto,
-    fileInputRef,
-    openFilePicker,
-    handleFilePick,
-  } = useAttachmentInsert({
-    editorRef,
-    setError,
-    ocrIntoDoc: ocr.ocrIntoDoc,
-    ocrOnInsert: ocrOnInsertRef,
-  });
-  const dropZone = useDropZone({ editorRef, dropInto });
-  const { recording, videoRecording, isRecording } = useEditorRecordings({
-    editorRef,
-    setError,
-    insertFiles,
-  });
-  const clipboard = useEditorClipboard({ editorRef, setError, insertFiles });
-  const scan = useEditorScanInsert({ editorRef, setError });
-  const secrets = useEditorSecret({ editorRef });
-  const fenceGui = useFenceGui({ editorRef, setError });
-  const { extensions, livePreviewCompartment, noteSearch } =
-    useEditorExtensions({ fileEvents });
-  const preview = useLivePreview({
-    editorRef,
-    compartment: livePreviewCompartment,
-  });
-  const find = useNoteFind({
-    editorRef,
-    noteSearch,
-    hostEl,
-    setLivePreviewSuspended: preview.setLivePreviewSuspended,
-  });
-  const history = useEditorHistory({ editorRef });
-  const drawings = useEditorDrawing({ editorRef, setError, insertFiles });
-  const commands = useEditorCommands({ editorRef, setError });
+  return hostEl;
+}
 
-  // アップロード / OCR / 録音・録画の完了前に送信すると、画像リンクや OCR 結果、
-  // 録音・録画そのものが memo に入らないため、処理中だけフォーム送信をブロックして知らせる
-  const busyState = {
-    isRecording,
-    uploading,
-    scanBusy: scan.scanBusy,
-    clipboardBusy: clipboard.clipboardBusy,
-    // 全画像 OCR は 1 枚の合間 (次の画像の取得中) に ocrCount が 0 に戻る。
-    // その隙に「更新」が通らないよう、走っている間ずっと止める
-    ocrRunning: ocr.ocrCount > 0 || ocr.ocrAll !== null,
-  };
-  const busy = isEditorBusy(busyState);
-  const { submitForm } = useSubmitBlocker({
-    wrapperRef,
-    reason: busy ? busyReason(busyState) : null,
-    onBlocked: setError,
-  });
-
-  // CodeMirror の onUpdate。**参照を固定する** — CodeMirror はこの関数の参照が
-  // 変わると拡張一式を組み直す (BASIC_SETUP のコメント参照)。
-  // 渡す 3 つはどれも参照が変わらない (各フックの useCallback([]))
-  const { trackHistory } = history;
-  const { trackFindUpdate } = find;
-  const { trackSecretLabel } = secrets;
-  const { trackFenceGui } = fenceGui;
-  const handleUpdate = useCallback(
-    (update: ViewUpdate) => {
-      trackHistory(update);
-      trackFindUpdate(update);
-      trackSecretLabel(update);
-      trackFenceGui(update);
-    },
-    [trackHistory, trackFindUpdate, trackSecretLabel, trackFenceGui],
-  );
-
-  // 下部バーのツールバーが描く・呼ぶもの (EditToolbarEditor)。
-  // 進捗は progressLabels のラベル文字列にしてから渡す
-  const toolbar: EditToolbarEditor = {
-    submit: submitForm,
-    busy,
-    history,
-    upload: {
-      label: uploadButtonLabel(upload),
-      uploading,
-      open: openFilePicker,
-    },
-    pasteClipboard: clipboard.importClipboard,
-    scan: {
-      label: scan.scanBusy ? "取得中" : "スキャン",
-      open: scan.openScanner,
-    },
-    record: {
-      label: recordButtonLabel(recording.isRecording, recording.elapsedMs),
-      isRecording: recording.isRecording,
-      // 録音中だけは busy でも押せる。止められないと録音が終わらない
-      disabled: busy && !recording.isRecording,
-      toggle: recording.toggle,
-    },
-    recordVideo: videoRecording.openPreview,
-    draw: drawings.openDrawing,
-    ocr: {
-      label: ocrButtonLabel(ocr.ocrCount),
-      runAtCursor: () => void ocr.runOcrAtCursor(),
-      runAll: () => void ocr.runOcrForAll(),
-      countAll: ocr.countImagesWithoutOcr,
-      all: ocr.ocrAll,
-      cancelAll: ocr.cancelOcrAll,
-    },
-    secret: { label: secrets.secretLabel, open: secrets.openSecret },
-    ocrOnInsert: { on: ocrOnInsert, toggle: toggleOcrOnInsert },
-    livePreview: {
-      on: preview.livePreview,
-      toggle: preview.toggleLivePreview,
-    },
-    format: commands.applyFormat,
-    addPage: () => void commands.addPage(),
-    find: find.openFind,
-    fenceGui: { enabled: fenceGui.canOpen, open: fenceGui.openFenceGui },
-  };
-
+// エディタの下に並ぶ物 (知らせ・file input・全画面の部品・下部バーの操作)
+function EditorAccessories({
+  error,
+  ocr,
+  tools,
+  hostEl,
+  toolbar,
+  fileInputRef,
+  onFilePick,
+}: {
+  error: string | null;
+  ocr: EditorOcr;
+  tools: EditorTools;
+  hostEl: HTMLElement | null;
+  toolbar: EditToolbarEditor;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  onFilePick: (files: FileList | null) => void;
+}) {
   return (
-    <div ref={wrapperRef} className="space-y-2" {...dropZone.handlers}>
-      <div
-        className={`overflow-hidden rounded border bg-white ${
-          dropZone.dragging
-            ? "border-blue-500 ring-2 ring-blue-300"
-            : "border-gray-300"
-        }`}
-      >
-        <CodeMirror
-          ref={editorRef}
-          value={value}
-          onChange={onChange}
-          extensions={extensions}
-          autoFocus={autoFocus}
-          minHeight={minHeight}
-          placeholder="メモを入力して下さい。"
-          basicSetup={BASIC_SETUP}
-          onUpdate={handleUpdate}
-        />
-      </div>
-      {/* 操作ボタンは下部バーへ portal した (EditToolbar)。エディタ直下には
-          文字数と補足だけを残す — バナー類 (エラー・録音/録画/OCR の知らせ) も
-          打鍵中に見える本文の近くに置く */}
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        {/* ペースト・ドラッグ&ドロップは実質デスクトップの操作なので、
-            幅が狭いときは畳む */}
-        {dropZone.dragging ? (
-          <span className="font-bold text-blue-600">
-            離すと挿入します
-          </span>
-        ) : (
-          <span className="hidden text-gray-400 sm:inline">
-            画像・音声・動画・PDF はペースト・ドラッグ&ドロップでも挿入できます
-          </span>
-        )}
-        <span
-          className={`ml-auto ${
-            value.length >= MAX_TEXT_LENGTH
-              ? "font-bold text-red-600"
-              : "text-gray-400"
-          }`}
-        >
-          {value.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}
-        </span>
-      </div>
+    <>
       <EditorBanners
         error={error}
-        recordingNote={recording.note}
-        videoRecordingNote={videoRecording.note}
+        recordingNote={tools.recording.note}
+        videoRecordingNote={tools.videoRecording.note}
         ocr={ocr}
-        scan={scan}
+        scan={tools.scan}
       />
       <input
         ref={fileInputRef}
@@ -282,16 +150,55 @@ export default function MemoEditorInner({
         accept={ACCEPTED_FILE_TYPES}
         multiple
         hidden
-        onChange={(e) => handleFilePick(e.target.files)}
+        onChange={(e) => onFilePick(e.target.files)}
       />
       <EditorModals
-        videoRecording={videoRecording}
-        drawings={drawings}
-        secrets={secrets}
-        scan={scan}
-        fenceGui={fenceGui}
+        videoRecording={tools.videoRecording}
+        drawings={tools.drawings}
+        secrets={tools.secrets}
+        scan={tools.scan}
+        fenceGui={tools.fenceGui}
       />
-      <EditorBottomBarPortal hostEl={hostEl} find={find} toolbar={toolbar} />
+      <EditorBottomBarPortal hostEl={hostEl} find={tools.find} toolbar={toolbar} />
+    </>
+  );
+}
+
+// CodeMirror の枠。ドラッグ中は枠を青くして落とせる所を示す
+function EditorFrame({ dragging, children }: { dragging: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={`overflow-hidden rounded border bg-white ${
+        dragging ? "border-blue-500 ring-2 ring-blue-300" : "border-gray-300"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// エディタ直下の補足と文字数
+function EditorFooter({ dragging, length }: { dragging: boolean; length: number }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      {/* ペースト・ドラッグ&ドロップは実質デスクトップの操作なので、
+          幅が狭いときは畳む */}
+      {dragging ? (
+        <span className="font-bold text-blue-600">
+          離すと挿入します
+        </span>
+      ) : (
+        <span className="hidden text-gray-400 sm:inline">
+          画像・音声・動画・PDF はペースト・ドラッグ&ドロップでも挿入できます
+        </span>
+      )}
+      <span
+        className={`ml-auto ${
+          length >= MAX_TEXT_LENGTH ? "font-bold text-red-600" : "text-gray-400"
+        }`}
+      >
+        {length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}
+      </span>
     </div>
   );
 }
