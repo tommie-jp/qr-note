@@ -54,15 +54,7 @@ export function ResultsToolbar({
   const { selectMode, enter, exit } = useSelectMode();
   // provider の外 (オフライン一覧など) では出さない
   const viewer = useImageViewer();
-  // 長押しで開いているメニュー。1 つの state で持つので二枚同時には開かない
-  // (下部バーと同じ作り)
-  const [openMenu, setOpenMenu] = useState<"view" | "sort" | null>(null);
-  const closeMenu = useCallback(() => setOpenMenu(null), []);
-  // 表示モードは押した瞬間に一覧を描き替える (docs/118 §10 案 B)。送った先を
-  // store に置き (一覧と釦が同じ値を読む)、cookie の保存と足りない材料の補充は
-  // switchViewMode が後ろで進める。本番では Server Action の往復 (150〜270ms)
-  // を待ってから一覧が変わっていた (§0-11)
-  const router = useRouter();
+  const { openMenu, closeMenu, openView, openSort } = useSlotMenus();
   // view は親 (SearchResultsClient) が送った先を重ねた後の値。**ここで
   // useShownViewMode を重ねない** — 送った先を「サーバの値」として渡すことに
   // なり、保存の返事が来た瞬間に「サーバが追いついた」と誤判定して送った先を
@@ -70,32 +62,7 @@ export function ResultsToolbar({
   // refresh を遅らせているので戻ったままになった (docs/123 §12-10)
   const shownView = view;
 
-  // 釦 (循環の釦かメニューの行) の submit を外側で拾い、Server Action を止めて
-  // 切り替える。**form の action は素の Server Action のまま残す** — JS が
-  // 動かないときはネイティブの送信でそちらが受ける (CycleSlot の注)。
-  // React は通常のイベントの後で defaultPrevented を見て、立っていれば
-  // action を呼ばない。送った値は submit を起こした釦の value にある
-  const onViewSubmit = useCallback(
-    (event: React.FormEvent<HTMLSpanElement>) => {
-      const submitter = (event.nativeEvent as SubmitEvent).submitter;
-      if (!(submitter instanceof HTMLButtonElement) || submitter.name !== VIEW_MODE_COOKIE) {
-        return;
-      }
-      event.preventDefault();
-      const next = parseViewMode(submitter.value);
-      perfStart("表示", "/", undefined, [["切替", `${shownView}→${next}`]]);
-      void switchViewMode(next, () => {
-        startTransition(() => refreshRouter(router));
-      });
-      // 押してから新しいモードが画面に出るまで (2 フレーム目 = 描き替えの後の描画)
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => perfMarkImmediate("表示", perfNow())),
-      );
-    },
-    [shownView, router],
-  );
-  const openView = useCallback(() => setOpenMenu("view"), []);
-  const openSort = useCallback(() => setOpenMenu("sort"), []);
+  const onViewSubmit = useViewModeSubmit(shownView);
 
   return (
     // ml-auto … 件数と補助リンクは左、操作は右。間が空くので、読む物と
@@ -105,36 +72,10 @@ export function ResultsToolbar({
     <span className="ml-auto flex shrink-0 items-center gap-1">
       {/* 一覧の先頭の画像から全画面で流す。選択中は出さない (選択モードは
           一覧のどこを押しても選択にする流儀。docs/116 §1) */}
-      {slideshow && viewer !== null && !selectMode && (
-        <button
-          type="button"
-          onClick={() => viewer.startSlideshow()}
-          aria-label="スライドショー"
-          title="スライドショー"
-          className={`${INLINE_SLOT_CLASS} text-gray-700`}
-        >
-          <SlotIcon color="text-indigo-600">
-            <SlideshowIcon />
-          </SlotIcon>
-          <span className={SLOT_LABEL_CLASS}>スライドショー</span>
-        </button>
-      )}
+      {slideshow && viewer !== null && !selectMode && slideshowButton(viewer.startSlideshow)}
       {/* モジュールの表示 (カレンダーなど。docs/126 §1-3)。一覧から移るだけで、
           戻るのは表示の側の「一覧」。履歴に積むので「戻る」でも一覧へ戻れる */}
-      {!selectMode &&
-        RESULT_VIEWS.map((resultView) => (
-          <button
-            key={resultView.id}
-            type="button"
-            onClick={() => window.history.pushState(null, "", resultView.enterHref(query))}
-            aria-label={resultView.label}
-            title={resultView.label}
-            className={`${INLINE_SLOT_CLASS} text-gray-700`}
-          >
-            <SlotIcon color="text-rose-600">{resultView.icon}</SlotIcon>
-            <span className={SLOT_LABEL_CLASS}>{resultView.label}</span>
-          </button>
-        ))}
+      {!selectMode && moduleViewButtons(query)}
       {/* contents … 拾うための器で、並びには参加しない */}
       <span className="contents" onSubmitCapture={onViewSubmit}>
       <ViewSlot
@@ -160,24 +101,111 @@ export function ResultsToolbar({
       />
       {/* 一括タグ付け・ゴミ箱行きのための選択モード。一覧側 (ItemList) と
           状態を共有するので context 経由で切り替える */}
-      <button
-        type="button"
-        onClick={selectMode ? exit : enter}
-        aria-pressed={selectMode}
-        className={`${INLINE_SLOT_CLASS} ${
-          selectMode ? "bg-blue-600 text-white" : "text-gray-700"
-        }`}
-      >
-        {/* 選択中はスロットごと反転する。色を足さず親の text-white を
-            継がせる (blue のまま置くと青地に青で沈む) */}
-        <SlotIcon color={selectMode ? "" : "text-blue-600"}>
-          <SelectIcon />
-        </SlotIcon>
-        {/* 狭いペインでは「選」まで削る (表示・並び順と同じ。ui.ts の
-            SLOT_LABEL_CLASS)。読み上げは aria-pressed 付きのボタン名が
-            そのまま残るので、削っても意味は失われない */}
-        <span className={SLOT_LABEL_CLASS}>選択</span>
-      </button>
+      {selectModeButton(selectMode, selectMode ? exit : enter)}
     </span>
+  );
+}
+
+// 長押しで開いているメニュー。1 つの state で持つので二枚同時には開かない
+// (下部バーと同じ作り)
+function useSlotMenus() {
+  const [openMenu, setOpenMenu] = useState<"view" | "sort" | null>(null);
+  const closeMenu = useCallback(() => setOpenMenu(null), []);
+  const openView = useCallback(() => setOpenMenu("view"), []);
+  const openSort = useCallback(() => setOpenMenu("sort"), []);
+  return { openMenu, closeMenu, openView, openSort };
+}
+
+// 表示モードの釦 (循環の釦かメニューの行) の submit を拾って、押した瞬間に切り替える
+function useViewModeSubmit(shownView: ViewMode) {
+  // 表示モードは押した瞬間に一覧を描き替える (docs/118 §10 案 B)。送った先を
+  // store に置き (一覧と釦が同じ値を読む)、cookie の保存と足りない材料の補充は
+  // switchViewMode が後ろで進める。本番では Server Action の往復 (150〜270ms)
+  // を待ってから一覧が変わっていた (§0-11)
+  const router = useRouter();
+
+  // 釦 (循環の釦かメニューの行) の submit を外側で拾い、Server Action を止めて
+  // 切り替える。**form の action は素の Server Action のまま残す** — JS が
+  // 動かないときはネイティブの送信でそちらが受ける (CycleSlot の注)。
+  // React は通常のイベントの後で defaultPrevented を見て、立っていれば
+  // action を呼ばない。送った値は submit を起こした釦の value にある
+  const onViewSubmit = useCallback(
+    (event: React.FormEvent<HTMLSpanElement>) => {
+      const submitter = (event.nativeEvent as SubmitEvent).submitter;
+      if (!(submitter instanceof HTMLButtonElement) || submitter.name !== VIEW_MODE_COOKIE) {
+        return;
+      }
+      event.preventDefault();
+      const next = parseViewMode(submitter.value);
+      perfStart("表示", "/", undefined, [["切替", `${shownView}→${next}`]]);
+      void switchViewMode(next, () => {
+        startTransition(() => refreshRouter(router));
+      });
+      // 押してから新しいモードが画面に出るまで (2 フレーム目 = 描き替えの後の描画)
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => perfMarkImmediate("表示", perfNow())),
+      );
+    },
+    [shownView, router],
+  );
+  return onViewSubmit;
+}
+
+// 一覧の先頭の画像から全画面で流す
+function slideshowButton(startSlideshow: () => boolean) {
+  return (
+    <button
+      type="button"
+      onClick={() => startSlideshow()}
+      aria-label="スライドショー"
+      title="スライドショー"
+      className={`${INLINE_SLOT_CLASS} text-gray-700`}
+    >
+      <SlotIcon color="text-indigo-600">
+        <SlideshowIcon />
+      </SlotIcon>
+      <span className={SLOT_LABEL_CLASS}>スライドショー</span>
+    </button>
+  );
+}
+
+// モジュールの表示へ移る釦 (カレンダーなど)
+function moduleViewButtons(query: string) {
+  return RESULT_VIEWS.map((resultView) => (
+    <button
+      key={resultView.id}
+      type="button"
+      onClick={() => window.history.pushState(null, "", resultView.enterHref(query))}
+      aria-label={resultView.label}
+      title={resultView.label}
+      className={`${INLINE_SLOT_CLASS} text-gray-700`}
+    >
+      <SlotIcon color="text-rose-600">{resultView.icon}</SlotIcon>
+      <span className={SLOT_LABEL_CLASS}>{resultView.label}</span>
+    </button>
+  ));
+}
+
+// 一括タグ付け・ゴミ箱行きのための選択モードの切り替え
+function selectModeButton(selectMode: boolean, onClick: () => void) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selectMode}
+      className={`${INLINE_SLOT_CLASS} ${
+        selectMode ? "bg-blue-600 text-white" : "text-gray-700"
+      }`}
+    >
+      {/* 選択中はスロットごと反転する。色を足さず親の text-white を
+          継がせる (blue のまま置くと青地に青で沈む) */}
+      <SlotIcon color={selectMode ? "" : "text-blue-600"}>
+        <SelectIcon />
+      </SlotIcon>
+      {/* 狭いペインでは「選」まで削る (表示・並び順と同じ。ui.ts の
+          SLOT_LABEL_CLASS)。読み上げは aria-pressed 付きのボタン名が
+          そのまま残るので、削っても意味は失われない */}
+      <span className={SLOT_LABEL_CLASS}>選択</span>
+    </button>
   );
 }
