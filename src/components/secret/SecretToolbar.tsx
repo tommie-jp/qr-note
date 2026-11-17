@@ -42,94 +42,109 @@ export interface SecretToolbarProps {
   onScan: () => void;
 }
 
-export function SecretToolbar({
+interface ToolSpec {
+  key: string;
+  onClick: () => void;
+  // 省略すればツール行の disabled に従う
+  disabled?: boolean;
+  pressed?: boolean;
+  color: string;
+  icon: ReactNode;
+  label: ReactNode;
+}
+
+// ツール行の 1 つの釦。6 つとも同じ形なので、違うところ (色・図・文字・
+// 押せる条件) だけを受け取る。pressed は録音のトグルだけが渡す
+// (渡さなければ aria-pressed は付かない。以前と同じ)
+function ToolButton({
+  onClick,
   disabled,
-  onInsertImage,
-  onDraw,
-  recordLabel,
-  isRecording,
-  onToggleRecord,
-  onRecordVideo,
-  ocrLabel,
-  onOcr,
-  onScan,
-}: SecretToolbarProps) {
+  pressed,
+  color,
+  icon,
+  label,
+}: Omit<ToolSpec, "key" | "disabled"> & { disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={pressed}
+      className={TOOL_SLOT}
+    >
+      <ToolIcon color={color}>{icon}</ToolIcon>
+      {label}
+    </button>
+  );
+}
+
+// 録音中の図。マイクの代わりに脈打つ赤丸を出す
+function RecordingDot() {
+  return (
+    <span aria-hidden className="size-6 flex items-center justify-center">
+      <span className="size-2.5 animate-pulse rounded-full bg-rose-600" />
+    </span>
+  );
+}
+
+// 釦の並び (左から)。並び順・色・文字は以前の JSX と同じ
+function toolSpecs(props: SecretToolbarProps): ToolSpec[] {
+  const { isRecording } = props;
+  return [
+    {
+      key: "image",
+      onClick: props.onInsertImage,
+      color: "text-violet-600",
+      icon: <ImageInsertIcon />,
+      label: "画像",
+    },
+    {
+      key: "record",
+      onClick: props.onToggleRecord,
+      // 録音中だけは busy でも押せる。止められないと録音が終わらない
+      disabled: props.disabled && !isRecording,
+      pressed: isRecording,
+      color: "text-rose-600",
+      icon: isRecording ? <RecordingDot /> : <MicIcon />,
+      label: props.recordLabel,
+    },
+    {
+      key: "video",
+      onClick: props.onRecordVideo,
+      color: "text-orange-600",
+      icon: <VideoIcon />,
+      label: "録画",
+    },
+    {
+      key: "draw",
+      onClick: props.onDraw,
+      color: "text-emerald-600",
+      icon: <DrawIcon />,
+      label: "お絵かき",
+    },
+    {
+      key: "ocr",
+      onClick: props.onOcr,
+      color: "text-teal-600",
+      icon: <OcrIcon />,
+      label: props.ocrLabel,
+    },
+    {
+      key: "scan",
+      onClick: props.onScan,
+      color: "text-sky-600",
+      icon: <ScanIcon />,
+      label: "スキャン",
+    },
+  ];
+}
+
+export function SecretToolbar(props: SecretToolbarProps) {
   return (
     <div className="flex min-w-0 items-stretch gap-0.5 overflow-x-auto border-t border-gray-200 pt-1">
-      <button
-        type="button"
-        onClick={onInsertImage}
-        disabled={disabled}
-        className={TOOL_SLOT}
-      >
-        <ToolIcon color="text-violet-600">
-          <ImageInsertIcon />
-        </ToolIcon>
-        画像
-      </button>
-      <button
-        type="button"
-        onClick={onToggleRecord}
-        // 録音中だけは busy でも押せる。止められないと録音が終わらない
-        disabled={disabled && !isRecording}
-        aria-pressed={isRecording}
-        className={TOOL_SLOT}
-      >
-        <ToolIcon color="text-rose-600">
-          {isRecording ? (
-            <span aria-hidden className="size-6 flex items-center justify-center">
-              <span className="size-2.5 animate-pulse rounded-full bg-rose-600" />
-            </span>
-          ) : (
-            <MicIcon />
-          )}
-        </ToolIcon>
-        {recordLabel}
-      </button>
-      <button
-        type="button"
-        onClick={onRecordVideo}
-        disabled={disabled}
-        className={TOOL_SLOT}
-      >
-        <ToolIcon color="text-orange-600">
-          <VideoIcon />
-        </ToolIcon>
-        録画
-      </button>
-      <button
-        type="button"
-        onClick={onDraw}
-        disabled={disabled}
-        className={TOOL_SLOT}
-      >
-        <ToolIcon color="text-emerald-600">
-          <DrawIcon />
-        </ToolIcon>
-        お絵かき
-      </button>
-      <button
-        type="button"
-        onClick={onOcr}
-        disabled={disabled}
-        className={TOOL_SLOT}
-      >
-        <ToolIcon color="text-teal-600">
-          <OcrIcon />
-        </ToolIcon>
-        {ocrLabel}
-      </button>
-      <button
-        type="button"
-        onClick={onScan}
-        disabled={disabled}
-        className={TOOL_SLOT}
-      >
-        <ToolIcon color="text-sky-600">
-          <ScanIcon />
-        </ToolIcon>
-        スキャン
-      </button>
+      {toolSpecs(props).map(({ key, disabled = props.disabled, ...spec }) => (
+        <ToolButton key={key} disabled={disabled} {...spec} />
+      ))}
     </div>
   );
 }

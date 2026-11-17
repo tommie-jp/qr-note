@@ -1,25 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useAsyncAction } from "@/components/hooks/useAsyncAction";
-import { BUSY_SPINNER_CLASS } from "@/components/ui";
+import { useState } from "react";
 import {
-  SecretLockedError,
-  loadSecret,
-  secretText,
-  type SecretContent,
-} from "@/lib/secret/content";
-import { resolveNestedMedia, trackBlob } from "@/lib/secret/nestedMedia";
-import { secretMimeKind, type SecretKind } from "@/lib/secret/payload";
-import { SecretCancelledError } from "@/lib/secret/prf";
-import {
-  isUnlocked,
-  subscribeSecretLock,
-  useSecretUnlocked,
-} from "@/lib/secret/session";
-import { unlockWithPasskey } from "@/lib/secret/unlock";
+  SecretMediaView,
+  SecretPlaceholder,
+  SecretRevealedHeader,
+} from "./SecretBlockParts";
 import { SecretMarkdown } from "./SecretMarkdown";
+import { useSecretCopy, useSecretReveal } from "./useSecretReveal";
 
 // 開いた中身は MarkdownView で描くが、ここからは import しない。MarkdownView 側が
 // img からこの部品へ振り分けるため循環になる。layout の SecretMarkdownProvider が
@@ -42,14 +31,6 @@ interface SecretBlockProps {
   allowEdit?: boolean;
 }
 
-// 復号したバイト列を Blob URL にする口。差し替えの手順 (lib/secret/nestedMedia.ts)
-// はブラウザの URL を直接持たず、ここから渡す
-const createObjectUrl = (blob: Blob) => URL.createObjectURL(blob);
-
-// コピーした中身をクリップボードから消すまでの時間 (パスワード管理ソフトの
-// 相場に合わせる)。貼り付けには十分で、置きっぱなしにはしない長さ
-const CLIPBOARD_CLEAR_MS = 60_000;
-
 // 本文に貼られたシークレット断片 (docs/51-部分暗号化計画.md §9)。
 //
 // 既定は「🔒 ラベル」のプレースホルダで、**中身は押すまで取りに行かない**。
@@ -62,192 +43,30 @@ export function SecretBlock({
   label,
   allowEdit = false,
 }: SecretBlockProps) {
-  const unlocked = useSecretUnlocked();
-  const { run, busy, error, setError } = useAsyncAction();
-  const [content, setContent] = useState<SecretContent | null>(null);
-  // 復号した markdown。断片内の画像参照は Blob URL に差し替え済み
-  const [markdown, setMarkdown] = useState<string | null>(null);
-  // 断片そのものが媒体 (画像・音声・動画) のときの Blob URL と種別
-  const [media, setMedia] = useState<{ url: string; kind: SecretKind } | null>(
-    null,
-  );
-  // 断片の markdown に埋まった媒体の種別 (Blob URL → 種別)。
-  // 拡張子を持たない Blob URL を MarkdownView が描き分けるために要る
-  const [blobKinds, setBlobKinds] = useState<
-    ReadonlyMap<string, "image" | "audio" | "video">
-  >(new Map());
-  const [copied, setCopied] = useState(false);
+  const { content, markdown, media, blobKinds, busy, error, setError, hide, reveal } =
+    useSecretReveal(name);
+  const { copied, copy } = useSecretCopy(content, setError);
   const [editing, setEditing] = useState(false);
-
-  // 作った Blob URL は自分で片付ける。放っておくとタブを閉じるまで
-  // 復号済みの画素がメモリに残り続ける
-  const blobUrls = useRef<string[]>([]);
-  const revokeBlobs = useCallback(() => {
-    for (const url of blobUrls.current) {
-      URL.revokeObjectURL(url);
-    }
-    blobUrls.current = [];
-  }, []);
-  useEffect(() => revokeBlobs, [revokeBlobs]);
-
-  const hide = useCallback(() => {
-    revokeBlobs();
-    setContent(null);
-    setMarkdown(null);
-    setMedia(null);
-    setBlobKinds(new Map());
-    setError(null);
-  }, [revokeBlobs, setError]);
-
-  // 鍵が消えたら (施錠) 表示中の中身も引っ込め、Blob URL も解放する。
-  //
-  // 「unlocked が false になったら」を effect で見ずに購読で受けるのは、
-  // 施錠が React の外で起きる出来事だから (別のタブ・別の画面からも起こる)。
-  useEffect(
-    () =>
-      subscribeSecretLock(() => {
-        if (!isUnlocked()) {
-          hide();
-        }
-      }),
-    [hide],
-  );
-
-  const reveal = useCallback(
-    () =>
-      run(
-        async () => {
-          if (!unlocked) {
-            await unlockWithPasskey();
-          }
-          const loaded = await loadSecret(name);
-          setContent(loaded);
-
-          const kind = secretMimeKind(loaded.mime);
-          if (kind !== null && kind !== "text") {
-            setMedia({
-              url: trackBlob(blobUrls, loaded.bytes, loaded.mime, createObjectUrl),
-              kind,
-            });
-            return;
-          }
-
-          const resolved = await resolveNestedMedia(secretText(loaded), blobUrls, {
-            load: loadSecret,
-            createObjectUrl,
-          });
-          setBlobKinds(resolved.kinds);
-          setMarkdown(resolved.markdown);
-        },
-        (cause) => {
-          if (cause instanceof SecretCancelledError) {
-            return null; // 自分でやめた操作は失敗として出さない (auth/passkeyClient.ts と同じ)
-          }
-          console.error(`シークレットを開けませんでした (${name})`, cause);
-          return cause instanceof Error && !(cause instanceof SecretLockedError)
-            ? cause.message
-            : "シークレットを開けませんでした";
-        },
-      ),
-    [name, unlocked, run],
-  );
-
-  const copy = useCallback(async () => {
-    if (content === null) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(secretText(content));
-      setCopied(true);
-      // 一定時間で消す。クリップボードは OS の履歴機能 (Windows のクラウド
-      // 同期履歴・Apple の Universal Clipboard・各種拡張) を通じてアプリの外へ
-      // 出ていくため、パスワードを置きっぱなしにしない (パスワード管理ソフトが
-      // 揃って同じことをしている理由)。**消える旨は画面に出す** — 黙って消すと
-      // 「貼れなくなった」という不具合に見える
-      window.setTimeout(() => {
-        setCopied(false);
-        void navigator.clipboard.writeText("").catch((cause: unknown) => {
-          // 画面から目を離している間はブラウザが書き込みを断ることがある。
-          // 消せなかったことは記録するが、画面を驚かせるほどではない
-          console.error("クリップボードを消せませんでした", cause);
-        });
-      }, CLIPBOARD_CLEAR_MS);
-    } catch (cause) {
-      console.error("クリップボードにコピーできませんでした", cause);
-      setError("コピーできませんでした");
-    }
-  }, [content, setError]);
 
   if (content === null) {
     return (
-      <span className="not-prose inline-flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={reveal}
-          disabled={busy}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded border border-amber-300 bg-amber-50 px-2.5 text-left font-medium text-amber-900 transition active:scale-95 disabled:opacity-60"
-        >
-          {busy ? <span aria-hidden className={BUSY_SPINNER_CLASS} /> : "🔒"}
-          {label}
-        </button>
-        {error !== null && (
-          <span className="text-sm text-red-700">{error}</span>
-        )}
-      </span>
+      <SecretPlaceholder label={label} busy={busy} error={error} onReveal={reveal} />
     );
   }
 
   return (
     <span className="not-prose block rounded border border-amber-300 bg-amber-50/60 p-2">
-      <span className="mb-1 flex flex-wrap items-center gap-2 text-sm font-medium text-amber-900">
-        🔓 {label}
-        <button
-          type="button"
-          onClick={hide}
-          className="min-h-9 rounded px-2 text-amber-800 underline"
-        >
-          隠す
-        </button>
-        {markdown !== null && (
-          <button
-            type="button"
-            onClick={copy}
-            className="min-h-9 rounded px-2 text-amber-800 underline"
-          >
-            {copied
-              ? `コピーしました (${CLIPBOARD_CLEAR_MS / 1000} 秒で消えます)`
-              : "コピー"}
-          </button>
-        )}
-        {/* 画像の断片には出さない (文字として開けない。docs/51 §9 のガードと
-            同じ理由)。ラベルの変更は本文の編集なので、ここではできない */}
-        {allowEdit && markdown !== null && (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="min-h-9 rounded px-2 text-amber-800 underline"
-          >
-            編集
-          </button>
-        )}
-      </span>
+      <SecretRevealedHeader
+        label={label}
+        isText={markdown !== null}
+        allowEdit={allowEdit}
+        copied={copied}
+        onHide={hide}
+        onCopy={copy}
+        onEdit={() => setEditing(true)}
+      />
 
-      {media?.kind === "image" && (
-        /* Blob URL なので next/image の最適化 (サーバ経由) は通せない。通したら
-           復号した画素がサーバへ渡ることになり、この機能の目的そのものに反する */
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={media.url} alt={label} className="max-w-full rounded" />
-      )}
-
-      {/* 音声・動画は復号した全体を Blob で再生する。**シークできない** —
-          通常の添付のような Range 配信はサーバが復号できない以上できない
-          (docs/53 §2) */}
-      {media?.kind === "audio" && (
-        <audio controls src={media.url} className="w-full" />
-      )}
-      {media?.kind === "video" && (
-        <video controls playsInline src={media.url} className="max-w-full rounded" />
-      )}
+      <SecretMediaView media={media} label={label} />
 
       {markdown !== null && (
         // 通常のメモと同じ描画パイプライン (同じサニタイズ) を通す。

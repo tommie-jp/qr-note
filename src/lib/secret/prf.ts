@@ -59,17 +59,12 @@ export function isWebAuthnAvailable(): boolean {
   )
 }
 
-// 認証器に PRF 出力を出させる。
-//
-// allowCredentialIds を渡すと、その中から選ばせる (登録済みのパスキーだけを
-// 対象にする)。空で呼ぶと、この端末が持つこのサイトのパスキーから選ばれる。
-export async function requestPrf(
-  allowCredentialIds: readonly string[] = [],
-): Promise<PrfAssertion> {
-  if (!isWebAuthnAvailable()) {
-    throw new PrfUnsupportedError('この環境ではパスキーを利用できません')
-  }
-
+// base64url の credential ID を allowCredentials の形に直す。
+// requestPrf の本体を「認証器を呼ぶ → 出力を確かめる」に絞るため分けてある
+// (呼び出しの順序・中身は変えていない)
+function toAllowCredentials(
+  allowCredentialIds: readonly string[],
+): { type: 'public-key'; id: Uint8Array<ArrayBuffer> }[] {
   const decoded = allowCredentialIds.map((id) => ({ id, bytes: base64UrlToBytes(id) }))
 
   // 読めない ID を**黙って落とさない**。起こらないはずだが、起きると
@@ -81,12 +76,26 @@ export async function requestPrf(
     }
   }
 
-  const allowCredentials = decoded
+  return decoded
     .filter(
       (entry): entry is { id: string; bytes: Uint8Array<ArrayBuffer> } =>
         entry.bytes !== null,
     )
     .map((entry) => ({ type: 'public-key' as const, id: entry.bytes }))
+}
+
+// 認証器に PRF 出力を出させる。
+//
+// allowCredentialIds を渡すと、その中から選ばせる (登録済みのパスキーだけを
+// 対象にする)。空で呼ぶと、この端末が持つこのサイトのパスキーから選ばれる。
+export async function requestPrf(
+  allowCredentialIds: readonly string[] = [],
+): Promise<PrfAssertion> {
+  if (!isWebAuthnAvailable()) {
+    throw new PrfUnsupportedError('この環境ではパスキーを利用できません')
+  }
+
+  const allowCredentials = toAllowCredentials(allowCredentialIds)
 
   let credential: Credential | null
   try {

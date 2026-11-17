@@ -1,6 +1,6 @@
 "use client";
 
-import type { ViewUpdate } from "@codemirror/view";
+import type { EditorView, ViewUpdate } from "@codemirror/view";
 import { useCallback, useState } from "react";
 import { insertText } from "@/lib/editor/cmDoc";
 import {
@@ -30,6 +30,29 @@ export interface EditorSecret {
   closeSecret: () => void;
   // CodeMirror の onUpdate から呼ぶ (参照は変わらない)
   trackSecretLabel: (update: ViewUpdate) => void;
+}
+
+// 記法を本文へ書く (applySecret の後半)。新規はカーソル位置へ挿し、編集は
+// 名前で引いた記法を差し替える。React に触らないのでフックの外に置く
+function writeSecretNotation(
+  view: EditorView,
+  notation: string,
+  name: string,
+  editing: boolean,
+): void {
+  if (!editing) {
+    insertText(view, notation);
+    return;
+  }
+
+  const hit = findSecretNotation(view.state.doc.toString(), name);
+  if (hit) {
+    view.dispatch({ changes: { from: hit.from, to: hit.to, insert: notation } });
+  } else {
+    // 利用者が記法ごと消していた。中身は保存済みなので、参照を入れ直す
+    insertText(view, notation);
+  }
+  view.focus();
 }
 
 // シークレット (docs/51-部分暗号化計画.md §8, §12)。
@@ -73,21 +96,7 @@ export function useEditorSecret({
     if (!view) {
       return;
     }
-    const notation = secretNotation(label, name);
-
-    if (!editing) {
-      insertText(view, notation);
-      return;
-    }
-
-    const hit = findSecretNotation(view.state.doc.toString(), name);
-    if (hit) {
-      view.dispatch({ changes: { from: hit.from, to: hit.to, insert: notation } });
-    } else {
-      // 利用者が記法ごと消していた。中身は保存済みなので、参照を入れ直す
-      insertText(view, notation);
-    }
-    view.focus();
+    writeSecretNotation(view, secretNotation(label, name), name, editing);
   };
 
   // シークレットのボタン文字 (docs/52-シークレット編集導線計画.md §1)。
