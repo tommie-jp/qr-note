@@ -10,9 +10,10 @@ import { formatBase } from "@/lib/editor/saveBase";
 import { parseStoredProps } from "@/lib/markdown/props";
 import { applyEvent, eventTitleOf, newEventMemo, type EventInput } from "../event/eventMemo";
 import { jstToday } from "../event/monthLayout";
-import { eventPriority, normalizeDate, normalizeTime, parseEvent, type EventPriority } from "../event/parseEvent";
+import { eventPriority, normalizeDate, normalizeTime, parseEvent } from "../event/parseEvent";
 import { invalidateCalendar } from "./calendarStore";
-import { putMemo, type SaveResult } from "./saveMemo";
+import { DateFields, FormStatus, TimeFields, TitleField, type Draft, type Status } from "./EventFormFields";
+import { putMemo } from "./saveMemo";
 
 export interface EventFormProps {
   itemId: string;
@@ -27,21 +28,6 @@ export interface EventFormProps {
   // 保存・ゴミ箱へ移した後に呼ぶ (日の予定から浮かせて開いたフォームを閉じる)
   onDone?: () => void;
 }
-
-interface Draft {
-  title: string;
-  date: string;
-  allDay: boolean;
-  start: string;
-  end: string;
-  priority: EventPriority;
-}
-
-const PRIORITY_OPTIONS: readonly { value: EventPriority; label: string }[] = [
-  { value: "high", label: "高い" },
-  { value: "normal", label: "標準" },
-  { value: "low", label: "低い" },
-];
 
 function initialDraft(item: Item | null, initialDate: string | null): Draft {
   const props = item === null ? null : parseStoredProps(item.props);
@@ -80,25 +66,26 @@ function toInput(draft: Draft): EventInput | string {
   return { title, date: draft.date, start, end, priority: draft.priority };
 }
 
-type Status = SaveResult | { kind: "idle" } | { kind: "saving" };
-
-const FIELD = "min-h-10 rounded border border-gray-300 px-2";
-
-// 「予定」タブの中身 (docs/126 §1-4・§1-5)。本文をテキストで直させず、
-// 題名と日時だけをフォームで直す。保存は本文の決まった所だけを書き換える
-// (applyEvent)。新しい予定 (未登録のノート) もここで作る
-export default function EventForm({ itemId, item, initialDate, query, fullscreen, onDone }: EventFormProps) {
+// 下書きと保存の状態。直したら「保存しました」を消す
+function useEventDraft(item: Item | null, initialDate: string | null) {
   const [draft, setDraft] = useState<Draft>(() => initialDraft(item, initialDate));
   const [status, setStatus] = useState<Status>({ kind: "idle" });
-  const id = useId();
-  const isNew = item === null;
   const update = (patch: Partial<Draft>) => {
     setDraft((prev) => ({ ...prev, ...patch }));
     if (status.kind === "saved") {
       setStatus({ kind: "idle" });
     }
   };
+  return { draft, status, setStatus, update };
+}
 
+// 保存・読み直し・ゴミ箱へ
+function formActions(
+  { itemId, item, query, fullscreen, onDone }: EventFormProps,
+  draft: Draft,
+  setStatus: (status: Status) => void,
+) {
+  const isNew = item === null;
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     const input = toInput(draft);
@@ -140,106 +127,26 @@ export default function EventForm({ itemId, item, initialDate, query, fullscreen
     invalidateCalendar();
     onDone?.();
   };
+  return { save, reload, trash };
+}
+
+// 「予定」タブの中身 (docs/126 §1-4・§1-5)。本文をテキストで直させず、
+// 題名と日時だけをフォームで直す。保存は本文の決まった所だけを書き換える
+// (applyEvent)。新しい予定 (未登録のノート) もここで作る
+export default function EventForm(props: EventFormProps) {
+  const { item, initialDate } = props;
+  const { draft, status, setStatus, update } = useEventDraft(item, initialDate);
+  const id = useId();
+  const isNew = item === null;
+  const { save, reload, trash } = formActions(props, draft, setStatus);
 
   return (
     <form onSubmit={save} className="space-y-3 rounded border border-gray-300 bg-white p-3" aria-label="予定">
-      <div className="space-y-1">
-        <label htmlFor={`${id}-title`} className="block text-sm text-gray-600">
-          題名
-        </label>
-        <input
-          id={`${id}-title`}
-          value={draft.title}
-          onChange={(e) => update({ title: e.target.value })}
-          // 新しい予定は日をタップした直後なので、すぐ打てるようにする
-          autoFocus={isNew}
-          enterKeyHint="done"
-          className={`${FIELD} w-full`}
-        />
-      </div>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label htmlFor={`${id}-date`} className="block text-sm text-gray-600">
-            日付
-          </label>
-          <input
-            id={`${id}-date`}
-            type="date"
-            value={draft.date}
-            onChange={(e) => update({ date: e.target.value })}
-            className={FIELD}
-          />
-        </div>
-        <div className="space-y-1">
-          <label htmlFor={`${id}-priority`} className="block text-sm text-gray-600">
-            優先度
-          </label>
-          <select
-            id={`${id}-priority`}
-            value={draft.priority}
-            onChange={(e) => update({ priority: e.target.value as EventPriority })}
-            className={`${FIELD} bg-white`}
-          >
-            {PRIORITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label className="flex min-h-10 items-center gap-2 text-sm">
-          <input type="checkbox" checked={draft.allDay} onChange={(e) => update({ allDay: e.target.checked })} className="size-5" />
-          終日
-        </label>
-      </div>
-      {!draft.allDay && (
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <label htmlFor={`${id}-start`} className="block text-sm text-gray-600">
-              開始
-            </label>
-            <input
-              id={`${id}-start`}
-              type="time"
-              // 15 分刻み (iPhone の時刻の輪は step を守らないが、PC の欄は守る)
-              step={900}
-              value={draft.start}
-              onChange={(e) => update({ start: e.target.value })}
-              className={FIELD}
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor={`${id}-end`} className="block text-sm text-gray-600">
-              終了 (省略で 1 時間)
-            </label>
-            <input
-              id={`${id}-end`}
-              type="time"
-              // 15 分刻み (iPhone の時刻の輪は step を守らないが、PC の欄は守る)
-              step={900}
-              value={draft.end}
-              onChange={(e) => update({ end: e.target.value })}
-              className={FIELD}
-            />
-          </div>
-        </div>
-      )}
+      <TitleField id={id} draft={draft} update={update} isNew={isNew} />
+      <DateFields id={id} draft={draft} update={update} />
+      {!draft.allDay && <TimeFields id={id} draft={draft} update={update} />}
 
-      {status.kind === "error" && (
-        <p role="alert" className="rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
-          {status.message}{" "}
-          {status.reload && (
-            <button type="button" onClick={reload} className="underline">
-              読み直す
-            </button>
-          )}
-        </p>
-      )}
-      {status.kind === "saved" && (
-        <p role="status" className="text-sm text-green-700">
-          保存しました
-        </p>
-      )}
+      <FormStatus status={status} onReload={reload} />
 
       <div className="flex items-center gap-2">
         <button
