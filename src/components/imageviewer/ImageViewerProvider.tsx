@@ -1,35 +1,21 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import { onPreviewPaneHidden } from "@/components/panes/previewPaneHidden";
-import { attachmentUrl, thumbUrl } from "@/lib/images/memoImages";
-import { isValidVideoName } from "@/lib/uploads/names";
-import { notePaneLayout } from "@/lib/prefs/paneMode";
-import { useSlideshowInterval } from "@/lib/prefs/slideshowInterval";
-import {
-  neighborTarget,
-  planStep,
-  sameTarget,
-  slideDelay,
-  type StepPlan,
-  type ViewerTarget,
-} from "@/lib/images/viewerNav";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import type { ViewerTarget } from "@/lib/images/viewerNav";
 import { ImageViewerOverlay } from "./ImageViewerOverlay";
 import { ImageViewerPane } from "./ImageViewerPane";
-import type { ViewerMediaHandlers } from "./ViewerMedia";
-import { playSharedVideoNow, unlockSharedVideo } from "./sharedVideo";
 import { useScreenWakeLock } from "./useScreenWakeLock";
 import { useEscapeKey } from "../modal/useEscapeKey";
-import { hasMoreResults, requestLoadMore } from "../search/loadMore";
+import { useViewerMedia, useViewerState } from "./useViewerState";
+import { useViewerAdvance, useViewerOpenClose } from "./useViewerNavigation";
+import {
+  useAwaitMoreResults,
+  useSlideshowTimer,
+  useStartSlideshow,
+  useViewerPlayControls,
+} from "./useSlideshow";
+import type { ViewerMediaHandlers } from "./ViewerMedia";
+import { usePreloadNeighbors, useViewerKeys } from "./useViewerEffects";
 
 interface ImageViewerState {
   current: ViewerTarget | null;
@@ -45,100 +31,6 @@ const ImageViewerContext = createContext<ImageViewerState | null>(null);
 // 戻り、今までどおりタイル・行のリンクがノートを開く
 export function useImageViewer(): ImageViewerState | null {
   return useContext(ImageViewerContext);
-}
-
-// 一覧に並んでいる「押せる画像」を DOM の順で拾う (docs/116 §4)。
-// 無限スクロールは読み込んだページごとに別の一覧を描くので、どれか 1 つの
-// 一覧の props からは「次の 1 枚」が決まらない。画面に並んでいる順が
-// そのまま利用者の見ている順なので、目印 (data-viewer-*) から組み立てる
-const OPENER_SELECTOR = "[data-viewer-image]";
-
-// 残りがこの枚数以下になったら次のページを先読みする (末尾で待たせない)。
-// 1 ページは 20 件なので、半ページ手前で頼めば → を押し続けても追いつかない
-const PREFETCH_REMAINING = 10;
-// 出している画像の前後で、原寸を先に取っておく枚数 (送った瞬間に原寸が出る)。
-// スライドショー中は手で送るより速く進む (3 秒間隔で数 MB の写真が続く)
-// ので、先を厚めに取る
-const PRELOAD_AHEAD = 2;
-const PRELOAD_AHEAD_PLAYING = 4;
-const PRELOAD_BEHIND = 1;
-// 末尾で → を押してから、次のページの画像が出るのを待つ上限 (ms)
-const LOAD_MORE_WAIT_MS = 15_000;
-// スライドショーで、原寸が読み終わるのを待つ上限 (ms)。弱い回線で要求が
-// 返らないまま止まると、消灯も抑えたまま永遠に同じ 1 枚になる。過ぎたら
-// サムネのまま次へ送る
-const SETTLE_WAIT_MS = 15_000;
-// スライドショーで動画を見終えてから次へ送るまでの間 (ms)。終わった瞬間に
-// 切り替わると、最後のコマを見る間が無い
-const VIDEO_END_PAUSE_MS = 800;
-
-function openersInPage(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>(OPENER_SELECTOR)];
-}
-
-function targetOf(el: HTMLElement): ViewerTarget {
-  return {
-    itemId: el.dataset.viewerItem ?? "",
-    name: el.dataset.viewerImage ?? "",
-    href: el.dataset.viewerHref ?? "",
-  };
-}
-
-// ← → を受けるのは、焦点が「どこにも無い (body)」か、一覧・ビューアの中に
-// あるときだけ。押した釦 (一覧の画像) に焦点が残るので、開いた直後から効く。
-// メニュー・検索パネル・スキャナなど矢印を自分で使う部品に焦点があるときは
-// 奪わない (ペインが Esc を持たないのと同じ配慮。docs/86 §2)。
-// 一覧の中でも文字の入力欄は除く
-const ARROW_SCOPE_SELECTOR = "[data-search-results], [data-image-viewer]";
-
-function acceptsArrowKeys(target: EventTarget | null): boolean {
-  if (target === document.body || target === null) {
-    return true;
-  }
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  if (
-    target.isContentEditable ||
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT"
-  ) {
-    return false;
-  }
-  return target.closest(ARROW_SCOPE_SELECTOR) !== null;
-}
-
-interface Opened {
-  target: ViewerTarget;
-  // 開いたときに利用者が選んでいたノート (横取りスロット。自動の先頭ノートは
-  // 数えない)。これが変わったら (一覧の題を押した・「ノートを開く」)
-  // 画像は用済みとして捨てる
-  openedFor: string | null;
-  // ペインの構成でも全画面で見たいとき (ペインの「全画面」)
-  fullscreen: boolean;
-  // 表示の番号。送る・開く・ペインから全画面へ移るたびに新しくなる。
-  // 読み込み・再生の状態 (MediaStatus) はこの番号に結びつける — 名前で持つと、
-  // 同じ動画へ戻ったときに前の「再生し終えた」が残って即座に送られる
-  visit: number;
-}
-
-// いま出ている 1 枚の読み込み・再生の状態。visit が今の表示と違えば無いのと同じ
-interface MediaStatus {
-  visit: number;
-  // 原寸を読み終えた (読めなかった)・動画を再生できなかった
-  settled: boolean;
-  // 動画を再生し終えた
-  ended: boolean;
-}
-
-const NO_STATUS: MediaStatus = { visit: 0, settled: false, ended: false };
-
-// 表示の番号を振る。一意であればよいのでモジュールの外の数で足りる
-let visitSeq = 0;
-function nextVisit(): number {
-  visitSeq += 1;
-  return visitSeq;
 }
 
 // 検索結果の画像を大きく見せるビューア (docs/116)。
@@ -160,352 +52,22 @@ export function ImageViewerProvider({
   overlayOnly?: boolean;
   children: ReactNode;
 }) {
-  const { mode, detailItemId } = usePaneMode();
-  const [opened, setOpened] = useState<Opened | null>(null);
-  // スライドショーの再生中か (docs/117)。再生中は必ず覆いで出す
-  const [playing, setPlaying] = useState(false);
-  // いま出ている 1 枚の読み込み・再生の状態。自動送りの時間はここから決める
-  const [mediaStatus, setMediaStatus] = useState<MediaStatus>(NO_STATUS);
-  // 動画を音つきで始めるか。利用者がプレーヤーで消音を切り替えたら次の
-  // 動画もそれに倣う (このタブの間だけ覚える)
-  const [videoSound, setVideoSound] = useState(true);
-  // 選んだノートが変わったら用済み。描画中に捨てる (React の
-  // 「props の変化で state を直す」型) — 隠すだけにすると、前のノートへ
-  // 戻った (戻る・題を押し直す) 瞬間に閉じたはずの画像が蘇る
-  if (opened !== null && opened.openedFor !== detailItemId) {
-    setOpened(null);
-    setPlaying(false);
-  }
-  const visible = opened !== null && opened.openedFor === detailItemId ? opened : null;
-  const current = visible?.target ?? null;
-  const asOverlay =
-    overlayOnly || visible?.fullscreen === true || notePaneLayout(mode) === "fullscreen";
-
-  // 末尾で → を押し、次のページの読み込みを待っている間 true。
-  // 読み込まれて画像が増えたら、その先頭へそのまま送る (下の effect)
-  const [awaitingMore, setAwaitingMore] = useState(false);
-
-  // 開く・閉じる・送るたびに待ちは解く。残すと、閉じて別の画像を開いた後に
-  // 遅れて届いたページで勝手に送られる
-  // 開く・始めるのは利用者が押した処理の中なので、ここで動画の再生の
-  // 許可を取っておく (sharedVideo.ts。時計で送った先の動画も流せるように)
-  const open = useCallback(
-    (target: ViewerTarget) => {
-      unlockSharedVideo();
-      setAwaitingMore(false);
-      setPlaying(false);
-      setOpened({
-        target,
-        openedFor: detailItemId,
-        fullscreen: false,
-        visit: nextVisit(),
-      });
-    },
-    [detailItemId],
-  );
-  const close = useCallback(() => {
-    setAwaitingMore(false);
-    setPlaying(false);
-    setOpened(null);
-  }, []);
-  // 境界を引き切って下のペインを隠したら閉じる (docs/86 §4-19)。
-  // 閉じないと 1 ペインへ移った後に全画面の覆いとして出直す
-  useEffect(() => onPreviewPaneHidden(close), [close]);
-  // ペインから全画面の覆いへ移ると 1 枚を作り直す (動画は頭から流れ直す)
-  // ので、表示の番号も新しくする。もう覆いなら作り直さないので番号も据え置く
-  const showFullscreen = useCallback(
-    () =>
-      setOpened((prev) =>
-        prev && !prev.fullscreen
-          ? { ...prev, fullscreen: true, visit: asOverlay ? prev.visit : nextVisit() }
-          : prev,
-      ),
-    [asOverlay],
-  );
-
-  // 送った先を出し、一覧の見える所まで寄せる — ペインの上で送っていても、
-  // いまどれを見ているかが一覧の印で追える
-  const showTarget = useCallback(
-    (next: ViewerTarget, openers: HTMLElement[], targets: ViewerTarget[]) => {
-      setOpened((prev) =>
-        prev ? { ...prev, target: next, visit: nextVisit() } : prev,
-      );
-      openers[targets.findIndex((t) => sameTarget(t, next))]?.scrollIntoView({
-        block: "nearest",
-      });
-    },
-    [],
-  );
-
-  // 1 枚送る。並びは送る瞬間の画面から拾い直す (送っている間に次の
-  // ページが継ぎ足されても、その分まで届く)。手の ← → と自動送りが共有し、
-  // どうなったか (planStep) を返す。
-  //
-  // 次のページは**ビューアから直接頼む** (requestLoadMore)。一覧の末尾の
-  // 目印はスクロールで画面に入ったときにしか読まないが、2 / 3 ペインの
-  // 内側スクロールでは → で末尾の画像まで寄せても目印が器の外に隠れた
-  // ままで、最後の画像で止まっていた (loadMore.ts)。末尾に近づいたら
-  // 先読みし (下の effect)、末尾で押されたら読み込みを待ってから送る
-  const advance = useCallback(
-    (dir: -1 | 1): StepPlan["kind"] | null => {
-      if (current === null) {
-        return null;
-      }
-      setAwaitingMore(false);
-      const openers = openersInPage();
-      const targets = openers.map(targetOf);
-      const plan = planStep(targets, current, dir, hasMoreResults());
-      if (plan.kind === "move") {
-        showTarget(plan.target, openers, targets);
-      } else if (plan.kind === "wait") {
-        requestLoadMore();
-        setAwaitingMore(true);
-      }
-      return plan.kind;
-    },
-    [current, showTarget],
-  );
-
-  // 手で送る (釦・← →)。スライドショーは止める — 手で送ったのは
-  // 「この 1 枚を見たい」意思なので、勝手に次へ行かない (docs/117 §3)
-  const step = useCallback(
-    (dir: -1 | 1) => {
-      setPlaying(false);
-      advance(dir);
-    },
-    [advance],
-  );
-
-  // 再生 / 一時停止。始めるときは全画面にする (ペインのまま流すと、狭い
-  // ペインで眺めることになる)。止めても全画面のまま — 止めた瞬間に
-  // ペインへ戻ると絵が跳ねる。再生はいま出ている 1 枚から始める
-  const togglePlay = useCallback(() => {
-    // 止めるときは次のページの待ちも解く。残すと、届いた瞬間に止めたはずの
-    // スライドショーが 1 枚進む
-    setAwaitingMore(false);
-    if (playing) {
-      setPlaying(false);
-      return;
-    }
-    // 押した操作の中で、出ている動画をその場で再生する (「タップで再生」で
-    // 待っている動画も流れ始める。sharedVideo.ts)
-    playSharedVideoNow();
-    showFullscreen();
-    setPlaying(true);
-  }, [playing, showFullscreen]);
-
-  // 自動送りが末尾 (続きのページも尽きた所) に着いたら、一覧の先頭へ戻って
-  // 流し続ける (docs/117 §2)。手の ← → は今までどおり端で止まる
-  // (docs/116 §4) — 回り込むのは眺めている自動送りのときだけ
-  const loopToFirst = useCallback(() => {
-    const openers = openersInPage();
-    const targets = openers.map(targetOf);
-    if (targets.length === 0) {
-      setPlaying(false);
-      return;
-    }
-    showTarget(targets[0], openers, targets);
-  }, [showTarget]);
-
-  const startSlideshow = useCallback(() => {
-    const openers = openersInPage();
-    if (openers.length === 0) {
-      return false;
-    }
-    unlockSharedVideo();
-    openers[0].scrollIntoView({ block: "nearest" });
-    // 押した釦 (一覧の見出し行) に焦点を残すと、Space が釦を押し直して
-    // 先頭から始め直してしまう
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    setAwaitingMore(false);
-    setOpened({
-      target: targetOf(openers[0]),
-      openedFor: detailItemId,
-      fullscreen: true,
-      visit: nextVisit(),
-    });
-    setPlaying(true);
-    return true;
-  }, [detailItemId]);
-
-  // 読み込みを待つ。一覧の DOM が変わるたびに次の画像を探し、見つかれば送る。
-  // 読み込んだページに画像が 1 枚も無ければ、続きがある限りもう 1 ページ頼む
-  // (「次の画像」はその先にある)。続きが尽きるか、待ちすぎたらあきらめる
-  useEffect(() => {
-    if (!awaitingMore || current === null) {
-      return;
-    }
-    // あきらめたとき、スライドショー中ならそこが末尾なので先頭へ戻る
-    const giveUp = () => {
-      setAwaitingMore(false);
-      if (playing) {
-        loopToFirst();
-      }
-    };
-    const observer = new MutationObserver(() => {
-      const openers = openersInPage();
-      const targets = openers.map(targetOf);
-      const next = neighborTarget(targets, current, 1);
-      if (next !== null) {
-        setAwaitingMore(false);
-        showTarget(next, openers, targets);
-      } else if (!requestLoadMore()) {
-        giveUp();
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    const timer = setTimeout(giveUp, LOAD_MORE_WAIT_MS);
-    return () => {
-      observer.disconnect();
-      clearTimeout(timer);
-    };
-  }, [awaitingMore, current, playing, showTarget, loopToFirst]);
-
-  // 自動送り (docs/117 §2)。原寸を読み終えてから間隔を数える — 時計だけで
-  // 進めると、通信が遅いときサムネの引き伸ばしのまま次へ行ってしまう。
-  // 読み終わらないまま SETTLE_WAIT_MS 経ったらあきらめて送る。
-  // 次のページを待っている間は数えない (届いて送られたら、その 1 枚から数え直す)。
-  // 間隔を変えたら、いま出ている 1 枚の時計もその場で掛け直す
-  //
-  // 動画は間隔ではなく**再生し終えたら**送る (docs/117 §8)。長い動画も
-  // 最後まで見せる。再生できなかった動画 (settled) は画像と同じく間隔ぶん
-  // 見せて送る。再生中の動画は待つ (始まらないときは ViewerVideo が見切る)
-  const intervalSec = useSlideshowInterval();
-  const visit = visible?.visit ?? 0;
-  const status = mediaStatus.visit === visit ? mediaStatus : NO_STATUS;
-  const delay =
-    current === null
-      ? null
-      : slideDelay({
-          isVideo: isValidVideoName(current.name),
-          settled: status.settled,
-          ended: status.ended,
-          intervalMs: intervalSec * 1000,
-          settleWaitMs: SETTLE_WAIT_MS,
-          endPauseMs: VIDEO_END_PAUSE_MS,
-        });
-  useEffect(() => {
-    if (!playing || awaitingMore || delay === null) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (advance(1) === "end") {
-        loopToFirst();
-      }
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [playing, delay, awaitingMore, current, advance, loopToFirst]);
+  const state = useViewerState(overlayOnly);
+  const { current, asOverlay, playing, awaitingMore, visit } = state;
+  const { status, media } = useViewerMedia(visit);
+  const { open, close, showFullscreen } = useViewerOpenClose(state);
+  const { showTarget, advance, loopToFirst } = useViewerAdvance(state);
+  const { step, togglePlay } = useViewerPlayControls({ ...state, advance, showFullscreen });
+  const startSlideshow = useStartSlideshow(state);
+  useAwaitMoreResults({ ...state, showTarget, loopToFirst });
+  useSlideshowTimer({ playing, awaitingMore, current, status, advance, loopToFirst });
 
   useScreenWakeLock(playing && current !== null);
-
-  // 先読み。前後の画像の原寸を先に取っておき (送ってから取りに行くと、
-  // サムネの引き伸ばしから原寸に替わるまでの間が見える)、末尾に近ければ
-  // 次のページを頼む。並びは今の画面から拾う
-  useEffect(() => {
-    if (current === null) {
-      return;
-    }
-    const targets = openersInPage().map(targetOf);
-    const index = targets.findIndex((t) => sameTarget(t, current));
-    if (index === -1) {
-      return;
-    }
-    const ahead = playing ? PRELOAD_AHEAD_PLAYING : PRELOAD_AHEAD;
-    const neighbors = [
-      ...targets.slice(index + 1, index + 1 + ahead),
-      ...targets.slice(Math.max(0, index - PRELOAD_BEHIND), index),
-    ];
-    for (const t of neighbors) {
-      // 動画は先に取らない (数十 MB になりうる)。poster だけ温めておく
-      new Image().src = isValidVideoName(t.name)
-        ? thumbUrl(t.name)
-        : attachmentUrl(t.name);
-    }
-    // 末尾に近ければ次のページも頼む。送ったときだけでなく、末尾近くの
-    // 画像を押して開いたときにも効く
-    if (targets.length - index <= PREFETCH_REMAINING) {
-      requestLoadMore();
-    }
-  }, [current, playing]);
-
-  useEffect(() => {
-    if (current === null) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        // 動画のプレーヤーに焦点があるときは、矢印 (早送り・巻き戻し) と
-        // Space (再生・停止) をプレーヤーに任せる
-        event.target instanceof HTMLVideoElement ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        !acceptsArrowKeys(event.target)
-      ) {
-        return;
-      }
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        event.preventDefault();
-        step(event.key === "ArrowLeft" ? -1 : 1);
-      } else if (event.key === " " && asOverlay) {
-        // Space で再生 / 一時停止 (動画の再生と同じ手)。全画面の覆いの
-        // ときだけ — ペインのときは一覧の Space (スクロール) を奪わない。
-        // 焦点のある釦を押させない — 一覧の画像の釦なら、開き直して再生が止まる
-        event.preventDefault();
-        if (!event.repeat) {
-          togglePlay();
-        }
-      }
-    };
-    // 釦は Space を離したときに押される。keydown を止めても押されるブラウザが
-    // あるので、離す側も止める
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (
-        event.key === " " &&
-        asOverlay &&
-        !(event.target instanceof HTMLVideoElement) &&
-        acceptsArrowKeys(event.target)
-      ) {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, [asOverlay, current, step, togglePlay]);
+  usePreloadNeighbors(current, playing);
+  useViewerKeys({ current, asOverlay, step, togglePlay });
 
   // Esc は覆いのときだけ。ペインは Esc を持たない流儀 (docs/86 §2) に合わせる
   useEscapeKey(close, current !== null && asOverlay);
-
-  // 1 枚の部品から状態を受け取る口。今の表示の番号に結びつけて記録する
-  // (部品は番号ごとに作り直されるので、前の表示の知らせは混ざらない)
-  const media: ViewerMediaHandlers = useMemo(
-    () => ({
-      visit,
-      onSettled: () =>
-        setMediaStatus((prev) => ({
-          visit,
-          settled: true,
-          ended: prev.visit === visit && prev.ended,
-        })),
-      onVideoPlaying: () => setMediaStatus({ visit, settled: false, ended: false }),
-      onVideoEnded: () =>
-        setMediaStatus((prev) => ({
-          visit,
-          settled: prev.visit === visit && prev.settled,
-          ended: true,
-        })),
-      videoSound,
-      onVideoSoundChange: setVideoSound,
-    }),
-    [visit, videoSound],
-  );
 
   const value = useMemo(
     () => ({ current, open, startSlideshow }),
@@ -515,26 +77,59 @@ export function ImageViewerProvider({
   return (
     <ImageViewerContext.Provider value={value}>
       {children}
-      {current !== null &&
-        (asOverlay ? (
-          <ImageViewerOverlay
-            target={current}
-            onClose={close}
-            onStep={step}
-            playing={playing}
-            onTogglePlay={togglePlay}
-            media={media}
-          />
-        ) : (
-          <ImageViewerPane
-            target={current}
-            onClose={close}
-            onStep={step}
-            onFullscreen={showFullscreen}
-            onTogglePlay={togglePlay}
-            media={media}
-          />
-        ))}
+      {current !== null && (
+        <ViewerSurface
+          target={current}
+          asOverlay={asOverlay}
+          playing={playing}
+          onClose={close}
+          onStep={step}
+          onFullscreen={showFullscreen}
+          onTogglePlay={togglePlay}
+          media={media}
+        />
+      )}
     </ImageViewerContext.Provider>
+  );
+}
+
+// 覆いかペインのどちらかで 1 枚を出す
+function ViewerSurface({
+  target,
+  asOverlay,
+  playing,
+  onClose,
+  onStep,
+  onFullscreen,
+  onTogglePlay,
+  media,
+}: {
+  target: ViewerTarget;
+  asOverlay: boolean;
+  playing: boolean;
+  onClose: () => void;
+  onStep: (dir: -1 | 1) => void;
+  onFullscreen: () => void;
+  onTogglePlay: () => void;
+  media: ViewerMediaHandlers;
+}) {
+  return asOverlay ? (
+    <ImageViewerOverlay
+      target={target}
+      onClose={onClose}
+      onStep={onStep}
+      playing={playing}
+      onTogglePlay={onTogglePlay}
+      media={media}
+    />
+  ) : (
+    <ImageViewerPane
+      target={target}
+      onClose={onClose}
+      onStep={onStep}
+      onFullscreen={onFullscreen}
+      onTogglePlay={onTogglePlay}
+      media={media}
+    />
   );
 }
