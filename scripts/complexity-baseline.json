@@ -1,0 +1,534 @@
+{
+  "circular": 4,
+  "totals": {
+    "max-lines-per-function": 182,
+    "complexity": 34,
+    "max-depth": 0,
+    "max-params": 1
+  },
+  "files": {
+    "src/app/about/page.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/app/api/auth/passkey/register-verify/route.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/app/api/images/[name]/rotate/route.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/app/api/images/[name]/route.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/app/api/images/route.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/app/api/import/route.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/app/item/[itemId]/history/[oid]/page.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/app/item/[itemId]/history/page.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/app/layout.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/app/logs/page.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/app/logs/PerfExportTokenButton.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/app/settings/benchmark/BenchmarkPanel.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/app/settings/server/page.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/audio/AudioPlayer.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/audio/useAudioRecording.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/auth/PasskeyLoginButton.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/auth/PasskeyManager.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/BarSlot.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/PhotoMetaMenuItem.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/RowTintMenuItem.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/ScanBeepMenuItem.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/SlotMenu.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/SortSlot.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/bottombar/TextSizeMenuItem.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/camera/ScannerModal.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/camera/useScannerCamera.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/chrome/AppHeader.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/chrome/AppHeaderMenu.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/chrome/HeaderMenu.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/chrome/PullToRefresh.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/clipboard/SaveSlotFile.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/clipboard/ServerClipboardView.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/clipboard/useServerClipboard.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/diag/BootTimingReport.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/diag/PerfTestMenuItem.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/diag/PerfTestRunner.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/draw/DrawLayerPanel.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/draw/DrawModal.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/draw/DrawToolbar.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/draw/shapeTool.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/draw/useDrawCanvas.ts": {
+      "max-lines-per-function": 3
+    },
+    "src/components/draw/useDrawHistory.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/draw/useFabricBrush.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/draw/useStageGestures.ts": {
+      "max-lines-per-function": 2
+    },
+    "src/components/editor/EditScreen.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/EditToolbar.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/hooks/useAttachmentInsert.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/hooks/useDropZone.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/hooks/useEditorOcr.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/hooks/useEditorScanInsert.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/hooks/useEditorSecret.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/hooks/useNoteFind.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/markdownFormat.ts": {
+      "complexity": 1
+    },
+    "src/components/editor/MemoEditor.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/MemoEditorInner.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/MemoPanel.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/NoteSearchBar.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/OcrMenuButton.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/editor/SaveConflictBanner.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/fenceGui/FenceGuiModal.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/fenceGui/openFenceGui.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/health/HealthChart.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/health/HealthRecordForm.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/imageSearch/ImageSearchModal.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/imageSearch/useImageEmbedder.ts": {
+      "max-lines-per-function": 3
+    },
+    "src/components/imageSearch/useLiveImageSearch.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/imageviewer/ImageViewerPane.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/imageviewer/ImageViewerProvider.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/imageviewer/ViewerVideo.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/item/ImageMasonry.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/item/ItemDetail.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/ItemList.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/ItemRowCard.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/NoteView.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/item/PublicItemView.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/row-actions/PressTip.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/row-actions/RowActionMenu.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/row-actions/SwipeToTrashRow.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/row-actions/useLongPress.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/row-actions/useRowGestureArbiter.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/row-actions/useSwipeDrawer.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/item/rowParts.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/markdown/BoardDiagram.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/markdown/MarkdownView.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 4
+    },
+    "src/components/markdown/PropsTable.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/markdown/ZoomableImage.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/matrix/MatrixTable.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/notechrome/NoteChromeBar.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/notechrome/NoteChromeProvider.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/notepage/NotePager.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/offline/OfflineApp.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/offline/OfflineStatus.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/offline/OfflineSync.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 3
+    },
+    "src/components/panes/ClientNotePane.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/panes/CollapsedPaneTabs.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/panes/PaneResizer.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/panes/PreviewPane.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/pdf/pdfService.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/pdf/PdfViewerModal.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/quiz/QuizCard.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/search/AutoLoadMore.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/search/BulkTagToolbar.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/search/FolderPane.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/search/ResultsToolbar.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/search/SearchForm.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/search/SearchResultsClient.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 2
+    },
+    "src/components/search/SuggestionList.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/components/search/useSuggestDropdown.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/secret/SecretBlock.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/components/secret/SecretDialog.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/secret/SecretKeyringManager.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/secret/SecretToolbar.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/secret/SecretTools.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/text/TextViewerModal.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/transfer/ImportResult.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/transfer/NotesImporter.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/trash/TrashList.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/trash/TrashScreen.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/video/useVideoRecording.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/components/video/VideoPlayer.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/components/video/VideoRecordModal.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/api/itemDto.ts": {
+      "complexity": 1
+    },
+    "src/lib/attachments/restore.ts": {
+      "complexity": 1
+    },
+    "src/lib/circuit/circuitikz.ts": {
+      "max-lines-per-function": 2
+    },
+    "src/lib/client/resourceCache.ts": {
+      "max-lines-per-function": 2
+    },
+    "src/lib/draw/floodFill.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/draw/stageGestures.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/enex/enmlToMarkdown.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/health/healthSeries.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/images/photoMeta/avif.ts": {
+      "complexity": 1
+    },
+    "src/lib/images/photoMeta/gif.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/images/photoMeta/jpeg.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/images/photoMeta/png.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/images/photoMeta/tiff.ts": {
+      "complexity": 1
+    },
+    "src/lib/images/photoMeta/webp.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/logging/diagLog.ts": {
+      "complexity": 1
+    },
+    "src/lib/logging/perfNavCheck.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/logging/perfTest.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/markdown/memoPreview.ts": {
+      "complexity": 1
+    },
+    "src/lib/markdown/memoSummary.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/markdown/mermaidRender.ts": {
+      "complexity": 1
+    },
+    "src/lib/matrix/matrixFence.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/offline/pinCache.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/offline/syncItems.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/prefs/memoDraft.ts": {
+      "max-params": 1
+    },
+    "src/lib/search/tokenize.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/secret/prf.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/tts/attempt.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/tts/speak.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/video/videoAnim.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/video/videoMeta.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/lib/video/videoPoster.ts": {
+      "complexity": 1
+    },
+    "src/lib/vocab/quizParse.ts": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/lib/zip/importZip.ts": {
+      "max-lines-per-function": 2
+    },
+    "src/lib/zip/readZip.ts": {
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/api/calendarDto.ts": {
+      "complexity": 1
+    },
+    "src/modules/calendar/client/CalendarMenu.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/modules/calendar/client/CalendarView.tsx": {
+      "complexity": 1,
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/client/DayEventList.tsx": {
+      "max-lines-per-function": 4
+    },
+    "src/modules/calendar/client/DayPane.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/client/DayPopover.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/client/EventForm.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/client/EventPopover.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/client/MonthGrid.tsx": {
+      "max-lines-per-function": 2
+    },
+    "src/modules/calendar/client/TimePopover.tsx": {
+      "max-lines-per-function": 1
+    },
+    "src/modules/calendar/event/calendarPrefs.ts": {
+      "complexity": 1
+    },
+    "src/modules/calendar/event/parseEvent.ts": {
+      "complexity": 1
+    }
+  }
+}

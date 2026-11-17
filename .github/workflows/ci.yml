@@ -52,6 +52,8 @@ jobs:
 
       - run: npm run lint
       - run: npm run typecheck
+      # 関数の長さ・複雑度・循環依存が基準より増えたら落とす (docs/128 §3-0)
+      - run: npm run check:quality
       - run: npm test
       # 本番ランタイムに乗る依存の既知の脆弱性 (high 以上) で落とす
       # (2026-11 のセキュリティ監査 CI-1)。simple-git の critical を 3 か月見落として
