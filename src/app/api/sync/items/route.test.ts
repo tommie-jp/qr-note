@@ -154,7 +154,7 @@ test('gzip を受ける相手にも圧縮せずに返す', async () => {
 // 速度計測中 (docs/119 §2-3)。中身は同じで、Server-Timing と計測行が増えるだけ
 describe('速度計測中', () => {
   afterEach(async () => {
-    const { setPerfLogEnabled } = await import('@/lib/logging/perfSwitch')
+    const { setPerfLogEnabled } = await import('@/lib/perf/perfSwitch')
     const { clearPerfLines } = await import('@/lib/logging/buffer')
     setPerfLogEnabled(false)
     clearPerfLines()
@@ -163,7 +163,7 @@ describe('速度計測中', () => {
 
   test('中身は変えず、Server-Timing に ASCII の段階を載せ、計測行を積む', async () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    const { setPerfLogEnabled } = await import('@/lib/logging/perfSwitch')
+    const { setPerfLogEnabled } = await import('@/lib/perf/perfSwitch')
     const { recentPerfLines } = await import('@/lib/logging/buffer')
     setPerfLogEnabled(true)
 

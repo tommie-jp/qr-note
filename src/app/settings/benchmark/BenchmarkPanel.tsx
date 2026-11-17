@@ -26,7 +26,7 @@ import {
 } from "@/lib/diag/formatBench";
 import { formatJstDateTime } from "@/lib/datetime";
 import { errorText } from "@/lib/errorMessage";
-import { markPerfTestPending } from "@/lib/logging/perfTestFlag";
+import { markPerfTestPending } from "@/lib/perf/perfTestFlag";
 
 // 計測の終わりを見に行く間隔
 const POLL_MS = 3000;

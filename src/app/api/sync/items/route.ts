@@ -4,11 +4,11 @@ import { parseSyncSince, type OfflineSyncDelta } from '@/lib/offline/syncDelta'
 import { loadSyncEtag } from '@/lib/offline/syncVersion'
 import { guardRequest } from '@/lib/route/guard'
 import { apiOkGzip } from '@/lib/route/compress'
-import { startPhases, type PerfPhases } from '@/lib/logging/phase'
+import { startPhases, type PerfPhases } from '@/lib/perf/phase'
 import type { OfflineSyncPayload } from '@/lib/offline/item'
-import { formatServerTiming, perfMB } from '@/lib/logging/perfLine'
-import { reportServerLine } from '@/lib/logging/perfServer'
-import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
+import { formatServerTiming, perfMB } from '@/lib/perf/perfLine'
+import { reportServerLine } from '@/lib/perf/perfServer'
+import { isPerfLogEnabled } from '@/lib/perf/perfSwitch'
 
 // オフライン用にノートをまるごと持ち出す口 (docs/65-オフライン対応計画.md §1)。
 //

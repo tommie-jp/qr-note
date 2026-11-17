@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { perfArrive } from "@/lib/logging/perfClient";
-import type { PerfField } from "@/lib/logging/perfLine";
+import { perfArrive } from "@/lib/perf/perfClient";
+import type { PerfField } from "@/lib/perf/perfLine";
 
 // サーバの段階をブラウザの計測へ渡す印 (docs/119-速度計測ログ計画.md §3-1)。
 // 何も描かない。

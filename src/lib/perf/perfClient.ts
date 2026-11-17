@@ -13,7 +13,7 @@
 // 行は clientCapture の待ち行列 (kind: 'perf') で送る。3 秒ごとの送信と
 // pagehide の Beacon をそのまま借りる。
 
-import { queueClientLog } from './clientCapture'
+import { queueClientLog } from '../logging/clientCapture'
 import {
   formatAbortedLine,
   formatNavLine,

@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 
 // 表示の切替に載せる区分 (docs/120 §2)。clientCapture は使わないので差し替える
-vi.mock('./clientCapture', () => ({ queueClientLog: () => {} }))
+vi.mock('../logging/clientCapture', () => ({ queueClientLog: () => {} }))
 
 const { perfSetViewPhase, withViewPhase } = await import('./perfClient')
 

@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 // 計測ログの取得口 (docs/120 §3)。鍵の照合と控えを差し替える
 const mocks = vi.hoisted(() => ({ owner: null as string | null, perfEnabled: true }))
 
-vi.mock('@/lib/logging/perfExportToken', () => ({
+vi.mock('@/lib/perf/perfExportToken', () => ({
   perfExportOwner: async (token: string) => (token === 'good-token' ? mocks.owner : null),
 }))
 
 // 計測の旗 (切っている間は 404)
-vi.mock('@/lib/logging/perfSwitch', () => ({
+vi.mock('@/lib/perf/perfSwitch', () => ({
   isPerfLogEnabled: () => mocks.perfEnabled,
 }))
 

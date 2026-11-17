@@ -92,7 +92,7 @@ export interface PerfTestDeps {
   describe: () => readonly PerfField[]
   // 回線の種別 (有線 / Wi-Fi / キャリア)。あれば 1 段目に回線を測る (docs/121 §4-1)
   line?: string
-  // 回線を測って行の項目を返す (logging/netProbe.ts)。line があるときだけ呼ぶ
+  // 回線を測って行の項目を返す (perf/netProbe.ts)。line があるときだけ呼ぶ
   measureNet?: () => Promise<readonly PerfField[]>
   // ノートの遷移を確かめる手足 (perfNavCheck.ts)。あればノートを開いた後に流す
   nav?: NavCheckDeps

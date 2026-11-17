@@ -1,11 +1,11 @@
-// ノートの遷移の確かめ (lib/logging/perfNavCheck.ts) の DOM の手足
+// ノートの遷移の確かめ (lib/perf/perfNavCheck.ts) の DOM の手足
 // (docs/123 §12-6)。計測テスト (PerfTestRunner) が組んで渡す。
 //
 // 押すのは利用者と同じ入口 (釦・リンクの click、履歴の back / forward、
 // 引っ張って更新は touch の合成)。判定に要る様子は DOM と Resource Timing から読む
 import 'client-only'
-import type { NavCheckDeps, NavSnapshot } from '@/lib/logging/perfNavCheck'
-import type { PerfField } from '@/lib/logging/perfLine'
+import type { NavCheckDeps, NavSnapshot } from '@/lib/perf/perfNavCheck'
+import type { PerfField } from '@/lib/perf/perfLine'
 
 const RSC_MARK = '_rsc='
 // 端末で開いた・横取りしたノートの器 (PreviewPane が付ける印)。自動で選んだ

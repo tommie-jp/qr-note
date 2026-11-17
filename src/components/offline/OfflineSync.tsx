@@ -13,8 +13,8 @@ import {
   writeMark,
 } from "@/lib/offline/schedule";
 import { syncOfflineItems } from "@/lib/offline/sync";
-import { perfNow, perfSend } from "@/lib/logging/perfClient";
-import { perfMs } from "@/lib/logging/perfLine";
+import { perfNow, perfSend } from "@/lib/perf/perfClient";
+import { perfMs } from "@/lib/perf/perfLine";
 
 // オフライン用の下ごしらえ (docs/65-オフライン対応計画.md)。何も描かない。
 //

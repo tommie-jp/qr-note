@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSearchState } from "@/lib/client/useSearchState";
-import { perfStart } from "@/lib/logging/perfClient";
+import { perfStart } from "@/lib/perf/perfClient";
 import { recordQueryUse } from "@/lib/search/queryClient";
 import { buildSearchUrl } from "@/lib/search/url";
 import { carryResultViewParams } from "@/modules/registry";

@@ -129,7 +129,7 @@ export function pathEnv(): string | undefined {
 }
 
 // 速度計測の既定 (docs/119 §1-4)。"1" なら起動直後から計測する。
-// 実際の切替は /logs?perf=1 から押す (logging/perfSwitch.ts)。これは再起動を
+// 実際の切替は /logs?perf=1 から押す (perf/perfSwitch.ts)。これは再起動を
 // またいで計測し続けたいときのためだけの口
 export function perfLogEnv(): string | undefined {
   return process.env.PERF_LOG;

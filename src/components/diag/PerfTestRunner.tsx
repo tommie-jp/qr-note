@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { flushClientLogs } from "@/lib/logging/clientCapture";
-import { isPerfIdle, perfSend, perfSetViewPhase } from "@/lib/logging/perfClient";
-import { measureNet, UPLOAD_BYTES, type NetProbeDeps } from "@/lib/logging/netProbe";
-import { runPerfTest, type PerfTestStatus, type PerfViewPhase } from "@/lib/logging/perfTest";
+import { isPerfIdle, perfSend, perfSetViewPhase } from "@/lib/perf/perfClient";
+import { measureNet, UPLOAD_BYTES, type NetProbeDeps } from "@/lib/perf/netProbe";
+import { runPerfTest, type PerfTestStatus, type PerfViewPhase } from "@/lib/perf/perfTest";
 import {
   clearPerfTestRunning,
   markPerfTestRunning,
   takePerfTestInterrupted,
   takePerfTestPending,
-} from "@/lib/logging/perfTestFlag";
+} from "@/lib/perf/perfTestFlag";
 import { syncOfflineItems } from "@/lib/offline/sync";
-import { noSpace } from "@/lib/logging/perfNavCheck";
+import { noSpace } from "@/lib/perf/perfNavCheck";
 import { createNavCheckDeps } from "./navCheckDom";
 
 // 計測テストを流す (docs/120-計測テスト自動化計画.md §2)。
@@ -20,7 +20,7 @@ import { createNavCheckDeps } from "./navCheckDom";
 // 付けた印 (perfTestFlag.ts) があれば、読み込み直した直後に手順を流して
 // 最後に計測を止め、進み具合を画面の下に小さく出す。印が無ければ何も描かない。
 //
-// 手順の並びは lib/logging/perfTest.ts。ここは DOM の手足だけを組む
+// 手順の並びは lib/perf/perfTest.ts。ここは DOM の手足だけを組む
 
 const TYPE_DELAY_MS = 120;
 // 表示モードの釦を押してから、次を押すまでの待ち。押した結果が描き直されて

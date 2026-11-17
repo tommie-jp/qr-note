@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { refreshRouter } from "@/lib/client/navigation";
 import { startTransition, useCallback, useState } from "react";
 import { SelectIcon, SlideshowIcon } from "@/components/icons";
-import { perfMarkImmediate, perfNow, perfStart } from "@/lib/logging/perfClient";
+import { perfMarkImmediate, perfNow, perfStart } from "@/lib/perf/perfClient";
 import { switchViewMode } from "@/components/search/switchViewMode";
 import { useImageViewer } from "@/components/imageviewer/ImageViewerProvider";
 import { useSelectMode } from "@/components/search/SelectModeProvider";

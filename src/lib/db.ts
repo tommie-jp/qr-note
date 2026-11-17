@@ -2,7 +2,7 @@ import 'server-only'
 import { PrismaClient } from '@/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { databaseUrlEnv, isNodeEnvProduction, perfLogEnv } from './appEnv'
-import { reportSlowQuery } from './logging/perfServer'
+import { reportSlowQuery } from './perf/perfServer'
 
 const POOL_IDLE_TIMEOUT_MS = 30 * 60 * 1000
 

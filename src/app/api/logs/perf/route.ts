@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { setPerfLogEnabled } from '@/lib/logging/perfSwitch'
+import { setPerfLogEnabled } from '@/lib/perf/perfSwitch'
 import { guardAdminRequest } from '@/lib/route/guard'
 import { apiFail, apiOk } from '@/lib/route/respond'
 

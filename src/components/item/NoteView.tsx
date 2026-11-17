@@ -29,7 +29,7 @@ import type { HealthMap } from "@/lib/health/healthData";
 import type { MatrixMap } from "@/lib/matrix/matrixData";
 import { formatBase } from "@/lib/editor/saveBase";
 import { allImageNames } from "@/lib/images/memoImages";
-import { perfKB } from "@/lib/logging/perfLine";
+import { perfKB } from "@/lib/perf/perfLine";
 import { CIRCUIT_LANGS } from "@/lib/markdown/fenceLanguages";
 import { ensureSnapshotIndex, snapshotIndexStore } from "@/lib/offline/snapshotIndex";
 import {

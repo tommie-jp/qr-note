@@ -362,10 +362,10 @@
     "src/lib/logging/diagLog.ts": {
       "complexity": 1
     },
-    "src/lib/logging/perfNavCheck.ts": {
+    "src/lib/perf/perfNavCheck.ts": {
       "max-lines-per-function": 1
     },
-    "src/lib/logging/perfTest.ts": {
+    "src/lib/perf/perfTest.ts": {
       "max-lines-per-function": 1
     },
     "src/lib/markdown/memoPreview.ts": {

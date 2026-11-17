@@ -1,7 +1,7 @@
 // ブラウザ側の速度計測の純関数 (docs/119-速度計測ログ計画.md §3)。
 //
 // resource timing の選り分けと、計測 1 回ぶんの行の組み立て。状態は
-// logging/perfClient.ts が持ち、ここは入力 (entry の配列・時刻) から答えを
+// perf/perfClient.ts が持ち、ここは入力 (entry の配列・時刻) から答えを
 // 返すだけにする — ブラウザの API を偽物で差し替えずにテストできる。
 
 import { formatPerfLine, perfKB, perfMs, type PerfField } from './perfLine'

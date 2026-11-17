@@ -19,7 +19,7 @@ import {
   isPerfExportToken,
   newPerfExportToken,
   registerPerfExportToken,
-} from '@/lib/logging/perfExportToken'
+} from '@/lib/perf/perfExportToken'
 
 const TOKEN_FILE =
   process.env.QR_PERF_TOKEN_FILE ?? join(homedir(), '.config', 'qr-note', 'perf-token')

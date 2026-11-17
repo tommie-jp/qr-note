@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { formatPerfLinesForCopy } from '@/app/logs/formatLogsForCopy'
 import { recentPerfLines } from '@/lib/logging/buffer'
-import { perfExportOwner } from '@/lib/logging/perfExportToken'
-import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
+import { perfExportOwner } from '@/lib/perf/perfExportToken'
+import { isPerfLogEnabled } from '@/lib/perf/perfSwitch'
 import { denyIfDemoMode } from '@/lib/route/guard'
 import { apiFail } from '@/lib/route/respond'
 

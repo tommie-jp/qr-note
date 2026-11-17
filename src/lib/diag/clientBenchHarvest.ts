@@ -7,7 +7,7 @@
 // 要約 (summarizeRun) は純関数。読み出しと保存だけが I/O
 import 'server-only'
 import { recentPerfLines } from '../logging/buffer'
-import { parsePerfLine } from '../logging/perfLine'
+import { parsePerfLine } from '../perf/perfLine'
 import { saveClientBench } from './benchStore'
 import { type ClientBenchRow, type ClientBenchRun, isNetLine, UNKNOWN_LINE } from './benchTypes'
 

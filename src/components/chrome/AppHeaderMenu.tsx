@@ -26,7 +26,7 @@ import { ScrollbarMenuItem } from "@/components/bottombar/ScrollbarMenuItem";
 import { TextSizeMenuItem } from "@/components/bottombar/TextSizeMenuItem";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
 import { isAdminUser } from "@/lib/auth/admin";
-import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
+import { isPerfLogEnabled } from "@/lib/perf/perfSwitch";
 import { PASSKEY_SETTINGS_PATH } from "@/lib/auth/paths";
 import type { PhotoMetaMode } from "@/lib/prefs/photoMeta";
 import type { RowTintId } from "@/lib/prefs/rowTint";

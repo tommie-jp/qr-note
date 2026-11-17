@@ -65,7 +65,7 @@ export function formatPerfLine(kind: string, fields: readonly PerfField[]): stri
   return [PERF_PREFIX, kind, ...parts].join(' ')
 }
 
-// サーバの段階 (logging/phase.ts の PerfPhases) を 1 項目に畳む。
+// サーバの段階 (perf/phase.ts の PerfPhases) を 1 項目に畳む。
 //   23ms(検索=3 特性=0 サムネ=2)
 // 段階が 1 つも無ければ全体だけ
 export function formatPhaseSummary(perf: {

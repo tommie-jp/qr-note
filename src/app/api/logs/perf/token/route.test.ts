@@ -31,7 +31,7 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 
-vi.mock('@/lib/logging/perfExportToken', () => ({
+vi.mock('@/lib/perf/perfExportToken', () => ({
   issuePerfExportToken: async (user: string) => {
     mocks.issuedFor.push(user)
     return 'new-token'

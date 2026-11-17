@@ -241,7 +241,7 @@ await writeAtomic(profilePath(), JSON.stringify(profile))
   (`/api/logs/perf/export`) のように誰でも叩けるものではない。本文の上限は
   server 既定の 35M の内側で、アプリが 1MB で 413 にする。nginx の gzip は
   既定の text/html だけで octet-stream は縮めず、中身も乱数なので縮まない
-- ブラウザ側は `lib/logging/netProbe.ts` (純粋な手順。fetch と時計は引数で
+- ブラウザ側は `lib/perf/netProbe.ts` (純粋な手順。fetch と時計は引数で
   受ける) と、それを `PerfTestRunner` から呼ぶ 1 段。各項目 3 回の中央値。
   **ループで何十 MB も使う speedtest にはしない** (キャリアの通信量)
 - 既存の `受信=`・`転送=` はサーバと描画が混ざっている。この行と引き算
@@ -333,10 +333,10 @@ docker compose exec app node --cpu-prof ... (standalone には tsx が無い。�
 | `src/lib/diag/benchEnv.ts` (新規) | §3-3 |
 | `src/lib/diag/clientBenchHarvest.ts` (新規) | §4-3 |
 | `src/lib/diag/formatBench.ts` (新規) | 画面の表とコピーの文字列 |
-| `src/lib/logging/perfLine.ts` | `parsePerfLine` |
-| `src/lib/logging/perfTestFlag.ts` | 印を JSON に (§4-2) |
-| `src/lib/logging/perfTest.ts` | 回線の段・`describe` に回線・`returnTo` |
-| `src/lib/logging/netProbe.ts` (新規) | §4-1 のブラウザ側 |
+| `src/lib/perf/perfLine.ts` | `parsePerfLine` |
+| `src/lib/perf/perfTestFlag.ts` | 印を JSON に (§4-2) |
+| `src/lib/perf/perfTest.ts` | 回線の段・`describe` に回線・`returnTo` |
+| `src/lib/perf/netProbe.ts` (新規) | §4-1 のブラウザ側 |
 | `src/components/diag/PerfTestRunner.tsx` | 回線の手足・戻り |
 | `src/app/actions/benchmark.ts` | §3-5 |
 | `src/app/api/diag/net/route.ts` (新規) | §4-1 の口 |

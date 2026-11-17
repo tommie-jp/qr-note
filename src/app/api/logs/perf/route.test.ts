@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { setPerfLogEnabled, isPerfLogEnabled } from '@/lib/logging/perfSwitch'
+import { setPerfLogEnabled, isPerfLogEnabled } from '@/lib/perf/perfSwitch'
 
 // 速度計測の切替の口 (docs/119 §1-4)。消去の口 (api/logs/clear) と同じ流儀:
 // next/headers とセッションの DB を差し替え、門番の判定そのものは本物を通す

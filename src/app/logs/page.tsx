@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import { ACTION_LINK_CLASS } from "@/components/ui";
 import { recentLogs, recentPerfLines } from "@/lib/logging/buffer";
-import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
+import { isPerfLogEnabled } from "@/lib/perf/perfSwitch";
 import { PerfExportTokenButton } from "./PerfExportTokenButton";
 import { PerfToggleButton } from "./PerfToggleButton";
 import { requireAdminPage } from "@/lib/auth/pageGuard";

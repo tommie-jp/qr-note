@@ -9,12 +9,12 @@ import {
   parseWorkerVersion,
   readBootTiming,
   shouldReportBoot,
-} from "@/lib/logging/bootTiming";
+} from "@/lib/perf/bootTiming";
 import { logDiagEvent, logPerfEvent } from "@/lib/logging/diagLog";
 import { readMark, writeMark } from "@/lib/offline/schedule";
 
 // 起動にかかった時間の内訳を /logs へ送る。何も描かない。
-// 何のための計測かは src/lib/logging/bootTiming.ts の冒頭に書いた。
+// 何のための計測かは src/lib/perf/bootTiming.ts の冒頭に書いた。
 //
 // localStorage の出入りは offline/schedule.ts の readMark/writeMark を借りる。
 // 素で触ると保存を塞いだブラウザで例外が突き抜ける、という理由はあちらと同じで、
@@ -102,7 +102,7 @@ export function BootTimingReport({ version, always = false }: BootTimingReportPr
       }
     };
 
-    // load を待てなかったときの途中経過 (logging/bootTiming.ts の BOOT_REPORT_FALLBACK_MS)。
+    // load を待てなかったときの途中経過 (perf/bootTiming.ts の BOOT_REPORT_FALLBACK_MS)。
     // ここまで来ていれば responseStart / responseEnd / FCP は確定しており、
     // 白い時間がサーバ側か Worker 側かはこれだけで切り分けられる
     const reportPartial = () => {

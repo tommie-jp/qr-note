@@ -14,7 +14,7 @@ import {
 } from "@/lib/client/listStore";
 import { useSearchState } from "@/lib/client/useSearchState";
 import { warmNotes } from "@/lib/client/warmNotes";
-import { perfQuery } from "@/lib/logging/perfLine";
+import { perfQuery } from "@/lib/perf/perfLine";
 import { buildMathSummaries, buildMathTexts } from "@/lib/markdown/mathText";
 import { useShownViewMode } from "@/lib/prefs/pendingViewMode";
 import type { ViewMode } from "@/lib/prefs/viewMode";

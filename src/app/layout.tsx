@@ -14,7 +14,7 @@ import { loadRowTintId } from "@/lib/prefs/rowTintStore";
 import { loadPhotoMetaMode } from "@/lib/prefs/photoMetaStore";
 import { demoLoginHintEnv, isDemoMode, isProductionEnv } from "@/lib/appEnv";
 import { currentUser } from "@/lib/auth/session";
-import { isPerfLogEnabled } from "@/lib/logging/perfSwitch";
+import { isPerfLogEnabled } from "@/lib/perf/perfSwitch";
 import { qrBaseUrl } from "@/lib/site";
 import { CONTENT_WIDTH_CLASS } from "@/components/ui";
 import { NONCE_HEADER } from "@/lib/security/csp";

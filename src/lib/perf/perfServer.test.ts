@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { clearPerfLines, recentPerfLines } from './buffer'
+import { clearPerfLines, recentPerfLines } from '../logging/buffer'
 import { reportServerLine, reportServerPerf, reportSlowQuery } from './perfServer'
 import { setPerfLogEnabled } from './perfSwitch'
 

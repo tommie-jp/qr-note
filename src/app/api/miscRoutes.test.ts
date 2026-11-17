@@ -5,7 +5,7 @@ import { startJob } from '@/lib/diag/benchJob'
 import { loadBenchStatus, type BenchStatus } from '@/lib/diag/benchStatus'
 import { countFolderTotals, listTags } from '@/lib/items/read'
 import { countTrashedItems } from '@/lib/items/trash'
-import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
+import { isPerfLogEnabled } from '@/lib/perf/perfSwitch'
 import { listQueries } from '@/lib/search/queryStore'
 
 // 小さな口をまとめて見る (docs/123 §1-3・§2-1):
@@ -53,7 +53,7 @@ vi.mock('@/lib/diag/benchmark', () => ({ startBenchmark: vi.fn() }))
 vi.mock('@/lib/diag/benchJob', () => ({ startJob: vi.fn() }))
 vi.mock('@/lib/diag/benchStatus', () => ({ loadBenchStatus: vi.fn() }))
 vi.mock('@/lib/diag/serverBench', () => ({ pageBenchCookie: () => 'c=1', runServerBench: vi.fn() }))
-vi.mock('@/lib/logging/perfSwitch', () => ({ isPerfLogEnabled: vi.fn() }))
+vi.mock('@/lib/perf/perfSwitch', () => ({ isPerfLogEnabled: vi.fn() }))
 
 const tags = await import('./tags/route')
 const folders = await import('./folders/route')

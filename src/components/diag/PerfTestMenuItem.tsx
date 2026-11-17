@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { StopwatchIcon } from "@/components/icons";
 import { HEADER_MENU_ITEM_CLASS } from "@/components/ui";
-import { clearPerfTestPending, markPerfTestPending } from "@/lib/logging/perfTestFlag";
+import { clearPerfTestPending, markPerfTestPending } from "@/lib/perf/perfTestFlag";
 
 // メニューの「計測開始」(docs/120-計測テスト自動化計画.md §1)。
 //

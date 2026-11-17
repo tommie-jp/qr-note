@@ -1,7 +1,7 @@
 // サーバの段階を行にして控え、ブラウザへ渡す印を作る (docs/119 §2)。
 import 'server-only'
 import type { PerfMarksProps } from '@/components/diag/PerfMarks'
-import { pushPerfLine } from './buffer'
+import { pushPerfLine } from '../logging/buffer'
 import type { PerfPhases } from './phase'
 import { formatPerfLine, formatPhaseSummary, perfMs, type PerfField } from './perfLine'
 import { isPerfLogEnabled } from './perfSwitch'

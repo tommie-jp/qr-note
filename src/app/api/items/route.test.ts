@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { loadSearchPayload } from '@/lib/api/searchPayload'
-import { reportServerLine } from '@/lib/logging/perfServer'
+import { reportServerLine } from '@/lib/perf/perfServer'
 
 // 検索の口 GET /api/items (docs/123 §1-3)。
 // 他の route テストと同じ流儀: next/headers とセッションだけを差し替えて
@@ -30,7 +30,7 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       : null,
 }))
 vi.mock('@/lib/api/searchPayload', () => ({ loadSearchPayload: vi.fn() }))
-vi.mock('@/lib/logging/perfServer', () => ({ reportServerLine: vi.fn() }))
+vi.mock('@/lib/perf/perfServer', () => ({ reportServerLine: vi.fn() }))
 
 const { GET } = await import('./route')
 

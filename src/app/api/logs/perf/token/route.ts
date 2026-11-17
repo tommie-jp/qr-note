@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server'
-import { issuePerfExportToken } from '@/lib/logging/perfExportToken'
+import { issuePerfExportToken } from '@/lib/perf/perfExportToken'
 import { guardAdminRequest } from '@/lib/route/guard'
 import { apiOk } from '@/lib/route/respond'
 

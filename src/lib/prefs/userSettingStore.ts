@@ -39,7 +39,7 @@ export async function writeUserSetting(
 }
 
 // key と値が一致する行の持ち主を返す (無ければ null)。値で引くのは、
-// 計測ログの取得鍵 (logging/perfExportToken.ts) のように「値の hash から
+// 計測ログの取得鍵 (perf/perfExportToken.ts) のように「値の hash から
 // 誰の物かを知る」設定のため。同じ値を複数人が持つことは想定しない
 export async function findUserSettingOwner(
   key: string,

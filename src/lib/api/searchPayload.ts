@@ -20,8 +20,8 @@ import {
   type TaskProgress,
 } from '@/lib/items/search'
 import { countTrashedItems, countTrashedMatches } from '@/lib/items/trash'
-import { startPhases, type PerfPhases } from '@/lib/logging/phase'
-import { isPerfLogEnabled } from '@/lib/logging/perfSwitch'
+import { startPhases, type PerfPhases } from '@/lib/perf/phase'
+import { isPerfLogEnabled } from '@/lib/perf/perfSwitch'
 import type { ViewMode } from '@/lib/prefs/viewMode'
 import { queryHasTagTerm, queryTracksTaskProgress } from '@/lib/search/rewrite'
 import type { Sort } from '@/lib/validation'

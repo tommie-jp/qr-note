@@ -6,7 +6,7 @@ import { COMPACT_ACTION_LINK_CLASS } from "@/components/ui";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { keepsNoteOpen } from "@/lib/prefs/paneMode";
 import { itemIdFromPathname } from "@/lib/search/url";
-import { perfStart } from "@/lib/logging/perfClient";
+import { perfStart } from "@/lib/perf/perfClient";
 import { afterNextPaint } from "@/lib/afterNextPaint";
 import { LOAD_MORE_EVENT } from "./loadMore";
 import { canScroll, createScrollArm } from "./loadMoreGate";

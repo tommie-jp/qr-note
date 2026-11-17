@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { parsePerfLine } from '../logging/perfLine'
+import { parsePerfLine } from '../perf/perfLine'
 
 vi.mock('server-only', () => ({}))
 
