@@ -83,29 +83,35 @@ function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
+// 予定の派生列は知らない版の応答では無い (undefined) ので、無いのも認める
+function optional(check: (value: unknown) => boolean): (value: unknown) => boolean {
+  return (value) => value === undefined || check(value)
+}
+
+// 項目ごとの形の確かめ。props は中身を問わない (JSON なら何でもよい)
+const FIELD_CHECKS: Partial<Record<keyof ItemDto, (value: unknown) => boolean>> = {
+  itemId: (value) => isString(value) && value !== '',
+  memo: isString,
+  title: isString,
+  tags: (value) => Array.isArray(value) && value.every(isString),
+  taskTodo: isCount,
+  taskDone: isCount,
+  createdAt: isIsoDate,
+  updatedAt: isIsoDate,
+  accessedAt: isIsoDate,
+  deletedAt: isNullableIsoDate,
+  publicAt: isNullableIsoDate,
+  offlinePin: (value) => typeof value === 'boolean',
+  eventStart: optional(isNullableIsoDate),
+  eventEnd: optional(isNullableIsoDate),
+  eventRepeat: optional((value) => value === null || isString(value)),
+}
+
 // 外から来た値 (API の応答) を信用しない。形が違えば false
 export function isItemDto(value: unknown): value is ItemDto {
   if (typeof value !== 'object' || value === null) {
     return false
   }
   const v = value as Record<string, unknown>
-  return (
-    isString(v.itemId) &&
-    v.itemId !== '' &&
-    isString(v.memo) &&
-    isString(v.title) &&
-    Array.isArray(v.tags) &&
-    v.tags.every(isString) &&
-    isCount(v.taskTodo) &&
-    isCount(v.taskDone) &&
-    isIsoDate(v.createdAt) &&
-    isIsoDate(v.updatedAt) &&
-    isIsoDate(v.accessedAt) &&
-    isNullableIsoDate(v.deletedAt) &&
-    isNullableIsoDate(v.publicAt) &&
-    typeof v.offlinePin === 'boolean' &&
-    (v.eventStart === undefined || isNullableIsoDate(v.eventStart)) &&
-    (v.eventEnd === undefined || isNullableIsoDate(v.eventEnd)) &&
-    (v.eventRepeat === undefined || v.eventRepeat === null || isString(v.eventRepeat))
-  )
+  return Object.entries(FIELD_CHECKS).every(([key, check]) => check(v[key]))
 }
