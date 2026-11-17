@@ -1,9 +1,7 @@
 "use client";
 
-import { noteName } from "@/lib/items/noteName";
 import { registerCodeOf } from "@/lib/external/scanRegister";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { Item } from "@/generated/prisma/client";
 // 値の import は不可 — components/item/NotePreviewThumb.tsx はサーバ専用 module
@@ -13,26 +11,30 @@ import type { Item } from "@/generated/prisma/client";
 import type { CircuitThumbMap } from "@/lib/circuit/types";
 import type { MathTextMap } from "@/lib/markdown/mathTextTypes";
 import type { NotePreviewMap } from "./NotePreviewThumb";
-import { buildItemUrl, itemIdFromPathname } from "@/lib/search/url";
+import { buildItemUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 import { DEFAULT_VIEW_MODE, type ViewMode } from "@/lib/prefs/viewMode";
-import { BulkTagToolbar, type TagUndoState } from "../search/BulkTagToolbar";
-import { tagUndoMessage, type TagChange } from "@/lib/markdown/tags/bulk";
-import { ImageMasonry } from "./ImageMasonry";
-import { SearchTileMenuProvider } from "./row-actions/TileActions";
 import { ItemRow } from "./ItemRow";
-import { usePaneMode } from "../panes/PaneModeProvider";
 import { TrashIcon } from "../icons";
-import { useSelectMode } from "../search/SelectModeProvider";
 import { ACTION_LINK_CLASS, PRIMARY_BUTTON_CLASS } from "../ui";
+import {
+  listClassOf,
+  masonryList,
+  type RowContext,
+  rowProps,
+  selectList,
+  swipeOf,
+  usePreviewItemId,
+} from "./itemListParts";
+import {
+  type BulkTagAction,
+  type BulkTagSubmit,
+  type UndoTagAction,
+  useItemListSelection,
+} from "./useItemListSelection";
 
-// bulkTagAction をそのまま import すると db.ts (DATABASE_URL 必須) まで巻き込み
-// テストが動かないため、サーバーアクションは page.tsx から prop で受け取る。
-type BulkTagAction = (formData: FormData) => void | Promise<void>;
-// 一括タグの「追加」。ノートごとに実際に増えたタグを返す (外したときは空)
-type BulkTagSubmit = (formData: FormData) => Promise<TagChange[]>;
-// 直前のタグ追加を取り消す
-type UndoTagAction = (changes: readonly TagChange[]) => Promise<void>;
+// サーバーアクションの型 (bulkTagAction は page.tsx から prop で受け取る) は
+// useItemListSelection.ts に置いてある
 
 interface ItemListProps {
   items: Item[];
@@ -122,128 +124,28 @@ function emptyState(
 
 // 検索結果リスト。選択モードでは各行にチェックボックス、上部に一括タグ付け/
 // 削除のツールバーを出す。モードの入り切りは下部バーの「選択」が持つ。
-export function ItemList({
-  items,
-  query,
-  page,
-  sort,
-  action,
-  undoTagAction,
-  view = DEFAULT_VIEW_MODE,
-  trashAction,
-  pinAction,
-  registerHref,
-  trashedMatches,
-  circuitThumbs,
-  mathTexts,
-  notePreviews,
-}: ItemListProps) {
+export function ItemList(props: ItemListProps) {
+  const { items, query, page, sort, view = DEFAULT_VIEW_MODE } = props;
+  const { registerHref, trashedMatches, trashAction } = props;
   // view は呼び手 (SearchResultsClient) が送った先を重ねた後の値 (docs/118 §10
   // 案 B)。**ここで useShownViewMode を重ねない** — 重ねると保存の返事が来た
   // 瞬間に送った先を捨て、一覧が一瞬もとの表示に戻っていた (docs/123 §12-10)。
   // カードの本文プレビューや数式は手元の材料で描く (無ければ素の文字。rowPreview が畳む)
-  // 選択モードの入り切りは下部バーが持つ (docs/31-下部操作バー計画.md §5-2)。
-  // 選んだ番号の Set はここに残す — バーは「何件選ばれたか」を知る必要がなく、
-  // 持ち上げても使い道がない
-  const { selectMode, exit } = useSelectMode();
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const selection = useItemListSelection(props.action, props.undoTagAction);
 
   // スワイプで開いている行 (docs/43-スワイプ削除計画.md)。開くのは常に 1 行
   // だけにするため、ここで一元管理する。小表示・非選択のときだけ効く。
   const [openItemId, setOpenItemId] = useState<string | null>(null);
 
-  // ノートのペイン (docs/86 §4) に出ている番号。ペイン自身が context へ
-  // 流したものを見る (docs/86 §4-4) — 3 ペインでは URL が /item から
-  // 離れてもノートが出たままなので、pathname だけでは決まらない。
-  // provider の外 (ペインのない画面) では pathname に落とす
-  const pathname = usePathname();
-  const { shownItemId } = usePaneMode();
-  const previewItemId = shownItemId ?? itemIdFromPathname(pathname);
+  const previewItemId = usePreviewItemId();
 
-  // 直前のタグ追加の取り消し (BulkTagToolbar の「元に戻す」)。取り消せるのは
-  // 直前の 1 回だけ — 次の操作を送るか、選択モードを抜けたら捨てる
-  const [tagUndo, setTagUndo] = useState<{
-    changes: TagChange[];
-    status: TagUndoState["status"];
-  } | null>(null);
-
-  // 選択モードを抜けたら選択を捨てる。バーから抜けることもあるので、
-  // 抜ける操作それぞれに後始末を配らず、モードの変化 1 か所で受ける
-  const [wasSelectMode, setWasSelectMode] = useState(selectMode);
-  if (selectMode !== wasSelectMode) {
-    setWasSelectMode(selectMode);
-    if (!selectMode) {
-      setSelected(new Set());
-      setTagUndo(null);
-    }
-  }
-
-  const submitBulkTags = async (formData: FormData) => {
-    setTagUndo(null);
-    const changes = await action(formData);
-    if (changes.length > 0) {
-      setTagUndo({ changes, status: "ready" });
-    }
-  };
-
-  const undoTags = async () => {
-    if (tagUndo === null || tagUndo.status === "busy" || tagUndo.status === "done") {
-      return;
-    }
-    const { changes } = tagUndo;
-    setTagUndo({ changes, status: "busy" });
-    try {
-      await undoTagAction(changes);
-      setTagUndo({ changes, status: "done" });
-    } catch (error) {
-      console.error("タグの追加を取り消せませんでした", error);
-      setTagUndo({ changes, status: "failed" });
-    }
-  };
-
-  // ゴミ箱・オフラインの送信も「次の操作」なので、取り消しの帯を先に畳む
-  const clearingTagUndo =
-    (send: BulkTagAction): BulkTagAction =>
-    (formData) => {
-      setTagUndo(null);
-      return send(formData);
-    };
-
-  const toggle = (itemId: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
-
-  // 小 … 今までどおりの 1 カラムの一覧 (区切り線で仕切る)。
-  // 大 … カードを敷き詰めるグリッド。**カラム数は指定しない**。auto-fill に
-  //      任せることで、スマホは 1 列・タブレット/PC は 2 列以上と画面が決める。
-  //      20rem を下限にするのは、これより狭いカードではタイトルも本文 3 行も
-  //      読めず、密度を上げた意味が無くなるため。
-  //
-  //      下限が min(20rem, 100%) なのは必須。素の minmax(20rem, 1fr) だと、
-  //      器が 20rem より狭い画面 (実測: 320px 端末で器は 273px) でも列が 20rem に
-  //      広がり、横スクロールが出る。100% との min を取ることで、狭い画面では
-  //      「器いっぱいの 1 列」に畳まれる
-  const listClass =
-    view === "card"
-      ? "grid gap-2 grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))]"
-      : "divide-y divide-gray-200 rounded border border-gray-200 bg-white";
-
-  // 画像モードの行はない (masonry が描く)。選択モード中のフォールバックなど
-  // ItemRow に流すときは compact に畳む — ItemRow に 'image' が来ないことを
-  // 型 (RowViewMode) で保証する
-  const rowView = view === "image" ? "compact" : view;
-
+  const listClass = listClassOf(view);
   // ノートへのリンクに検索状態を載せる (docs/60-学習進捗計画.md §4)。
   // 開いた先で「一覧の前後」を辿れるようにするため。検索していないときは
   // buildItemUrl が素の /item/<番号> に畳むので、今までと同じ URL になる
   const itemHref = (itemId: string) => buildItemUrl(itemId, query, sort);
+  const { circuitThumbs, mathTexts, notePreviews } = props;
+  const rows: RowContext = { itemHref, view, circuitThumbs, mathTexts, notePreviews, previewItemId };
 
   // 1 件を削除した後に戻る先。**戻り先を持ち回さないと素の / へ飛ばされる** —
   // trashItemsAction は最後に redirect(parseBackUrl(formData)) を呼ぶので、
@@ -259,7 +161,7 @@ export function ItemList({
   //   選択モード中 … タイルは画像単位でノート単位ではなく、画像なしノートが
   //     選択対象から漏れるので、下の compact 一覧 (rowView) に畳んで受ける。
   //     抜ければ masonry に戻る (docs/32 §5)
-  if (view === "image" && !selectMode) {
+  if (view === "image" && !selection.selectMode) {
     if (items.length === 0) {
       return (
         <ul className={listClass}>
@@ -267,50 +169,17 @@ export function ItemList({
         </ul>
       );
     }
-    // SearchTileMenuProvider … タイルの ⋮ からゴミ箱へ入れる送信の状態を、
-    // ノート単位で 1 か所に持つ (docs/107 §7)
-    return (
-      <SearchTileMenuProvider trashAction={trashAction} searchState={searchState}>
-        <ImageMasonry
-          items={items}
-          itemHref={itemHref}
-          circuitThumbs={circuitThumbs}
-          mathTexts={mathTexts}
-          previewItemId={previewItemId}
-          tileActions
-        />
-      </SearchTileMenuProvider>
-    );
+    return masonryList({ items, itemHref, circuitThumbs, mathTexts, previewItemId, trashAction, searchState });
   }
 
-  if (!selectMode) {
-    // スワイプ削除は一覧系の表示すべて (小・中・大。docs/43 §9)。画像モードは
-    // 非選択時に ImageMasonry へ early return するので、ここには来ない。
-    const swipeEnabled = view !== "image";
+  if (!selection.selectMode) {
     return (
       <ul className={listClass}>
         {items.map((item) => (
           <ItemRow
             key={item.itemId}
-            item={item}
-            href={itemHref(item.itemId)}
-            view={rowView}
-            circuitThumb={circuitThumbs?.[item.itemId]?.[0]}
-            mathTitle={mathTexts?.[item.itemId]?.title}
-            mathPreview={mathTexts?.[item.itemId]?.preview}
-            notePreview={notePreviews?.[item.itemId]}
-            selected={item.itemId === previewItemId}
-            swipe={
-              swipeEnabled
-                ? {
-                    trashAction,
-                    searchState,
-                    isOpen: openItemId === item.itemId,
-                    onOpenChange: (open) =>
-                      setOpenItemId(open ? item.itemId : null),
-                  }
-                : undefined
-            }
+            {...rowProps(item, rows)}
+            swipe={swipeOf(item, view, { trashAction, searchState, openItemId, setOpenItemId })}
           />
         ))}
         {emptyState(items, query, registerHref, trashedMatches, view)}
@@ -318,56 +187,16 @@ export function ItemList({
     );
   }
 
-  return (
-    <form action={submitBulkTags} className="space-y-2">
-      <input type="hidden" name="q" value={query} />
-      <input type="hidden" name="page" value={page} />
-      <input type="hidden" name="sort" value={sort} />
-      <BulkTagToolbar
-        items={items}
-        selected={selected}
-        tagUndo={
-          tagUndo === null
-            ? undefined
-            : {
-                message: tagUndoMessage(tagUndo.changes),
-                status: tagUndo.status,
-                onUndo: undoTags,
-              }
-        }
-        trashAction={clearingTagUndo(trashAction)}
-        pinAction={clearingTagUndo(pinAction)}
-        onSelectAll={() => setSelected(new Set(items.map((i) => i.itemId)))}
-        onClear={() => setSelected(new Set())}
-        onCancel={exit}
-      />
-      <ul className={listClass}>
-        {items.map((item) => (
-          <ItemRow
-            key={item.itemId}
-            item={item}
-            href={itemHref(item.itemId)}
-            view={rowView}
-            circuitThumb={circuitThumbs?.[item.itemId]?.[0]}
-            mathTitle={mathTexts?.[item.itemId]?.title}
-            mathPreview={mathTexts?.[item.itemId]?.preview}
-            notePreview={notePreviews?.[item.itemId]}
-            selected={item.itemId === previewItemId}
-            checkbox={
-              <input
-                type="checkbox"
-                name="itemId"
-                value={item.itemId}
-                checked={selected.has(item.itemId)}
-                onChange={() => toggle(item.itemId)}
-                aria-label={`${noteName(item)}を選択`}
-                className="size-4 shrink-0 self-center"
-              />
-            }
-          />
-        ))}
-        {emptyState(items, query, null, 0, view)}
-      </ul>
-    </form>
-  );
+  return selectList({
+    items,
+    query,
+    page,
+    sort,
+    listClass,
+    rows,
+    selection,
+    trashAction,
+    pinAction: props.pinAction,
+    emptyState: emptyState(items, query, null, 0, view),
+  });
 }
