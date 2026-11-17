@@ -94,7 +94,7 @@
     "sharp": "^0.35.5",
     "simple-git": "^4.0.2",
     "spectrum-fence": "file:vendor/spectrum-fence-0.4.0.tgz",
-    "svgo": "^3.3.5",
+    "svgo": "^4.1.0",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
     "unified": "^11.0.5",
