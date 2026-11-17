@@ -11,14 +11,9 @@ import {
   rawPaneSizeFromPointer,
 } from "@/lib/prefs/paneSize";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
-import {
-  DIVIDER_LINE_COLOR,
-  HANDLE_TAB,
-  HANDLE_TAB_SKIN,
-  headerBottomPx,
-  readCssPx,
-  setPaneSize,
-} from "@/components/panes/PaneResizer";
+import { DIVIDER_LINE_COLOR, HANDLE_TAB, HANDLE_TAB_SKIN } from "@/components/panes/paneHandleStyle";
+import { headerBottomPx, readCssPx } from "@/components/panes/paneGeometry";
+import { setPaneSize } from "@/components/panes/paneSizeStore";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
 import {
   TAB_LENGTH_REM,
