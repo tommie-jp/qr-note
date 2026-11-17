@@ -103,24 +103,18 @@ const lower = (record: Record<string, unknown>): Record<EventPriority, string> =
   low: String(record.low).toLowerCase(),
 })
 
-// API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)。
-// 色 (colors) のほかは省略してよい。いまの画面は色だけを送る (layout は端末ごと。§1-20)。
-// 前の版の画面は全体を送ってくるので、来た値は検査する (保存しても読む側は使わない)
-export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
-  if (typeof value !== 'object' || value === null) {
-    return null
-  }
-  const { dateSize, eventSize, sidePadding, eventsPerDay, colors, textColors } = value as {
-    dateSize?: unknown
-    eventSize?: unknown
-    sidePadding?: unknown
-    eventsPerDay?: unknown
-    colors?: unknown
-    textColors?: unknown
-  }
-  if (typeof colors !== 'object' || colors === null) {
-    return null
-  }
+// 送られてきた設定の形 (どの項目も未検査)
+interface RawPrefs {
+  dateSize?: unknown
+  eventSize?: unknown
+  sidePadding?: unknown
+  eventsPerDay?: unknown
+  colors?: unknown
+  textColors?: unknown
+}
+
+// layout の項目を確かめ、省略は既定で埋める。知らない値があれば null
+function validateLayout({ dateSize, eventSize, sidePadding, eventsPerDay }: RawPrefs): CalendarLayout | null {
   if (
     (dateSize !== undefined && !isDateSize(dateSize)) ||
     (eventSize !== undefined && !isDateSize(eventSize)) ||
@@ -129,27 +123,47 @@ export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
   ) {
     return null
   }
-  const layout = {
+  return {
     dateSize: dateSize ?? DEFAULT_CALENDAR_PREFS.dateSize,
     eventSize: eventSize ?? DEFAULT_CALENDAR_PREFS.eventSize,
     sidePadding: sidePadding ?? DEFAULT_CALENDAR_PREFS.sidePadding,
     eventsPerDay: eventsPerDay ?? DEFAULT_CALENDAR_PREFS.eventsPerDay,
   }
-  const c = colors as Record<string, unknown>
-  if (!PRIORITIES.every((p) => isHex(c[p]))) {
+}
+
+// 優先度ごとの色の表を確かめて小文字にそろえる。表でない・知らない値があれば null
+function validatePriorityColors(
+  value: unknown,
+  ok: (value: unknown) => value is string,
+): Record<EventPriority, string> | null {
+  if (typeof value !== 'object' || value === null) {
     return null
   }
-  if (textColors === undefined) {
-    return { ...layout, colors: lower(c), textColors: DEFAULT_CALENDAR_PREFS.textColors }
-  }
-  if (typeof textColors !== 'object' || textColors === null) {
+  const record = value as Record<string, unknown>
+  return PRIORITIES.every((p) => ok(record[p])) ? lower(record) : null
+}
+
+// API の入口。知らない値は畳まず断る (送り手が保存できたと思い込まないように)。
+// 色 (colors) のほかは省略してよい。いまの画面は色だけを送る (layout は端末ごと。§1-20)。
+// 前の版の画面は全体を送ってくるので、来た値は検査する (保存しても読む側は使わない)
+export function validateCalendarPrefs(value: unknown): CalendarPrefs | null {
+  if (typeof value !== 'object' || value === null) {
     return null
   }
-  const t = textColors as Record<string, unknown>
-  if (!PRIORITIES.every((p) => isTextColor(t[p]))) {
+  const raw = value as RawPrefs
+  if (typeof raw.colors !== 'object' || raw.colors === null) {
     return null
   }
-  return { ...layout, colors: lower(c), textColors: lower(t) }
+  const layout = validateLayout(raw)
+  const colors = validatePriorityColors(raw.colors, isHex)
+  if (layout === null || colors === null) {
+    return null
+  }
+  if (raw.textColors === undefined) {
+    return { ...layout, colors, textColors: DEFAULT_CALENDAR_PREFS.textColors }
+  }
+  const textColors = validatePriorityColors(raw.textColors, isTextColor)
+  return textColors === null ? null : { ...layout, colors, textColors }
 }
 
 // 保存値 (JSON 文字列) を畳む。読めない所は既定に寄せる (表示の設定なので
@@ -161,14 +175,7 @@ export function parseCalendarPrefs(raw: string | null): CalendarPrefs {
   } catch {
     return DEFAULT_CALENDAR_PREFS
   }
-  const v = (typeof value === 'object' && value !== null ? value : {}) as {
-    dateSize?: unknown
-    eventSize?: unknown
-    sidePadding?: unknown
-    eventsPerDay?: unknown
-    colors?: unknown
-    textColors?: unknown
-  }
+  const v = (typeof value === 'object' && value !== null ? value : {}) as RawPrefs
   const record = (x: unknown) => (typeof x === 'object' && x !== null ? x : {}) as Record<string, unknown>
   const c = record(v.colors)
   const t = record(v.textColors)
