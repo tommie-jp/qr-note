@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
-import { PaneResizer } from "@/components/panes/PaneResizer";
+import type { ReactNode } from "react";
 import { newItemId } from "@/lib/items/itemId";
 import type { DayEvent } from "../event/monthLayout";
 import {
@@ -24,7 +24,8 @@ import { EventPopover, type EditingEvent } from "./EventPopover";
 // **境界 (PaneResizer) も自分で描く。** 境界はノートのペインが持つ物なので、
 // ノートを開いていないカレンダーでは日のペインを出しても掴む所が無い。
 // 寸法は同じ所に保存するので、ノートのペインが居て境界が 2 本重なっても
-// 同じ位置・同じ動きになる
+// 同じ位置・同じ動きになる。境界の部品は core から受け取る (resizer。
+// 直に import すると循環する。registry.tsx の ResultViewProps)
 //
 // **閉じる手段は持たない** (docs/126 §1-36)。カレンダーの 2・3 ペインでは日の一覧を
 // 常に出す (選んでいなければ今日か月の 1 日)。× も Esc も無く、境界を引き切っても隠さない
@@ -39,6 +40,7 @@ export function DayPane({
   loading,
   query,
   revealKey,
+  resizer,
 }: {
   day: string;
   events: readonly DayEvent[];
@@ -47,6 +49,8 @@ export function DayPane({
   // 「今日」を押すたびに変わる。変わったら一覧を先頭まで戻す (docs/126 §1-39)。
   // 日が替わるときは key で作り直されるので、同じ日のまま押したときのための物
   revealKey: number;
+  // 下のペインの境界 (core の PaneResizer kind="preview")
+  resizer: ReactNode;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState<EditingEvent | null>(null);
@@ -87,7 +91,7 @@ export function DayPane({
   }
   return createPortal(
     <>
-      <PaneResizer kind="preview" />
+      {resizer}
       <section
         ref={sectionRef}
         data-day-pane=""

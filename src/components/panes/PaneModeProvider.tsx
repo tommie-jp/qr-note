@@ -15,7 +15,6 @@ import {
   type PaneMode,
 } from "@/lib/prefs/paneMode";
 import { useShownPaneMode } from "@/lib/prefs/pendingPaneMode";
-import { CollapsedPaneTabs } from "@/components/panes/CollapsedPaneTabs";
 import { noteHintFromClick, noteHintStore } from "@/components/panes/noteHint";
 
 interface PaneModeState {
@@ -112,21 +111,6 @@ export function PaneModeProvider({
 
   return (
     <PaneModeContext.Provider value={value}>{children}</PaneModeContext.Provider>
-  );
-}
-
-// 一覧側のペインの根。data-panes … 選ばれている構成 (docs/86 §4-9)。
-// globals.css が「3 / 2 なら幅に関係なくペインの積み方」を決めるのに使う。
-// **サーバの値ではなく見せている構成を付ける** (docs/86 §4-18) — 押した瞬間に
-// 器の積み方を変えるため
-export function ResultsPaneRoot({ children }: { children: ReactNode }) {
-  const { mode } = usePaneMode();
-  return (
-    <div data-results-pane data-panes={mode} className="space-y-2">
-      {children}
-      {/* 隠したペインのタブ。画面の端に半分残す (docs/86 §4-21) */}
-      <CollapsedPaneTabs />
-    </div>
   );
 }
 

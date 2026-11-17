@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePaneMode } from "@/components/panes/PaneModeProvider";
 import { switchPaneMode } from "@/components/panes/switchPaneMode";
@@ -48,7 +48,14 @@ const NAV_BUTTON = "min-h-8 min-w-8 rounded px-2 text-sm text-gray-700 hover:bg-
 
 // 検索結果のカレンダー表示 (docs/126 §1-3)。検索式に当たる予定を月のマス目に並べる。
 // 検索窓・ペインの器は一覧と共有し、ここが持つのは結果の中身だけ
-export default function CalendarView({ query }: { query: string }) {
+export default function CalendarView({
+  query,
+  previewResizer,
+}: {
+  query: string;
+  // 日のペインの境界。core が作って渡す (registry.tsx の ResultViewProps。docs/128 §3-4)
+  previewResizer: ReactNode;
+}) {
   const params = useSearchParams();
   // 2・3 ペインは選んだ日を下のペインに出す。1 ペインはペインが無いのでマスの横に浮かせる
   const { mode, detailItemId } = usePaneMode();
@@ -209,6 +216,7 @@ export default function CalendarView({ query }: { query: string }) {
           loading={payload === undefined}
           query={query}
           revealKey={revealCount}
+          resizer={previewResizer}
         />
       )}
       {shown !== null && shown.cell !== null && !inPane && (

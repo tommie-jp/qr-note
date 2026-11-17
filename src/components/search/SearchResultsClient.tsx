@@ -15,6 +15,7 @@ import type { ViewMode } from "@/lib/prefs/viewMode";
 import { buildItemUrl } from "@/lib/search/url";
 import { useSearchParams } from "next/navigation";
 import { activeResultView, type ResultView } from "@/modules/registry";
+import { PaneResizer } from "@/components/panes/PaneResizer";
 import type { Sort } from "@/lib/validation";
 import {
   LoadFailedNotice,
@@ -68,7 +69,7 @@ function ModuleResults({ view, cookieSort }: { view: ResultView; cookieSort: Sor
       {/* data-results-view … 表示を出している間は 1 ペインでも器の中で送る (globals.css。
           見出しを上端に貼り付けるため。docs/126 §1-28) */}
       <div data-results-scroll data-results-view="" className="-mx-safe space-y-2 px-safe">
-        <Component query={query} />
+        <Component query={query} previewResizer={<PaneResizer kind="preview" />} />
       </div>
     </SearchResults>
   );

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { FolderPaneGate, ResultsPaneRoot } from "@/components/panes/PaneModeProvider";
+import { FolderPaneGate } from "@/components/panes/PaneModeProvider";
+import { ResultsPaneRoot } from "@/components/panes/ResultsPaneRoot";
 import { PageTransition } from "@/components/chrome/PageTransition";
 import PullToRefresh from "@/components/chrome/PullToRefresh";
 import { FolderPaneClient } from "@/components/search/FolderPaneClient";

@@ -20,6 +20,16 @@ import {
 
 // --- 検索結果の表示 ---
 
+// 表示の部品が受け取る物
+export interface ResultViewProps {
+  query: string;
+  // 下のペインの境界 (core の PaneResizer)。ノートのペインの場所へ自分で中身を出す
+  // 表示 (カレンダーの日の一覧) が描く。境界は 1 ペインにしてよいかをここ (registry) に
+  // 聞くので、モジュールから直に import すると core → registry → モジュール → core と
+  // 輪になる (docs/128 §3-4)。core が作って渡す
+  previewResizer: ReactNode;
+}
+
 export interface ResultView {
   id: string;
   // この表示を選ぶ URL の引数 (値は表示が決める。カレンダーなら月)
@@ -35,7 +45,7 @@ export interface ResultView {
   refresh?: () => void;
   // この表示の間は 1 ペインにしない (境界の引き切り・構成の釦。docs/86 §4-28)
   keepsPanes?: boolean;
-  Component: ComponentType<{ query: string }>;
+  Component: ComponentType<ResultViewProps>;
 }
 
 export const RESULT_VIEWS: readonly ResultView[] = [
