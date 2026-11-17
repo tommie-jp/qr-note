@@ -10,6 +10,7 @@
 // そして 1 行目の検索式が既に `is:todo` / `OR` / `!` と英語である。
 
 import { editDistance } from '../markdown/fenceLanguages'
+import { fenceSettings, splitFenceSource } from '../markdown/fenceSettings'
 import { LEGACY_SORTS, SORTS, type Sort } from '../validation'
 
 // 1 つの表に並べる列の上限。横に伸びた表はスマホで読めないうえ、
@@ -150,16 +151,6 @@ function parseSortValue(value: string): Sort | null {
   return legacy?.[1] ?? SORTS.find((sort) => sort.toLowerCase() === folded) ?? null
 }
 
-// キー=値 の区切り。全角の ＝ も区切りとして認める
-function separatorIndex(line: string): number {
-  const half = line.indexOf('=')
-  const full = line.indexOf('＝')
-  if (half < 0) {
-    return full
-  }
-  return full < 0 ? half : Math.min(half, full)
-}
-
 function parseColumnsValue(value: string): string[] {
   return splitOnCommas(value)
     .map((label) => label.trim())
@@ -196,96 +187,96 @@ function firstDuplicateLabel(labels: readonly string[]): string | null {
   return null
 }
 
+// 設定を読み進める間の状態。null は「まだ書かれていない」
+interface MatrixSettings {
+  sort: Sort | null
+  columns: string[] | null
+  marks: MatrixMarkSet | null
+}
+
+// キー 1 つの読み方。エラーなら文言、読めたら null を返す
+type SettingReader = (settings: MatrixSettings, value: string) => string | null
+
+function readSort(settings: MatrixSettings, value: string): string | null {
+  if (settings.sort !== null) {
+    return '設定「sort」が 2 回書かれています'
+  }
+  const parsed = parseSortValue(value)
+  if (parsed === null) {
+    return `並び順「${value}」は使えません (${SORTS.join(' / ')})`
+  }
+  settings.sort = parsed
+  return null
+}
+
+function readColumns(settings: MatrixSettings, value: string): string | null {
+  if (settings.columns !== null) {
+    return '設定「col」が 2 回書かれています'
+  }
+  const parsed = parseColumnsValue(value)
+  if (parsed.length === 0) {
+    return '列の名前が空です (col=学習済み のように書きます)'
+  }
+  if (parsed.length > MAX_MATRIX_COLUMNS) {
+    return `列は ${MAX_MATRIX_COLUMNS} つまでです (${parsed.length} つ書かれています)`
+  }
+  // 同じ名前の列を 2 つ作らせない。照合先が同じなので必ず同じ値が並び、
+  // 表の幅が増えるだけで読み手には区別が付かない (`TODO` と `todo` の
+  // ように綴りが違っても照合すれば同じ)
+  const duplicate = firstDuplicateLabel(parsed)
+  if (duplicate !== null) {
+    return `列「${duplicate}」が 2 回書かれています`
+  }
+  settings.columns = parsed
+  return null
+}
+
+function readMarks(settings: MatrixSettings, value: string): string | null {
+  if (settings.marks !== null) {
+    return '設定「mark」が 2 回書かれています'
+  }
+  const parsed = parseMarksValue(value)
+  if (parsed.length < MIN_MARKS || parsed.length > MAX_MARKS) {
+    return `記号は 未・済 の 2 つ (項目なしを足して 3 つ) で書きます (${parsed.length} つ書かれています)`
+  }
+  settings.marks = {
+    unchecked: parsed[0],
+    checked: parsed[1],
+    absent: parsed[2] ?? null,
+  }
+  return null
+}
+
+// Map にするのは `constructor` などのキーを Object の持ち物と取り違えないため
+const SETTING_READERS: ReadonlyMap<string, SettingReader> = new Map([
+  ['sort', readSort],
+  ['col', readColumns],
+  ['mark', readMarks],
+])
+
 export function parseMatrixFence(source: string): MatrixParseResult {
-  const lines = source.split(/\r?\n/)
-  // 1 行目だけは正規化しない — 検索式の正規化 (NFKC) は tokenize が
-  // 自分で行う作法なので、ここで先回りすると引用リテラルの中身まで畳む
-  const query = (lines[0] ?? '').trim()
+  const { query, settingLines } = splitFenceSource(source)
+  const settings: MatrixSettings = { sort: null, columns: null, marks: null }
 
-  let sort: Sort | null = null
-  let columns: string[] | null = null
-  let marks: MatrixMarkSet | null = null
-
-  for (const raw of lines.slice(1)) {
-    const line = raw.trim()
-    if (line === '') {
-      continue
+  // キーは畳み、値は打ったまま受け取る — NFKC は一部の絵文字を
+  // 潰すので (`🈚` → `無`)、`mark=` に書いた記号が黙って別の文字になる。
+  // 照合が要る値は使うところで畳む (sort は parseSortValue、列の名前は
+  // normalizeCheckLabel)
+  for (const setting of fenceSettings(settingLines)) {
+    if ('error' in setting) {
+      return setting
     }
-
-    const eq = separatorIndex(line)
-    if (eq <= 0) {
-      return { error: `設定は「キー=値」の形で書きます: 「${line}」` }
+    const reader = SETTING_READERS.get(setting.key)
+    const error = reader ? reader(settings, setting.value) : unknownKeyError(setting.key)
+    if (error !== null) {
+      return { error }
     }
-    // **畳むのはキーだけ。** 値は打ったまま持つ — NFKC は一部の絵文字を
-    // 潰すので (`🈚` → `無`)、`mark=` に書いた記号が黙って別の文字になる。
-    // 照合が要る値は使うところで畳む (sort は parseSortValue、列の名前は
-    // normalizeCheckLabel)
-    const key = line.slice(0, eq).normalize('NFKC').trim().toLowerCase()
-    const value = line.slice(eq + 1).trim()
-
-    if (key === 'sort') {
-      if (sort !== null) {
-        return { error: '設定「sort」が 2 回書かれています' }
-      }
-      const parsed = parseSortValue(value)
-      if (parsed === null) {
-        return {
-          error: `並び順「${value}」は使えません (${SORTS.join(' / ')})`,
-        }
-      }
-      sort = parsed
-      continue
-    }
-
-    if (key === 'col') {
-      if (columns !== null) {
-        return { error: '設定「col」が 2 回書かれています' }
-      }
-      const parsed = parseColumnsValue(value)
-      if (parsed.length === 0) {
-        return { error: '列の名前が空です (col=学習済み のように書きます)' }
-      }
-      if (parsed.length > MAX_MATRIX_COLUMNS) {
-        return {
-          error: `列は ${MAX_MATRIX_COLUMNS} つまでです (${parsed.length} つ書かれています)`,
-        }
-      }
-      // 同じ名前の列を 2 つ作らせない。照合先が同じなので必ず同じ値が並び、
-      // 表の幅が増えるだけで読み手には区別が付かない (`TODO` と `todo` の
-      // ように綴りが違っても照合すれば同じ)
-      const duplicate = firstDuplicateLabel(parsed)
-      if (duplicate !== null) {
-        return { error: `列「${duplicate}」が 2 回書かれています` }
-      }
-      columns = parsed
-      continue
-    }
-
-    if (key === 'mark') {
-      if (marks !== null) {
-        return { error: '設定「mark」が 2 回書かれています' }
-      }
-      const parsed = parseMarksValue(value)
-      if (parsed.length < MIN_MARKS || parsed.length > MAX_MARKS) {
-        return {
-          error: `記号は 未・済 の 2 つ (項目なしを足して 3 つ) で書きます (${parsed.length} つ書かれています)`,
-        }
-      }
-      marks = {
-        unchecked: parsed[0],
-        checked: parsed[1],
-        absent: parsed[2] ?? null,
-      }
-      continue
-    }
-
-    return { error: unknownKeyError(key) }
   }
 
   return {
     query,
-    sort: sort ?? DEFAULT_MATRIX_SORT,
-    columns: columns ?? [],
-    marks,
+    sort: settings.sort ?? DEFAULT_MATRIX_SORT,
+    columns: settings.columns ?? [],
+    marks: settings.marks,
   }
 }

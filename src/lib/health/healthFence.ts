@@ -7,6 +7,7 @@
 // 知らないキーはエラーにする作法まで揃えている。
 
 import { editDistance } from '../markdown/fenceLanguages'
+import { fenceSettings, splitFenceSource } from '../markdown/fenceSettings'
 
 // 期間の既定 (日)。BPNote の「1 か月」に当たる
 export const DEFAULT_HEALTH_DAYS = 30
@@ -84,16 +85,6 @@ function unknownKeyError(key: string): string {
     : `知らない設定「${key}」です。${suggestion}= のことですか?`
 }
 
-// キー=値 の区切り。全角の ＝ も区切りとして認める (matrixFence と同じ)
-function separatorIndex(line: string): number {
-  const half = line.indexOf('=')
-  const full = line.indexOf('＝')
-  if (half < 0) {
-    return full
-  }
-  return full < 0 ? half : Math.min(half, full)
-}
-
 // 日数として読む。全角数字は畳んでから見る (`days=９０`)。
 // **小数を切り捨てて通さない** — `days=30.5` を 30 として黙って受けると、
 // 書いた人は自分の書き方が通ったと思い込む
@@ -110,29 +101,19 @@ function parseDaysValue(value: string): number | null {
 }
 
 export function parseHealthFence(source: string): HealthParseResult {
-  const lines = source.split(/\r?\n/)
-  // 1 行目だけは正規化しない — 検索式の正規化 (NFKC) は tokenize が自分で
-  // 行う作法なので、ここで先回りすると引用リテラルの中身まで畳む
-  const query = (lines[0] ?? '').trim()
+  const { query, settingLines } = splitFenceSource(source)
 
   let item: string | null = null
   let days: number | null = null
 
-  for (const raw of lines.slice(1)) {
-    const line = raw.trim()
-    if (line === '') {
-      continue
+  // キーは畳み、値は打ったまま受け取る — 項目名は軸のラベルとして
+  // 画面に出るので、本文に書いた綴りのままにする (照合が要るところで
+  // normalizeMeasureLabel を通す)
+  for (const setting of fenceSettings(settingLines)) {
+    if ('error' in setting) {
+      return setting
     }
-
-    const eq = separatorIndex(line)
-    if (eq <= 0) {
-      return { error: `設定は「キー=値」の形で書きます: 「${line}」` }
-    }
-    // **畳むのはキーだけ。** 値は打ったまま持つ — 項目名は軸のラベルとして
-    // 画面に出るので、本文に書いた綴りのままにする (照合が要るところで
-    // normalizeMeasureLabel を通す)
-    const key = line.slice(0, eq).normalize('NFKC').trim().toLowerCase()
-    const value = line.slice(eq + 1).trim()
+    const { key, value } = setting
 
     if (key === 'y') {
       if (item !== null) {
