@@ -1,4 +1,5 @@
 import type { Emphasis, Parent, Root, RootContent, Text } from "mdast";
+import { hasChildren, splitTextNode } from "./splitTextNode";
 import {
   ANSWER_CLOSED_MARK,
   ANSWER_SPOILER_CLASS,
@@ -40,35 +41,9 @@ function spoilerNode(answer: string): Emphasis {
   };
 }
 
-function splitTextNode(node: Text, mask: boolean): RootContent[] {
-  const matches = findAnswerSpoilers(node.value);
-  if (matches.length === 0) {
-    return [node];
-  }
-  const out: RootContent[] = [];
-  let pos = 0;
-  for (const { start, length, answer } of matches) {
-    if (start > pos) {
-      out.push({ type: "text", value: node.value.slice(pos, start) });
-    }
-    out.push(
-      mask
-        ? { type: "text", value: ANSWER_CLOSED_MARK }
-        : spoilerNode(answer),
-    );
-    pos = start + length;
-  }
-  if (pos < node.value.length) {
-    out.push({ type: "text", value: node.value.slice(pos) });
-  }
-  return out;
-}
-
-function hasChildren(node: unknown): node is Parent {
-  return (
-    typeof node === "object" &&
-    node !== null &&
-    Array.isArray((node as Parent).children)
+function splitAnswers(node: Text, mask: boolean): RootContent[] {
+  return splitTextNode(node, findAnswerSpoilers(node.value), ({ answer }) =>
+    mask ? { type: "text", value: ANSWER_CLOSED_MARK } : spoilerNode(answer),
   );
 }
 
@@ -76,7 +51,7 @@ function transform(node: Parent, mask: boolean): void {
   const next: RootContent[] = [];
   for (const child of node.children) {
     if (child.type === "text") {
-      next.push(...splitTextNode(child, mask));
+      next.push(...splitAnswers(child, mask));
       continue;
     }
     if (hasChildren(child) && !SKIP_TYPES.has(child.type)) {
