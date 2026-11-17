@@ -5,6 +5,7 @@ import {
   canScroll,
   createScrollArm,
   searchKeyOf,
+  shouldObserveLoadMore,
 } from './loadMoreGate'
 
 describe('createScrollArm', () => {
@@ -63,5 +64,23 @@ describe('canScroll', () => {
 
   test('器より長ければスクロールできる', () => {
     expect(canScroll(1700, 871)).toBe(true)
+  })
+})
+
+describe('shouldObserveLoadMore', () => {
+  test('解禁済みなら、収まっていなくても観測する', () => {
+    expect(shouldObserveLoadMore(true, false)).toBe(true)
+  })
+
+  test('解禁前でも、一覧が器に収まっていれば観測する', () => {
+    expect(shouldObserveLoadMore(false, true)).toBe(true)
+  })
+
+  test('解禁前で一覧が器より長ければ観測しない', () => {
+    expect(shouldObserveLoadMore(false, false)).toBe(false)
+  })
+
+  test('解禁前でまだ測っていなければ観測しない', () => {
+    expect(shouldObserveLoadMore(false, null)).toBe(false)
   })
 })

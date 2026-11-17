@@ -200,6 +200,34 @@ describe('loadMore の失敗と競合', () => {
     expect(listCache.peek(KEY)?.value?.items.map((item) => item.title)).toEqual(['ノート 1', 'ノート 2'])
   })
 
+  test('最初の読み込みの間 (値がまだ無い) に頼まれた続きは、届いてから読む', async () => {
+    // Arrange: 表示モードを切り替えた直後。新しい鍵の 1 ページ目を取りに行っている
+    responses.push(page([dto(1)], 1, EXTRAS))
+    const first = listCache.load(KEY)
+
+    // Act: 前の表示の一覧が画面に収まっていて、番兵が続きを頼む (docs/118 §2-6)
+    await loadMore(KEY)
+    responses.push(page([dto(2)], 2, null))
+    await first
+
+    // Assert
+    await vi.waitFor(() => expect(listCache.peek(KEY)?.value?.page).toBe(2))
+    expect(requested[1]).toContain('page=2')
+  })
+
+  test('まだ取りに行っていない鍵への頼みは、取りに行って届いてから読む', async () => {
+    // Arrange: 新しい鍵の一覧は描画の後に取りに行く (useEntry の afterPaint)
+    responses.push(page([dto(1)], 1, EXTRAS), page([dto(2)], 2, null))
+
+    // Act
+    await loadMore(KEY)
+    await listCache.load(KEY)
+
+    // Assert
+    await vi.waitFor(() => expect(listCache.peek(KEY)?.value?.page).toBe(2))
+    expect(requested).toHaveLength(2)
+  })
+
   test('取り直しを待つ間に一覧の控えが消えたら、頼んだ続きは捨てる', async () => {
     // Arrange
     responses.push(page([dto(1)], 1, EXTRAS))

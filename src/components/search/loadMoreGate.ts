@@ -49,3 +49,11 @@ export function searchKeyOf(href: string): string {
 export function canScroll(scrollHeight: number, clientHeight: number): boolean {
   return scrollHeight > clientHeight + 1
 }
+
+// 末尾の目印の観測 (先読み) を張ってよいか。解禁済みなら張る。解禁前は、
+// 一覧が器に収まっていると測れたときだけ張る — まだ測っていない (null) 間は
+// 張らない。前の検索の値や測る前の推測で、誰も読み進めていない一覧を
+// 伸ばさないため (docs/118 §2-6)
+export function shouldObserveLoadMore(armed: boolean, fits: boolean | null): boolean {
+  return armed || fits === true
+}

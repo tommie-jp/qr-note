@@ -9,7 +9,8 @@ import { itemIdFromPathname } from "@/lib/search/url";
 import { perfStart } from "@/lib/perf/perfClient";
 import { afterNextPaint } from "@/lib/afterNextPaint";
 import { LOAD_MORE_EVENT } from "./loadMore";
-import { canScroll, createScrollArm } from "./loadMoreGate";
+import { createScrollArm, shouldObserveLoadMore } from "./loadMoreGate";
+import { isListScrollable, scrollRootOf, useFitsInScroller } from "./useFitsInScroller";
 
 // 検索一覧の末尾に置く「さらに表示」(docs/33-オンデマンド表示計画.md §3)。
 // 画面に入ったら自動で次ページの URL へ replace し、サーバが 1〜N ページの
@@ -30,29 +31,10 @@ import { canScroll, createScrollArm } from "./loadMoreGate";
 // 誰も読み進めていないのに追加が 1〜2 回続いていた。ただし一覧が器より
 // 短い (スクロールできない) 間は今までどおり自動で埋める — 画面の高い PC で
 // 永久に伸びなくなるため。埋まったら、そこからはスクロールを待つ。
+// 収まっているかは一度きりでなく、大きさが変わるたびに測り直す
+// (useFitsInScroller。表示モードの切替やウィンドウの拡大で後から収まる。docs/118 §2-6)
 // 先読みの距離。root の高さに対する割合 (1 画面ぶん)
 const PREFETCH_MARGIN = "100% 0px";
-
-// 一覧が内側でスクロールしている器 (2 / 3 ペイン・広い画面の [data-results-scroll])。
-// **実際に overflow でスクロールしているときだけ** root にする — 文書ごと
-// スクロールする構成 (1 ペインの狭い画面) で器を root にすると、器は切り取らない
-// ので目印が常に「見えている」扱いになり、全ページを連鎖読み込みしてしまう
-function scrollRootOf(el: HTMLElement): HTMLElement | null {
-  const scroller = el.closest<HTMLElement>("[data-results-scroll]");
-  if (scroller === null) {
-    return null;
-  }
-  const { overflowY } = getComputedStyle(scroller);
-  return overflowY === "auto" || overflowY === "scroll" ? scroller : null;
-}
-
-// 一覧 (スクロールする器、無ければ文書) がスクロールできる長さか
-function isScrollable(el: HTMLElement): boolean {
-  const root = scrollRootOf(el);
-  return root === null
-    ? canScroll(document.documentElement.scrollHeight, window.innerHeight)
-    : canScroll(root.scrollHeight, root.clientHeight);
-}
 
 export function AutoLoadMore({
   searchKey,
@@ -90,6 +72,12 @@ export function AutoLoadMore({
   // 間は解禁のまま、検索語か並び順が変わったら止め直す
   const [armedFor, setArmedFor] = useState<string | null>(null);
   const armed = armedFor === searchKey;
+  // 解禁前だけ、一覧が器に収まっているかを見張る。mode … 構成で器が替わる
+  const fits = useFitsInScroller(
+    sentinelRef,
+    `${searchKey}|${mode}`,
+    !armed && !coveredByNote,
+  );
 
   const load = useCallback(() => {
     // 速度計測の開始 (docs/119 §3-1)。計測中でなければ何もしない
@@ -100,9 +88,9 @@ export function AutoLoadMore({
   // 解禁を待つ。一覧が実際にスクロールする器 (無ければ文書) の位置を見て、
   // 下へ動いたら解禁する。先頭へ戻されるスクロールでは解禁しない。
   //
-  // 器を測るのは描画の後 (下の観測も同じ)。scrollRootOf の getComputedStyle と
-  // isScrollable の scrollHeight は、描画の直後に読むとスタイル・レイアウトを
-  // 前倒しで強制し、検索結果の最初の 1 枚を遅らせていた (docs/122 §10-2)
+  // 器を測るのは描画の後 (下の観測・useFitsInScroller も同じ)。scrollRootOf の
+  // getComputedStyle は、描画の直後に読むとスタイルを前倒しで強制し、
+  // 検索結果の最初の 1 枚を遅らせていた (docs/122 §10-2)
   useEffect(() => {
     const el = sentinelRef.current;
     if (el === null || armed || coveredByNote) return;
@@ -128,11 +116,14 @@ export function AutoLoadMore({
   useEffect(() => {
     const el = sentinelRef.current;
     if (el === null || isPending || coveredByNote || failed) return;
+    // 解禁前でも、一覧が器に収まっている間は埋めてよい (loadMoreGate.ts)。
+    // 追加が届いて収まらなくなれば fits が変わり、ここで止まる
+    if (!shouldObserveLoadMore(armed, fits)) return;
     let observer: IntersectionObserver | undefined;
     const cancel = afterNextPaint(() => {
-      // 解禁前でも、一覧が器に収まっている間は埋めてよい (loadMoreGate.ts)。
-      // 追加が届くと href が変わって load が作り直され、ここで測り直す
-      if (!armed && isScrollable(el)) return;
+      // fits は state で、追加が届いた直後は「収まっていない」への更新が
+      // まだ届いていないことがある。張る直前に測り直す (描画の後なので只に近い)
+      if (!armed && isListScrollable(el)) return;
       observer = new IntersectionObserver(
         (entries) => {
           if (entries.some((e) => e.isIntersecting)) load();
@@ -152,7 +143,7 @@ export function AutoLoadMore({
     };
     // mode … 構成を押した瞬間に一覧のスクロールする器 (window か内側の器) が
     // 替わる (docs/86 §4-18)。root を測り直すため作り直す
-  }, [load, isPending, coveredByNote, mode, armed, failed]);
+  }, [load, isPending, coveredByNote, mode, armed, fits, failed]);
 
   // 画像ビューアの → からの依頼 (components/search/loadMore.ts)。目印が
   // 内側スクロールの器に隠れていても読み込めるようにする

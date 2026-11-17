@@ -150,7 +150,13 @@ export function useLoadingMore(key: ListKey): boolean {
 // (AutoLoadMore の番兵・画像ビューアの →) を捨てると、番兵は見えたままで
 // 撃ち直さず、ビューアも次に押されるまで頼まないので、一覧が伸びないまま
 // 止まっていた。取り直しが済んだら改めて読む。控えが消えた (検索が替わった)
-// ときは捨てる — 新しい控えに古い頼みで続きを足さない
+// ときは捨てる — 新しい控えに古い頼みで続きを足さない。
+//
+// **まだ値の無い鍵への頼みも待つ** (docs/118 §2-6)。表示モードを切り替えた
+// 直後は前の表示の一覧を出したまま、新しい鍵の 1 ページ目を描画の後に取りに
+// 行く。その間に番兵が撃った頼みを捨てると、届いても一覧の大きさは変わらず
+// 番兵も撃ち直さないので、「さらに表示」を押すまで止まっていた。頼んだ時点で
+// 控えが無ければ、控えができて届くまで待つ (一度できた控えが消えたら捨てる)
 const deferredMore = new Set<string>()
 
 function deferLoadMore(key: ListKey): void {
@@ -159,8 +165,13 @@ function deferLoadMore(key: ListKey): void {
     return
   }
   deferredMore.add(id)
+  let seen = listCache.peek(key) !== undefined
   const unsubscribe = listCache.subscribe(() => {
     const entry = listCache.peek(key)
+    if (entry === undefined && !seen) {
+      return
+    }
+    seen = true
     if (entry !== undefined && (entry.stale || entry.loading)) {
       return
     }
@@ -180,14 +191,18 @@ export function loadMore(key: ListKey): Promise<void> {
     return running
   }
   const currentEntry = listCache.peek(key)
-  const current = currentEntry?.value
-  if (current === undefined || current.page >= current.pageCount || loadMoreFailed.has(id)) {
+  if (loadMoreFailed.has(id) || (currentEntry?.error && currentEntry.value === undefined)) {
     return Promise.resolve()
   }
-  if (currentEntry?.stale || currentEntry?.loading) {
+  if (currentEntry === undefined || currentEntry.stale || currentEntry.loading) {
     // 取り直しの最中に足すと打ち消し合う (下の then の注) ので、いまは読まない。
-    // ただし頼みは捨てずに、取り直しが済んでから読む (deferLoadMore)
+    // ただし頼みは捨てずに、取り直し (値の無い鍵なら最初の読み込み) が済んで
+    // から読む (deferLoadMore)
     deferLoadMore(key)
+    return Promise.resolve()
+  }
+  const current = currentEntry.value
+  if (current === undefined || current.page >= current.pageCount) {
     return Promise.resolve()
   }
   const promise = fetchPage(key, current.page + 1)
