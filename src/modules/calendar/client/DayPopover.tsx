@@ -8,7 +8,8 @@ import { navigate } from "@/lib/client/navigation";
 import type { DayEvent } from "../event/monthLayout";
 import { placePopover, type Placement } from "../event/placePopover";
 import { eventNoteHref } from "./calendarUrl";
-import { DAY_ROW_CLASS, DayEventList, DayRowContent, dayLabel } from "./DayEventList";
+import { DAY_ROW_CLASS, DayEventList, dayLabel } from "./DayEventList";
+import { DayRowContent } from "./DayRowParts";
 
 // 1 ペインで、選んだ日の予定と「+」をマスの横に浮かせて出す (docs/126 §1-6)。
 // 2・3 ペインは下のペインに出す (DayPane)。

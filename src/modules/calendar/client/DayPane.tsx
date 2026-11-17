@@ -6,12 +6,8 @@ import { PANE_BOX_CLASS } from "@/components/panes/paneBox";
 import type { ReactNode } from "react";
 import { newItemId } from "@/lib/items/itemId";
 import type { DayEvent } from "../event/monthLayout";
-import {
-  DAY_ROW_CLASS,
-  DayEventList,
-  DayRowContent,
-  dayLabel,
-} from "./DayEventList";
+import { DAY_ROW_CLASS, DayEventList, dayLabel } from "./DayEventList";
+import { DayRowContent } from "./DayRowParts";
 import { EventPopover, type EditingEvent } from "./EventPopover";
 
 // 2・3 ペインで、選んだ日の予定をノートのペインの場所に出す (docs/126 §1-6)。
