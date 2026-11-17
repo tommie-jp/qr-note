@@ -26,6 +26,9 @@ async function start(page: Page): Promise<void> {
 
 async function stopAndAdd(page: Page): Promise<void> {
   const entries = await page.coverage.stopJSCoverage()
+  // 開いたばかりのページ (about:blank) の最初の goto の前は何も読んでいない。
+  // 空の配列を渡すと monocart が「V8 でも Istanbul でもない」と毎回ログに出す
+  if (entries.length === 0) return
   await (await coverageReport()).add(entries)
 }
 
