@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// 関数の長さ・複雑度・循環依存の歯止め (docs/128-リファクタリング計画2.md §3-0)。
+// 関数の長さ・複雑度・循環依存・react-hooks の抑止の歯止め
+// (docs/128-リファクタリング計画2.md §3-0・§8-2)。
 //
 // ESLint の 4 規則をプロジェクトの設定に重ねて src に流し、ファイルごとの件数が
 // 基準 (scripts/complexity-baseline.json) より増えたら落ちる。新しいファイルの
@@ -25,8 +26,31 @@ export const QUALITY_RULES = {
   'max-depth': ['warn', 4],
   'max-params': ['warn', 5],
 }
-const RULE_IDS = Object.keys(QUALITY_RULES)
+// react-hooks の規則を黙らせた注記も同じ表で数える (docs/128 §8-2)。
+// 増えたら落ちるので、新しく抑止するなら理由を書いたうえで基準を上げる
+const HOOKS_SUPPRESS = 'react-hooks-suppress'
+const HOOKS_SUPPRESS_PATTERN = /eslint-disable(?:-next-line|-line)?\s+[^\n]*react-hooks\//g
+const RULE_IDS = [...Object.keys(QUALITY_RULES), HOOKS_SUPPRESS]
 const IGNORES = ['src/generated/**', '**/*.test.ts', '**/*.test.tsx']
+
+// ファイルの中の react-hooks 抑止の注記を、行番号つきで拾う
+export function findHooksSuppressions(text) {
+  const found = []
+  for (const match of text.matchAll(HOOKS_SUPPRESS_PATTERN)) {
+    const line = text.slice(0, match.index).split('\n').length
+    found.push({ line, message: match[0].trim() })
+  }
+  return found
+}
+
+async function addHooksSuppressions(filePath, counts, details) {
+  const file = relative(ROOT, filePath)
+  for (const { line, message } of findHooksSuppressions(await readFile(filePath, 'utf8'))) {
+    counts[file] ??= {}
+    counts[file][HOOKS_SUPPRESS] = (counts[file][HOOKS_SUPPRESS] ?? 0) + 1
+    details.push({ file, line, rule: HOOKS_SUPPRESS, message })
+  }
+}
 
 async function lintCounts() {
   const eslint = new ESLint({
@@ -46,6 +70,7 @@ async function lintCounts() {
       counts[file][message.ruleId] = (counts[file][message.ruleId] ?? 0) + 1
       details.push({ file, line: message.line, rule: message.ruleId, message: message.message })
     }
+    await addHooksSuppressions(result.filePath, counts, details)
   }
   return { counts, details }
 }
