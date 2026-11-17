@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -218,6 +219,9 @@ export function MemoEditor({
     const sameAsIncoming = value === initialValue;
     syncedRef.current = { text: initialValue, base: baseProp };
 
+    // props → state の追随は effect で行う (docs/87 の芯。docs/128 §8-2 で残すと
+    // 決めた)。上のとおり描画中同期にすると知らせの撃つ時点が決められない。
+    // 追随は対が動いたときだけで、揃えた後は先頭の比較で即 return するので連鎖しない
     /* eslint-disable react-hooks/set-state-in-effect */
     if (!pristine && !sameAsIncoming) {
       setServerMoved(true);
@@ -252,31 +256,35 @@ export function MemoEditor({
 
   // マウント時に一度だけ、未保存の下書きがあれば復元する。
   // localStorage が使えない環境 (プライベートモード等) では下書き保護なしで
-  // 通常動作に落ちる (下書きは保険であって本筋ではない)
-  useEffect(() => {
+  // 通常動作に落ちる (下書きは保険であって本筋ではない)。
+  //
+  // 本体は effect event に置き、effect は初回だけ呼ぶ。draftKey / initialValue は
+  // ページ遷移で作り直されるので、途中で変わっても読み直さない。マウント時の
+  // effect の中から同期に呼ぶので、読むのは初回の描画の値で前の閉包と同じ
+  const restoreDraft = useEffectEvent(() => {
     if (draftKey) {
       try {
         const restored = loadDraft(window.localStorage, draftKey, initialValue);
         if (restored !== null) {
-          // useState の初期化で読むと SSR の出力とずれて hydration が壊れる。
-          // 「hydration 後に localStorage と一度だけ同期する」ためのマウント時
-          // effect であり、連鎖レンダリングは起きない (依存なしで再実行されない)
-          /* eslint-disable react-hooks/set-state-in-effect */
           setValue(restored.value);
           // **本文と対で基点も戻す** (docs/87 §2-6)。いまの版を当てると、
           // タブが落ちている間に別の端末が保存した分を黙って潰せてしまう。
           // 基点を持たない古い下書きは stale = 必ず競合になる
           setBase(restored.base);
           setRestoredDraft(true);
-          /* eslint-enable react-hooks/set-state-in-effect */
         }
       } catch {
         // 読めない環境では何もしない
       }
     }
     draftReady.current = true;
-    // 初回だけ。draftKey / initialValue はページ遷移で作り直される
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+  useEffect(() => {
+    // useState の初期化で読むと SSR の出力とずれて hydration が壊れる。
+    // 「hydration 後に localStorage と一度だけ同期する」ためのマウント時
+    // effect であり、連鎖レンダリングは起きない (依存なしで再実行されない)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    restoreDraft();
   }, []);
 
   useDraftAutosave({

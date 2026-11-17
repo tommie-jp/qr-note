@@ -17,7 +17,7 @@
 // 変化を見るので、中身を書き換えると描き直されない。
 //
 // ライブラリ (SWR / TanStack Query) を入れない理由は docs/123 §9-2
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useEffectEvent, useSyncExternalStore } from 'react'
 import { createNotifier } from '@/lib/prefs/externalStore'
 
 export interface Entry<V> {
@@ -205,8 +205,12 @@ export function createResourceCache<K, V>({
       (entry === undefined || entry.stale || entry.value === undefined) &&
       !entry?.loading &&
       (entry?.error ?? null) === null
-    useEffect(() => {
-      if (!needsLoad || key === null) {
+    // 読み込みの本体は effect event に置く。key はオブジェクトのこともあり描画の
+    // たびに別物になるので、effect の再実行は id (key と一対一) で決め、中では
+    // 呼んだ時点の key・afterPaint を読む。effect の中から同期に呼ぶので、
+    // 読むのはその effect を起こした描画の値で、前の閉包と同じになる
+    const startLoad = useEffectEvent(() => {
+      if (key === null) {
         return
       }
       const start = () => {
@@ -230,11 +234,15 @@ export function createResourceCache<K, V>({
           clearTimeout(timer)
         }
       }
-      // key は id と一対一。オブジェクトの鍵でも id で比べれば足りる
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })
+    useEffect(() => {
+      if (!needsLoad) {
+        return
+      }
+      return startLoad()
     }, [id, needsLoad])
     // 購読し始めたとき、期限を過ぎた値なら裏で取り直す (鍵が替わるたびに 1 回)
-    useEffect(() => {
+    const refreshIfExpired = useEffectEvent(() => {
       if (key === null) {
         return
       }
@@ -247,7 +255,9 @@ export function createResourceCache<K, V>({
       ) {
         load(key, { force: true }).catch(() => {})
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })
+    useEffect(() => {
+      refreshIfExpired()
     }, [id])
     return entry
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { errorText } from "@/lib/errorMessage";
 import { type BoardIssue, renderBoardFence } from "@/lib/markdown/boardRender";
 import {
@@ -45,8 +45,14 @@ export function BoardDiagram({ lang, code, attachments }: BoardDiagramProps) {
   // Map は描き直すたびに別の物になるので、中身を字にして依存に使う
   const attachmentsKey = JSON.stringify([...(attachments ?? [])]);
 
+  // 添付の表は effect の頭で effect event から受け取る。再実行は attachmentsKey
+  // (中身) で決め、Map の作り直しでは描き直さない。effect の中から同期に呼ぶので、
+  // 受け取るのはその effect を起こした描画の表で、前の閉包と同じになる
+  const currentAttachments = useEffectEvent(() => attachments);
+
   useEffect(() => {
     let cancelled = false;
+    const files = currentAttachments();
 
     (async () => {
       try {
@@ -55,7 +61,7 @@ export function BoardDiagram({ lang, code, attachments }: BoardDiagramProps) {
         const loaded =
           names.length === 0
             ? null
-            : await loadDataFiles(names, attachments ?? new Map(), fetchText);
+            : await loadDataFiles(names, files ?? new Map(), fetchText);
         const rendered = await renderBoardFence(lang, code, {
           data: loaded ? (name) => loaded.files.get(name) ?? null : undefined,
         });
@@ -78,7 +84,6 @@ export function BoardDiagram({ lang, code, attachments }: BoardDiagramProps) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- attachments は attachmentsKey で見る
   }, [lang, code, attachmentsKey]);
 
   // ここに来るのは処理系そのものが動かなかったとき。**読めない本文はここに

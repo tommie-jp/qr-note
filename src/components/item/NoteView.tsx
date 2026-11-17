@@ -157,7 +157,12 @@ function useCircuits(itemId: string, memo: string): PendingCircuitMap {
       pending.set(key, result);
     }
     return pending;
-    // memo が変われば図の鍵も変わるので作り直す
+    // 依存は意図して実際の読み取りとずらしてある (docs/128 §8-2 で残すと決めた)。
+    //   memo を入れる … 本文が変われば図の鍵も変わるので、約束の表を作り直して
+    //                   取り直す (中では読まないが、作り直しの合図に使う)
+    //   staleValue を入れない … 古い控えは約束の表の初期値に使うだけで、
+    //                   差し替わっても作り直す理由にならない (fresh が替われば作り直す)
+    // 鍵の値を別に作っても「読まない依存」が残るだけなので、ここは抑止で書く
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId, memo, fresh, wants]);
 }

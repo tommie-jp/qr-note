@@ -5,7 +5,7 @@
     "complexity": 16,
     "max-depth": 0,
     "max-params": 1,
-    "react-hooks-suppress": 10
+    "react-hooks-suppress": 5
   },
   "files": {
     "src/app/about/page.tsx": {
@@ -139,11 +139,10 @@
     },
     "src/components/editor/MemoEditor.tsx": {
       "max-lines-per-function": 1,
-      "react-hooks-suppress": 3
+      "react-hooks-suppress": 2
     },
     "src/components/editor/MemoEditorInner.tsx": {
-      "max-lines-per-function": 1,
-      "react-hooks-suppress": 1
+      "max-lines-per-function": 1
     },
     "src/components/editor/MemoPanel.tsx": {
       "complexity": 1,
@@ -218,8 +217,7 @@
       "max-lines-per-function": 1
     },
     "src/components/markdown/BoardDiagram.tsx": {
-      "max-lines-per-function": 1,
-      "react-hooks-suppress": 1
+      "max-lines-per-function": 1
     },
     "src/components/markdown/MarkdownView.tsx": {
       "complexity": 1,
@@ -307,8 +305,7 @@
       "max-lines-per-function": 2
     },
     "src/lib/client/resourceCache.ts": {
-      "max-lines-per-function": 2,
-      "react-hooks-suppress": 2
+      "max-lines-per-function": 2
     },
     "src/lib/enex/enmlToMarkdown.ts": {
       "max-lines-per-function": 1

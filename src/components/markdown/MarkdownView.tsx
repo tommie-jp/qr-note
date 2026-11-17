@@ -498,7 +498,9 @@ export function MarkdownView({
     blobKinds,
     onToggleTask,
   };
-  // 入れ物は 1 度だけ作る (初期値だけ data を使うので deps は空でよい)
+  // 入れ物は 1 度だけ作る (初期値だけ data を使うので deps は空でよい)。
+  // 本来は useRef の役目だが、この部品はサーバ (RSC) とも共用で、react-server 版の
+  // React に useRef が無いので useMemo で代える (docs/128 §8-2 で残すと決めた)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const holder = useMemo<RenderDataHolder>(() => ({ current: data }), []);
   // 描画の中で書き換えるのは意図したもの。部品はこの描画の中で (親の後に)

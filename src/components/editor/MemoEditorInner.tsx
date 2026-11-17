@@ -7,7 +7,14 @@ import "@atomic-editor/editor/styles.css";
 // ここでも読み込む — 無いと数式が素の文字列として崩れて出る
 import "katex/dist/katex.min.css";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { useBottomBarSlot } from "@/components/bottombar/BottomBarContext";
 import { useLatest } from "@/components/hooks/useLatest";
 import type { EditToolbarEditor } from "@/components/editor/EditToolbar";
@@ -83,10 +90,11 @@ export default function MemoEditorInner({
   // (useBottomBarSlot)。口 (hostEl) が返るのは帯が描かれた次の描画から
   const hostEl = useBottomBarSlot(panelActive);
 
+  // マウント時に一度だけ通知する。onReady は親が描くたびに作り直す関数なので、
+  // effect event にして依存から外す (作り直しで撃ち直さない)
+  const notifyReady = useEffectEvent(() => onReady());
   useEffect(() => {
-    onReady();
-    // マウント時に一度だけ通知する
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    notifyReady();
   }, []);
 
   const ocr = useEditorOcr({ editorRef, setError });
