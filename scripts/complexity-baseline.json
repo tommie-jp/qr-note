@@ -1,8 +1,8 @@
 {
   "circular": 0,
   "totals": {
-    "max-lines-per-function": 122,
-    "complexity": 15,
+    "max-lines-per-function": 120,
+    "complexity": 14,
     "max-depth": 0,
     "max-params": 1,
     "react-hooks-suppress": 5
@@ -337,15 +337,6 @@
     },
     "src/lib/tts/speak.ts": {
       "max-lines-per-function": 1
-    },
-    "src/lib/video/videoAnim.ts": {
-      "max-lines-per-function": 1
-    },
-    "src/lib/video/videoMeta.ts": {
-      "max-lines-per-function": 1
-    },
-    "src/lib/video/videoPoster.ts": {
-      "complexity": 1
     },
     "src/lib/zip/importZip.ts": {
       "max-lines-per-function": 2

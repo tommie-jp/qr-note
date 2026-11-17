@@ -165,6 +165,82 @@ function seekTo(video: HTMLVideoElement, sec: number): Promise<boolean> {
   })
 }
 
+// コマ集めの手足。動画要素から切り離して、集め方 (予算・打ち切り) だけを確かめられる
+export interface FrameSource {
+  seek: (sec: number) => Promise<boolean>
+  draw: () => Promise<Blob | null>
+  now: () => number
+}
+
+// コマ集め。**間に合ったぶんだけ**返す (足りなければサーバが諦める)。
+// 1 コマ目は poster と同じ位置なので、シークせずそのまま描ける。
+// シークや描画に 1 度でも失敗したら、そこで打ち切る
+export async function collectFrames(
+  times: readonly number[],
+  source: FrameSource,
+  budgetMs: number = ANIM_BUDGET_MS,
+): Promise<Blob[]> {
+  const frames: Blob[] = []
+  const deadline = source.now() + budgetMs
+  for (const [index, sec] of times.entries()) {
+    if (source.now() > deadline) {
+      break
+    }
+    if (index > 0 && !(await source.seek(sec))) {
+      break
+    }
+    const frame = await source.draw()
+    if (!frame) {
+      break
+    }
+    frames.push(frame)
+  }
+  return frames
+}
+
+// 音を出さず、勝手に全画面へ行かせず、実データまで読ませる (preload=metadata
+// だと描けるフレームが揃わないことがある)
+function probeVideo(url: string): HTMLVideoElement {
+  const video = document.createElement('video')
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'auto'
+  video.src = url
+  return video
+}
+
+// 先頭のコマが描けた動画から、静止サムネと (頼まれていれば) 動くサムネのコマを取る
+async function thumbsFromLoaded(
+  video: HTMLVideoElement,
+  withFrames: boolean,
+): Promise<VideoThumbs> {
+  // ここから先は自分でコマを送るので再生は止める。再生したままシークすると
+  // 描いた時刻とシーク先がずれる
+  video.pause()
+
+  // コマの時刻。空 = 動くサムネは作らない (短すぎる・尺が判らない動画)
+  const times = withFrames ? frameTimes(video.duration, MAX_VIDEO_ANIM_FRAMES) : []
+
+  // 静止サムネは必ず先頭付近から描く (真っ黒回避)。シーク不可・duration 不正な
+  // 録画では、その場のフレームをそのまま描く
+  const canSeek =
+    Number.isFinite(video.duration) && video.duration > FIRST_FRAME_SEC
+  if (canSeek) {
+    await seekTo(video, FIRST_FRAME_SEC)
+  }
+  const poster = await drawFrame(video, POSTER_MAX_PX, POSTER_QUALITY)
+  if (!poster || !canSeek || times.length === 0) {
+    // poster すら描けない動画からコマを集めても仕方がない
+    return { poster, frames: [] }
+  }
+  const frames = await collectFrames(times, {
+    seek: (sec) => seekTo(video, sec),
+    draw: () => drawFrame(video, ANIM_FRAME_MAX_PX, ANIM_FRAME_QUALITY),
+    now: Date.now,
+  })
+  return { poster, frames }
+}
+
 // 動画ファイルから静止サムネと動くサムネのコマを作る。
 //
 // withFrames: false なら静止サムネだけ (コマ集めの時間を使わない)。サーバクリップボードの
@@ -177,56 +253,12 @@ export async function makeVideoThumbs(
     return NO_THUMBS
   }
   const url = URL.createObjectURL(file)
-  const video = document.createElement('video')
-  // 音を出さず、勝手に全画面へ行かせず、実データまで読ませる (preload=metadata
-  // だと描けるフレームが揃わないことがある)
-  video.muted = true
-  video.playsInline = true
-  video.preload = 'auto'
-  video.src = url
-
+  const video = probeVideo(url)
   try {
     if (!(await waitForFirstFrame(video))) {
       return NO_THUMBS
     }
-    // ここから先は自分でコマを送るので再生は止める。再生したままシークすると
-    // 描いた時刻とシーク先がずれる
-    video.pause()
-
-    // コマの時刻。空 = 動くサムネは作らない (短すぎる・尺が判らない動画)
-    const times = withFrames ? frameTimes(video.duration, MAX_VIDEO_ANIM_FRAMES) : []
-
-    // 静止サムネは必ず先頭付近から描く (真っ黒回避)。シーク不可・duration 不正な
-    // 録画では、その場のフレームをそのまま描く
-    const canSeek =
-      Number.isFinite(video.duration) && video.duration > FIRST_FRAME_SEC
-    if (canSeek) {
-      await seekTo(video, FIRST_FRAME_SEC)
-    }
-    const poster = await drawFrame(video, POSTER_MAX_PX, POSTER_QUALITY)
-    if (!poster || !canSeek || times.length === 0) {
-      // poster すら描けない動画からコマを集めても仕方がない
-      return { poster, frames: [] }
-    }
-
-    // コマ集め。**間に合ったぶんだけ**返す (足りなければサーバが諦める)。
-    // 1 コマ目は poster と同じ位置なので、シークせずそのまま描ける
-    const frames: Blob[] = []
-    const deadline = Date.now() + ANIM_BUDGET_MS
-    for (const [index, sec] of times.entries()) {
-      if (Date.now() > deadline) {
-        break
-      }
-      if (index > 0 && !(await seekTo(video, sec))) {
-        break
-      }
-      const frame = await drawFrame(video, ANIM_FRAME_MAX_PX, ANIM_FRAME_QUALITY)
-      if (!frame) {
-        break
-      }
-      frames.push(frame)
-    }
-    return { poster, frames }
+    return await thumbsFromLoaded(video, withFrames)
   } finally {
     URL.revokeObjectURL(url)
     video.removeAttribute('src')

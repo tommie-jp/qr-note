@@ -96,6 +96,71 @@ function fitInside(width: number, height: number): { w: number; h: number } {
   }
 }
 
+// 出力の寸法は **1 コマ目から決める**。sharp の join は寸法違いでも例外を
+// 投げず、1 コマ目に合わせて余白を入れる (実測) ため、揃えずに渡すと
+// 動かした瞬間に絵が飛び跳ねる。ここで全コマを同じ寸法へ写す
+async function animSize(first: Uint8Array): Promise<{ w: number; h: number } | null> {
+  const meta = await sharp(first, {
+    failOn: 'none',
+    limitInputPixels: MAX_INPUT_PIXELS,
+  }).metadata()
+  if (!meta.width || !meta.height) {
+    return null
+  }
+  return fitInside(meta.width, meta.height)
+}
+
+// **コマごとに縮めてから join する。** join の後ろに resize を置くと
+// ページの扱いが失われ、出来上がりが 1 枚の静止画に潰れる (実測)。
+// 解凍爆弾よけ (limitInputPixels) もここで 1 コマずつ効かせる — 束ねてから
+// では合計で判定され、どのコマが悪いかに関係なく丸ごと落ちる
+async function resizeFrames(
+  frames: readonly Uint8Array[],
+  { w, h }: { w: number; h: number },
+): Promise<Buffer[]> {
+  const resized: Buffer[] = []
+  for (const frame of frames) {
+    resized.push(
+      await sharp(frame, { failOn: 'none', limitInputPixels: MAX_INPUT_PIXELS })
+        // fill ではなく cover。寸法違いのコマが来ても引き伸ばさず切り取る
+        // (正しいクライアントでは全コマ同寸なので、この分岐は効かない)
+        .resize(w, h, { fit: 'cover', position: 'center' })
+        .jpeg({ quality: 90 })
+        .toBuffer(),
+    )
+  }
+  return resized
+}
+
+function joinAnimated(resized: Buffer[]): Promise<Buffer> {
+  return sharp(resized, { join: { animated: true } })
+    .webp({
+      quality: VIDEO_ANIM_QUALITY,
+      loop: 0,
+      // **配列で渡すこと。** 数値 1 つだと 1 コマ目にしか効かず、残りは
+      // 既定の 100ms になる (実測)
+      delay: new Array(resized.length).fill(VIDEO_ANIM_DELAY_MS),
+    })
+    .toBuffer()
+}
+
+// 出来上がりを検算する。動かない・大きすぎるものは捨てる (null)
+function acceptAnim(anim: Buffer, label: string): Uint8Array<ArrayBuffer> | null {
+  if (!isAnimatedWebp(anim)) {
+    console.warn(`動くサムネが静止画になったので捨てます (${label})`)
+    return null
+  }
+  if (anim.byteLength > MAX_VIDEO_ANIM_BYTES) {
+    console.warn(
+      `動くサムネが大きすぎるので捨てます (${label}, ${anim.byteLength} > ${MAX_VIDEO_ANIM_BYTES} bytes)`,
+    )
+    return null
+  }
+  // Buffer は使い回しのプールを指しうるため、自前の ArrayBuffer へ写す
+  // (Prisma の Bytes は ArrayBuffer 実体の Uint8Array だけを受ける)
+  return new Uint8Array(anim)
+}
+
 // クライアントが抜いたコマ (JPEG) から動くサムネを作る。作れなければ null。
 //
 // **例外を投げない**のは意図的 (makeThumbnail / makeVideoPoster と同じ流儀)。
@@ -118,57 +183,12 @@ export async function makeVideoAnim(
   const capped = frames.slice(0, MAX_VIDEO_ANIM_FRAMES)
 
   try {
-    // 出力の寸法は **1 コマ目から決める**。sharp の join は寸法違いでも例外を
-    // 投げず、1 コマ目に合わせて余白を入れる (実測) ため、揃えずに渡すと
-    // 動かした瞬間に絵が飛び跳ねる。ここで全コマを同じ寸法へ写す
-    const meta = await sharp(capped[0], {
-      failOn: 'none',
-      limitInputPixels: MAX_INPUT_PIXELS,
-    }).metadata()
-    if (!meta.width || !meta.height) {
+    const size = await animSize(capped[0])
+    if (!size) {
       return null
     }
-    const { w, h } = fitInside(meta.width, meta.height)
-
-    // **コマごとに縮めてから join する。** join の後ろに resize を置くと
-    // ページの扱いが失われ、出来上がりが 1 枚の静止画に潰れる (実測)。
-    // 解凍爆弾よけ (limitInputPixels) もここで 1 コマずつ効かせる — 束ねてから
-    // では合計で判定され、どのコマが悪いかに関係なく丸ごと落ちる
-    const resized: Buffer[] = []
-    for (const frame of capped) {
-      resized.push(
-        await sharp(frame, { failOn: 'none', limitInputPixels: MAX_INPUT_PIXELS })
-          // fill ではなく cover。寸法違いのコマが来ても引き伸ばさず切り取る
-          // (正しいクライアントでは全コマ同寸なので、この分岐は効かない)
-          .resize(w, h, { fit: 'cover', position: 'center' })
-          .jpeg({ quality: 90 })
-          .toBuffer(),
-      )
-    }
-
-    const anim = await sharp(resized, { join: { animated: true } })
-      .webp({
-        quality: VIDEO_ANIM_QUALITY,
-        loop: 0,
-        // **配列で渡すこと。** 数値 1 つだと 1 コマ目にしか効かず、残りは
-        // 既定の 100ms になる (実測)
-        delay: new Array(resized.length).fill(VIDEO_ANIM_DELAY_MS),
-      })
-      .toBuffer()
-
-    if (!isAnimatedWebp(anim)) {
-      console.warn(`動くサムネが静止画になったので捨てます (${label})`)
-      return null
-    }
-    if (anim.byteLength > MAX_VIDEO_ANIM_BYTES) {
-      console.warn(
-        `動くサムネが大きすぎるので捨てます (${label}, ${anim.byteLength} > ${MAX_VIDEO_ANIM_BYTES} bytes)`,
-      )
-      return null
-    }
-    // Buffer は使い回しのプールを指しうるため、自前の ArrayBuffer へ写す
-    // (Prisma の Bytes は ArrayBuffer 実体の Uint8Array だけを受ける)
-    return new Uint8Array(anim)
+    const anim = await joinAnimated(await resizeFrames(capped, size))
+    return acceptAnim(anim, label)
   } catch (error) {
     console.error(
       `動くサムネの生成に失敗しました (${label}, ${frames.length} コマ):`,

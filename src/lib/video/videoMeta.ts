@@ -146,65 +146,75 @@ function udtaKinds(bytes: Uint8Array, udta: Box): MetaKind[] {
   )
 }
 
+// 書き換えの作業場。out は input の写しで、書き換えるのはこちらだけ。
+// 箱の読み取りは元の input から行う (書き換えた所を読み直さない)
+interface StripWork {
+  input: Uint8Array<ArrayBuffer>
+  out: Uint8Array<ArrayBuffer>
+  removed: Set<MetaKind>
+  changed: boolean
+}
+
+// 型を free に替えて中身を 0 で埋める。長さは変えない
+function neutralize(work: StripWork, box: Box, kinds: Iterable<MetaKind>): void {
+  work.out.set(FREE, box.start + 4)
+  work.out.fill(0, box.bodyAt, box.end)
+  for (const kind of kinds) work.removed.add(kind)
+  work.changed = true
+}
+
+// 作成・更新の日時 (版 0 は 32 ビット × 2、版 1 は 64 ビット × 2)。
+// 版と印の 4 バイトの直後に並ぶ
+function zeroTimes(work: StripWork, box: Box): void {
+  const { out } = work
+  const width = out[box.bodyAt] === 1 ? 16 : 8
+  const from = box.bodyAt + 4
+  if (from + width > box.end) {
+    throw new PhotoMetaFormatError(`${box.type} が短すぎます`)
+  }
+  if (out.subarray(from, from + width).some((byte) => byte !== 0)) {
+    out.fill(0, from, from + width)
+    work.removed.add('datetime')
+    work.changed = true
+  }
+}
+
+// moov の下を辿り、撮影情報の箱を潰し、日時を 0 にする
+function walkBoxes(work: StripWork, from: number, to: number, depth: number): void {
+  if (depth > MAX_DEPTH) {
+    throw new PhotoMetaFormatError('箱の入れ子が深すぎます')
+  }
+  const { input } = work
+  for (const box of readBoxes(input, from, to, true)) {
+    if (box.type === 'udta') {
+      neutralize(work, box, udtaKinds(input, box))
+    } else if (box.type === 'meta') {
+      neutralize(work, box, metaKinds(input, box))
+    } else if (isXmpUuid(input, box)) {
+      neutralize(work, box, ['xmp'])
+    } else if (TIMED_HEADERS.has(box.type)) {
+      zeroTimes(work, box)
+    } else if (CONTAINERS.has(box.type)) {
+      walkBoxes(work, box.bodyAt, box.end, depth + 1)
+    }
+  }
+}
+
 export function stripVideoMeta(input: Uint8Array<ArrayBuffer>): StripOutcome {
   const top = readBoxes(input, 0, input.byteLength, false)
   const moov = top.find((box) => box.type === 'moov')
   if (!moov) {
     throw new PhotoMetaFormatError('moov がありません')
   }
-  const out = input.slice()
-  const removed = new Set<MetaKind>()
-  let changed = false
-
-  // 型を free に替えて中身を 0 で埋める。長さは変えない
-  const neutralize = (box: Box, kinds: Iterable<MetaKind>) => {
-    out.set(FREE, box.start + 4)
-    out.fill(0, box.bodyAt, box.end)
-    for (const kind of kinds) removed.add(kind)
-    changed = true
-  }
-
-  // 作成・更新の日時 (版 0 は 32 ビット × 2、版 1 は 64 ビット × 2)。
-  // 版と印の 4 バイトの直後に並ぶ
-  const zeroTimes = (box: Box) => {
-    const width = out[box.bodyAt] === 1 ? 16 : 8
-    const from = box.bodyAt + 4
-    if (from + width > box.end) {
-      throw new PhotoMetaFormatError(`${box.type} が短すぎます`)
-    }
-    if (out.subarray(from, from + width).some((byte) => byte !== 0)) {
-      out.fill(0, from, from + width)
-      removed.add('datetime')
-      changed = true
-    }
-  }
-
-  const walk = (from: number, to: number, depth: number) => {
-    if (depth > MAX_DEPTH) {
-      throw new PhotoMetaFormatError('箱の入れ子が深すぎます')
-    }
-    for (const box of readBoxes(input, from, to, true)) {
-      if (box.type === 'udta') {
-        neutralize(box, udtaKinds(input, box))
-      } else if (box.type === 'meta') {
-        neutralize(box, metaKinds(input, box))
-      } else if (isXmpUuid(input, box)) {
-        neutralize(box, ['xmp'])
-      } else if (TIMED_HEADERS.has(box.type)) {
-        zeroTimes(box)
-      } else if (CONTAINERS.has(box.type)) {
-        walk(box.bodyAt, box.end, depth + 1)
-      }
-    }
-  }
-
+  const work: StripWork = { input, out: input.slice(), removed: new Set(), changed: false }
+  // 最上位は meta と XMP だけを見る (udta などは moov の中にある)
   for (const box of top) {
     if (box.type === 'meta') {
-      neutralize(box, metaKinds(input, box))
+      neutralize(work, box, metaKinds(input, box))
     } else if (isXmpUuid(input, box)) {
-      neutralize(box, ['xmp'])
+      neutralize(work, box, ['xmp'])
     }
   }
-  walk(moov.bodyAt, moov.end, 1)
-  return changed ? { bytes: out, removed } : { bytes: input, removed: new Set() }
+  walkBoxes(work, moov.bodyAt, moov.end, 1)
+  return work.changed ? { bytes: work.out, removed: work.removed } : { bytes: input, removed: new Set() }
 }
