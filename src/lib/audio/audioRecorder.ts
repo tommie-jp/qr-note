@@ -6,6 +6,7 @@
 
 import fixWebmDuration from 'fix-webm-duration'
 import { stopStream } from '../camera/mediaStream'
+import { stopRecorder } from '../camera/stopRecorder'
 import { timestampFileName, timestampLabel } from '../datetime'
 
 // 試す順に並べる。**Safari だけを mp4/AAC に寄せ、他は webm/opus のまま**に
@@ -239,21 +240,11 @@ export class AudioRecorder {
       // (OS 側でマイクを取り上げられた・端末が外れた等で勝手に止まっていた場合)。
       // finally で必ず後始末する — さもないと this.recorder が残り、以後の
       // start() が「既に録音中です」で永久に弾かれる
-      ;({ blob: rawBlob, mimeType, durationMs } = await new Promise<{
-        blob: Blob
-        mimeType: string
-        durationMs: number
-      }>((resolve) => {
-        recorder.onstop = () => {
-          const type = recorder.mimeType
-          resolve({
-            blob: new Blob(this.chunks, { type }),
-            mimeType: type,
-            durationMs: Date.now() - this.startedAt,
-          })
-        }
-        recorder.stop()
-      }))
+      ;({ blob: rawBlob, mimeType, durationMs } = await stopRecorder(
+        recorder,
+        () => this.chunks,
+        () => this.startedAt,
+      ))
     } finally {
       stopStream(stream)
       this.recorder = null

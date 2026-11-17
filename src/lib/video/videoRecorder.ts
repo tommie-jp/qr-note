@@ -7,6 +7,7 @@
 
 import fixWebmDuration from 'fix-webm-duration'
 import { stopStream } from '../camera/mediaStream'
+import { stopRecorder } from '../camera/stopRecorder'
 import { timestampFileName, timestampLabel } from '../datetime'
 import { MAX_VIDEO_BYTES } from '../uploads/limits'
 import {
@@ -413,21 +414,11 @@ export class VideoRecorder {
       // recorder.stop() は既に inactive なら InvalidStateError を投げる。
       // finally で必ず後始末する — さもないと this.recorder が残り、以後の
       // start() が「既に録画中です」で永久に弾かれる (audioRecorder と同旨)。
-      ;({ blob: rawBlob, mimeType, durationMs } = await new Promise<{
-        blob: Blob
-        mimeType: string
-        durationMs: number
-      }>((resolve) => {
-        recorder.onstop = () => {
-          const type = recorder.mimeType
-          resolve({
-            blob: new Blob(this.chunks, { type }),
-            mimeType: type,
-            durationMs: Date.now() - this.startedAt,
-          })
-        }
-        recorder.stop()
-      }))
+      ;({ blob: rawBlob, mimeType, durationMs } = await stopRecorder(
+        recorder,
+        () => this.chunks,
+        () => this.startedAt,
+      ))
     } finally {
       stopStream(stream)
       this.recorder = null
