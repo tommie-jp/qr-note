@@ -5,7 +5,7 @@ vi.mock('@/lib/db', () => ({ prisma: {} }))
 vi.mock('@/lib/items/search', () => ({ searchItems: vi.fn() }))
 vi.mock('@/lib/offline/syncItems', () => ({ loadOfflineSyncPayload: vi.fn() }))
 
-const { makeNoiseJpeg, median, sampleMedian } = await import('./serverBench')
+const { makeNoiseJpeg, median, runMemoryRounds, sampleMedian } = await import('./serverBench')
 
 describe('median', () => {
   test('奇数個は真ん中、偶数個は真ん中 2 つの平均', () => {
@@ -75,4 +75,46 @@ test('自分自身の宛先は standalone の待ち受け (HOSTNAME) に合わ�
   expect(selfOrigin({ HOSTNAME: '387119a2fecf' })).toBe('http://387119a2fecf:3000')
   expect(selfOrigin({ HOSTNAME: '0.0.0.0', PORT: '3301' })).toBe('http://127.0.0.1:3301')
   expect(selfOrigin({})).toBe('http://127.0.0.1:3000')
+})
+
+describe('runMemoryRounds', () => {
+  const snapshotAt = (rssMB: number) => ({
+    rssMB,
+    heapUsedMB: 0,
+    heapTotalMB: 0,
+    externalMB: 0,
+    arrayBuffersMB: 0,
+    maxRssMB: rssMB,
+    cgroupCurrentMB: null,
+    cgroupPeakMB: null,
+    uptimeSec: 0,
+  })
+
+  test('全項目を 1 回ずつ回してから記録し、周回 2 から番号を振る', async () => {
+    const calls: string[] = []
+    const task = (name: string) => ({
+      run: async () => {
+        calls.push(name)
+        return { totalMs: 1, phases: {}, scale: '' }
+      },
+    })
+    let rss = 100
+    const snapshot = async () => snapshotAt((rss += 10))
+
+    const rounds = await runMemoryRounds([task('a'), task('b')], 2, snapshot)
+
+    expect(calls).toEqual(['a', 'b', 'a', 'b'])
+    expect(rounds.map((r) => [r.label, r.memory.rssMB])).toEqual([
+      ['周回 2', 110],
+      ['周回 3', 120],
+    ])
+  })
+
+  test('失敗する項目があっても周を続ける', async () => {
+    const failing = { run: () => Promise.reject(new Error('boom')) }
+
+    const rounds = await runMemoryRounds([failing], 1, async () => snapshotAt(1))
+
+    expect(rounds).toHaveLength(1)
+  })
 })

@@ -19,6 +19,8 @@ import {
 import {
   envRows,
   formatBenchCopy,
+  formatMemoryDelta,
+  formatMemoryRound,
   formatMs,
   formatPhases,
 } from "@/lib/diag/formatBench";
@@ -102,6 +104,7 @@ function ServerTable({ server }: { server: ServerBenchResult }) {
               <th className={`${CELL_CLASS} text-right`}>中央値</th>
               <th className={CELL_CLASS}>規模</th>
               <th className={CELL_CLASS}>段階</th>
+              <th className={CELL_CLASS}>メモリ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 text-gray-800">
@@ -122,6 +125,9 @@ function ServerTable({ server }: { server: ServerBenchResult }) {
                 <td className={`${CELL_CLASS} text-gray-600`}>
                   {formatPhases(item.phases)}
                 </td>
+                <td className={`${CELL_CLASS} whitespace-nowrap text-gray-600`}>
+                  {item.memory ? formatMemoryDelta(item.memory) : ""}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -131,6 +137,20 @@ function ServerTable({ server }: { server: ServerBenchResult }) {
         「固定」は中身に依らない材料で測った行で、環境どうしを直接比べられます。他の行はノートの件数・中身に依ります
         (規模を見て比べてください)。どれもならし 1 回の後の 3 回の中央値です。
       </p>
+      {server.memoryRounds && server.memoryRounds.length > 0 && (
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold">メモリの推移</h3>
+          <ul className="space-y-0.5 font-mono text-xs break-all text-gray-700">
+            {server.memoryRounds.map((round) => (
+              <li key={round.label}>{formatMemoryRound(round, server.cgroupMaxMB ?? null)}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-gray-500">
+            本計測の後に同じ処理を 4 周回した RSS です。周回のたびに伸び続けるならリークを疑います。cgroup はコンテナ全体
+            (TeX の子プロセスを含む) の値です。
+          </p>
+        </div>
+      )}
       {server.failed.length > 0 && (
         <p role="alert" className="text-sm text-red-700">
           測れなかった項目:{" "}

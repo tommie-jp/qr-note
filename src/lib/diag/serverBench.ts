@@ -23,7 +23,9 @@ import { BENCH_FIXTURE_MD } from './benchFixture'
 import { profileCpu, readBundleSourceMap } from './benchProfile'
 import { type CpuProfile, type ModuleTime, remapProfile, summarizeByModule } from './profileRemap'
 import { profilePath, saveServerBench, writeAtomic } from './benchStore'
-import type { BenchEnv, ServerBenchItem, ServerBenchResult } from './benchTypes'
+import type { BenchEnv, MemoryRound, MemorySnapshot, ServerBenchItem, ServerBenchResult } from './benchTypes'
+import { CGROUP_MEMORY_MAX_PATH } from './hostInfo'
+import { diffMemory, nodeMemoryProbe, parseCgroupBytes, takeMemorySnapshot } from './memorySample'
 import { parseBatch } from './parseBench'
 
 const WARMUP_RUNS = 1
@@ -38,6 +40,9 @@ export const BENCH_QUERIES = ['抵抗', 'コンデンサ', 'オペアンプ', ''
 const THUMB_WIDTH = 1200
 const THUMB_HEIGHT = 900
 const MB = 1024 * 1024
+// 本計測の後に全項目をさらに 1 回ずつ回す周の数 (docs/127 §2)。開始・本計測後と
+// 合わせて 6 点の RSS が残る。伸び続けるならリークを疑う
+export const MEMORY_ROUNDS = 4
 
 export interface BenchSample {
   totalMs: number
@@ -306,19 +311,44 @@ function apiTask(cookie: string, origin: string): BenchTask {
   }
 }
 
-async function runTasks(tasks: readonly BenchTask[]): Promise<Pick<ServerBenchResult, 'items' | 'failed'>> {
+type Snapshot = () => Promise<MemorySnapshot>
+
+async function runTasks(
+  tasks: readonly BenchTask[],
+  snapshot: Snapshot,
+): Promise<Pick<ServerBenchResult, 'items' | 'failed'>> {
   const items: ServerBenchItem[] = []
   const failed: ServerBenchResult['failed'] = []
   for (const task of tasks) {
     try {
+      const before = await snapshot()
       const sample = await sampleMedian(task.run)
-      items.push({ id: task.id, label: task.label, fixed: task.fixed, ...sample })
+      const memory = diffMemory(before, await snapshot())
+      items.push({ id: task.id, label: task.label, fixed: task.fixed, ...sample, memory })
     } catch (error) {
       console.warn(`サーバ側ベンチ: ${task.label} に失敗`, error)
       failed.push({ id: task.id, message: safeErrorText(error) })
     }
   }
   return { items, failed }
+}
+
+// 本計測の後に、同じ項目を 1 回ずつ rounds 周回し、周ごとの記録を返す。
+// 失敗した項目は本計測で報告済みなので、ここでは飛ばして周を続ける
+export async function runMemoryRounds(
+  tasks: readonly Pick<BenchTask, 'run'>[],
+  rounds: number,
+  snapshot: Snapshot,
+): Promise<MemoryRound[]> {
+  const result: MemoryRound[] = []
+  for (let round = 2; round <= rounds + 1; round += 1) {
+    for (const task of tasks) {
+      await task.run().catch(() => undefined)
+      await new Promise<void>((resolve) => setImmediate(resolve))
+    }
+    result.push({ label: `周回 ${round}`, memory: await snapshot() })
+  }
+  return result
 }
 
 // 冷えた解析をもう 1 回、プロファイルを取りながら回す。計測の回には混ぜない
@@ -347,7 +377,14 @@ export function selfOrigin(env: Readonly<Record<string, string | undefined>> = p
   return `http://${host}:${env.PORT || '3000'}`
 }
 
+async function readCgroupMaxMB(): Promise<number | null> {
+  const bytes = parseCgroupBytes(await nodeMemoryProbe.readText(CGROUP_MEMORY_MAX_PATH))
+  return bytes === null ? null : Math.round(bytes / MB)
+}
+
 export async function runServerBench(options: ServerBenchOptions = {}): Promise<ServerBenchResult> {
+  const snapshot = () => takeMemorySnapshot(nodeMemoryProbe)
+  const started = await snapshot()
   const env = await collectBenchEnv()
   const coldMemos = await loadColdMemos()
   const jpeg = await makeNoiseJpeg()
@@ -364,7 +401,9 @@ export async function runServerBench(options: ServerBenchOptions = {}): Promise<
           apiTask(options.pageCookie, options.origin ?? selfOrigin()),
         ]),
   ]
-  const { items, failed } = await runTasks(tasks)
+  const { items, failed } = await runTasks(tasks, snapshot)
+  const measured = await snapshot()
+  const rounds = await runMemoryRounds(tasks, MEMORY_ROUNDS, snapshot)
   const profile = await saveParseProfile(coldMemos).then(
     (modules) => ({ modules, failed: [] }),
     (error: unknown) => {
@@ -378,6 +417,8 @@ export async function runServerBench(options: ServerBenchOptions = {}): Promise<
     items,
     failed: [...failed, ...profile.failed],
     profileModules: profile.modules,
+    memoryRounds: [{ label: '開始', memory: started }, { label: '本計測後', memory: measured }, ...rounds],
+    cgroupMaxMB: await readCgroupMaxMB(),
   }
   await saveServerBench(result)
   return result

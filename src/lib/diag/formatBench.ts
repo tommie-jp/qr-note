@@ -3,7 +3,7 @@
 // コピーは `key=値` の 1 行 1 項目 (docs/119 §1-1 と同じ流儀)。WSL・本番・
 // 移行先の 3 枚を貼り並べて、行ごとに差を読む。状態を持たない葉
 import { formatJstDateTime } from '../datetime'
-import type { BenchEnv, ClientBenchRun, ServerBenchItem, ServerBenchResult } from './benchTypes'
+import type { BenchEnv, ClientBenchRun, MemoryDelta, MemoryRound, ServerBenchItem, ServerBenchResult } from './benchTypes'
 
 export function formatMs(ms: number): string {
   return ms >= 100 ? `${Math.round(ms)}ms` : `${ms.toFixed(1)}ms`
@@ -25,6 +25,42 @@ export function envRows(env: BenchEnv): { label: string; value: string }[] {
   ]
 }
 
+const signedMB = (mb: number): string => `${mb >= 0 ? '+' : ''}${mb}MB`
+const mb0 = (mb: number): string => `${Math.round(mb)}MB`
+
+// 項目の前後の差 (docs/127 §2)。GC の時機に揺れるので目安
+export function formatMemoryDelta(delta: MemoryDelta): string {
+  return [
+    `rss=${Math.round(delta.rssBeforeMB)}→${mb0(delta.rssAfterMB)}`,
+    `heap=${signedMB(delta.heapUsedDeltaMB)}`,
+    `ext=${signedMB(delta.externalDeltaMB)}`,
+    `最大rss=${signedMB(delta.maxRssGrowthMB)}`,
+  ].join(' ')
+}
+
+// 周回の 1 点。cgroup (コンテナ全体) は読めた環境でだけ書く
+export function formatMemoryRound(round: MemoryRound, cgroupMaxMB: number | null): string {
+  const m = round.memory
+  const notes = [
+    m.cgroupPeakMB === null ? '' : `ピーク ${mb0(m.cgroupPeakMB)}`,
+    cgroupMaxMB === null ? '' : `上限 ${mb0(cgroupMaxMB)}`,
+  ].filter((part) => part !== '')
+  const cgroup =
+    m.cgroupCurrentMB === null
+      ? ''
+      : `cgroup ${mb0(m.cgroupCurrentMB)}${notes.length > 0 ? ` (${notes.join(' / ')})` : ''}`
+  return [
+    `メモリ.${round.label}=rss ${mb0(m.rssMB)}`,
+    `heap ${Math.round(m.heapUsedMB)}/${mb0(m.heapTotalMB)}`,
+    `ext ${mb0(m.externalMB)}`,
+    `最大rss ${mb0(m.maxRssMB)}`,
+    cgroup,
+    `起動 ${m.uptimeSec}秒`,
+  ]
+    .filter((part) => part !== '')
+    .join(' ')
+}
+
 function serverItemLine(item: ServerBenchItem): string {
   const phases = formatPhases(item.phases)
   return [
@@ -32,6 +68,7 @@ function serverItemLine(item: ServerBenchItem): string {
     `規模=${item.scale}`,
     item.fixed ? '固定' : '',
     phases,
+    item.memory ? formatMemoryDelta(item.memory) : '',
   ]
     .filter((part) => part !== '')
     .join(' ')
@@ -59,6 +96,9 @@ export function formatBenchCopy(input: {
           ...input.server.items.map(serverItemLine),
           ...input.server.failed.map((f) => `サーバ.${f.id}=失敗 (${f.message})`),
           ...(input.server.profileModules ?? []).map((m) => `解析.${m.module}=${formatMs(m.ms)} ${m.pct}%`),
+          ...(input.server.memoryRounds ?? []).map((round) =>
+            formatMemoryRound(round, input.server?.cgroupMaxMB ?? null),
+          ),
         ]
       : ['サーバ=未計測']),
     ...(input.clients.length > 0 ? input.clients.flatMap(clientLines) : ['端末=未計測']),

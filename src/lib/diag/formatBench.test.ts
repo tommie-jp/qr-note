@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { formatBenchCopy, formatMs, formatPhases } from './formatBench'
+import { formatBenchCopy, formatMemoryDelta, formatMemoryRound, formatMs, formatPhases } from './formatBench'
 import type { ServerBenchResult } from './benchTypes'
 
 const SERVER: ServerBenchResult = {
@@ -47,4 +47,48 @@ test('コピーは 1 行 1 項目で、環境 → CPU → サーバ → 端末�
 
 test('何も測っていなければ未計測と書く', () => {
   expect(formatBenchCopy({ cpu: null, server: null, clients: [] })).toContain('サーバ=未計測')
+})
+
+const SNAPSHOT = {
+  rssMB: 210.4,
+  heapUsedMB: 80.2,
+  heapTotalMB: 120,
+  externalMB: 20,
+  arrayBuffersMB: 5,
+  maxRssMB: 250,
+  cgroupCurrentMB: 512.3,
+  cgroupPeakMB: 900,
+  uptimeSec: 3600,
+}
+
+test('項目の前後の差は RSS の前→後と増減を符号つきで書く', () => {
+  expect(
+    formatMemoryDelta({ rssBeforeMB: 200, rssAfterMB: 230, heapUsedDeltaMB: -10, externalDeltaMB: 6, maxRssGrowthMB: 30 }),
+  ).toBe('rss=200→230MB heap=-10MB ext=+6MB 最大rss=+30MB')
+})
+
+test('周回の記録は cgroup と上限を併記し、無ければ省く', () => {
+  expect(formatMemoryRound({ label: '開始', memory: SNAPSHOT }, 1600)).toBe(
+    'メモリ.開始=rss 210MB heap 80/120MB ext 20MB 最大rss 250MB cgroup 512MB (ピーク 900MB / 上限 1600MB) 起動 3600秒',
+  )
+  expect(
+    formatMemoryRound({ label: '周回 2', memory: { ...SNAPSHOT, cgroupCurrentMB: null, cgroupPeakMB: null } }, null),
+  ).toBe('メモリ.周回 2=rss 210MB heap 80/120MB ext 20MB 最大rss 250MB 起動 3600秒')
+})
+
+test('コピーにメモリの行が入る (古い保存では出ない)', () => {
+  const withMemory: ServerBenchResult = {
+    ...SERVER,
+    items: [
+      { ...SERVER.items[1], memory: { rssBeforeMB: 200, rssAfterMB: 201, heapUsedDeltaMB: 0.5, externalDeltaMB: 0, maxRssGrowthMB: 0 } },
+    ],
+    failed: [],
+    memoryRounds: [{ label: '開始', memory: SNAPSHOT }],
+    cgroupMaxMB: null,
+  }
+
+  const lines = formatBenchCopy({ cpu: null, server: withMemory, clients: [] }).split('\n')
+
+  expect(lines).toContain('サーバ.search:抵抗=123ms 規模=20/48 件 rss=200→201MB heap=+0.5MB ext=+0MB 最大rss=+0MB')
+  expect(lines).toContain('メモリ.開始=rss 210MB heap 80/120MB ext 20MB 最大rss 250MB cgroup 512MB (ピーク 900MB) 起動 3600秒')
 })

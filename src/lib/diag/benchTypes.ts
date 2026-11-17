@@ -18,6 +18,38 @@ export interface BenchEnv {
   measuredAt: string
 }
 
+// 1 時点のメモリ (docs/127 §2)。MB の小数 1 桁。cgroup はコンテナ全体 (TeX の
+// 子プロセスも含む) で、手元の素の node や v1 の環境では null
+export interface MemorySnapshot {
+  rssMB: number
+  heapUsedMB: number
+  heapTotalMB: number
+  externalMB: number
+  arrayBuffersMB: number
+  // このプロセスの起動からの最大 RSS (process.resourceUsage().maxRSS)
+  maxRssMB: number
+  cgroupCurrentMB: number | null
+  cgroupPeakMB: number | null
+  uptimeSec: number
+}
+
+// 項目を回す前後の差 (docs/127 §2)。GC の時機に左右されるので目安。判定には
+// 周回の推移 (memoryRounds) を使う
+export interface MemoryDelta {
+  rssBeforeMB: number
+  rssAfterMB: number
+  heapUsedDeltaMB: number
+  externalDeltaMB: number
+  // この項目の間に最大 RSS が伸びた分 (伸びなければ 0)
+  maxRssGrowthMB: number
+}
+
+// 周回ごとの記録。'開始' | '本計測後' | '周回 2' …
+export interface MemoryRound {
+  label: string
+  memory: MemorySnapshot
+}
+
 export interface ServerBenchItem {
   // 'search:抵抗' | 'parse:cold' | 'parse:fixture' | 'thumb:fixture' | 'sync:payload'
   id: string
@@ -29,6 +61,8 @@ export interface ServerBenchItem {
   phases: Record<string, number>
   // 中身に依らない行 (環境どうしで直接比べられる)
   fixed: boolean
+  // ならしと計測の全回を通した前後の差。v0.23.138 以前の保存には無い
+  memory?: MemoryDelta
 }
 
 export interface ServerBenchResult {
@@ -40,6 +74,11 @@ export interface ServerBenchResult {
   // 回路の解析のプロファイルを、元のモジュールごとの自己時間に畳んだ物 (多い順。
   // docs/122 §4)。古い保存 (v0.23.83) には無い
   profileModules?: { module: string; ms: number; pct: number }[]
+  // 開始・本計測後・同じ処理をさらに回した後の推移 (docs/127 §2)。
+  // 周回のたびに RSS が伸び続けるならリークを疑う。古い保存には無い
+  memoryRounds?: MemoryRound[]
+  // コンテナのメモリ上限 (cgroup の memory.max)。無制限・読めなければ null
+  cgroupMaxMB?: number | null
 }
 
 export interface ClientBenchRow {
