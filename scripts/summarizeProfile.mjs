@@ -64,8 +64,12 @@ function peakSummary(root) {
   return Object.fromEntries(readJson(path).map((row) => [row.task, { mb: row.treeMaxRssMB, ms: row.ms }]))
 }
 
+// 測定のぶれより小さい差の下限 (これ未満の差は幅の外でも「変化なし」)。
+// 数 ms の項目で 0.3ms ずれただけで「悪化」と出るのを防ぐ (docs/128 §7)
+const NOISE_FLOOR = { server: 1, browser: 20, peak: 10 }
+
 // docs/127 §8: 幅の中なら変化なし、幅を超えて 10% 以上の悪化は止める
-function judge(now, base) {
+function judge(now, base, floor) {
   if (!base) {
     return ''
   }
@@ -73,7 +77,9 @@ function judge(now, base) {
   const pct = base.median === 0 ? 0 : (diff / base.median) * 100
   const sign = diff >= 0 ? '+' : ''
   let verdict = '変化なし'
-  if (now.median > base.max) {
+  if (Math.abs(diff) < floor) {
+    verdict = '変化なし'
+  } else if (now.median > base.max) {
     verdict = pct >= 10 ? '**悪化 (調べる)**' : '悪化 (10% 未満)'
   } else if (now.median < base.min) {
     verdict = '改善'
@@ -101,7 +107,7 @@ if (now.server) {
     'サーバ (ms、2〜6 回目)',
     `| 項目 | 中央値 (最小〜最大)${compareCols} |`,
     Object.entries(now.server.items).map(
-      ([id, stat]) => `| ${id} | ${fmt(stat)}${judge(stat, base?.server?.items[id])} |`,
+      ([id, stat]) => `| ${id} | ${fmt(stat)}${judge(stat, base?.server?.items[id], NOISE_FLOOR.server)} |`,
     ),
   )
   console.log(`\n周回の終わりの RSS (MB): ${now.server.finalRss.join(' → ')}`)
@@ -114,7 +120,7 @@ if (now.browser) {
     'ブラウザ (ms)',
     `| 段 | 中央値 (最小〜最大)${compareCols} |`,
     Object.entries(now.browser.rows).map(
-      ([name, stat]) => `| ${name} | ${fmt(stat)}${judge(stat, base?.browser?.rows[name])} |`,
+      ([name, stat]) => `| ${name} | ${fmt(stat)}${judge(stat, base?.browser?.rows[name], NOISE_FLOOR.browser)} |`,
     ),
   )
   console.log(`\n往復のヒープ (MB): ${now.browser.leak.join(' → ')}`)
@@ -126,6 +132,6 @@ if (now.peak) {
   printTable(
     '重い処理のピーク (MB)',
     `| 処理 | ピーク RSS${compareCols} |`,
-    Object.entries(now.peak).map(([task, row]) => `| ${task} | ${fmt(row.mb)}${judge(row.mb, base?.peak?.[task]?.mb)} |`),
+    Object.entries(now.peak).map(([task, row]) => `| ${task} | ${fmt(row.mb)}${judge(row.mb, base?.peak?.[task]?.mb, NOISE_FLOOR.peak)} |`),
   )
 }

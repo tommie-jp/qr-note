@@ -32,6 +32,8 @@ cleanup() {
 trap cleanup EXIT
 
 echo "==> イメージを作る ($TAG)"
+# 依存を足した後は .deps/ (版を潰した写し) を作り直さないと Dockerfile が止める
+node scripts/writeDepsManifest.mjs >/dev/null
 docker build -q -t "$TAG" . </dev/null >/dev/null
 
 echo "==> 計測用サーバを立てる ($BASE)"
