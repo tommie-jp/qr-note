@@ -158,6 +158,57 @@ describe('createResourceCache', () => {
     expect(cache.keys()).toEqual(['b', 'd'])
   })
 
+  test('使っている最中の鍵は、上限を超えても捨てない', () => {
+    // Arrange: 画面に出ている部品が a・b・c を使っている (上限は 3)
+    const { cache } = cacheWith([])
+    for (const key of ['a', 'b', 'c']) {
+      cache.set(key, key)
+      cache.hold(key)
+    }
+
+    // Act: 4 つ目の部品が d を入れる
+    cache.set('d', 'd')
+
+    // Assert: 捨てると a の部品が取り直し、それが b を捨て…と終わらなくなる
+    expect(cache.keys()).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  test('使っていない鍵があれば、使っている鍵を飛ばして古い順に捨てる', () => {
+    // Arrange
+    const { cache } = cacheWith([])
+    cache.set('a', 'a')
+    cache.hold('a')
+    cache.set('b', 'b')
+    cache.set('c', 'c')
+
+    // Act
+    cache.set('d', 'd')
+
+    // Assert
+    expect(cache.keys()).toEqual(['a', 'c', 'd'])
+  })
+
+  test('使い終えた鍵は、次に上限を超えたとき捨てる', () => {
+    // Arrange
+    const { cache } = cacheWith([])
+    const release = cache.hold('a')
+    for (const key of ['a', 'b', 'c']) {
+      cache.set(key, key)
+    }
+
+    // Act: 同じ鍵を 2 つの部品が使い、片方だけが終えた間は残る
+    const releaseOther = cache.hold('a')
+    release()
+    cache.set('d', 'd')
+    const whileHeld = cache.keys()
+    releaseOther()
+    cache.set('e', 'e')
+
+    // Assert
+    expect(whileHeld).toEqual(['a', 'c', 'd'])
+    expect(cache.keys()).toEqual(['c', 'd', 'e'])
+  })
+
   test('書き換えのたびに購読者へ知らせ、項目は作り直す (同一性で変化を見る)', () => {
     // Arrange
     const { cache } = cacheWith([])

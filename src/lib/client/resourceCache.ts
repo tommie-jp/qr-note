@@ -39,6 +39,9 @@ export interface ResourceCache<K, V> {
   subscribe(listener: () => void): () => void
   // 鍵の項目を購読する。値が無いか古ければ取りに行く。key が null なら何もしない
   useEntry(key: K | null, options?: UseEntryOptions): Entry<V> | undefined
+  // 鍵を「使っている最中」にする (useEntry が購読の間だけ付ける)。戻り値を
+  // 呼ぶと外す。使っている鍵は上限を超えても捨てない
+  hold(key: K): () => void
   keys(): K[]
 }
 
@@ -52,7 +55,7 @@ export interface ResourceCacheOptions<K, V> {
   fetch: (key: K) => Promise<V>
   // 鍵を Map の鍵にする文字列へ
   keyOf?: (key: K) => string
-  // 覚えておく鍵の上限。超えたら古い順に捨てる
+  // 覚えておく鍵の上限。超えたら古い順に捨てる (使っている最中の鍵は除く)
   maxEntries?: number
   // 届いてからこの時間を過ぎた値は、購読し始めたときに裏で取り直す
   maxAgeMs?: number
@@ -78,18 +81,55 @@ export function createResourceCache<K, V>({
   // 古い応答で上書きしない
   const generation = new Map<string, number>()
 
-  function put(id: string, key: K, entry: Entry<V>): void {
-    entries.delete(id)
-    entries.set(id, entry)
-    rawKeys.set(id, key)
-    while (entries.size > maxEntries) {
-      const oldest = entries.keys().next().value
-      if (oldest === undefined) {
-        break
+  // 使っている最中の鍵 (画面に出ている部品が購読している) と、その部品の数。
+  //
+  // **使っている鍵は上限を超えても捨てない。** 捨てると、その部品は値を失って
+  // 取り直し、入れた拍子に別の部品の鍵が捨てられ、それがまた取り直し…と
+  // 終わらなくなる。画像表示を下へ送り続けて回路図のタイルが上限 (300 枚) を
+  // 超えた所で、React の「更新が深すぎる」(#185) で画面が落ちていた。
+  // 上限は「使い終えた物をどれだけ覚えておくか」で、使っている数は縛らない
+  const held = new Map<string, number>()
+
+  function hold(key: K): () => void {
+    const id = keyOf(key)
+    held.set(id, (held.get(id) ?? 0) + 1)
+    let released = false
+    return () => {
+      if (released) {
+        return
+      }
+      released = true
+      const count = (held.get(id) ?? 1) - 1
+      if (count > 0) {
+        held.set(id, count)
+      } else {
+        held.delete(id)
+      }
+    }
+  }
+
+  // 上限を超えた分を古い順に捨てる。入れたばかりの id と使っている鍵は残す
+  function evict(keepId: string): void {
+    if (entries.size <= maxEntries) {
+      return
+    }
+    for (const oldest of [...entries.keys()]) {
+      if (entries.size <= maxEntries) {
+        return
+      }
+      if (oldest === keepId || held.has(oldest)) {
+        continue
       }
       entries.delete(oldest)
       rawKeys.delete(oldest)
     }
+  }
+
+  function put(id: string, key: K, entry: Entry<V>): void {
+    entries.delete(id)
+    entries.set(id, entry)
+    rawKeys.set(id, key)
+    evict(id)
     notifier.notify()
   }
 
@@ -199,6 +239,9 @@ export function createResourceCache<K, V>({
       () => (id === null ? undefined : entries.get(id)),
       () => undefined,
     )
+    // 購読している間は捨てさせない (hold)。下の読み込みより先に付ける
+    const holdEntry = useEffectEvent(() => (key === null ? undefined : hold(key)))
+    useEffect(() => holdEntry(), [id])
     // 失敗の記録がある間は撃たない (上の約束)
     const needsLoad =
       key !== null &&
@@ -271,6 +314,7 @@ export function createResourceCache<K, V>({
     remove,
     subscribe: notifier.subscribe,
     useEntry,
+    hold,
     keys: () => [...rawKeys.values()],
   }
 }
