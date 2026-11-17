@@ -33,6 +33,23 @@ export async function countItemsWhere(where: Prisma.Sql): Promise<number> {
   return rows[0]?.count ?? 0
 }
 
+// 総数とページ数を数え、page を 1〜pageCount の整数に収める
+async function countPages(
+  where: Prisma.Sql,
+  page: number,
+): Promise<{ total: number; pageCount: number; safePage: number }> {
+  const total = await countItemsWhere(where)
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  // floor が要る: ?page=1.5 のような値をそのまま掛けると LIMIT 30 になり、
+  // 半端な page が次ページの URL にも伝播する
+  const intPage = Math.floor(page)
+  const safePage = Math.min(
+    Math.max(1, Number.isFinite(intPage) ? intPage : 1),
+    pageCount,
+  )
+  return { total, pageCount, safePage }
+}
+
 // q は memo の全文検索 (&@)、または itemId の前方一致。
 // 空白 (半角/全角) 区切りは AND、"OR"/"|" は OR (DNF)。文法は search/parse.ts 参照。
 //
@@ -48,15 +65,7 @@ export async function searchItems(
 ): Promise<ItemSearchResult> {
   const where = buildWhere(query)
 
-  const total = await countItemsWhere(where)
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  // floor が要る: ?page=1.5 のような値をそのまま掛けると LIMIT 30 になり、
-  // 半端な page が次ページの URL にも伝播する
-  const intPage = Math.floor(page)
-  const safePage = Math.min(
-    Math.max(1, Number.isFinite(intPage) ? intPage : 1),
-    pageCount,
-  )
+  const { total, pageCount, safePage } = await countPages(where, page)
   const limit = safePage * PAGE_SIZE
 
   const items = await prisma.$queryRaw<Item[]>`
@@ -82,13 +91,7 @@ export async function searchItemsPage(
 ): Promise<ItemSearchResult> {
   const where = buildWhere(query)
 
-  const total = await countItemsWhere(where)
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const intPage = Math.floor(page)
-  const safePage = Math.min(
-    Math.max(1, Number.isFinite(intPage) ? intPage : 1),
-    pageCount,
-  )
+  const { total, pageCount, safePage } = await countPages(where, page)
 
   const items = await prisma.$queryRaw<Item[]>`
     SELECT ${ITEM_COLUMNS}
