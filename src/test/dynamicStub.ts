@@ -16,7 +16,7 @@
 
 import { createElement, type ComponentType } from 'react'
 
-export const DYNAMIC_STUB_ATTRIBUTE = 'data-dynamic-stub'
+const DYNAMIC_STUB_ATTRIBUTE = 'data-dynamic-stub'
 
 // loader の関数の中身から import 先を読み取る。関数でない loader
 // (Promise を直接渡す書き方) はこのリポジトリに無いので 'unknown' に落とす

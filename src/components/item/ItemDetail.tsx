@@ -54,7 +54,7 @@ interface ItemDetailProps {
   itemId: string;
   // 一覧から開いたときに持ち回している検索状態。同じ名前を 2 回書いた URL
   // (`?q=a&q=b`) では配列で届くので、その形のまま受けて
-  // resolveItemListContext が 1 本に畳む
+  // resolveListParams が 1 本に畳む
   q: string | string[] | undefined;
   sort: string | string[] | undefined;
   // 更新直後だけ付く保存時刻。トーストを出す印 (docs/11 §2-3)

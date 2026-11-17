@@ -15,6 +15,3 @@ export const EMBEDDING_DTYPE = 'q8'
 // 出力ベクトルの次元。DINOv2-small は 384。索引・DB の器の想定に使う
 // (MobileCLIP に替えるなら 512 に直す)。
 export const EMBEDDING_DIM = 384
-
-// バイト長 (Float32 = 4 バイト)。壊れた embedding を弾く検算に使う。
-export const EMBEDDING_BYTES = EMBEDDING_DIM * 4

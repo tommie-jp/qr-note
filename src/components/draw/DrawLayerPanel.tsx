@@ -110,4 +110,3 @@ export function DrawLayerPanel({
   );
 }
 
-export default DrawLayerPanel;

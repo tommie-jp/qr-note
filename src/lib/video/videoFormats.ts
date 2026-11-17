@@ -22,7 +22,5 @@ const FORMATS = defineFormats(['mp4', 'mkv', 'mov'] as const)
 
 export const VIDEO_EXTENSIONS = FORMATS.list
 
-export type VideoExtension = (typeof VIDEO_EXTENSIONS)[number]
-
 // 正規表現に埋める用の "mp4|mkv|mov" (defineFormats のコメントのとおりエスケープ不要)
 export const VIDEO_EXTENSION_ALTERNATION = FORMATS.alternation

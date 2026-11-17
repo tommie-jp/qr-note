@@ -66,6 +66,7 @@ const RENDERER_SCRIPT = path.join(process.cwd(), 'scripts', 'renderCircuit.cjs')
 // 評価されなければ読み込みは起きない。親で普通に import すると
 // 87MB / 228ms を無駄に抱えることになるため、こう書いている
 // (next.config.ts の serverExternalPackages と対で機能する)
+/** @public 束ねの追跡 (outputFileTracingIncludes) のための参照。呼ばない */
 export const _traceNodeTikzjax = () => import('node-tikzjax')
 
 // node-tikzjax はモジュールレベルの状態を持ち、README も同時実行を禁じている

@@ -39,16 +39,3 @@ export async function ocrOnMainThread(
   }
   return ocrWithService(service, blob)
 }
-
-// 初回読み込みが済んでいるか (UI の「準備中」表示の出し分けに使う)
-export async function isMainThreadOcrReady(): Promise<boolean> {
-  if (!servicePromise) {
-    return false
-  }
-  try {
-    await servicePromise
-    return true
-  } catch {
-    return false
-  }
-}

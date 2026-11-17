@@ -26,10 +26,6 @@ export async function listPasskeys(): Promise<PasskeySummary[]> {
   return rows
 }
 
-export async function countPasskeys(): Promise<number> {
-  return prisma.webAuthnCredential.count()
-}
-
 // ブラウザへ「この鍵たちのどれかで応えて」と伝えるための一覧。
 // 登録時は excludeCredentials (同じ端末の二重登録を防ぐ)、
 // ログイン時は allowCredentials に渡す。

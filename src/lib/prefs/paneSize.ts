@@ -49,7 +49,6 @@ export const PANE_SIZES = {
 } as const;
 
 export type PaneKind = keyof typeof PANE_SIZES;
-export type PaneSpec = (typeof PANE_SIZES)[PaneKind];
 
 // 下部操作バーの高さ (44px スロット + 余白 4px + 枠 1px)。CSS 側の
 // --bottom-bar-h と対で、プレビューの下端と境界の位置を決める。

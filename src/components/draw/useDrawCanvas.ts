@@ -40,7 +40,6 @@ import { useDrawHistory } from "./useDrawHistory";
 import { attachLayerBanding, useDrawLayers } from "./useDrawLayers";
 import { useFabricBrush } from "./useFabricBrush";
 
-export type { DrawTool };
 
 // 返り値に ref を混ぜない。ref を持つオブジェクトはレンダー中に読めない
 // ものとして扱われるため (react-hooks/refs)、canvas と枠の ref は引数で受ける

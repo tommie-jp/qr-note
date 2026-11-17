@@ -70,18 +70,10 @@ const pagedStore = createExternalStore<boolean>({
   serverSnapshot: NOTE_PAGER_DEFAULT,
 })
 
-export function isNotePagerPaged(): boolean {
-  return pagedStore.get()
-}
-
 export function setNotePagerPaged(paged: boolean): void {
   // 覚えられなくても、その場の切り替えは効いている
   saveNotePagerPref(browserStorage(), paged)
   pagedStore.set(paged)
-}
-
-export function subscribeNotePagerPref(listener: () => void): () => void {
-  return pagedStore.subscribe(listener)
 }
 
 // ページ送りを使うかを購読する (サーバ描画では既定)

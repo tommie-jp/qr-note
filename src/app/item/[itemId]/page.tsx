@@ -18,7 +18,7 @@ interface ItemPageProps {
   // q / sort … 一覧から開いたときに持ち回している検索状態。
   //   これがあるときだけ前後ナビを出す (docs/60-学習進捗計画.md §4)。
   //   同じ名前を 2 回書いた URL (`?q=a&q=b`) では配列で届くので、型でも
-  //   その形を認め、ItemDetail (resolveItemListContext) が 1 本に畳んでから使う
+  //   その形を認め、ItemDetail (resolveListParams) が 1 本に畳んでから使う
   searchParams: Promise<{
     saved?: string;
     q?: string | string[];

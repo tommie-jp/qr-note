@@ -47,12 +47,3 @@ export async function findItemNeighbors(
 ): Promise<ItemListContext['neighbors']> {
   return query ? findListNeighbors(query, sort, itemId) : { prev: null, next: null }
 }
-
-export async function resolveItemListContext(
-  itemId: string,
-  q: string | string[] | undefined,
-  sortParam: string | string[] | undefined,
-): Promise<ItemListContext> {
-  const params = await resolveListParams(q, sortParam)
-  return { ...params, neighbors: await findItemNeighbors(itemId, params) }
-}

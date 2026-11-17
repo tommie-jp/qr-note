@@ -31,7 +31,6 @@ type Extractor = (image: unknown) => Promise<TensorLike>
 
 let libPromise: Promise<Transformers> | null = null
 let extractorPromise: Promise<Extractor> | null = null
-let ready = false
 // どのデバイスで組もうとしたか。失敗を報せるとき「WebGPU で落ちたのか」を
 // 呼び手が知る必要がある (WASM で作り直す価値があるかの判断材料)。
 let attemptedDevice: EmbeddingDevice | 'unknown' = 'unknown'
@@ -127,7 +126,6 @@ async function getExtractor(forceWasm = false): Promise<Extractor> {
         EMBEDDING_MODEL_ID,
         { dtype: EMBEDDING_DTYPE, device },
       )
-      ready = true
       return extractor as unknown as Extractor
     })()
   }
@@ -140,11 +138,6 @@ export function getAttemptedDevice(): 'webgpu' | 'wasm' | 'unknown' {
   return attemptedDevice === 'webgpu' || attemptedDevice === 'wasm'
     ? attemptedDevice
     : 'unknown'
-}
-
-// 初回のモデル読み込みが済んでいるか。UI が「準備中(初回)」を出すのに使う。
-export function isEmbedderReady(): boolean {
-  return ready
 }
 
 // 初回ロードを前もって温める (画像検索モーダルを開いた時点で呼ぶ)。

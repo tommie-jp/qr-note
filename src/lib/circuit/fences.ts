@@ -1,7 +1,6 @@
 import {
   CIRCUITIKZ_LANG,
   CIRCUIT_LANG,
-  CIRCUIT_LANGS,
   type CircuitLang,
   circuitKey,
   isCircuitLang,
@@ -10,7 +9,7 @@ import { extractFences, uniqueBy } from '../markdown/extractFences'
 
 // 回路フェンスまわりの定義は fenceLanguages に集約 (client も読む葉モジュール)。
 // 本文の解析が要る呼び出し側は、remark を抱えたこちらから一式を受け取れる
-export { CIRCUITIKZ_LANG, CIRCUIT_LANG, CIRCUIT_LANGS, circuitKey, isCircuitLang }
+export { CIRCUITIKZ_LANG, CIRCUIT_LANG, circuitKey, isCircuitLang }
 export type { CircuitLang }
 
 // 取り出した 1 つのフェンス。source は trim 済み。
