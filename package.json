@@ -65,7 +65,7 @@
     "hast-util-to-jsx-runtime": "^2.3.7",
     "heic-decode": "^2.1.0",
     "html-url-attributes": "^3.0.1",
-    "katex": "^0.18.11",
+    "katex": "0.18.10",
     "logic-fence": "file:vendor/logic-fence-0.2.0.tgz",
     "mdast-util-directive": "^3.2.0",
     "mdast-util-gfm-footnote": "^2.1.0",
