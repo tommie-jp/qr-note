@@ -48,6 +48,20 @@ describe("SecretSearchFuse", () => {
     expect(html).toContain('keyPoints="0;1"');
   });
 
+  test("火は赤い丸と、長さの変わる放射状の線 8 本", () => {
+    mocks.startedAt = 1_000_000;
+
+    const html = renderToStaticMarkup(<SecretSearchFuse />);
+
+    expect(html.match(/<line /g)).toHaveLength(8);
+    expect(html).toContain("stroke-red-600");
+    expect(html).toContain("fill-red-600");
+    // 縦横と斜めで伸び縮みの拍子が違う (同時に伸びると脈動に見える)
+    expect(html.match(/<animateTransform /g)).toHaveLength(2);
+    expect(html).toContain('dur="0.45s"');
+    expect(html).toContain('dur="0.6s"');
+  });
+
   test("押せなくしない (釦の上に重ねるが指は通す)", () => {
     mocks.startedAt = 1_000_000;
 

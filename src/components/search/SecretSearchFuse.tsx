@@ -62,6 +62,55 @@ function useTabResyncedAt(): number {
   return resyncedAt;
 }
 
+// 放射状の線 (☀ の光条) の向き。縦横の 4 本と斜めの 4 本を別の組にして、
+// 伸び縮みの拍子をずらす — 全部が同時に伸びると、ただの脈動に見える
+const RAY_INNER = 2.6;
+const RAY_OUTER = 5.4;
+const STRAIGHT_RAY_ANGLES = [0, 90, 180, 270];
+const DIAGONAL_RAY_ANGLES = [45, 135, 225, 315];
+
+// 光条 1 組。中心からの拡大で長さを変える (線の太さは変えない)
+function FuseRays({ angles, scales, dur }: { angles: number[]; scales: string; dur: string }) {
+  return (
+    <g className="stroke-red-600" strokeWidth={1.3} strokeLinecap="round">
+      <animateTransform
+        attributeName="transform"
+        type="scale"
+        values={scales}
+        dur={dur}
+        repeatCount="indefinite"
+      />
+      {angles.map((angle) => (
+        <line
+          key={angle}
+          x1={RAY_INNER}
+          y1={0}
+          x2={RAY_OUTER}
+          y2={0}
+          transform={`rotate(${angle})`}
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </g>
+  );
+}
+
+// 導火線の先の火。赤い丸の大小と、放射状の線の長短でちらつく
+function FuseFlame() {
+  return (
+    <>
+      <FuseRays angles={STRAIGHT_RAY_ANGLES} scales="0.7;1.25;0.85;1.1;0.7" dur="0.45s" />
+      <FuseRays angles={DIAGONAL_RAY_ANGLES} scales="1.05;0.6;1.2;0.75;1.05" dur="0.6s" />
+      <circle r={3} className="fill-red-600">
+        <animate attributeName="r" values="2.4;3.4;2.7;3.6;2.4" dur="0.5s" repeatCount="indefinite" />
+      </circle>
+      <circle r={1.4} className="fill-orange-300">
+        <animate attributeName="r" values="1.1;1.7;1.2;1.8;1.1" dur="0.35s" repeatCount="indefinite" />
+      </circle>
+    </>
+  );
+}
+
 // 燃えた割合から先を、残り時間をかけて燃やす
 function FuseSvg({ burnt }: { burnt: number }) {
   const remainingMs = Math.max(1, Math.round((1 - burnt) * SECRET_IDLE_LOCK_MS));
@@ -93,7 +142,7 @@ function FuseSvg({ burnt }: { burnt: number }) {
           fill="freeze"
         />
       </path>
-      {/* 火。導火線の燃えている端に乗って進み、ちらつく */}
+      {/* 火。導火線の燃えている端に乗って進み、ちらつく (FuseFlame) */}
       <g>
         <animateMotion
           path={FUSE_PATH}
@@ -103,12 +152,7 @@ function FuseSvg({ burnt }: { burnt: number }) {
           keyPoints={`${burnt};1`}
           keyTimes="0;1"
         />
-        <circle r={3.4} className="fill-orange-400/60">
-          <animate attributeName="r" values="2.6;4;3;4.4;2.6" dur="0.5s" repeatCount="indefinite" />
-        </circle>
-        <circle r={1.7} className="fill-yellow-200">
-          <animate attributeName="r" values="1.4;2;1.5;2.1;1.4" dur="0.35s" repeatCount="indefinite" />
-        </circle>
+        <FuseFlame />
       </g>
     </svg>
   );
