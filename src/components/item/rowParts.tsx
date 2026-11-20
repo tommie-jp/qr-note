@@ -68,6 +68,8 @@ interface RowPartsInput {
   mathTitle?: string;
   notePreview?: ReactNode;
   selected: boolean;
+  // 顔 (右端のサムネ枠) を出さない。ItemRow の hideFace
+  hideFace?: boolean;
 }
 
 export function renderRowText(text: RowText): ReactNode {
@@ -225,7 +227,7 @@ export function buildRowParts(input: RowPartsInput): RowParts {
     // ノートが開いてしまう — タグを relative z-10 にしているのと同じ理由。
     // 呼ぶ側に任せず、ここで包んで敷き忘れを防ぐ
     footer: footer && <div className="relative z-10 mt-1">{footer}</div>,
-    thumb: renderThumb(input),
+    thumb: input.hideFace ? null : renderThumb(input),
     linkClass: stretchedLinkClass(Boolean(checkbox)),
     tintClass: rowTintClass(selected),
     skipOffscreenClass: ROW_SKIP_OFFSCREEN_CLASS[view],

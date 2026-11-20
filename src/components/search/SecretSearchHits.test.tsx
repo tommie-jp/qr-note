@@ -41,6 +41,7 @@ function loaded(extra: { skipped?: number; failed?: number } = {}): SecretSearch
         [A, normalizeSecretText(PLAINTEXT)],
         [B, normalizeSecretText("hunter2")],
       ]),
+      notes: new Map(),
       skipped: extra.skipped ?? 0,
       failed: extra.failed ?? 0,
     },
@@ -106,6 +107,18 @@ describe("SecretSearchHits", () => {
     expect(html).not.toContain("1234567");
     expect(html).not.toContain("ＡＢＣ銀行");
     expect(html).not.toContain("abc銀行");
+  });
+
+  test("一致を一覧の行として出しているときは、見出しだけにする", () => {
+    mocks.state = loaded();
+
+    const html = renderToStaticMarkup(
+      <SecretSearchHits query="abc 1234" sort="updated" rowsInList />,
+    );
+
+    expect(html).toContain("シークレット内の一致 1 件");
+    expect(html).not.toContain("銀行まとめ");
+    expect(html).not.toContain("<a ");
   });
 
   test("題名の無いノートは (無題) と出す", () => {

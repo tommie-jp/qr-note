@@ -5,6 +5,7 @@
 import 'client-only'
 import { reviveItem, type ItemDto } from '@/lib/api/itemDto'
 import { foldersCache, listCache, tagsCache, trashCache } from './listStore'
+import { requestSecretSearchReload } from '@/lib/secret/searchPrivacy'
 import { circuitsCache, neighborsCache, noteCache, renderCache } from './noteStore'
 
 function invalidateLists(): void {
@@ -23,6 +24,8 @@ export function noteWritten(itemId: string, dto?: ItemDto | null): void {
     noteCache.set(itemId, { item: dto === null ? null : reviveItem(dto) })
   }
   circuitsCache.invalidate((id) => id === itemId)
+  // シークレット内検索が持つノートの写しも取り直す (入っている間だけ。docs/131 §6)
+  requestSecretSearchReload()
   // 他のノートの表・グラフ (```matrix・```health) はこのノートを数えているかも
   // しれない。どれが数えているかは端末では分からないので、全部古くする
   renderCache.invalidate()
@@ -35,6 +38,7 @@ export function notesWritten(itemIds: readonly string[]): void {
   noteCache.invalidate((id) => ids.has(id))
   renderCache.invalidate()
   circuitsCache.invalidate((id) => ids.has(id))
+  requestSecretSearchReload()
   invalidateLists()
 }
 
@@ -43,6 +47,7 @@ export function allNotesWritten(): void {
   noteCache.invalidate()
   renderCache.invalidate()
   circuitsCache.invalidate()
+  requestSecretSearchReload()
   invalidateLists()
 }
 

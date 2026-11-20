@@ -17,6 +17,24 @@ function lastCall(): [string, RequestInit] {
 
 const A = '0421547b-ee29-4613-a6d4-da0f41f94054'
 const B = '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed'
+const ITEM = {
+  itemId: 'n1',
+  memo: '# 銀行',
+  title: '銀行',
+  tags: [],
+  props: [],
+  taskTodo: 0,
+  taskDone: 0,
+  createdAt: '2026-10-01T00:00:00.000Z',
+  updatedAt: '2026-10-01T00:00:00.000Z',
+  accessedAt: '2026-10-01T00:00:00.000Z',
+  deletedAt: null,
+  publicAt: null,
+  offlinePin: false,
+  eventStart: null,
+  eventEnd: null,
+  eventRepeat: null,
+}
 const ENTRY = { name: A, hash: 'abc', bytes: 40, refs: [{ itemId: 'n1', title: '銀行', label: '口座' }] }
 
 afterEach(() => {
@@ -25,11 +43,14 @@ afterEach(() => {
 
 describe('fetchSecretTextIndex', () => {
   test('一覧を GET で取る (検索語は送らない)', async () => {
-    respondWith({ entries: [ENTRY] })
+    respondWith({ entries: [ENTRY], items: [ITEM] })
 
-    const entries = await fetchSecretTextIndex()
+    const material = await fetchSecretTextIndex()
 
-    expect(entries).toEqual([ENTRY])
+    expect(material.entries).toEqual([ENTRY])
+    expect(material.items.map((item) => item.itemId)).toEqual(['n1'])
+    // 日時は Date に戻す (一覧の行は Item を受ける)
+    expect(material.items[0].updatedAt).toEqual(new Date('2026-10-01T00:00:00.000Z'))
     const [url, init] = lastCall()
     expect(url).toBe('/api/secret-texts')
     expect(init.method).toBe('GET')
@@ -37,13 +58,15 @@ describe('fetchSecretTextIndex', () => {
   })
 
   test.each([
-    ['entries が無い', {}],
-    ['名前が UUID でない', { entries: [{ ...ENTRY, name: '../x' }] }],
-    ['大きさが数でない', { entries: [{ ...ENTRY, bytes: '40' }] }],
-    ['大きさが負', { entries: [{ ...ENTRY, bytes: -1 }] }],
-    ['参照元が配列でない', { entries: [{ ...ENTRY, refs: null }] }],
-    ['参照元の形が違う', { entries: [{ ...ENTRY, refs: [{ itemId: 1, title: '', label: '' }] }] }],
-    ['行がオブジェクトでない', { entries: [null] }],
+    ['entries が無い', { items: [] }],
+    ['items が無い', { entries: [] }],
+    ['ノートの形が違う', { entries: [], items: [{ itemId: 'n1' }] }],
+    ['名前が UUID でない', { entries: [{ ...ENTRY, name: '../x' }], items: [] }],
+    ['大きさが数でない', { entries: [{ ...ENTRY, bytes: '40' }], items: [] }],
+    ['大きさが負', { entries: [{ ...ENTRY, bytes: -1 }], items: [] }],
+    ['参照元が配列でない', { entries: [{ ...ENTRY, refs: null }], items: [] }],
+    ['参照元の形が違う', { entries: [{ ...ENTRY, refs: [{ itemId: 1, title: '', label: '' }] }], items: [] }],
+    ['行がオブジェクトでない', { entries: [null], items: [] }],
   ])('形が違う応答 (%s) は読まずに投げる', async (_label, data) => {
     respondWith(data)
 

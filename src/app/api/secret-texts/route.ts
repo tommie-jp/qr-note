@@ -1,4 +1,5 @@
 import type { NextResponse } from 'next/server'
+import { toItemDto } from '@/lib/api/itemDto'
 import { bytesToBase64 } from '@/lib/bytesBase64'
 import { parseJsonBody } from '@/lib/route/parse'
 import { apiFail, apiOk } from '@/lib/route/respond'
@@ -9,7 +10,8 @@ import { findSecretTextBlobs, listSecretTexts, secretTextBytes } from '@/lib/sec
 
 // シークレット内検索の材料を配る口 (docs/130-シークレット内検索計画.md §5-1)。
 //
-//   GET  … 参照元のあるテキスト断片の一覧 (名前・暗号文のハッシュ・大きさ・参照元ノート)
+//   GET  … 参照元のあるテキスト断片の一覧 (名前・暗号文のハッシュ・大きさ・参照元ノート) と、
+//          シークレットを含むノート (全件。一致を一覧の行として描く材料。docs/131)
 //   POST … 名前で指したテキスト断片の暗号文をまとめて返す
 //
 // **どちらも検索語を受け取らない。** 端末は一覧と暗号文を取って手元で復号・照合
@@ -30,7 +32,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!guard.ok) {
     return guard.response
   }
-  return apiOk({ entries: await listSecretTexts() })
+  const { entries, items } = await listSecretTexts()
+  return apiOk({ entries, items: items.map(toItemDto) })
 }
 
 // 名前の配列を取り出す。UUID の書式・件数・重複を見る (形が違えば null)

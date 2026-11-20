@@ -54,6 +54,20 @@ export interface RowContext {
   mathTexts?: MathTextMap;
   notePreviews?: NotePreviewMap;
   previewItemId: string | null;
+  // itemId → シークレット内検索で当たった断片のラベル (docs/131)
+  secretLabels?: Readonly<Record<string, readonly string[]>>;
+}
+
+// シークレット内の一致の行に付ける印。**出すのはラベルだけ** — 中身の抜粋は
+// 出さない (肩越しに読まれる。docs/130 §3-2)
+function SecretRowBadge({ labels }: { labels: readonly string[] }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+      <span aria-hidden>🔒</span>
+      <span className="sr-only">シークレット内の一致:</span>
+      <span className="truncate">{labels.join("・")}</span>
+    </span>
+  );
 }
 
 // 1 行ぶんの ItemRow の props (選択の印・スワイプ以外)
@@ -62,7 +76,15 @@ export function rowProps(item: Item, ctx: RowContext) {
   // ItemRow に流すときは compact に畳む — ItemRow に 'image' が来ないことを
   // 型 (RowViewMode) で保証する
   const rowView = ctx.view === "image" ? "compact" : ctx.view;
+  const secretLabels = ctx.secretLabels?.[item.itemId];
   return {
+    // 行の下の補助行 (ItemRow の footer) に印を出す。小・中・大のどれでも出る
+    footer: secretLabels ? <SecretRowBadge labels={secretLabels} /> : undefined,
+    // シークレット内の一致の行は顔 (サムネ) を出さない (docs/131 §2)。出すと、
+    // 行が出た瞬間にそのノートの画像を取りに行き、どのノートが一致したかが
+    // サーバに見える。先に取っておく手も試したが、未生成の動くサムネ (404 は
+    // 棚に残らない)・棚からの押し出し・画像ビューアの先読みで漏れる
+    hideFace: secretLabels !== undefined,
     item,
     href: ctx.itemHref(item.itemId),
     view: rowView,

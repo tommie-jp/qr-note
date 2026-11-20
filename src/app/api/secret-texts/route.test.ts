@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   sessionToken: null as string | null,
   validToken: 'valid-session-token',
   entries: [] as unknown[],
+  items: [] as Array<Record<string, unknown>>,
   totalBytes: 0,
   blobs: [] as Array<{ name: string; data: Uint8Array }>,
   asked: [] as string[][],
@@ -41,7 +42,10 @@ vi.mock('@/lib/auth/sessionStore', () => ({
 }))
 
 vi.mock('@/lib/secret/textIndex', () => ({
-  listSecretTexts: async () => mocks.entries,
+  listSecretTexts: async () => ({
+    entries: mocks.entries,
+    items: mocks.items,
+  }),
   secretTextBytes: async () => mocks.totalBytes,
   findSecretTextBlobs: async (names: string[]) => {
     mocks.asked.push(names)
@@ -71,6 +75,7 @@ function postRequest(body: unknown, headers: Record<string, string> = {}): Reque
 beforeEach(() => {
   mocks.sessionToken = mocks.validToken
   mocks.entries = []
+  mocks.items = []
   mocks.totalBytes = 0
   mocks.blobs = []
   mocks.asked = []
@@ -115,16 +120,53 @@ describe('門番 (デモ → ログイン → クロスサイトの順)', () => 
 })
 
 describe('GET (一覧)', () => {
-  test('一覧をそのまま、キャッシュさせずに返す', async () => {
+  test('断片の一覧と、シークレットを含むノートを、キャッシュさせずに返す', async () => {
+    const at = new Date('2026-10-01T00:00:00.000Z')
     mocks.entries = [
       { name: A, hash: 'abc', bytes: 40, refs: [{ itemId: 'n1', title: '銀行', label: '口座' }] },
+    ]
+    mocks.items = [
+      {
+        itemId: 'n1',
+        memo: '# 銀行',
+        title: '銀行',
+        tags: [],
+        props: [],
+        taskTodo: 0,
+        taskDone: 0,
+        createdAt: at,
+        updatedAt: at,
+        accessedAt: at,
+        deletedAt: null,
+        publicAt: null,
+        offlinePin: false,
+        eventStart: null,
+        eventEnd: null,
+        eventRepeat: null,
+      },
     ]
 
     const res = await GET(getRequest())
 
-    expect(await responseContract(res)).toEqual(
-      jsonContract(200, okEnvelope({ entries: mocks.entries })),
-    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    const body = await res.json()
+    expect(body.data.entries).toEqual(mocks.entries)
+    // 日時は文字列にして運ぶ (通常の一覧と同じ ItemDto)
+    expect(body.data.items).toEqual([
+      { ...mocks.items[0], createdAt: at.toISOString(), updatedAt: at.toISOString(), accessedAt: at.toISOString() },
+    ])
+  })
+
+  test('検索語を付けて呼んでも、応答は変わらない (口は検索語を読まない)', async () => {
+    mocks.entries = [{ name: A, hash: 'abc', bytes: 40, refs: [] }]
+
+    const plain = await (await GET(getRequest())).text()
+    const withQuery = await (
+      await GET(new Request(`${URL}?q=%E5%8F%A3%E5%BA%A7`, { method: 'GET' }))
+    ).text()
+
+    expect(withQuery).toBe(plain)
   })
 })
 

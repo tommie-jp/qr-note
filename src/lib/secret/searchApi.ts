@@ -5,6 +5,8 @@
 // サーバの応答は外部入力として検算する (secret/api.ts と同じ流儀)。
 
 import { fetchEnvelope } from '../api/envelope'
+import { isItemDto, reviveItem } from '../api/itemDto'
+import type { Item } from '@/generated/prisma/client'
 import { base64ToBytes } from '../bytesBase64'
 import type { SecretTextEntry, SecretTextRef } from './search'
 import { isValidSecretName } from './secrets'
@@ -15,12 +17,21 @@ const SECRET_TEXTS_PATH = '/api/secret-texts'
 
 const BROKEN_MESSAGE = 'シークレットの一覧を読み取れませんでした'
 
-export async function fetchSecretTextIndex(): Promise<SecretTextEntry[]> {
-  const data = await fetchEnvelope<{ entries?: unknown }>(SECRET_TEXTS_PATH, { method: 'GET' })
-  if (!Array.isArray(data?.entries)) {
+// 端末が受け取る材料。断片の一覧と、シークレットを含むノート (docs/131 §4-1)
+export interface SecretSearchMaterial {
+  entries: SecretTextEntry[]
+  items: Item[]
+}
+
+export async function fetchSecretTextIndex(): Promise<SecretSearchMaterial> {
+  const data = await fetchEnvelope<{ entries?: unknown; items?: unknown }>(SECRET_TEXTS_PATH, {
+    method: 'GET',
+  })
+  const { entries, items } = data ?? {}
+  if (!Array.isArray(entries) || !Array.isArray(items) || !items.every(isItemDto)) {
     throw new Error(BROKEN_MESSAGE)
   }
-  return data.entries.map(parseEntry)
+  return { entries: entries.map(parseEntry), items: items.map(reviveItem) }
 }
 
 function parseEntry(value: unknown): SecretTextEntry {

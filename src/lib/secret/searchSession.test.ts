@@ -3,6 +3,7 @@ import { secretContext } from './content'
 import { importContentKey, sealSecret } from './envelope'
 import { SECRET_TEXT_MIME } from './payload'
 import { SecretCancelledError } from './prf'
+import type { Item } from '@/generated/prisma/client'
 import type { CachedSecretText, SecretTextEntry } from './search'
 import { isUnlocked, lockSecrets, SECRET_IDLE_LOCK_MS, unlockWith } from './session'
 
@@ -13,6 +14,8 @@ import { isUnlocked, lockSecrets, SECRET_IDLE_LOCK_MS, unlockWith } from './sess
 // **本物の鍵で封をした暗号文が、照合できる平文になるところまで**を確かめる
 const mocks = vi.hoisted(() => ({
   entries: [] as SecretTextEntry[],
+  items: [] as Item[],
+  indexFetches: 0,
   server: new Map<string, Uint8Array>(),
   cache: new Map<string, CachedSecretText>(),
   fetchedNames: [] as string[][],
@@ -26,10 +29,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('./searchApi', () => ({
   fetchSecretTextIndex: async () => {
+    mocks.indexFetches += 1
     if (mocks.indexError) {
       throw mocks.indexError
     }
-    return mocks.entries
+    return { entries: mocks.entries, items: mocks.items }
   },
   fetchSecretTextBlobs: async (names: string[]) => {
     mocks.fetchedNames.push(names)
@@ -59,6 +63,7 @@ const {
   isSecretSearchedQuery,
   isSecretSearchOn,
   markSecretSearchedQuery,
+  requestSecretSearchReload,
   subscribeSecretSearchedQueries,
 } = await import('./searchPrivacy')
 
@@ -91,6 +96,8 @@ const state = () => secretSearchState()
 
 beforeEach(() => {
   mocks.entries = []
+  mocks.items = []
+  mocks.indexFetches = 0
   mocks.server = new Map()
   mocks.cache = new Map()
   mocks.fetchedNames = []
@@ -371,5 +378,98 @@ describe('自動施錠 (無操作 5 分) と検索', () => {
     vi.advanceTimersByTime(2 * 60 * 1000)
 
     expect(isUnlocked()).toBe(false)
+  })
+})
+
+function note(itemId: string, memo: string): Item {
+  const at = new Date('2026-10-01T00:00:00.000Z')
+  return {
+    itemId,
+    memo,
+    title: itemId,
+    tags: [],
+    props: [],
+    taskTodo: 0,
+    taskDone: 0,
+    createdAt: at,
+    updatedAt: at,
+    accessedAt: at,
+    deletedAt: null,
+    publicAt: null,
+    offlinePin: false,
+    eventStart: null,
+    eventEnd: null,
+    eventRepeat: null,
+  }
+}
+
+describe('一覧の行として描く材料 (docs/131)', () => {
+  test('シークレットを含むノートを、検索語に関係なく全部持つ', async () => {
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+    mocks.items = [note('n1', '本文'), note('n2', '別のノート')]
+
+    await enableSecretSearch()
+
+    const current = state()
+    expect(current.status).toBe('on')
+    if (current.status !== 'on') return
+    expect([...current.index.notes.keys()]).toEqual(['n1', 'n2'])
+  })
+
+})
+
+describe('書き込みの後の取り直し (docs/131 §6)', () => {
+  test('入っている間に合図が来たら、材料を取り直して差し替える', async () => {
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+    mocks.items = [note('n1', 'x')]
+    await enableSecretSearch()
+
+    // ノート n1 がゴミ箱へ行き、断片 B が足された
+    mocks.items = []
+    await addSecret(B, 'bravo')
+    requestSecretSearchReload()
+    await vi.waitFor(() => expect(mocks.indexFetches).toBe(2))
+    await vi.waitFor(() => {
+      const current = state()
+      expect(current.status === 'on' && [...current.index.haystacks.keys()]).toEqual([A, B])
+    })
+
+    const current = state()
+    expect(current.status === 'on' && current.index.notes.size).toBe(0)
+  })
+
+  test('読み込みの最中に合図が来たら、入った直後に 1 度取り直す', async () => {
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+
+    const pending = enableSecretSearch()
+    requestSecretSearchReload()
+    await pending
+
+    await vi.waitFor(() => expect(mocks.indexFetches).toBe(2))
+    expect(state().status).toBe('on')
+  })
+
+  test('切れている間の合図では取りに行かない', async () => {
+    requestSecretSearchReload()
+    await Promise.resolve()
+
+    expect(mocks.indexFetches).toBe(0)
+  })
+
+  test('取り直しに失敗しても切らず、前の材料のまま探せる', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+    await enableSecretSearch()
+
+    mocks.indexError = new Error('通信に失敗しました')
+    requestSecretSearchReload()
+    await vi.waitFor(() => expect(console.warn).toHaveBeenCalled())
+
+    const current = state()
+    expect(current.status === 'on' && [...current.index.haystacks.keys()]).toEqual([A])
   })
 })

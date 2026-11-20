@@ -21,6 +21,7 @@ import { allViewerMedia } from "@/lib/images/memoImages";
 import { useListPlaceholders } from "@/lib/prefs/listPlaceholders";
 import type { ViewMode } from "@/lib/prefs/viewMode";
 import type { Sort } from "@/lib/validation";
+import type { useShownRows } from "./useSecretRows";
 
 // 検索結果 (SearchResultsClient) の一覧側の表示部品
 
@@ -74,26 +75,34 @@ export function ResultsSummaryRow({
   );
 }
 
-// 一覧そのもの。操作 (タグ・ゴミ箱・オフラインの印) は端末の action を渡す
+// 一覧に描く行 (シークレット内の一致を先頭に足した写し)・足した行の印・行の
+// プレビュー (useSecretRows.ts の useShownRows が組む)。足していなければ rows は
+// 控えの値そのもの
+export type ShownList = ReturnType<typeof useShownRows>;
+
+// 一覧そのもの。操作 (タグ・ゴミ箱・オフラインの印) は端末の action を渡す。
+// **行は list.rows、ページと 0 件の案内の材料は value** — 件数まわりは
+// サーバの値のまま動かす (docs/131 §3)
 function ResultsItemList({
   value,
+  list,
   query,
   sort,
   view,
-  mathTexts,
-  notePreviews,
 }: {
   value: ListValue;
+  list: ShownList;
   query: string;
   sort: Sort;
   view: ViewMode;
-  mathTexts: ComponentProps<typeof ItemList>["mathTexts"];
-  notePreviews: ComponentProps<typeof ItemList>["notePreviews"];
 }) {
-  const { items, page, circuitThumbs, extras } = value;
+  const { mathTexts, notePreviews } = list;
+  const { page, extras } = value;
+  const { items, circuitThumbs } = list.rows;
   return (
     <ItemList
       items={items}
+      secretLabels={list.secretLabels}
       query={query}
       page={page}
       sort={sort}
@@ -156,22 +165,18 @@ function Continuation({ value, view, loadMore }: { value: ListValue; view: ViewM
 // 器の中で送る部分 (特性表・一覧・続き・計測の印)
 export function ResultsScrollBody({
   value,
+  list,
   query,
   sort,
   view,
-  mathSummaries,
-  mathTexts,
-  notePreviews,
   loadMore,
   perf,
 }: {
   value: ListValue;
+  list: ShownList;
   query: string;
   sort: Sort;
   view: ViewMode;
-  mathSummaries: ComponentProps<typeof PropsTable>["mathSummaries"];
-  mathTexts: ComponentProps<typeof ItemList>["mathTexts"];
-  notePreviews: ComponentProps<typeof ItemList>["notePreviews"];
   loadMore: ContinuationProps;
   // 計測の印。まだ届いていないときは null (出さない)
   perf: { key: string; fields: readonly (readonly [string, string])[] } | null;
@@ -184,17 +189,10 @@ export function ResultsScrollBody({
         omitted={extras.props.omitted}
         query={query}
         sort={sort}
-        mathSummaries={mathSummaries}
+        mathSummaries={list.mathSummaries}
       />
 
-      <ResultsItemList
-        value={value}
-        query={query}
-        sort={sort}
-        view={view}
-        mathTexts={mathTexts}
-        notePreviews={notePreviews}
-      />
+      <ResultsItemList value={value} list={list} query={query} sort={sort} view={view} />
 
       {page < pageCount && (
         <Continuation value={value} view={view} loadMore={loadMore} />

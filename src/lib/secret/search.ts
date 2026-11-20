@@ -106,6 +106,40 @@ export function secretSearchHits(
   )
 }
 
+// --- 一致を通常の一覧の行として出す (docs/131) ---
+
+// 一致した断片から「ノート → 当たった断片のラベル」を作る。
+// 並びは一覧 (entries) の順、同じノートの同じラベルは 1 つに畳む。
+export function secretRowLabels(
+  entries: readonly SecretTextEntry[],
+  names: readonly string[],
+): Map<string, string[]> {
+  const labels = new Map<string, string[]>()
+  for (const hit of secretSearchHits(entries, names)) {
+    const known = labels.get(hit.itemId)
+    if (known === undefined) {
+      labels.set(hit.itemId, [hit.label])
+    } else if (!known.includes(hit.label)) {
+      known.push(hit.label)
+    }
+  }
+  return labels
+}
+
+// シークレット内の一致を先頭に、通常の一致をその後ろに並べる。
+// 同じノートが両方にあれば先頭の 1 回だけ (下からは外す)。**どちらの配列も
+// 書き換えない** — 通常の側は一覧の控えの値そのもの
+export function mergeSecretRows<T extends { itemId: string }>(
+  secretItems: readonly T[],
+  normalItems: readonly T[],
+): T[] {
+  if (secretItems.length === 0) {
+    return [...normalItems]
+  }
+  const pinned = new Set(secretItems.map((item) => item.itemId))
+  return [...secretItems, ...normalItems.filter((item) => !pinned.has(item.itemId))]
+}
+
 // --- 取りに行く断片の決め方 (docs/130 §5-2, §7) ---
 
 // 端末に控えた暗号文 1 件

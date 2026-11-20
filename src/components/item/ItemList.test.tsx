@@ -305,3 +305,83 @@ test("プレビューを開いていなければ選択の印は無い", () => {
   expect(html).not.toContain('aria-current="page"');
   expect(html).not.toContain("bg-[var(--row-tint-bg)]");
 });
+
+// シークレット内検索の一致を行として出す (docs/131)
+function renderWithSecretLabels(view: ViewMode = "compact") {
+  return renderToStaticMarkup(
+    <SelectModeProvider>
+      <ItemList
+        items={[
+          makeItem({ itemId: "s1", memo: "# 銀行まとめ" }),
+          makeItem({ itemId: "n1", memo: "# ふつうのノート" }),
+        ]}
+        query="口座"
+        page={1}
+        sort="updated"
+        action={async () => []}
+        undoTagAction={async () => {}}
+        view={view}
+        trashAction={noop}
+        pinAction={noop}
+        registerHref={null}
+        trashedMatches={0}
+        secretLabels={{ s1: ["口座", "暗証"] }}
+      />
+    </SelectModeProvider>,
+  );
+}
+
+test.each(["compact", "medium", "card"] as const)(
+  "シークレット内の一致の行に 🔒 ラベルの印を付ける (%s)",
+  (view) => {
+    const html = renderWithSecretLabels(view);
+
+    expect(html).toContain("シークレット内の一致:");
+    expect(html).toContain("口座・暗証");
+    // 印は当たった行にだけ
+    expect(html.match(/シークレット内の一致:/g)).toHaveLength(1);
+  },
+);
+
+test("シークレット内の一致の行は検索語を付けない URL で開き、通常の行は今までどおり", () => {
+  const html = renderWithSecretLabels();
+
+  expect(html).toContain('href="/item/s1"');
+  expect(html).toContain(`href="/item/n1?q=${encodeURIComponent("口座")}"`);
+});
+
+test("印を渡さなければ、今までと同じ行 (印なし)", () => {
+  const html = render([makeItem({ itemId: "4951", memo: "BJT NPN" })], "bjt");
+
+  expect(html).not.toContain("シークレット内の一致:");
+});
+
+test("シークレット内の一致の行は顔 (サムネ) を出さない — 行が出ても画像を取りに行かない", () => {
+  const image = "0421547b-ee29-4613-a6d4-da0f41f94054.webp";
+  const html = renderToStaticMarkup(
+    <SelectModeProvider>
+      <ItemList
+        items={[
+          makeItem({ itemId: "s1", memo: `# 秘密のノート\n![写真](/api/images/${image})` }),
+          makeItem({ itemId: "s2", memo: "# 回路のノート" }),
+        ]}
+        query="口座"
+        page={1}
+        sort="updated"
+        action={async () => []}
+        undoTagAction={async () => {}}
+        view="card"
+        trashAction={noop}
+        pinAction={noop}
+        registerHref={null}
+        trashedMatches={0}
+        circuitThumbs={{ s2: ["hash2"] }}
+        secretLabels={{ s1: ["口座"], s2: ["暗証"] }}
+      />
+    </SelectModeProvider>,
+  );
+
+  expect(html).not.toContain("/api/images/");
+  expect(html).not.toContain("/api/circuits/");
+  expect(html).not.toContain("<img");
+});

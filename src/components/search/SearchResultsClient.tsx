@@ -25,10 +25,10 @@ import {
 } from "./SearchResultsParts";
 import { SecretSearchHits } from "./SecretSearchHits";
 import { useSecretQueryMark } from "./useSecretQueryMark";
+import { useShownRows } from "./useSecretRows";
 import {
   useLoadMoreHandlers,
   useLoadUrlPage,
-  useResultPreviews,
   useSearchPerfFields,
   useShownResults,
 } from "./useListResults";
@@ -230,7 +230,8 @@ const LoadedResults = memo(function LoadedResults({
 }: LoadedResultsProps) {
   const { items, total, extras } = value;
   const { mode } = usePaneMode();
-  const { mathTexts, mathSummaries, notePreviews } = useResultPreviews(value, view);
+  // 描く行 (シークレット内の一致を先頭に足した写し) と、そのプレビュー
+  const shown = useShownRows(value, query, view);
 
   // ノートのペインを持つ構成では、何も選んでいないとき先頭を出す (docs/86 §4-4)
   const first = showsAutoNote(mode) ? items[0] : undefined;
@@ -253,19 +254,17 @@ const LoadedResults = memo(function LoadedResults({
         />
       ) : null}
       <SearchResults query={query} pending={dimmed}>
-        <SecretSearchHits query={query} sort={sort} />
+        <SecretSearchHits query={query} sort={sort} rowsInList={shown.hasSecretRows} />
         <ResultsSummaryRow query={query} sort={sort} view={view} value={value} />
 
         <TaskProgress done={extras.progress.done} total={extras.progress.total} />
 
         <ResultsScrollBody
           value={value}
+          list={shown}
           query={query}
           sort={sort}
           view={view}
-          mathSummaries={mathSummaries}
-          mathTexts={mathTexts}
-          notePreviews={notePreviews}
           loadMore={{ searchKey, ...loadMoreHandlers }}
           perf={pending ? null : { key: perfKey, fields: perfFields }}
         />

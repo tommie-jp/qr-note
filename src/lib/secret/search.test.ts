@@ -2,11 +2,13 @@ import { describe, expect, test } from 'vitest'
 import {
   chunkSecretFetch,
   matchSecretTexts,
+  mergeSecretRows,
   normalizeSecretText,
   planSecretSync,
   SECRET_BATCH_TARGET_BYTES,
   SECRET_BATCH_MAX_NAMES,
   secretQueryTerms,
+  secretRowLabels,
   secretSearchHits,
   type CachedSecretText,
   type SecretTextEntry,
@@ -140,5 +142,66 @@ describe('chunkSecretFetch', () => {
 
   test('空なら束なし', () => {
     expect(chunkSecretFetch([], () => 1)).toEqual([])
+  })
+})
+
+describe('secretRowLabels', () => {
+  const shared: SecretTextEntry = {
+    name: A,
+    hash: 'h',
+    bytes: 1,
+    refs: [
+      { itemId: 'n1', title: 'ノート 1', label: '銀行' },
+      { itemId: 'n2', title: 'ノート 2', label: '控え' },
+    ],
+  }
+  const second: SecretTextEntry = {
+    name: B,
+    hash: 'h',
+    bytes: 1,
+    refs: [
+      { itemId: 'n1', title: 'ノート 1', label: '暗証' },
+      { itemId: 'n1', title: 'ノート 1', label: '銀行' },
+    ],
+  }
+
+  test('ノートごとに、当たった断片のラベルを一覧の順・重複なしで集める', () => {
+    expect([...secretRowLabels([shared, second], [B, A])]).toEqual([
+      ['n1', ['銀行', '暗証']],
+      ['n2', ['控え']],
+    ])
+  })
+
+  test('一致が無ければ空', () => {
+    expect(secretRowLabels([shared], []).size).toBe(0)
+  })
+})
+
+describe('mergeSecretRows', () => {
+  const row = (itemId: string) => ({ itemId })
+
+  test('シークレット内の一致を先頭に置き、通常の一致から重複を外す', () => {
+    const merged = mergeSecretRows([row('s1'), row('n2')], [row('n1'), row('n2'), row('n3')])
+
+    expect(merged.map((r) => r.itemId)).toEqual(['s1', 'n2', 'n1', 'n3'])
+  })
+
+  test('シークレット内の一致が無ければ通常の並びのまま (写しを返す)', () => {
+    const normal = [row('n1'), row('n2')]
+
+    const merged = mergeSecretRows([], normal)
+
+    expect(merged).toEqual(normal)
+    expect(merged).not.toBe(normal)
+  })
+
+  test('渡した配列を書き換えない (通常の側は一覧の控えの値)', () => {
+    const secret = [row('n2')]
+    const normal = [row('n1'), row('n2')]
+
+    mergeSecretRows(secret, normal)
+
+    expect(normal.map((r) => r.itemId)).toEqual(['n1', 'n2'])
+    expect(secret.map((r) => r.itemId)).toEqual(['n2'])
   })
 })

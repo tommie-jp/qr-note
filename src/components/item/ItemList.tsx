@@ -68,6 +68,9 @@ interface ItemListProps {
   // page.tsx (サーバ) が buildNotePreviews で描いて降ろす。画像も回路図も
   // 無いノートの顔になる (優先順位は lib/items/itemRowDecor.ts の rowFace が持つ)
   notePreviews?: NotePreviewMap;
+  // itemId → シークレット内検索で当たった断片のラベル (docs/131)。
+  // 載っている行は「🔒 ラベル」の印を付け、検索語を付けない URL で開く
+  secretLabels?: Readonly<Record<string, readonly string[]>>;
 }
 
 function emptyState(
@@ -143,9 +146,14 @@ export function ItemList(props: ItemListProps) {
   // ノートへのリンクに検索状態を載せる (docs/60-学習進捗計画.md §4)。
   // 開いた先で「一覧の前後」を辿れるようにするため。検索していないときは
   // buildItemUrl が素の /item/<番号> に畳むので、今までと同じ URL になる
-  const itemHref = (itemId: string) => buildItemUrl(itemId, query, sort);
-  const { circuitThumbs, mathTexts, notePreviews } = props;
-  const rows: RowContext = { itemHref, view, circuitThumbs, mathTexts, notePreviews, previewItemId };
+  //
+  // シークレット内の一致の行には検索語を付けない (docs/131 §6)。通常の一覧と
+  // 別物で「一覧の前後」の意味が無く、付けると開いた先の前後ナビの要求にまで
+  // 語が載る
+  const { circuitThumbs, mathTexts, notePreviews, secretLabels } = props;
+  const itemHref = (itemId: string) =>
+    buildItemUrl(itemId, secretLabels?.[itemId] ? "" : query, sort);
+  const rows: RowContext = { itemHref, view, circuitThumbs, mathTexts, notePreviews, previewItemId, secretLabels };
 
   // 1 件を削除した後に戻る先。**戻り先を持ち回さないと素の / へ飛ばされる** —
   // trashItemsAction は最後に redirect(parseBackUrl(formData)) を呼ぶので、

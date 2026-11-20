@@ -21,6 +21,10 @@ import type { Sort } from "@/lib/validation";
 interface SecretSearchHitsProps {
   query: string;
   sort: Sort;
+  // 一致を通常の一覧の行として出している (docs/131)。そのときここは見出し
+  // (件数・断り) だけにして、行は出さない。一覧がまだ無いとき・画像表示・
+  // モジュールの表示では偽で、今までどおりここに文字の行で出す
+  rowsInList?: boolean;
 }
 
 // シークレット内の一致の節 (docs/130-シークレット内検索計画.md §3-2)。
@@ -32,7 +36,7 @@ interface SecretSearchHitsProps {
 // **一致の中身はこの部品の描画の中にしか無い。** 照合は端末のメモリの平文に
 // 対して行い、結果は一覧の控え (listStore) にもサーバにも渡さない。出すのも
 // 題名とラベルだけで、一致箇所の抜粋は出さない (肩越しに読まれる)。
-export function SecretSearchHits({ query, sort }: SecretSearchHitsProps) {
+export function SecretSearchHits({ query, sort, rowsInList = false }: SecretSearchHitsProps) {
   const state = useSecretSearch();
 
   if (state.status === "off") {
@@ -59,13 +63,14 @@ export function SecretSearchHits({ query, sort }: SecretSearchHitsProps) {
       </BusyNotice>
     );
   }
-  return <LoadedHits index={state.index} query={query} sort={sort} />;
+  return <LoadedHits index={state.index} query={query} sort={sort} rowsInList={rowsInList} />;
 }
 
 function LoadedHits({
   index,
   query,
   sort,
+  rowsInList,
 }: SecretSearchHitsProps & { index: SecretSearchIndex }) {
   const terms = useMemo(() => secretQueryTerms(query), [query]);
   // 探している間は自動施錠を延ばす (照合は鍵に触れないので、印を自分で付ける)
@@ -88,10 +93,10 @@ function LoadedHits({
       </h2>
       {terms.length === 0 ? (
         <p className="text-amber-800">
-          検索語を入れると、シークレットの中身からも探します。入れた後の編集は、入れ直すと反映されます。
+          検索語を入れると、シークレットの中身からも探します。
         </p>
       ) : null}
-      {hits.length > 0 ? (
+      {hits.length > 0 && !rowsInList ? (
         <ul className="mt-1 space-y-0.5">
           {hits.map((hit) => (
             <li key={`${hit.name}\u0000${hit.itemId}`}>

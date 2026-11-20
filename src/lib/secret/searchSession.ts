@@ -13,6 +13,7 @@
 // 照合のたびに noteSecretSearchUse で無操作の数え直しをする (§5-3)。探して
 // いる間は施錠されず、手を止めて 5 分で施錠される。
 
+import type { Item } from '@/generated/prisma/client'
 import {
   loadSecretTextCache,
   saveSecretTextCache,
@@ -30,13 +31,16 @@ import {
   type SecretTextEntry,
 } from './search'
 import { fetchSecretTextBlobs, fetchSecretTextIndex } from './searchApi'
-import { setSecretSearchActive } from './searchPrivacy'
+import { setSecretSearchActive, subscribeSecretSearchReload } from './searchPrivacy'
 import { isUnlocked, subscribeSecretLock, touchSecretSession, unlockedKey } from './session'
 import { unlockWithPasskey } from './unlock'
 
 export interface SecretSearchIndex {
   // 照合できる断片の一覧 (参照元ノートつき)
   entries: SecretTextEntry[]
+  // シークレットを含むノート (入れたときの写し)。一致を通常の一覧の行として
+  // 描く材料 (docs/131)。検索語に関係なく全部持つ
+  notes: ReadonlyMap<string, Item>
   // 名前 → 正規化済みの平文。**メモリの外へ出さない**
   haystacks: ReadonlyMap<string, string>
   // 上限を超えて対象外にした数 (docs/130 §7)
@@ -79,6 +83,7 @@ function listenToLockOnce(): void {
     return
   }
   listeningToLock = true
+  subscribeSecretSearchReload(() => void reloadSecretSearch())
   subscribeSecretLock(() => {
     if (!isUnlocked()) {
       // 入っていたときだけ「施錠で切れた」と知らせる (読み込み中なら黙って戻す)
@@ -113,6 +118,7 @@ export function secretSearchState(): SecretSearchState {
 // 断片まで閉じてしまうため (docs/130 §3-1)
 export function disableSecretSearch(): void {
   generation += 1
+  wantsReload = false
   if (store.get() !== OFF) {
     setState(OFF)
   }
@@ -137,11 +143,53 @@ export async function enableSecretSearch(): Promise<void> {
     const index = isCurrent() ? await loadSecretSearchIndex(isCurrent) : null
     if (index !== null && isCurrent()) {
       setState({ status: 'on', index })
+      if (wantsReload) {
+        wantsReload = false
+        void reloadSecretSearch()
+      }
     }
   } catch (cause) {
     if (run === generation) {
       setState({ status: 'off', error: enableErrorMessage(cause), lockedOut: false })
     }
+  }
+}
+
+// 書き込みの後の取り直し (docs/131 §6)。入っている間だけ、材料を取り直して
+// 差し替える。**失敗しても切らない** — 古い写しのまま探せるほうがよい。
+// 取り直しの最中に次の合図が来たら、終わってからもう 1 度だけ取り直す
+let isReloading = false
+let wantsReload = false
+
+async function reloadSecretSearch(): Promise<void> {
+  if (store.get().status === 'loading') {
+    // 読み込みの最中の書き込み。入った直後に 1 度取り直す (enableSecretSearch)
+    wantsReload = true
+    return
+  }
+  if (store.get().status !== 'on') {
+    return
+  }
+  if (isReloading) {
+    wantsReload = true
+    return
+  }
+  isReloading = true
+  const run = generation
+  const isCurrent = () => run === generation && store.get().status === 'on'
+  try {
+    const index = await loadSecretSearchIndex(isCurrent)
+    if (isCurrent()) {
+      setState({ status: 'on', index })
+    }
+  } catch (cause) {
+    console.warn('シークレット内検索の材料を取り直せませんでした', cause)
+  } finally {
+    isReloading = false
+  }
+  if (wantsReload) {
+    wantsReload = false
+    await reloadSecretSearch()
   }
 }
 
@@ -164,7 +212,7 @@ async function loadSecretSearchIndex(isCurrent: () => boolean): Promise<SecretSe
     throw new SecretLockedError()
   }
 
-  const entries = await fetchSecretTextIndex()
+  const { entries, items } = await fetchSecretTextIndex()
   const { ciphertexts, wanted, skipped } = await syncCiphertexts(entries, isCurrent)
 
   const haystacks = new Map<string, string>()
@@ -184,6 +232,7 @@ async function loadSecretSearchIndex(isCurrent: () => boolean): Promise<SecretSe
 
   return {
     entries: entries.filter((entry) => haystacks.has(entry.name)),
+    notes: new Map(items.map((item) => [item.itemId, item])),
     haystacks,
     skipped,
     // 取りに行ったのに返ってこなかった分 (直前に消えた) も、復号できなかった分も

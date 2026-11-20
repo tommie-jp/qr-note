@@ -13,6 +13,7 @@ import {
   secretMimeKind,
 } from './payload'
 import { secretUrl } from './secrets'
+import { requestSecretSearchReload } from './searchPrivacy'
 import { unlockedKey } from './session'
 
 // 鍵がまだ無い状態で読み書きしようとした。画面は解錠を促す。
@@ -109,6 +110,9 @@ async function sealAndSave(
   // 保存の後に置く。先に消すと、保存が失敗したときに手元の写しだけを
   // 失うことになる (圏外で読めるはずだった物が消える)
   await forgetCachedUrl(secretUrl(name))
+  // シークレット内検索が入っていれば、断片の一覧と平文を取り直す
+  // (docs/131 §6。編集した中身がすぐ探せるように)
+  requestSecretSearchReload()
 }
 
 function requireKey(): CryptoKey {

@@ -48,6 +48,10 @@ interface ItemRowProps {
   // プレビューペイン (docs/86 §4) でこのノートが開いているか。ItemList が
   // usePathname から導いて渡す (URL が正なので、選択のための state は無い)
   selected?: boolean;
+  // 顔 (右端のサムネ枠) を出さない。**画像の通信を起こさないための指定** —
+  // シークレット内検索の一致の行が使う (docs/131 §2)。行が出た瞬間にその
+  // ノートのサムネを取りに行くと、どのノートが一致したかがサーバに見える
+  hideFace?: boolean;
 }
 
 // 検索結果 / 一覧の 1 件。
@@ -78,6 +82,7 @@ export function ItemRow({
   mathPreview,
   notePreview,
   selected = false,
+  hideFace = false,
 }: ItemRowProps) {
   const parts = buildRowParts({
     item,
@@ -89,6 +94,7 @@ export function ItemRow({
     mathTitle,
     notePreview,
     selected,
+    hideFace,
   });
 
   // スワイプ削除は非選択 (checkbox なし) のときだけ。選んでいる最中に

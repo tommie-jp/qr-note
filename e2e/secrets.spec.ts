@@ -11,7 +11,7 @@ import {
   searchFor,
   test,
 } from './helpers'
-import { e2eNote, removeE2eNote } from './notes'
+import { e2eNote, removeE2eNote, searchResults } from './notes'
 import { attachVirtualAuthenticator } from './webauthn'
 
 // シークレット (部分暗号化。docs/51-部分暗号化計画.md) の一連の流れ (docs/96 §4-3):
@@ -383,13 +383,47 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
     // Act: 入れる。goto で鍵は消えているので解錠が挟まる (仮想認証器が応える)
     await toggleOn.click()
 
-    // Assert: 断片の中の語で、そのノートが節に出る。出るのは題名とラベルだけ
+    // Assert: 断片の中の語で、そのノートが**通常の一覧の行として**先頭に出る
+    // (docs/131)。黄色い枠は件数だけで、行は一覧の側。印はラベルだけ
     await expect(toggleOff).toBeVisible()
     await expect(hits).toContainText('シークレット内の一致 1 件')
-    const hit = hits.locator(`a[href^="/item/${ITEM_ID}"]`)
-    await expect(hit).toContainText(NOTE.heading)
-    await expect(hit).toContainText(DEFAULT_LABEL)
+    await expect(hits.locator('a')).toHaveCount(0)
+    const row = searchResults(page).locator('li', {
+      has: page.locator(`a[href="/item/${ITEM_ID}"]`),
+    })
+    await expect(row).toBeVisible()
+    await expect(row).toContainText(NOTE.heading)
+    await expect(row).toContainText(`🔒シークレット内の一致:${DEFAULT_LABEL}`)
+    // 通常の検索は 0 件だが、行があるので 0 件の案内は出さない
+    await expect(page.getByText('該当する部品がありません')).toHaveCount(0)
     await expect(page.getByText(SECRET_TEXT)).toHaveCount(0)
+
+    // Act: 入れたまま、断片の中の別の語で探し直す。ここからの要求を控える
+    const afterOn: string[] = []
+    const recordPath = (request: Request) => {
+      afterOn.push(new URL(request.url()).pathname)
+    }
+    page.on('request', recordPath)
+    // 通常の検索の応答まで待つ。行が出た後に飛ぶ要求 (先読み・画像) を取りこぼさない
+    const searched = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/items' &&
+        new URL(response.url()).searchParams.get('q') === 'ひみつ',
+    )
+    await searchFor(page, 'ひみつ')
+    await searched
+    await expect(row).toBeVisible()
+    await expect(hits).toContainText('シークレット内の一致 1 件')
+    await page.waitForLoadState('networkidle')
+    page.off('request', recordPath)
+
+    // Assert: 一致したノートを指す要求は 1 本も出ない (docs/131 §2)。行の材料も
+    // 画像も入れたときに取ってあり、行は先読みしない。出るのは通常の検索だけ
+    expect(afterOn.filter((path) => path.startsWith('/item/'))).toEqual([])
+    expect(afterOn.filter((path) => path.startsWith('/api/secret'))).toEqual([])
+    expect(afterOn.filter((path) => path.startsWith('/api/images/'))).toEqual([])
+    expect(afterOn.filter((path) => path.startsWith('/api/circuits/'))).toEqual([])
+    expect(afterOn.some((path) => path === '/api/items')).toBe(true)
 
     // Assert: 端末の控え (IndexedDB) にあるのは暗号文だけ
     const cached = await page.evaluate(
@@ -416,9 +450,10 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
       expect(Buffer.from(bytes).includes(Buffer.from('ひみつ', 'utf8'))).toBe(false)
     }
 
-    // Act / Assert: 切ると節が消える
+    // Act / Assert: 切ると節も行も消える
     await toggleOff.click()
     await expect(hits).toHaveCount(0)
+    await expect(row).toHaveCount(0)
     await expect(toggleOn).toBeVisible()
 
     // Act: 入れ直してから再読み込み
