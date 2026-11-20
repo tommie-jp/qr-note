@@ -15,7 +15,7 @@ import {
 // 形はスキャン音 (ScanBeepMenuItem.tsx) と揃える。保存は localStorage (端末ごと)。
 // 変えると開いている一覧にすぐ効く (prefs/listPlaceholders.ts の store)
 
-// h-5 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-6) に収める
+// h-5 … 行の高さ (HEADER_MENU_ROW_CLASS の min-h-9) に収める
 const STEP_BUTTON_CLASS =
   "inline-flex h-5 w-9 items-center justify-center rounded text-xl leading-none text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent";
 
