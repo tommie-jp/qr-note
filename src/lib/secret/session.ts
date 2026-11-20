@@ -34,6 +34,17 @@ const session = createExternalStore<UnlockedSecrets | null>({
 export const SECRET_IDLE_LOCK_MS = 5 * 60 * 1000
 export const SECRET_HIDDEN_LOCK_MS = 60 * 1000
 
+// 無操作の数え直しをした時刻 (ms)。施錠中は null。
+//
+// 検索欄のトグルが「あとどれだけで施錠されるか」を導火線で見せるために要る
+// (components/search/SecretSearchFuse.tsx)。鍵の組 (session) とは別の店にして
+// あるのは、数え直しのたびに鍵の購読者 (復号済みデータの後始末など) を
+// 起こさないため
+const idleStartedAt = createExternalStore<number | null>({
+  initial: () => null,
+  serverSnapshot: null,
+})
+
 let idleTimer: ReturnType<typeof setTimeout> | null = null
 let hiddenTimer: ReturnType<typeof setTimeout> | null = null
 let listening = false
@@ -58,6 +69,7 @@ function touch(): void {
     clearTimeout(idleTimer)
   }
   idleTimer = setTimeout(lockSecrets, SECRET_IDLE_LOCK_MS)
+  idleStartedAt.set(Date.now())
 }
 
 function onVisibilityChange(): void {
@@ -96,8 +108,20 @@ export async function unlockWith(raw: Uint8Array): Promise<void> {
   }
 }
 
+// 鍵そのものは読まないが「使っている」と数えたい操作のための印。
+//
+// シークレット内検索 (secret/searchSession.ts) は、復号を入れたときの 1 回で
+// 済ませ、以後の照合は鍵に触れない。そのままだと検索語を打ち続けていても
+// 「最後に鍵を使ってから 5 分」で施錠され、探している最中に結果が消える
+// (docs/130 §5-3)。復号済みの中身を使う操作も、鍵を使ったのと同じに数える。
+// タブを隠したときの施錠 (SECRET_HIDDEN_LOCK_MS) には効かない
+export function touchSecretSession(): void {
+  touch()
+}
+
 export function lockSecrets(): void {
   clearTimers()
+  idleStartedAt.set(null)
   session.set(null)
 }
 
@@ -125,6 +149,11 @@ export function isUnlocked(): boolean {
 // (React の外の資源 = Blob URL の解放など)。
 export function subscribeSecretLock(listener: () => void): () => void {
   return session.subscribe(listener)
+}
+
+// 無操作の数え直しをした時刻を購読する。ここから SECRET_IDLE_LOCK_MS で施錠される
+export function useSecretIdleStartedAt(): number | null {
+  return idleStartedAt.useStore()
 }
 
 // 解錠状態を購読する。サーバ描画では常に false (鍵はブラウザにしかない)。

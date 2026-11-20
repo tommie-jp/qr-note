@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { BusyNotice } from "@/components/chrome/BusyNotice";
 import { LockIcon } from "@/components/icons";
 import { CLIENT_NOTE_ATTR } from "@/lib/client/clientNoteNav";
@@ -10,7 +10,11 @@ import {
   secretQueryTerms,
   secretSearchHits,
 } from "@/lib/secret/search";
-import { type SecretSearchIndex, useSecretSearch } from "@/lib/secret/searchSession";
+import {
+  noteSecretSearchUse,
+  type SecretSearchIndex,
+  useSecretSearch,
+} from "@/lib/secret/searchSession";
 import { buildItemUrl } from "@/lib/search/url";
 import type { Sort } from "@/lib/validation";
 
@@ -32,6 +36,15 @@ export function SecretSearchHits({ query, sort }: SecretSearchHitsProps) {
   const state = useSecretSearch();
 
   if (state.status === "off") {
+    if (state.lockedOut) {
+      // 自動施錠で切れた。黙って消えると「検索できなくなった」ように見える
+      return (
+        <p role="status" className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          しばらく操作が無かったので施錠し、シークレット内の検索を切りました。🔒
+          を押すと再開します。
+        </p>
+      );
+    }
     // 入れようとして失敗した理由。取り消しは理由なしなので何も出ない
     return state.error === null ? null : (
       <p role="alert" className="rounded bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
@@ -55,6 +68,8 @@ function LoadedHits({
   sort,
 }: SecretSearchHitsProps & { index: SecretSearchIndex }) {
   const terms = useMemo(() => secretQueryTerms(query), [query]);
+  // 探している間は自動施錠を延ばす (照合は鍵に触れないので、印を自分で付ける)
+  useEffect(() => noteSecretSearchUse(), [terms]);
   const hits = useMemo(
     () => secretSearchHits(index.entries, matchSecretTexts(index.haystacks, terms)),
     [index, terms],

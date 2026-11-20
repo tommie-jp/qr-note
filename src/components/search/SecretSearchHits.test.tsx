@@ -6,13 +6,19 @@ import type { SecretSearchState } from "@/lib/secret/searchSession";
 // シークレット内の一致の節とトグル (docs/130-シークレット内検索計画.md §3)。
 // 状態 (searchSession) だけを差し替え、照合 (secret/search.ts) は本物を通す
 const mocks = vi.hoisted(() => ({
-  state: { status: "off", error: null } as SecretSearchState,
+  state: { status: "off", error: null, lockedOut: false } as SecretSearchState,
 }));
 
 vi.mock("@/lib/secret/searchSession", () => ({
   useSecretSearch: () => mocks.state,
   enableSecretSearch: async () => {},
+  noteSecretSearchUse: () => {},
   disableSecretSearch: () => {},
+}));
+
+// 導火線は SecretSearchFuse.test.tsx が見る。ここでは出たかどうかだけ
+vi.mock("./SecretSearchFuse", () => ({
+  SecretSearchFuse: () => <svg data-fuse="" />,
 }));
 
 const { SecretSearchHits } = await import("./SecretSearchHits");
@@ -45,7 +51,7 @@ const render = (query: string) =>
   renderToStaticMarkup(<SecretSearchHits query={query} sort="updated" />);
 
 beforeEach(() => {
-  mocks.state = { status: "off", error: null };
+  mocks.state = { status: "off", error: null, lockedOut: false };
 });
 
 describe("SecretSearchHits", () => {
@@ -54,12 +60,21 @@ describe("SecretSearchHits", () => {
   });
 
   test("入れるのに失敗した理由を出す", () => {
-    mocks.state = { status: "off", error: "暗号化がまだ設定されていません" };
+    mocks.state = { status: "off", error: "暗号化がまだ設定されていません", lockedOut: false };
 
     const html = render("口座");
 
     expect(html).toContain('role="alert"');
     expect(html).toContain("暗号化がまだ設定されていません");
+  });
+
+  test("自動施錠で切れたら、理由と再開の仕方を出す", () => {
+    mocks.state = { status: "off", error: null, lockedOut: true };
+
+    const html = render("口座");
+
+    expect(html).toContain('role="status"');
+    expect(html).toContain("施錠し、シークレット内の検索を切りました");
   });
 
   test("読み込み中を知らせる", () => {
@@ -139,6 +154,13 @@ describe("SecretSearchToggle", () => {
 
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('aria-label="シークレット内の検索をやめる"');
+    expect(html).toContain("data-fuse");
+  });
+
+  test("切れている間・読み込み中は導火線を出さない", () => {
+    expect(renderToStaticMarkup(<SecretSearchToggle />)).not.toContain("data-fuse");
+    mocks.state = { status: "loading" };
+    expect(renderToStaticMarkup(<SecretSearchToggle />)).not.toContain("data-fuse");
   });
 
   test("読み込み中も入っている扱いで、忙しい印を付ける", () => {

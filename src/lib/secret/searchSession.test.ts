@@ -4,7 +4,7 @@ import { importContentKey, sealSecret } from './envelope'
 import { SECRET_TEXT_MIME } from './payload'
 import { SecretCancelledError } from './prf'
 import type { CachedSecretText, SecretTextEntry } from './search'
-import { isUnlocked, lockSecrets, unlockWith } from './session'
+import { isUnlocked, lockSecrets, SECRET_IDLE_LOCK_MS, unlockWith } from './session'
 
 // シークレット内検索の状態 (docs/130-シークレット内検索計画.md §3-1, §5)。
 //
@@ -53,9 +53,8 @@ vi.mock('../offline/secretTexts', () => ({
 
 vi.mock('./unlock', () => ({ unlockWithPasskey: mocks.unlockWithPasskey }))
 
-const { disableSecretSearch, enableSecretSearch, secretSearchState } = await import(
-  './searchSession'
-)
+const { disableSecretSearch, enableSecretSearch, noteSecretSearchUse, secretSearchState } =
+  await import('./searchSession')
 const {
   isSecretSearchedQuery,
   isSecretSearchOn,
@@ -140,7 +139,7 @@ describe('enableSecretSearch', () => {
 
     await enableSecretSearch()
 
-    expect(state()).toEqual({ status: 'off', error: null })
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: false })
     expect(isSecretSearchOn()).toBe(false)
   })
 
@@ -151,7 +150,7 @@ describe('enableSecretSearch', () => {
 
     await enableSecretSearch()
 
-    expect(state()).toEqual({ status: 'off', error: '通信に失敗しました' })
+    expect(state()).toEqual({ status: 'off', error: '通信に失敗しました', lockedOut: false })
   })
 
   test('控えとハッシュが同じ断片は取り直さず、変わった分だけ取って控えを差し替える', async () => {
@@ -212,7 +211,7 @@ describe('平文を捨てる時', () => {
 
     disableSecretSearch()
 
-    expect(state()).toEqual({ status: 'off', error: null })
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: false })
     expect(isUnlocked()).toBe(true)
   })
 
@@ -223,8 +222,20 @@ describe('平文を捨てる時', () => {
 
     lockSecrets()
 
-    expect(state()).toEqual({ status: 'off', error: null })
+    // 入っていたのに切れた、を節が言えるように印を残す
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: true })
     expect(isSecretSearchOn()).toBe(false)
+  })
+
+  test('施錠で切れた印は、入れ直す・切るで消える', async () => {
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+    await enableSecretSearch()
+    lockSecrets()
+
+    disableSecretSearch()
+
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: false })
   })
 
   test('読み込みの途中で切ったら、遅れて届いた平文を持たない', async () => {
@@ -237,7 +248,7 @@ describe('平文を捨てる時', () => {
     disableSecretSearch()
     await pending
 
-    expect(state()).toEqual({ status: 'off', error: null })
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: false })
   })
 
   test('読み込みの途中で施錠されたら入らない', async () => {
@@ -311,6 +322,54 @@ describe('途中で止まったとき', () => {
     await enableSecretSearch()
 
     expect(mocks.fetchedNames).toEqual([[A]])
-    expect(state()).toEqual({ status: 'off', error: null })
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: false })
+  })
+})
+
+describe('自動施錠 (無操作 5 分) と検索', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  test('探し続けている間は施錠されない', async () => {
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+    await enableSecretSearch()
+    vi.useFakeTimers()
+    // 入れた時点の数え直し (本物のタイマー) は偽の時計では進まないので、掛け直す
+    noteSecretSearchUse()
+
+    // 4 分ごとに検索語を打つ (合計 12 分)
+    for (let i = 0; i < 3; i += 1) {
+      vi.advanceTimersByTime(4 * 60 * 1000)
+      noteSecretSearchUse()
+    }
+
+    expect(isUnlocked()).toBe(true)
+    expect(state().status).toBe('on')
+  })
+
+  test('手を止めて 5 分で施錠され、切れた理由が残る', async () => {
+    await unlockWith(RAW)
+    await addSecret(A, 'alpha')
+    await enableSecretSearch()
+    vi.useFakeTimers()
+    noteSecretSearchUse()
+
+    vi.advanceTimersByTime(SECRET_IDLE_LOCK_MS + 1)
+
+    expect(isUnlocked()).toBe(false)
+    expect(state()).toEqual({ status: 'off', error: null, lockedOut: true })
+  })
+
+  test('切れている間の印は施錠を延ばさない (鍵を使っていないのに延命しない)', async () => {
+    vi.useFakeTimers()
+    await unlockWith(RAW)
+
+    vi.advanceTimersByTime(4 * 60 * 1000)
+    noteSecretSearchUse()
+    vi.advanceTimersByTime(2 * 60 * 1000)
+
+    expect(isUnlocked()).toBe(false)
   })
 })

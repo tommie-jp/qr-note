@@ -10,7 +10,8 @@
 //   - 再読み込み (モジュールごと消える。トグルの状態は保存しない)
 //
 // 照合 (secret/search.ts) は鍵に触れない。鍵を使うのは読み込みの 1 回だけなので、
-// 検索語を打ち続けても自動施錠は延びない (§5-3)。
+// 照合のたびに noteSecretSearchUse で無操作の数え直しをする (§5-3)。探して
+// いる間は施錠されず、手を止めて 5 分で施錠される。
 
 import {
   loadSecretTextCache,
@@ -30,7 +31,7 @@ import {
 } from './search'
 import { fetchSecretTextBlobs, fetchSecretTextIndex } from './searchApi'
 import { setSecretSearchActive } from './searchPrivacy'
-import { isUnlocked, subscribeSecretLock, unlockedKey } from './session'
+import { isUnlocked, subscribeSecretLock, touchSecretSession, unlockedKey } from './session'
 import { unlockWithPasskey } from './unlock'
 
 export interface SecretSearchIndex {
@@ -46,11 +47,14 @@ export interface SecretSearchIndex {
 
 export type SecretSearchState =
   // error … 入れようとして失敗した理由 (取り消しは理由なしで off に戻る)
-  | { status: 'off'; error: string | null }
+  // lockedOut … 入っていたのに自動施錠で切れた。黙って切ると「検索できなく
+  //             なった」ように見えるので、節が理由を出す
+  | { status: 'off'; error: string | null; lockedOut: boolean }
   | { status: 'loading' }
   | { status: 'on'; index: SecretSearchIndex }
 
-const OFF: SecretSearchState = { status: 'off', error: null }
+const OFF: SecretSearchState = { status: 'off', error: null, lockedOut: false }
+const LOCKED_OUT: SecretSearchState = { status: 'off', error: null, lockedOut: true }
 
 const store = createExternalStore<SecretSearchState>({
   initial: () => OFF,
@@ -77,9 +81,23 @@ function listenToLockOnce(): void {
   listeningToLock = true
   subscribeSecretLock(() => {
     if (!isUnlocked()) {
+      // 入っていたときだけ「施錠で切れた」と知らせる (読み込み中なら黙って戻す)
+      const wasOn = store.get().status === 'on'
       disableSecretSearch()
+      if (wasOn) {
+        setState(LOCKED_OUT)
+      }
     }
   })
+}
+
+// 検索語を照合した印。**照合のたびに無操作の数え直しをする** — 照合は鍵に
+// 触れないので、これが無いと入れて 5 分で必ず施錠され、探している最中に
+// トグルが切れる (session.ts の touchSecretSession)
+export function noteSecretSearchUse(): void {
+  if (store.get().status === 'on') {
+    touchSecretSession()
+  }
 }
 
 export function useSecretSearch(): SecretSearchState {
@@ -122,7 +140,7 @@ export async function enableSecretSearch(): Promise<void> {
     }
   } catch (cause) {
     if (run === generation) {
-      setState({ status: 'off', error: enableErrorMessage(cause) })
+      setState({ status: 'off', error: enableErrorMessage(cause), lockedOut: false })
     }
   }
 }
