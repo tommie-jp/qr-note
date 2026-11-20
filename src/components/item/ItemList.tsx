@@ -147,12 +147,12 @@ export function ItemList(props: ItemListProps) {
   // 開いた先で「一覧の前後」を辿れるようにするため。検索していないときは
   // buildItemUrl が素の /item/<番号> に畳むので、今までと同じ URL になる
   //
-  // シークレット内の一致の行には検索語を付けない (docs/131 §6)。通常の一覧と
-  // 別物で「一覧の前後」の意味が無く、付けると開いた先の前後ナビの要求にまで
-  // 語が載る
+  // **シークレット内の一致の行にも同じく検索語を載せる** (docs/131 §6)。当初は
+  // 外していたが、外すと行を押した瞬間に URL から検索語が消え、検索窓が空に
+  // なって一覧も全件へ戻ってしまう。語は通常の検索 (/api/items?q=) で既に
+  // サーバへ届いており、押すのは利用者の操作なので、載せて増える漏れは無い
   const { circuitThumbs, mathTexts, notePreviews, secretLabels } = props;
-  const itemHref = (itemId: string) =>
-    buildItemUrl(itemId, secretLabels?.[itemId] ? "" : query, sort);
+  const itemHref = (itemId: string) => buildItemUrl(itemId, query, sort);
   const rows: RowContext = { itemHref, view, circuitThumbs, mathTexts, notePreviews, previewItemId, secretLabels };
 
   // 1 件を削除した後に戻る先。**戻り先を持ち回さないと素の / へ飛ばされる** —

@@ -101,9 +101,9 @@ function LoadedHits({
           {hits.map((hit) => (
             <li key={`${hit.name}\u0000${hit.itemId}`}>
               <Link
-                // 検索語は付けない。一致の節は通常の一覧と別物で「一覧の前後」の意味が
-                // 無く、付けると開いた先の前後ナビの要求にまで語が載る
-                href={buildItemUrl(hit.itemId, "", sort)}
+                // 通常の行と同じく検索語を載せる。外すと、押した瞬間に検索窓が
+                // 空になり一覧が全件へ戻る (ItemList の itemHref と同じ判断)
+                href={buildItemUrl(hit.itemId, query, sort)}
                 // **先読みさせない。** 節が画面に入っただけで `/item/<id>?q=<語>` の
                 // 要求が飛ぶと、「どのノートの断片がその語を含むか」がサーバの
                 // ログに並ぶ — 押す前から一致の中身を教えることになる (docs/130 §6)

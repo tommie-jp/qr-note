@@ -8,6 +8,7 @@ import {
   injectFiles,
   memoEditor,
   newFreshLoginPage,
+  searchBox,
   searchFor,
   test,
 } from './helpers'
@@ -389,7 +390,7 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
     await expect(hits).toContainText('シークレット内の一致 1 件')
     await expect(hits.locator('a')).toHaveCount(0)
     const row = searchResults(page).locator('li', {
-      has: page.locator(`a[href="/item/${ITEM_ID}"]`),
+      has: page.locator(`a[href^="/item/${ITEM_ID}?"]`),
     })
     await expect(row).toBeVisible()
     await expect(row).toContainText(NOTE.heading)
@@ -449,6 +450,18 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
     for (const bytes of cached) {
       expect(Buffer.from(bytes).includes(Buffer.from('ひみつ', 'utf8'))).toBe(false)
     }
+
+    // Act: 一致の行を押してノートを開き、戻る
+    await row.locator(`a[href^="/item/${ITEM_ID}?"]`).click()
+    await expect(page).toHaveURL(
+      (url) => url.pathname === `/item/${ITEM_ID}` && url.searchParams.get('q') === 'ひみつ',
+    )
+    await page.goBack()
+
+    // Assert: 検索語は消えず、一致の行もそのまま (押しても検索が全件へ戻らない)
+    await expect(page).toHaveURL((url) => url.searchParams.get('q') === 'ひみつ')
+    await expect(searchBox(page)).toHaveValue('ひみつ')
+    await expect(row).toBeVisible()
 
     // Act / Assert: 切ると節も行も消える
     await toggleOff.click()

@@ -343,10 +343,10 @@ test.each(["compact", "medium", "card"] as const)(
   },
 );
 
-test("シークレット内の一致の行は検索語を付けない URL で開き、通常の行は今までどおり", () => {
+test("シークレット内の一致の行も、通常の行と同じく検索語を載せた URL で開く (押しても検索語が消えない)", () => {
   const html = renderWithSecretLabels();
 
-  expect(html).toContain('href="/item/s1"');
+  expect(html).toContain(`href="/item/s1?q=${encodeURIComponent("口座")}"`);
   expect(html).toContain(`href="/item/n1?q=${encodeURIComponent("口座")}"`);
 });
 

@@ -92,8 +92,8 @@ describe("SecretSearchHits", () => {
     expect(html).toContain("シークレット内の一致 1 件");
     expect(html).toContain("銀行まとめ");
     expect(html).toContain("🔒 口座");
-    // 検索語は href に載せない (開いた先の要求に語を運ばない)
-    expect(html).toContain('href="/item/note-1"');
+    // 検索語を載せる (押しても検索窓の語が消えない)
+    expect(html).toContain('href="/item/note-1?q=abc+1234"');
     expect(html).toContain('data-client-note=""');
     expect(html).not.toContain("note-2");
   });
@@ -104,7 +104,8 @@ describe("SecretSearchHits", () => {
     const html = render("1234567");
 
     expect(html).toContain("シークレット内の一致 1 件");
-    expect(html).not.toContain("1234567");
+    // 語そのものは href (?q=) に載るので、断片の中にしか無い並びで見る
+    expect(html).not.toContain("口座 1234567");
     expect(html).not.toContain("ＡＢＣ銀行");
     expect(html).not.toContain("abc銀行");
   });
