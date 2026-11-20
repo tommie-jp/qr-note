@@ -22,9 +22,17 @@ function lastCall(): [string, RequestInit] {
   return mock.mock.calls[mock.mock.calls.length - 1] as unknown as [string, RequestInit]
 }
 
+// シークレット内検索の状態 (docs/130 §6)。入っている間は履歴に残さない
+const secretSearch = vi.hoisted(() => ({ isOn: false }))
+
+vi.mock('../secret/searchPrivacy', () => ({
+  isSecretSearchOn: () => secretSearch.isOn,
+}))
+
 const OK = { success: true, data: { saved: ['is:todo'], recent: ['抵抗'] }, error: null }
 
 beforeEach(() => {
+  secretSearch.isOn = false
   resetQueryCache()
   // 失敗の記録だけは残す方針なので、テスト中の warn は黙らせる
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -165,5 +173,33 @@ describe('registerSavedQuery / unregisterSavedQuery', () => {
     respondWith({ success: false, data: null, error: '登録パターンは 10 件までです' }, 409)
 
     expect(await registerSavedQuery('one-too-many')).toBeNull()
+  })
+})
+
+describe('シークレット内検索の間 (docs/130 §6)', () => {
+  test('検索語を履歴に送らず、手元の候補にも足さない', async () => {
+    // Arrange
+    respondWith(OK)
+    await fetchQueries()
+    const before = cachedQueries()
+    const callsBefore = vi.mocked(globalThis.fetch).mock.calls.length
+    secretSearch.isOn = true
+
+    // Act
+    recordQueryUse('1234567')
+
+    // Assert
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(callsBefore)
+    expect(cachedQueries()).toEqual(before)
+  })
+
+  test('切れば今までどおり記録する', async () => {
+    respondWith(OK)
+
+    recordQueryUse('抵抗')
+
+    const [url, init] = lastCall()
+    expect(url).toBe('/api/search-queries')
+    expect(init.method).toBe('POST')
   })
 })

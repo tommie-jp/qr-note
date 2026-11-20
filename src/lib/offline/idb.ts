@@ -6,6 +6,7 @@
 //   snapshot … 持ち出したノート (snapshotDb.ts)
 //   keyring  … シークレットの鍵束の写し (keyring.ts)
 //   lists    … 最近の検索一覧の控え (client/listPersist.ts)
+//   secretTexts … シークレット内検索の暗号文の控え (secretTexts.ts)
 //
 // どちらも**捨てて作り直せるキャッシュ**として扱う。iOS の IndexedDB は
 // 歴史的に不安定なので、壊れていたら消してやり直す (openDb)。失敗は握り潰さず
@@ -16,12 +17,13 @@ import 'client-only'
 const DB_NAME = 'qr-search-offline'
 // 2: keyring ストアを足した (シークレットのオフライン解錠)
 // 3: lists ストアを足した (検索一覧の控えの持ち越し。docs/129 §3)
-const DB_VERSION = 3
+// 4: secretTexts ストアを足した (シークレット内検索の暗号文。docs/130 §5-2)
+const DB_VERSION = 4
 
 // この DB が持つストア。**追加したら DB_VERSION を上げること** —
 // 上げないと onupgradeneeded が呼ばれず、openDb が毎回 DB を消して
 // 作り直す羽目になる (ノートの同期が起動のたびに巻き戻る)
-export const OFFLINE_STORES = ['snapshot', 'keyring', 'lists'] as const
+export const OFFLINE_STORES = ['snapshot', 'keyring', 'lists', 'secretTexts'] as const
 
 export type OfflineStore = (typeof OFFLINE_STORES)[number]
 

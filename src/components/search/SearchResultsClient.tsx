@@ -23,6 +23,8 @@ import {
   ResultsScrollBody,
   ResultsSummaryRow,
 } from "./SearchResultsParts";
+import { SecretSearchHits } from "./SecretSearchHits";
+import { useSecretQueryMark } from "./useSecretQueryMark";
 import {
   useLoadMoreHandlers,
   useLoadUrlPage,
@@ -67,6 +69,7 @@ function ModuleResults({ view, cookieSort }: { view: ResultView; cookieSort: Sor
   const Component = view.Component;
   return (
     <SearchResults query={query}>
+      <SecretSearchHits query={query} sort={cookieSort} />
       {/* data-results-view … 表示を出している間は 1 ペインでも器の中で送る (globals.css。
           見出しを上端に貼り付けるため。docs/126 §1-28) */}
       <div data-results-scroll data-results-view="" className="-mx-safe space-y-2 px-safe">
@@ -84,22 +87,13 @@ function ListResults({
 }: SearchResultsClientProps) {
   const { query, sort, urlPage, view, key, entry, fresh, shown, pending, dimmed } =
     useShownResults(cookieSort, serverView, isDemo);
+  useSecretQueryMark(query);
 
   useLoadUrlPage(fresh, urlPage, key, entry?.loading);
 
   const retry = () => listCache.load(key, { force: true });
   if (shown === undefined) {
-    return entry?.error ? (
-      <LoadFailedNotice message={entry.error.message} onRetry={retry} />
-    ) : (
-      // 件数はまだ判らないので、1 画面ぶんの空の枠を先に出す (docs/129 §1)
-      <div className="space-y-2">
-        <BusyNotice role="status" busy>
-          検索結果を読み込み中…
-        </BusyNotice>
-        <InitialPlaceholders view={view} />
-      </div>
-    );
+    return <UnloadedResults query={query} sort={sort} view={view} error={entry?.error} onRetry={retry} />;
   }
 
   // 新しい検索が失敗した。前の結果を出したままにすると、違う検索語の下に
@@ -124,6 +118,39 @@ function ListResults({
       isDemo={isDemo}
     />
     </>
+  );
+}
+
+// 一覧がまだ無いとき (読み込み中・失敗)。シークレット内の一致は端末だけで
+// 決まるので、通常の検索が届いていなくても・落ちていても出す (docs/130 §3-2)
+function UnloadedResults({
+  query,
+  sort,
+  view,
+  error,
+  onRetry,
+}: {
+  query: string;
+  sort: Sort;
+  view: ViewMode;
+  error: Error | null | undefined;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <SecretSearchHits query={query} sort={sort} />
+      {error ? (
+        <LoadFailedNotice message={error.message} onRetry={onRetry} />
+      ) : (
+        <>
+          <BusyNotice role="status" busy>
+            検索結果を読み込み中…
+          </BusyNotice>
+          {/* 件数はまだ判らないので、1 画面ぶんの空の枠を先に出す (docs/129 §1) */}
+          <InitialPlaceholders view={view} />
+        </>
+      )}
+    </div>
   );
 }
 
@@ -183,6 +210,9 @@ interface LoadedResultsProps {
   isDemo: boolean;
 }
 
+// 先頭の SecretSearchHits はシークレット内の一致の節 (docs/130 §3-2)。トグルが
+// 切れていれば何も出さない。一覧の控えとは別の物で、自分で状態を購読する。
+//
 // **値と状態が変わらなければ描き直さない** (docs/123 §11-7)。表示モードを
 // 切り替えると、新しい表示モードの一覧を取りに行き始めた知らせ (控えの
 // 「読み込み中」) でもう 1 度描き直しが起き、中身が同じ一覧 20 行を丸ごと
@@ -223,6 +253,7 @@ const LoadedResults = memo(function LoadedResults({
         />
       ) : null}
       <SearchResults query={query} pending={dimmed}>
+        <SecretSearchHits query={query} sort={sort} />
         <ResultsSummaryRow query={query} sort={sort} view={view} value={value} />
 
         <TaskProgress done={extras.progress.done} total={extras.progress.total} />

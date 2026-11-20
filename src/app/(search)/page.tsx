@@ -50,7 +50,7 @@ export default async function Home() {
             <SearchFormClient
               cookieSort={cookieSort}
               isDemo={isDemoMode()}
-              leading={<SearchTools stickerHost={qrStickerHost()} />}
+              leading={<SearchTools stickerHost={qrStickerHost()} isDemo={isDemoMode()} />}
             />
             <SearchResultsClient
               cookieSort={cookieSort}

@@ -11,6 +11,7 @@
 // 手元のキャッシュを先に動かして、返ってきた正本で置き換える。
 
 import { envelopeData } from '../api/envelope'
+import { isSecretSearchOn } from '../secret/searchPrivacy'
 import { applyQueryUse, type QueryLists } from './queries'
 
 const ENDPOINT = '/api/search-queries'
@@ -99,6 +100,13 @@ export async function fetchQueries(): Promise<QueryLists | null> {
 export function recordQueryUse(query: string): void {
   const q = query.trim()
   if (q === '') {
+    return
+  }
+  // シークレット内検索の間は残さない (docs/130 §6)。断片の中身を探す語は
+  // 口座番号のような秘密そのものになりやすく、履歴 (search_queries) に平文で
+  // 並べたくない。**記録の口はここ 1 つ**なので、ここで止めれば Enter・候補の
+  // 確定・結果を開く・タグを押す、のどれからも残らない
+  if (isSecretSearchOn()) {
     return
   }
   if (cached) {

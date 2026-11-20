@@ -17,6 +17,7 @@ import 'client-only'
 import { deleteRecord, getRecord, putRecord } from './idb'
 import { parseSyncPayload, type OfflineSyncPayload } from './item'
 import { clearKeyringCache } from './keyring'
+import { clearSecretTextCache } from './secretTexts'
 
 // 1 レコードしか持たないので鍵は固定 (out-of-line key)
 const SNAPSHOT_KEY = 'items'
@@ -81,6 +82,7 @@ const CACHE_PREFIX = 'qr-'
 //   lists    (IndexedDB) … 最近の検索一覧の控え (client/listPersist.ts。docs/129 §3)
 //   keyring  (IndexedDB) … シークレットの鍵束の写し (keyring.ts)。中身は
 //     包んだ鍵なので単体では読めないが、ログアウトした端末に残す理由が無い
+//   secretTexts (IndexedDB) … シークレット内検索の暗号文の控え (secretTexts.ts)
 //   Cache Storage … 添付のサムネと原寸 (/api/images/)、印付きノートの持ち出し
 //     (qr-pin-v2)、シークレットの暗号文 (qr-secret-v1)。sw.js はキャッシュから
 //     返すとき認証を見ないので、残すと画像だけ読めてしまう
@@ -107,6 +109,13 @@ export async function clearOfflineData(): Promise<void> {
     await deleteRecord('lists', 'recent')
   } catch (error) {
     console.warn('検索一覧の控えを消せませんでした', error)
+  }
+  try {
+    // シークレット内検索の暗号文の控え (secretTexts.ts)。暗号文だけだが、
+    // ログアウトした端末に残す理由が無い (鍵束の写しと同じ)
+    await clearSecretTextCache()
+  } catch (error) {
+    console.warn('シークレット内検索の控えを消せませんでした', error)
   }
   try {
     if (typeof caches !== 'undefined') {

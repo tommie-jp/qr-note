@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   allSecretNames,
+  allSecretNotations,
   findSecretNotation,
   isValidSecretName,
   secretAtCursor,
@@ -57,6 +58,28 @@ describe('secretNameFromUrl', () => {
 
   test('ignores a malformed name (本文から拾った文字列を信じない)', () => {
     expect(secretNameFromUrl('/api/secrets/not-a-uuid')).toBe(null)
+  })
+})
+
+describe('allSecretNotations', () => {
+  test('名前とラベルを出現順・重複なしで返す (同じ名前は最初のラベル)', () => {
+    const memo = [
+      `![銀行](/api/secrets/${NAME})`,
+      `![](/api/secrets/${OTHER})`,
+      `![控え](/api/secrets/${NAME})`,
+      '![写真](/api/images/abc.webp)',
+    ].join('\n')
+
+    expect(allSecretNotations(memo)).toEqual([
+      { name: NAME, label: '銀行' },
+      { name: OTHER, label: 'シークレット' },
+    ])
+  })
+
+  test('コードの中の記法は拾わない', () => {
+    const memo = `\`![x](/api/secrets/${NAME})\`\n\`\`\`\n![y](/api/secrets/${OTHER})\n\`\`\``
+
+    expect(allSecretNotations(memo)).toEqual([])
   })
 })
 

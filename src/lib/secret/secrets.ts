@@ -149,6 +149,22 @@ export function findSecretNotation(
   return null
 }
 
+// 本文が参照しているシークレットの名前とラベルを出現順・重複なしで返す
+// (同じ名前が 2 度書かれていたら最初のラベル)。コードの中は allSecretNames と
+// 同じく対象外。
+//
+// 用途はシークレット内検索 (docs/130 §5-1)。一致した断片を「どのノートの・
+// どのラベルの断片か」で見せるために、名前だけでなくラベルも要る。
+export function allSecretNotations(memo: string): { name: string; label: string }[] {
+  const seen = new Map<string, string>()
+  for (const hit of iterNotations(stripCode(memo))) {
+    if (!seen.has(hit.name)) {
+      seen.set(hit.name, hit.label)
+    }
+  }
+  return [...seen].map(([name, label]) => ({ name, label }))
+}
+
 // 本文が参照しているシークレットの名前を出現順・重複なしで返す。
 // コードフェンス・インラインコードの中は対象外 (markdown/tags/tags.ts / images/memoImages.ts と同じ)。
 //

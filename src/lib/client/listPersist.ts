@@ -17,6 +17,7 @@ import type { CircuitThumbMap } from '@/lib/circuit/types'
 import { PAGE_SIZE } from '@/lib/items/limits'
 import { getRecord, putRecord } from '@/lib/offline/idb'
 import { parseViewMode } from '@/lib/prefs/viewMode'
+import { isSecretSearchedQuery, subscribeSecretSearchedQueries } from '@/lib/secret/searchPrivacy'
 import { parseSort } from '@/lib/validation'
 import { setListHydration } from './listHydration'
 import { isMeta, isThumbMap, listCache, listKeyOf, type ListKey, type ListValue } from './listStore'
@@ -140,12 +141,19 @@ async function hydrate(now: number): Promise<void> {
 }
 
 // 今の控えから残す分を選ぶ。新しく使った順 (控えの並びの後ろ) から、
-// 取り直し待ち・失敗していない物だけ
+// 取り直し待ち・失敗していない物だけ。
+//
+// **シークレット内検索の間に探した語の一覧は残さない** (docs/130 §6)。控えは
+// 検索語を鍵にして 30 日残るので、断片の中身を探した語 (口座番号など) が
+// 端末に平文で残ってしまう。検索履歴に残さないのと同じ線引き
 function collectLists(now: number): SavedList[] {
   const lists: SavedList[] = []
   for (const key of listCache.keys().reverse()) {
     const entry = listCache.peek(key)
     if (entry?.value === undefined || entry.stale || entry.loading || entry.error) {
+      continue
+    }
+    if (isSecretSearchedQuery(key.query)) {
       continue
     }
     lists.push(toSavedList(key, entry.value, entry.at || (savedAtOf.get(entry.value) ?? now)))
@@ -160,7 +168,11 @@ function collectLists(now: number): SavedList[] {
 function snapshotToken(): string {
   return listCache
     .keys()
-    .map((key) => `${listKeyOf(key)}\u0001${listCache.peek(key)?.at ?? 0}`)
+    .map((key) => {
+      // 残さない語かどうかも組に入れる。既に書いた後で印が付いたら書き直す
+      const secret = isSecretSearchedQuery(key.query) ? 1 : 0
+      return `${listKeyOf(key)}\u0001${listCache.peek(key)?.at ?? 0}\u0001${secret}`
+    })
     .join('\u0002')
 }
 
@@ -178,7 +190,7 @@ export function startListPersistence(): void {
   setListHydration(hydration)
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastToken = ''
-  listCache.subscribe(() => {
+  const scheduleSave = () => {
     clearTimeout(timer)
     timer = setTimeout(() => {
       const token = snapshotToken()
@@ -193,5 +205,8 @@ export function startListPersistence(): void {
           console.warn('一覧の控えを残せませんでした', error)
         })
     }, SAVE_DELAY_MS)
-  })
+  }
+  listCache.subscribe(scheduleSave)
+  // 語に「残さない」印が付いたら、既に書いた控えからも除く
+  subscribeSecretSearchedQueries(scheduleSave)
 }

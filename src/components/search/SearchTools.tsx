@@ -4,10 +4,14 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { ImageSearchIcon, ScanIcon } from "@/components/icons";
 import { COMPACT_ICON_BUTTON_CLASS } from "@/components/ui";
+import { SecretSearchToggle } from "./SecretSearchToggle";
 
 interface SearchToolsProps {
   // QR シールに焼かれているホスト。ScannerModal へ渡す
   stickerHost: string;
+  // デモではシークレットの機能ごと閉じているので、検索のトグルも出さない
+  // (docs/51 §10)。process.env はクライアントに渡らないのでサーバから降ろす
+  isDemo: boolean;
 }
 
 // スキャナ・画像検索はカメラと重いエンジン (wasm 約 1MB / 埋め込みモデル数十MB)
@@ -45,7 +49,7 @@ const TOOL_ICON_SIZE_CLASS = "size-5 shrink-0";
 // **文字は持たせない。** 帯のスロットはアイコン + 小ラベルの等幅だったが、
 // 検索窓の行に文字を 4 つ (スキャン・画像検索) 足すと、320px では窓が潰れる。
 // 意味は aria-label / title で言う (虫眼鏡・＋ と同じ作法)。
-export function SearchTools({ stickerHost }: SearchToolsProps) {
+export function SearchTools({ stickerHost, isDemo }: SearchToolsProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [isImageSearching, setIsImageSearching] = useState(false);
 
@@ -83,6 +87,10 @@ export function SearchTools({ stickerHost }: SearchToolsProps) {
           <ImageSearchIcon sizeClass={TOOL_ICON_SIZE_CLASS} />
         </span>
       </button>
+
+      {/* シークレットの中身も探すトグル (docs/130 §3-1)。スキャン・画像検索と
+          同じ「検索語の当て先を変える」入口なので、この並びに置く */}
+      {isDemo ? null : <SecretSearchToggle />}
 
       {/* モーダルはこの 2 つと同じ階層でよい。**帯にあった頃は nav の外へ
           出す必要があった** — nav の backdrop-blur が position:fixed の

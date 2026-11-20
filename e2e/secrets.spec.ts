@@ -8,6 +8,7 @@ import {
   injectFiles,
   memoEditor,
   newFreshLoginPage,
+  searchFor,
   test,
 } from './helpers'
 import { e2eNote, removeE2eNote } from './notes'
@@ -360,6 +361,74 @@ test.describe('シークレット (専用 DB + 仮想認証器)', () => {
     // Act / Assert: 隠すと Blob URL も引っ込む
     await page.getByRole('button', { name: '隠す', exact: true }).click()
     await expect(image).toHaveCount(0)
+  })
+
+  test('検索のトグルを入れると断片の中身から探せ、平文は端末にも出ない', async () => {
+    // Arrange: 検索画面。断片の中にしか無い語で探す (本文には記法とラベルしか無い)
+    const page = shared()
+    const query = `ひみつ ${STAMP}`
+    const toggleOn = page.getByRole('button', { name: 'シークレット内も検索', exact: true })
+    const toggleOff = page.getByRole('button', {
+      name: 'シークレット内の検索をやめる',
+      exact: true,
+    })
+    const hits = page.getByRole('region', { name: 'シークレット内の一致' })
+    await page.goto('/')
+    await searchFor(page, query)
+
+    // Assert: トグルが切れている間は節が無い
+    await expect(toggleOn).toBeVisible()
+    await expect(hits).toHaveCount(0)
+
+    // Act: 入れる。goto で鍵は消えているので解錠が挟まる (仮想認証器が応える)
+    await toggleOn.click()
+
+    // Assert: 断片の中の語で、そのノートが節に出る。出るのは題名とラベルだけ
+    await expect(toggleOff).toBeVisible()
+    await expect(hits).toContainText('シークレット内の一致 1 件')
+    const hit = hits.locator(`a[href^="/item/${ITEM_ID}"]`)
+    await expect(hit).toContainText(NOTE.heading)
+    await expect(hit).toContainText(DEFAULT_LABEL)
+    await expect(page.getByText(SECRET_TEXT)).toHaveCount(0)
+
+    // Assert: 端末の控え (IndexedDB) にあるのは暗号文だけ
+    const cached = await page.evaluate(
+      () =>
+        new Promise<number[][]>((resolve, reject) => {
+          const open = indexedDB.open('qr-search-offline')
+          open.onerror = () => reject(open.error)
+          open.onsuccess = () => {
+            const get = open.result
+              .transaction('secretTexts', 'readonly')
+              .objectStore('secretTexts')
+              .get('all')
+            get.onerror = () => reject(get.error)
+            get.onsuccess = () => {
+              const rows = [...(get.result as Map<string, { data: Uint8Array }>).values()]
+              open.result.close()
+              resolve(rows.map((row) => Array.from(row.data)))
+            }
+          }
+        }),
+    )
+    expect(cached.length).toBeGreaterThan(0)
+    for (const bytes of cached) {
+      expect(Buffer.from(bytes).includes(Buffer.from('ひみつ', 'utf8'))).toBe(false)
+    }
+
+    // Act / Assert: 切ると節が消える
+    await toggleOff.click()
+    await expect(hits).toHaveCount(0)
+    await expect(toggleOn).toBeVisible()
+
+    // Act: 入れ直してから再読み込み
+    await toggleOn.click()
+    await expect(hits).toContainText('シークレット内の一致 1 件')
+    await page.reload()
+
+    // Assert: 状態は持ち越さない (開いただけで解錠を求めない)
+    await expect(toggleOn).toBeVisible()
+    await expect(hits).toHaveCount(0)
   })
 
   test('サーバへ届くのは暗号文だけ (平文も復旧キーも出ない)', async () => {
