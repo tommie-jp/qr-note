@@ -8,7 +8,13 @@ services:
   db:
     # 全文検索 (Ver2.1) 用に PGroonga 入り PostgreSQL 18 を使う
     # (PG16 からの移行は 41-QR-search/docs/27 §PG16 から PG18 への移行の検討)。
-    image: groonga/pgroonga:4.1.0-alpine-18
+    #
+    # 公式 groonga/pgroonga:4.1.0-alpine-18 は PG の小版で作り直されない (18.6 止まり)
+    # ので、同じ Dockerfile を PG 18.7 の上で自分で作る (deploy/pgroonga/)。
+    # 本番・デモへは ./doPgroongaImage.sh prod|demo で送る (サーバではビルドしない)。
+    # CI (.github/workflows/ci.yml) は公式イメージのまま — 自前のものは GitHub に無い
+    image: qr-note/pgroonga:4.1.0-pg18.7
+    build: ./deploy/pgroonga
     restart: unless-stopped
     # cap_drop は付けない (entrypoint が gosu で postgres ユーザーに降りるのに要る)
     security_opt: [no-new-privileges:true]
