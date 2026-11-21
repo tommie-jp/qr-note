@@ -6,8 +6,13 @@ import { setItemOfflinePin } from '@/lib/items/flags'
 import { getItem } from '@/lib/items/read'
 import { emptyTrash, purgeItems, restoreItems, trashItems } from '@/lib/items/trash'
 import { modifyMemo } from '@/lib/items/write'
-import { addTagsToMemo, removeTagsFromMemo } from '@/lib/markdown/tags/edit'
-import { applyBulkTags, applyTrashOp, setOfflinePins } from './bulkCommands'
+import {
+  addTagsToMemo,
+  removeTagsFromMemo,
+  removeTagsWithEdits,
+  restoreRemovedTags,
+} from '@/lib/markdown/tags/edit'
+import { applyBulkTags, applyTrashOp, restoreRemovedTagChanges, setOfflinePins } from './bulkCommands'
 
 // 複数のノートをまとめて書き換える本体 (docs/123 §2-1)。もとは
 // app/actions.test.ts の trash / purge / bulkTag / offlinePin の節。
@@ -184,6 +189,23 @@ describe('applyBulkTags', () => {
     expect(transform('本文\n#英単語')).toBe(removeTagsFromMemo('本文\n#英単語', ['英単語']))
   })
 
+  test('remove は外れたタグと、書き換えたタグ行の控えを返す', async () => {
+    // Arrange
+    const memos: Record<string, string> = { [ID1]: '本文\n#英単語 #toeic', [ID2]: '本文' }
+    vi.mocked(modifyMemo).mockImplementation(async (itemId, transform) => {
+      await transform(memos[itemId])
+      return 'saved'
+    })
+
+    // Act
+    const changes = await applyBulkTags('remove', [ID1, ID2], ['英単語'])
+
+    // Assert
+    expect(changes).toEqual([
+      { itemId: ID1, tags: ['英単語'], lines: [{ at: 1, line: '#英単語 #toeic', removed: false }] },
+    ])
+  })
+
   test.each([
     ['タグが無い', [ID1], []],
     ['選択が無い', [], ['a']],
@@ -191,6 +213,28 @@ describe('applyBulkTags', () => {
     await applyBulkTags('add', itemIds, tags)
 
     expect(modifyMemo).not.toHaveBeenCalled()
+  })
+})
+
+describe('restoreRemovedTagChanges', () => {
+  test('ノートごとに、外したタグ行を元の位置へ差し戻す', async () => {
+    // Arrange
+    vi.mocked(modifyMemo).mockResolvedValue('saved')
+    const before = 'タイトル\n本文\n#英単語'
+    const { memo: removed, edits } = removeTagsWithEdits(before, ['英単語'])
+
+    // Act
+    await restoreRemovedTagChanges([
+      { itemId: ID1, tags: ['英単語'], lines: edits },
+      { itemId: ID2, tags: ['英単語'] },
+    ])
+
+    // Assert
+    expect(vi.mocked(modifyMemo).mock.calls.map(([id]) => id)).toEqual([ID1, ID2])
+    const [first, second] = vi.mocked(modifyMemo).mock.calls.map(([, transform]) => transform)
+    expect(first(removed)).toBe(before)
+    // 控えが無ければ足し直す
+    expect(second('本文')).toBe(restoreRemovedTags('本文', ['英単語'], []))
   })
 })
 

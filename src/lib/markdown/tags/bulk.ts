@@ -3,6 +3,7 @@
 // 「選択アイテムのタグ集計」だけを担う。
 
 import { parseBackUrl, parseSelectedItemIds } from '../../items/itemSelection'
+import type { TagLineEdit } from './edit'
 import { extractTags, parseTagToken } from './tags'
 
 // タグ入力の上限。itemId と同様、細工された巨大入力で 1 回の操作が
@@ -76,11 +77,23 @@ export function parseBulkTagForm(formData: FormData): BulkTagRequest {
   }
 }
 
-// 一括タグで 1 件のノートに実際に起きた変化 (タグ追加の取り消しに使う)
+// 一括タグで 1 件のノートに実際に起きた変化 (「元に戻す」に使う)
 export interface TagChange {
   itemId: string
   tags: string[] // 正規化済み。このノートで実際に増えた (外れた) タグだけ
+  // 削除のときだけ。書き換えたタグ行の元の文と位置 (元の位置に差し戻す材料)
+  lines?: TagLineEdit[]
 }
+
+// 1 回の一括タグの結果。取り消しは mode の逆をする
+export interface TagChangeSet {
+  mode: 'add' | 'remove'
+  changes: TagChange[]
+}
+
+// 控えの上限。取り消しの要求は端末から来るので、ここで有界にする
+const MAX_EDITS = 200
+const MAX_LINE_LENGTH = 2000
 
 // 書き換えの前後の本文から、指定したタグのうち実際に増えた (mode=remove なら
 // 外れた) ものを返す。**元から持っていたタグは入れない** — 取り消しでそれを
@@ -125,17 +138,37 @@ export function parseTagChanges(data: unknown): TagChange[] {
     return []
   }
   return changes.flatMap((change: unknown) => {
-    const { itemId, tags } = (change ?? {}) as { itemId?: unknown; tags?: unknown }
+    const { itemId, tags, lines } = (change ?? {}) as { itemId?: unknown; tags?: unknown; lines?: unknown }
     if (typeof itemId !== 'string' || !Array.isArray(tags)) {
       return []
     }
-    const names = tags.filter((tag): tag is string => typeof tag === 'string')
-    return names.length > 0 ? [{ itemId, tags: names }] : []
+    const names = tags.filter((tag): tag is string => typeof tag === 'string').slice(0, MAX_TAGS)
+    if (names.length === 0) {
+      return []
+    }
+    return [Array.isArray(lines) ? { itemId, tags: names, lines: parseLineEdits(lines) } : { itemId, tags: names }]
   })
 }
 
-// 取り消しの帯の文。「3 件に #a #b を追加しました」
-export function tagUndoMessage(changes: readonly TagChange[]): string {
-  const tags = [...new Set(changes.flatMap((change) => change.tags))]
-  return `${changes.length} 件に ${tags.map((tag) => `#${tag}`).join(' ')} を追加しました`
+function parseLineEdits(lines: unknown[]): TagLineEdit[] {
+  return lines
+    .flatMap((edit: unknown) => {
+      const { at, line, removed } = (edit ?? {}) as { at?: unknown; line?: unknown; removed?: unknown }
+      const isValid =
+        Number.isInteger(at) &&
+        (at as number) >= 0 &&
+        typeof line === 'string' &&
+        line.length <= MAX_LINE_LENGTH &&
+        typeof removed === 'boolean'
+      return isValid ? [{ at: at as number, line: line as string, removed: removed as boolean }] : []
+    })
+    .slice(0, MAX_EDITS)
+}
+
+// 取り消しの帯の文。「3 件に #a #b を追加しました」「3 件から #a を外しました」
+export function tagUndoMessage({ mode, changes }: TagChangeSet): string {
+  const tags = [...new Set(changes.flatMap((change) => change.tags))].map((tag) => `#${tag}`).join(' ')
+  return mode === 'add'
+    ? `${changes.length} 件に ${tags} を追加しました`
+    : `${changes.length} 件から ${tags} を外しました`
 }

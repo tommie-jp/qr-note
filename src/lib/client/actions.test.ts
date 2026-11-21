@@ -208,12 +208,17 @@ describe('まとめての操作', () => {
     expect(mocks.notesWritten).toHaveBeenCalledWith([ID, `${ID.slice(0, -1)}2`])
   })
 
-  test('一括タグの「追加」は実際に増えたタグを返す (外したときは空)', async () => {
+  test('一括タグは実際に変わったタグを mode 付きで返す (外したときは行の控えも)', async () => {
     // Arrange
     const ID2 = `${ID.slice(0, -1)}2`
+    const lines = [{ at: 1, line: '#部品', removed: true }]
     reply = {
       status: 200,
-      body: { success: true, data: { count: 2, changes: [{ itemId: ID2, tags: ['部品'] }] }, error: null },
+      body: {
+        success: true,
+        data: { count: 2, changes: [{ itemId: ID2, tags: ['部品'], lines }] },
+        error: null,
+      },
     }
 
     // Act
@@ -228,8 +233,8 @@ describe('まとめての操作', () => {
 
     // Assert
     expect(calls[0].body).toEqual({ mode: 'add', itemIds: [ID, ID2], tags: '部品' })
-    expect(added).toEqual([{ itemId: ID2, tags: ['部品'] }])
-    expect(removed).toEqual([])
+    expect(added).toEqual({ mode: 'add', changes: [{ itemId: ID2, tags: ['部品'], lines }] })
+    expect(removed).toEqual({ mode: 'remove', changes: [{ itemId: ID2, tags: ['部品'], lines }] })
   })
 
   test('タグ追加の取り消しは、同じ組のノートをまとめて外す', async () => {
@@ -238,11 +243,14 @@ describe('まとめての操作', () => {
     const ID3 = `${ID.slice(0, -1)}3`
 
     // Act
-    await actions.undoTagChangesAction([
-      { itemId: ID, tags: ['a', 'b'] },
-      { itemId: ID2, tags: ['b'] },
-      { itemId: ID3, tags: ['a', 'b'] },
-    ])
+    await actions.undoTagChangesAction({
+      mode: 'add',
+      changes: [
+        { itemId: ID, tags: ['a', 'b'] },
+        { itemId: ID2, tags: ['b'] },
+        { itemId: ID3, tags: ['a', 'b'] },
+      ],
+    })
 
     // Assert
     expect(calls.map((c) => c.body)).toEqual([
@@ -250,6 +258,18 @@ describe('まとめての操作', () => {
       { mode: 'remove', itemIds: [ID2], tags: 'b' },
     ])
     expect(mocks.notesWritten).toHaveBeenCalledWith([ID, ID2, ID3])
+  })
+
+  test('タグ削除の取り消しは、行の控えごと restore で送る', async () => {
+    // Arrange
+    const changes = [{ itemId: ID, tags: ['a'], lines: [{ at: 2, line: '#a #b', removed: false }] }]
+
+    // Act
+    await actions.undoTagChangesAction({ mode: 'remove', changes })
+
+    // Assert
+    expect(calls).toEqual([{ url: '/api/items/tags', method: 'POST', body: { mode: 'restore', changes } }])
+    expect(mocks.notesWritten).toHaveBeenCalledWith([ID])
   })
 
   test('ゴミ箱の操作は op を付けて送り、サーバ描画の画面を描き直させる', async () => {

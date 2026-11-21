@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { CommandError } from '@/lib/commands/commandError'
-import { applyBulkTags, setOfflinePins } from '@/lib/commands/bulkCommands'
+import { applyBulkTags, restoreRemovedTagChanges, setOfflinePins } from '@/lib/commands/bulkCommands'
 
 // 選んだノートをまとめて書き換える口 (PUT /api/items/pin・POST /api/items/tags)。
 // 門番は本物 (next/headers とセッションだけ差し替え)。書く本体は偽物で、
@@ -28,7 +28,11 @@ vi.mock('@/lib/auth/sessionStore', () => ({
       ? { userName: 'tommie', expiresAt: new Date('2099-01-01T00:00:00.000Z'), createdAt: new Date() }
       : null,
 }))
-vi.mock('@/lib/commands/bulkCommands', () => ({ applyBulkTags: vi.fn(), setOfflinePins: vi.fn() }))
+vi.mock('@/lib/commands/bulkCommands', () => ({
+  applyBulkTags: vi.fn(),
+  restoreRemovedTagChanges: vi.fn(),
+  setOfflinePins: vi.fn(),
+}))
 
 const pin = await import('./pin/route')
 const tags = await import('./tags/route')
@@ -124,6 +128,35 @@ describe('POST /api/items/tags (一括タグ)', () => {
     await tags.POST(request('POST', { mode: 'remove', itemIds: [ID1], tags: '英単語' }))
 
     expect(applyBulkTags).toHaveBeenCalledWith('remove', [ID1], ['英単語'])
+  })
+
+  test('restore は削除の控えを検めて本体へ渡す (形の悪い id・タグにならない語は落とす)', async () => {
+    const lines = [{ at: 1, line: '#英単語', removed: true }]
+
+    const res = await tags.POST(
+      request('POST', {
+        mode: 'restore',
+        changes: [
+          { itemId: ID1, tags: ['#英単語', 'a b'], lines },
+          { itemId: 'bad', tags: ['a'] },
+          { itemId: ID2, tags: ['toeic'] },
+        ],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(restoreRemovedTagChanges).toHaveBeenCalledWith([
+      { itemId: ID1, tags: ['英単語', 'a', 'b'], lines },
+      { itemId: ID2, tags: ['toeic'] },
+    ])
+    expect(applyBulkTags).not.toHaveBeenCalled()
+  })
+
+  test('restore で changes が配列でなければ 400', async () => {
+    const res = await tags.POST(request('POST', { mode: 'restore', changes: 'x' }))
+
+    expect(res.status).toBe(400)
+    expect(restoreRemovedTagChanges).not.toHaveBeenCalled()
   })
 
   test('デモでも使える', async () => {

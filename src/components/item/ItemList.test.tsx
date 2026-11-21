@@ -56,7 +56,7 @@ const render = (
         query={query}
         page={1}
         sort="updated"
-        action={async () => []}
+        action={async () => ({ mode: "add", changes: [] })}
         undoTagAction={async () => {}}
         view={view}
         trashAction={noop}
@@ -318,7 +318,7 @@ function renderWithSecretLabels(view: ViewMode = "compact") {
         query="口座"
         page={1}
         sort="updated"
-        action={async () => []}
+        action={async () => ({ mode: "add", changes: [] })}
         undoTagAction={async () => {}}
         view={view}
         trashAction={noop}
@@ -368,7 +368,7 @@ test("シークレット内の一致の行は顔 (サムネ) を出さない —
         query="口座"
         page={1}
         sort="updated"
-        action={async () => []}
+        action={async () => ({ mode: "add", changes: [] })}
         undoTagAction={async () => {}}
         view="card"
         trashAction={noop}

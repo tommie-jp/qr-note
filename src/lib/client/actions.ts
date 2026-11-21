@@ -9,7 +9,7 @@
 // (ゴミ箱・履歴) は refreshServerView で描き直させる
 import 'client-only'
 import { isItemDto, type ItemDto } from '@/lib/api/itemDto'
-import { groupTagChanges, parseTagChanges, type TagChange } from '@/lib/markdown/tags/bulk'
+import { groupTagChanges, parseTagChanges, type TagChangeSet } from '@/lib/markdown/tags/bulk'
 import type { SaveState } from '@/lib/editor/saveState'
 import { switchPaneMode } from '@/components/panes/switchPaneMode'
 import { switchViewMode } from '@/components/search/switchViewMode'
@@ -170,25 +170,30 @@ export async function setItemsOfflinePinAction(formData: FormData): Promise<void
 }
 
 // 一括タグ (選択モードの「追加」と、タグの × による「外す」)。
-// 追加のときは、ノートごとに実際に増えたタグを返す (「元に戻す」の材料)。
-// 外したときと、何も増えなかったときは空
-export async function bulkTagAction(formData: FormData): Promise<TagChange[]> {
+// ノートごとに実際に変わったタグを返す (「元に戻す」の材料)。外したときは
+// 書き換えたタグ行の控え (lines) も付いてくる
+export async function bulkTagAction(formData: FormData): Promise<TagChangeSet> {
   const itemIds = formItemIds(formData)
   const removeTag = formString(formData, 'removeTag')
-  const isRemove = removeTag.length > 0
+  const mode = removeTag.length > 0 ? 'remove' : 'add'
   const { data } = await apiSend('POST', '/api/items/tags', {
-    mode: isRemove ? 'remove' : 'add',
+    mode,
     itemIds,
-    tags: isRemove ? removeTag : formString(formData, 'addTags'),
+    tags: mode === 'remove' ? removeTag : formString(formData, 'addTags'),
   })
   notesWritten(itemIds)
-  return isRemove ? [] : parseTagChanges(data)
+  return { mode, changes: parseTagChanges(data) }
 }
 
-// タグの追加を取り消す。増えたタグだけを、増えたノートからだけ外す —
-// 追加する前から持っていたタグは残る (applyBulkTags の changes)
-export async function undoTagChangesAction(changes: readonly TagChange[]): Promise<void> {
+// 一括タグを取り消す。追加は増えたタグだけを、増えたノートからだけ外す —
+// 追加する前から持っていたタグは残る (applyBulkTags の changes)。削除は
+// 外したタグ行を元の位置に差し戻す (サーバの restoreRemovedTagChanges)
+export async function undoTagChangesAction({ mode, changes }: TagChangeSet): Promise<void> {
   try {
+    if (mode === 'remove') {
+      await apiSend('POST', '/api/items/tags', { mode: 'restore', changes })
+      return
+    }
     for (const group of groupTagChanges(changes)) {
       await apiSend('POST', '/api/items/tags', {
         mode: 'remove',
@@ -197,7 +202,7 @@ export async function undoTagChangesAction(changes: readonly TagChange[]): Promi
       })
     }
   } finally {
-    // 途中で落ちても、外し終えた分は控えを古くする
+    // 途中で落ちても、戻し終えた分は控えを古くする
     notesWritten(changes.map((change) => change.itemId))
   }
 }

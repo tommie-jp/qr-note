@@ -5,10 +5,10 @@ import { selectedTagsUnion } from "@/lib/markdown/tags/bulk";
 import { OfflinePinIcon, TrashIcon } from "../icons";
 import { DANGER_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from "../ui";
 
-// タグを追加した直後に出す「元に戻す」の状態。持つのは ItemList
+// タグを追加した・外した直後に出す「元に戻す」の状態。持つのは ItemList
 // (追加の結果を受け取るのが form の action なので)
 export interface TagUndoState {
-  // 「3 件に #a を追加しました」
+  // 「3 件に #a を追加しました」「3 件から #a を外しました」
   message: string;
   // ready … 押せる / busy … 外している最中 / done … 戻し終えた / failed … 戻せなかった
   status: "ready" | "busy" | "done" | "failed";
@@ -18,7 +18,7 @@ export interface TagUndoState {
 interface BulkTagToolbarProps {
   items: Item[];
   selected: Set<string>;
-  // 直前のタグ追加を取り消す帯。追加していない間は undefined
+  // 直前の一括タグを取り消す帯。取り消せる物が無い間は undefined
   tagUndo?: TagUndoState;
   // ノートをゴミ箱へ入れるサーバーアクション。同じ form のまま formAction で
   // 送り先だけ差し替える (bulkTagAction に mode 分岐を足さない)
@@ -177,7 +177,7 @@ export function BulkTagToolbar({
 const UNDO_BUTTON_CLASS =
   "whitespace-nowrap text-blue-600 underline disabled:text-gray-400 disabled:no-underline";
 
-// 追加の直後に出す「N 件に #a を追加しました [元に戻す]」。
+// 追加・削除の直後に出す「N 件に #a を追加しました [元に戻す]」。
 // 常設の UNDO 釦にしないのは、取り消せるのが直前の 1 回だけだから —
 // 次の操作をするか選択モードを抜けると消える (ItemList)。
 // type="button" … 親の form (一括タグ) を送らない

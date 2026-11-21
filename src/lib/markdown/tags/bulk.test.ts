@@ -187,6 +187,36 @@ describe('parseTagChanges', () => {
     ).toEqual([{ itemId: '1', tags: ['a', 'b'] }])
   })
 
+  test('削除の控え (lines) は形の合う物だけを読む', () => {
+    expect(
+      parseTagChanges({
+        changes: [
+          {
+            itemId: '1',
+            tags: ['a'],
+            lines: [
+              { at: 2, line: '#a #b', removed: false },
+              { at: -1, line: '#a', removed: true },
+              { at: 1.5, line: '#a', removed: true },
+              { at: 3, line: 4, removed: true },
+              { at: 4, line: '#a', removed: 'yes' },
+              { at: 5, line: '#a', removed: true },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        itemId: '1',
+        tags: ['a'],
+        lines: [
+          { at: 2, line: '#a #b', removed: false },
+          { at: 5, line: '#a', removed: true },
+        ],
+      },
+    ])
+  })
+
   test('changes が無い・配列でないなら空', () => {
     expect(parseTagChanges(null)).toEqual([])
     expect(parseTagChanges({ count: 1 })).toEqual([])
@@ -197,10 +227,19 @@ describe('parseTagChanges', () => {
 describe('tagUndoMessage', () => {
   test('件数と増えたタグ (重複なし・初出順) を並べる', () => {
     expect(
-      tagUndoMessage([
-        { itemId: '1', tags: ['a', 'b'] },
-        { itemId: '2', tags: ['b'] },
-      ]),
+      tagUndoMessage({
+        mode: 'add',
+        changes: [
+          { itemId: '1', tags: ['a', 'b'] },
+          { itemId: '2', tags: ['b'] },
+        ],
+      }),
     ).toBe('2 件に #a #b を追加しました')
+  })
+
+  test('削除は「から … を外しました」', () => {
+    expect(
+      tagUndoMessage({ mode: 'remove', changes: [{ itemId: '1', tags: ['a'], lines: [] }] }),
+    ).toBe('1 件から #a を外しました')
   })
 })
