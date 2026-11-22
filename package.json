@@ -40,7 +40,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
     "@erase2d/fabric": "^1.2.2",
-    "@huggingface/transformers": "^4.3.1",
+    "@huggingface/transformers": "^4.3.2",
     "@mixmark-io/domino": "^2.2.0",
     "@paddleocr/paddleocr-js": "^0.4.2",
     "@prisma/adapter-pg": "^7.10.1",
